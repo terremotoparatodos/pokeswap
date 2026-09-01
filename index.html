@@ -140,11 +140,12 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 /* Performance mobile */
 .rank-row,.box-slot,.dg-move-btn,.adv-choice-btn{transition:none}
 }#dg-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.95);z-index:250;flex-direction:column;align-items:center;justify-content:center;padding:10px}#dg-modal.open{display:flex}.dg-container{display:flex;flex-direction:column;gap:6px;max-width:800px;width:100%}#dg-canvas{display:block;width:768px;height:576px;image-rendering:pixelated;background:#0a0a12;border:3px solid #2a2535;border-radius:4px;margin:0 auto}#dg-hud{display:flex;align-items:center;justify-content:space-between;padding:6px 12px;background:rgba(10,6,2,.97);border:2px solid var(--border);border-radius:4px;gap:10px}.dg-hud-left{display:flex;align-items:center;gap:10px}.dg-hud-poke{display:flex;align-items:center;gap:6px}.dg-hud-poke img{width:28px;height:28px;image-rendering:pixelated}.dg-hud-name{font-size:7px;color:var(--text)}.dg-hud-lv{font-size:5px;color:var(--text-dim)}.dg-hp-bar{width:100px;height:6px;background:rgba(0,0,0,.5);border-radius:3px;overflow:hidden}.dg-hp-fill{height:100%;background:linear-gradient(90deg,#30c030,#58e058);border-radius:3px;transition:width .3s}.dg-hp-fill.yellow{background:linear-gradient(90deg,#d8a800,#f0c820)}.dg-hp-fill.red{background:linear-gradient(90deg,#c02010,#e04020)}.dg-hp-txt{font-size:5px;color:var(--text-dim)}.dg-hud-info{font-size:5px;color:var(--text-dim)}.dg-hud-right{display:flex;align-items:center;gap:8px}.dg-exit-btn{font-family:inherit;font-size:5px;padding:4px 8px;border-radius:3px;background:rgba(200,30,20,.2);color:#ff8070;border:1px solid rgba(200,30,20,.4);cursor:pointer}#dg-log{max-height:60px;overflow-y:auto;padding:4px 8px;background:rgba(0,0,0,.4);border:1px solid #1a1525;border-radius:3px;scrollbar-width:thin;scrollbar-color:#2a2535 transparent}.dg-log-line{font-size:5px;color:rgba(240,216,144,.7);line-height:1.8}#dg-battle{display:none;flex-direction:column;gap:6px;background:rgba(8,5,2,.98);border:3px solid var(--brown);border-radius:6px;padding:12px;max-width:600px;width:100%;margin:0 auto}#dg-battle-inner{display:flex;flex-direction:column;gap:8px}.dg-battle-field{display:flex;align-items:center;justify-content:space-around;gap:16px;padding:10px 0}.dg-battle-poke{display:flex;flex-direction:column;align-items:center;gap:4px}.dg-b-sprite{width:64px;height:64px;image-rendering:pixelated}.dg-b-name{font-size:8px;color:var(--text)}.dg-b-lv{font-size:5px;color:var(--text-dim)}.dg-b-types{display:flex;gap:3px}.dg-b-hpwrap{display:flex;align-items:center;gap:5px}.dg-b-hptxt{font-size:5px;color:var(--text-dim)}.dg-battle-vs{font-size:14px;color:rgba(240,200,64,.3);font-weight:bold}.dg-battle-actions{display:flex;flex-direction:column;gap:4px}.dg-moves-row{display:grid;grid-template-columns:1fr 1fr;gap:3px}.dg-move-btn{font-family:inherit;font-size:6px;padding:7px 8px;border-radius:3px;color:#fff;border:2px solid rgba(0,0,0,.3);cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.3);transition:transform .08s}.dg-move-btn:hover{transform:translateY(1px);box-shadow:0 1px 0 rgba(0,0,0,.3)}.dg-act-row{display:flex;gap:3px}.dg-act-btn{font-family:inherit;font-size:6px;padding:6px 10px;border-radius:3px;background:rgba(240,180,80,.08);color:var(--text-dim);border:1px solid var(--border);cursor:pointer;flex:1}.dg-act-btn:hover{background:rgba(240,180,80,.15);color:var(--text)}.dg-act-btn.dg-flee{background:rgba(200,30,20,.08);color:#ff8070;border-color:rgba(200,30,20,.3)}.dg-battle-log{max-height:50px;overflow-y:auto;padding:4px 8px;background:rgba(0,0,0,.3);border-radius:3px}#dg-result{display:none;background:rgba(8,5,2,.98);border:3px solid var(--brown);border-radius:6px;padding:20px;max-width:400px;width:100%;margin:0 auto}.dg-loot-chip{font-size:7px;color:var(--text);background:rgba(240,180,80,.1);border:1px solid var(--border);border-radius:3px;padding:6px 10px}.dg-btn{font-family:inherit;font-size:7px;padding:8px 16px;border-radius:3px;background:linear-gradient(180deg,#c07020,#904010);color:#f8e8a0;border:2px solid #703010;cursor:pointer;box-shadow:0 2px 0 #402000}/* ═══ ESTADIO DE COMBATE EN TIEMPO REAL ═══ */
-#stadium{position:relative;width:100%;max-width:660px;height:min(58vh,390px);margin:0 auto;background:radial-gradient(ellipse at 50% 60%,#c8a050 0%,#a07030 40%,#704010 100%);border:3px solid var(--brown);border-radius:8px;overflow:hidden;touch-action:none;box-shadow:inset 0 0 40px rgba(0,0,0,.4)}
+#stadium{position:relative;width:100%;max-width:660px;height:min(58vh,390px);margin:0 auto;background:#0d0820;border:3px solid #4a2080;border-radius:8px;overflow:hidden;touch-action:none;box-shadow:0 0 30px rgba(80,40,160,.4),inset 0 0 60px rgba(0,0,20,.6)}
+
 /* ── Motor Kanto: CSS de sprites y animaciones ── */
 .pw{position:absolute;display:flex;flex-direction:column;align-items:center;transform:translate(-50%,-50%);z-index:5;transition:none}
-.pw img{width:72px;height:72px;image-rendering:pixelated;filter:drop-shadow(0 4px 6px rgba(0,0,0,.55))}
-.pw.is-rival img{transform:scaleX(-1)}
+.pw img{width:80px;height:80px;image-rendering:pixelated;filter:drop-shadow(0 6px 8px rgba(0,0,0,.7))}
+.pw.is-rival img{transform:scaleX(-1);width:58px;height:58px;filter:drop-shadow(0 4px 6px rgba(0,0,0,.6))}
 .pw.walking{animation:kw-walk .25s steps(2) infinite}
 @keyframes kw-walk{0%{transform:translate(-50%,-50%) translateY(0)}50%{transform:translate(-50%,-50%) translateY(-4px)}100%{transform:translate(-50%,-50%) translateY(0)}}
 .pw.is-rival.walking{animation:kw-walk-r .25s steps(2) infinite}
@@ -5273,78 +5274,203 @@ let kantoSpeedStepIdx=0;
 let kantoBattleBaseMul=2.2;
 const KANTO_SPEED_STEPS=[1,2,4];
 
-// Tipos Pokémon → emoji proyectil + color de daño
+// ── Tipos: físico vs especial, proyectil, color de daño ──
 const TYPE_META={
-  normal:{proj:'⭐',dmgCol:'#e8e8e0'},fire:{proj:'🔥',dmgCol:'#ff6820'},water:{proj:'💧',dmgCol:'#4090ff'},
-  electric:{proj:'⚡',dmgCol:'#f8d800'},grass:{proj:'🍃',dmgCol:'#40c840'},ice:{proj:'❄️',dmgCol:'#90e0ff'},
-  fighting:{proj:'👊',dmgCol:'#c04030'},poison:{proj:'☠️',dmgCol:'#a040c0'},ground:{proj:'🌪️',dmgCol:'#d0a840'},
-  flying:{proj:'🌀',dmgCol:'#88a8e8'},psychic:{proj:'🔮',dmgCol:'#e85890'},bug:{proj:'🐛',dmgCol:'#a8b820'},
-  rock:{proj:'🪨',dmgCol:'#b8a038'},ghost:{proj:'👻',dmgCol:'#705898'},dragon:{proj:'🐉',dmgCol:'#7038f8'},
-  dark:{proj:'🌑',dmgCol:'#705848'},steel:{proj:'⚙️',dmgCol:'#b8b8d0'},fairy:{proj:'✨',dmgCol:'#ee99ac'},
+  // Físicos — se acercan al rival
+  normal:  {proj:'💥',dmgCol:'#e8e8e0',physical:true},
+  fighting:{proj:'👊',dmgCol:'#c04030',physical:true},
+  poison:  {proj:'☠️',dmgCol:'#a040c0',physical:true},
+  ground:  {proj:'💥',dmgCol:'#d0a840',physical:true},
+  rock:    {proj:'🪨',dmgCol:'#b8a038',physical:true},
+  bug:     {proj:'💥',dmgCol:'#a8b820',physical:true},
+  ghost:   {proj:'👻',dmgCol:'#705898',physical:true},
+  steel:   {proj:'⚙️',dmgCol:'#b8b8d0',physical:true},
+  dark:    {proj:'💥',dmgCol:'#705848',physical:true},
+  // Especiales — lanzan proyectil
+  fire:    {proj:'🔥',dmgCol:'#ff6820',physical:false},
+  water:   {proj:'💧',dmgCol:'#4090ff',physical:false},
+  electric:{proj:'⚡',dmgCol:'#f8d800',physical:false},
+  grass:   {proj:'🍃',dmgCol:'#40c840',physical:false},
+  ice:     {proj:'❄️',dmgCol:'#90e0ff',physical:false},
+  psychic: {proj:'🔮',dmgCol:'#e85890',physical:false},
+  flying:  {proj:'🌀',dmgCol:'#88a8e8',physical:false},
+  dragon:  {proj:'🐉',dmgCol:'#7038f8',physical:false},
+  fairy:   {proj:'✨',dmgCol:'#ee99ac',physical:false},
 };
-function tmeta(t){return TYPE_META[t]||{proj:'⭐',dmgCol:'#ffffff'};}
+function tmeta(t){return TYPE_META[t]||{proj:'💥',dmgCol:'#ffffff',physical:true};}
 
-// Construye un objeto combatiente desde un spec {id,name,type,hp,atk,spd,lv}
-function mkPoke(spec,slot,totalSlots){
+// ── Fondo del campo de batalla (canvas) ──
+function buildBattleBackground(container){
+  const cv=document.createElement('canvas');
+  cv.style.cssText='position:absolute;inset:0;width:100%;height:100%;border-radius:8px';
+  cv.width=660; cv.height=390;
+  container.insertBefore(cv,container.firstChild);
+
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
+
+  // Cielo con degradado
+  const sky=ctx.createLinearGradient(0,0,0,H*0.55);
+  sky.addColorStop(0,'#1a0a2e');
+  sky.addColorStop(0.5,'#2a1248');
+  sky.addColorStop(1,'#3a1860');
+  ctx.fillStyle=sky;
+  ctx.fillRect(0,0,W,H*0.55);
+
+  // Estrellas
+  ctx.fillStyle='rgba(255,255,255,0.8)';
+  const rng=()=>Math.random();
+  for(let i=0;i<60;i++){
+    const sx=rng()*W, sy=rng()*H*0.5;
+    const sr=rng()*1.2+0.3;
+    ctx.beginPath();ctx.arc(sx,sy,sr,0,Math.PI*2);ctx.fill();
+  }
+
+  // Luna
+  const lx=W*0.82,ly=H*0.12,lr=22;
+  const moonGlow=ctx.createRadialGradient(lx,ly,lr*0.3,lx,ly,lr*2.5);
+  moonGlow.addColorStop(0,'rgba(220,200,255,0.25)');
+  moonGlow.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=moonGlow;ctx.fillRect(lx-lr*3,ly-lr*3,lr*6,lr*6);
+  const moonGrad=ctx.createRadialGradient(lx-lr*0.2,ly-lr*0.2,lr*0.1,lx,ly,lr);
+  moonGrad.addColorStop(0,'#f0eaff');
+  moonGrad.addColorStop(0.6,'#c8b8f0');
+  moonGrad.addColorStop(1,'#9070c0');
+  ctx.fillStyle=moonGrad;
+  ctx.beginPath();ctx.arc(lx,ly,lr,0,Math.PI*2);ctx.fill();
+  // Craters
+  ctx.fillStyle='rgba(120,90,180,0.35)';
+  [[lx+6,ly-5,4],[lx-7,ly+6,3],[lx+2,ly+9,2]].forEach(([cx,cy,cr])=>{
+    ctx.beginPath();ctx.arc(cx,cy,cr,0,Math.PI*2);ctx.fill();
+  });
+
+  // Montañas de fondo
+  const mtnCol=['#1e0a38','#28104a','#1a0830'];
+  [[0,H*0.45,W*0.28,H*0.18,0],[W*0.18,H*0.42,W*0.32,H*0.20,1],[W*0.52,H*0.44,W*0.3,H*0.17,2],[W*0.72,H*0.41,W*0.32,H*0.22,0]].forEach(([mx,my,mw,mh,ci])=>{
+    ctx.fillStyle=mtnCol[ci];
+    ctx.beginPath();ctx.moveTo(mx,my+mh);ctx.lineTo(mx+mw/2,my);ctx.lineTo(mx+mw,my+mh);ctx.closePath();ctx.fill();
+    // Nieve en pico
+    ctx.fillStyle='rgba(200,180,255,0.25)';
+    ctx.beginPath();ctx.moveTo(mx+mw/2-mw*0.08,my+mh*0.22);ctx.lineTo(mx+mw/2,my);ctx.lineTo(mx+mw/2+mw*0.08,my+mh*0.22);ctx.closePath();ctx.fill();
+  });
+
+  // Horizonte / suelo trasero
+  const groundBack=ctx.createLinearGradient(0,H*0.52,0,H*0.62);
+  groundBack.addColorStop(0,'#1e3a1e');
+  groundBack.addColorStop(1,'#152a15');
+  ctx.fillStyle=groundBack;
+  ctx.fillRect(0,H*0.52,W,H*0.1);
+
+  // Campo de batalla — perspectiva 2.5D
+  // Suelo principal
+  const ground=ctx.createLinearGradient(0,H*0.56,0,H);
+  ground.addColorStop(0,'#2a5a2a');
+  ground.addColorStop(0.3,'#1e4a1e');
+  ground.addColorStop(1,'#102010');
+  ctx.fillStyle=ground;
+  ctx.beginPath();
+  ctx.moveTo(0,H*0.58);ctx.lineTo(W,H*0.58);ctx.lineTo(W,H);ctx.lineTo(0,H);
+  ctx.closePath();ctx.fill();
+
+  // Líneas de perspectiva del campo
+  ctx.strokeStyle='rgba(60,120,60,0.3)';ctx.lineWidth=1;
+  const vanishX=W/2,vanishY=H*0.58;
+  for(let i=0;i<=8;i++){
+    const bx=i*(W/8);
+    ctx.beginPath();ctx.moveTo(vanishX,vanishY);ctx.lineTo(bx,H);ctx.stroke();
+  }
+  // Líneas horizontales
+  for(let i=0;i<5;i++){
+    const t=i/4;
+    const fy=vanishY+Math.pow(t,1.5)*(H-vanishY);
+    ctx.beginPath();ctx.moveTo(0,fy);ctx.lineTo(W,fy);ctx.stroke();
+  }
+
+  // Plataforma jugador (abajo-izquierda) — elipse en perspectiva
+  function drawPlatform(cx,cy,rx,ry,col1,col2){
+    const platGrad=ctx.createRadialGradient(cx,cy,rx*0.1,cx,cy,rx);
+    platGrad.addColorStop(0,col1);platGrad.addColorStop(1,col2);
+    ctx.fillStyle=platGrad;
+    ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle='rgba(180,255,180,0.2)';ctx.lineWidth=1.5;
+    ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();
+  }
+  drawPlatform(W*0.26,H*0.75,W*0.14,H*0.07,'rgba(60,160,60,0.5)','rgba(20,80,20,0.2)');
+  drawPlatform(W*0.74,H*0.40,W*0.14,H*0.07,'rgba(60,160,60,0.5)','rgba(20,80,20,0.2)');
+
+  // Línea central del campo
+  ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=2;ctx.setLineDash([8,8]);
+  ctx.beginPath();
+  ctx.moveTo(vanishX,vanishY);ctx.lineTo(W/2,H);
+  ctx.stroke();ctx.setLineDash([]);
+
+  // Aura del estadio — bordes brillantes
+  const vignette=ctx.createRadialGradient(W/2,H/2,H*0.2,W/2,H/2,W*0.7);
+  vignette.addColorStop(0,'rgba(0,0,0,0)');
+  vignette.addColorStop(1,'rgba(0,0,15,0.7)');
+  ctx.fillStyle=vignette;ctx.fillRect(0,0,W,H);
+
+  return cv;
+}
+
+// ── mkPoke: construye combatiente con posición real en píxeles ──
+function mkPoke(spec,slot){
   const tm=tmeta(spec.type);
   const maxHp=spec.hp;
+  // Posición base: jugador abajo-izquierda, rival arriba-derecha (perspectiva)
+  const homeX = slot===0 ? 0.22 : 0.72; // fracción del ancho del arena
+  const homeY = slot===0 ? 0.68 : 0.30; // fracción del alto del arena
   const obj={
     id:spec.id, name:spec.name, type:spec.type, type2:spec.type2||null,
     maxHp, curHp:maxHp, atk:spec.atk, spd:Math.max(10,spec.spd), lv:spec.lv||1,
     slot, dead:false, el:null, hbEl:null, psEl:null,
     isBoss:!!spec.isBoss, __isPlayer:false,
-    // Ataque cooldown en ms (inverso de velocidad)
-    atkCd:0, atkInterval:Math.max(600, Math.round(3200 - spec.spd*18)),
-    projEmoji:tm.proj, dmgCol:tm.dmgCol,
-    // Posición en el campo (0%..100% del arena)
-    pct: slot===0 ? 25 : 75,
-    yPct: slot===0 ? 65 : 35,
+    atkCd:0, atkInterval:Math.max(700, Math.round(3000 - spec.spd*16)),
+    projEmoji:tm.proj, dmgCol:tm.dmgCol, isPhysical:tm.physical,
+    // Posición actual (fracción 0-1 del arena)
+    x:homeX, y:homeY,
+    homeX, homeY,
+    // Estado de movimiento
+    moving:false, returning:false, attacking:false,
+    // Idle bounce
+    bounceT:Math.random()*Math.PI*2, bounceAmp:slot===0?0.008:0.006,
   };
   return obj;
 }
 
-// Crea el DOM del combate dentro de `arena` (la variable global apuntada al #stadium-field)
+// ── buildArena: crea DOM + fondo ──
 function buildArena(){
   if(!arena)return;
   arena.innerHTML='';
 
-  // Plataformas decorativas
-  const plat1=document.createElement('div');
-  plat1.style.cssText='position:absolute;left:18%;bottom:20%;width:22%;height:10%;background:rgba(180,120,40,.35);border-radius:50%;border:1px solid rgba(240,180,80,.2)';
-  arena.appendChild(plat1);
-  const plat2=document.createElement('div');
-  plat2.style.cssText='position:absolute;right:18%;top:20%;width:22%;height:10%;background:rgba(180,120,40,.35);border-radius:50%;border:1px solid rgba(240,180,80,.2)';
-  arena.appendChild(plat2);
+  // Fondo de batalla
+  buildBattleBackground(arena);
 
-  // HUD superior
+  // HUD
   const hud=document.createElement('div');
   hud.id='st-hud';
-  hud.innerHTML=`
-    <div class="st-hud-side" id="st-hud-p"></div>
-    <div class="st-hud-side" id="st-hud-e"></div>`;
+  hud.innerHTML=`<div class="st-hud-side" id="st-hud-p"></div><div class="st-hud-side" id="st-hud-e"></div>`;
   arena.appendChild(hud);
 
-  // Log de combate inline
-  let logDiv=document.getElementById('st-rt-log');
-  if(!logDiv){
-    logDiv=document.createElement('div');
-    logDiv.id='st-rt-log';
-  }
+  // Log
+  const logDiv=document.createElement('div');
+  logDiv.id='st-rt-log';
   logDiv.style.cssText='position:absolute;bottom:6px;left:50%;transform:translateX(-50%);z-index:30;'+
-    'background:rgba(8,5,2,.84);border-radius:4px;padding:3px 12px;max-width:260px;min-width:100px;'+
-    'text-align:center;border:1px solid rgba(240,180,80,.2);pointer-events:none;font-size:6px;'+
-    'color:rgba(240,216,144,.9);line-height:1.7;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
+    'background:rgba(4,2,12,.88);border-radius:4px;padding:3px 14px;max-width:280px;min-width:100px;'+
+    'text-align:center;border:1px solid rgba(120,80,200,.35);pointer-events:none;font-size:6px;'+
+    'color:rgba(200,180,255,.95);line-height:1.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis';
   arena.appendChild(logDiv);
   logEl={
     get textContent(){return logDiv.textContent;},
     set textContent(v){logDiv.textContent=v;logDiv.title=v;}
   };
 
-  // Crear elementos DOM de cada combatiente
+  // Sprites
   pokes.forEach(p=>{
     const wrap=document.createElement('div');
     wrap.className='pw'+(p.isBoss?' pw-big':'')+(p.slot===1?' is-rival':'');
-    wrap.style.cssText=`left:${p.pct}%;top:${p.yPct}%;position:absolute`;
+    // Posición inicial — se actualiza cada frame
+    _setPokeDomPos(wrap,p.x,p.y,arena);
 
     const hbc=document.createElement('div');hbc.className='hbc';
     const hb=document.createElement('div');hb.className='hb';hb.style.width='100%';
@@ -5355,29 +5481,41 @@ function buildArena(){
     ps.textContent=`${p.name} Lv${p.lv}`;
 
     const img=document.createElement('img');
-    img.src=fbUrl(p.id);
-    img.alt=p.name;
+    img.src=fbUrl(p.id);img.alt=p.name;
     img.style.opacity='0';
-    img.onload=()=>{img.style.transition='opacity .3s';img.style.opacity='1';};
+    img.onload=()=>{img.style.transition='opacity .4s';img.style.opacity='1';};
     img.onerror=()=>{img.src=`https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.id}.png`;};
 
+    // Sombra del sprite
+    const shadow=document.createElement('div');
+    shadow.style.cssText='position:absolute;bottom:-4px;left:50%;transform:translateX(-50%);'+
+      'width:60%;height:5px;background:rgba(0,0,0,0.4);border-radius:50%;filter:blur(3px)';
+
+    wrap.appendChild(shadow);
     wrap.appendChild(hbc);
     wrap.appendChild(ps);
     wrap.appendChild(img);
     arena.appendChild(wrap);
 
-    p.el=wrap; p.hbEl=hb; p.psEl=ps;
+    p.el=wrap;p.hbEl=hb;p.psEl=ps;p.shadowEl=shadow;
   });
 
   updateKantoHUD();
+}
+
+// Convierte fracción x,y a posición CSS dentro del arena
+function _setPokeDomPos(el,fx,fy,arenaEl){
+  if(!el||!arenaEl)return;
+  el.style.left=Math.round(fx*100)+'%';
+  el.style.top=Math.round(fy*100)+'%';
 }
 
 function updateKantoHUD(){
   const p=pokes[0],e=pokes[1];
   const ph=document.getElementById('st-hud-p');
   const eh=document.getElementById('st-hud-e');
-  if(p&&ph) ph.innerHTML=`<div class="st-hud-name">${p.name}</div><div class="st-hud-hp">${Math.max(0,Math.ceil(p.curHp))}/${p.maxHp} HP</div>`;
-  if(e&&eh) eh.innerHTML=`<div class="st-hud-name">${e.name}</div><div class="st-hud-hp">${Math.max(0,Math.ceil(e.curHp))}/${e.maxHp} HP</div>`;
+  if(p&&ph)ph.innerHTML=`<div class="st-hud-name">${p.name}</div><div class="st-hud-hp">${Math.max(0,Math.ceil(p.curHp))}/${p.maxHp} HP</div>`;
+  if(e&&eh)eh.innerHTML=`<div class="st-hud-name">${e.name}</div><div class="st-hud-hp">${Math.max(0,Math.ceil(e.curHp))}/${e.maxHp} HP</div>`;
 }
 
 function setHpBar(p){
@@ -5387,103 +5525,214 @@ function setHpBar(p){
   p.hbEl.className='hb'+(pct<25?' red':pct<50?' yellow':'');
 }
 
-// Lanza proyectil animado del atacante al defensor
+// ── Proyectil ──
 function kantoFireProj(attacker,defender,onHit){
   if(!arena)return onHit();
   const proj=document.createElement('div');
   proj.className='proj';
   proj.textContent=attacker.projEmoji;
-  const ax=attacker.pct, ay=attacker.yPct;
-  const dx=defender.pct, dy=defender.yPct;
-  proj.style.cssText=`left:${ax}%;top:${ay}%;position:absolute;transition:left .35s linear,top .35s linear`;
+  const ax=attacker.x,ay=attacker.y;
+  const dx=defender.x,dy=defender.y;
+  proj.style.cssText=`left:${ax*100}%;top:${ay*100}%;position:absolute;z-index:20;font-size:18px;`+
+    `transition:left .32s cubic-bezier(.2,.8,.4,1),top .32s cubic-bezier(.2,.8,.4,1)`;
   arena.appendChild(proj);
-  requestAnimationFrame(()=>{
-    proj.style.left=dx+'%';
-    proj.style.top=dy+'%';
-  });
-  setTimeout(()=>{proj.remove();onHit();},370);
+  requestAnimationFrame(()=>{proj.style.left=dx*100+'%';proj.style.top=dy*100+'%';});
+  setTimeout(()=>{proj.remove();onHit();},340);
 }
 
-function kantoShowDmg(target,dmg){
+// ── Número de daño flotante ──
+function kantoShowDmg(target,dmg,isCrit){
   if(!arena)return;
   const el=document.createElement('div');
   el.className='kanto-dmg';
-  el.textContent='-'+Math.round(dmg);
-  el.style.color=target.dmgCol;
-  el.style.left=target.pct+'%';
-  el.style.top=(target.yPct-10)+'%';
+  el.textContent=(isCrit?'💥 ':'')+(dmg>0?'-'+Math.round(dmg):'MISS');
+  el.style.color=isCrit?'#ffd700':target.dmgCol;
+  el.style.left=target.x*100+'%';
+  el.style.top=(target.y*100-8)+'%';
+  if(isCrit)el.style.fontSize='13px';
   arena.appendChild(el);
   setTimeout(()=>el.remove(),1100);
 
+  // Impacto visual
   const spark=document.createElement('div');
   spark.className='kanto-spark';
-  spark.textContent='💥';
-  spark.style.left=target.pct+'%';
-  spark.style.top=target.yPct+'%';
+  spark.textContent=target.projEmoji||'💥';
+  spark.style.left=target.x*100+'%';
+  spark.style.top=target.y*100+'%';
   arena.appendChild(spark);
-  setTimeout(()=>spark.remove(),500);
+  setTimeout(()=>spark.remove(),450);
 }
 
+// ── lerp suave ──
+function _lerp(a,b,t){return a+(b-a)*t;}
+
+// ── Ataque físico: mover hacia el rival, golpear, volver ──
+function kantoPhysicalAttack(attacker,defender,dmg,isCrit,onDone){
+  if(attacker.attacking||attacker.dead)return;
+  attacker.attacking=true;
+  attacker.moving=true;
+
+  // Target: justo al lado del rival (con offset)
+  const side=attacker.slot===0?1:-1;
+  const targetX=defender.x+side*0.07;
+  const targetY=defender.y+0.02;
+  const startX=attacker.x, startY=attacker.y;
+  const dur=200/mul; // ms
+  const t0=performance.now();
+
+  // Fase 1: avanzar
+  function advance(now){
+    const t=Math.min(1,(now-t0)/dur);
+    const ease=t<0.5?2*t*t:1-Math.pow(-2*t+2,2)/2;
+    attacker.x=_lerp(startX,targetX,ease);
+    attacker.y=_lerp(startY,targetY,ease);
+    if(t<1){requestAnimationFrame(advance);}
+    else{
+      // Impacto
+      if(attacker.el)attacker.el.classList.add('walking');
+      kantoShowDmg(defender,dmg,isCrit);
+      if(defender.el){defender.el.classList.add('shake');setTimeout(()=>defender.el&&defender.el.classList.remove('shake'),320);}
+      if(attacker.el)setTimeout(()=>attacker.el&&attacker.el.classList.remove('walking'),200);
+      // Fase 2: volver
+      const r0=performance.now();
+      function retreat(now2){
+        const t2=Math.min(1,(now2-r0)/dur);
+        const ease2=1-Math.pow(1-t2,3);
+        attacker.x=_lerp(targetX,startX,ease2);
+        attacker.y=_lerp(targetY,startY,ease2);
+        if(t2<1){requestAnimationFrame(retreat);}
+        else{
+          attacker.x=startX;attacker.y=startY;
+          attacker.attacking=false;attacker.moving=false;
+          onDone();
+        }
+      }
+      requestAnimationFrame(retreat);
+    }
+  }
+  requestAnimationFrame(advance);
+}
+
+// ── Ataque especial: pequeño salto del atacante + proyectil ──
+function kantoSpecialAttack(attacker,defender,dmg,isCrit,onDone){
+  if(attacker.attacking||attacker.dead)return;
+  attacker.attacking=true;
+  // Pequeño salto hacia adelante
+  const side=attacker.slot===0?0.04:-0.04;
+  const startX=attacker.x,startY=attacker.y;
+  const jumpX=startX+side,jumpY=startY-0.04;
+  const dur=120/mul;
+  const t0=performance.now();
+
+  function jump(now){
+    const t=Math.min(1,(now-t0)/dur);
+    attacker.x=_lerp(startX,jumpX,t);
+    attacker.y=_lerp(startY,jumpY,t);
+    if(t<1){requestAnimationFrame(jump);}
+    else{
+      if(attacker.el)attacker.el.classList.add('walking');
+      // Lanzar proyectil
+      kantoFireProj(attacker,defender,()=>{
+        if(attacker.el)attacker.el.classList.remove('walking');
+        kantoShowDmg(defender,dmg,isCrit);
+        if(defender.el){defender.el.classList.add('shake');setTimeout(()=>defender.el&&defender.el.classList.remove('shake'),320);}
+        // Volver
+        const r0=performance.now();
+        function land(now2){
+          const t2=Math.min(1,(now2-r0)/dur);
+          attacker.x=_lerp(jumpX,startX,t2);
+          attacker.y=_lerp(jumpY,startY,t2);
+          if(t2<1){requestAnimationFrame(land);}
+          else{
+            attacker.x=startX;attacker.y=startY;
+            attacker.attacking=false;
+            onDone();
+          }
+        }
+        requestAnimationFrame(land);
+      });
+    }
+  }
+  requestAnimationFrame(jump);
+}
+
+// ── Aplicar daño y log ──
+function kantoApplyDmg(attacker,defender,dmg,isCrit){
+  if(over)return;
+  defender.curHp=Math.max(0,defender.curHp-dmg);
+  setHpBar(defender);
+  updateKantoHUD();
+  const critTxt=isCrit?' ¡Crítico!':'';
+  logEl.textContent=`${attacker.name} → ${defender.name}: -${Math.round(dmg)}${critTxt}`;
+  logQ.push(logEl.textContent);if(logQ.length>6)logQ.shift();
+  if(defender.curHp<=0){
+    defender.dead=true;
+    if(defender.el){
+      defender.el.style.transition='opacity .6s, transform .6s';
+      defender.el.style.opacity='0';
+      defender.el.style.transform='translate(-50%,-50%) translateY(20px)';
+    }
+    setTimeout(()=>{if(typeof window.checkWin==='function')window.checkWin();},700);
+  }
+}
+
+// ── kantoDoAttack: decide físico o especial y anima ──
 function kantoDoAttack(attacker,defender){
-  // Varianza ±20%
-  const variance=0.8+Math.random()*0.4;
-  // Ventaja de tipo simplificada: si atacante tiene tipo2 → 10% bonus
+  if(attacker.attacking||attacker.dead||defender.dead)return;
+  const variance=0.85+Math.random()*0.3;
   const typeBonus=attacker.type2?1.1:1;
-  const rawDmg=Math.max(1, Math.round(attacker.atk * variance * typeBonus * 0.25));
+  const rawDmg=Math.max(1,Math.round(attacker.atk*variance*typeBonus*0.25));
   const isCrit=Math.random()<0.1;
   const dmg=isCrit?Math.round(rawDmg*1.5):rawDmg;
 
-  if(attacker.el)attacker.el.classList.add('walking');
-  setTimeout(()=>attacker.el&&attacker.el.classList.remove('walking'),300);
-
-  kantoFireProj(attacker,defender,()=>{
-    if(over)return;
-    defender.curHp=Math.max(0,defender.curHp-dmg);
-    setHpBar(defender);
-    updateKantoHUD();
-    if(defender.el){
-      defender.el.classList.add('shake');
-      setTimeout(()=>defender.el&&defender.el.classList.remove('shake'),350);
-    }
-    kantoShowDmg(defender,dmg);
-    const critTxt=isCrit?' ¡Crítico!':'';
-    logEl.textContent=`${attacker.name} → ${defender.name}: -${Math.round(dmg)}${critTxt}`;
-    // Encolamos el mensaje de log
-    logQ.push(logEl.textContent);
-    if(logQ.length>6)logQ.shift();
-    if(defender.curHp<=0){
-      defender.dead=true;
-      if(defender.el){defender.el.style.transition='opacity .5s';defender.el.style.opacity='0';}
-      setTimeout(()=>{if(typeof window.checkWin==='function')window.checkWin();},600);
-    }
-  });
+  if(attacker.isPhysical){
+    kantoPhysicalAttack(attacker,defender,dmg,isCrit,()=>kantoApplyDmg(attacker,defender,dmg,isCrit));
+  }else{
+    kantoSpecialAttack(attacker,defender,dmg,isCrit,()=>kantoApplyDmg(attacker,defender,dmg,isCrit));
+  }
 }
 
-// Loop principal real-time
+// ── Loop: mueve sprites en DOM + idle bounce + ataca ──
 function kantoArenaTick(ts){
-  if(!running||over){return;}
+  if(!running||over)return;
   raf=requestAnimationFrame(kantoArenaTick);
   if(!lastTs){lastTs=ts;return;}
-  const dt=Math.min((ts-lastTs)*mul,200); // cap 200ms para evitar saltos
+  const dt=Math.min((ts-lastTs)*mul,200);
   lastTs=ts;
 
   let anyAlive=0;
   pokes.forEach(p=>{
     if(p.dead)return;
     anyAlive++;
+
+    // Idle bounce (solo si no está atacando)
+    if(!p.attacking&&arena){
+      p.bounceT=(p.bounceT||0)+dt*0.003;
+      const by=Math.sin(p.bounceT)*p.bounceAmp;
+      // Actualizar DOM
+      if(p.el)_setPokeDomPos(p.el,p.x,p.y+by,arena);
+      // Sombra se achica cuando sube
+      if(p.shadowEl){
+        const scl=1-Math.abs(Math.sin(p.bounceT))*0.25;
+        p.shadowEl.style.transform=`translateX(-50%) scaleX(${scl})`;
+      }
+    }else if(p.el){
+      _setPokeDomPos(p.el,p.x,p.y,arena);
+    }
+
+    // Cooldown de ataque
     p.atkCd-=dt;
-    if(p.atkCd<=0){
-      // Buscar rival vivo
+    if(p.atkCd<=0&&!p.attacking){
       const rival=pokes.find(o=>o!==p&&!o.dead);
       if(rival){
         kantoDoAttack(p,rival);
-        p.atkCd=Math.max(400, p.atkInterval / mul);
+        p.atkCd=Math.max(500,p.atkInterval/mul);
       }
     }
   });
 
   if(anyAlive<2&&!over){
-    over=true; running=false;
+    over=true;running=false;
     setTimeout(()=>{if(typeof window.checkWin==='function')window.checkWin();},700);
   }
 }
@@ -5496,7 +5745,6 @@ function setKantoSpeed(idx){
 function applyKantoSpeed(){
   const step=KANTO_SPEED_STEPS[kantoSpeedStepIdx]||1;
   mul=kantoBattleBaseMul*step;
-  // Resetear cooldowns para que el cambio de velocidad sea inmediato
   if(pokes&&pokes.length)pokes.forEach(p=>{if(!p.dead&&p.atkCd>p.atkInterval/mul)p.atkCd=p.atkInterval/mul;});
 }
 
