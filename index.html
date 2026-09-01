@@ -1375,15 +1375,9 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
         <button onclick="stFlee()" style="position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:16;font-family:inherit;font-size:6px;padding:4px 8px;border-radius:3px;background:rgba(200,30,20,.3);color:#ff9080;border:1px solid rgba(200,30,20,.5);cursor:pointer">🏃 Huir</button>
         <div id="st-controls" style="display:none"></div>
       </div>
-      <!-- Barra inferior: hint + velocidad -->
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-top:5px;padding:0 2px">
-        <div class="st-hint" style="margin-top:0">⚔️ Combate automático por turnos</div>
-        <div id="adv-speed-btns" style="display:none;gap:4px;align-items:center">
-          <span style="font-size:4px;color:var(--text-dim)">vel.</span>
-          <button onclick="stSetSpeed(1)" id="spd-1" class="adv-spd-btn active">×1</button>
-          <button onclick="stSetSpeed(2)" id="spd-2" class="adv-spd-btn">×2</button>
-          <button onclick="stSetSpeed(4)" id="spd-4" class="adv-spd-btn">×4</button>
-        </div>
+      <!-- Barra inferior: hint -->
+      <div style="text-align:center;margin-top:5px;padding:0 2px">
+        <div class="st-hint" style="margin-top:0">⚔️ Combate automático · controlá la vel. arriba</div>
       </div>
     </div>
   </div>
