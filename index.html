@@ -5819,7 +5819,11 @@ function stStart(enemy){
   pokes=[p1,p2];
 
   kantoArenaBigMode=false;
+  console.log('[stStart] field.offsetWidth=',field.offsetWidth,'field.offsetHeight=',field.offsetHeight);
+  console.log('[stStart] p1=',JSON.stringify({id:p1.id,name:p1.name,x:p1.x,y:p1.y,mvs:p1.mvs?.length,hp:p1.maxHp}));
+  console.log('[stStart] p2=',JSON.stringify({id:p2.id,name:p2.name,x:p2.x,y:p2.y,mvs:p2.mvs?.length,hp:p2.maxHp}));
   buildArena();
+  console.log('[stStart] arena children=',arena.children.length,'p1.el=',!!p1.el,'p2.el=',!!p2.el);
 
   // Botones de velocidad: reusar los existentes de pokeswap pero conectar a setKantoSpeed
   stShowSpeedBtns(true);
