@@ -5281,10 +5281,10 @@ function mkPoke(d,i,tot){
   const w=arena?arena.offsetWidth:600, h=arena?arena.offsetHeight:340;
   const mg=60, ang=(i/tot)*Math.PI*2;
   const rx=w/2-mg, ry=h/2-mg;
-  const mvs=buildMoveset ? buildMoveset(d) : (d.mvs||d.moves||[]);
+  const mvs=d.mvs&&d.mvs.length?d.mvs:(d.moves&&d.moves.length?d.moves:[]);
   const maxHp=d.hp+Math.floor(Math.random()*15);
-  const spm=SPATK_MULT?.(d.type)||1.0;
-  const sdm=SPDEF_MULT?.(d.type)||1.0;
+  const spm=(typeof SPATK_MULT!=='undefined'&&SPATK_MULT?.[d.type])||1.0;
+  const sdm=(typeof SPDEF_MULT!=='undefined'&&SPDEF_MULT?.[d.type])||1.0;
   return{...d,maxHp,curHp:maxHp,
     atkB:d.atk+Math.floor(Math.random()*12),
     defB:28+Math.floor(Math.random()*22),
@@ -5819,11 +5819,7 @@ function stStart(enemy){
   pokes=[p1,p2];
 
   kantoArenaBigMode=false;
-  console.log('[stStart] field.offsetWidth=',field.offsetWidth,'field.offsetHeight=',field.offsetHeight);
-  console.log('[stStart] p1=',JSON.stringify({id:p1.id,name:p1.name,x:p1.x,y:p1.y,mvs:p1.mvs?.length,hp:p1.maxHp}));
-  console.log('[stStart] p2=',JSON.stringify({id:p2.id,name:p2.name,x:p2.x,y:p2.y,mvs:p2.mvs?.length,hp:p2.maxHp}));
   buildArena();
-  console.log('[stStart] arena children=',arena.children.length,'p1.el=',!!p1.el,'p2.el=',!!p2.el);
 
   // Botones de velocidad: reusar los existentes de pokeswap pero conectar a setKantoSpeed
   stShowSpeedBtns(true);
