@@ -1376,8 +1376,9 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
         <button onclick="stFlee()" style="position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:16;font-family:inherit;font-size:6px;padding:4px 8px;border-radius:3px;background:rgba(200,30,20,.3);color:#ff9080;border:1px solid rgba(200,30,20,.5);cursor:pointer">🏃 Huir</button>
         <div id="st-controls" style="display:none"></div>
       </div>
-      <!-- Barra inferior: hint -->
-      <div style="text-align:center;margin-top:5px;padding:0 2px">
+      <!-- Log y hint inferior -->
+      <div style="text-align:center;margin-top:4px;padding:0 4px">
+        <div id="st-log" style="font-family:'Courier New',monospace;font-size:7px;color:#e8d090;height:14px;line-height:14px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;margin-bottom:2px"></div>
         <div class="st-hint" style="margin-top:0">⚔️ Combate automático · controlá la vel. arriba</div>
       </div>
     </div>
@@ -5302,30 +5303,48 @@ function mkPoke(d,i,tot){
     uid:i,elim:0};
 }
 
-// ── buildArena: igual que Copero ──
+// ── buildArena: estilos inline, recalcula posiciones con dimensiones reales ──
 const SP=72;
 function buildArena(){
   if(!arena)return;
   arena.innerHTML='';
-  pokes.forEach(p=>{
+  const w=arena.offsetWidth||600, h=arena.offsetHeight||340;
+  const mg=60, tot=pokes.length;
+  pokes.forEach((p,i)=>{
+    // Recalcular posición con dimensiones reales
+    const ang=(i/tot)*Math.PI*2;
+    const rx=w/2-mg, ry=h/2-mg;
+    p.x=w/2+rx*Math.cos(ang)-36;
+    p.y=h/2+ry*Math.sin(ang)-36;
+    p.vx=(Math.random()-.5)*1.5; p.vy=(Math.random()-.5)*1.5;
+    p.x=Math.max(mg,Math.min(w-72-mg,p.x));
+    p.y=Math.max(mg,Math.min(h-72-mg,p.y));
+
+    const isRival=p.__isPlayer===false;
     const wrap=document.createElement('div');
-    wrap.className='pw'+(p.__isPlayer===true?' is-player':(p.__isPlayer===false?' is-rival':''))+(kantoArenaBigMode?' pw-big':'');
-    wrap.style.cssText=`left:${Math.round(p.x)}px;top:${Math.round(p.y)}px;opacity:0`;
-    const hbc=document.createElement('div');hbc.className='hbc';
-    const hb=document.createElement('div');hb.className='hb';
-    hb.style.cssText=`width:100%;background:${p.__isPlayer===false?'#E6199C':'#44DD44'}`;
+    wrap.style.cssText=`position:absolute;display:flex;flex-direction:column;align-items:center;`+
+      `left:${Math.round(p.x)}px;top:${Math.round(p.y)}px;opacity:0;z-index:5;pointer-events:none;transition:opacity .4s`;
+
+    const hbc=document.createElement('div');
+    hbc.style.cssText=`position:absolute;top:-14px;left:50%;transform:translateX(-50%);`+
+      `width:60px;height:6px;background:rgba(0,0,0,.55);border-radius:3px;overflow:hidden;border:1px solid rgba(0,0,0,.5)`;
+    const hb=document.createElement('div');
+    hb.style.cssText=`width:100%;height:100%;border-radius:3px;transition:width .18s,background .18s;`+
+      `background:${isRival?'#E6199C':'#44DD44'}`;
     hbc.appendChild(hb);
-    const img=document.createElement('img');img.className='ps';img.alt=p.name;img.draggable=false;
-    // Usar getSpriteImg de Copero si existe, sino owUrl
-    if(typeof getSpriteImg==='function'){
-      img.src=getSpriteImg(p.id,'down',0)||'';
-    } else {
-      img.src=owUrl(p.id,'down');
-      img.onerror=()=>{img.src=fbUrl(p.id);};
-    }
-    wrap.appendChild(hbc);wrap.appendChild(img);
+
+    const sprSize=isRival?58:72;
+    const img=document.createElement('img');
+    img.alt=p.name; img.draggable=false;
+    img.style.cssText=`width:${sprSize}px;height:${sprSize}px;image-rendering:pixelated;display:block;`+
+      (isRival?'transform:scaleX(-1);':'');
+    img.src=owUrl(p.id,'down');
+    img.onerror=()=>{img.src=fbUrl(p.id);};
+
+    wrap.appendChild(hbc); wrap.appendChild(img);
     arena.appendChild(wrap);
-    p.el=wrap;p.hbEl=hb;p.imgEl=img;
+    p.el=wrap; p.hbEl=hb; p.imgEl=img;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{wrap.style.opacity='1';}));
   });
 }
 
@@ -5690,13 +5709,12 @@ function kantoArenaTick(ts){
     if(p.el){
       p.el.style.left=Math.round(p.x)+'px';
       p.el.style.top=Math.round(p.y)+'px';
-      let src=null;
-      if(typeof getSpriteImg==='function'){
-        src=getSpriteImg(p.id,p.dir,p.frame);
-      } else {
-        src=owUrl(p.id,p.dir);
+      if(p.imgEl){
+        const src=owUrl(p.id,p.dir);
+        // Comparar solo el pathname para evitar problemas con URL absoluta vs relativa
+        if(src&&!p.imgEl.src.endsWith(owUrl(p.id,p.dir).replace(/^https?:\/\/[^/]+/,'')))
+          p.imgEl.src=src;
       }
-      if(src&&p.imgEl&&p.imgEl.src!==src)p.imgEl.src=src;
     }
   });
   raf=requestAnimationFrame(kantoArenaTick);
@@ -5768,10 +5786,11 @@ function stStart(enemy){
   };
 
   // ── Reset del motor ──
-  pokes=[]; running=false; over=false;
+  pokes=[]; running=false; over=false; elimCnt=0;
   if(raf)cancelAnimationFrame(raf);
   lastTs=0; mul=1; logQ=[];
   arena=field;
+  logEl=document.getElementById('st-log');
   statEl=null;
 
   // Adaptar moves al formato del motor Copero: {n,cat,p,type,col,shape,ef,efChance}
