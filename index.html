@@ -1063,6 +1063,10 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
           <div id="dex-tph-info" style="display:none;margin-bottom:4px;text-align:center">
             <div style="font-size:5px;color:#506050;margin-bottom:2px">Genera</div>
             <div style="font-size:9px;color:#1848a0" id="dex-tph-val">🪙 0 / hora</div>
+            <div style="position:relative;margin-top:4px">
+              <button class="dex-btn tok" id="dex-claim-btn" onclick="claimPassiveTokensUI()" style="display:block">🪙 Cobrar tokens</button>
+              <div id="dex-claim-cd" style="display:none;font-size:4px;color:#888;text-align:center;margin-top:2px"></div>
+            </div>
           </div>
           <button class="dex-btn free" id="dbtn-free" onclick="payBox('free')" style="display:none">🎁 Adoptar gratis</button>
           <button class="dex-btn tok" id="dbtn-tok" onclick="payBox('tokens')" style="display:none">🪙 Adoptar con tokens</button>
@@ -1080,7 +1084,6 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
             <div class="box-title-txt" id="box-title">Mi Mundo</div>
             <div class="box-sub-txt" id="box-subtitle">0 pokémon</div>
           </div>
-          <button class="box-nav-btn" style="background:linear-gradient(180deg,#d8a800,#a87800);color:#1a0800;border-color:#785000;font-size:5px;padding:4px 8px;position:relative" id="resort-claim-btn" onclick="claimPassiveTokensUI()">🪙 Cobrar<div id="resort-claim-cd" style="display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);white-space:nowrap;font-size:4px;color:rgba(255,255,255,.85);background:rgba(0,0,0,.7);padding:2px 5px;border-radius:3px;margin-bottom:3px;pointer-events:none"></div></button>
           <button class="box-nav-btn" id="box-next-btn" onclick="nextBox()" style="display:none">►</button>
         </div>
         <div class="box-grid-wrap">
@@ -1964,10 +1967,10 @@ async function claimPassiveTokensUI(){
   updateClaimCountdown();
 }
 
-// Actualizar countdown sobre el botón cobrar
+// Actualizar countdown en el panel dex
 function updateClaimCountdown(){
-  const cdEl = document.getElementById('resort-claim-cd');
-  const btn = document.getElementById('resort-claim-btn');
+  const cdEl = document.getElementById('dex-claim-cd');
+  const btn = document.getElementById('dex-claim-btn');
   if(!cdEl||!btn) return;
   if(!user||!profile){cdEl.style.display='none';return;}
   const lastCollect = profile.passive_tokens_collected_at
@@ -1976,12 +1979,14 @@ function updateClaimCountdown(){
   if(minSince >= CLAIM_COOLDOWN_MIN){
     cdEl.style.display='none';
     btn.style.opacity='1';
+    btn.textContent='🪙 Cobrar tokens';
   } else {
     const remain = Math.ceil(CLAIM_COOLDOWN_MIN - minSince);
     const sec = Math.ceil((CLAIM_COOLDOWN_MIN - minSince)*60)%60;
-    cdEl.textContent = `⏳ ${remain-1}:${String(sec).padStart(2,'0')}`;
+    cdEl.textContent = `⏳ Próximo cobro en ${remain-1}:${String(sec).padStart(2,'0')}`;
     cdEl.style.display='block';
-    btn.style.opacity='.5';
+    btn.style.opacity='.4';
+    btn.textContent='🪙 Cobrar tokens';
   }
 }
 // Actualizar countdown cada segundo cuando Mi Mundo está abierto
@@ -2808,11 +2813,11 @@ function resortTick(ts){
 }
 function selectBox(id){
   boxSelectedId=id;
-  // Solo actualizar highlight, NO re-renderizar (evita re-posicionar)
   _resortSprites.forEach(s=>{
     s.el.classList.toggle('sel', s.p.id===id);
   });
   updateDexPane(id);
+  updateClaimCountdown();
 }
 function updateDexPane(id){
 const p=pokemon.find(x=>x.id===id);if(!p)return;
