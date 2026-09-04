@@ -992,7 +992,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
         <span id="ipprice" class="ip-price" style="font-size:11px;color:#c080f0;margin:0"></span>
       </div>
       <div style="flex:1;background:rgba(240,180,80,.06);border:1px solid rgba(240,180,80,.2);border-radius:4px;padding:7px 10px;display:flex;align-items:center;gap:5px">
-        <span style="font-size:9px">🪙</span>
+        <span style="font-size:9px">₱</span>
         <span id="ip-tph" style="font-size:11px;color:var(--gold)">—</span>
       </div>
     </div>
@@ -1014,7 +1014,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
     <!-- Botones de adopción -->
     <div class="ip-btns" style="flex-direction:column;gap:5px">
       <button class="ibt free" id="ib-free" onclick="pay('free')" style="display:none;width:100%">🎁 Adoptar gratis</button>
-      <button class="ibt tok" id="ib-tok" onclick="pay('tokens')" style="display:none;width:100%">🪙 Adoptar con tokens</button>
+      <button class="ibt tok" id="ib-tok" onclick="pay('tokens')" style="display:none;width:100%">₱ Adoptar con tokens</button>
       <div id="ib-money" style="display:none;width:100%">
         <div style="font-size:4px;color:var(--text-dim);margin-bottom:4px;text-align:center;padding-top:2px">— o apoyá con dinero real —</div>
         <div style="display:flex;gap:4px">
@@ -1062,14 +1062,14 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
           <div id="dex-xpbar" style="display:none;margin-bottom:4px"></div>
           <div id="dex-tph-info" style="display:none;margin-bottom:4px;text-align:center">
             <div style="font-size:5px;color:#506050;margin-bottom:2px">Genera</div>
-            <div style="font-size:9px;color:#1848a0" id="dex-tph-val">🪙 0 / hora</div>
+            <div style="font-size:9px;color:#1848a0" id="dex-tph-val">₱ 0 / hora</div>
             <div style="position:relative;margin-top:4px">
-              <button class="dex-btn tok" id="dex-claim-btn" onclick="claimPassiveTokensUI()" style="display:block">🪙 Cobrar tokens</button>
+              <button class="dex-btn tok" id="dex-claim-btn" onclick="claimPassiveTokensUI()" style="display:block">₱ Cobrar tokens</button>
               <div id="dex-claim-cd" style="display:none;font-size:4px;color:#888;text-align:center;margin-top:2px"></div>
             </div>
           </div>
           <button class="dex-btn free" id="dbtn-free" onclick="payBox('free')" style="display:none">🎁 Adoptar gratis</button>
-          <button class="dex-btn tok" id="dbtn-tok" onclick="payBox('tokens')" style="display:none">🪙 Adoptar con tokens</button>
+          <button class="dex-btn tok" id="dbtn-tok" onclick="payBox('tokens')" style="display:none">₱ Adoptar con tokens</button>
           <div id="dbtn-money" style="display:none;margin-top:2px">
             <div style="font-size:4px;color:#506050;margin-bottom:3px;text-align:center">¿Preferís pagar con dinero?</div>
             <button class="dex-btn mp" onclick="this.textContent='⏳ Cargando...';this.disabled=true;payBox('mercadopago')">💳 Mercado Pago</button>
@@ -1295,7 +1295,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
       </div>
       <div style="font-size:5px;color:var(--text-dim);text-align:center;margin-bottom:6px">¿Querés jugar ahora?</div>
       <div class="sw-pay-row">
-        <button class="sw-pay-btn tok" onclick="swapSkipCooldown('tokens')">🪙 Adelantar (50 Tokens)</button>
+        <button class="sw-pay-btn tok" onclick="swapSkipCooldown('tokens')">₱ Adelantar (50 Tokens)</button>
         <button class="sw-pay-btn mp" onclick="swapSkipCooldown('mp')">💳 Adelantar ($)</button>
       </div>
     </div>
@@ -1502,7 +1502,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:14px">
       <div style="background:rgba(240,200,0,.06);border:1px solid rgba(240,200,0,.15);border-radius:4px;padding:8px;text-align:center">
         <div style="font-size:12px;color:var(--gold)" id="prof-tokens">0</div>
-        <div style="font-size:4px;color:var(--text-dim)">🪙 Tokens</div>
+        <div style="font-size:4px;color:var(--text-dim)">₱ Tokens</div>
       </div>
       <div style="background:rgba(240,200,0,.06);border:1px solid rgba(240,200,0,.15);border-radius:4px;padding:8px;text-align:center">
         <div style="font-size:12px;color:var(--gold)" id="prof-pokemon">0</div>
@@ -1559,7 +1559,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
       <div class="onb-step" id="onb-1" style="display:none">
         <div style="font-size:38px;text-align:center;margin-bottom:12px">🎁</div>
         <div style="font-size:12px;color:var(--text);text-align:center;margin-bottom:8px">Adoptá gratis y empezá a farmear</div>
-        <div style="font-size:8px;color:var(--text-dim);text-align:center;line-height:2">Tenés <span style="color:var(--gold)">5 adopciones gratis</span> para empezar. Cada Pokémon que adoptás genera <span style="color:var(--gold)">🪙 tokens por hora</span> automáticamente — cuanto más Aura tiene, más genera.</div>
+        <div style="font-size:8px;color:var(--text-dim);text-align:center;line-height:2">Tenés <span style="color:var(--gold)">5 adopciones gratis</span> para empezar. Cada Pokémon que adoptás genera <span style="color:var(--gold)">₱ tokens por hora</span> automáticamente — cuanto más Aura tiene, más genera.</div>
       </div>
       <!-- paso 3 -->
       <div class="onb-step" id="onb-2" style="display:none">
@@ -1772,7 +1772,7 @@ async function marketLoad(){
           <div style="font-size:7px;color:var(--text)">${name}</div>
           <div style="font-size:5px;color:var(--text-dim)">por ${l.seller_username}</div>
         </div>
-        <div style="font-size:8px;color:var(--gold)">🪙 ${l.price_tokens.toLocaleString()}</div>
+        <div style="font-size:8px;color:var(--gold)">₱ ${l.price_tokens.toLocaleString()}</div>
         ${isMine
           ?`<button onclick="marketCancel('${l.id}')" style="font-family:inherit;font-size:5px;padding:4px 7px;border-radius:2px;background:rgba(200,50,50,.15);color:#e08080;border:1px solid rgba(200,50,50,.3);cursor:pointer">Retirar</button>`
           :user
@@ -1790,7 +1790,7 @@ async function marketLoad(){
     const mine=listings?.filter(l=>l.seller_id===user.id)||[];
     mineEl.innerHTML=mine.length===0
       ?'<div style="font-size:5px;color:var(--text-dim);margin-bottom:6px">No tenés publicaciones activas.</div>'
-      :mine.map(l=>{const p=pokemon.find(pk=>pk.id===l.pokemon_id);return `<div style="font-size:6px;color:var(--text-dim);margin-bottom:4px">• ${p?p[`name_${lang}`]||p.name_en:'Pokémon'} → 🪙 ${l.price_tokens}</div>`;}).join('');
+      :mine.map(l=>{const p=pokemon.find(pk=>pk.id===l.pokemon_id);return `<div style="font-size:6px;color:var(--text-dim);margin-bottom:4px">• ${p?p[`name_${lang}`]||p.name_en:'Pokémon'} → ₱ ${l.price_tokens}</div>`;}).join('');
 
     // Poblar selector con Pokémon del usuario
     const sel=document.getElementById('market-sell-select');
@@ -1823,7 +1823,7 @@ async function marketPublish(){
     expires_at:new Date(Date.now()+7*24*60*60*1000).toISOString(),
   });
   if(error){toast('Error: '+error.message,1);return;}
-  toast(`✓ Publicado por 🪙 ${price} tokens`);
+  toast(`✓ Publicado por ₱ ${price} tokens`);
   await marketLoad();
 }
 
@@ -1837,7 +1837,7 @@ async function marketBuy(listingId,name){
     body:JSON.stringify({listing_id:listingId})
   }).then(x=>x.json());
   if(r.error){toast(r.error,1);return;}
-  toast(`✓ ¡${name} es tuyo! Gastaste 🪙 ${r.price_paid}`);
+  toast(`✓ ¡${name} es tuyo! Gastaste ₱ ${r.price_paid}`);
   await loadSlots();
   await loadProfile();
   await marketLoad();
@@ -1935,7 +1935,7 @@ async function collectPassiveTokens(){
     profile.tokens = newTokens;
     profile.passive_tokens_collected_at = new Date().toISOString();
     if(earned >= 10){
-      toast(`🪙 +${earned} tokens pasivos acumulados (${totalTph}/h × ${hoursElapsed.toFixed(1)}h)`);
+      toast(`₱ +${earned} tokens pasivos acumulados (${totalTph}/h × ${hoursElapsed.toFixed(1)}h)`);
     }
   }
 }
@@ -1959,10 +1959,10 @@ async function claimPassiveTokensUI(){
   await collectPassiveTokens();
   const earned = (profile.tokens||0) - before;
   if(earned > 0){
-    toast(`🪙 ¡Cobraste +${earned} PokéTokens!`);
+    toast(`₱ ¡Cobraste +${earned} PokéTokens!`);
     updateAuthUI();
   } else {
-    toast('🪙 Todavía no hay tokens para cobrar');
+    toast('₱ Todavía no hay tokens para cobrar');
   }
   updateClaimCountdown();
 }
@@ -1979,14 +1979,14 @@ function updateClaimCountdown(){
   if(minSince >= CLAIM_COOLDOWN_MIN){
     cdEl.style.display='none';
     btn.style.opacity='1';
-    btn.textContent='🪙 Cobrar tokens';
+    btn.textContent='₱ Cobrar tokens';
   } else {
     const remain = Math.ceil(CLAIM_COOLDOWN_MIN - minSince);
     const sec = Math.ceil((CLAIM_COOLDOWN_MIN - minSince)*60)%60;
     cdEl.textContent = `⏳ Próximo cobro en ${remain-1}:${String(sec).padStart(2,'0')}`;
     cdEl.style.display='block';
     btn.style.opacity='.4';
-    btn.textContent='🪙 Cobrar tokens';
+    btn.textContent='₱ Cobrar tokens';
   }
 }
 // Actualizar countdown cada segundo cuando Mi Mundo está abierto
@@ -2599,7 +2599,7 @@ hf.style.width=hpPct+'%';hf.className='hp-fill'+(hpPct<25?' red':hpPct<50?' yell
 document.getElementById('ip-hp-num').textContent=`${hpCur}/${hpMax}`;
 // Tokens por hora: base 5 + (aura / 50)
 const tph=Math.max(5,Math.round(5+aura/50));
-const tphEl=document.getElementById('ip-tph');if(tphEl)tphEl.textContent=`🪙 ${tph} / hora`;
+const tphEl=document.getElementById('ip-tph');if(tphEl)tphEl.textContent=`₱ ${tph} / hora`;
 if(isMe){
 const effId=evoChainWalk(p.id,_ipLv);
 const evoNote=document.getElementById('ip-evonote');
@@ -2618,9 +2618,17 @@ document.getElementById('ib-free').style.display=canFree?'':'none';
 const moneyDiv=document.getElementById('ib-money');if(moneyDiv)moneyDiv.style.display=(!p.locked&&!isMe)?'':'none';
 const hasTok=(profile?.tokens||0)>=price;
 const tokenPrice=Math.max(1000, price); // Mínimo 1000 tokens = $1
-const it=document.getElementById('ib-tok');it.style.display=(user&&(profile?.tokens||0)>=tokenPrice&&!p.locked&&!isMe)?'':'none';
-if(user&&(profile?.tokens||0)>=tokenPrice)it.textContent=`🪙 ${tokenPrice} tokens`;
-document.getElementById('ipnote').textContent=isOwned&&!isMe?`Si te lo sacan recibís $${price} en PokéTokens`:'';
+const it=document.getElementById('ib-tok');
+if(user&&!p.locked&&!isMe){
+  it.style.display='';
+  it.textContent=`₱ ${tokenPrice.toLocaleString()}`;
+  if((profile?.tokens||0)>=tokenPrice){
+    it.style.opacity='1';it.disabled=false;
+  } else {
+    it.style.opacity='.45';it.disabled=false;
+  }
+} else { it.style.display='none'; }
+document.getElementById('ipnote').textContent=isOwned&&!isMe?`Si te lo sacan recibís ₱${price} PokéTokens`:'';
 const regBtn=document.getElementById('ip-register-btn');
 const alreadyReg=dexGetRegistered().includes(id);
 if(isMe&&!alreadyReg){regBtn.style.display='block';}else{regBtn.style.display='none';}
@@ -2667,7 +2675,7 @@ function renderBoxGrid(){
     totalTph+=Math.max(5,Math.round(5+aura/50));
   });
   document.getElementById('box-subtitle').textContent=myPokemon.length
-    ?`${myPokemon.length} pokémon · 🪙 ${totalTph}/hora`
+    ?`${myPokemon.length} pokémon · ₱ ${totalTph}/hora`
     :'Tu resort está vacío';
 
   const prevBtn=document.getElementById('box-prev-btn');
@@ -2841,7 +2849,7 @@ const dexTph=document.getElementById('dex-tph-info');
 if(isMe&&dexTph){
   const pAura=(s?.aura||0)+getBaseAura(p.id);
   const pTph=Math.max(5,Math.round(5+pAura/50));
-  document.getElementById('dex-tph-val').textContent=`🪙 ${pTph} / hora`;
+  document.getElementById('dex-tph-val').textContent=`₱ ${pTph} / hora`;
   dexTph.style.display='block';
 }else if(dexTph){dexTph.style.display='none';}
 const canFree=user&&(profile?.free_claims_remaining||0)>0&&!isOwned&&!p.is_popular&&!p.locked;
@@ -2855,7 +2863,7 @@ if(dserial&&s?.claim_count>0){
   dserial.innerHTML=`<span style="font-size:4px;color:rgba(240,200,0,.5);background:rgba(240,200,0,.06);border:1px solid rgba(240,200,0,.15);border-radius:2px;padding:1px 4px">#${String(s.claim_count).padStart(3,'0')}</span>${s.first_owner_username&&s.claim_count>1?` <span style="font-size:4px;color:var(--text-dim)">1er: ${s.first_owner_username}</span>`:''}`;
   dserial.style.display='block';
 }else if(dserial){dserial.style.display='none';}
-if(user&&hasTok&&!isMe)bt.textContent=`🪙 ${tokenPrice} tokens`;
+if(user&&hasTok&&!isMe)bt.textContent=`₱ ${tokenPrice} tokens`;
 }
 function renderActivityStrip(){
 const scroll=document.getElementById('act-scroll');
@@ -2935,16 +2943,12 @@ const a=document.getElementById('auth-wrap');
 if(user){
 const i=(user.user_metadata?.full_name||user.email||'U')[0].toUpperCase();
 const c='#'+Math.abs((user.id||'').split('').reduce((a,b)=>a+b.charCodeAt(0),0)).toString(16).padStart(6,'0').slice(0,6);
-const mult=profile?.token_multiplier||1;
-const multBadge=mult>1?`<span style="font-size:4px;color:#c080f0;background:rgba(192,128,240,.15);border:1px solid rgba(192,128,240,.3);border-radius:3px;padding:1px 4px">×${mult}</span>`:'';
 const name=user.user_metadata?.full_name||user.email?.split('@')[0]||'';
 const tokens=profile?.tokens||0;
-a.innerHTML=`<div style="display:flex;align-items:center;gap:5px;cursor:pointer" onclick="openProfile()" title="Ver perfil">
-  <div class="uavatar" style="background:${c};cursor:pointer">${i}</div>
-  <div style="display:flex;flex-direction:column;gap:1px">
-    <span style="font-size:5px;color:var(--text)">${name}</span>
-    <span style="font-size:4px;color:var(--gold)">🪙 ${tokens.toLocaleString()}${mult>1?' · '+multBadge:''}</span>
-  </div>
+a.innerHTML=`<div style="display:flex;align-items:center;gap:8px;cursor:pointer" onclick="openProfile()" title="Ver perfil">
+  <div class="uavatar" style="background:${c}">${i}</div>
+  <span style="font-size:8px;color:var(--text)">${name}</span>
+  <span style="font-size:9px;color:var(--gold)">₱${tokens.toLocaleString()}</span>
 </div>`;
 }else{a.innerHTML=`<div style="display:flex;gap:5px;align-items:center"><button class="btn-auth" onclick="openAuth('login')" style="font-size:6px;padding:5px 10px">Iniciar sesión</button><button class="btn-auth" onclick="openAuth('signup')" style="font-size:6px;padding:5px 10px;background:linear-gradient(180deg,#50a850,#308030);border-color:#206020;color:#fff">Registrarse</button></div>`;}
 }
@@ -3064,7 +3068,7 @@ playerLv:5,
 };
 const DG_TILES={WALL:0,FLOOR:1,CORRIDOR:2,STAIRS:3,ITEM:4,ENEMY:5,PLAYER:6};
 const DG_ITEM_TYPES=[
-{name:'PokéToken',icon:'🪙',effect:'tokens',value:5,rarity:0.4},
+{name:'PokéToken',icon:'₱',effect:'tokens',value:5,rarity:0.4},
 {name:'PokéToken x10',icon:'💰',effect:'tokens',value:10,rarity:0.15},
 {name:'Poción',icon:'🧪',effect:'heal',value:20,rarity:0.25},
 {name:'Super Poción',icon:'💊',effect:'heal',value:50,rarity:0.1},
@@ -4207,7 +4211,7 @@ ${victory?'Objetos obtenidos:':'Perdiste todos los objetos.'}
 </div>`;
 if(victory&&dg.loot.length){
 html+=`<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px">`;
-if(tokens)html+=`<div class="dg-loot-chip">🪙 +${tokens} PokéTokens</div>`;
+if(tokens)html+=`<div class="dg-loot-chip">₱ +${tokens} PokéTokens</div>`;
 if(potions)html+=`<div class="dg-loot-chip">🧪 ${potions} Pociones</div>`;
 if(candies)html+=`<div class="dg-loot-chip">🍬 ${candies} Rare Candy</div>`;
 html+=`</div>`;
@@ -4410,7 +4414,7 @@ const diffHTML=`<div style="grid-column:1/-1;margin-bottom:8px">
 
 grid.innerHTML=diffHTML+
   `<div style="grid-column:1/-1;font-size:5px;color:${remaining>0?'var(--text-dim)':'#e04020'};text-align:center;margin-bottom:4px">
-  🪙 Tokens dungeon hoy: ${todayTokens}/3.000${remaining<=0?' — Límite alcanzado':''}</div>`+
+  ₱ Tokens dungeon hoy: ${todayTokens}/3.000${remaining<=0?' — Límite alcanzado':''}</div>`+
 owned.map(p=>{
 const lv=5+Math.floor((slots[p.id]?.current_price||0)/5);
 const energy=advGetEnergy(slots[p.id]);
@@ -4671,7 +4675,7 @@ const ADV_ITEMS = [
   {id:'maxp',     name:'Hiper Poción',  icon:'💉', effect:'heal',    value:120, rarity:0.06, desc:'Restaura 120 HP'},
   {id:'fullr',    name:'Revivir',       icon:'❤️‍🔥', effect:'revive', value:0,   rarity:0.04, desc:'Revivir con 50% HP (se usa automáticamente)'},
   // Tokens
-  {id:'tok5',     name:'PokéToken x5',  icon:'🪙', effect:'tokens',  value:5,   rarity:0.18, desc:'+5 PokéTokens'},
+  {id:'tok5',     name:'PokéToken x5',  icon:'₱', effect:'tokens',  value:5,   rarity:0.18, desc:'+5 PokéTokens'},
   // Nota: value se multiplica por (1 + AD.layer * 0.3) en applyItemToLoot para escalar con el piso
   {id:'tok10',    name:'PokéToken x10', icon:'💰', effect:'tokens',  value:10,  rarity:0.10, desc:'+10 PokéTokens'},
   {id:'tok25',    name:'Pepita',        icon:'✨', effect:'tokens',  value:25,  rarity:0.03, desc:'+25 PokéTokens'},
@@ -6518,7 +6522,7 @@ function stEnd(victory){
     const e=AD.battleEnemy;
     const diffMult=_dgDiff?.mult||1;
     const baseTok=Math.round((e.isBoss?150:30)*diffMult);
-    AD.loot.push({id:'tok_battle',name:e.isBoss?'Botín de jefe':'Recompensa',icon:'🪙',effect:'tokens',value:baseTok});
+    AD.loot.push({id:'tok_battle',name:e.isBoss?'Botín de jefe':'Recompensa',icon:'₱',effect:'tokens',value:baseTok});
 
     // ── XP por combate en dungeon ──
     if(AD.poke){
@@ -6658,7 +6662,7 @@ async function advStart(pokeId){
     const sameDay=reset&&reset.toDateString()===now.toDateString();
     const todayTokens=sameDay?(profile.dungeon_tokens_today||0):0;
     if(todayTokens>=3000){
-      toast('🪙 Alcanzaste el límite diario de tokens del dungeon (3.000). Volvé mañana.',1);
+      toast('₱ Alcanzaste el límite diario de tokens del dungeon (3.000). Volvé mañana.',1);
       return;
     }
   }
@@ -6725,7 +6729,7 @@ async function advEnd(victory){
       html+=`<div class="dg-loot-chip">${i.icon} ${i.name}${i.count>1?' ×'+i.count:''} ${i.effect==='tokens'?`(+${i.value*i.count} pts)`:''}</div>`;
     });
     html+=`</div>`;
-    if(tokens)html+=`<div style="font-size:10px;color:var(--gold);text-align:center;margin-bottom:8px">🪙 Total: +${tokens} PokéTokens</div>`;
+    if(tokens)html+=`<div style="font-size:10px;color:var(--gold);text-align:center;margin-bottom:8px">₱ Total: +${tokens} PokéTokens</div>`;
     if(tokensCapped>0)html+=`<div style="font-size:5px;color:var(--text-dim);text-align:center;margin-bottom:6px">⚠️ ${tokensCapped} tokens no acreditados por el límite diario (3.000)</div>`;
     // Actualizar display de tokens en topbar
     updateAuthUI();
