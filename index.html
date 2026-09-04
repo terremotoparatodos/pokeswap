@@ -2618,14 +2618,15 @@ document.getElementById('ib-free').style.display=canFree?'':'none';
 const moneyDiv=document.getElementById('ib-money');if(moneyDiv)moneyDiv.style.display=(!p.locked&&!isMe)?'':'none';
 const hasTok=(profile?.tokens||0)>=price;
 const tokenPrice=Math.max(1000, price); // Mínimo 1000 tokens = $1
+const hasEnoughTok=(profile?.tokens||0)>=tokenPrice;
 const it=document.getElementById('ib-tok');
 if(user&&!p.locked&&!isMe){
   it.style.display='';
   it.textContent=`₱ ${tokenPrice.toLocaleString()}`;
-  if((profile?.tokens||0)>=tokenPrice){
-    it.style.opacity='1';it.disabled=false;
+  if(hasEnoughTok){
+    it.style.opacity='1';it.onclick=()=>pay('tokens');
   } else {
-    it.style.opacity='.45';it.disabled=false;
+    it.style.opacity='.45';it.onclick=()=>toast(`Necesitás ₱${tokenPrice.toLocaleString()} tokens (tenés ₱${(profile?.tokens||0).toLocaleString()})`,1);
   }
 } else { it.style.display='none'; }
 document.getElementById('ipnote').textContent=isOwned&&!isMe?`Si te lo sacan recibís ₱${price} PokéTokens`:'';
