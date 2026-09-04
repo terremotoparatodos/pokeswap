@@ -1880,7 +1880,53 @@ verifyLoyalty(false);
 dexLoadFromSupabase();
 // Migrar XP del localStorage a Supabase (solo una vez)
 migrateXpToSupabase();
+// Acreditar tokens pasivos acumulados
+collectPassiveTokens();
 }
+
+// ── TOKENS PASIVOS POR HORA (basado en Aura de los Pokémon del jugador) ──
+async function collectPassiveTokens(){
+  if(!user||!profile||!slots)return;
+  const lastCollect = profile.passive_tokens_collected_at
+    ? new Date(profile.passive_tokens_collected_at).getTime()
+    : Date.now();
+  const now = Date.now();
+  const hoursElapsed = Math.min((now - lastCollect) / (1000*60*60), 24); // cap 24h offline
+  if(hoursElapsed < 0.05) return; // menos de 3 min, no vale la pena
+
+  // Calcular tokens/hora total de todos los Pokémon propios
+  let totalTph = 0;
+  pokemon.forEach(p => {
+    const s = slots[p.id];
+    if(s && s.owner_id === user.id){
+      const aura = (s.aura||0) + getBaseAura(p.id);
+      const tph = Math.max(5, Math.round(5 + aura/50));
+      totalTph += tph;
+    }
+  });
+
+  if(totalTph <= 0) return;
+
+  const earned = Math.floor(totalTph * hoursElapsed);
+  if(earned <= 0) return;
+
+  const newTokens = (profile.tokens||0) + earned;
+  const{error} = await sb.from('profiles').update({
+    tokens: newTokens,
+    passive_tokens_collected_at: new Date().toISOString()
+  }).eq('id', user.id);
+
+  if(!error){
+    profile.tokens = newTokens;
+    profile.passive_tokens_collected_at = new Date().toISOString();
+    if(earned >= 10){
+      toast(`🪙 +${earned} tokens pasivos acumulados (${totalTph}/h × ${hoursElapsed.toFixed(1)}h)`);
+    }
+  }
+}
+
+// Recolectar tokens pasivos cada 10 minutos mientras el usuario está activo
+setInterval(()=>{if(user&&profile)collectPassiveTokens();}, 10*60*1000);
 
 async function migrateXpToSupabase(){
   if(!user)return;
@@ -6261,6 +6307,25 @@ function stEnd(victory){
     const diffMult=_dgDiff?.mult||1;
     const baseTok=Math.round((e.isBoss?150:30)*diffMult);
     AD.loot.push({id:'tok_battle',name:e.isBoss?'Botín de jefe':'Recompensa',icon:'🪙',effect:'tokens',value:baseTok});
+
+    // ── XP por combate en dungeon ──
+    if(AD.poke){
+      const eLv = e.lv||e.level||5;
+      const baseXp = e.isBoss ? 80 : 25;
+      const lvBonus = Math.floor(eLv * 1.5);
+      const dungeonXp = Math.round((baseXp + lvBonus) * diffMult);
+      (async()=>{
+        const prog = await xpLoad(AD.poke.id);
+        prog.xp += dungeonXp;
+        await xpSave(AD.poke.id, prog);
+        const pending = xpPendingCount(prog);
+        const xpMsg = pending > 0
+          ? `✨ +${dungeonXp} XP — ¡Puede subir de nivel! (×${pending})`
+          : `+${dungeonXp} XP`;
+        advLog(xpMsg);
+      })();
+    }
+
     if(wrap)wrap.style.display='none';
     document.querySelector('.adv-wrap').classList.remove('in-battle');
     const rewardText=e.isBoss
@@ -6333,11 +6398,14 @@ async function advAddDungeonTokens(amount){
   const remaining = Math.max(0, 3000 - todayTokens);
   const actual = Math.min(amount, remaining);
   if(actual <= 0) return 0;
-  // Actualizar en Supabase
+  // Actualizar tope diario Y acreditar tokens al perfil
+  const newTokens = (profile.tokens||0) + actual;
   await sb.from('profiles').update({
+    tokens: newTokens,
     dungeon_tokens_today: todayTokens + actual,
     dungeon_tokens_reset_at: sameDay ? profile.dungeon_tokens_reset_at : now.toISOString()
   }).eq('id', user.id);
+  profile.tokens = newTokens;
   profile.dungeon_tokens_today = todayTokens + actual;
   profile.dungeon_tokens_reset_at = sameDay ? profile.dungeon_tokens_reset_at : now.toISOString();
   return actual;
@@ -6447,6 +6515,8 @@ async function advEnd(victory){
     html+=`</div>`;
     if(tokens)html+=`<div style="font-size:10px;color:var(--gold);text-align:center;margin-bottom:8px">🪙 Total: +${tokens} PokéTokens</div>`;
     if(tokensCapped>0)html+=`<div style="font-size:5px;color:var(--text-dim);text-align:center;margin-bottom:6px">⚠️ ${tokensCapped} tokens no acreditados por el límite diario (3.000)</div>`;
+    // Actualizar display de tokens en topbar
+    updateAuthUI();
   }
   if(!victory)html+=`<div style="font-size:6px;color:var(--text-dim);text-align:center;margin-bottom:8px">Perdiste los objetos del sendero.</div>`;
   html+=`<div style="text-align:center"><button class="dg-btn" onclick="advClose()">Volver a la ciudad</button></div>`;
