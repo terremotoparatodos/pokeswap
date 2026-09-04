@@ -167,23 +167,30 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 @keyframes kanto-spark-anim{0%{opacity:1;transform:translate(-50%,-50%) scale(.4)}100%{opacity:0;transform:translate(-50%,-50%) scale(2)}}
 #stadium-field{position:absolute;top:0;left:0;right:0;bottom:0}
 /* ── DS-STYLE BATTLE VIEW ── */
-.ds-hp-panel{position:absolute;z-index:20;padding:6px 10px 5px;border-radius:6px;min-width:44%;pointer-events:none}
+.ds-hp-panel{position:absolute;z-index:20;padding:9px 15px 8px;border-radius:8px;min-width:48%;pointer-events:none}
 .ds-hp-panel.enemy{top:8px;left:8px;background:linear-gradient(180deg,rgba(24,32,56,.92),rgba(16,20,40,.95));border:2px solid rgba(88,120,180,.5);border-bottom:3px solid rgba(40,60,100,.7)}
 .ds-hp-panel.player{bottom:70px;right:8px;background:linear-gradient(180deg,rgba(24,32,56,.92),rgba(16,20,40,.95));border:2px solid rgba(88,120,180,.5);border-bottom:3px solid rgba(40,60,100,.7)}
-.ds-hp-row{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px}
-.ds-hp-name{font-size:8px;color:#fff;text-shadow:1px 1px 0 rgba(0,0,0,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
-.ds-hp-lv{font-size:6px;color:rgba(200,210,240,.8);flex-shrink:0}
-.ds-hp-bar-wrap{display:flex;align-items:center;gap:4px}
-.ds-hp-label{font-size:5px;color:#58c848;font-weight:bold;flex-shrink:0}
-.ds-hp-track{flex:1;height:5px;background:rgba(0,0,0,.6);border-radius:3px;overflow:hidden;border:1px solid rgba(60,80,120,.5)}
-.ds-hp-fill{height:100%;border-radius:2px;transition:width .25s,background .25s}
+.ds-hp-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:4px}
+.ds-hp-name{font-size:12px;color:#fff;text-shadow:1px 1px 0 rgba(0,0,0,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}
+.ds-hp-lv{font-size:9px;color:rgba(200,210,240,.8);flex-shrink:0}
+.ds-hp-bar-wrap{display:flex;align-items:center;gap:6px}
+.ds-hp-label{font-size:8px;color:#58c848;font-weight:bold;flex-shrink:0}
+.ds-hp-track{flex:1;height:8px;background:rgba(0,0,0,.6);border-radius:4px;overflow:hidden;border:1px solid rgba(60,80,120,.5)}
+.ds-hp-fill{height:100%;border-radius:3px;transition:width .25s,background .25s}
 .ds-hp-fill.green{background:linear-gradient(180deg,#58e858,#30b830)}
 .ds-hp-fill.yellow{background:linear-gradient(180deg,#f0d020,#c8a000)}
 .ds-hp-fill.red{background:linear-gradient(180deg,#e83828,#b82018)}
-.ds-hp-text{font-size:5px;color:rgba(200,210,240,.65);text-align:right;margin-top:2px}
+.ds-hp-text{font-size:8px;color:rgba(200,210,240,.65);text-align:right;margin-top:3px}
 .ds-sprite{position:absolute;z-index:10;image-rendering:pixelated;pointer-events:none;transition:transform .12s}
-.ds-sprite.player{bottom:16%;left:14%;width:120px;height:120px;transform-origin:bottom center}
-.ds-sprite.enemy{top:12%;right:14%;width:96px;height:96px;transform-origin:bottom center}
+.ds-sprite.player{bottom:12%;left:12%;width:160px;height:160px;transform-origin:bottom center}
+.ds-sprite.enemy{top:8%;right:12%;width:128px;height:128px;transform-origin:bottom center}
+.ds-shadow{position:absolute;z-index:9;border-radius:50%;filter:blur(6px);pointer-events:none}
+.ds-shadow.player{bottom:10%;left:12%;width:140px;height:24px;background:rgba(0,0,0,.45)}
+.ds-shadow.enemy{top:auto;right:12%;width:110px;height:18px;background:rgba(0,0,0,.35)}
+.ds-aura{position:absolute;z-index:8;border-radius:50%;filter:blur(18px);pointer-events:none;opacity:.35;animation:ds-aura-pulse 2.5s ease-in-out infinite}
+.ds-aura.player{bottom:14%;left:10%;width:180px;height:80px}
+.ds-aura.enemy{width:150px;height:65px}
+@keyframes ds-aura-pulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.5;transform:scale(1.08)}}
 .ds-sprite.hurt{animation:ds-hurt .35s}
 .ds-sprite.ko{animation:ds-ko .6s forwards}
 @keyframes ds-hurt{0%,100%{filter:none;transform:translateX(0)}20%{filter:brightness(2.5) saturate(0);transform:translateX(6px)}40%{transform:translateX(-4px)}60%{filter:brightness(1.8) saturate(.3);transform:translateX(3px)}80%{transform:translateX(-2px)}}
@@ -5654,6 +5661,29 @@ function buildArena(){
       img.src = frontSprUrl(p.id);
       img.onerror = ()=>{ img.src = fbUrl(p.id); };
     }
+
+    // ── Aura de tipo ──
+    const typeColor = TC[p.type||p.type1] || '#888';
+    const aura = document.createElement('div');
+    aura.className = 'ds-aura ' + (isPlayer ? 'player' : 'enemy');
+    aura.style.background = typeColor;
+    if(!isPlayer){
+      // Posicionar aura del rival manualmente
+      const sprTop = 8; // matches .ds-sprite.enemy top:8%
+      aura.style.top = 'calc(' + sprTop + '% + 80px)';
+      aura.style.right = '12%';
+    }
+    arena.appendChild(aura);
+
+    // ── Sombra bajo el sprite ──
+    const shadow = document.createElement('div');
+    shadow.className = 'ds-shadow ' + (isPlayer ? 'player' : 'enemy');
+    if(!isPlayer){
+      shadow.style.top = 'calc(8% + 110px)';
+      shadow.style.right = '14%';
+    }
+    arena.appendChild(shadow);
+
     arena.appendChild(img);
 
     // ── HP Panel (estilo DS) ──
