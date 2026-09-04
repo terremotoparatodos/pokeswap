@@ -5855,7 +5855,7 @@ function doAttack(atk,def){
   const atkStat=(m.cat==='ph')?(atk.atkB*atk.atkMod):(atk.spatkB*atk.spatkMod);
   const defStat=(m.cat==='ph')?(def.defB*def.defMod):(def.spdefB*def.spdefMod);
   const burnMult=(atk.status==='burn'&&m.cat==='ph')?0.5:1;
-  const raw=(atkStat*m.p*burnMult)/(defStat*20);
+  const raw=(atkStat*m.p*burnMult)/(defStat*3);
   const dmg=Math.max(1,Math.round(raw*e*(0.85+Math.random()*.3)));
   playAttackAnim(m,ax,ay,tx,ty,()=>{
     if(e===0){floatSe(tx-20,ty-36,'Sin efecto','#999');atk.attacking=false;return;}
