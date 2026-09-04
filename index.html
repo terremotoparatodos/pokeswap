@@ -182,14 +182,14 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 .ds-hp-fill.red{background:linear-gradient(180deg,#e83828,#b82018)}
 .ds-hp-text{font-size:8px;color:rgba(200,210,240,.65);text-align:right;margin-top:3px}
 .ds-sprite{position:absolute;z-index:10;image-rendering:pixelated;pointer-events:none;transition:transform .12s}
-.ds-sprite.player{bottom:12%;left:12%;width:160px;height:160px;transform-origin:bottom center}
-.ds-sprite.enemy{top:8%;right:12%;width:128px;height:128px;transform-origin:bottom center}
-.ds-shadow{position:absolute;z-index:9;border-radius:50%;filter:blur(6px);pointer-events:none}
-.ds-shadow.player{bottom:10%;left:12%;width:140px;height:24px;background:rgba(0,0,0,.45)}
-.ds-shadow.enemy{top:auto;right:12%;width:110px;height:18px;background:rgba(0,0,0,.35)}
-.ds-aura{position:absolute;z-index:8;border-radius:50%;filter:blur(18px);pointer-events:none;opacity:.35;animation:ds-aura-pulse 2.5s ease-in-out infinite}
-.ds-aura.player{bottom:14%;left:10%;width:180px;height:80px}
-.ds-aura.enemy{width:150px;height:65px}
+.ds-sprite.player{bottom:8%;left:6%;width:320px;height:320px;transform-origin:bottom center}
+.ds-sprite.enemy{top:2%;right:6%;width:256px;height:256px;transform-origin:bottom center}
+.ds-shadow{position:absolute;z-index:9;border-radius:50%;filter:blur(8px);pointer-events:none}
+.ds-shadow.player{bottom:6%;left:8%;width:260px;height:36px;background:rgba(0,0,0,.45)}
+.ds-shadow.enemy{top:auto;right:8%;width:210px;height:28px;background:rgba(0,0,0,.35)}
+.ds-aura{position:absolute;z-index:8;border-radius:50%;filter:blur(24px);pointer-events:none;opacity:.35;animation:ds-aura-pulse 2.5s ease-in-out infinite}
+.ds-aura.player{bottom:8%;left:4%;width:340px;height:120px}
+.ds-aura.enemy{width:280px;height:100px}
 @keyframes ds-aura-pulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.5;transform:scale(1.08)}}
 .ds-sprite.hurt{animation:ds-hurt .35s}
 .ds-sprite.ko{animation:ds-ko .6s forwards}
@@ -5669,9 +5669,9 @@ function buildArena(){
     aura.style.background = typeColor;
     if(!isPlayer){
       // Posicionar aura del rival manualmente
-      const sprTop = 8; // matches .ds-sprite.enemy top:8%
-      aura.style.top = 'calc(' + sprTop + '% + 80px)';
-      aura.style.right = '12%';
+      const sprTop = 2; // matches .ds-sprite.enemy top:2%
+      aura.style.top = 'calc(' + sprTop + '% + 180px)';
+      aura.style.right = '6%';
     }
     arena.appendChild(aura);
 
@@ -5679,8 +5679,8 @@ function buildArena(){
     const shadow = document.createElement('div');
     shadow.className = 'ds-shadow ' + (isPlayer ? 'player' : 'enemy');
     if(!isPlayer){
-      shadow.style.top = 'calc(8% + 110px)';
-      shadow.style.right = '14%';
+      shadow.style.top = 'calc(2% + 230px)';
+      shadow.style.right = '10%';
     }
     arena.appendChild(shadow);
 
