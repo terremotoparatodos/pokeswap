@@ -7,9 +7,45 @@
 const STATS_DB={"1":[45,49,49,65,65,45],"2":[60,62,63,80,80,60],"3":[80,82,83,100,100,80],"4":[39,52,43,60,50,65],"5":[58,64,58,80,65,80],"6":[78,84,78,109,85,100],"7":[44,48,65,50,64,43],"8":[59,63,80,65,80,58],"9":[79,83,100,85,105,78],"10":[45,30,35,20,20,45],"11":[50,20,55,25,25,30],"12":[60,45,50,90,80,70],"13":[40,35,30,20,20,50],"14":[45,25,50,25,25,35],"15":[65,90,40,45,80,75],"16":[40,45,40,35,35,56],"17":[63,60,55,50,50,71],"18":[83,80,75,70,70,101],"19":[30,56,35,25,35,72],"20":[55,81,60,50,70,97],"21":[40,60,30,31,31,70],"22":[65,90,65,61,61,100],"23":[35,60,44,40,54,55],"24":[60,95,69,65,79,80],"25":[35,55,40,50,50,90],"26":[60,90,55,90,80,110],"27":[50,75,85,20,30,40],"28":[75,100,110,45,55,65],"29":[55,47,52,40,40,41],"30":[70,62,67,55,55,56],"31":[90,92,87,75,85,76],"32":[46,57,40,40,40,50],"33":[61,72,57,55,55,65],"34":[81,102,77,85,75,85],"35":[70,45,48,60,65,35],"36":[95,70,73,95,90,60],"37":[38,41,40,50,65,65],"38":[73,76,75,81,100,100],"39":[115,45,20,45,25,20],"40":[140,70,45,85,50,45],"41":[40,45,35,30,40,55],"42":[75,80,70,65,75,90],"43":[45,50,55,75,65,30],"44":[60,65,70,85,75,40],"45":[75,80,85,110,90,50],"46":[35,70,55,45,55,25],"47":[60,95,80,60,80,30],"48":[60,55,50,40,55,45],"49":[70,65,60,90,75,90],"50":[10,55,25,35,45,95],"51":[35,100,50,50,70,120],"52":[40,45,35,40,40,90],"53":[65,70,60,65,65,115],"54":[50,52,48,65,50,55],"55":[80,82,78,95,80,85],"56":[40,80,35,35,45,70],"57":[65,105,60,60,70,95],"58":[55,70,45,70,50,60],"59":[90,110,80,100,80,95],"60":[40,50,40,40,40,90],"61":[65,65,65,50,50,90],"62":[90,95,95,70,90,70],"63":[25,20,15,105,55,90],"64":[40,35,30,120,70,105],"65":[55,50,45,135,95,120],"66":[70,80,50,35,35,35],"67":[80,100,70,50,60,45],"68":[90,130,80,65,85,55],"69":[50,75,35,70,30,40],"70":[65,90,50,85,45,55],"71":[80,105,65,100,70,70],"72":[40,40,35,50,100,70],"73":[80,70,65,80,120,100],"74":[40,80,100,30,30,20],"75":[55,95,115,45,45,35],"76":[80,120,130,55,65,45],"77":[50,85,55,65,65,90],"78":[65,100,70,80,80,105],"79":[90,65,65,40,40,15],"80":[95,75,110,100,80,30],"81":[25,35,70,95,55,45],"82":[50,60,95,120,70,70],"83":[52,90,55,58,62,60],"84":[35,85,45,35,35,75],"85":[60,110,70,60,60,110],"86":[65,45,55,45,70,45],"87":[90,70,80,70,95,70],"88":[80,80,50,40,50,25],"89":[105,105,75,65,100,50],"90":[30,65,100,45,25,40],"91":[50,95,180,85,45,70],"92":[30,35,30,100,35,80],"93":[45,50,45,115,55,95],"94":[60,65,60,130,75,110],"95":[35,45,160,30,45,70],"96":[60,48,45,43,90,42],"97":[85,73,70,73,115,67],"98":[30,105,90,25,25,50],"99":[55,130,115,50,50,75],"100":[40,30,50,55,55,100],"101":[60,50,70,80,80,150],"102":[60,40,80,60,45,40],"103":[95,95,85,125,75,55],"104":[50,50,95,40,50,35],"105":[60,80,110,50,80,45],"106":[50,120,53,35,110,87],"107":[50,105,79,35,110,76],"108":[90,55,75,60,75,30],"109":[40,65,95,60,45,35],"110":[65,90,120,85,70,60],"111":[80,85,95,30,30,25],"112":[105,130,120,45,45,40],"113":[250,5,5,35,105,50],"114":[65,55,115,100,40,60],"115":[105,95,80,40,80,90],"116":[30,40,70,70,25,60],"117":[55,65,95,95,45,85],"118":[45,67,60,35,50,63],"119":[80,92,65,65,80,68],"120":[30,45,55,70,55,85],"121":[60,75,85,100,85,115],"122":[40,45,65,100,120,90],"123":[70,110,80,55,80,105],"124":[65,50,35,115,95,95],"125":[65,83,57,95,85,105],"126":[65,95,57,100,85,93],"127":[65,125,100,55,70,85],"128":[75,100,95,40,70,110],"129":[20,10,55,15,20,80],"130":[95,125,79,60,100,81],"131":[130,85,80,85,95,60],"132":[48,48,48,48,48,48],"133":[55,55,50,45,65,55],"134":[130,65,60,110,95,65],"135":[65,65,60,110,95,130],"136":[65,130,60,95,110,65],"137":[65,60,70,85,75,40],"138":[35,40,100,90,55,35],"139":[70,60,125,115,70,55],"140":[30,80,90,55,45,55],"141":[60,115,105,65,70,80],"142":[80,105,65,60,75,130],"143":[160,110,65,65,110,30],"144":[90,85,100,95,125,85],"145":[90,90,85,125,90,100],"146":[90,100,90,125,85,90],"147":[41,64,45,50,50,50],"148":[61,84,65,70,70,70],"149":[91,134,95,100,100,80],"150":[106,110,90,154,90,130],"151":[100,100,100,100,100,100]};
 const EVOLUTIONS={"1":{"to":2,"level":16},"2":{"to":3,"level":32},"4":{"to":5,"level":16},"5":{"to":6,"level":36},"7":{"to":8,"level":16},"8":{"to":9,"level":36},"10":{"to":11,"level":7},"11":{"to":12,"level":10},"13":{"to":14,"level":7},"14":{"to":15,"level":10},"16":{"to":17,"level":18},"17":{"to":18,"level":36},"19":{"to":20,"level":20},"21":{"to":22,"level":20},"23":{"to":24,"level":22},"27":{"to":28,"level":22},"29":{"to":30,"level":16},"32":{"to":33,"level":16},"41":{"to":42,"level":22},"43":{"to":44,"level":21},"46":{"to":47,"level":24},"48":{"to":49,"level":31},"50":{"to":51,"level":26},"52":{"to":53,"level":28},"54":{"to":55,"level":33},"56":{"to":57,"level":28},"60":{"to":61,"level":25},"63":{"to":64,"level":16},"66":{"to":67,"level":28},"69":{"to":70,"level":21},"72":{"to":73,"level":30},"74":{"to":75,"level":25},"77":{"to":78,"level":40},"79":{"to":80,"level":37},"81":{"to":82,"level":30},"84":{"to":85,"level":31},"86":{"to":87,"level":34},"88":{"to":89,"level":38},"92":{"to":93,"level":25},"96":{"to":97,"level":26},"98":{"to":99,"level":28},"100":{"to":101,"level":30},"104":{"to":105,"level":28},"236":{"to":107,"level":20},"109":{"to":110,"level":35},"111":{"to":112,"level":42},"116":{"to":117,"level":32},"118":{"to":119,"level":33},"238":{"to":124,"level":30},"239":{"to":125,"level":30},"240":{"to":126,"level":30},"129":{"to":130,"level":20},"138":{"to":139,"level":40},"140":{"to":141,"level":40},"147":{"to":148,"level":30},"148":{"to":149,"level":55}};
 function getStats(id){return STATS_DB[id]||[60,55,50,50,50,65];}
-function getBaseAura(id){const st=getStats(id);return Math.round(st.reduce((a,b)=>a+b,0)/2);}
+function getBaseAura(id,level){
+const st=getStats(id);
+const lv=level||1;
+// Aura = BST escalado al nivel actual del Pokémon (como los juegos originales)
+const bst=st.reduce((a,b)=>a+b,0);
+return Math.round((bst/6)*lv*0.8);
+}
 const _MV_FALLBACK={fire:['Ascuas','fire',40],water:['Pistola Agua','water',40],grass:['Látigo Cepa','grass',45],electric:['Impactrueno','electric',40],psychic:['Confusión','psychic',50],normal:['Placaje','normal',40],fighting:['Puño Fuego','fighting',40],poison:['Picotazo Veneno','poison',35],ground:['Bofetón Lodo','ground',20],rock:['Lanzarrocas','rock',50],bug:['Picadura','bug',60],ghost:['Bola Sombra','ghost',80],dragon:['Ira Dragón','dragon',40],ice:['Viento Hielo','ice',55],dark:['Mordisco','dark',60],steel:['Cabeza Hierro','steel',80],fairy:['Brillo Mágico','fairy',80],flying:['Ataque Ala','flying',60]};
 function _mvName(e){return lang==='es'?e[1]:e[2];}
+// Tipos especiales (Gen 1 split): fuego, agua, eléctrico, hielo, psíquico, dragón
+const _SP_TYPES=new Set(['fire','water','electric','ice','psychic','dragon']);
+// Status moves inutilizables en combate 1v1
+const _BAD_STATUS=new Set(['Teleport','Helping Hand','Baton Pass','Follow Me','Copycat','Me First',
+'Splash','Transform','Mimic','Conversion','Conversion 2','Camouflage','Role Play',
+'Whirlwind','Roar','Natural Gift','Recycle','Trick','Switcheroo','Fling',
+'Magnitude','Seismic Toss','Night Shade','Counter','Mirror Coat',
+'Sonic Boom','Dragon Rage','Trump Card','Fissure','Guillotine','Horn Drill','Sheer Cold',
+'Flail','Reversal','Endeavor','Low Kick','Punishment','Gyro Ball','Wring Out',
+'Spit Up','Swallow','Stockpile','Destiny Bond','Grudge','Perish Song',
+'Spikes','Toxic Spikes','Stealth Rock','Ingrain','Aqua Ring','Magnet Rise',
+'Lucky Chant','Tailwind','Safeguard','Mist','Haze','Fog','Rain Dance','Sunny Day',
+'Sandstorm','Hail','Gravity','Camouflage','Heal Bell','Aromatherapy',
+'Healing Wish','Lunar Dance','Wish','Moonlight','Synthesis','Soft-Boiled',
+'Slack Off','Recover','Rest','Refresh','Pain Split','Psych Up','Copycat',
+'Imprison','Block','Mean Look','Spider Web','Disable','Encore',
+'Confuse Ray','Supersonic','Swagger','Flatter','Attract','Captivate',
+'Sleep Talk','Metronome','Assist',
+'Acupressure','Lucky Chant','Mirror Move','Mud Sport','Water Sport']);
+// Status moves BUENOS en 1v1
+const _GOOD_STATUS=new Set(['Swords Dance','Nasty Plot','Dragon Dance','Calm Mind',
+'Agility','Rock Polish','Harden','Barrier','Iron Defense','Acid Armor',
+'Amnesia','Growth','Meditate','Sharpen','Belly Drum','Focus Energy',
+'Thunder Wave','Will-O-Wisp','Toxic','Poison Gas','Glare','Hypnosis',
+'Sleep Powder','Spore','Stun Spore','Sing','Lovely Kiss','Yawn',
+'Leer','Growl','Screech','Fake Tears','Feather Dance','Scary Face',
+'Metal Sound','Tail Whip','Tickle','String Shot','Sand Attack','Smokescreen',
+'Charge','Bulk Up','Curse','Double Team','Minimize','Protect','Detect','Endure',
+'Substitute','Taunt','Torment','Spite','Grudge','Encore']);
+function _mvCat(type){return _SP_TYPES.has(type)?'sp':'ph';}
 function getMoves(p,level){
 level=level||50;
 const arr=LEVEL_MOVES[p.id];
@@ -17,20 +53,26 @@ let dmgMoves=[];
 if(arr&&arr.length){
 const avail=arr.filter(e=>e[0]<=level);
 const pool=avail.length?avail:[];
-dmgMoves=pool.slice(-3).map(e=>({name:_mvName(e),type:e[3],power:e[4],level:e[0],status:false}));
+dmgMoves=pool.slice(-3).map(e=>({name:_mvName(e),type:e[3],power:e[4],cat:_mvCat(e[3]),level:e[0],status:false}));
 }
 if(!dmgMoves.length){
 const fb1=_MV_FALLBACK[p.type1]||_MV_FALLBACK.normal;
-dmgMoves.push({name:fb1[0],type:fb1[1],power:Math.max(25,Math.floor(fb1[2]*0.6)),level:1,status:false});
+dmgMoves.push({name:fb1[0],type:fb1[1],power:Math.max(25,Math.floor(fb1[2]*0.6)),cat:_mvCat(fb1[1]),level:1,status:false});
 }
-const st=STATUS_MOVES[p.id];
-let statusMove;
-if(st&&st.length){
-const idx=p.id%st.length;
-const e=st[idx];
-statusMove={name:lang==='es'?e[0]:e[1],type:e[2],power:null,status:true};
-}else{
-statusMove={name:lang==='es'?'Refuerzo':'Focus Energy',type:'normal',power:null,status:true};
+const stArr=STATUS_MOVES[p.id];
+let statusMove=null;
+if(stArr&&stArr.length){
+// Priorizar buenos moves de estado, luego cualquiera no-malo
+const good=stArr.filter(e=>_GOOD_STATUS.has(e[1]));
+const notBad=stArr.filter(e=>!_BAD_STATUS.has(e[1]));
+const pool=good.length?good:(notBad.length?notBad:null);
+if(pool&&pool.length){
+const e=pool[p.id%pool.length];
+statusMove={name:lang==='es'?e[0]:e[1],type:e[2],power:null,cat:'st',status:true};
+}
+}
+if(!statusMove){
+statusMove={name:lang==='es'?'Danza Espada':'Swords Dance',type:'normal',power:null,cat:'st',status:true};
 }
 return[...dmgMoves,statusMove].slice(0,4);
 }
