@@ -4454,23 +4454,30 @@ const diffHTML=`<div style="grid-column:1/-1;margin-bottom:8px">
 
 grid.innerHTML=diffHTML+
   `<div style="grid-column:1/-1;font-size:5px;color:${remaining>0?'var(--text-dim)':'#e04020'};text-align:center;margin-bottom:4px">
-  ₱ Tokens dungeon hoy: ${todayTokens}/3.000${remaining<=0?' — Límite alcanzado':''}</div>`+
-owned.map(p=>{
-const lv=5+Math.floor((slots[p.id]?.current_price||0)/5);
-const energy=advGetEnergy(slots[p.id]);
-const noEnergy=energy<10;
-const noTokens=remaining<=0;
-const disabled=noEnergy||noTokens;
-return `<div class="dg-sel-card${disabled?' dg-sel-disabled':''}" onclick="${disabled?'':` dgSelectAndGo(${p.id})`}" style="${disabled?'opacity:.5;cursor:not-allowed':''}">
-<img src="${FB}/${p.id}.png" alt="">
-<div class="dg-sel-card-info">
-<div class="dg-sel-card-name">${p['name_'+lang]||p.name_en}</div>
-<div class="dg-sel-card-lv">Lv.${lv}</div>
-${getEnergyBar(energy)}
-${noEnergy?'<div style="font-size:4px;color:#e04020">Sin energía</div>':''}
-</div>
-</div>`;
-}).join('');
+  ₱ Tokens dungeon hoy: ${todayTokens}/3.000${remaining<=0?' — Límite alcanzado':''}</div>`;
+
+// Cargar niveles reales async y renderizar cards
+(async()=>{
+  let cardsHTML='';
+  for(const p of owned){
+    const prog = await xpLoad(p.id);
+    const lv = prog.level;
+    const energy=advGetEnergy(slots[p.id]);
+    const noEnergy=energy<10;
+    const noTokens=remaining<=0;
+    const disabled=noEnergy||noTokens;
+    cardsHTML+=`<div class="dg-sel-card${disabled?' dg-sel-disabled':''}" onclick="${disabled?'':` dgSelectAndGo(${p.id})`}" style="${disabled?'opacity:.5;cursor:not-allowed':''}">
+    <img src="${FB}/${p.id}.png" alt="">
+    <div class="dg-sel-card-info">
+    <div class="dg-sel-card-name">${p['name_'+lang]||p.name_en}</div>
+    <div class="dg-sel-card-lv">Lv.${lv} · ⚡${Math.round(energy)}</div>
+    ${getEnergyBar(energy)}
+    ${noEnergy?'<div style="font-size:4px;color:#e04020">Sin energía</div>':''}
+    </div>
+    </div>`;
+  }
+  grid.innerHTML+=cardsHTML;
+})();
 document.getElementById('dg-select').classList.add('open');
 }
 
@@ -6684,15 +6691,19 @@ async function advStart(pokeId){
   if(!p)return;
   const _isMinePoke=user&&slots[p.id]?.owner_id===user.id;
 
+  const DUNGEON_ENERGY_COST = 30; // costo fijo al entrar, no importa cuánto dures
+
   // Verificar energía del Pokémon
   const slotData=slots[p.id];
   if(_isMinePoke){
     const energy=advGetEnergy(slotData);
-    if(energy<10){
-      const rechargeMin=Math.ceil((10-energy)*6); // 10 energía/hora = 1 cada 6 min
-      toast(`⚡ ${p['name_'+lang]||p.name_en} no tiene energía. Recarga en ~${rechargeMin} min.`,1);
+    if(energy<DUNGEON_ENERGY_COST){
+      const rechargeMin=Math.ceil((DUNGEON_ENERGY_COST-energy)*6); // 10 energía/hora = 1 cada 6 min
+      toast(`⚡ ${p['name_'+lang]||p.name_en} necesita ${DUNGEON_ENERGY_COST} energía (tiene ${Math.round(energy)}). Recarga en ~${rechargeMin} min.`,1);
       return;
     }
+    // Consumir energía AL ENTRAR, no al salir
+    await advConsumeEnergy(p.id, DUNGEON_ENERGY_COST);
   }
 
   // Verificar tope diario de tokens del dungeon
@@ -6745,13 +6756,9 @@ async function advEnd(victory){
   const body=document.getElementById('adv-body');
   const rc=document.getElementById('adv-room');if(rc)rc.style.display='none';
 
-  // Consumir energía según salas completadas
+  // Energía ya fue consumida al entrar al dungeon (DUNGEON_ENERGY_COST)
   const roomsDone = AD.history.length;
   const isBossDefeated = victory && AD.layer >= AD.normalLayers;
-  const energyCost = Math.min(roomsDone*10 + (isBossDefeated?20:0), ENERGY_MAX);
-  if(AD.poke && user && slots[AD.poke.id]?.owner_id===user.id){
-    await advConsumeEnergy(AD.poke.id, energyCost);
-  }
 
   // Calcular tokens con tope diario
   const rawTokens = victory ? AD.loot.filter(i=>i.effect==='tokens').reduce((s,i)=>s+i.value,0) : 0;
