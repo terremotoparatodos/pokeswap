@@ -2341,7 +2341,9 @@ document.getElementById('info-backdrop').classList.remove('show');
 // ══════════════════════════════════════════════════
 const XP_RATE=1/4; // xp por segundo (=15 xp/min)
 const XP_CAP_SECONDS=21600; // tope 6hs offline
-function xpNeeded(level){return 20+level*8;}
+// Curva de experiencia: crece cuadráticamente
+// Lv1→2: 50 XP, Lv10→11: 230 XP, Lv25→26: 530 XP, Lv50→51: 1030 XP, Lv100: 2030 XP
+function xpNeeded(level){return 30 + level*20 + Math.floor(level*level*0.15);}
 function evoChainWalk(id,level){let cur=id;while(EVOLUTIONS[cur]&&level>=EVOLUTIONS[cur].level){cur=EVOLUTIONS[cur].to;}return cur;}
 function getEffectiveStats(id,level){const eff=evoChainWalk(id,level);return STATS_DB[eff]||STATS_DB[id]||[60,55,50,50,50,65];}
 
@@ -2576,7 +2578,7 @@ function renderPokedexGrid(){
   document.getElementById('pdex-reg-bar').style.width=Math.round(reg.size/total*100)+'%';
 }
 
-function updatePanel(id){
+async function updatePanel(id){
 const p=pokemon.find(x=>x.id===id);if(!p)return;
 dexMarkSeen(id);
 const s=slots[p.id];const price=s?.owner_id?s.current_price+1:p.base_price;
@@ -2593,7 +2595,7 @@ const serial = s?.claim_count||0;
 const serialStr = serial>0 ? `<span style="font-size:4px;color:var(--text-dim);background:rgba(240,200,0,.06);border:1px solid rgba(240,200,0,.15);border-radius:2px;padding:1px 4px;margin-left:4px">#${String(serial).padStart(3,'0')}</span>` : '';
 const firstOwnerStr = s?.first_owner_username&&serial>1 ? `<div style="font-size:4px;color:var(--text-dim);margin-top:1px">1er dueño: ${s.first_owner_username}</div>` : '';
 document.getElementById('ipowner').innerHTML=(isOwned?(isMe?`⭐ Tuyo${serialStr}`:`Dueño: ${s.owner_username}${serialStr}`):(p.locked?'🔒 Bloqueado · evento especial':'Salvaje · disponible'))+firstOwnerStr;
-const _ipLv=isMe?xpLoad(p.id).level:(1+Math.floor((price||5)/3));
+const _ipLv=isMe?(await xpLoad(p.id)).level:(1+Math.floor((price||5)/3));
 const st=isMe?getEffectiveStats(p.id,_ipLv):getStats(p.id);
 const hpMax=st[0];const hpCur=Math.max(1,hpMax-Math.floor((price||0)/8));
 const hpPct=Math.round(hpCur/hpMax*100);
@@ -2863,7 +2865,7 @@ function selectBox(id){
   updateDexPane(id);
   updateClaimCountdown();
 }
-function updateDexPane(id){
+async function updateDexPane(id){
 const p=pokemon.find(x=>x.id===id);if(!p)return;
 const s=slots[p.id];const price=s?.owner_id?s.current_price+1:p.base_price;
 document.getElementById('dex-empty').style.display='none';
@@ -4366,7 +4368,7 @@ ${moves.map((m,i)=>`<button class="dg-move-btn" style="background:${TC[p.type1]|
 <div class="dg-battle-log" id="dg-blog">${dg.log.slice(-4).map(m=>`<div class="dg-log-line">${m}</div>`).join('')}</div>
 `;
 }
-function dgOpen(pokeId){
+async function dgOpen(pokeId){
 const p=pokemon.find(x=>x.id===pokeId);
 if(!p)return;
 dg.active=true;
@@ -4383,7 +4385,9 @@ dg.playerDir='down';
 dg._psprCache={};
 dg._espr={};
 const st=getStats(p.id);
-dg.playerLv=5+Math.floor((slots[p.id]?.current_price||0)/5);
+const _isMineDg=user&&slots[p.id]?.owner_id===user.id;
+const xpProg=_isMineDg?await xpLoad(p.id):{level:5};
+dg.playerLv=xpProg.level;
 const lvMult=1+dg.playerLv*0.08;
 dg.playerMaxHP=Math.floor(st[0]*lvMult);
 dg.playerHP=dg.playerMaxHP;
