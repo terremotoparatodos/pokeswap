@@ -1391,10 +1391,8 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
       <div style="display:flex;gap:4px;align-items:center">
         <div id="adv-speed-btns" style="display:none;gap:3px;align-items:center">
           <span style="font-size:4px;color:var(--text-dim)">vel.</span>
-          <button onclick="stSetSpeed(1)" id="spd-1" class="adv-spd-btn active">×1</button>
-          <button onclick="stSetSpeed(2)" id="spd-2" class="adv-spd-btn">×2</button>
-          <button onclick="stSetSpeed(4)" id="spd-4" class="adv-spd-btn">×4</button>
-          <button onclick="stSetSpeed(8)" id="spd-8" class="adv-spd-btn">×8</button>
+          <button onclick="stSetSpeed(1)" id="spd-1" class="adv-spd-btn active">Normal</button>
+          <button onclick="stSetSpeed(2)" id="spd-2" class="adv-spd-btn">×2 Rápido</button>
         </div>
         <button class="box-close" onclick="advClose()" style="font-size:7px">✕ Salir</button>
       </div>
@@ -4060,16 +4058,21 @@ const p=dg.playerPoke;
 const e=dg.battleEnemy;
 const moves=getMoves(p);
 const move=moves[moveIdx]||moves[0];
-const atkType=p.type1;
-const stab=atkType===p.type1||atkType===p.type2;
-const dmg=calcDamage(dg.playerLv,dg.playerPoke._atk,e.def,atkType,e.type1,e.type2,stab);
+// Usar tipo y potencia del movimiento; respetar si es especial o físico
+const moveType=(move&&move.type)||p.type1;
+const movePow=(move&&move.power&&!move.status)?move.power:40;
+const isSpecial=(move&&move.cat==='sp');
+const atkStat=isSpecial?(dg.playerPoke._spa||dg.playerPoke._atk):dg.playerPoke._atk;
+const defStat=isSpecial?(e.spdef||e.spd||e.def):e.def;
+const stab=moveType===p.type1||moveType===p.type2;
+const dmg=calcDamage(dg.playerLv,atkStat,defStat,movePow,moveType,e.type1,e.type2,stab);
 e.hp=Math.max(0,e.hp-dmg);
-const eff=getEffectiveness(atkType,e.type1,e.type2);
+const eff=getEffectiveness(moveType,e.type1,e.type2);
 let effTxt='';
 if(eff>1)effTxt=' ¡Es super efectivo!';
 else if(eff<1&&eff>0)effTxt=' No es muy efectivo...';
 else if(eff===0)effTxt=' No afecta...';
-dgLog(`${p['name_'+lang]||p.name_en} usó ${move}! (-${dmg} HP)${effTxt}`);
+dgLog(`${p['name_'+lang]||p.name_en} usó ${(move&&move.name)||move||'Tackle'}! (-${dmg} HP)${effTxt}`);
 dgSound(eff>1?'crit':'hit');
 dgFlash();
 dgShakeBattle('.dg-enemy-side');
@@ -4089,11 +4092,30 @@ setTimeout(()=>dgRender(),600);
 return;
 }
 setTimeout(()=>{
-const eMoveType=e.type1;
-const eDmg=calcDamage(e.lv,e.atk,dg.playerPoke._def,eMoveType,p.type1,p.type2,true);
+// IA enemiga: elegir movimiento priorizando STAB y efectividad
+const eMoves=e.moves||[];
+let chosenMove=null;
+if(eMoves.length){
+  // Ponderar: STAB > superefectivo > neutral > no efectivo
+  const scored=eMoves.filter(m=>m&&!m.status&&m.power>0).map(m=>{
+    const mt=m.type||e.type1;
+    const eff=getEffectiveness(mt,p.type1,p.type2);
+    const stab=(mt===e.type1||mt===e.type2)?1.5:1;
+    return{m,score:eff*stab*(m.power||40)};
+  });
+  if(scored.length){scored.sort((a,b)=>b.score-a.score);chosenMove=scored[0].m;}
+}
+if(!chosenMove)chosenMove={name:'Tackle',type:e.type1,power:40,cat:'ph'};
+const eMoveType=chosenMove.type||e.type1;
+const eMoveIsSpecial=chosenMove.cat==='sp';
+const eAtkStat=eMoveIsSpecial?(e.spa||e.spatk||e.atk):e.atk;
+const eDefStat=eMoveIsSpecial?(dg.playerPoke._spd||dg.playerPoke._def):dg.playerPoke._def;
+const eMovePow=chosenMove.power||40;
+const eStab=(eMoveType===e.type1||eMoveType===e.type2);
+const eDmg=calcDamage(e.lv,eAtkStat,eDefStat,eMovePow,eMoveType,p.type1,p.type2,eStab);
 dg.playerHP=Math.max(0,dg.playerHP-eDmg);
-const eMove=e.moves[Math.floor(Math.random()*e.moves.length)]||'Tackle';
-dgLog(`${e.name} usó ${eMove}! (-${eDmg} HP)`);
+const eEffMsg=getEffectiveness(eMoveType,p.type1,p.type2)>1?' ¡Es super efectivo!':getEffectiveness(eMoveType,p.type1,p.type2)<1&&getEffectiveness(eMoveType,p.type1,p.type2)>0?' No es muy efectivo...':'';
+dgLog(`${e.name} usó ${chosenMove.name}! (-${eDmg} HP)${eEffMsg}`);
 dgSound('hit');
 dgShakeBattle('.dg-player-side');
 dgFloatDmg('.dg-player-side',eDmg,'#ff6050');
@@ -4359,7 +4381,7 @@ document.getElementById('dg-battle-inner').innerHTML=`
 </div>
 <div class="dg-battle-actions">
 <div class="dg-moves-row">
-${moves.map((m,i)=>`<button class="dg-move-btn" style="background:${TC[p.type1]||'#888'}" onclick="dgPlayerAttack(${i})">${m}</button>`).join('')}
+${moves.map((m,i)=>`<button class="dg-move-btn" style="background:${TC[(m&&m.type)||p.type1]||'#888'}" onclick="dgPlayerAttack(${i})">${(m&&m.name)||m}</button>`).join('')}
 </div>
 <div class="dg-act-row">
 <button class="dg-act-btn" onclick="dgUsePotion()">🧪 Poción${potCount?` (${potCount})`:' (0)'}</button>
@@ -5621,8 +5643,8 @@ let arena=null, logEl=null, statEl=null;
 let mul=1, lastTs=0, logQ=[], elimCnt=0;
 let kantoArenaBigMode=false;
 let kantoSpeedStepIdx=0;
-let kantoBattleBaseMul=2.2;
-const KANTO_SPEED_STEPS=[1,2,4];
+let kantoBattleBaseMul=1.1;
+const KANTO_SPEED_STEPS=[1,2];
 
 // ── mkPoke: igual que Copero ──
 function mkPoke(d,i,tot){
@@ -6491,9 +6513,8 @@ function stStart(enemy){
   // Sincronizar los botones ×1/×2/×4 de pokeswap con setKantoSpeed
   document.getElementById('spd-1')&&(document.getElementById('spd-1').onclick=()=>setKantoSpeed(0));
   document.getElementById('spd-2')&&(document.getElementById('spd-2').onclick=()=>setKantoSpeed(1));
-  document.getElementById('spd-4')&&(document.getElementById('spd-4').onclick=()=>setKantoSpeed(2));
   kantoSpeedStepIdx=0;
-  kantoBattleBaseMul=2.2; // mismo valor que el 1v1 de Copero
+  kantoBattleBaseMul=1.1; // velocidad base moderada
   applyKantoSpeed();
 
   // Boss: flash rojo + sombra en el campo
@@ -6549,8 +6570,8 @@ function stBuildControls(){
 }
 
 function stSetSpeed(s){
-  // s = 1/2/4 → map to kantoSpeedStepIdx 0/1/2
-  const idx={1:0,2:1,4:2}[s]||0;
+  // s = 1/2 → map to kantoSpeedStepIdx 0/1
+  const idx={1:0,2:1}[s]||0;
   setKantoSpeed(idx);
   document.querySelectorAll('.adv-spd-btn').forEach(b=>b.classList.remove('active'));
   const el=document.getElementById('spd-'+s);
