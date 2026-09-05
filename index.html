@@ -1920,7 +1920,8 @@ async function collectPassiveTokens(){
 
   if(totalTph <= 0) return;
 
-  const earned = Math.floor(totalTph * hoursElapsed);
+  const loyaltyMult = profile?.token_multiplier||1;
+  const earned = Math.floor(totalTph * hoursElapsed * loyaltyMult);
   if(earned <= 0) return;
 
   const newTokens = (profile.tokens||0) + earned;
@@ -4910,7 +4911,9 @@ function advGenBattleNode(isBoss){
     const bossPool = ADV_BOSSES.filter(b=>b.gen===targetGen||b.gen===targetGen-1);
     const boss = (bossPool.length>0?bossPool:ADV_BOSSES)[Math.floor(Math.random()*(bossPool.length||ADV_BOSSES.length))];
     const wp=pokemon.find(p=>p.id===boss.id)||pokemon[0];
-    const lv=boss.lv;
+    // Boss: al menos nivel del jugador +5, con bonus por dificultad
+    const bossBaseLv = boss.lv;
+    const lv = Math.max(bossBaseLv, AD.lv + 5) + (_dgDiff?.lvBonus||0);
     const st=getStats(wp.id);
     const mult=boss.mult;
     const hp=Math.floor(st[0]*(1+lv*0.14)*mult);
@@ -4941,7 +4944,10 @@ function advGenBattleNode(isBoss){
   if(pool.length < 5) pool = pokemon.filter(p=>!p.locked); // fallback al pool completo
   const wp=pool[Math.floor(Math.random()*pool.length)];
   const baseLv=2+Math.floor(AD.layer*2)+Math.floor(Math.random()*4);
-  const lv=Math.max(1,baseLv+(_dgDiff?.lvBonus||0));
+  // Escalar al nivel del jugador: enemigos son 60-100% del nivel del jugador + bonus por layer
+  const playerScaled = Math.floor(AD.lv * (0.6 + AD.layer*0.06) + AD.layer*2);
+  const scaledLv = Math.max(baseLv, playerScaled) + Math.floor(Math.random()*3);
+  const lv=Math.max(1, scaledLv + (_dgDiff?.lvBonus||0));
   const st=getStats(wp.id);
   const hp=Math.floor(st[0]*(1+lv*0.08));
   return{type:'battle',isBoss:false,icon:'⚔️',label:(wp['name_'+lang]||wp.name_en)+' Lv.'+lv,
@@ -5460,7 +5466,7 @@ function advTrainer(choice){
   }else if(choice==='battle'){
     // Genera un pokémon de nivel intermedio
     const node=advGenBattleNode(false);
-    node.enemy.lv=Math.max(4,AD.layer*2);
+    node.enemy.lv=Math.max(4, Math.floor(AD.lv*0.8) + AD.layer*2);
     node.enemy.extraReward=true; // doble tokens si gana
     advStartBattle(node.enemy);
   }else{
@@ -6568,7 +6574,8 @@ function stEnd(victory){
     SFX.play('victory');
     const e=AD.battleEnemy;
     const diffMult=_dgDiff?.mult||1;
-    const baseTok=Math.round((e.isBoss?150:30)*diffMult);
+    const loyaltyMult=profile?.token_multiplier||1;
+    const baseTok=Math.round((e.isBoss?150:30)*diffMult*loyaltyMult);
     AD.loot.push({id:'tok_battle',name:e.isBoss?'Botín de jefe':'Recompensa',icon:'₱',effect:'tokens',value:baseTok});
 
     // ── XP por combate en dungeon ──
