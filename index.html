@@ -4638,6 +4638,11 @@ ${moves.map((m,i)=>`<button class="dg-move-btn" style="background:${TC[(m&&m.typ
 async function dgOpen(pokeId){
 const p=pokemon.find(x=>x.id===pokeId);
 if(!p)return;
+// Bloquear entrada si el pokémon está en el Mercado
+if(slots[pokeId]?.is_locked){
+  toast('🏪 Este Pokémon está en el Mercado — retirá la publicación antes de entrar al dungeon',1);
+  return;
+}
 dg.active=true;
 dg.floor=1;
 dg.playerPoke=p;
