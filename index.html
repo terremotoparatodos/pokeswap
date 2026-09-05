@@ -1895,8 +1895,6 @@ verifyLoyalty(false);
 dexLoadFromSupabase();
 // Migrar XP del localStorage a Supabase (solo una vez)
 migrateXpToSupabase();
-// Acreditar tokens pasivos acumulados
-collectPassiveTokens();
 }
 
 // ── TOKENS PASIVOS POR HORA (basado en Aura de los Pokémon del jugador) ──
@@ -1940,8 +1938,7 @@ async function collectPassiveTokens(){
   }
 }
 
-// Recolectar tokens pasivos cada 10 minutos mientras el usuario está activo
-setInterval(()=>{if(user&&profile)collectPassiveTokens();}, 10*60*1000);
+// Tokens pasivos: SOLO se cobran manualmente desde Mi Mundo → botón "Cobrar tokens"
 
 // UI para cobrar tokens manualmente desde Mi Mundo
 const CLAIM_COOLDOWN_MIN = 10; // minutos entre claims
