@@ -1797,9 +1797,12 @@ async function marketLoad(){
       mySlotIds.map(id=>{
         const p=pokemon.find(pk=>pk.id===id);
         if(!p)return '';
+        const slotData=slots[id];
+        const isLocked=slotData?.is_locked;
         const alreadyListed=listings?.some(l=>l.pokemon_id===id&&l.seller_id===user.id);
-        return `<option value="${id}"${alreadyListed?' disabled':''}>
-          ${p[`name_${lang}`]||p.name_en}${alreadyListed?' (ya publicado)':''}
+        const disabled=isLocked||alreadyListed;
+        return `<option value="${id}"${disabled?' disabled':''}>
+          ${p[`name_${lang}`]||p.name_en}${isLocked?' 🔒 En Mercado':''}${alreadyListed&&!isLocked?' (ya publicado)':''}
         </option>`;
       }).join('');
   }
@@ -1811,7 +1814,20 @@ async function marketPublish(){
   const price=parseInt(document.getElementById('market-sell-price').value);
   if(!pokemonId){toast('Elegí un Pokémon',1);return;}
   if(!price||price<1){toast('Ingresá un precio válido',1);return;}
+  if(price<10){toast('El precio mínimo es 10 tokens',1);return;}
 
+  // Verificar que el pokémon no esté bloqueado
+  const slot=slots[pokemonId];
+  if(slot?.is_locked){toast('Este Pokémon ya está en el Mercado',1);return;}
+
+  // Bloquear el slot primero (is_locked = true)
+  const {error:lockErr}=await sb.from('slots')
+    .update({is_locked:true,updated_at:new Date().toISOString()})
+    .eq('pokemon_id',pokemonId)
+    .eq('owner_id',user.id);
+  if(lockErr){toast('Error al bloquear: '+lockErr.message,1);return;}
+
+  // Crear el listing
   const {error}=await sb.from('market_listings').insert({
     pokemon_id:pokemonId,
     seller_id:user.id,
@@ -1820,8 +1836,13 @@ async function marketPublish(){
     is_purchased:false,
     expires_at:new Date(Date.now()+7*24*60*60*1000).toISOString(),
   });
-  if(error){toast('Error: '+error.message,1);return;}
-  toast(`✓ Publicado por ₱ ${price} tokens`);
+  if(error){
+    // Revertir el bloqueo si falla el listing
+    await sb.from('slots').update({is_locked:false}).eq('pokemon_id',pokemonId).eq('owner_id',user.id);
+    toast('Error: '+error.message,1);return;
+  }
+  toast(`✓ Publicado por ₱ ${price} tokens — el Pokémon queda bloqueado hasta que se venda o canceles`);
+  await loadSlots();
   await marketLoad();
 }
 
@@ -1843,12 +1864,20 @@ async function marketBuy(listingId,name){
 
 async function marketCancel(listingId){
   if(!confirm('¿Retirar esta publicación?'))return;
+  // Obtener el pokemon_id antes de borrar
+  const {data:listing}=await sb.from('market_listings').select('pokemon_id').eq('id',listingId).eq('seller_id',user.id).single();
   const {error}=await sb.from('market_listings')
     .delete()
     .eq('id',listingId)
     .eq('seller_id',user.id);
   if(error){toast('Error: '+error.message,1);return;}
-  toast('Publicación retirada');
+  // Desbloquear el slot
+  if(listing?.pokemon_id){
+    await sb.from('slots').update({is_locked:false,updated_at:new Date().toISOString()})
+      .eq('pokemon_id',listing.pokemon_id).eq('owner_id',user.id);
+  }
+  toast('Publicación retirada — Pokémon disponible nuevamente');
+  await loadSlots();
   await marketLoad();
 }
 
@@ -2591,7 +2620,8 @@ const isOwned=!!s?.owner_id;const isMe=user&&s?.owner_id===user.id;
 const serial = s?.claim_count||0;
 const serialStr = serial>0 ? `<span style="font-size:4px;color:var(--text-dim);background:rgba(240,200,0,.06);border:1px solid rgba(240,200,0,.15);border-radius:2px;padding:1px 4px;margin-left:4px">#${String(serial).padStart(3,'0')}</span>` : '';
 const firstOwnerStr = s?.first_owner_username&&serial>1 ? `<div style="font-size:4px;color:var(--text-dim);margin-top:1px">1er dueño: ${s.first_owner_username}</div>` : '';
-document.getElementById('ipowner').innerHTML=(isOwned?(isMe?`⭐ Tuyo${serialStr}`:`Dueño: ${s.owner_username}${serialStr}`):(p.locked?'🔒 Bloqueado · evento especial':'Salvaje · disponible'))+firstOwnerStr;
+const isInMarket=isMe&&s?.is_locked&&!p.locked;
+document.getElementById('ipowner').innerHTML=(isOwned?(isMe?(isInMarket?`🏪 Tuyo · en el Mercado${serialStr}`:`⭐ Tuyo${serialStr}`):`Dueño: ${s.owner_username}${serialStr}`):(p.locked?'🔒 Bloqueado · evento especial':'Salvaje · disponible'))+firstOwnerStr;
 const _ipLv=isMe?(await xpLoad(p.id)).level:(()=>{const _bst=getStats(p.id).reduce((a,b)=>a+b,0);return Math.min(20,Math.max(1,Math.floor(_bst/35)));})());
 const aura=(s?.aura||0)+getBaseAura(p.id,_ipLv);
 document.getElementById('ipprice').innerHTML=p.locked?'🔒 EVENTO ESPECIAL':`<span style="color:#c080f0">◈</span> ${aura.toLocaleString()} Aura`;
@@ -2638,8 +2668,8 @@ const regBtn=document.getElementById('ip-register-btn');
 const alreadyReg=dexGetRegistered().includes(id);
 if(isMe&&!alreadyReg){regBtn.style.display='block';}else{regBtn.style.display='none';}
 }
-async function pay(prov){if(!user){openAuth();return;}if(!selectedId)return;const p=pokemon.find(x=>x.id===selectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
-async function payBox(prov){if(!user){openAuth();return;}if(!boxSelectedId)return;const p=pokemon.find(x=>x.id===boxSelectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
+async function pay(prov){if(!user){openAuth();return;}if(!selectedId)return;const p=pokemon.find(x=>x.id===selectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}const _slotPay=slots[selectedId];if(_slotPay?.is_locked&&_slotPay?.owner_id!==user?.id){toast('🏪 Este Pokémon está en el Mercado P2P — compralo desde el Mercado',1);return;}await _pay(p,prov);}
+async function payBox(prov){if(!user){openAuth();return;}if(!boxSelectedId)return;const p=pokemon.find(x=>x.id===boxSelectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}const _slotBox=slots[boxSelectedId];if(_slotBox?.is_locked&&_slotBox?.owner_id!==user?.id){toast('🏪 Este Pokémon está en el Mercado P2P — compralo desde el Mercado',1);return;}await _pay(p,prov);}
 async function _pay(p,prov){
 if(prov==='free'){try{const{data:{session}}=await sb.auth.getSession();const r=await(await fetch(`${SB_URL}/functions/v1/free-claim`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({pokemon_id:p.id})})).json();if(r.error)return toast(r.error,1);toast(`¡${p[`name_${lang}`]||p.name_en} fue adoptado!`);await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();if(selectedId)updatePanel(selectedId);setTimeout(()=>drawMM(),3000);}catch(e){toast(e.message,1);}return;}
 // Mostrar overlay de carga
