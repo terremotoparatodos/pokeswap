@@ -4074,60 +4074,223 @@ const stabMult=stab?1.5:1;
 const rand=0.85+Math.random()*0.15;
 return Math.max(1,Math.floor(base*eff*stabMult*rand));
 }
+// Tabla de multiplicadores de stat stages Gen 3 (−6 a +6)
+const STAGE_MUL=[0.25,0.28,0.33,0.4,0.5,0.66,1,1.5,2,2.5,3,3.5,4];
+function stageIdx(s){return Math.max(0,Math.min(12,s+6));}
+function stageMul(s){return STAGE_MUL[stageIdx(s)];}
+// Colores de estado
+const STATUS_COL={poison:'#c060e0',burn:'#f06030',paralysis:'#f0d030',sleep:'#6080d0',freeze:'#80d0f0'};
+const STATUS_NAME={poison:'Envenenado',burn:'Quemado',paralysis:'Paralizado',sleep:'Dormido',freeze:'Congelado'};
+function dgApplyStatus(target,status,sourceName){
+// target: 'player' | 'enemy'
+const cur=target==='player'?dg.playerStatus:dg.enemyStatus;
+if(cur)return false; // ya tiene estado
+if(target==='player'){dg.playerStatus=status;dg.playerStatusTurns=status==='sleep'?Math.floor(2+Math.random()*3):0;}
+else{dg.enemyStatus=status;dg.enemyStatusTurns=status==='sleep'?Math.floor(2+Math.random()*3):0;}
+const who=target==='player'?(dg.playerPoke['name_'+lang]||dg.playerPoke.name_en):dg.battleEnemy.name;
+const icon={poison:'☠️',burn:'🔥',paralysis:'⚡',sleep:'💤',freeze:'🧊'}[status]||'';
+dgLog(`${icon} ${who} quedó ${STATUS_NAME[status]}!`);
+return true;
+}
+function dgStatStage(target,stat,stages){
+// target: 'player'|'enemy', stat: 'atk'|'def'|'spa'|'spd'|'spe', stages: +1/+2/-1/-2
+const obj=target==='player'?dg.playerStages:dg.enemyStages;
+const prev=obj[stat]||0;
+obj[stat]=Math.max(-6,Math.min(6,prev+stages));
+const who=target==='player'?(dg.playerPoke['name_'+lang]||dg.playerPoke.name_en):dg.battleEnemy.name;
+const changed=obj[stat]-prev;
+if(changed===0){dgLog(`¡Los stats de ${who} no pueden bajar más!`);return;}
+const arrow=changed>0?'▲':'▼';
+const label={atk:'Ataque',def:'Defensa',spa:'At. Esp.',spd:'Def. Esp.',spe:'Velocidad'}[stat]||stat;
+const amt=Math.abs(changed)>=2?'mucho':' un poco';
+dgLog(`${arrow} ${who}: ${label} ${changed>0?'subió':'bajó'} ${amt}!`);
+}
+function dgGetStagedStat(base,stage){return Math.max(1,Math.round(base*stageMul(stage)));}
+function dgStatusTick(target){
+// Aplica daño de veneno/quemadura al inicio del turno. Retorna true si el objetivo faints.
+const status=target==='player'?dg.playerStatus:dg.enemyStatus;
+if(!status)return false;
+const maxHP=target==='player'?dg.playerMaxHP:dg.battleEnemy.maxHp;
+const name=target==='player'?(dg.playerPoke['name_'+lang]||dg.playerPoke.name_en):dg.battleEnemy.name;
+if(status==='poison'||status==='burn'){
+const dot=Math.max(1,Math.floor(maxHP/8));
+if(target==='player'){dg.playerHP=Math.max(0,dg.playerHP-dot);}
+else{dg.battleEnemy.hp=Math.max(0,dg.battleEnemy.hp-dot);}
+const icon=status==='poison'?'☠️':'🔥';
+dgLog(`${icon} ${name} sufrió daño por ${STATUS_NAME[status]}! (-${dot} HP)`);
+if((target==='player'?dg.playerHP:dg.battleEnemy.hp)<=0)return true;
+}
+return false;
+}
+function dgCheckSleepFreeze(target){
+// Verifica si puede atacar este turno. Retorna true si NO puede atacar.
+const status=target==='player'?dg.playerStatus:dg.enemyStatus;
+if(!status)return false;
+const name=target==='player'?(dg.playerPoke['name_'+lang]||dg.playerPoke.name_en):dg.battleEnemy.name;
+if(status==='paralysis'){
+if(Math.random()<0.25){dgLog(`⚡ ${name} está paralizado y no puede moverse!`);return true;}
+}
+if(status==='sleep'){
+const tKey=target==='player'?'playerStatusTurns':'enemyStatusTurns';
+if(dg[tKey]>0){dg[tKey]--;dgLog(`💤 ${name} está dormido!`);return true;}
+const sKey=target==='player'?'playerStatus':'enemyStatus';
+dg[sKey]=null;dgLog(`${name} se despertó!`);return false;
+}
+if(status==='freeze'){
+if(Math.random()<0.8){dgLog(`🧊 ${name} está congelado!`);return true;}
+const sKey=target==='player'?'playerStatus':'enemyStatus';
+dg[sKey]=null;dgLog(`${name} se descongeló!`);return false;
+}
+return false;
+}
 function dgStartBattle(enemy){
 dg.inBattle=true;
 dg.battleEnemy=enemy;
+dg.battleEnemy.maxHp=dg.battleEnemy.maxHp||dg.battleEnemy.hp;
 dg.log=[];
+dg.playerStatus=dg.playerStatus||null;
+dg.playerStatusTurns=0;
+dg.playerStages=dg.playerStages||{atk:0,def:0,spa:0,spd:0,spe:0};
+dg.enemyStatus=null;
+dg.enemyStatusTurns=0;
+dg.enemyStages={atk:0,def:0,spa:0,spd:0,spe:0};
 dgSound(enemy.isBoss?'faint':'hit');
 dgLog(enemy.isBoss?`⚠️ ¡El JEFE ${enemy.name} bloquea el camino! (Lv.${enemy.lv})`:`¡Un ${enemy.name} salvaje apareció! (Lv.${enemy.lv})`);
+if(dg.playerStatus)dgLog(`(Seguís ${STATUS_NAME[dg.playerStatus]})`);
 dgRenderBattle();
+}
+// Aplica efecto de movimiento de estado
+function dgApplyMoveEffect(move, target){
+if(!move||!move.status)return;
+const n=move.name_en||move.name||'';
+// Efectos de estado
+if(['Will-O-Wisp','Thunder Wave','Toxic','Poison Gas','Glare','Hypnosis','Sleep Powder','Spore','Stun Spore','Sing','Lovely Kiss','Yawn'].includes(n)){
+  let st='poison';
+  if(['Will-O-Wisp'].includes(n))st='burn';
+  else if(['Thunder Wave','Stun Spore','Glare'].includes(n))st='paralysis';
+  else if(['Hypnosis','Sleep Powder','Spore','Sing','Lovely Kiss','Yawn'].includes(n))st='sleep';
+  else if(['Toxic','Poison Gas'].includes(n))st='poison';
+  dgApplyStatus(target,st);
+  return;
+}
+// Cambios de stat del usuario
+const selfUp={
+  'Swords Dance':['atk',2],'Nasty Plot':['spa',2],'Dragon Dance':['atk',1],'Agility':['spe',2],
+  'Rock Polish':['spe',2],'Amnesia':['spd',2],'Growth':['spa',1],'Bulk Up':['atk',1],
+  'Calm Mind':['spa',1],'Meditate':['atk',1],'Harden':['def',1],'Barrier':['def',2],
+  'Iron Defense':['def',2],'Acid Armor':['def',2],'Sharpen':['atk',1],'Focus Energy':['atk',1],
+  'Curse':['atk',1],'Double Team':['spe',1],'Minimize':['def',1],
+};
+const src=target==='enemy'?'player':'enemy';
+if(selfUp[n]){const[stat,stages]=selfUp[n];dgStatStage(src,stat,stages);return;}
+// Bajada de stat del rival
+const foeDown={
+  'Leer':['def',-1],'Growl':['atk',-1],'Screech':['def',-2],'Fake Tears':['spd',-2],
+  'Feather Dance':['atk',-2],'Scary Face':['spe',-2],'Metal Sound':['spd',-2],
+  'Tail Whip':['def',-1],'Tickle':['atk',-1],'String Shot':['spe',-1],'Sand Attack':['spe',-1],
+  'Smokescreen':['spe',-1],'Charm':['atk',-2],'Sweet Kiss':['spe',-1],
+};
+if(foeDown[n]){const[stat,stages]=foeDown[n];dgStatStage(target,stat,stages);return;}
 }
 function dgPlayerAttack(moveIdx){
 if(!dg.inBattle||!dg.battleEnemy)return;
 const p=dg.playerPoke;
 const e=dg.battleEnemy;
+// Tick de estado al inicio del turno del jugador
+if(dgStatusTick('player')){
+  dgRenderBattle();
+  if(dg.playerHP<=0){dgSound('faint');dg.inBattle=false;setTimeout(()=>dgEnd(false),1500);return;}
+}
+// Chequear si puede moverse
+if(dgCheckSleepFreeze('player')){
+  dgRenderBattle();
+  setTimeout(()=>dgEnemyTurn(),500);
+  return;
+}
 const moves=getMoves(p);
 const move=moves[moveIdx]||moves[0];
-// Usar tipo y potencia del movimiento; respetar si es especial o físico
+const moveName=move&&move.name||'Tackle';
+const isStatus=move&&move.status;
+// Si es movimiento de estado
+if(isStatus){
+  dgLog(`${p['name_'+lang]||p.name_en} usó ${moveName}!`);
+  dgAttackAnim('st','.dg-enemy-side','#f0f050');
+  dgApplyMoveEffect(move,'enemy');
+  dgRenderBattle();
+  setTimeout(()=>dgEnemyTurn(),500);
+  return;
+}
+// Movimiento de daño
 const moveType=(move&&move.type)||p.type1;
 const movePow=(move&&move.power&&!move.status)?move.power:40;
 const isSpecial=(move&&move.cat==='sp');
-const atkStat=isSpecial?(dg.playerPoke._spa||dg.playerPoke._atk):dg.playerPoke._atk;
-const defStat=isSpecial?(e.spdef||e.spd||e.def):e.def;
+// Aplicar stat stages al ataque
+const baseAtk=isSpecial?(dg.playerPoke._spa||dg.playerPoke._atk):dg.playerPoke._atk;
+const burnMod=(dg.playerStatus==='burn'&&!isSpecial)?0.5:1;
+const atkStat=Math.round(dgGetStagedStat(baseAtk,dg.playerStages[isSpecial?'spa':'atk'])*burnMod);
+const baseDef=isSpecial?(e.spdef||e.spd||e.def):e.def;
+const defStat=dgGetStagedStat(baseDef,dg.enemyStages[isSpecial?'spd':'def']);
 const stab=moveType===p.type1||moveType===p.type2;
 const dmg=calcDamage(dg.playerLv,atkStat,defStat,movePow,moveType,e.type1,e.type2,stab);
+// Chance de infligir estado por el movimiento (ej. Llama, Trueno con parálisis)
+const STATUS_ON_HIT={
+  'Flamethrower':['burn',0.1],'Fire Blast':['burn',0.1],'Ember':['burn',0.1],
+  'Thunderbolt':['paralysis',0.1],'Thunder':['paralysis',0.3],'Blizzard':['freeze',0.1],
+  'Ice Beam':['freeze',0.1],'Lick':['paralysis',0.3],'Poison Sting':['poison',0.3],
+  'Sludge Bomb':['poison',0.3],'Body Slam':['paralysis',0.3],
+};
 e.hp=Math.max(0,e.hp-dmg);
 const eff=getEffectiveness(moveType,e.type1,e.type2);
 let effTxt='';
 if(eff>1)effTxt=' ¡Es super efectivo!';
 else if(eff<1&&eff>0)effTxt=' No es muy efectivo...';
 else if(eff===0)effTxt=' No afecta...';
-dgLog(`${p['name_'+lang]||p.name_en} usó ${(move&&move.name)||move||'Tackle'}! (-${dmg} HP)${effTxt}`);
+dgLog(`${p['name_'+lang]||p.name_en} usó ${moveName}! (-${dmg} HP)${effTxt}`);
 dgSound(eff>1?'crit':'hit');
 const _pCat=move&&move.cat?move.cat:'ph';
 dgAttackAnim(_pCat,'.dg-enemy-side',TC[moveType]||'#88ccff');
 if(_pCat==='ph')dgShakeBattle('.dg-enemy-side');
 dgFloatDmg('.dg-enemy-side',dmg,eff>1?'#f0c840':'#fff');
+// Aplicar estado por el golpe
+const soh=STATUS_ON_HIT[move.name_en||moveName];
+if(soh&&eff>0&&Math.random()<soh[1])dgApplyStatus('enemy',soh[0]);
 dgRenderBattle();
 if(e.hp<=0){
-dgLog(`¡${e.name} fue derrotado!`);
-const xpGain=e.lv*3;
-dgLog(`+${xpGain} EXP`);
-dgSound('victory');
-if(e.isBoss){dgLog('🏆 ¡Derrotaste al Jefe del dungeon!');dg.loot.push({name:'Pepita',icon:'✨',effect:'tokens',value:50});}
-dg.enemies=dg.enemies.filter(x=>x!==e);
-dg.inBattle=false;
-dg.battleEnemy=null;
-dgRenderBattle();
-setTimeout(()=>dgRender(),600);
-return;
+  dgLog(`¡${e.name} fue derrotado!`);
+  const xpGain=e.lv*3;
+  dgLog(`+${xpGain} EXP`);
+  dgSound('victory');
+  if(e.isBoss){dgLog('🏆 ¡Derrotaste al Jefe del dungeon!');dg.loot.push({name:'Pepita',icon:'✨',effect:'tokens',value:50});}
+  dg.enemies=dg.enemies.filter(x=>x!==e);
+  dg.inBattle=false;
+  dg.battleEnemy=null;
+  dgRenderBattle();
+  setTimeout(()=>dgRender(),600);
+  return;
 }
-setTimeout(()=>{
+setTimeout(()=>dgEnemyTurn(),500);
+}
+function dgEnemyTurn(){
+if(!dg.inBattle||!dg.battleEnemy)return;
+const p=dg.playerPoke;
+const e=dg.battleEnemy;
+// Tick estado enemigo
+if(dgStatusTick('enemy')){
+  dgRenderBattle();
+  if(e.hp<=0){
+    dgLog(`¡${e.name} fue derrotado por el estado!`);
+    dgSound('victory');
+    dg.enemies=dg.enemies.filter(x=>x!==e);
+    dg.inBattle=false;dg.battleEnemy=null;
+    dgRenderBattle();setTimeout(()=>dgRender(),600);return;
+  }
+}
+// Chequear si el enemigo puede atacar
+if(dgCheckSleepFreeze('enemy')){dgRenderBattle();return;}
 // IA enemiga: elegir movimiento priorizando STAB y efectividad
 const eMoves=e.moves||[];
 let chosenMove=null;
 if(eMoves.length){
-  // Ponderar: STAB > superefectivo > neutral > no efectivo
   const scored=eMoves.filter(m=>m&&!m.status&&m.power>0).map(m=>{
     const mt=m.type||e.type1;
     const eff=getEffectiveness(mt,p.type1,p.type2);
@@ -4135,12 +4298,28 @@ if(eMoves.length){
     return{m,score:eff*stab*(m.power||40)};
   });
   if(scored.length){scored.sort((a,b)=>b.score-a.score);chosenMove=scored[0].m;}
+  // 20% chance de usar movimiento de estado si el jugador no tiene estado
+  if(!chosenMove||(!dg.playerStatus&&Math.random()<0.2)){
+    const stMoves=eMoves.filter(m=>m&&m.status);
+    if(stMoves.length)chosenMove=stMoves[Math.floor(Math.random()*stMoves.length)];
+  }
 }
 if(!chosenMove)chosenMove={name:'Tackle',type:e.type1,power:40,cat:'ph'};
 const eMoveType=chosenMove.type||e.type1;
 const eMoveIsSpecial=chosenMove.cat==='sp';
-const eAtkStat=eMoveIsSpecial?(e.spa||e.spatk||e.atk):e.atk;
-const eDefStat=eMoveIsSpecial?(dg.playerPoke._spd||dg.playerPoke._def):dg.playerPoke._def;
+const eMoveIsStatus=!!chosenMove.status;
+if(eMoveIsStatus){
+  dgLog(`${e.name} usó ${chosenMove.name}!`);
+  dgAttackAnim('st','.dg-player-side','#f0f050');
+  dgApplyMoveEffect(chosenMove,'player');
+  dgRenderBattle();
+  return;
+}
+const eBurnMod=(dg.enemyStatus==='burn'&&!eMoveIsSpecial)?0.5:1;
+const eBaseAtk=eMoveIsSpecial?(e.spa||e.spatk||e.atk):e.atk;
+const eAtkStat=Math.round(dgGetStagedStat(eBaseAtk,dg.enemyStages[eMoveIsSpecial?'spa':'atk'])*eBurnMod);
+const eBaseDef=eMoveIsSpecial?(dg.playerPoke._spd||dg.playerPoke._def):dg.playerPoke._def;
+const eDefStat=dgGetStagedStat(eBaseDef,dg.playerStages[eMoveIsSpecial?'spd':'def']);
 const eMovePow=chosenMove.power||40;
 const eStab=(eMoveType===e.type1||eMoveType===e.type2);
 const eDmg=calcDamage(e.lv,eAtkStat,eDefStat,eMovePow,eMoveType,p.type1,p.type2,eStab);
@@ -4153,14 +4332,13 @@ dgAttackAnim(_eCat,'.dg-player-side',TC[eMoveType]||'#ff8844');
 if(_eCat==='ph')dgShakeBattle('.dg-player-side');
 dgFloatDmg('.dg-player-side',eDmg,'#ff6050');
 if(dg.playerHP<=0){
-dgLog(`¡${p['name_'+lang]||p.name_en} se debilitó!`);
-dgLog(`Perdiste los objetos de este piso...`);
-dgSound('faint');
-dg.inBattle=false;
-setTimeout(()=>dgEnd(false),1500);
+  dgLog(`¡${p['name_'+lang]||p.name_en} se debilitó!`);
+  dgLog(`Perdiste los objetos de este piso...`);
+  dgSound('faint');
+  dg.inBattle=false;
+  setTimeout(()=>dgEnd(false),1500);
 }
 dgRenderBattle();
-},500);
 }
 function dgFlee(){
 if(!dg.inBattle)return;
@@ -4281,6 +4459,9 @@ dgRender();
 });
 }
 function dgEnd(victory){
+dg.playerStages={atk:0,def:0,spa:0,spd:0,spe:0};
+dg.enemyStatus=null;dg.enemyStages={atk:0,def:0,spa:0,spd:0,spe:0};
+if(victory)dg.playerStatus=null;
 dg.active=false;
 dgSound(victory?'victory':'faint');
 const modal=document.getElementById('dg-modal');
