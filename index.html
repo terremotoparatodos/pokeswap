@@ -2587,14 +2587,14 @@ document.getElementById('ipnum').textContent=`#${String(p.id).padStart(3,'0')}`;
 document.getElementById('ipname').textContent=p[`name_${lang}`]||p.name_en;
 let th='';[p.type1,p.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="background:${TC[t]||'#888'};color:#fff;border-bottom:2px solid rgba(0,0,0,.3)">${TN[lang]?.[t]||t}</span>`;});
 document.getElementById('iptypes').innerHTML=th;
-const aura=(s?.aura||0)+getBaseAura(p.id);
-document.getElementById('ipprice').innerHTML=p.locked?'🔒 EVENTO ESPECIAL':`<span style="color:#c080f0">◈</span> ${aura.toLocaleString()} Aura`;
 const isOwned=!!s?.owner_id;const isMe=user&&s?.owner_id===user.id;
 const serial = s?.claim_count||0;
 const serialStr = serial>0 ? `<span style="font-size:4px;color:var(--text-dim);background:rgba(240,200,0,.06);border:1px solid rgba(240,200,0,.15);border-radius:2px;padding:1px 4px;margin-left:4px">#${String(serial).padStart(3,'0')}</span>` : '';
 const firstOwnerStr = s?.first_owner_username&&serial>1 ? `<div style="font-size:4px;color:var(--text-dim);margin-top:1px">1er dueño: ${s.first_owner_username}</div>` : '';
 document.getElementById('ipowner').innerHTML=(isOwned?(isMe?`⭐ Tuyo${serialStr}`:`Dueño: ${s.owner_username}${serialStr}`):(p.locked?'🔒 Bloqueado · evento especial':'Salvaje · disponible'))+firstOwnerStr;
-const _ipLv=isMe?(await xpLoad(p.id)).level:(1+Math.floor((price||5)/3));
+const _ipLv=isMe?(await xpLoad(p.id)).level:(()=>{const _bst=getStats(p.id).reduce((a,b)=>a+b,0);return Math.min(20,Math.max(1,Math.floor(_bst/35)));})());
+const aura=(s?.aura||0)+getBaseAura(p.id,_ipLv);
+document.getElementById('ipprice').innerHTML=p.locked?'🔒 EVENTO ESPECIAL':`<span style="color:#c080f0">◈</span> ${aura.toLocaleString()} Aura`;
 const st=isMe?getEffectiveStats(p.id,_ipLv):getStats(p.id);
 const hpMax=st[0];const hpCur=Math.max(1,hpMax-Math.floor((price||0)/8));
 const hpPct=Math.round(hpCur/hpMax*100);
@@ -2874,9 +2874,10 @@ document.getElementById('dex-num').textContent=`#${String(p.id).padStart(3,'0')}
 document.getElementById('dex-name').textContent=p[`name_${lang}`]||p.name_en;
 let th='';[p.type1,p.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="font-size:5px;padding:2px 5px;border-radius:2px;background:${TC[t]||'#888'};color:#fff">${TN[lang]?.[t]||t}</span>`;});
 document.getElementById('dex-types').innerHTML=th;
-const dexAura=(s?.aura||0)+getBaseAura(p.id);
-document.getElementById('dex-price').innerHTML=p.locked?'🔒 EVENTO ESPECIAL':`<span style="color:#c080f0">◈</span> ${dexAura.toLocaleString()} Aura`;
 const isOwned=!!s?.owner_id;const isMe=user&&s?.owner_id===user.id;
+const _dexLv=isMe?(await xpLoad(p.id)).level:(()=>{const _bst=getStats(p.id).reduce((a,b)=>a+b,0);return Math.min(20,Math.max(1,Math.floor(_bst/35)));})());
+const dexAura=(s?.aura||0)+getBaseAura(p.id,_dexLv);
+document.getElementById('dex-price').innerHTML=p.locked?'🔒 EVENTO ESPECIAL':`<span style="color:#c080f0">◈</span> ${dexAura.toLocaleString()} Aura`;
 document.getElementById('dex-owner').textContent=isOwned?(isMe?'⭐ Tuyo':'Dueño: '+s.owner_username):'Disponible';
 const dexXp=document.getElementById('dex-xpbar');
 if(isMe){dexXp.style.display='block';xpBarHTML(p.id,true).then(h=>dexXp.innerHTML=h);}
@@ -2884,7 +2885,7 @@ else{dexXp.style.display='none';}
 // Tokens por hora para este Pokémon
 const dexTph=document.getElementById('dex-tph-info');
 if(isMe&&dexTph){
-  const pAura=(s?.aura||0)+getBaseAura(p.id);
+  const pAura=(s?.aura||0)+getBaseAura(p.id,_dexLv);
   const pTph=Math.max(5,Math.round(5+pAura/50));
   document.getElementById('dex-tph-val').textContent=`₱ ${pTph} / hora`;
   dexTph.style.display='block';
@@ -3884,6 +3885,35 @@ const cv=document.getElementById('dg-canvas');if(!cv)return;
 cv.style.filter='brightness(1.6) saturate(1.5)';
 setTimeout(()=>cv.style.filter='',100);
 }
+function dgAttackAnim(cat,targetSel,typeColor){
+// cat: 'ph' (físico) | 'sp' (especial) | 'st' (estado)
+const cv=document.getElementById('dg-canvas');
+const el=document.querySelector(targetSel);
+if(cat==='ph'){
+// Físico: el atacante avanza hacia el objetivo
+const attSel=targetSel==='.dg-enemy-side'?'.dg-player-side':'.dg-enemy-side';
+const att=document.querySelector(attSel);
+if(att){
+const dir=targetSel==='.dg-enemy-side'?1:-1;
+att.style.transition='transform .08s';
+att.style.transform=`translateX(${dir*18}px)`;
+setTimeout(()=>{att.style.transform='';if(cv)cv.style.filter='brightness(2) saturate(2)';},80);
+setTimeout(()=>{if(cv)cv.style.filter='';},180);
+}
+}else if(cat==='sp'){
+// Especial: flash del color del tipo en el objetivo
+if(el){
+const col=typeColor||'#88ccff';
+el.style.transition='filter .06s';
+el.style.filter=`drop-shadow(0 0 12px ${col}) brightness(2)`;
+setTimeout(()=>{el.style.filter='';},200);
+}
+if(cv){cv.style.filter=`brightness(1.4) hue-rotate(30deg)`;setTimeout(()=>cv.style.filter='',150);}
+}else{
+// Estado: pulso suave amarillo
+if(el){el.style.filter='brightness(1.5) sepia(0.5)';setTimeout(()=>el.style.filter='',250);}
+}
+}
 
 function dgGenerate(){
 const{cols,rows}=dg;
@@ -4074,8 +4104,9 @@ else if(eff<1&&eff>0)effTxt=' No es muy efectivo...';
 else if(eff===0)effTxt=' No afecta...';
 dgLog(`${p['name_'+lang]||p.name_en} usó ${(move&&move.name)||move||'Tackle'}! (-${dmg} HP)${effTxt}`);
 dgSound(eff>1?'crit':'hit');
-dgFlash();
-dgShakeBattle('.dg-enemy-side');
+const _pCat=move&&move.cat?move.cat:'ph';
+dgAttackAnim(_pCat,'.dg-enemy-side',TC[moveType]||'#88ccff');
+if(_pCat==='ph')dgShakeBattle('.dg-enemy-side');
 dgFloatDmg('.dg-enemy-side',dmg,eff>1?'#f0c840':'#fff');
 dgRenderBattle();
 if(e.hp<=0){
@@ -4117,7 +4148,9 @@ dg.playerHP=Math.max(0,dg.playerHP-eDmg);
 const eEffMsg=getEffectiveness(eMoveType,p.type1,p.type2)>1?' ¡Es super efectivo!':getEffectiveness(eMoveType,p.type1,p.type2)<1&&getEffectiveness(eMoveType,p.type1,p.type2)>0?' No es muy efectivo...':'';
 dgLog(`${e.name} usó ${chosenMove.name}! (-${eDmg} HP)${eEffMsg}`);
 dgSound('hit');
-dgShakeBattle('.dg-player-side');
+const _eCat=chosenMove&&chosenMove.cat?chosenMove.cat:'ph';
+dgAttackAnim(_eCat,'.dg-player-side',TC[eMoveType]||'#ff8844');
+if(_eCat==='ph')dgShakeBattle('.dg-player-side');
 dgFloatDmg('.dg-player-side',eDmg,'#ff6050');
 if(dg.playerHP<=0){
 dgLog(`¡${p['name_'+lang]||p.name_en} se debilitó!`);
