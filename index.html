@@ -2668,8 +2668,8 @@ const regBtn=document.getElementById('ip-register-btn');
 const alreadyReg=dexGetRegistered().includes(id);
 if(isMe&&!alreadyReg){regBtn.style.display='block';}else{regBtn.style.display='none';}
 }
-async function pay(prov){if(!user){openAuth();return;}if(!selectedId)return;const p=pokemon.find(x=>x.id===selectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}const _slotPay=slots[selectedId];if(_slotPay?.is_locked&&_slotPay?.owner_id!==user?.id){toast('🏪 Este Pokémon está en el Mercado P2P — compralo desde el Mercado',1);return;}await _pay(p,prov);}
-async function payBox(prov){if(!user){openAuth();return;}if(!boxSelectedId)return;const p=pokemon.find(x=>x.id===boxSelectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}const _slotBox=slots[boxSelectedId];if(_slotBox?.is_locked&&_slotBox?.owner_id!==user?.id){toast('🏪 Este Pokémon está en el Mercado P2P — compralo desde el Mercado',1);return;}await _pay(p,prov);}
+async function pay(prov){if(!user){openAuth();return;}if(!selectedId)return;const p=pokemon.find(x=>x.id===selectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
+async function payBox(prov){if(!user){openAuth();return;}if(!boxSelectedId)return;const p=pokemon.find(x=>x.id===boxSelectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
 async function _pay(p,prov){
 if(prov==='free'){try{const{data:{session}}=await sb.auth.getSession();const r=await(await fetch(`${SB_URL}/functions/v1/free-claim`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({pokemon_id:p.id})})).json();if(r.error)return toast(r.error,1);toast(`¡${p[`name_${lang}`]||p.name_en} fue adoptado!`);await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();if(selectedId)updatePanel(selectedId);setTimeout(()=>drawMM(),3000);}catch(e){toast(e.message,1);}return;}
 // Mostrar overlay de carga
