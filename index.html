@@ -2638,7 +2638,39 @@ async function pay(prov){if(!user){openAuth();return;}if(!selectedId)return;cons
 async function payBox(prov){if(!user){openAuth();return;}if(!boxSelectedId)return;const p=pokemon.find(x=>x.id===boxSelectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
 async function _pay(p,prov){
 if(prov==='free'){try{const{data:{session}}=await sb.auth.getSession();const r=await(await fetch(`${SB_URL}/functions/v1/free-claim`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({pokemon_id:p.id})})).json();if(r.error)return toast(r.error,1);toast(`¡${p[`name_${lang}`]||p.name_en} fue adoptado!`);await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();if(selectedId)updatePanel(selectedId);setTimeout(()=>drawMM(),3000);}catch(e){toast(e.message,1);}return;}
-try{const{data:{session}}=await sb.auth.getSession();const r=await(await fetch(`${SB_URL}/functions/v1/create-checkout`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({pokemon_id:p.id,provider:prov,use_tokens:prov==='tokens'})})).json();if(r.error)return toast(r.error,1);if(r.url){toast('Redirigiendo al pago...');setTimeout(()=>window.location.href=r.url,400);}if(prov==='tokens'){toast(`¡${p[`name_${lang}`]||p.name_en} adoptado!`);await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();if(selectedId)updatePanel(selectedId);setTimeout(()=>drawMM(),3000);}}catch(e){toast(e.message,1);}
+// Mostrar overlay de carga
+const overlay=document.createElement('div');
+overlay.id='pay-loading';
+overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px';
+overlay.innerHTML=`
+  <img src="${fbUrl(p.id)}" style="width:96px;height:96px;image-rendering:pixelated;animation:pulse 1.5s infinite">
+  <div style="font-family:'Press Start 2P',monospace;font-size:8px;color:#f0c840">Procesando pago...</div>
+  <div style="font-family:'Press Start 2P',monospace;font-size:5px;color:rgba(240,200,64,.5)">Redirigiendo a ${prov==='mercadopago'?'Mercado Pago':'PayPal'}</div>
+`;
+document.body.appendChild(overlay);
+try{
+  const{data:{session}}=await sb.auth.getSession();
+  if(!session){overlay.remove();toast('Sesión expirada, recargá la página',1);return;}
+  const res=await fetch(`${SB_URL}/functions/v1/create-checkout`,{
+    method:'POST',
+    headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},
+    body:JSON.stringify({pokemon_id:p.id,provider:prov,use_tokens:prov==='tokens'})
+  });
+  const r=await res.json();
+  if(r.error){overlay.remove();toast(r.error,1);return;}
+  if(r.url){
+    // Redirigir inmediatamente
+    window.location.href=r.url;
+    return;
+  }
+  if(prov==='tokens'){
+    overlay.remove();
+    toast(`¡${p[`name_${lang}`]||p.name_en} adoptado!`);
+    await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();
+    if(selectedId)updatePanel(selectedId);
+    setTimeout(()=>drawMM(),3000);
+  }
+}catch(e){overlay.remove();toast(e.message||'Error de conexión',1);}
 }
 async function openBoxModal(){
   document.getElementById('box-modal').classList.add('open');
