@@ -6733,15 +6733,23 @@ function stStart(enemy){
   function adaptMoves(moves){
     if(!moves||!moves.length)return[];
     return moves.map(m=>{
-      if(m.cat)return m; // ya es formato Copero
-      const isStatus=m.status||!m.power||m.power<=0;
+      const mtype=(m.type||'normal').toLowerCase();
+      const col=TC[mtype]||'#aaa';
+      const isStatus=m.status||m.cat==='st'||!m.power||m.power<=0;
+      const cat=isStatus?'st':(m.cat||(_SP_TYPES&&_SP_TYPES.has(mtype)?'sp':'ph'));
+      const shape=isStatus?'wave':(cat==='sp'?'beam':'hit');
+      // Si ya tiene formato Copero (n, p, col) solo garantizar cat y col correctos
+      if(m.n!==undefined){
+        return{...m, cat, col:m.col&&m.col!=='#aaa'?m.col:col, shape:m.shape||shape};
+      }
+      // Formato getMoves → convertir a Copero
       return{
         n:m.name||'Golpe',
-        cat:isStatus?'st':(m.special?'sp':'ph'),
-        p:m.power||40,
-        type:(m.type||'normal').toLowerCase(),
-        col:'#aaa',
-        shape:'hit',
+        cat,
+        p:isStatus?0:(m.power||40),
+        type:mtype,
+        col,
+        shape,
         ef:m.effect||null,
         efChance:m.efChance||0,
       };
