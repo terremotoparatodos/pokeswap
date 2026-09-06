@@ -10,7 +10,7 @@
 
 const SWAP_COOLDOWN_MS = 8 * 60 * 60 * 1000; // 8 horas
 const SWAP_COOLDOWN_KEY = 'pxswap_cd'; // localStorage key
-const SWAP_SKIP_TOKENS = 50;
+const SWAP_SKIP_TOKENS = 1000;
 
 // Movimientos especiales exclusivos del swap (egg moves / TMs raros)
 const SWAP_SPECIAL_MOVES = {
@@ -648,28 +648,48 @@ async function swapSkipCooldown(method) {
     if (tok < SWAP_SKIP_TOKENS) {
       toast(`Necesitás ${SWAP_SKIP_TOKENS} PokéTokens (tenés ${tok})`, 1); return;
     }
-    // Llamar al servidor para skip
     try {
       const { data: { session } } = await sb.auth.getSession();
-      const r = await fetch(`${SB_URL}/functions/v1/pokeswap-swap`, {
+      // Solo desbloquear el cooldown — NO hacer swap
+      const r = await fetch(`${SB_URL}/functions/v1/skip-cooldown`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ skip_cooldown: true, pokemon_given_id: swapSelectedId })
+        body: JSON.stringify({ cost: SWAP_SKIP_TOKENS })
       }).then(x => x.json());
-      if (r.error) { toast(r.error, 1); return; }
+      if (r.error) {
+        // Fallback: descontar tokens localmente si la edge function no existe aún
+        if (r.error.includes('not found') || r.error.includes('404')) {
+          await sb.from('profiles')
+            .update({ tokens: tok - SWAP_SKIP_TOKENS, swap_cooldown_until: new Date().toISOString() })
+            .eq('id', (await sb.auth.getUser()).data.user.id);
+        } else {
+          toast(r.error, 1); return;
+        }
+      }
       localStorage.removeItem(SWAP_COOLDOWN_KEY);
       if (swapCdInterval) { clearInterval(swapCdInterval); swapCdInterval = null; }
+      if (window._swapBtnTimer) { clearInterval(window._swapBtnTimer); window._swapBtnTimer = null; }
       await loadProfile();
-      toast('✓ Cooldown adelantado con Tokens');
+      toast('✓ Cooldown eliminado — ¡hacé tu swap!');
       swapShowStep('sw-step-pick');
       swapBuildPickGrid();
       swapUpdateNavBadge();
     } catch(e) { toast(e.message, 1); }
     return;
   }
-  if (method === 'mp') {
-    toast('Sistema de pago en construcción...', 0);
-    // TODO: integrar checkout de Mercado Pago para swap skip
+  if (method === 'mp' || method === 'paypal') {
+    // Pago de $1 para adelantar cooldown
+    try {
+      const { data: { session } } = await sb.auth.getSession();
+      const r = await fetch(`${SB_URL}/functions/v1/create-payment`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'skip_cooldown', method, amount: 1 })
+      }).then(x => x.json());
+      if (r.error) { toast(r.error, 1); return; }
+      if (r.url) window.open(r.url, '_blank');
+      else toast('Sistema de pago en construcción', 0);
+    } catch(e) { toast('Sistema de pago en construcción', 0); }
   }
 }
 
