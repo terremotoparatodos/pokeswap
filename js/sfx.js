@@ -487,7 +487,7 @@ const SFX = (() => {
     const c = init(); if (!c) return;
     if (c.state === 'suspended') { c.resume(); }
     stopMusic();
-    // Recrear musicGain conectado al contexto actual
+    const dest = c.createGain(); dest.gain.value = 0.35; dest.connect(c.destination);
     const root = N.G3;
     let stopped = false;
     let timeouts = [];
@@ -500,7 +500,7 @@ const SFX = (() => {
       // Bajo: root + quinta cada 2 beats
       [[root, 0], [root * 1.5, BEAT * 2], [root, BEAT * 4], [root * 4/3, BEAT * 6]].forEach(([f, delay]) => {
         if (stopped) return;
-        vibratoOsc(f, 'sine', 0.06, BEAT * 1.6, 2, 2, musicGain, now + delay);
+        vibratoOsc(f, 'sine', 0.06, BEAT * 1.6, 2, 2, dest, now + delay);
       });
 
       // Melodía ambiente: notas aleatorias de la escala
@@ -510,12 +510,12 @@ const SFX = (() => {
         const f = majorFreq(root * 2, degree);
         const delay = BEAT * (i * 1.1 + Math.random() * 0.3);
         if (Math.random() < 0.6) {
-          vibratoOsc(f, 'sine', 0.025, BEAT * 0.8, 4, 4, musicGain, now + delay);
+          vibratoOsc(f, 'sine', 0.025, BEAT * 0.8, 4, 4, dest, now + delay);
         }
       }
 
       // Pad armónico
-      chord([root, root * 1.25, root * 1.5, root * 2], 'sine', 0.018, BEAT * 7.5, musicGain, now + BEAT * 0.5);
+      chord([root, root * 1.25, root * 1.5, root * 2], 'sine', 0.018, BEAT * 7.5, dest, now + BEAT * 0.5);
 
       const id = setTimeout(playLoop, BEAT * 8 * 1000);
       timeouts.push(id);
