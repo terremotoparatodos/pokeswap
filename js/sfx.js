@@ -552,3 +552,57 @@ const SFX = (() => {
     if (musicGain) musicGain.gain.value = vol;
   }
 
+
+  return {
+    play:            (name, vol) => { if (!sfxEnabled) return; const s = sounds[name]; if (s) s(vol); },
+    unlock,
+    ctx:             () => ctx,
+    musicMap, musicDungeon, musicBoss, musicSwap,
+    stopMusic,
+    setMusicVolume,
+    setMusicEnabled: (v) => { musicEnabled = v; if (!v) stopMusic(); else if (!currentMusic) musicMap(); },
+    setSfxEnabled:   (v) => { sfxEnabled = v; },
+    getMusicEnabled: () => musicEnabled,
+    getSfxEnabled:   () => sfxEnabled,
+    currentMusic:    () => currentMusic,
+    isPlaying:       (name) => currentMusic === name,
+  };
+})();
+
+// ── Alias dungeon ──────────────────────────────────────────
+function dgSound(kind){
+  const map={step:'step',hit:'hit',crit:'crit',item:'item',stairs:'stairs',faint:'faint',victory:'victory'};
+  SFX.play(map[kind]||kind);
+}
+
+// ── Controles de UI ────────────────────────────────────────
+function toggleMusic(){
+  const on = !SFX.getMusicEnabled();
+  SFX.setMusicEnabled(on);
+  const btn = document.getElementById('btn-music');
+  if(btn){ btn.textContent = on ? '🎵' : '🔇'; btn.style.opacity = on ? '1' : '.4'; }
+}
+function toggleSfx(){
+  const on = !SFX.getSfxEnabled();
+  SFX.setSfxEnabled(on);
+  const btn = document.getElementById('btn-sfx');
+  if(btn){ btn.textContent = on ? '🔊' : '🔕'; btn.style.opacity = on ? '1' : '.4'; }
+  if(on) SFX.play('item');
+  toast(on ? '🔊 Efectos activados' : '🔕 Efectos desactivados');
+}
+
+// ── Unlock en primera interacción ─────────────────────────
+function _sfxUnlockAndPlay(){
+  SFX.unlock();
+  if(!SFX.currentMusic()) setTimeout(()=>SFX.musicMap(), 300);
+}
+document.addEventListener('pointerdown', _sfxUnlockAndPlay, {once:true});
+document.addEventListener('touchstart',  _sfxUnlockAndPlay, {once:true, passive:true});
+document.addEventListener('keydown',     _sfxUnlockAndPlay, {once:true});
+document.addEventListener('click',       _sfxUnlockAndPlay, {once:true});
+// Reanudar música al volver al tab (iOS Safari)
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible'){
+    if(SFX.getMusicEnabled() && !SFX.currentMusic()) setTimeout(()=>SFX.musicMap(),400);
+  }
+});
