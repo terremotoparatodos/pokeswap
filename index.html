@@ -2027,7 +2027,7 @@ async function collectPassiveTokens(){
   pokemon.forEach(p => {
     const s = slots[p.id];
     if(s && s.owner_id === user.id){
-      const aura = Math.min(s.aura||0,200) + getBaseAura(p.id,1);
+      const aura = Math.min(s.aura||0,200) + getBaseAura(p.id,getLevelSync(p.id));
       const tph = Math.max(5, Math.round(5 + aura/50));
       totalTph += tph;
     }
@@ -2394,9 +2394,11 @@ if(p.new){activityLog.unshift(p.new);activityLog=activityLog.slice(0,20);renderA
 function getSorted(){
   return[...pokemon]
     .filter(p=>!p.locked && slots[p.id]?.owner_id)
-    .sort((a,b)=>((slots[b.id]?.aura||0)+getBaseAura(b.id))-((slots[a.id]?.aura||0)+getBaseAura(a.id)));
+    .sort((a,b)=>((slots[b.id]?.aura||0)+getBaseAura(b.id,getLevelSync(b.id)))-((slots[a.id]?.aura||0)+getBaseAura(a.id,getLevelSync(a.id))));
 }
 function buildRankPanel(){
+// Pre-cargar niveles para getLevelSync
+if(user){const mine=pokemon.filter(p=>slots[p.id]?.owner_id===user.id);mine.forEach(p=>xpLoad(p.id));}
 const sorted=getSorted();
 if(!sorted.length){
   document.getElementById('rank-list').innerHTML='<div style="font-size:6px;color:var(--text-dim);text-align:center;padding:20px">Nadie tiene Pokémon todavía.<br>¡Sé el primero en adoptar uno!</div>';
@@ -2407,7 +2409,7 @@ const hs=slots[h.id];const hprice=hs?.current_price||h.base_price||5;
 document.getElementById('h-img').src=owUrl(h.id,'down');
 document.getElementById('h-img').onerror=function(){this.onerror=null;this.src=fbUrl(h.id);};
 document.getElementById('h-name').textContent=h[`name_${lang}`]||h.name_en;
-const haura=(hs?.aura||0)+getBaseAura(h.id);
+const haura=(hs?.aura||0)+getBaseAura(h.id,getLevelSync(h.id));
 document.getElementById('h-price').innerHTML=`<span style="color:#c080f0">◈</span> ${haura.toLocaleString()} Aura`;
 document.getElementById('h-owner').textContent=hs?.owner_id?`Dueño: ${hs.owner_username}`:'Disponible';
 let th='';[h.type1,h.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="font-size:4px;padding:1px 4px;border-radius:2px;background:${TC[(t||'').toLowerCase()]||'#888'};color:#fff">${TN[lang]?.[t]||t}</span> `;});
@@ -2427,7 +2429,7 @@ return`<div class="rank-row${selectedId===p.id?' sel':''}" onclick="selectFromRa
 <div class="rk-name">${p[`name_${lang}`]||p.name_en}${p.is_legendary?'<span class="rk-badge">★</span>':''}</div>
 <div class="rk-owner">${s?.owner_id?s.owner_username:'Disponible'}${s?.claim_count>0?` <span style="font-size:4px;color:rgba(240,200,0,.5)">#${String(s.claim_count).padStart(3,'0')}</span>`:''}</div>
 </div>
-<span class="rk-price"><span style="color:#c080f0">◈</span> ${((s?.aura||0)+getBaseAura(p.id)).toLocaleString()}</span>
+<span class="rk-price"><span style="color:#c080f0">◈</span> ${((s?.aura||0)+getBaseAura(p.id,getLevelSync(p.id))).toLocaleString()}</span>
 </div>`;
 }).join('');
 }
@@ -2465,6 +2467,13 @@ function getEffectiveStats(id,level){const eff=evoChainWalk(id,level);return STA
 
 // Cache local de XP (se sincroniza con Supabase)
 const _xpCache={};
+// Lectura síncrona del nivel — usa cache si existe, fallback a BST/35
+function getLevelSync(id){
+  if(_xpCache[id]) return _xpCache[id].level||1;
+  // fallback: nivel estimado por BST (para pokémon no cargados aún)
+  const bst=getStats(id).reduce((a,b)=>a+b,0);
+  return Math.min(20,Math.max(1,Math.floor(bst/35)));
+}
 
 async function xpLoad(id){
   // Si hay cache reciente (<30s), usarlo
@@ -2797,6 +2806,11 @@ try{
 async function openBoxModal(){
   document.getElementById('box-modal').classList.add('open');
   if(!user){const{data:{session}}=await sb.auth.getSession();if(session)user=session.user;}
+  // Pre-cargar niveles de mis pokémon para que getLevelSync tenga datos correctos
+  if(user){
+    const mine=pokemon.filter(p=>slots[p.id]?.owner_id===user.id);
+    mine.forEach(p=>xpLoad(p.id)); // async, pobla _xpCache
+  }
   renderBoxGrid();
   updateClaimCountdown();
 }
@@ -2826,7 +2840,7 @@ function renderBoxGrid(){
   let totalTph=0;
   myPokemon.forEach(p=>{
     const s=slots[p.id];
-    const aura=Math.min(s?.aura||0,200)+getBaseAura(p.id,1);
+    const aura=Math.min(s?.aura||0,200)+getBaseAura(p.id,getLevelSync(p.id));
     totalTph+=Math.max(5,Math.round(5+aura/50));
   });
   document.getElementById('box-subtitle').textContent=myPokemon.length
