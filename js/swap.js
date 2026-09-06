@@ -430,7 +430,11 @@ async function swapConfirm() {
   swapResult = result;
 
   swapSetCooldownNow();
-  if (serverResult?.cooldown_until) localStorage.setItem(SWAP_COOLDOWN_KEY, serverResult.cooldown_until);
+  if (serverResult?.cooldown_until) {
+    localStorage.setItem(SWAP_COOLDOWN_KEY, new Date(serverResult.cooldown_until).getTime().toString());
+  }
+  // Actualizar profile para que swapGetCooldownUntil lea el valor correcto
+  loadProfile().then(()=>swapUpdateNavBadge());
   swapUpdateNavBadge();
 
   // ── FASE 2: Temblor — algo se mueve adentro (0.5s × 3) ──
