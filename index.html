@@ -1781,7 +1781,7 @@ async function openMarket(){
     if(listEl)listEl.innerHTML=`<div style="font-size:6px;color:#e08080;text-align:center;padding:20px">Error: ${e.message}</div>`;
   }
 }
-function closeMarket(){document.getElementById('market-ovl').classList.remove('open');mobileNavResetToMap();}
+function closeMarket(){document.getElementById('market-ovl').classList.remove('open');SFX.stopMusic();setTimeout(()=>SFX.musicMap(),500);mobileNavResetToMap();}
 
 // Cache global de listings para filtrar sin re-fetch
 let _marketListings=[];
@@ -6979,7 +6979,7 @@ async function advEnd(victory){
   advRenderNodeMap();
 }
 
-function advClose(){document.getElementById('adv-modal').classList.remove('open');SFX.stopMusic();}
+function advClose(){document.getElementById('adv-modal').classList.remove('open');SFX.stopMusic();setTimeout(()=>SFX.musicMap(),500);}
 
 
 // Refresco en vivo de barras de XP (cada 3s) mientras estén visibles
@@ -7109,7 +7109,7 @@ function openSwapModal() {
 function closeSwapModal() {
   document.getElementById('swap-modal').classList.remove('open');
   if (swapCdInterval) { clearInterval(swapCdInterval); swapCdInterval = null; }
-  SFX.stopMusic();
+  SFX.stopMusic();setTimeout(()=>SFX.musicMap(),500);
   mobileNavResetToMap();
 }
 
