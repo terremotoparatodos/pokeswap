@@ -541,98 +541,101 @@ const SFX = (() => {
   function musicDungeon() {
     if (!musicEnabled) return;
     const c = init(); if (!c) return;
-    if (c.state === 'suspended') { c.resume(); }
+    if (c.state === 'suspended') c.resume();
     stopMusic();
-    const root = N.C3;
-    let stopped = false;
-    let timeouts = [];
-    let intensity = 0; // 0=normal, 1=boss
-
-    const playLoop = () => {
-      if (stopped || currentMusic !== 'dungeon') return;
-      const now = c.currentTime;
-      const BPM = 110; const BEAT = 60 / BPM;
-
-      // Pulso de bajo tenso
-      for (let i = 0; i < 8; i++) {
-        if (stopped) return;
-        const odd = i % 2 === 1;
-        const f = odd ? root * 1.1892 : root; // tritono
-        vibratoOsc(f, 'square', 0.04 + intensity * 0.02, BEAT * 0.35, 0.5, 1, musicGain, now + i * BEAT);
-      }
-
-      // Melodía pentatónica menor errática
-      const steps = 6 + Math.floor(Math.random() * 4);
-      for (let i = 0; i < steps; i++) {
-        if (stopped) return;
-        const degree = Math.floor(Math.random() * 8) - 1;
-        const f = pentatonicFreq(root * 2, degree);
-        const delay = BEAT * (i * (1.6 - intensity * 0.3) + Math.random() * 0.4);
-        if (delay < BEAT * 7.5 && Math.random() < 0.55) {
-          note(f, 'triangle', 0.022 + intensity * 0.01, BEAT * 0.6, musicGain, now + delay);
-        }
-      }
-
-      // Disonancia ocasional (suspense)
-      if (Math.random() < 0.35 + intensity * 0.2) {
-        const disF = root * Math.pow(2, (Math.random() < 0.5 ? 6 : 10) / 12);
-        vibratoOsc(disF, 'sawtooth', 0.012, BEAT * 2.5, 3, 6, musicGain, now + BEAT * 3.5);
-      }
-
-      const id = setTimeout(playLoop, BEAT * 8 * 1000);
-      timeouts.push(id);
-    };
-
-    playLoop();
     currentMusic = 'dungeon';
 
-    return {
-      stop: () => { stopped = true; timeouts.forEach(clearTimeout); },
-      setIntensity: (v) => { intensity = Math.max(0, Math.min(1, v)); },
-    };
+    const master = c.createGain();
+    master.gain.value = 0.35;
+    master.connect(c.destination);
+
+    let stopped = false;
+    let timeouts = [];
+
+    const NOTES = [138.6, 146.8, 155.6, 164.8, 174.6, 185, 196, 207.7];
+
+    function playNote(freq, vol, dur, delay) {
+      if (stopped) return;
+      const t = c.currentTime + delay;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sawtooth';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.08);
+      g.gain.setValueAtTime(vol, t + dur - 0.1);
+      g.gain.linearRampToValueAtTime(0, t + dur);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + dur);
+    }
+
+    const BPM = 65; const BEAT = 60 / BPM;
+
+    function loop() {
+      if (stopped || currentMusic !== 'dungeon') return;
+      // Bajo pulsante
+      playNote(69.3, 0.3, BEAT * 0.4, 0);
+      playNote(69.3, 0.25, BEAT * 0.4, BEAT);
+      playNote(73.4, 0.3, BEAT * 0.4, BEAT * 2);
+      playNote(69.3, 0.2, BEAT * 0.4, BEAT * 3);
+      // Melodía cromática inquietante
+      for (let i = 0; i < 4; i++) {
+        const note = NOTES[Math.floor(Math.random() * NOTES.length)];
+        playNote(note, 0.1, BEAT * 0.6, BEAT * (i * 2) + BEAT * 0.5);
+      }
+      timeouts.push(setTimeout(loop, BEAT * 8 * 1000));
+    }
+
+    loop();
+    return () => { stopped = true; timeouts.forEach(clearTimeout); };
   }
 
   // ── MÚSICA: BOSS (urgente, cromático denso) ──
   function musicBoss() {
     if (!musicEnabled) return;
     const c = init(); if (!c) return;
-    if (c.state === 'suspended') { c.resume(); }
+    if (c.state === 'suspended') c.resume();
     stopMusic();
-    const root = N.C3;
+    currentMusic = 'boss';
+
+    const master = c.createGain();
+    master.gain.value = 0.4;
+    master.connect(c.destination);
+
     let stopped = false;
     let timeouts = [];
 
-    const playLoop = () => {
+    function playNote(freq, type, vol, dur, delay) {
+      if (stopped) return;
+      const t = c.currentTime + delay;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.03);
+      g.gain.setValueAtTime(vol, t + dur - 0.05);
+      g.gain.linearRampToValueAtTime(0, t + dur);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + dur);
+    }
+
+    const BPM = 140; const BEAT = 60 / BPM;
+
+    function loop() {
       if (stopped || currentMusic !== 'boss') return;
-      const now = c.currentTime;
-      const BPM = 148; const BEAT = 60 / BPM;
-
-      // Bajo obsesivo en ostinato
-      for (let i = 0; i < 16; i++) {
-        if (stopped) return;
-        const pattern = [0, 0, 3, 0, -2, 0, 3, 5, 0, 0, 3, 0, -2, -4, 0, 3];
-        const semitone = pattern[i % pattern.length];
-        const f = root * Math.pow(2, semitone / 12);
-        note(f, 'sawtooth', 0.055, BEAT * 0.4, musicGain, now + i * BEAT * 0.5);
-      }
-
-      // Contrapunto agudo
-      const upper = [10, 10, 8, 7, 5, 5, 7, 8];
-      upper.forEach((s, i) => {
-        if (stopped) return;
-        const f = root * Math.pow(2, (s + 12) / 12);
-        note(f, 'square', 0.025, BEAT * 0.7, musicGain, now + i * BEAT);
+      // Ritmo urgente
+      [0, BEAT*0.5, BEAT, BEAT*1.5, BEAT*2, BEAT*2.5, BEAT*3, BEAT*3.5].forEach((d, i) => {
+        playNote(i % 2 === 0 ? 87.3 : 92.5, 'square', 0.2, BEAT * 0.4, d);
       });
+      // Melodía tensa
+      [196, 185, 174.6, 185, 196, 207.7, 196, 185].forEach((f, i) => {
+        playNote(f, 'sawtooth', 0.12, BEAT * 0.45, BEAT * i * 0.5);
+      });
+      timeouts.push(setTimeout(loop, BEAT * 4 * 1000));
+    }
 
-      // Tremolo pad
-      vibratoOsc(root * 2, 'sawtooth', 0.03, BEAT * 7, 8, 12, musicGain, now + BEAT);
-
-      const id = setTimeout(playLoop, BEAT * 8 * 1000);
-      timeouts.push(id);
-    };
-
-    playLoop();
-    currentMusic = 'boss';
+    loop();
     return () => { stopped = true; timeouts.forEach(clearTimeout); };
   }
 
@@ -640,38 +643,53 @@ const SFX = (() => {
   function musicSwap() {
     if (!musicEnabled) return;
     const c = init(); if (!c) return;
+    if (c.state === 'suspended') c.resume();
     stopMusic();
-    const root = N.G3;
+    currentMusic = 'swap';
+
+    const master = c.createGain();
+    master.gain.value = 0.3;
+    master.connect(c.destination);
+
     let stopped = false;
     let timeouts = [];
 
-    const playLoop = () => {
+    const NOTES = [261.6, 293.7, 329.6, 349.2, 392, 440, 493.9, 523.3];
+
+    function playNote(freq, vol, dur, delay) {
+      if (stopped) return;
+      const t = c.currentTime + delay;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.06);
+      g.gain.setValueAtTime(vol, t + dur - 0.08);
+      g.gain.linearRampToValueAtTime(0, t + dur);
+      o.connect(g); g.connect(master);
+      o.start(t); o.stop(t + dur);
+    }
+
+    const BPM = 100; const BEAT = 60 / BPM;
+
+    function loop() {
       if (stopped || currentMusic !== 'swap') return;
-      const now = c.currentTime;
-      const BPM = 72; const BEAT = 60 / BPM;
-
-      // Arpeggio suave
-      const arpSeq = [0, 2, 4, 7, 9, 7, 4, 2];
-      arpSeq.forEach((s, i) => {
-        if (stopped) return;
-        const f = majorFreq(root * 2, s);
-        vibratoOsc(f, 'sine', 0.025, BEAT * 0.9, 3, 3, musicGain, now + i * BEAT * 0.5);
+      // Arpeggio suave ascendente
+      [0,1,2,3,4,5,6,7].forEach((i) => {
+        playNote(NOTES[i], 0.1, BEAT * 0.5, BEAT * i * 0.5);
       });
+      // Bajo sutil
+      playNote(130.8, 0.15, BEAT * 2, 0);
+      playNote(146.8, 0.12, BEAT * 2, BEAT * 2);
+      timeouts.push(setTimeout(loop, BEAT * 4 * 1000));
+    }
 
-      // Pad armónico
-      chord([root, root*1.25, root*1.5, root*2], 'sine', 0.015, BEAT*3.5, musicGain, now+BEAT*0.25);
-      chord([root*4/3, root*5/3, root*2, root*8/3], 'sine', 0.012, BEAT*3.5, musicGain, now+BEAT*4.25);
-
-      const id = setTimeout(playLoop, BEAT * 8 * 1000);
-      timeouts.push(id);
-    };
-
-    playLoop();
-    currentMusic = 'swap';
+    loop();
     return () => { stopped = true; timeouts.forEach(clearTimeout); };
   }
 
-  // ── STOP ──
+
   function stopMusic() {
     currentMusic = null;
   }
