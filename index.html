@@ -1198,6 +1198,12 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
   </div>
 </div>
 
+<!-- MINIJUEGO MODAL -->
+<div id="dg-minigame-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9999;align-items:center;justify-content:center;flex-direction:column">
+  <div id="dg-mg-content" style="background:#12101a;border:2px solid #c080f0;border-radius:8px;padding:18px;max-width:360px;width:95%;max-height:90vh;overflow-y:auto;text-align:center">
+  </div>
+</div>
+
 <!-- DUNGEON MODAL -->
 <div id="dg-modal">
   <div class="dg-container">
@@ -2398,7 +2404,7 @@ const XP_RATE=1/4; // xp por segundo (=15 xp/min)
 const XP_CAP_SECONDS=21600; // tope 6hs offline
 // Curva de experiencia: crece cuadráticamente
 // Lv1→2: 50 XP, Lv10→11: 230 XP, Lv25→26: 530 XP, Lv50→51: 1030 XP, Lv100: 2030 XP
-function xpNeeded(level){return 30 + level*20 + Math.floor(level*level*0.15);}
+function xpNeeded(level){return Math.pow(Math.max(1,level),3);} // Medium Fast: lv³
 function evoChainWalk(id,level){let cur=id;while(EVOLUTIONS[cur]&&level>=EVOLUTIONS[cur].level){cur=EVOLUTIONS[cur].to;}return cur;}
 function getEffectiveStats(id,level){const eff=evoChainWalk(id,level);return STATS_DB[eff]||STATS_DB[id]||[60,55,50,50,50,65];}
 
@@ -3163,13 +3169,41 @@ playerLv:5,
 };
 const DG_TILES={WALL:0,FLOOR:1,CORRIDOR:2,STAIRS:3,ITEM:4,ENEMY:5,PLAYER:6};
 const DG_ITEM_TYPES=[
-{name:'PokéToken',icon:'₱',effect:'tokens',value:5,rarity:0.4},
-{name:'PokéToken x10',icon:'💰',effect:'tokens',value:10,rarity:0.15},
-{name:'Poción',icon:'🧪',effect:'heal',value:20,rarity:0.25},
-{name:'Super Poción',icon:'💊',effect:'heal',value:50,rarity:0.1},
-{name:'Rare Candy',icon:'🍬',effect:'levelup',value:1,rarity:0.07},
-{name:'Pepita',icon:'✨',effect:'tokens',value:25,rarity:0.03},
+  {name:'Poción',       icon:'🧪', effect:'heal',   value:20,    rarity:0.30},
+  {name:'Super Poción', icon:'💊', effect:'heal',   value:50,    rarity:0.12},
+  {name:'PokéToken',    icon:'₱',  effect:'tokens', value:5,     rarity:0.20},
+  {name:'PokéToken x10',icon:'💰', effect:'tokens', value:10,    rarity:0.08},
+  {name:'Caramelo XS',  icon:'🍬', effect:'xp',     value:100,   rarity:0.16},
+  {name:'Caramelo S',   icon:'🍭', effect:'xp',     value:800,   rarity:0.09},
+  {name:'Caramelo M',   icon:'🍫', effect:'xp',     value:3000,  rarity:0.04},
+  {name:'Caramelo L',   icon:'🍡', effect:'xp',     value:10000, rarity:0.009},
+  {name:'Caramelo XL',  icon:'🎂', effect:'xp',     value:30000, rarity:0.001},
 ];
+// Tabla de loot por piso
+function dgItemPool(floor){
+  if(floor<=2) return [
+    {name:'Poción',       icon:'🧪', effect:'heal',   value:20,    rarity:0.35},
+    {name:'PokéToken',    icon:'₱',  effect:'tokens', value:5,     rarity:0.30},
+    {name:'Caramelo XS',  icon:'🍬', effect:'xp',     value:100,   rarity:0.25},
+    {name:'Caramelo S',   icon:'🍭', effect:'xp',     value:800,   rarity:0.10},
+  ];
+  if(floor<=4) return [
+    {name:'Poción',       icon:'🧪', effect:'heal',   value:20,    rarity:0.20},
+    {name:'Super Poción', icon:'💊', effect:'heal',   value:50,    rarity:0.15},
+    {name:'PokéToken x10',icon:'💰', effect:'tokens', value:10,    rarity:0.15},
+    {name:'Caramelo XS',  icon:'🍬', effect:'xp',     value:100,   rarity:0.20},
+    {name:'Caramelo S',   icon:'🍭', effect:'xp',     value:800,   rarity:0.20},
+    {name:'Caramelo M',   icon:'🍫', effect:'xp',     value:3000,  rarity:0.10},
+  ];
+  return [ // piso 5 (boss)
+    {name:'Super Poción', icon:'💊', effect:'heal',   value:50,    rarity:0.15},
+    {name:'PokéToken x10',icon:'💰', effect:'tokens', value:10,    rarity:0.10},
+    {name:'Caramelo S',   icon:'🍭', effect:'xp',     value:800,   rarity:0.20},
+    {name:'Caramelo M',   icon:'🍫', effect:'xp',     value:3000,  rarity:0.30},
+    {name:'Caramelo L',   icon:'🍡', effect:'xp',     value:10000, rarity:0.20},
+    {name:'Caramelo XL',  icon:'🎂', effect:'xp',     value:30000, rarity:0.05},
+  ];
+}
 
 function dgTweenTo(nx,ny,cb){
 dg.moving=true;
@@ -4046,7 +4080,8 @@ moves:getMoves(wp),
 }
 }
 }
-const itemCount=2+Math.floor(Math.random()*3);
+// Ítems normales (2-3 por piso)
+const itemCount=2+Math.floor(Math.random()*2);
 for(let i=0;i<itemCount;i++){
 const room=dg.rooms[1+Math.floor(Math.random()*(dg.rooms.length-1))];
 const ix=room.x+1+Math.floor(Math.random()*(room.w-2));
@@ -4054,10 +4089,26 @@ const iy=room.y+1+Math.floor(Math.random()*(room.h-2));
 if(dg.map[iy][ix]===DG_TILES.FLOOR){
 const roll=Math.random();
 let cumul=0;
-let item=DG_ITEM_TYPES[0];
-for(const it of DG_ITEM_TYPES){cumul+=it.rarity;if(roll<cumul){item=it;break;}}
+const _pool=dgItemPool(dg.floor);
+let item=_pool[0];
+for(const it of _pool){cumul+=it.rarity;if(roll<cumul){item=it;break;}}
 dg.items.push({...item,x:ix,y:iy,picked:false});
 }
+}
+// Caja Misteriosa: objeto trampa — aparece 1 vez por piso con 50% de prob
+if(Math.random()<0.5&&dg.rooms.length>2){
+const room=dg.rooms[1+Math.floor(Math.random()*(dg.rooms.length-1))];
+const ix=room.x+1+Math.floor(Math.random()*(room.w-2));
+const iy=room.y+1+Math.floor(Math.random()*(room.h-2));
+if(dg.map[iy][ix]===DG_TILES.FLOOR){
+dg.items.push({name:'Caja Misteriosa',icon:'📦',effect:'minigame_caja',value:0,x:ix,y:iy,picked:false});
+}
+}
+// Sala Voltorb Flip: aparece en 1 sala aleatoria con 40% de prob (piso 2+)
+if(dg.floor>=2&&Math.random()<0.4&&dg.rooms.length>2){
+const room=dg.rooms[1+Math.floor(Math.random()*(dg.rooms.length-2))];
+// Marcar la sala como sala especial de minijuego
+room.minigame='voltorb';
 }
 if(dg.floor===dg.maxFloors){
 const bossRoom=dg.rooms[dg.rooms.length-1];
@@ -4200,12 +4251,152 @@ dg[sKey]=null;dgLog(`${name} se descongeló!`);return false;
 }
 return false;
 }
+// MINIJUEGOS DEL DUNGEON
+function dgOpenMinigame(type){
+  const modal=document.getElementById('dg-minigame-modal');
+  modal.style.display='flex';
+  if(type==='voltorb') dgVoltorbFlip();
+  else if(type==='caja') dgCajaMisteriosa();
+}
+function dgCloseMinigame(){
+  document.getElementById('dg-minigame-modal').style.display='none';
+}
+// VOLTORB FLIP
+let _vf={};
+function dgVoltorbFlip(){
+  const GRID=4,VOLTORBS=4;
+  const cells=[];
+  const prizes=[
+    {name:'Caramelo XS',icon:'\uD83C\uDF6C',effect:'xp',value:100},
+    {name:'Caramelo XS',icon:'\uD83C\uDF6C',effect:'xp',value:100},
+    {name:'Caramelo XS',icon:'\uD83C\uDF6C',effect:'xp',value:100},
+    {name:'Caramelo S', icon:'\uD83C\uDF6D',effect:'xp',value:800},
+    {name:'Caramelo S', icon:'\uD83C\uDF6D',effect:'xp',value:800},
+    {name:'Caramelo M', icon:'\uD83C\uDF6B',effect:'xp',value:3000},
+    {name:'Pocion',     icon:'\uD83E\uDDEA',effect:'heal',value:20},
+    {name:'Pocion',     icon:'\uD83E\uDDEA',effect:'heal',value:20},
+    {name:'Super Pocion',icon:'\uD83D\uDC8A',effect:'heal',value:50},
+    {name:'PokeToken',  icon:'\u20B1', effect:'tokens',value:5},
+    {name:'PokeToken',  icon:'\u20B1', effect:'tokens',value:5},
+    {name:'PokeToken x10',icon:'\uD83D\uDCB0',effect:'tokens',value:10},
+  ];
+  for(let i=prizes.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[prizes[i],prizes[j]]=[prizes[j],prizes[i]];}
+  const positions=Array.from({length:GRID*GRID},(_,i)=>i);
+  for(let i=positions.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[positions[i],positions[j]]=[positions[j],positions[i]];}
+  const voltorbPos=new Set(positions.slice(0,VOLTORBS));
+  let pi=0;
+  for(let i=0;i<GRID*GRID;i++){
+    if(voltorbPos.has(i))cells.push({type:'voltorb',revealed:false});
+    else cells.push({type:'prize',prize:prizes[pi++],revealed:false});
+  }
+  const rowV=Array(GRID).fill(0),colV=Array(GRID).fill(0);
+  voltorbPos.forEach(i=>{rowV[Math.floor(i/GRID)]++;colV[i%GRID]++;});
+  _vf={cells,rowV,colV,found:[],exploded:false,grid:GRID};
+  _dgRenderVF();
+}
+function _dgRenderVF(){
+  const{cells,rowV,colV,found,exploded,grid}=_vf;
+  const safe=cells.filter(c=>c.type==='prize'&&!c.revealed).length;
+  const el=document.getElementById('dg-mg-content');
+  let html='<div style="font-size:11px;color:#c080f0;margin-bottom:8px">Voltorb Flip</div>'
+    +'<div style="font-size:6px;color:#aaa;margin-bottom:10px">Destapa celdas para encontrar premios. Evita los Voltorb!</div>';
+  const makeGrid=()=>{
+    let g='<div style="display:grid;grid-template-columns:repeat('+(grid+1)+',1fr);gap:3px;margin:8px 0">';
+    for(let r=0;r<grid;r++){
+      for(let c=0;c<grid;c++){
+        const idx=r*grid+c;const cell=cells[idx];
+        if(cell.revealed){
+          const bg=cell.type==='voltorb'?'rgba(220,50,50,.4)':'rgba(50,200,100,.2)';
+          g+='<div style="background:'+bg+';border-radius:4px;padding:6px 2px;font-size:10px">'+(cell.type==='voltorb'?'\uD83D\uDCA3':cell.prize.icon)+'</div>';
+        } else if(exploded||safe===0){
+          const bg=cell.type==='voltorb'?'rgba(220,50,50,.3)':'rgba(50,200,50,.15)';
+          g+='<div style="background:'+bg+';border-radius:4px;padding:6px 2px;font-size:10px">'+(cell.type==='voltorb'?'\uD83D\uDCA3':cell.prize.icon)+'</div>';
+        } else {
+          g+='<button onclick="_dgVFPick('+idx+')" style="font-family:inherit;background:rgba(80,60,120,.6);border:1px solid #6040a0;border-radius:4px;padding:6px 2px;font-size:10px;cursor:pointer;color:var(--text)">?</button>';
+        }
+      }
+      g+='<div style="font-size:7px;color:#e08080;padding:6px 2px">'+rowV[r]+' V</div>';
+    }
+    for(let c=0;c<grid;c++) g+='<div style="font-size:7px;color:#e08080;padding:2px">'+colV[c]+' V</div>';
+    g+='<div></div></div>';
+    return g;
+  };
+  html+=makeGrid();
+  if(exploded){
+    html+='<div style="font-size:10px;color:#e04040;margin:8px 0">Voltorb! Perdiste los premios acumulados.</div>';
+    html+='<button onclick="dgCloseMinigame()" style="font-family:inherit;font-size:7px;padding:8px 16px;border-radius:4px;background:rgba(100,100,100,.3);color:#aaa;border:1px solid #555;cursor:pointer">Continuar</button>';
+  } else if(safe===0){
+    html+='<div style="font-size:9px;color:#80f080;margin:8px 0">Tablero completado!</div>';
+    html+='<div style="font-size:6px;color:#aaa;margin-bottom:8px">Premios: '+found.map(f=>f.icon).join(' ')+'</div>';
+    html+='<button onclick="_dgVFCollect()" style="font-family:inherit;font-size:7px;padding:8px 16px;border-radius:4px;background:linear-gradient(180deg,#40a040,#206020);color:#e0ffe0;border:1px solid #60c060;cursor:pointer">Recoger todo!</button>';
+  } else {
+    html+='<div style="font-size:6px;color:#aaa;margin-bottom:8px">Quedan '+safe+' celdas | Acumulado: '+(found.map(f=>f.icon).join('')||'-')+'</div>';
+    if(found.length>0) html+='<button onclick="_dgVFCollect()" style="font-family:inherit;font-size:6px;padding:6px 12px;border-radius:4px;background:rgba(240,180,0,.2);color:#f0c840;border:1px solid rgba(240,180,0,.4);cursor:pointer;margin-right:6px">Retirarme ('+found.length+' premio'+(found.length>1?'s':'')+')</button>';
+    html+='<button onclick="dgCloseMinigame()" style="font-family:inherit;font-size:6px;padding:6px 12px;border-radius:4px;background:rgba(100,100,100,.2);color:#aaa;border:1px solid #555;cursor:pointer">Salir sin nada</button>';
+  }
+  el.innerHTML=html;
+}
+function _dgVFPick(idx){
+  const cell=_vf.cells[idx];cell.revealed=true;
+  if(cell.type==='voltorb'){_vf.exploded=true;_vf.found=[];dgSound('faint');}
+  else{_vf.found.push(cell.prize);dgSound('item');if(_vf.cells.filter(c=>c.type==='prize'&&!c.revealed).length===0)_vf.cells.filter(c=>c.type==='voltorb').forEach(c=>c.revealed=true);}
+  _dgRenderVF();
+}
+function _dgVFCollect(){
+  _vf.found.forEach(prize=>dg.loot.push(prize));
+  if(_vf.found.length>0)toast('+'+_vf.found.length+' premio'+(_vf.found.length>1?'s':'')+' al inventario!');
+  dgCloseMinigame();
+}
+// CAJA MISTERIOSA
+function dgCajaMisteriosa(){
+  const el=document.getElementById('dg-mg-content');
+  const prizes=[
+    {name:'Caramelo XS',icon:'\uD83C\uDF6C',effect:'xp',  value:100,  weight:40},
+    {name:'Caramelo S', icon:'\uD83C\uDF6D',effect:'xp',  value:800,  weight:30},
+    {name:'Caramelo M', icon:'\uD83C\uDF6B',effect:'xp',  value:3000, weight:15},
+    {name:'Caramelo L', icon:'\uD83C\uDF61',effect:'xp',  value:10000,weight:8},
+    {name:'PokeToken x10',icon:'\uD83D\uDCB0',effect:'tokens',value:10,weight:5},
+    {name:'Pocion',     icon:'\uD83E\uDDEA',effect:'heal', value:20,  weight:2},
+  ];
+  const total=prizes.reduce((s,p)=>s+p.weight,0);
+  let roll=Math.random()*total;
+  let prize=prizes[0];
+  for(const p of prizes){roll-=p.weight;if(roll<=0){prize=p;break;}}
+  window._dgCajaPrize=prize;
+  let speed=80,itvl,curIdx=0;
+  const icons=prizes.map(p=>p.icon);
+  el.innerHTML='<div style="font-size:11px;color:#c080f0;margin-bottom:8px">Caja Misteriosa</div>'
+    +'<div style="font-size:6px;color:#aaa;margin-bottom:12px">Girando...</div>'
+    +'<div id="vf-spin-icon" style="font-size:40px;margin:16px 0">?</div>'
+    +'<div id="vf-result"></div>';
+  dgSound('item');
+  itvl=setInterval(()=>{
+    curIdx=(curIdx+1)%icons.length;
+    const ic=document.getElementById('vf-spin-icon');
+    if(ic)ic.textContent=icons[curIdx];
+    speed=Math.min(speed+10,450);
+    if(speed>=450){
+      clearInterval(itvl);
+      if(ic)ic.textContent=prize.icon;
+      const res=document.getElementById('vf-result');
+      if(res)res.innerHTML='<div style="font-size:9px;color:#80f080;margin:10px 0">Obtuviste: '+prize.icon+' '+prize.name+'!</div>'
+        +'<button onclick="_dgCajaCollect()" style="font-family:inherit;font-size:7px;padding:8px 16px;border-radius:4px;background:linear-gradient(180deg,#4060c0,#203080);color:#c0d0ff;border:1px solid #6080e0;cursor:pointer">Recoger!</button>';
+    }
+  },speed);
+}
+function _dgCajaCollect(){
+  if(window._dgCajaPrize){dg.loot.push(window._dgCajaPrize);toast(window._dgCajaPrize.icon+' '+window._dgCajaPrize.name+' al inventario!');window._dgCajaPrize=null;}
+  dgCloseMinigame();
+}
+
+
 function dgStartBattle(enemy){
 dg.inBattle=true;
 dg.battleEnemy=enemy;
 dg.battleEnemy.maxHp=dg.battleEnemy.maxHp||dg.battleEnemy.hp;
 dg.log=[];
 dg.playerStatus=dg.playerStatus||null;
+dg.earnedXp=0;
 dg.playerStatusTurns=0;
 dg.playerStages=dg.playerStages||{atk:0,def:0,spa:0,spd:0,spe:0};
 dg.enemyStatus=null;
@@ -4314,10 +4505,14 @@ if(soh&&eff>0&&Math.random()<soh[1])dgApplyStatus('enemy',soh[0]);
 dgRenderBattle();
 if(e.hp<=0){
   dgLog(`¡${e.name} fue derrotado!`);
-  const xpGain=e.lv*3;
+  const _eSt=getStats(e.id||0);
+  const _eBST=_eSt?_eSt.reduce((a,b)=>a+b,0):300;
+  const _eBaseExp=Math.floor(_eBST/4);
+  const xpGain=Math.max(1,Math.floor(_eBaseExp*e.lv/7));
   dgLog(`+${xpGain} EXP`);
+  dg.earnedXp=(dg.earnedXp||0)+xpGain;
   dgSound('victory');
-  if(e.isBoss){dgLog('🏆 ¡Derrotaste al Jefe del dungeon!');dg.loot.push({name:'Pepita',icon:'✨',effect:'tokens',value:50});}
+  if(e.isBoss){dgLog('🏆 ¡Derrotaste al Jefe del dungeon!');dg.loot.push({name:'Super Poción',icon:'💊',effect:'heal',value:50});dg.loot.push({name:'Caramelo M',icon:'🍫',effect:'xp',value:3000});}
   dg.enemies=dg.enemies.filter(x=>x!==e);
   dg.inBattle=false;
   dg.battleEnemy=null;
@@ -4478,6 +4673,12 @@ dg.turn++;
 dgSound('step');
 dgTweenTo(nx,ny,()=>{
 dg.playerX=nx;dg.playerY=ny;
+// Chequear sala especial de Voltorb Flip
+const _curRoom=dg.rooms.find(r=>nx>=r.x&&nx<r.x+r.w&&ny>=r.y&&ny<r.y+r.h);
+if(_curRoom&&_curRoom.minigame==='voltorb'&&!_curRoom._mgTriggered){
+_curRoom._mgTriggered=true;
+setTimeout(()=>{dgLog('⚡ ¡Sala Voltorb Flip! Destapá celdas para ganar premios.');dgOpenMinigame('voltorb');},300);
+}
 if(dg.map[ny][nx]===DG_TILES.STAIRS){
 dgSound('stairs');
 if(dg.floor>=dg.maxFloors){dgLog('¡Completaste el dungeon!');setTimeout(()=>dgEnd(true),800);return;}
@@ -4489,7 +4690,12 @@ dgRender();
 return;
 }
 const item=dg.items.find(i=>i.x===nx&&i.y===ny&&!i.picked);
-if(item){item.picked=true;dg.loot.push(item);dgLog(`¡Encontraste ${item.icon} ${item.name}!`);dgSound('item');dgFloatText(nx,ny,item.icon+' '+item.name,'#f0c840');}
+if(item){item.picked=true;if(item.effect==='minigame_caja'){
+dgSound('item');dgFloatText(nx,ny,'📦');
+setTimeout(()=>dgOpenMinigame('caja'),400);
+} else {
+dg.loot.push(item);dgLog(`¡Encontraste ${item.icon} ${item.name}!`);dgSound('item');dgFloatText(nx,ny,item.icon+' '+item.name,'#f0c840');
+}}
 dg.enemies.forEach(e=>{
 const dist=Math.abs(e.x-dg.playerX)+Math.abs(e.y-dg.playerY);
 if(dist<8){
@@ -4537,16 +4743,24 @@ html=`<div style="text-align:center;margin-bottom:12px">
 }
 const tokens=victory?dg.loot.filter(i=>i.effect==='tokens').reduce((s,i)=>s+i.value,0):0;
 const potions=victory?dg.loot.filter(i=>i.effect==='heal').length:0;
-const candies=victory?dg.loot.filter(i=>i.effect==='levelup').length:0;
+// Agrupar caramelos por tipo
+const xpItems=victory?dg.loot.filter(i=>i.effect==='xp'):[];
+const xpByName={};
+xpItems.forEach(i=>{xpByName[i.icon]=xpByName[i.icon]||{name:i.name,icon:i.icon,count:0,total:0};xpByName[i.icon].count++;xpByName[i.icon].total+=i.value;});
+const totalCandyXp=xpItems.reduce((s,i)=>s+i.value,0);
+const combatXp=victory?Math.round(dg.earnedXp||0):0;
+const totalXp=combatXp+totalCandyXp;
 html+=`<div style="font-size:7px;color:#f0d890;margin-bottom:10px;text-align:center">
-${victory?'Objetos obtenidos:':'Perdiste todos los objetos.'}
+${victory?'Resultado:':'Perdiste todos los objetos.'}
 </div>`;
-if(victory&&dg.loot.length){
-html+=`<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:12px">`;
-if(tokens)html+=`<div class="dg-loot-chip">₱ +${tokens} PokéTokens</div>`;
-if(potions)html+=`<div class="dg-loot-chip">🧪 ${potions} Pociones</div>`;
-if(candies)html+=`<div class="dg-loot-chip">🍬 ${candies} Rare Candy</div>`;
+if(victory){
+html+=`<div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-bottom:8px">`;
+if(combatXp)html+=`<div class="dg-loot-chip">⚔️ +${combatXp.toLocaleString()} EXP</div>`;
+if(tokens)html+=`<div class="dg-loot-chip">₱ +${tokens}</div>`;
+if(potions)html+=`<div class="dg-loot-chip">🧪 ×${potions}</div>`;
+Object.values(xpByName).forEach(c=>{html+=`<div class="dg-loot-chip">${c.icon} ×${c.count} <span style="opacity:.7">(+${c.total.toLocaleString()} EXP)</span></div>`;});
 html+=`</div>`;
+if(totalXp>0)html+=`<div style="font-size:6px;color:#80f080;text-align:center;margin-bottom:8px">Total: +${totalXp.toLocaleString()} EXP de combate y caramelos</div>`;
 }
 html+=`<div style="text-align:center"><button class="dg-btn" onclick="dgClose()">Volver a la ciudad</button></div>`;
 result.innerHTML=html;
@@ -4555,9 +4769,34 @@ document.getElementById('dg-battle').style.display='none';
 document.getElementById('dg-canvas').style.display='none';
 document.getElementById('dg-hud').style.display='none';
 }
-function dgClose(){
-document.getElementById('dg-modal').classList.remove('open');
-dg.active=false;
+async function dgClose(){
+  document.getElementById('dg-modal').classList.remove('open');
+  dg.active=false;
+  // Aplicar XP ganada (combate + caramelos)
+  const p=dg.playerPoke;
+  if(!p||!user)return;
+  const combatXp=Math.round(dg.earnedXp||0);
+  const candyXp=(dg.loot||[]).filter(i=>i.effect==='xp').reduce((s,i)=>s+i.value,0);
+  const totalXp=combatXp+candyXp;
+  if(totalXp<=0)return;
+  const prog=await xpLoad(p.id);
+  prog.xp=(prog.xp||0)+totalXp;
+  // Subir niveles automáticamente
+  let leveled=0;
+  while(prog.xp>=xpNeeded(prog.level)&&prog.level<100){
+    prog.xp-=xpNeeded(prog.level);
+    prog.level++;
+    leveled++;
+  }
+  await xpSave(p.id,prog);
+  if(leveled>0){
+    toast(`🎉 ¡${p['name_'+lang]||p.name_en} subió ${leveled} nivel${leveled>1?'es':''}! → Lv.${prog.level}`);
+    await loadSlots();
+  } else if(totalXp>0){
+    const pct=Math.floor(prog.xp/xpNeeded(prog.level)*100);
+    toast(`+${totalXp.toLocaleString()} EXP (${pct}% al siguiente nivel)`);
+  }
+  dg.earnedXp=0;
 }
 function dgRender(){
 const cv=document.getElementById('dg-canvas');
