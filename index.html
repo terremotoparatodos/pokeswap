@@ -1756,10 +1756,23 @@ if(!isMobile)buildMap();
 else setTimeout(()=>buildMap(),800);
 startLoop();
 // Música del mapa tras primer interacción
-document.addEventListener('pointerdown', ()=>{
+// Unlock de AudioContext en cualquier interacción del usuario
+function _sfxUnlockAndPlay(){
   SFX.unlock();
-  if(!SFX.currentMusic()) setTimeout(()=>SFX.musicMap(), 200);
-}, {once:true});
+  if(!SFX.currentMusic()) setTimeout(()=>SFX.musicMap(), 300);
+}
+document.addEventListener('pointerdown', _sfxUnlockAndPlay, {once:true});
+document.addEventListener('touchstart',  _sfxUnlockAndPlay, {once:true, passive:true});
+document.addEventListener('keydown',     _sfxUnlockAndPlay, {once:true});
+document.addEventListener('click',       _sfxUnlockAndPlay, {once:true});
+// Reanudar música al volver al tab (iOS Safari lo suspende)
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState==='visible'){
+    const c = SFX.ctx?.();
+    if(c && c.state==='suspended') c.resume();
+    if(SFX.getMusicEnabled() && !SFX.currentMusic()) setTimeout(()=>SFX.musicMap(),400);
+  }
+});
 // Performance: en mobile reducir entidades salvajes
 if(isMobile){
   const origSpawn=window.spawnWilds;
@@ -3332,10 +3345,18 @@ const SFX = (() => {
   }
 
   function unlock() {
-    if (_unlocked) return;
-    _unlocked = true;
     const c = init(); if (!c) return;
-    if (c.state === 'suspended') c.resume();
+    if (c.state === 'suspended') {
+      c.resume().then(()=>{
+        if(!_unlocked){
+          _unlocked = true;
+          if(musicEnabled && !currentMusic) setTimeout(()=>musicMap(), 200);
+        }
+      });
+    }
+    if(!_unlocked){
+      _unlocked = true;
+    }
   }
 
   // ── HELPERS DE SÍNTESIS ──
@@ -3769,6 +3790,7 @@ const SFX = (() => {
   function musicMap() {
     if (!musicEnabled) return;
     const c = init(); if (!c) return;
+    if (c.state === 'suspended') { c.resume(); }
     stopMusic();
     const root = N.G3;
     let stopped = false;
@@ -3812,6 +3834,7 @@ const SFX = (() => {
   function musicDungeon() {
     if (!musicEnabled) return;
     const c = init(); if (!c) return;
+    if (c.state === 'suspended') { c.resume(); }
     stopMusic();
     const root = N.C3;
     let stopped = false;
@@ -3866,6 +3889,7 @@ const SFX = (() => {
   function musicBoss() {
     if (!musicEnabled) return;
     const c = init(); if (!c) return;
+    if (c.state === 'suspended') { c.resume(); }
     stopMusic();
     const root = N.C3;
     let stopped = false;
@@ -3955,6 +3979,7 @@ const SFX = (() => {
   // ── API PÚBLICA ──
   return {
     unlock,
+    ctx: () => ctx,
     play: (name, ...args) => {
       if (!sfxEnabled) return;
       try { unlock(); sounds[name]?.(...args); } catch(e) {}
