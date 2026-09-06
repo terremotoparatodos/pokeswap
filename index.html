@@ -4030,7 +4030,7 @@ if(wildPool.length){
 const wp=wildPool[Math.floor(Math.random()*wildPool.length)];
 const lv=dg.floor*2+Math.floor(Math.random()*3);
 const st=getStats(wp.id);
-const hp=Math.floor(st[0]*(1+lv*0.08));
+const hp=dg3HP(st[0],lv);
 dg.enemies.push({
 id:wp.id,name:wp[`name_${lang}`]||wp.name_en,
 type1:wp.type1,type2:wp.type2,
@@ -4067,17 +4067,17 @@ const bp=strongPool.length?strongPool[Math.floor(Math.random()*strongPool.length
 if(bp){
 const lv=dg.floor*3+5;
 const st=getStats(bp.id);
-const hp=Math.floor(st[0]*(1+lv*0.12)*1.8);
+const hp=Math.floor(dg3HP(st[0],lv)*1.8);
 dg.enemies=dg.enemies.filter(en=>!(en.x===bossRoom.cx&&en.y===bossRoom.cy));
 dg.enemies.push({
 id:bp.id,name:(bp['name_'+lang]||bp.name_en),
 type1:bp.type1,type2:bp.type2,
 x:bossRoom.cx,y:bossRoom.cy,hp,maxHP:hp,lv,
-atk:Math.floor(st[1]*(1+lv*0.1)*1.4),
-def:Math.floor(st[2]*(1+lv*0.1)*1.3),
-spa:Math.floor(st[3]*(1+lv*0.1)*1.3),
-spd:Math.floor(st[4]*(1+lv*0.1)*1.3),
-spe:Math.floor(st[5]*(1+lv*0.1)),
+atk:Math.floor(dg3Stat(st[1],lv)*1.4),
+def:Math.floor(dg3Stat(st[2],lv)*1.3),
+spa:Math.floor(dg3Stat(st[3],lv)*1.3),
+spd:Math.floor(dg3Stat(st[4],lv)*1.3),
+spe:dg3Stat(st[5],lv),
 moves:getMoves(bp),
 isBoss:true,
 });
@@ -4687,14 +4687,13 @@ const st=getStats(p.id);
 const _isMineDg=user&&slots[p.id]?.owner_id===user.id;
 const xpProg=_isMineDg?await xpLoad(p.id):{level:5};
 dg.playerLv=xpProg.level;
-const lvMult=1+dg.playerLv*0.08;
-dg.playerMaxHP=Math.floor(st[0]*lvMult);
+dg.playerMaxHP=dg3HP(st[0],dg.playerLv);
 dg.playerHP=dg.playerMaxHP;
-dg.playerPoke._atk=Math.floor(st[1]*(1+dg.playerLv*0.06));
-dg.playerPoke._def=Math.floor(st[2]*(1+dg.playerLv*0.06));
-dg.playerPoke._spa=Math.floor(st[3]*(1+dg.playerLv*0.06));
-dg.playerPoke._spd=Math.floor(st[4]*(1+dg.playerLv*0.06));
-dg.playerPoke._spe=Math.floor(st[5]*(1+dg.playerLv*0.06));
+dg.playerPoke._atk=dg3Stat(st[1],dg.playerLv);
+dg.playerPoke._def=dg3Stat(st[2],dg.playerLv);
+dg.playerPoke._spa=dg3Stat(st[3],dg.playerLv);
+dg.playerPoke._spd=dg3Stat(st[4],dg.playerLv);
+dg.playerPoke._spe=dg3Stat(st[5],dg.playerLv);
 dgGenerate();
 dg.playerPx=dg.playerX*dg.tileSize;
 dg.playerPy=dg.playerY*dg.tileSize;
@@ -5214,7 +5213,7 @@ function advGenBattleNode(isBoss){
     const lv = Math.max(bossBaseLv, AD.lv + 5) + (_dgDiff?.lvBonus||0);
     const st=getStats(wp.id);
     const mult=boss.mult;
-    const hp=Math.floor(st[0]*(1+lv*0.14)*mult);
+    const hp=Math.floor(dg3HP(st[0],lv)*mult);
     return{type:'battle',isBoss:true,icon:'👑',label:'JEFE: '+boss.name,
       enemy:{id:wp.id,name:boss.name,type1:wp.type1,type2:wp.type2,
         hp,maxHP:hp,lv,
@@ -5247,7 +5246,7 @@ function advGenBattleNode(isBoss){
   const scaledLv = Math.max(baseLv, playerScaled) + Math.floor(Math.random()*3);
   const lv=Math.max(1, scaledLv + (_dgDiff?.lvBonus||0));
   const st=getStats(wp.id);
-  const hp=Math.floor(st[0]*(1+lv*0.08));
+  const hp=dg3HP(st[0],lv);
   return{type:'battle',isBoss:false,icon:'⚔️',label:(wp['name_'+lang]||wp.name_en)+' Lv.'+lv,
     enemy:{id:wp.id,name:wp['name_'+lang]||wp.name_en,type1:wp.type1,type2:wp.type2,
       hp,maxHP:hp,lv,
