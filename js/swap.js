@@ -56,10 +56,15 @@ let swapCdInterval = null; // timer del cooldown
 
 // --- Helpers de cooldown (localStorage) ---
 function swapGetCooldownUntil() {
+  // Supabase es la fuente de verdad — fallback a localStorage
+  if (profile?.swap_cooldown_until) {
+    return new Date(profile.swap_cooldown_until).getTime();
+  }
   const v = localStorage.getItem(SWAP_COOLDOWN_KEY);
   return v ? parseInt(v) : 0;
 }
 function swapSetCooldownNow() {
+  // Solo como caché local; el servidor ya actualizó Supabase
   localStorage.setItem(SWAP_COOLDOWN_KEY, Date.now() + SWAP_COOLDOWN_MS);
 }
 function swapIsReady() {
