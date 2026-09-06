@@ -5837,7 +5837,7 @@ function _advDrawMinimap(cv){
   // ── Label de piso ──
   ctx.fillStyle='rgba(200,180,240,.5)';
   ctx.font='5px monospace';ctx.textAlign='left';
-  ctx.fillText(\`PISO \${AD.layer+1}/\${total} → JEFE\`,4,H-3);
+  ctx.fillText('PISO '+(AD.layer+1)+'/'+total+' → JEFE',4,H-3);
 
   // ── Loop de animación ──
   _advMinimapFrame++;
