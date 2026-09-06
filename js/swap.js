@@ -651,21 +651,15 @@ async function swapSkipCooldown(method) {
     try {
       const { data: { session } } = await sb.auth.getSession();
       // Solo desbloquear el cooldown — NO hacer swap
-      const r = await fetch(`${SB_URL}/functions/v1/skip-cooldown`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cost: SWAP_SKIP_TOKENS })
-      }).then(x => x.json());
-      if (r.error) {
-        // Fallback: descontar tokens localmente si la edge function no existe aún
-        if (r.error.includes('not found') || r.error.includes('404')) {
-          await sb.from('profiles')
-            .update({ tokens: tok - SWAP_SKIP_TOKENS, swap_cooldown_until: new Date().toISOString() })
-            .eq('id', (await sb.auth.getUser()).data.user.id);
-        } else {
-          toast(r.error, 1); return;
-        }
-      }
+      // Descontar tokens y limpiar cooldown directo en Supabase
+      const uid = (await sb.auth.getUser()).data.user.id;
+      const { error } = await sb.from('profiles')
+        .update({
+          tokens: tok - SWAP_SKIP_TOKENS,
+          swap_cooldown_until: new Date().toISOString()
+        })
+        .eq('id', uid);
+      if (error) { toast('Error: ' + error.message, 1); return; }
       localStorage.removeItem(SWAP_COOLDOWN_KEY);
       if (swapCdInterval) { clearInterval(swapCdInterval); swapCdInterval = null; }
       if (window._swapBtnTimer) { clearInterval(window._swapBtnTimer); window._swapBtnTimer = null; }
