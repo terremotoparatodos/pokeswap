@@ -1,10 +1,10 @@
 // ════════════════════════════════════════════════════════════
-// js/market.js — MERCADO INTERNO + SISTEMA POKESWAP
-// Extraído de index.html — no editar directamente en el HTML
-// Depende de: sb, supabase, slots, user, toast, SFX, pokemonData
+// js/market.js — MERCADO P2P + SISTEMA POKESWAP
+// Cargado ANTES del script principal en index.html
+// Depende de: sb, slots, user, pokemon, toast, SFX (de sfx.js)
 // ════════════════════════════════════════════════════════════
 
-// ── Mercado P2P ──────────────────────────────────────────
+// ── Mercado interno ───────────────────────────────────────
 // ── MERCADO INTERNO (global) ──
 async function openMarket(){
   document.getElementById('market-ovl').classList.add('open');
@@ -174,8 +174,7 @@ async function marketCancel(listingId){
 }
 
 
-// ── Sistema PokeSwap ─────────────────────────────────────
-// ============================================================
+// ── Sistema PokeSwap ──────────────────────────────────────
 // ===== SISTEMA POKESWAP =====
 // ============================================================
 
@@ -830,3 +829,4 @@ setInterval(swapUpdateNavBadge, 60000);
 // ============================================================
 // ===== FIN SISTEMA POKESWAP =====
 // ============================================================
+
