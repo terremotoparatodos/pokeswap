@@ -75,7 +75,7 @@
 #mmap,#zooms{display:none}
 
 /* Modales: full screen en mobile */
-#box-modal .box-wrap{width:100%;max-width:100%;border-radius:8px 8px 0 0;position:fixed;bottom:calc(58px + env(safe-area-inset-bottom,0px));max-height:80vh}
+#box-modal .box-wrap{width:calc(100% - 24px);max-width:100%;border-radius:10px;position:relative;bottom:auto;max-height:calc(100vh - 140px)}
 .box-layout{grid-template-columns:120px 1fr}
 
 /* Dungeon full screen */
@@ -85,7 +85,9 @@
 #dg-hud{border-radius:0;padding:8px 12px}
 .dg-hud-name{font-size:9px}
 .dg-hud-lv{font-size:7px}
-.dg-hp-bar{width:120px;height:8px}
+.dg-hp-bar{width:auto;flex:1;height:8px}
+#dg-battle{margin:8px 10px;border-radius:8px}
+#dg-result{margin:8px 10px;border-radius:8px}
 .dg-hp-txt,.dg-hud-info{font-size:7px}
 .dg-exit-btn{font-size:8px;padding:8px 12px;min-height:36px}
 .dg-move-btn{font-size:9px;padding:14px 8px;min-height:48px}
@@ -133,7 +135,7 @@
 #pokedex-modal .pokedex-wrap{max-width:100%;border-radius:10px 10px 0 0;max-height:90vh}
 
 /* PC Box */
-#box-modal{padding:0;align-items:flex-end}
+#box-modal{padding:12px;align-items:center;justify-content:center}
 
 /* Agrandar botones táctiles */
 button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
@@ -381,13 +383,13 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 @media(max-width:767px){
   #mobile-topbar{
     display:flex;position:fixed;top:0;left:0;right:0;z-index:201;
-    height:40px;align-items:center;justify-content:space-between;
-    padding:0 12px;background:rgba(8,5,2,.98);border-bottom:1px solid var(--brown);
+    height:50px;align-items:center;justify-content:space-between;
+    padding:0 14px;background:rgba(8,5,2,.98);border-bottom:1px solid var(--brown);
     box-shadow:0 2px 8px rgba(0,0,0,.4);
   }
   #mobile-nav{
     display:flex;position:fixed;bottom:0;left:0;right:0;z-index:200;
-    height:calc(58px + env(safe-area-inset-bottom,0px));
+    height:calc(72px + env(safe-area-inset-bottom,0px));
     padding-bottom:env(safe-area-inset-bottom,0px);
     background:rgba(8,5,2,.98);border-top:2px solid var(--brown);
     box-shadow:0 -4px 16px rgba(0,0,0,.5)
@@ -398,9 +400,9 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
     border-top:2px solid transparent;transition:all .15s;position:relative
   }
   .mnav-btn.active{border-top-color:var(--gold);background:rgba(240,180,0,.06)}
-  .mnav-ico{font-size:20px;line-height:1;filter:grayscale(.4);transition:filter .15s}
+  .mnav-ico{font-size:24px;line-height:1;filter:grayscale(.4);transition:filter .15s}
   .mnav-btn.active .mnav-ico{filter:grayscale(0)}
-  .mnav-lbl{font-family:inherit;font-size:6px;color:var(--text-dim);transition:color .15s}
+  .mnav-lbl{font-family:inherit;font-size:7px;color:var(--text-dim);transition:color .15s}
   .mnav-btn.active .mnav-lbl{color:var(--gold)}
   .mnav-badge{position:absolute;top:2px;right:calc(50% - 18px);background:#e04020;color:#fff;font-size:5px;padding:1px 4px;border-radius:8px;min-width:12px;text-align:center}
 
@@ -409,11 +411,11 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
   #activity-strip{display:none!important}
 
   /* Los paneles ahora terminan encima de la barra de navegación (58px) */
-  #rank-panel{bottom:calc(58px + env(safe-area-inset-bottom,0px))!important}
-  #info-panel{bottom:calc(58px + env(safe-area-inset-bottom,0px))!important}
+  #rank-panel{bottom:calc(72px + env(safe-area-inset-bottom,0px))!important}
+  #info-panel{bottom:calc(72px + env(safe-area-inset-bottom,0px))!important}
 
   /* Topbar mínima: solo logo + avatar/tokens */
-  #topbar{height:48px}
+  #topbar{height:60px}
   #topbar > div:first-child{flex:1}
 }
 
@@ -1262,11 +1264,11 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 
 <!-- BARRA SUPERIOR MOBILE -->
 <div id="mobile-topbar">
-  <div id="mtb-logo" style="font-size:9px;color:var(--gold);font-weight:bold">pokeswap<span style="color:#c080f0">.lol</span></div>
-  <div id="mtb-user" onclick="if(!user)openAuth()" style="display:flex;align-items:center;gap:6px;cursor:pointer">
-    <span id="mtb-tokens" style="font-size:8px;color:var(--gold)"></span>
-    <span id="mtb-username" style="font-size:8px;color:var(--text)"></span>
-    <span id="mtb-login-btn" style="font-size:8px;color:#c080f0;display:none">Ingresar →</span>
+  <div id="mtb-logo" style="font-size:11px;color:var(--gold);font-weight:bold">pokeswap<span style="color:#c080f0">.lol</span></div>
+  <div id="mtb-user" onclick="if(!user){openAuth();}else{openProfile();}" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+    <span id="mtb-tokens" style="font-size:10px;color:var(--gold)"></span>
+    <span id="mtb-username" style="font-size:10px;color:var(--text)"></span>
+    <span id="mtb-login-btn" style="font-size:10px;color:#c080f0;display:none">Ingresar →</span>
   </div>
 </div>
 
@@ -1293,6 +1295,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 <div class="ovl" id="more-ovl" onclick="if(event.target===this)closeMore()">
   <div class="dsm" style="max-width:340px;width:100%">
     <div class="dsm-title">Menú</div>
+    <button class="me" id="more-profile-btn" onclick="closeMore();openProfile()" style="display:none">👤 Mi Perfil</button>
     <button class="me" onclick="closeMore();openLB()">🏆 Top Entrenadores</button>
     <button class="me" onclick="closeMore();openPokedex()">📖 Pokédex</button>
     <button class="me" id="more-swap-btn" onclick="closeMore();openSwapModal()" style="display:none">🔀 PokeSwap</button>
@@ -5141,6 +5144,9 @@ function openMore(){
   const swapBtn=document.getElementById('more-swap-btn');
   const swapNav=document.getElementById('swap-nav-btn');
   if(swapBtn&&swapNav)swapBtn.style.display=swapNav.style.display==='none'?'none':'block';
+  // Mostrar Perfil si hay sesión
+  const profBtn=document.getElementById('more-profile-btn');
+  if(profBtn)profBtn.style.display=user?'block':'none';
   document.getElementById('more-ovl').classList.add('open');
 }
 function closeMore(){document.getElementById('more-ovl').classList.remove('open');}
