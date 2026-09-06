@@ -5150,7 +5150,7 @@ function dgSetDiff(d){
 }
 function dgSelectAndGo(id){
 document.getElementById('dg-select').classList.remove('open');
-advStart(id);
+dgOpen(id);
 }
 
 let mobileShowMap=false;
@@ -5254,7 +5254,7 @@ document.getElementById('tester-panel').classList.remove('open');
 }
 function dgSelectAndGoTester(id){
 document.getElementById('dg-select').classList.remove('open');
-advStart(id);
+dgOpen(id);
 }
 function tstJumpFloor(n){
 if(!AD.active){toast('Abrí un sendero primero',1);return;}
