@@ -1741,7 +1741,7 @@ setTimeout(()=>_ldscr.style.display='none',320);
 // Auth (no bloquea)
 sb.auth.onAuthStateChange(async(_,s)=>{
 user=s?.user||null;updateAuthUI();
-if(user;updateMobileTopbar()){await loadProfile();await loadSlots();buildRankPanel();renderBoxGrid();}
+if(user){await loadProfile();await loadSlots();buildRankPanel();renderBoxGrid();}
 refreshEnts();
 swapUpdateNavBadge();
 });
@@ -1908,7 +1908,8 @@ async function marketBuy(listingId,name){
   }).then(x=>x.json());
   if(r.error){toast(r.error,1);return;}
   toast(`✓ ¡${name} es tuyo! Gastaste ₱ ${r.price_paid}`);
-;updateMobileTopbar()  await loadSlots();
+
+  await loadSlots();
   await loadProfile();
   await marketLoad();
 }
@@ -2738,7 +2739,7 @@ if(isMe&&!alreadyReg){regBtn.style.display='block';}else{regBtn.style.display='n
 async function pay(prov){if(!user){openAuth();return;}if(!selectedId)return;const p=pokemon.find(x=>x.id===selectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
 async function payBox(prov){if(!user){openAuth();return;}if(!boxSelectedId)return;const p=pokemon.find(x=>x.id===boxSelectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
 async function _pay(p,prov){
-if(prov==='free'){try{const{data:{session}}=await sb.auth.getSession();const r=await(await fetch(`${SB_URL}/functions/v1/free-claim`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({pokemon_id:p.id})})).json();if(r.error)return toast(r.error,1);toast(`¡${p[;updateMobileTopbar()`name_${lang}`]||p.name_en} fue adoptado!`);await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();if(selectedId)updatePanel(selectedId);setTimeout(()=>drawMM(),3000);}catch(e){toast(e.message,1);}return;}
+if(prov==='free'){try{const{data:{session}}=await sb.auth.getSession();const r=await(await fetch(`${SB_URL}/functions/v1/free-claim`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({pokemon_id:p.id})})).json();if(r.error)return toast(r.error,1);toast(`¡${p[`name_${lang}`]||p.name_en} fue adoptado!`);await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();if(selectedId)updatePanel(selectedId);setTimeout(()=>drawMM(),3000);}catch(e){toast(e.message,1);}return;}
 // Mostrar overlay de carga
 const overlay=document.createElement('div');
 overlay.id='pay-loading';
@@ -2765,7 +2766,7 @@ try{
     return;
   }
   if(prov==='tokens'){
-    overlay.remove;updateMobileTopbar()();
+    overlay.remove();
     toast(`¡${p[`name_${lang}`]||p.name_en} adoptado!`);
     await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();
     if(selectedId)updatePanel(selectedId);
@@ -3045,7 +3046,7 @@ async function loginEmail(){
   const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
   console.log('[PSv30] signIn result — error:',error,'session:',data?.session?.user?.email);
   if(error)return toast('Error: '+error.message,1);
-  if(!data?.session)return toast('Confirmá tu email antes de ingresar.;updateMobileTopbar() Revisá tu bandeja.',1);
+  if(!data?.session)return toast('Confirmá tu email antes de ingresar. Revisá tu bandeja.',1);
   user=data.session.user;
   updateAuthUI();
   closeAuth();
@@ -3134,7 +3135,8 @@ async function verifyLoyalty(manual=false){
       headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},
       body:JSON.stringify({manual})
     }).then(x=>x.json());
-    if(r.error){if(manual)toast(r.error,1);return;;updateMobileTopbar()}
+    if(r.error){if(manual)toast(r.error,1);return;
+}
     if(r.cached){if(manual)toast(r.message||`Multiplicador activo: ×${r.token_multiplier}`);return;}
     await loadProfile();
     updateAuthUI();
@@ -7907,7 +7909,8 @@ async function swapConfirm() {
   if (result.pokemon) dexMarkSeen(result.pokemon.id);
 
   // Aplicar estado y refrescar
- ;updateMobileTopbar() if (serverResult?.success) {
+ 
+  if (serverResult?.success) {
     swapApplyLocalState(realGivenId || swapSelectedId, realReceivedId || result.pokemon?.id);
     await loadProfile();
     await loadSlots();
@@ -8039,7 +8042,7 @@ async function swapSkipCooldown(method) {
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ skip_cooldown: true, pokemon_given_id: swapSelectedId })
       }).then(x => x.json());
-      if (r.error) { toast(r.error, 1); r;updateMobileTopbar()eturn; }
+      if (r.error) { toast(r.error, 1); return; }
       localStorage.removeItem(SWAP_COOLDOWN_KEY);
       if (swapCdInterval) { clearInterval(swapCdInterval); swapCdInterval = null; }
       await loadProfile();
