@@ -5070,6 +5070,21 @@ function getEnergyBar(energy){
   </div>`;
 }
 
+function advGetEnergy(slot) {
+  if (!slot) return 100;
+  const key = 'pxenergy_' + slot.pokemon_id;
+  const lastUsed = parseInt(localStorage.getItem(key) || '0');
+  if (!lastUsed) return 100;
+  return Math.min(100, Math.round((Date.now() - lastUsed) / 360000));
+}
+function getEnergyBar(energy) {
+  const pct = Math.round(energy);
+  const color = pct > 50 ? '#40c040' : pct > 20 ? '#c0a020' : '#c03020';
+  return `<div style="display:flex;align-items:center;gap:4px;margin-top:2px">
+    <div style="flex:1;height:3px;background:rgba(255,255,255,.1);border-radius:2px">
+      <div style="width:${pct}%;height:100%;background:${color};border-radius:2px"></div>
+    </div><span style="font-size:4px;color:${color}">⚡${pct}</span></div>`;
+}
 function openDgSelect(){
 if(!user){openAuth();return;}
 const owned=pokemon.filter(p=>slots[p.id]?.owner_id===user?.id);
@@ -5141,7 +5156,7 @@ function dgSetDiff(d){
 }
 function dgSelectAndGo(id){
 document.getElementById('dg-select').classList.remove('open');
-advStart(id);
+dgOpen(id);
 }
 
 let mobileShowMap=false;
@@ -5245,7 +5260,7 @@ document.getElementById('tester-panel').classList.remove('open');
 }
 function dgSelectAndGoTester(id){
 document.getElementById('dg-select').classList.remove('open');
-advStart(id);
+dgOpen(id);
 }
 function tstJumpFloor(n){
 if(!AD.active){toast('Abrí un sendero primero',1);return;}
