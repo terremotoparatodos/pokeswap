@@ -80,7 +80,6 @@
 
 /* Dungeon full screen */
 #dg-modal{padding:0;align-items:flex-start}
-  #world-wrap,#map-container{margin-top:40px}
 .dg-container{max-width:100%;width:100%;gap:4px}
 #dg-canvas{width:100%;height:auto;border-radius:0;border-left:none;border-right:none}
 #dg-hud{border-radius:0;padding:8px 12px}
@@ -1967,7 +1966,7 @@ function ld(p,t){document.getElementById('ldbar').style.width=p+'%';document.get
 async function loadPokemon(){const{data}=await sb.from('pokemon').select('*').order('id');if(data)pokemon=data;}
 async function loadSlots(){const{data}=await sb.from('slots').select('*');if(data){slots={};data.forEach(s=>slots[s.pokemon_id]=s);}}
 async function loadStats(){await sb.from('global_stats').select('*').single();}
-async function updateMobileTopbar(){
+function updateMobileTopbar(){
   const tokEl=document.getElementById('mtb-tokens');
   const usrEl=document.getElementById('mtb-username');
   const loginEl=document.getElementById('mtb-login-btn');
