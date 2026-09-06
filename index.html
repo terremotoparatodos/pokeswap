@@ -302,6 +302,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 .adv-title{font-size:10px;color:var(--gold)}
 
 #adv-nodemap{display:flex;align-items:center;justify-content:center;gap:2px;margin-bottom:12px;flex-wrap:wrap}
+#adv-minimap{display:block;width:100%;height:70px;background:#0d0a18;border-radius:4px;border:1px solid rgba(120,80,200,.25);margin-bottom:4px}
 .adv-node{width:20px;height:20px;border-radius:50%;background:rgba(240,180,80,.08);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--text-dim);flex-shrink:0}
 .adv-node.done{background:rgba(240,200,64,.15);border-color:var(--gold-dim);color:var(--text)}
 .adv-node.cur{border-color:var(--gold);box-shadow:0 0 6px rgba(240,200,64,.5)}
@@ -1438,7 +1439,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
     </div>
     <!-- Fila superior: minimapa SVG + HUD lado a lado -->
     <div class="adv-top-row">
-      <div id="adv-minimap"></div>
+      <canvas id="adv-minimap" width="260" height="70" style="display:block;width:100%;height:70px;image-rendering:pixelated"></canvas>
       <div id="adv-hud-slot" style="flex-shrink:0;min-width:150px;max-width:210px"></div>
     </div>
     <!-- Lore: una línea -->
@@ -5701,69 +5702,146 @@ function advDrawRoom(kind){
 }
 
 // ── MINIMAPA ──
+// ── MAPA DE AVANCE (animación horizontal del Pokémon corriendo) ──
+let _advMinimapRaf=null;
+let _advMinimapFrame=0;
+let _advPokeImg=null;
+let _advPokeImgId=null;
+
 function advRenderMinimap(){
-  const el=document.getElementById('adv-minimap');
-  if(!el)return;
+  const cv=document.getElementById('adv-minimap');
+  if(!cv||!cv.getContext)return;
+  // Cancelar animación anterior
+  if(_advMinimapRaf){cancelAnimationFrame(_advMinimapRaf);_advMinimapRaf=null;}
+  // Precargar sprite del Pokémon
+  const pokeId=AD.poke?.id;
+  if(pokeId&&pokeId!==_advPokeImgId){
+    _advPokeImgId=pokeId;
+    _advPokeImg=new Image();
+    _advPokeImg.src=`${FB}/${pokeId}.png`;
+  }
+  _advDrawMinimap(cv);
+}
+
+function _advDrawMinimap(cv){
+  const ctx=cv.getContext('2d');
+  const W=cv.width,H=cv.height;
   const total=AD.normalLayers;
-  // Dibujar árbol de decisiones
-  // Usamos SVG inline para el minimapa
-  const W=260,H=70;
-  const nodeR=7;
-  const layerW=W/(total+1);
+  const isBoss=advIsBossLayer();
+  // Progreso 0→1: cuánto avanzó el Pokémon en el camino
+  const progress=isBoss?1:(AD.layer/total);
+  // Posición X del Pokémon (de 14% a 78% del ancho, la escalera está al 86%)
+  const POKE_START=W*0.08, POKE_END=W*0.76;
+  const pokeX=POKE_START+(POKE_END-POKE_START)*progress;
 
-  let svgNodes='',svgLines='';
+  // ── Fondo ──
+  ctx.fillStyle='#0d0a18';ctx.fillRect(0,0,W,H);
+  // Gradiente de suelo
+  const floorY=H*0.62;
+  const floorGrad=ctx.createLinearGradient(0,floorY,0,H);
+  floorGrad.addColorStop(0,'#1a1230');floorGrad.addColorStop(1,'#0a0818');
+  ctx.fillStyle=floorGrad;ctx.fillRect(0,floorY,W,H-floorY);
+  // Línea de suelo
+  ctx.strokeStyle='rgba(140,80,200,.35)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(0,floorY);ctx.lineTo(W,floorY);ctx.stroke();
 
-  // Nodos por capa: todos tienen 2 caminos hasta que uno se elige
+  // ── Piso del camino (piedras) ──
+  const tileW=18,tileH=6,tileY=floorY+1;
+  for(let tx=0;tx<W;tx+=tileW+2){
+    const shade=(tx/tileW)%2===0?'#211838':'#1c1430';
+    ctx.fillStyle=shade;ctx.fillRect(tx,tileY,tileW,tileH);
+    ctx.strokeStyle='rgba(80,40,140,.4)';ctx.lineWidth=0.5;
+    ctx.strokeRect(tx,tileY,tileW,tileH);
+  }
+
+  // ── Estelas de piso ya recorrido (trail) ──
+  if(progress>0){
+    const trailGrad=ctx.createLinearGradient(POKE_START,0,pokeX,0);
+    trailGrad.addColorStop(0,'rgba(192,128,240,0)');
+    trailGrad.addColorStop(0.5,'rgba(192,128,240,.08)');
+    trailGrad.addColorStop(1,'rgba(192,128,240,.18)');
+    ctx.fillStyle=trailGrad;
+    ctx.fillRect(POKE_START,floorY-10,pokeX-POKE_START,10);
+  }
+
+  // ── Hitos de piso (puntos en el suelo) ──
   for(let i=0;i<=total;i++){
-    const x=layerW*(i+0.5);
-    const isBoss=i===total;
-    const isDone=i<AD.history.length;
-    const isCur=i===AD.layer&&!advIsBossLayer();
-    const isBossCur=isBoss&&advIsBossLayer();
-
-    if(isBoss){
-      const fill=AD.history[total]?'#f0c840':isBossCur?'#e04020':'#2a1010';
-      const stroke=isBossCur?'#e04020':'#6a3a10';
-      svgNodes+=`<circle cx="${x}" cy="${H/2}" r="${nodeR+2}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
-      svgNodes+=`<text x="${x}" y="${H/2+4}" text-anchor="middle" font-size="7" fill="#fff">👑</text>`;
-    } else {
-      // Dos caminos (arriba/abajo)
-      const yTop=H*0.28,yBot=H*0.72;
-      ['L','R'].forEach((side,si)=>{
-        const y=si===0?yTop:yBot;
-        const chosen=AD.runMap[i]?.chosen;
-        const wasHere=i<AD.layer;
-        const isChosen=wasHere&&AD.runMap[i]?.side===side;
-        const fill=isCur?'#c080f0':isChosen?'#f0c840':wasHere&&!isChosen?'#2a1428':'#1a1028';
-        const stroke=isCur?'#c080f0':isChosen?'#a08030':'#3a2048';
-        const node=AD.layers[i]?.[side];
-        const ico=node?{battle:'⚔',item:'🎁',event:'✦',decision:'?',boss:'👑'}[node.type]||'?':'?';
-        svgNodes+=`<circle cx="${x}" cy="${y}" r="${nodeR}" fill="${fill}" stroke="${stroke}" stroke-width="1.5"/>`;
-        if(wasHere||isCur){
-          svgNodes+=`<text x="${x}" y="${y+3}" text-anchor="middle" font-size="7" fill="${isChosen?'#1a0a00':'rgba(200,180,240,.7)'}">${ico}</text>`;
-        }
-        // Línea al siguiente
-        if(i<total){
-          const nx=layerW*(i+1.5);
-          const nyTop=H*0.28,nyBot=H*0.72;
-          [nyTop,nyBot].forEach(ny=>{
-            const opacity=(isChosen&&ny===y)?0.8:0.2;
-            svgLines+=`<line x1="${x}" y1="${y}" x2="${nx}" y2="${ny}" stroke="#6040a0" stroke-width="${isChosen&&ny===y?1.5:.5}" opacity="${opacity}"/>`;
-          });
-        } else {
-          // Convergencia al boss
-          const bx=layerW*(total+0.5);
-          const opacity=isChosen?0.8:0.2;
-          svgLines+=`<line x1="${x}" y1="${y}" x2="${bx}" y2="${H/2}" stroke="#804020" stroke-width="${isChosen?1.5:.5}" opacity="${opacity}"/>`;
-        }
-      });
+    const hx=POKE_START+(POKE_END-POKE_START)*(i/total);
+    const done=i<AD.layer||(i===total&&AD.history[total]);
+    const cur=i===AD.layer&&!isBoss;
+    // Sombra del punto
+    ctx.fillStyle=cur?'rgba(200,140,255,.6)':done?'rgba(240,200,64,.4)':'rgba(80,60,120,.3)';
+    ctx.beginPath();ctx.arc(hx,floorY-3,cur?4:3,0,Math.PI*2);ctx.fill();
+    // Número del piso
+    if(i<total){
+      ctx.fillStyle=done?'rgba(240,200,64,.9)':cur?'rgba(200,140,255,.9)':'rgba(120,90,160,.5)';
+      ctx.font=`bold 5px monospace`;
+      ctx.textAlign='center';
+      ctx.fillText(i+1,hx,floorY-13);
     }
   }
 
-  el.innerHTML=`<svg width="${W}" height="${H}" style="display:block;margin:0 auto">
-    ${svgLines}${svgNodes}
-    <text x="4" y="${H-3}" font-size="5" fill="rgba(200,180,240,.4)" font-family="monospace">MAPA DEL SENDERO</text>
-  </svg>`;
+  // ── Escalera/puerta final (boss) ──
+  const stairX=W*0.84,stairY=floorY-26;
+  const stairW=20,stairH=26;
+  // Marco de la puerta
+  ctx.fillStyle=isBoss?'rgba(220,60,20,.4)':'rgba(80,50,120,.3)';
+  ctx.fillRect(stairX-1,stairY-1,stairW+2,stairH+2);
+  // Escalones
+  for(let s=0;s<4;s++){
+    const sy=stairY+stairH-(s+1)*6;
+    const sw=stairW-s*4;
+    const sx=stairX+s*2;
+    ctx.fillStyle=isBoss?`rgba(220,${80+s*20},20,.8)`:`rgba(${60+s*15},${40+s*10},${100+s*10},.7)`;
+    ctx.fillRect(sx,sy,sw,5);
+    ctx.strokeStyle=isBoss?'rgba(255,100,40,.5)':'rgba(120,80,200,.4)';
+    ctx.lineWidth=0.5;ctx.strokeRect(sx,sy,sw,5);
+  }
+  // Símbolo encima (corona/estrella animada)
+  const blink=Math.sin(_advMinimapFrame*0.12)>0;
+  ctx.font='10px serif';ctx.textAlign='center';
+  ctx.fillStyle=isBoss?(blink?'rgba(255,100,40,1)':'rgba(255,180,40,1)'):'rgba(160,100,220,.6)';
+  ctx.fillText(isBoss?'👑':'🔒',stairX+stairW/2,stairY-2);
+
+  // ── Sprite del Pokémon corriendo ──
+  const SPRITE_W=28,SPRITE_H=28;
+  const spX=pokeX-SPRITE_W/2;
+  const spY=floorY-SPRITE_H-1;
+  // Sombra
+  ctx.fillStyle='rgba(0,0,0,.4)';
+  ctx.beginPath();ctx.ellipse(pokeX,floorY,10,3,0,0,Math.PI*2);ctx.fill();
+  // Bob vertical (cuando no está en boss)
+  const bob=isBoss?0:Math.sin(_advMinimapFrame*0.18)*2;
+  if(_advPokeImg&&_advPokeImg.complete){
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(_advPokeImg,spX,spY+bob,SPRITE_W,SPRITE_H);
+  } else {
+    // Placeholder mientras carga
+    ctx.fillStyle='#c080f0';
+    ctx.beginPath();ctx.arc(pokeX,spY+SPRITE_H/2+bob,8,0,Math.PI*2);ctx.fill();
+  }
+  // Partículas de paso (si está moviéndose / no en boss)
+  if(!isBoss&&progress>0&&progress<1){
+    const t=_advMinimapFrame;
+    for(let p=0;p<3;p++){
+      const age=((t+p*7)%14)/14;
+      const px=pokeX-8-age*16;
+      const py=floorY-2-age*4;
+      ctx.globalAlpha=(1-age)*0.5;
+      ctx.fillStyle='#a060e0';
+      ctx.beginPath();ctx.arc(px,py,2*(1-age),0,Math.PI*2);ctx.fill();
+    }
+    ctx.globalAlpha=1;
+  }
+
+  // ── Label de piso ──
+  ctx.fillStyle='rgba(200,180,240,.5)';
+  ctx.font='5px monospace';ctx.textAlign='left';
+  ctx.fillText(\`PISO \${AD.layer+1}/\${total} → JEFE\`,4,H-3);
+
+  // ── Loop de animación ──
+  _advMinimapFrame++;
+  _advMinimapRaf=requestAnimationFrame(()=>_advDrawMinimap(cv));
 }
 
 // ── HUD ──
@@ -6213,6 +6291,8 @@ function advNextLayer(){
 
 // ── BATALLA v2 ──
 function advStartBattle(enemy){
+  if(_advMinimapRaf){cancelAnimationFrame(_advMinimapRaf);_advMinimapRaf=null;}
+
   AD.inBattle=true;AD.battleEnemy={...enemy};AD.battleLog=[];
   AD.bossPhase=1;AD.bossPhaseTriggered=false;
   dexMarkSeen(enemy.id);
@@ -7372,6 +7452,7 @@ function advIsBossLayer(){return AD.layer>=AD.normalLayers;}
 
 // ── END ──
 async function advEnd(victory){
+  if(_advMinimapRaf){cancelAnimationFrame(_advMinimapRaf);_advMinimapRaf=null;}
   AD.active=false;
   SFX.stopMusic();
   if(victory){ SFX.play('victory'); }
