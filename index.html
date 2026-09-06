@@ -75,11 +75,12 @@
 #mmap,#zooms{display:none}
 
 /* Modales: full screen en mobile */
-#box-modal .box-wrap{width:100%;max-width:100%;border-radius:8px 8px 0 0;position:fixed;bottom:0;max-height:90vh}
+#box-modal .box-wrap{width:100%;max-width:100%;border-radius:8px 8px 0 0;position:fixed;bottom:calc(58px + env(safe-area-inset-bottom,0px));max-height:80vh}
 .box-layout{grid-template-columns:120px 1fr}
 
 /* Dungeon full screen */
 #dg-modal{padding:0;align-items:flex-start}
+  #world-wrap,#map-container{margin-top:40px}
 .dg-container{max-width:100%;width:100%;gap:4px}
 #dg-canvas{width:100%;height:auto;border-radius:0;border-left:none;border-right:none}
 #dg-hud{border-radius:0;padding:8px 12px}
@@ -375,9 +376,16 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 /* ═══════════════════════════════════════════════════════════════
    BARRA DE NAVEGACIÓN INFERIOR (MOBILE)
    ═══════════════════════════════════════════════════════════════ */
+#mobile-topbar{display:none}
 #mobile-nav{display:none}
 #more-ovl .lang-btn{display:inline-block!important}
 @media(max-width:767px){
+  #mobile-topbar{
+    display:flex;position:fixed;top:0;left:0;right:0;z-index:201;
+    height:40px;align-items:center;justify-content:space-between;
+    padding:0 12px;background:rgba(8,5,2,.98);border-bottom:1px solid var(--brown);
+    box-shadow:0 2px 8px rgba(0,0,0,.4);
+  }
   #mobile-nav{
     display:flex;position:fixed;bottom:0;left:0;right:0;z-index:200;
     height:calc(58px + env(safe-area-inset-bottom,0px));
@@ -1253,15 +1261,25 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 </div>
 
 
+<!-- BARRA SUPERIOR MOBILE -->
+<div id="mobile-topbar">
+  <div id="mtb-logo" style="font-size:9px;color:var(--gold);font-weight:bold">pokeswap<span style="color:#c080f0">.lol</span></div>
+  <div id="mtb-user" onclick="if(!user)openAuth()" style="display:flex;align-items:center;gap:6px;cursor:pointer">
+    <span id="mtb-tokens" style="font-size:8px;color:var(--gold)"></span>
+    <span id="mtb-username" style="font-size:8px;color:var(--text)"></span>
+    <span id="mtb-login-btn" style="font-size:8px;color:#c080f0;display:none">Ingresar →</span>
+  </div>
+</div>
+
 <!-- BARRA DE NAVEGACIÓN INFERIOR (MOBILE) -->
 <div id="mobile-nav">
   <button class="mnav-btn active" data-view="map" onclick="mobileNav('map')">
     <span class="mnav-ico">🗺️</span><span class="mnav-lbl">Mapa</span>
   </button>
-  <button class="mnav-btn" data-view="box" onclick="mobileNav('box')">
+  <button class="mnav-btn" data-view="box" onclick="if(!user){openAuth();return;}mobileNav('box')">
     <span class="mnav-ico">🏠</span><span class="mnav-lbl">Mi Mundo</span>
   </button>
-  <button class="mnav-btn" data-view="dungeon" onclick="mobileNav('dungeon')">
+  <button class="mnav-btn" data-view="dungeon" onclick="if(!user){openAuth();return;}mobileNav('dungeon')">
     <span class="mnav-ico">⚔️</span><span class="mnav-lbl">Dungeon</span>
   </button>
   <button class="mnav-btn" data-view="market" onclick="mobileNav('market')">
@@ -1707,7 +1725,7 @@ async function init(){
 const isMobile=window.innerWidth<=640;
 ld(10,'Verificando sesión...');
 const{data:{session}}=await sb.auth.getSession();
-if(session){user=session.user;await loadProfile();}
+if(session){user=session.user;await loadProfile();updateMobileTopbar();}
 ld(20,'Cargando Pokémon...');
 await Promise.all([loadPokemon(),loadSlots()]);
 ld(70,'Armando ranking...');
@@ -1723,7 +1741,7 @@ setTimeout(()=>_ldscr.style.display='none',320);
 // Auth (no bloquea)
 sb.auth.onAuthStateChange(async(_,s)=>{
 user=s?.user||null;updateAuthUI();
-if(user){await loadProfile();await loadSlots();buildRankPanel();renderBoxGrid();}
+if(user;updateMobileTopbar()){await loadProfile();await loadSlots();buildRankPanel();renderBoxGrid();}
 refreshEnts();
 swapUpdateNavBadge();
 });
@@ -1890,7 +1908,7 @@ async function marketBuy(listingId,name){
   }).then(x=>x.json());
   if(r.error){toast(r.error,1);return;}
   toast(`✓ ¡${name} es tuyo! Gastaste ₱ ${r.price_paid}`);
-  await loadSlots();
+;updateMobileTopbar()  await loadSlots();
   await loadProfile();
   await marketLoad();
 }
@@ -1948,7 +1966,23 @@ function ld(p,t){document.getElementById('ldbar').style.width=p+'%';document.get
 async function loadPokemon(){const{data}=await sb.from('pokemon').select('*').order('id');if(data)pokemon=data;}
 async function loadSlots(){const{data}=await sb.from('slots').select('*');if(data){slots={};data.forEach(s=>slots[s.pokemon_id]=s);}}
 async function loadStats(){await sb.from('global_stats').select('*').single();}
-async function loadProfile(){if(!user)return;const{data}=await sb.from('profiles').select('*').eq('id',user.id).single();profile=data;
+async function updateMobileTopbar(){
+  const tokEl=document.getElementById('mtb-tokens');
+  const usrEl=document.getElementById('mtb-username');
+  const loginEl=document.getElementById('mtb-login-btn');
+  if(!tokEl)return;
+  if(user&&profile){
+    tokEl.textContent='₱ '+(profile.tokens||0).toLocaleString();
+    usrEl.textContent=profile.username||user.email?.split('@')[0]||'';
+    if(loginEl)loginEl.style.display='none';
+  } else {
+    tokEl.textContent='';
+    usrEl.textContent='';
+    if(loginEl)loginEl.style.display='';
+  }
+}
+function loadProfile(){if(!user)return;const{data}=await sb.from('profiles').select('*').eq('id',user.id).single();profile=data;
+updateMobileTopbar();
 // Verificación diaria automática de fidelidad (sin manual)
 verifyLoyalty(false);
 // Cargar Pokédex desde Supabase
@@ -2704,7 +2738,7 @@ if(isMe&&!alreadyReg){regBtn.style.display='block';}else{regBtn.style.display='n
 async function pay(prov){if(!user){openAuth();return;}if(!selectedId)return;const p=pokemon.find(x=>x.id===selectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
 async function payBox(prov){if(!user){openAuth();return;}if(!boxSelectedId)return;const p=pokemon.find(x=>x.id===boxSelectedId);if(!p||p.locked){toast('🔒 Se desbloquea en evento especial',1);return;}await _pay(p,prov);}
 async function _pay(p,prov){
-if(prov==='free'){try{const{data:{session}}=await sb.auth.getSession();const r=await(await fetch(`${SB_URL}/functions/v1/free-claim`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({pokemon_id:p.id})})).json();if(r.error)return toast(r.error,1);toast(`¡${p[`name_${lang}`]||p.name_en} fue adoptado!`);await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();if(selectedId)updatePanel(selectedId);setTimeout(()=>drawMM(),3000);}catch(e){toast(e.message,1);}return;}
+if(prov==='free'){try{const{data:{session}}=await sb.auth.getSession();const r=await(await fetch(`${SB_URL}/functions/v1/free-claim`,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},body:JSON.stringify({pokemon_id:p.id})})).json();if(r.error)return toast(r.error,1);toast(`¡${p[;updateMobileTopbar()`name_${lang}`]||p.name_en} fue adoptado!`);await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();if(selectedId)updatePanel(selectedId);setTimeout(()=>drawMM(),3000);}catch(e){toast(e.message,1);}return;}
 // Mostrar overlay de carga
 const overlay=document.createElement('div');
 overlay.id='pay-loading';
@@ -2731,7 +2765,7 @@ try{
     return;
   }
   if(prov==='tokens'){
-    overlay.remove();
+    overlay.remove;updateMobileTopbar()();
     toast(`¡${p[`name_${lang}`]||p.name_en} adoptado!`);
     await loadProfile();await loadSlots();refreshEnts();buildRankPanel();renderBoxGrid();
     if(selectedId)updatePanel(selectedId);
@@ -3011,7 +3045,7 @@ async function loginEmail(){
   const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
   console.log('[PSv30] signIn result — error:',error,'session:',data?.session?.user?.email);
   if(error)return toast('Error: '+error.message,1);
-  if(!data?.session)return toast('Confirmá tu email antes de ingresar. Revisá tu bandeja.',1);
+  if(!data?.session)return toast('Confirmá tu email antes de ingresar.;updateMobileTopbar() Revisá tu bandeja.',1);
   user=data.session.user;
   updateAuthUI();
   closeAuth();
@@ -3100,7 +3134,7 @@ async function verifyLoyalty(manual=false){
       headers:{Authorization:`Bearer ${session.access_token}`,'Content-Type':'application/json'},
       body:JSON.stringify({manual})
     }).then(x=>x.json());
-    if(r.error){if(manual)toast(r.error,1);return;}
+    if(r.error){if(manual)toast(r.error,1);return;;updateMobileTopbar()}
     if(r.cached){if(manual)toast(r.message||`Multiplicador activo: ×${r.token_multiplier}`);return;}
     await loadProfile();
     updateAuthUI();
@@ -7873,7 +7907,7 @@ async function swapConfirm() {
   if (result.pokemon) dexMarkSeen(result.pokemon.id);
 
   // Aplicar estado y refrescar
-  if (serverResult?.success) {
+ ;updateMobileTopbar() if (serverResult?.success) {
     swapApplyLocalState(realGivenId || swapSelectedId, realReceivedId || result.pokemon?.id);
     await loadProfile();
     await loadSlots();
@@ -8005,7 +8039,7 @@ async function swapSkipCooldown(method) {
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ skip_cooldown: true, pokemon_given_id: swapSelectedId })
       }).then(x => x.json());
-      if (r.error) { toast(r.error, 1); return; }
+      if (r.error) { toast(r.error, 1); r;updateMobileTopbar()eturn; }
       localStorage.removeItem(SWAP_COOLDOWN_KEY);
       if (swapCdInterval) { clearInterval(swapCdInterval); swapCdInterval = null; }
       await loadProfile();
