@@ -1620,15 +1620,6 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 <script src="data/moves-data.js"></script>
 <script src="data/map-data.js"></script>
 <script>
-// ── Guards de emergencia — solo actúan si la función real no cargó aún ──
-// Se sobreescriben automáticamente cuando las funciones reales se definen más abajo.
-// Usan setTimeout 0 para ejecutarse DESPUÉS del hoisting de las funciones reales.
-setTimeout(()=>{
-  if(typeof window.openMarket!=='function'||window.openMarket.toString().includes('adv-modal')||window.openMarket.toString().length<100)
-    window._stub_openMarket=()=>document.getElementById('market-ovl')?.classList.add('open');
-},0);
-// El patrón real: solo definir stubs para funciones que NO tienen definición propia
-// Las funciones con hoisting ya están en window — no las pisamos.
 const SB_URL='https://qsufableozmyugcrhcai.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFzdWZhYmxlb3pteXVnY3JoY2FpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc1MjM4MDIsImV4cCI6MjEwMzA5OTgwMn0.F_H7QSVtakgt6iYfYvtKM7moBzB_8ftjdj0jk-FWX_8';
 const OW='https://raw.githubusercontent.com/terremotoparatodos/sprites-overworld/main';
