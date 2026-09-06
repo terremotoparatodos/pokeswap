@@ -481,290 +481,74 @@ const SFX = (() => {
     return root * Math.pow(2, (MAJOR[idx] + oct * 12) / 12);
   }
 
-  // ── MÚSICA: MAPA (loop tranquilo, ambient) ──
+  // ── BASE URL AUDIO ──
+  const AUDIO_BASE = "https://raw.githubusercontent.com/terremotoparatodos/pokeswap/main/audio/";
+
+  // ── PLAYER DE AUDIO HTML5 ──
+  let _audioEl = null;
+
+  function _getAudio() {
+    if (!_audioEl) {
+      _audioEl = new Audio();
+      _audioEl.loop = true;
+      _audioEl.volume = 0.5;
+    }
+    return _audioEl;
+  }
+
+  function _playTrack(filename, musicName) {
+    if (!musicEnabled) return;
+    stopMusic();
+    const a = _getAudio();
+    a.src = AUDIO_BASE + encodeURIComponent(filename);
+    a.volume = 0.5;
+    a.loop = true;
+    a.play().catch(()=>{});
+    currentMusic = musicName;
+  }
+
+  // ── MÚSICA: MAPA ──
   function musicMap() {
     if (!musicEnabled) return;
-    const c = init(); if (!c) return;
-    if (c.state === 'suspended') c.resume();
-    stopMusic();
-    currentMusic = 'map';
-
-    const master = c.createGain();
-    master.gain.value = 0.4;
-    master.connect(c.destination);
-
-    let stopped = false;
-    let timeouts = [];
-
-    const NOTES = [196, 220, 246.9, 261.6, 293.7, 329.6, 392];
-    const BPM = 80;
-    const BEAT = 60 / BPM;
-
-    function playNote(freq, vol, dur, delay) {
-      if (stopped) return;
-      const t = c.currentTime + delay;
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.type = 'sine';
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.05);
-      g.gain.setValueAtTime(vol, t + dur - 0.08);
-      g.gain.linearRampToValueAtTime(0, t + dur);
-      o.connect(g);
-      g.connect(master);
-      o.start(t);
-      o.stop(t + dur);
-    }
-
-    function loop() {
-      if (stopped || currentMusic !== 'map') return;
-      // Bajo
-      playNote(98, 0.25, BEAT * 2, 0);
-      playNote(110, 0.2,  BEAT * 2, BEAT * 2);
-      playNote(98, 0.25, BEAT * 2, BEAT * 4);
-      playNote(87.3, 0.2, BEAT * 2, BEAT * 6);
-      // Melodía
-      for (let i = 0; i < 6; i++) {
-        const note = NOTES[Math.floor(Math.random() * NOTES.length)];
-        playNote(note, 0.12, BEAT * 0.7, BEAT * i * 1.3 + Math.random() * 0.2);
-      }
-      timeouts.push(setTimeout(loop, BEAT * 8 * 1000));
-    }
-
-    loop();
-    return () => { stopped = true; timeouts.forEach(clearTimeout); };
+    const hour = new Date().getHours();
+    const isDay = hour >= 7 && hour < 20;
+    // Alternar entre los dos tracks del horario
+    const dayTracks = [
+      "66. Route 206 (Day).mp3",
+      "73. Veilstone City (Day).mp3"
+    ];
+    const nightTracks = [
+      "99. Pokémon Center (Night).mp3",
+      "115. Eterna City (Night).mp3"
+    ];
+    const pool = isDay ? dayTracks : nightTracks;
+    const track = pool[Math.floor(Math.random() * pool.length)];
+    _playTrack(track, 'map');
   }
 
-
-  // ── MÚSICA: DUNGEON (inquietante, cromático) ──
+  // ── MÚSICA: DUNGEON ──
   function musicDungeon() {
-    if (!musicEnabled) return;
-    const c = init(); if (!c) return;
-    if (c.state === 'suspended') c.resume();
-    stopMusic();
-    currentMusic = 'dungeon';
-
-    const master = c.createGain();
-    master.gain.value = 0.35;
-    master.connect(c.destination);
-
-    let stopped = false;
-    let timeouts = [];
-
-    const NOTES = [138.6, 146.8, 155.6, 164.8, 174.6, 185, 196, 207.7];
-
-    function playNote(freq, vol, dur, delay) {
-      if (stopped) return;
-      const t = c.currentTime + delay;
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.type = 'sawtooth';
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.08);
-      g.gain.setValueAtTime(vol, t + dur - 0.1);
-      g.gain.linearRampToValueAtTime(0, t + dur);
-      o.connect(g); g.connect(master);
-      o.start(t); o.stop(t + dur);
-    }
-
-    const BPM = 65; const BEAT = 60 / BPM;
-
-    function loop() {
-      if (stopped || currentMusic !== 'dungeon') return;
-      // Bajo pulsante
-      playNote(69.3, 0.3, BEAT * 0.4, 0);
-      playNote(69.3, 0.25, BEAT * 0.4, BEAT);
-      playNote(73.4, 0.3, BEAT * 0.4, BEAT * 2);
-      playNote(69.3, 0.2, BEAT * 0.4, BEAT * 3);
-      // Melodía cromática inquietante
-      for (let i = 0; i < 4; i++) {
-        const note = NOTES[Math.floor(Math.random() * NOTES.length)];
-        playNote(note, 0.1, BEAT * 0.6, BEAT * (i * 2) + BEAT * 0.5);
-      }
-      timeouts.push(setTimeout(loop, BEAT * 8 * 1000));
-    }
-
-    loop();
-    return () => { stopped = true; timeouts.forEach(clearTimeout); };
+    _playTrack("81. Mt. Coronet.mp3", 'dungeon');
   }
 
-  // ── MÚSICA: BOSS (urgente, cromático denso) ──
+  // ── MÚSICA: BOSS ──
   function musicBoss() {
-    if (!musicEnabled) return;
-    const c = init(); if (!c) return;
-    if (c.state === 'suspended') c.resume();
-    stopMusic();
-    currentMusic = 'boss';
-
-    const master = c.createGain();
-    master.gain.value = 0.4;
-    master.connect(c.destination);
-
-    let stopped = false;
-    let timeouts = [];
-
-    function playNote(freq, type, vol, dur, delay) {
-      if (stopped) return;
-      const t = c.currentTime + delay;
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.type = type;
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.03);
-      g.gain.setValueAtTime(vol, t + dur - 0.05);
-      g.gain.linearRampToValueAtTime(0, t + dur);
-      o.connect(g); g.connect(master);
-      o.start(t); o.stop(t + dur);
-    }
-
-    const BPM = 140; const BEAT = 60 / BPM;
-
-    function loop() {
-      if (stopped || currentMusic !== 'boss') return;
-      // Ritmo urgente
-      [0, BEAT*0.5, BEAT, BEAT*1.5, BEAT*2, BEAT*2.5, BEAT*3, BEAT*3.5].forEach((d, i) => {
-        playNote(i % 2 === 0 ? 87.3 : 92.5, 'square', 0.2, BEAT * 0.4, d);
-      });
-      // Melodía tensa
-      [196, 185, 174.6, 185, 196, 207.7, 196, 185].forEach((f, i) => {
-        playNote(f, 'sawtooth', 0.12, BEAT * 0.45, BEAT * i * 0.5);
-      });
-      timeouts.push(setTimeout(loop, BEAT * 4 * 1000));
-    }
-
-    loop();
-    return () => { stopped = true; timeouts.forEach(clearTimeout); };
+    _playTrack("80. Deep Within Team Galactic HQ.mp3", 'boss');
   }
 
-  // ── MÚSICA: SWAP (expectante, suave) ──
+  // ── MÚSICA: SWAP ──
   function musicSwap() {
-    if (!musicEnabled) return;
-    const c = init(); if (!c) return;
-    if (c.state === 'suspended') c.resume();
-    stopMusic();
-    currentMusic = 'swap';
-
-    const master = c.createGain();
-    master.gain.value = 0.3;
-    master.connect(c.destination);
-
-    let stopped = false;
-    let timeouts = [];
-
-    const NOTES = [261.6, 293.7, 329.6, 349.2, 392, 440, 493.9, 523.3];
-
-    function playNote(freq, vol, dur, delay) {
-      if (stopped) return;
-      const t = c.currentTime + delay;
-      const o = c.createOscillator();
-      const g = c.createGain();
-      o.type = 'sine';
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(0, t);
-      g.gain.linearRampToValueAtTime(vol, t + 0.06);
-      g.gain.setValueAtTime(vol, t + dur - 0.08);
-      g.gain.linearRampToValueAtTime(0, t + dur);
-      o.connect(g); g.connect(master);
-      o.start(t); o.stop(t + dur);
-    }
-
-    const BPM = 100; const BEAT = 60 / BPM;
-
-    function loop() {
-      if (stopped || currentMusic !== 'swap') return;
-      // Arpeggio suave ascendente
-      [0,1,2,3,4,5,6,7].forEach((i) => {
-        playNote(NOTES[i], 0.1, BEAT * 0.5, BEAT * i * 0.5);
-      });
-      // Bajo sutil
-      playNote(130.8, 0.15, BEAT * 2, 0);
-      playNote(146.8, 0.12, BEAT * 2, BEAT * 2);
-      timeouts.push(setTimeout(loop, BEAT * 4 * 1000));
-    }
-
-    loop();
-    return () => { stopped = true; timeouts.forEach(clearTimeout); };
+    _playTrack("100. Nintendo Wi-Fi Connection.mp3", 'swap');
   }
 
 
   function stopMusic() {
+    if (_audioEl) { _audioEl.pause(); _audioEl.currentTime = 0; }
     currentMusic = null;
   }
 
-  // ── FADE IN/OUT ──
-  function setMusicVolume(vol, fadeSec = 0.8) {
-    const c = init(); if (!c || !musicGain) return;
-    const now = c.currentTime;
-    musicGain.gain.linearRampToValueAtTime(vol * 0.35, now + fadeSec);
+  function setMusicVolume(vol) {
+    if (_audioEl) _audioEl.volume = Math.max(0, Math.min(1, vol));
+    if (musicGain) musicGain.gain.value = vol;
   }
 
-  // ── API PÚBLICA ──
-  return {
-    unlock,
-    ctx: () => ctx,
-    play: (name, ...args) => {
-      if (!sfxEnabled) return;
-      try { unlock(); sounds[name]?.(...args); } catch(e) {}
-    },
-    musicMap,
-    musicDungeon,
-    musicBoss,
-    musicSwap,
-    stopMusic,
-    setMusicVolume,
-    setMusicEnabled: (v) => { musicEnabled = v; if (!v) stopMusic(); },
-    setSfxEnabled:   (v) => { sfxEnabled = v; },
-    getMusicEnabled: () => musicEnabled,
-    getSfxEnabled:   () => sfxEnabled,
-    currentMusic:    () => currentMusic,
-    isPlaying:       (name) => currentMusic === name,
-  };
-})();
-
-
-function dgSound(kind){
-  const map={
-    step:'step', hit:'hit', crit:'crit', item:'item',
-    stairs:'stairs', faint:'faint', victory:'victory',
-  };
-  SFX.play(map[kind]||kind);
-}
-
-
-function toggleMusic(){
-  const on = !SFX.getMusicEnabled();
-  SFX.setMusicEnabled(on);
-  const btn = document.getElementById('btn-music');
-  if(btn){ btn.textContent = on ? '🎵' : '🔇'; btn.style.opacity = on ? '1' : '.4'; }
-  if(on){ SFX.musicMap(); } else { SFX.stopMusic(); }
-  toast(on ? '🎵 Música activada' : '🔇 Música desactivada');
-}
-function toggleSfx(){
-  const on = !SFX.getSfxEnabled();
-  SFX.setSfxEnabled(on);
-  const btn = document.getElementById('btn-sfx');
-  if(btn){ btn.textContent = on ? '🔊' : '🔕'; btn.style.opacity = on ? '1' : '.4'; }
-  if(on) SFX.play('item'); // confirmar que funciona
-  toast(on ? '🔊 Efectos activados' : '🔕 Efectos desactivados');
-}
-
-
-function _sfxUnlockAndPlay(){
-  SFX.unlock();
-  if(!SFX.currentMusic()) setTimeout(()=>SFX.musicMap(), 300);
-}
-document.addEventListener('pointerdown', _sfxUnlockAndPlay, {once:true});
-document.addEventListener('touchstart',  _sfxUnlockAndPlay, {once:true, passive:true});
-document.addEventListener('keydown',     _sfxUnlockAndPlay, {once:true});
-document.addEventListener('click',       _sfxUnlockAndPlay, {once:true});
-// Reanudar música al volver al tab (iOS Safari lo suspende)
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState==='visible'){
-    const c = SFX.ctx?.();
-    if(c && c.state==='suspended') c.resume();
-    if(SFX.getMusicEnabled() && !SFX.currentMusic()) setTimeout(()=>SFX.musicMap(),400);
-  }
-});
