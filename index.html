@@ -5507,8 +5507,9 @@ let AD={
 function advNodeTypeRoll(){
   const r=Math.random();
   if(r<0.38)return'battle';
-  if(r<0.58)return'item';
-  if(r<0.82)return'event';
+  if(r<0.56)return'item';
+  if(r<0.70)return'event';
+  if(r<0.80)return'voltorb';  // Voltorb Flip ~10%
   return'decision';
 }
 
@@ -5589,6 +5590,7 @@ function advGenNode(){
   if(t==='battle')return advGenBattleNode(false);
   if(t==='item')return advGenItemNode();
   if(t==='event')return advGenEventNode();
+  if(t==='voltorb')return{type:'voltorb',icon:'⚡',label:'Sala Voltorb Flip'};
   return advGenDecisionNode();
 }
 function advGenLayer(){return{L:advGenNode(),R:advGenNode()};}
@@ -5936,6 +5938,7 @@ function advNodePreview(node){
     item:{icon:'🌫️',   hints:['Brilla suavemente','Huele a hierba','Algo reluce']},
     event:{icon:'🌫️',  hints:['Una presencia extraña','El aire cambia','Silencio inquietante']},
     decision:{icon:'🌫️',hints:['Otra bifurcación','Un dilema','Dos caminos más']},
+    voltorb:{icon:'⚡', hints:['Chispas en el aire','Se oye un zumbido','Sala eléctrica']},
   };
   const cat=cats[node.type]||cats.event;
   return{icon:cat.icon, hint:cat.hints[Math.floor(Math.random()*cat.hints.length)]};
@@ -5973,6 +5976,7 @@ function advResolveNode(node){
   }
   if(node.type==='event'){advHandleEvent(node);return;}
   if(node.type==='decision'){advShowDecision();return;}
+  if(node.type==='voltorb'){advShowVoltorbFlip();return;}
 }
 
 function applyItemToLoot(item){
@@ -6106,15 +6110,172 @@ function advPickShop(i){
   advShowResult(`🏪 Elegiste ${item.icon} ${item.label}`,'🏪');
 }
 
-function advShowMysteryBox(){
+// ── VOLTORB FLIP (Sendero) ──
+function advShowVoltorbFlip(){
+  const GRID=4,VOLTORBS=4;
+  const prizes=[
+    {name:'Caramelo XS',icon:'🍬',effect:'xp',   value:100},
+    {name:'Caramelo XS',icon:'🍬',effect:'xp',   value:100},
+    {name:'Caramelo S', icon:'🍭',effect:'xp',   value:800},
+    {name:'Caramelo S', icon:'🍭',effect:'xp',   value:800},
+    {name:'Caramelo M', icon:'🍫',effect:'xp',   value:3000},
+    {name:'Caramelo L', icon:'🍡',effect:'xp',   value:10000},
+    {name:'Poción',     icon:'🧪',effect:'heal', value:20},
+    {name:'Poción',     icon:'🧪',effect:'heal', value:20},
+    {name:'Super Poción',icon:'💊',effect:'heal', value:50},
+    {name:'PokeToken',  icon:'₱', effect:'tokens',value:5},
+    {name:'PokeToken',  icon:'₱', effect:'tokens',value:5},
+    {name:'PokeToken x10',icon:'💰',effect:'tokens',value:10},
+  ];
+  // Shuffle premios
+  for(let i=prizes.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[prizes[i],prizes[j]]=[prizes[j],prizes[i]];}
+  // Colocar voltorbs y premios en grilla
+  const positions=Array.from({length:GRID*GRID},(_,i)=>i);
+  for(let i=positions.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[positions[i],positions[j]]=[positions[j],positions[i]];}
+  const voltorbPos=new Set(positions.slice(0,VOLTORBS));
+  const cells=[];let pi=0;
+  for(let i=0;i<GRID*GRID;i++){
+    if(voltorbPos.has(i))cells.push({type:'voltorb',revealed:false});
+    else cells.push({type:'prize',prize:prizes[pi++%prizes.length],revealed:false});
+  }
+  // Pistas por fila/columna
+  const rowV=Array(GRID).fill(0),colV=Array(GRID).fill(0);
+  voltorbPos.forEach(i=>{rowV[Math.floor(i/GRID)]++;colV[i%GRID]++;});
+  window._advVF={cells,rowV,colV,found:[],exploded:false,grid:GRID};
+  _advRenderVF();
+}
+
+function _advRenderVF(){
+  const{cells,rowV,colV,found,exploded,grid}=window._advVF;
+  const safe=cells.filter(c=>c.type==='prize'&&!c.revealed).length;
   const body=document.getElementById('adv-body');
+
+  let gridHTML='<div style="display:grid;grid-template-columns:repeat('+(grid+1)+',1fr);gap:4px;margin:10px 0;max-width:280px;margin-left:auto;margin-right:auto">';
+  for(let r=0;r<grid;r++){
+    for(let c=0;c<grid;c++){
+      const idx=r*grid+c;const cell=cells[idx];
+      if(cell.revealed||exploded||safe===0){
+        const isVolt=cell.type==='voltorb';
+        const bg=isVolt?'rgba(220,50,50,.5)':'rgba(50,200,100,.25)';
+        const border=isVolt?'#e04040':'#40c060';
+        gridHTML+='<div style="background:'+bg+';border:2px solid '+border+';border-radius:6px;padding:8px 2px;font-size:16px;text-align:center">'+(isVolt?'💣':cell.prize.icon)+'</div>';
+      } else {
+        gridHTML+='<button onclick="_advVFPick('+idx+')" style="font-family:inherit;background:rgba(80,60,140,.7);border:2px solid #6040b0;border-radius:6px;padding:8px 2px;font-size:13px;cursor:pointer;color:var(--text);transition:background .1s" onmouseover="this.style.background='rgba(120,80,200,.7)'" onmouseout="this.style.background='rgba(80,60,140,.7)'">?</button>';
+      }
+    }
+    gridHTML+='<div style="font-size:9px;color:#e08080;display:flex;align-items:center;justify-content:center;font-weight:bold">'+rowV[r]+'⚡</div>';
+  }
+  for(let c=0;c<grid;c++) gridHTML+='<div style="font-size:9px;color:#e08080;text-align:center;font-weight:bold">'+colV[c]+'⚡</div>';
+  gridHTML+='<div></div></div>';
+
+  let statusHTML='';
+  if(exploded){
+    statusHTML='<div style="font-size:11px;color:#e04040;margin:8px 0;text-align:center">💣 ¡VOLTORB! Perdiste lo acumulado.</div>'
+      +'<button class="adv-choice-btn adv-continue-btn" onclick="advNextLayer()" style="max-width:220px;margin:0 auto">Continuar ➡️</button>';
+  } else if(safe===0){
+    statusHTML='<div style="font-size:11px;color:#80f080;margin:8px 0;text-align:center">⭐ ¡Tablero completado!</div>'
+      +'<div style="font-size:9px;color:var(--text-dim);margin-bottom:8px;text-align:center">'+found.map(f=>f.icon).join(' ')+'</div>'
+      +'<button class="adv-choice-btn adv-continue-btn" onclick="_advVFCollect()" style="max-width:220px;margin:0 auto">Recoger todo! 🎉</button>';
+  } else {
+    statusHTML='<div style="font-size:8px;color:var(--text-dim);margin-bottom:8px;text-align:center">'+safe+' celdas restantes · Acumulado: '+(found.map(f=>f.icon).join('')||'—')+'</div>';
+    if(found.length>0){
+      statusHTML+='<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap">'
+        +'<button class="adv-choice-btn" onclick="_advVFCollect()" style="flex:1;max-width:160px;font-size:9px">Retirarme ('+found.length+')</button>'
+        +'<button class="adv-choice-btn" onclick="advNextLayer()" style="flex:1;max-width:160px;font-size:9px;background:rgba(100,60,160,.3)">Salir sin nada</button>'
+        +'</div>';
+    } else {
+      statusHTML+='<button class="adv-choice-btn" onclick="advNextLayer()" style="max-width:200px;margin:0 auto;font-size:9px;background:rgba(100,60,160,.2)">Salir sin nada</button>';
+    }
+  }
+
   body.innerHTML=`${advHPBarHTML()}
-    <div class="adv-scene">📦 Un cofre antiguo con grabados en idioma de los Pilares.<br><span style="font-size:6px;opacity:.7">¿Trampa o tesoro?</span></div>
-    <div class="adv-choices">
-      <button class="adv-choice-btn" onclick="advOpenBox(true)">🔓 Abrir el cofre<div class="adv-choice-sub">50% objeto raro / 50% trampa</div></button>
-      <button class="adv-choice-btn" onclick="advOpenBox(false)">🚶 Ignorarlo<div class="adv-choice-sub">Sin riesgo, sin recompensa</div></button>
+    <div style="text-align:center;margin-bottom:4px">
+      <span style="font-size:12px;color:#c080f0">⚡ Voltorb Flip</span><br>
+      <span style="font-size:7px;color:var(--text-dim)">Destapá celdas · evitá los Voltorb</span>
+    </div>
+    ${gridHTML}
+    ${statusHTML}`;
+  advDrawRoom('event');
+}
+
+function _advVFPick(idx){
+  const vf=window._advVF;
+  const cell=vf.cells[idx];
+  cell.revealed=true;
+  if(cell.type==='voltorb'){
+    vf.exploded=true;
+    vf.found=[];
+    SFX&&SFX.play&&SFX.play('faint');
+  } else {
+    vf.found.push(cell.prize);
+    SFX&&SFX.play&&SFX.play('item');
+    if(vf.cells.filter(c=>c.type==='prize'&&!c.revealed).length===0)
+      vf.cells.filter(c=>c.type==='voltorb').forEach(c=>c.revealed=true);
+  }
+  _advRenderVF();
+}
+
+function _advVFCollect(){
+  const vf=window._advVF;
+  vf.found.forEach(prize=>applyItemToLoot({...prize}));
+  const n=vf.found.length;
+  advShowResult('⚡ ¡Voltorb Flip! '+n+' premio'+(n!==1?'s':'')+' recogidos.','⚡');
+}
+
+function advShowMysteryBox(){
+  const prizes=[
+    {name:'Caramelo XS', icon:'🍬', effect:'xp',     value:100,   weight:40},
+    {name:'Caramelo S',  icon:'🍭', effect:'xp',     value:800,   weight:30},
+    {name:'Caramelo M',  icon:'🍫', effect:'xp',     value:3000,  weight:15},
+    {name:'Caramelo L',  icon:'🍡', effect:'xp',     value:10000, weight:8},
+    {name:'PokeToken x10',icon:'💰',effect:'tokens', value:10,    weight:5},
+    {name:'Poción',      icon:'🧪', effect:'heal',   value:20,    weight:2},
+  ];
+  const total=prizes.reduce((s,p)=>s+p.weight,0);
+  let roll=Math.random()*total,prize=prizes[0];
+  for(const p of prizes){roll-=p.weight;if(roll<=0){prize=p;break;}}
+  window._advBoxPrize=prize;
+  const body=document.getElementById('adv-body');
+  const icons=prizes.map(p=>p.icon);
+  body.innerHTML=`${advHPBarHTML()}
+    <div class="adv-scene" style="text-align:center">
+      📦 <strong>¡Caja Misteriosa!</strong><br>
+      <span style="font-size:6px;opacity:.7">La ruleta decide tu destino...</span>
+    </div>
+    <div style="text-align:center;margin:16px 0">
+      <div id="adv-box-spin" style="font-size:52px;line-height:1;transition:transform .08s">❓</div>
+      <div id="adv-box-result" style="margin-top:12px;min-height:40px"></div>
     </div>`;
   advDrawRoom('event');
+  // Animación de ruleta
+  let speed=60,frame=0,done=false;
+  const spinEl=document.getElementById('adv-box-spin');
+  function spinStep(){
+    if(!spinEl||done)return;
+    spinEl.textContent=icons[frame%icons.length];
+    frame++;
+    speed=Math.min(speed+12,500);
+    if(speed<500){
+      setTimeout(spinStep,speed);
+    } else {
+      done=true;
+      spinEl.textContent=prize.icon;
+      spinEl.style.transform='scale(1.3)';
+      setTimeout(()=>{if(spinEl)spinEl.style.transform='';},200);
+      const res=document.getElementById('adv-box-result');
+      if(res)res.innerHTML=`
+        <div style="font-size:10px;color:#80f080;margin-bottom:10px">¡Obtuviste: ${prize.icon} ${prize.name}!</div>
+        <button class="adv-choice-btn adv-continue-btn" onclick="advCollectBox()">Recoger ➡️</button>`;
+    }
+  }
+  setTimeout(spinStep,speed);
+}
+function advCollectBox(){
+  const prize=window._advBoxPrize;
+  if(prize){
+    applyItemToLoot({...prize});
+    advShowResult('📦 '+prize.icon+' '+prize.name+' añadido al inventario!','📦');
+  }
 }
 function advOpenBox(open){
   if(!open){advShowResult('📦 Ignoraste el cofre. Mejor así quizás.','📦');return;}
