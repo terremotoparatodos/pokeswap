@@ -1286,8 +1286,8 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
   <button class="mnav-btn" data-view="dungeon" onclick="if(!user){openAuth();return;}mobileNav('dungeon')">
     <span class="mnav-ico">⚔️</span><span class="mnav-lbl">Dungeon</span>
   </button>
-  <button class="mnav-btn" data-view="market" onclick="mobileNav('market')">
-    <span class="mnav-ico">🏪</span><span class="mnav-lbl">Mercado</span>
+  <button class="mnav-btn" data-view="swap" onclick="if(!user){openAuth();return;}mobileNav('swap')">
+    <span class="mnav-ico">🔀</span><span class="mnav-lbl">PokeSwap</span>
   </button>
   <button class="mnav-btn" data-view="more" onclick="mobileNav('more')">
     <span class="mnav-ico">☰</span><span class="mnav-lbl">Más</span>
@@ -1299,6 +1299,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
   <div class="dsm" style="max-width:340px;width:100%">
     <div class="dsm-title">Menú</div>
     <button class="me" id="more-profile-btn" onclick="closeMore();openProfile()" style="display:none">👤 Mi Perfil</button>
+    <button class="me" onclick="closeMore();openMarket()">🏪 Mercado</button>
     <button class="me" onclick="closeMore();openLB()">🏆 Top Entrenadores</button>
     <button class="me" onclick="closeMore();openPokedex()">📖 Pokédex</button>
     <button class="me" id="more-swap-btn" onclick="closeMore();openSwapModal()" style="display:none">🔀 PokeSwap</button>
@@ -5158,6 +5159,10 @@ function mobileNav(view){
       if(rp)rp.style.display='none';
       openDgSelect();
       break;
+    case'swap':
+      if(rp)rp.style.display='none';
+      openSwapModal();
+      break;
     case'market':
       if(rp)rp.style.display='none';
       openMarket();
@@ -7817,6 +7822,7 @@ function closeSwapModal() {
   document.getElementById('swap-modal').classList.remove('open');
   if (swapCdInterval) { clearInterval(swapCdInterval); swapCdInterval = null; }
   SFX.stopMusic();
+  mobileNavResetToMap();
 }
 
 function swapShowStep(id) {
@@ -8083,7 +8089,7 @@ async function swapConfirm() {
   if (serverResult?.error) {
     ballEl.className = 'sw-ball';
     ballWrap.style.display = 'none';
-    swapShowStep('sw-step-select');
+    swapShowStep('sw-step-pick');
     toast('Error en el intercambio: ' + serverResult.error, 1);
     return;
   }
