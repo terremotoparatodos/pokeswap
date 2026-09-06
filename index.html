@@ -4045,6 +4045,15 @@ if(el){el.style.filter='brightness(1.5) sepia(0.5)';setTimeout(()=>el.style.filt
 }
 }
 
+
+// ── Fórmulas Gen 3 de stats ──
+function dg3HP(base, lv) {
+  return Math.floor((base * 2 + 15) * lv / 100) + lv + 10;
+}
+function dg3Stat(base, lv) {
+  return Math.floor((base * 2 + 15) * lv / 100) + 5;
+}
+
 function dgGenerate(){
 const{cols,rows}=dg;
 dg.map=Array.from({length:rows},()=>new Uint8Array(cols)); // all walls
