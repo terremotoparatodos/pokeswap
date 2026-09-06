@@ -5465,61 +5465,221 @@ function advShowMysteryBox() {
   advDrawRoom('event');
 }
 
-// ── Combate en el estadio (stStart) ──────────────────────────────────────
+// ── Sistema de combate del Sendero (adv) ─────────────────────────────────
+// Estado global del combate adv
+let _advBattle = null;
+
 function advStartBattle(enemy) {
   if (!enemy) { advAdvanceLayer(); return; }
-  // Usar el estadio de combate existente si está disponible
-  if (typeof stStart === 'function') {
-    stStart(enemy);
-  } else {
-    // Combate simplificado si stStart no está disponible
-    advSimpleBattle(enemy);
-  }
+
+  // Generar movimientos del enemigo a partir de su tipo
+  const TYPED_MOVES = {
+    fire:     [{name:'Ascuas',     type:'fire',    power:40, cat:'sp'},  {name:'Lanzallamas', type:'fire',    power:95, cat:'sp'}],
+    water:    [{name:'Pistola Agua',type:'water',   power:40, cat:'sp'},  {name:'Hidrobomba',  type:'water',   power:110,cat:'sp'}],
+    grass:    [{name:'Hoja Afilada',type:'grass',   power:55, cat:'ph'},  {name:'Rayo Solar',  type:'grass',   power:120,cat:'sp'}],
+    electric: [{name:'Impactrueno',type:'electric', power:40, cat:'sp'},  {name:'Rayo',        type:'electric',power:95, cat:'sp'}],
+    psychic:  [{name:'Confusión',  type:'psychic',  power:50, cat:'sp'},  {name:'Psíquico',    type:'psychic', power:90, cat:'sp'}],
+    ice:      [{name:'Ventarón',   type:'ice',      power:55, cat:'sp'},  {name:'Rayo Hielo',  type:'ice',     power:90, cat:'sp'}],
+    dragon:   [{name:'Garra Dragón',type:'dragon',  power:80, cat:'ph'},  {name:'Pulso Dragón',type:'dragon',  power:85, cat:'sp'}],
+    dark:     [{name:'Mordisco',   type:'dark',     power:60, cat:'ph'},  {name:'Pulso Umbrío',type:'dark',    power:80, cat:'sp'}],
+    ghost:    [{name:'Lick',       type:'ghost',    power:30, cat:'ph'},  {name:'Bola Sombra', type:'ghost',   power:80, cat:'sp'}],
+    fighting: [{name:'Golpe Karate',type:'fighting',power:50, cat:'ph'},  {name:'A Bocajarro', type:'fighting',power:120,cat:'ph'}],
+    rock:     [{name:'Lanzarrocas',type:'rock',     power:50, cat:'ph'},  {name:'Roca Afilada',type:'rock',   power:100,cat:'ph'}],
+    ground:   [{name:'Magnitud',   type:'ground',   power:70, cat:'ph'},  {name:'Terremoto',   type:'ground',  power:100,cat:'ph'}],
+    poison:   [{name:'Picotazo',   type:'poison',   power:35, cat:'ph'},  {name:'Bomba Lodo',  type:'poison',  power:90, cat:'sp'}],
+    bug:      [{name:'Picadura',   type:'bug',      power:60, cat:'ph'},  {name:'Zumbido',     type:'bug',     power:90, cat:'sp'}],
+    steel:    [{name:'Puño Meteoro',type:'steel',   power:75, cat:'ph'},  {name:'Cabeza Hierro',type:'steel',  power:80, cat:'ph'}],
+    flying:   [{name:'Ataque Ala', type:'flying',   power:60, cat:'ph'},  {name:'Tajo Aéreo',  type:'flying',  power:75, cat:'sp'}],
+    normal:   [{name:'Placaje',    type:'normal',   power:40, cat:'ph'},  {name:'Doble Filo',  type:'normal',  power:120,cat:'ph'}],
+  };
+
+  const poke = AD.poke;
+  const pName = poke ? (poke['name_' + (typeof lang !== 'undefined' ? lang : 'es')] || poke.name_en) : 'Tu Pokémon';
+
+  // Moves del jugador — 4 ataques basados en el tipo del Pokémon
+  const playerType = poke?.type1 || 'normal';
+  const playerMoves = [
+    ...(TYPED_MOVES[playerType] || TYPED_MOVES.normal),
+    {name:'Placaje', type:'normal', power:40, cat:'ph'},
+    {name:'Doble Filo', type:'normal', power:120, cat:'ph'},
+  ].slice(0,4);
+
+  // Moves del enemigo
+  const enemyType = enemy.type1 || 'normal';
+  const enemyMoves = (TYPED_MOVES[enemyType] || TYPED_MOVES.normal);
+
+  _advBattle = {
+    enemy: { ...enemy, curHp: enemy.hp, maxHp: enemy.maxHP || enemy.hp },
+    playerMoves,
+    enemyMoves,
+    log: [],
+    pName,
+    waiting: false,
+  };
+
+  advRenderBattle();
 }
 
-function advSimpleBattle(enemy) {
+function advRenderBattle() {
+  const b = _advBattle;
+  if (!b) return;
   const body = document.getElementById('adv-body');
-  const p = AD.poke;
-  const pName = p ? (p['name_' + (typeof lang !== 'undefined' ? lang : 'es')] || p.name_en) : 'Tu Pokémon';
+  const e = b.enemy;
+  const poke = AD.poke;
+  const pHpPct = Math.round(AD.hp / AD.maxHP * 100);
+  const eHpPct = Math.round(e.curHp / e.maxHp * 100);
+  const pHpColor = pHpPct > 50 ? '#40c040' : pHpPct > 20 ? '#c0a020' : '#c03020';
+  const eHpColor = eHpPct > 50 ? '#40c040' : eHpPct > 20 ? '#c0a020' : '#c03020';
 
-  // Simulación de combate rápido basada en stats
-  const playerAtk = AD.atk * (AD.buffs?.atk || 1);
-  const dmgToEnemy = Math.max(1, Math.floor(playerAtk * 0.6 - enemy.def * 0.3));
-  const dmgToPlayer = Math.max(1, Math.floor(enemy.atk * 0.6 - AD.def * 0.3));
-  const turnsToWin = Math.ceil(enemy.maxHP / dmgToEnemy);
-  const turnsToLose = Math.ceil(AD.hp / dmgToPlayer);
-  const playerWins = turnsToWin <= turnsToLose;
-  const totalDmg = Math.min(AD.hp - 1, dmgToPlayer * Math.min(turnsToWin, turnsToLose));
-  AD.hp = Math.max(1, AD.hp - totalDmg);
+  const moveButtons = b.waiting ? '' : b.playerMoves.map((m, i) =>
+    `<button class="adv-choice-btn" style="flex:1;min-width:0;font-size:6px;padding:6px 4px;
+      background:${TC[(m.type||'normal').toLowerCase()]||'#555'}33;
+      border-color:${TC[(m.type||'normal').toLowerCase()]||'#888'}"
+      onclick="advBattleAttack(${i})">
+      ${m.name}<br><span style="font-size:5px;opacity:.7">${m.cat==='sp'?'⚡':'💥'} ${m.power}</span>
+    </button>`
+  ).join('');
 
-  if (playerWins) {
-    SFX.play('victory');
-    const loot = advRollItem();
-    AD.loot.push(loot);
-    body.innerHTML = advHPBarHTML()
-      + `<div class="adv-scene" style="text-align:center">
-           <img src="https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${enemy.id}.png"
-                style="width:64px;image-rendering:pixelated;opacity:.4;filter:grayscale(1);margin-bottom:4px"><br>
-           <strong style="color:#40c040">¡${pName} ganó la batalla!</strong><br>
-           <span style="font-size:6px;color:var(--text-dim)">vs ${enemy.name} · Lv.${enemy.lv}</span><br>
-           <span style="font-size:7px;color:#e08040;margin-top:4px;display:block">-${totalDmg} HP · Obtuviste: ${loot.icon} ${loot.name}</span>
-         </div>`
-      + `<button class="adv-choice-btn adv-continue-btn" onclick="advAdvanceLayer()">Continuar →</button>`;
-  } else {
-    AD.hp = 1;
-    SFX.play('defeat');
-    body.innerHTML = advHPBarHTML()
-      + `<div class="adv-scene" style="text-align:center">
-           <div style="font-size:28px;margin-bottom:6px">💀</div>
-           <strong style="color:#e04020">${pName} fue derrotado...</strong><br>
-           <span style="font-size:6px;color:var(--text-dim)">vs ${enemy.name} · Lv.${enemy.lv}</span>
-         </div>`
-      + `<div style="display:flex;gap:8px;margin-top:8px">`
-      + `<button class="adv-choice-btn" style="flex:1" onclick="advEnd(false)">🏳️ Rendirse</button>`
-      + `<button class="adv-choice-btn" style="flex:1" onclick="advAdvanceLayer()">💪 Seguir igual</button>`
-      + `</div>`;
+  body.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <!-- Enemigo -->
+      <div style="background:rgba(255,255,255,.04);border-radius:4px;padding:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-size:7px;color:var(--text);font-weight:bold">${e.isBoss?'👑 ':''}${e.name}</span>
+          <span style="font-size:6px;color:var(--text-dim)">Lv.${e.lv}</span>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,.1);border-radius:3px;margin-bottom:3px">
+          <div style="width:${eHpPct}%;height:100%;background:${eHpColor};border-radius:3px;transition:width .3s"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between">
+          <span style="font-size:5px;color:${eHpColor}">${e.curHp}/${e.maxHp} HP</span>
+          <img src="${FB}/${e.id}.png" style="width:48px;height:48px;image-rendering:pixelated;margin-top:-20px">
+        </div>
+      </div>
+      <!-- Log -->
+      <div style="font-size:6px;color:var(--text-dim);min-height:28px;padding:4px 6px;background:rgba(0,0,0,.3);border-radius:3px">
+        ${b.log.slice(-3).map(l=>`<div>${l}</div>`).join('')||'<div style="opacity:.4">¡Apareció ${e.name}!</div>'}
+      </div>
+      <!-- Jugador -->
+      <div style="background:rgba(255,255,255,.04);border-radius:4px;padding:6px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <div style="display:flex;align-items:center;gap:6px">
+            <img src="${FB}/${poke?.id}.png" style="width:40px;height:40px;image-rendering:pixelated">
+            <span style="font-size:7px;color:var(--text);font-weight:bold">${b.pName}</span>
+          </div>
+          <span style="font-size:6px;color:var(--text-dim)">Lv.${AD.lv}</span>
+        </div>
+        <div style="height:5px;background:rgba(255,255,255,.1);border-radius:3px;margin-bottom:3px">
+          <div style="width:${pHpPct}%;height:100%;background:${pHpColor};border-radius:3px;transition:width .3s"></div>
+        </div>
+        <span style="font-size:5px;color:${pHpColor}">${AD.hp}/${AD.maxHP} HP</span>
+      </div>
+      <!-- Movimientos -->
+      <div style="display:flex;gap:4px;flex-wrap:wrap">
+        ${moveButtons}
+        ${b.waiting?'<div style="font-size:7px;color:var(--text-dim);text-align:center;width:100%;padding:8px">...</div>':''}
+      </div>
+    </div>`;
+  advDrawRoom(e.isBoss ? 'boss' : 'battle');
+}
+
+function advBattleAttack(moveIdx) {
+  const b = _advBattle;
+  if (!b || b.waiting) return;
+  b.waiting = true;
+
+  const move = b.playerMoves[moveIdx];
+  const e = b.enemy;
+  const poke = AD.poke;
+
+  // Daño del jugador al enemigo
+  const isSpecial = move.cat === 'sp';
+  const atkStat = isSpecial ? AD.spa * (AD.buffs?.atk || 1) : AD.atk * (AD.buffs?.atk || 1);
+  const defStat = isSpecial ? (e.spd || e.def) : e.def;
+  const stab = move.type === poke?.type1 || move.type === poke?.type2;
+  const dmg = Math.max(1, calcDamage(AD.lv, atkStat, defStat, move.power, move.type, e.type1, e.type2, stab));
+  const eff = getEffectiveness(move.type, e.type1, e.type2);
+  const effTxt = eff > 1 ? ' ¡Super efectivo!' : eff < 1 && eff > 0 ? ' Poco efectivo.' : eff === 0 ? ' No afecta.' : '';
+
+  e.curHp = Math.max(0, e.curHp - dmg);
+  b.log.push(`${b.pName} usó ${move.name}! (-${dmg} HP)${effTxt}`);
+  SFX.play(eff > 1 ? 'crit' : 'hit');
+  advRenderBattle();
+
+  if (e.curHp <= 0) {
+    // Victoria
+    setTimeout(() => advBattleWin(), 600);
+    return;
   }
-  advDrawRoom(playerWins ? 'battle' : 'event');
+
+  // Turno enemigo
+  setTimeout(() => advEnemyTurn(), 700);
+}
+
+function advEnemyTurn() {
+  const b = _advBattle;
+  if (!b) return;
+  const e = b.enemy;
+  const poke = AD.poke;
+
+  const move = b.enemyMoves[Math.floor(Math.random() * b.enemyMoves.length)];
+  const isSpecial = move.cat === 'sp';
+  const atkStat = isSpecial ? (e.spd || e.def) : e.atk;
+  const defStat = isSpecial ? AD.spd : AD.def;
+  const stab = move.type === e.type1 || move.type === e.type2;
+  const dmg = Math.max(1, calcDamage(e.lv, atkStat, defStat, move.power, move.type, poke?.type1, poke?.type2, stab));
+  const eff = getEffectiveness(move.type, poke?.type1, poke?.type2);
+  const effTxt = eff > 1 ? ' ¡Super efectivo!' : eff < 1 && eff > 0 ? ' Poco efectivo.' : '';
+
+  AD.hp = Math.max(0, AD.hp - dmg);
+  b.log.push(`${e.name} usó ${move.name}! (-${dmg} HP)${effTxt}`);
+  SFX.play('hit');
+
+  if (AD.hp <= 0) {
+    // Derrota
+    setTimeout(() => advBattleLose(), 600);
+    return;
+  }
+
+  b.waiting = false;
+  advRenderBattle();
+}
+
+function advBattleWin() {
+  const b = _advBattle;
+  const e = b.enemy;
+  SFX.play('victory');
+  const loot = advRollItem();
+  AD.loot.push(loot);
+  const body = document.getElementById('adv-body');
+  body.innerHTML = advHPBarHTML()
+    + `<div class="adv-scene" style="text-align:center">
+         <div style="font-size:22px;margin-bottom:6px">🏆</div>
+         <strong style="color:#40c040">¡${b.pName} ganó!</strong><br>
+         <span style="font-size:6px;color:var(--text-dim)">vs ${e.name} · Lv.${e.lv}</span><br>
+         <span style="font-size:7px;color:var(--gold);margin-top:4px;display:block">${loot.icon} ${loot.name} obtenido</span>
+       </div>`
+    + `<button class="adv-choice-btn adv-continue-btn" onclick="advAdvanceLayer()">Continuar →</button>`;
+  _advBattle = null;
+  advDrawRoom('battle');
+}
+
+function advBattleLose() {
+  const b = _advBattle;
+  SFX.play('defeat');
+  AD.hp = 1; // queda con 1 HP
+  const body = document.getElementById('adv-body');
+  body.innerHTML = advHPBarHTML()
+    + `<div class="adv-scene" style="text-align:center">
+         <div style="font-size:22px;margin-bottom:6px">💀</div>
+         <strong style="color:#e04020">${b.pName} fue derrotado...</strong>
+       </div>`
+    + `<div style="display:flex;gap:8px;margin-top:8px">`
+    + `<button class="adv-choice-btn" style="flex:1" onclick="advEnd(false)">🏳️ Salir</button>`
+    + `<button class="adv-choice-btn" style="flex:1" onclick="advAdvanceLayer()">💪 Seguir (Lv-1 HP)</button>`
+    + `</div>`;
+  _advBattle = null;
+  advDrawRoom('event');
 }
 
 function advRenderChoice(){
