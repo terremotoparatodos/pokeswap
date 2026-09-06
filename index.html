@@ -2455,8 +2455,8 @@ document.getElementById('info-backdrop').classList.remove('show');
 // ══════════════════════════════════════════════════
 // SISTEMA DE EXPERIENCIA (local, por tiempo) — retención
 // ══════════════════════════════════════════════════
-const XP_RATE=1/4; // xp por segundo (=15 xp/min)
-const XP_CAP_SECONDS=21600; // tope 6hs offline
+const XP_RATE=0; // XP pasiva desactivada — solo dungeon y caramelos
+const XP_CAP_SECONDS=0;
 // Curva de experiencia: crece cuadráticamente
 // Lv1→2: 50 XP, Lv10→11: 230 XP, Lv25→26: 530 XP, Lv50→51: 1030 XP, Lv100: 2030 XP
 function xpNeeded(level){return Math.pow(Math.max(1,level),3);} // Medium Fast: lv³
@@ -2477,7 +2477,7 @@ async function xpLoad(id){
       const lastTs=new Date(data.last_updated_at).getTime();
       let elapsed=(now-lastTs)/1000;
       elapsed=Math.max(0,Math.min(elapsed,XP_CAP_SECONDS));
-      const prog={level:data.level,xp:data.xp+(elapsed*XP_RATE),lastTs:now,_ts:now};
+      const prog={level:data.level,xp:data.xp,lastTs:now,_ts:now};
       _xpCache[id]=prog;
       return prog;
     }
@@ -2488,7 +2488,7 @@ async function xpLoad(id){
   const now=Date.now();
   let elapsed=(now-prog.lastTs)/1000;
   elapsed=Math.max(0,Math.min(elapsed,XP_CAP_SECONDS));
-  if(elapsed>0.5){prog.xp+=elapsed*XP_RATE;prog.lastTs=now;}
+  // XP pasiva desactivada
   prog._ts=now;
   _xpCache[id]=prog;
   return prog;
