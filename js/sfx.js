@@ -45,9 +45,12 @@ const SFX = (() => {
           if(musicEnabled && !currentMusic) setTimeout(()=>musicMap(), 200);
         }
       });
-    }
-    if(!_unlocked){
-      _unlocked = true;
+    } else {
+      // Contexto ya en running (Chrome/Firefox sin política de autoplay)
+      if(!_unlocked){
+        _unlocked = true;
+        if(musicEnabled && !currentMusic) setTimeout(()=>musicMap(), 200);
+      }
     }
   }
 
