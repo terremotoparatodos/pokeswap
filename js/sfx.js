@@ -485,46 +485,57 @@ const SFX = (() => {
   function musicMap() {
     if (!musicEnabled) return;
     const c = init(); if (!c) return;
-    if (c.state === 'suspended') { c.resume(); }
+    if (c.state === 'suspended') c.resume();
     stopMusic();
-    const dest = c.createGain(); dest.gain.value = 0.35; dest.connect(c.destination);
-    const root = N.G3;
+    currentMusic = 'map';
+
+    const master = c.createGain();
+    master.gain.value = 0.4;
+    master.connect(c.destination);
+
     let stopped = false;
     let timeouts = [];
 
-    const playLoop = () => {
+    const NOTES = [196, 220, 246.9, 261.6, 293.7, 329.6, 392];
+    const BPM = 80;
+    const BEAT = 60 / BPM;
+
+    function playNote(freq, vol, dur, delay) {
+      if (stopped) return;
+      const t = c.currentTime + delay;
+      const o = c.createOscillator();
+      const g = c.createGain();
+      o.type = 'sine';
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0, t);
+      g.gain.linearRampToValueAtTime(vol, t + 0.05);
+      g.gain.setValueAtTime(vol, t + dur - 0.08);
+      g.gain.linearRampToValueAtTime(0, t + dur);
+      o.connect(g);
+      g.connect(master);
+      o.start(t);
+      o.stop(t + dur);
+    }
+
+    function loop() {
       if (stopped || currentMusic !== 'map') return;
-      const now = c.currentTime;
-      const BPM = 88; const BEAT = 60 / BPM;
-
-      // Bajo: root + quinta cada 2 beats
-      [[root, 0], [root * 1.5, BEAT * 2], [root, BEAT * 4], [root * 4/3, BEAT * 6]].forEach(([f, delay]) => {
-        if (stopped) return;
-        vibratoOsc(f, 'sine', 0.06, BEAT * 1.6, 2, 2, dest, now + delay);
-      });
-
-      // Melodía ambiente: notas aleatorias de la escala
-      for (let i = 0; i < 8; i++) {
-        if (stopped) return;
-        const degree = Math.floor(Math.random() * 6) + 2;
-        const f = majorFreq(root * 2, degree);
-        const delay = BEAT * (i * 1.1 + Math.random() * 0.3);
-        if (Math.random() < 0.6) {
-          vibratoOsc(f, 'sine', 0.025, BEAT * 0.8, 4, 4, dest, now + delay);
-        }
+      // Bajo
+      playNote(98, 0.25, BEAT * 2, 0);
+      playNote(110, 0.2,  BEAT * 2, BEAT * 2);
+      playNote(98, 0.25, BEAT * 2, BEAT * 4);
+      playNote(87.3, 0.2, BEAT * 2, BEAT * 6);
+      // Melodía
+      for (let i = 0; i < 6; i++) {
+        const note = NOTES[Math.floor(Math.random() * NOTES.length)];
+        playNote(note, 0.12, BEAT * 0.7, BEAT * i * 1.3 + Math.random() * 0.2);
       }
+      timeouts.push(setTimeout(loop, BEAT * 8 * 1000));
+    }
 
-      // Pad armónico
-      chord([root, root * 1.25, root * 1.5, root * 2], 'sine', 0.018, BEAT * 7.5, dest, now + BEAT * 0.5);
-
-      const id = setTimeout(playLoop, BEAT * 8 * 1000);
-      timeouts.push(id);
-    };
-
-    playLoop();
-    currentMusic = 'map';
+    loop();
     return () => { stopped = true; timeouts.forEach(clearTimeout); };
   }
+
 
   // ── MÚSICA: DUNGEON (inquietante, cromático) ──
   function musicDungeon() {
