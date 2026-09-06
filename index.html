@@ -1981,7 +1981,7 @@ function updateMobileTopbar(){
     if(loginEl)loginEl.style.display='';
   }
 }
-function loadProfile(){if(!user)return;const{data}=await sb.from('profiles').select('*').eq('id',user.id).single();profile=data;
+async function loadProfile(){if(!user)return;const{data}=await sb.from('profiles').select('*').eq('id',user.id).single();profile=data;
 updateMobileTopbar();
 // Verificación diaria automática de fidelidad (sin manual)
 verifyLoyalty(false);
