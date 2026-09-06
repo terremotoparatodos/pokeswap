@@ -4193,6 +4193,83 @@ case'ArrowLeft':case'a':dgMove(-1,0);e.preventDefault();break;
 case'ArrowRight':case'd':dgMove(1,0);e.preventDefault();break;
 }
 });
+
+// ── Energía del Pokémon para el dungeon ───────────────────────────────────
+// Calcula energía 0-100 basada en cuándo fue la última entrada al dungeon.
+// Se guarda en localStorage con clave 'pxenergy_<pokemon_id>'.
+function advGetEnergy(slot) {
+  if (!slot) return ENERGY_MAX;
+  const key = 'pxenergy_' + slot.pokemon_id;
+  const lastUsed = parseInt(localStorage.getItem(key) || '0');
+  if (!lastUsed) return ENERGY_MAX; // nunca usó el dungeon
+  const hoursElapsed = (Date.now() - lastUsed) / 3600000;
+  const energy = Math.min(ENERGY_MAX, hoursElapsed * ENERGY_REGEN_PER_HOUR);
+  return Math.round(energy);
+}
+
+function advConsumeEnergy(pokemonId) {
+  localStorage.setItem('pxenergy_' + pokemonId, Date.now().toString());
+}
+
+// ── Iniciar dungeon con un Pokémon ────────────────────────────────────────
+async function advStart(pokemonId) {
+  const p = pokemon.find(pk => pk.id === pokemonId);
+  if (!p) { toast('Pokémon no encontrado', 1); return; }
+
+  // Consumir energía
+  advConsumeEnergy(pokemonId);
+
+  const prog = await xpLoad(pokemonId);
+  const lv = prog.level || 1;
+  const st = getStats(pokemonId);  // [hp, atk, def, spa, spd, spe]
+
+  const maxHP = dg3HP(st[0], lv);
+  const diffMult = _dgDiff?.mult || 1;
+
+  // Inicializar el objeto de estado del dungeon
+  AD.active       = true;
+  AD.poke         = p;
+  AD.pokemonId    = pokemonId;
+  AD.lv           = lv;
+  AD.maxHP        = maxHP;
+  AD.hp           = maxHP;
+  AD.atk          = Math.round(dg3Stat(st[1], lv) * diffMult);
+  AD.def          = Math.round(dg3Stat(st[2], lv));
+  AD.spa          = Math.round(dg3Stat(st[3], lv) * diffMult);
+  AD.spd          = Math.round(dg3Stat(st[4], lv));
+  AD.spe          = Math.round(dg3Stat(st[5], lv));
+  AD.loot         = [];
+  AD.layer        = 0;
+  AD.layers       = {};
+  AD.history      = [];
+  AD.inBattle     = false;
+  AD.battleEnemy  = null;
+  AD.battleLog    = [];
+  AD.buffs        = { atk:1, def:1, spe:1 };
+  AD.buffTurns    = { atk:0, def:0, spe:0 };
+  AD.shield       = 0;
+  AD.status       = null;
+  AD.statusTurns  = 0;
+  AD.reviveReady  = false;
+  AD.lureReady    = false;
+  AD.bossPhase    = 1;
+  AD.bossPhaseTriggered = false;
+  AD.chosenBoss   = null;
+  AD.runMap       = {};
+  AD.loreShown    = new Set();
+  AD.difficulty   = diffMult;
+
+  // Generar el primer mapa de nodos
+  for (let i = 0; i <= AD.normalLayers; i++) {
+    AD.layers[i] = advGenLayer();
+  }
+
+  // Abrir el modal y renderizar
+  document.getElementById('adv-modal').classList.add('open');
+  SFX.musicDungeon ? SFX.musicDungeon() : SFX.musicMap();
+  advRenderChoice();
+}
+
 function getEnergyBar(energy){
   const pct=Math.round(energy);
   const color=pct>50?'#40c040':pct>20?'#c0a020':'#c03020';
