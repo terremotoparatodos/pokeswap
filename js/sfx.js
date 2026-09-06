@@ -1,9 +1,8 @@
 // ════════════════════════════════════════════════════════════
 // js/sfx.js — POKESWAP AUDIO ENGINE
-// Cargado ANTES del script principal en index.html
+// Cargado ANTES del script principal
 // ════════════════════════════════════════════════════════════
 
-// ── Motor de audio principal ──────────────────────────────
 // POKESWAP AUDIO ENGINE v1 — Web Audio API, cero dependencias
 // ════════════════════════════════════════════════════════════
 
@@ -693,7 +692,6 @@ const SFX = (() => {
 })();
 
 
-// ── Alias de compatibilidad para dungeon ──────────────────
 function dgSound(kind){
   const map={
     step:'step', hit:'hit', crit:'crit', item:'item',
@@ -703,7 +701,6 @@ function dgSound(kind){
 }
 
 
-// ── Controles de UI (botones 🎵 / 🔊) ────────────────────
 function toggleMusic(){
   const on = !SFX.getMusicEnabled();
   SFX.setMusicEnabled(on);
@@ -722,7 +719,6 @@ function toggleSfx(){
 }
 
 
-// ── Unlock en primera interacción + iOS resume ────────────
 function _sfxUnlockAndPlay(){
   SFX.unlock();
   if(!SFX.currentMusic()) setTimeout(()=>SFX.musicMap(), 300);
