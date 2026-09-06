@@ -5564,11 +5564,11 @@ function advGenBattleNode(isBoss){
     return{type:'battle',isBoss:true,icon:'👑',label:'JEFE: '+boss.name,
       enemy:{id:wp.id,name:boss.name,type1:wp.type1,type2:wp.type2,
         hp,maxHP:hp,lv,
-        atk:Math.floor(st[1]*(1+lv*0.08)*mult),
-        def:Math.floor(st[2]*(1+lv*0.07)*mult),
-        spa:Math.floor(st[3]*(1+lv*0.08)*mult),
-        spd:Math.floor(st[4]*(1+lv*0.07)*mult),
-        spe:Math.floor(st[5]*(1+lv*0.06)),
+        atk:Math.floor(dg3Stat(st[1],lv)*mult),
+        def:Math.floor(dg3Stat(st[2],lv)*mult),
+        spa:Math.floor(dg3Stat(st[3],lv)*mult),
+        spd:Math.floor(dg3Stat(st[4],lv)*mult),
+        spe:dg3Stat(st[5],lv),
         moves:getMoves(wp,lv), isBoss:true,
         bossData:boss, phase:1
       }
@@ -5597,10 +5597,10 @@ function advGenBattleNode(isBoss){
   return{type:'battle',isBoss:false,icon:'⚔️',label:(wp['name_'+lang]||wp.name_en)+' Lv.'+lv,
     enemy:{id:wp.id,name:wp['name_'+lang]||wp.name_en,type1:wp.type1,type2:wp.type2,
       hp,maxHP:hp,lv,
-      atk:Math.floor(st[1]*(1+lv*0.06)),
-      def:Math.floor(st[2]*(1+lv*0.06)),
-      spa:Math.floor(st[3]*(1+lv*0.06)),
-      spd:Math.floor(st[4]*(1+lv*0.06)),
+      atk:dg3Stat(st[1],lv),
+      def:dg3Stat(st[2],lv),
+      spa:dg3Stat(st[3],lv),
+      spd:dg3Stat(st[4],lv),
       spe:Math.floor(st[5]*(1+lv*0.06)),
       moves:getMoves(wp,lv), isBoss:false, bossData:null, phase:1
     }
@@ -7623,17 +7623,16 @@ async function advStart(pokeId){
 
   const lv=_isMinePoke?(await xpLoad(p.id)).level:5+Math.floor((slotData?.current_price||5)/5);
   const st=_isMinePoke?getEffectiveStats(p.id,lv):getStats(p.id);
-  const m=1+lv*0.08;
   Object.assign(AD,{
     active:true,poke:p,loot:[],layer:0,normalLayers:7,layers:{},history:[],
     inBattle:false,battleEnemy:null,battleLog:[],pendingSub:null,
     lv,
-    maxHP:Math.floor(st[0]*m),hp:Math.floor(st[0]*m),
-    atk:Math.floor(st[1]*(1+lv*0.06)),
-    def:Math.floor(st[2]*(1+lv*0.06)),
-    spa:Math.floor(st[3]*(1+lv*0.06)),
-    spd:Math.floor(st[4]*(1+lv*0.06)),
-    spe:Math.floor(st[5]*(1+lv*0.06)),
+    maxHP:dg3HP(st[0],lv),hp:dg3HP(st[0],lv),
+    atk:dg3Stat(st[1],lv),
+    def:dg3Stat(st[2],lv),
+    spa:dg3Stat(st[3],lv),
+    spd:dg3Stat(st[4],lv),
+    spe:dg3Stat(st[5],lv),
     buffs:{atk:1,def:1,spe:1},buffTurns:{atk:0,def:0,spe:0},
     shield:0,status:null,statusTurns:0,
     reviveReady:false,lureReady:false,
