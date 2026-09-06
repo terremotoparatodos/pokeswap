@@ -6533,7 +6533,7 @@ function mkPoke(d,i,tot){
   const mg=60, ang=(i/tot)*Math.PI*2;
   const rx=w/2-mg, ry=h/2-mg;
   const mvs=d.mvs&&d.mvs.length?d.mvs:(d.moves&&d.moves.length?d.moves:[]);
-  const maxHp=d.hp+Math.floor(Math.random()*15);
+  const maxHp=d.hp; // HP real — sin random adicional
   const spm=(typeof SPATK_MULT!=='undefined'&&SPATK_MULT?.[d.type])||1.0;
   const sdm=(typeof SPDEF_MULT!=='undefined'&&SPDEF_MULT?.[d.type])||1.0;
   return{...d,maxHp,curHp:maxHp,
@@ -7330,11 +7330,11 @@ function stStart(enemy){
     name:AD.poke['name_'+lang]||AD.poke.name_en,
     type:AD.poke.type1,
     type2:AD.poke.type2||null,
-    hp: Math.round(pHpBase*HP_SCALE*(1+AD.lv*0.04)),
-    atk:Math.round((pSt[1]||50)*(1+AD.lv*0.05)),
-    def:Math.round((pSt[2]||50)*(1+AD.lv*0.04)),
-    spa:Math.round((pSt[3]||50)*(1+AD.lv*0.05)),
-    spe:Math.max(20,pSt[5]||50),
+    hp: AD.hp,          // HP actual del jugador (ya calculado con dg3HP)
+    atk:AD.atk,
+    def:AD.def,
+    spa:AD.spa,
+    spe:AD.spe,
     lv:AD.lv,
     moves:pMoves,
   };
@@ -7343,11 +7343,11 @@ function stStart(enemy){
     name:enemy.name,
     type:enemy.type1,
     type2:enemy.type2||null,
-    hp:Math.round(eHpBase*HP_SCALE*(1+enemy.lv*0.04)),
-    atk:Math.round((eSt[1]||50)*(1+enemy.lv*0.05)),
-    def:Math.round((eSt[2]||50)*(1+enemy.lv*0.04)),
-    spa:Math.round((eSt[3]||50)*(1+enemy.lv*0.05)),
-    spe:Math.max(20,eSt[5]||50),
+    hp:enemy.hp,        // HP del enemigo (ya calculado con dg3HP)
+    atk:enemy.atk,
+    def:enemy.def,
+    spa:enemy.spa,
+    spe:enemy.spe,
     lv:enemy.lv,
     isBoss:!!enemy.isBoss,
     moves:eMoves,
