@@ -3211,13 +3211,17 @@ const startPx=dg.playerPx!==undefined?dg.playerPx:dg.playerX*dg.tileSize;
 const startPy=dg.playerPy!==undefined?dg.playerPy:dg.playerY*dg.tileSize;
 const endPx=nx*dg.tileSize,endPy=ny*dg.tileSize;
 const dur=110;const t0=performance.now();
+// Fallback: si requestAnimationFrame falla (mobile), completar igual
+const safeEnd=setTimeout(()=>{dg.playerPx=endPx;dg.playerPy=endPy;dg.moving=false;try{cb();}catch(e){console.error('dgTweenTo cb error:',e);}},dur+50);
 function step(t){
+try{
 const p=Math.min(1,(t-t0)/dur);
 dg.playerPx=startPx+(endPx-startPx)*p;
 dg.playerPy=startPy+(endPy-startPy)*p;
 dgRenderQuick();
 if(p<1){requestAnimationFrame(step);}
-else{dg.moving=false;cb();}
+else{clearTimeout(safeEnd);dg.moving=false;cb();}
+}catch(e){clearTimeout(safeEnd);dg.moving=false;console.error('dgTweenTo error:',e);}
 }
 requestAnimationFrame(step);
 }
@@ -4391,6 +4395,7 @@ function _dgCajaCollect(){
 
 
 function dgStartBattle(enemy){
+dg.moving=false; // garantizar que no quede bloqueado
 dg.inBattle=true;
 dg.battleEnemy=enemy;
 dg.battleEnemy.maxHp=dg.battleEnemy.maxHp||dg.battleEnemy.hp;
@@ -4681,7 +4686,12 @@ setTimeout(()=>{dgLog('⚡ ¡Sala Voltorb Flip! Destapá celdas para ganar premi
 }
 if(dg.map[ny][nx]===DG_TILES.STAIRS){
 dgSound('stairs');
-if(dg.floor>=dg.maxFloors){dgLog('¡Completaste el dungeon!');setTimeout(()=>dgEnd(true),800);return;}
+if(dg.floor>=dg.maxFloors){
+// Verificar que el boss fue derrotado
+const bossAlive=dg.enemies.some(e=>e.isBoss);
+if(bossAlive){dgLog('⚠️ ¡El Jefe bloquea la salida! Tenés que vencerlo primero.');return;}
+dgLog('¡Completaste el dungeon!');setTimeout(()=>dgEnd(true),800);return;
+}
 dg.floor++;
 dgLog(`¡Bajaste al piso ${dg.floor}!`);
 dgGenerate();
@@ -4765,9 +4775,11 @@ if(totalXp>0)html+=`<div style="font-size:6px;color:#80f080;text-align:center;ma
 html+=`<div style="text-align:center"><button class="dg-btn" onclick="dgClose()">Volver a la ciudad</button></div>`;
 result.innerHTML=html;
 result.style.display='block';
+result.style.zIndex='100';
 document.getElementById('dg-battle').style.display='none';
 document.getElementById('dg-canvas').style.display='none';
 document.getElementById('dg-hud').style.display='none';
+document.getElementById('dg-minimap').style.display='none';
 }
 async function dgClose(){
   document.getElementById('dg-modal').classList.remove('open');
@@ -4934,16 +4946,27 @@ dg.playerPoke._spa=dg3Stat(st[3],dg.playerLv);
 dg.playerPoke._spd=dg3Stat(st[4],dg.playerLv);
 dg.playerPoke._spe=dg3Stat(st[5],dg.playerLv);
 dgGenerate();
-dg.playerPx=dg.playerX*dg.tileSize;
-dg.playerPy=dg.playerY*dg.tileSize;
 const modal=document.getElementById('dg-modal');
 modal.classList.add('open');
 document.getElementById('dg-result').style.display='none';
+document.getElementById('dg-result').style.zIndex='';
 document.getElementById('dg-battle').style.display='none';
 document.getElementById('dg-canvas').style.display='block';
 document.getElementById('dg-hud').style.display='flex';
+document.getElementById('dg-minimap').style.display='';
 dgLog(`¡${p['name_'+lang]||p.name_en} entra al dungeon! (Lv.${dg.playerLv})`);
+// Esperar a que el canvas tenga dimensiones reales (crítico en mobile)
+requestAnimationFrame(()=>{
+const cv=document.getElementById('dg-canvas');
+// Recalcular tileSize con el ancho real del canvas
+if(cv.clientWidth>0&&dg.cols>0){
+dg.tileSize=Math.floor(cv.clientWidth/dg.cols);
+if(dg.tileSize<4)dg.tileSize=8; // mínimo razonable
+}
+dg.playerPx=dg.playerX*dg.tileSize;
+dg.playerPy=dg.playerY*dg.tileSize;
 dgRender();
+});
 }
 document.addEventListener('keydown',e=>{
 if(!dg.active||dg.inBattle)return;
