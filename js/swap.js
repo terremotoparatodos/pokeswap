@@ -654,7 +654,7 @@ function tstSwap() {
 }
 
 // Arrancar el ticker del nav badge cada minuto
-setInterval(swapUpdateNavBadge, 60000);
+setInterval(swapUpdateNavBadge, 1000); // actualizar cada segundo para countdown
 
 // ============================================================
 // ===== FIN SISTEMA POKESWAP =====
