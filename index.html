@@ -1851,7 +1851,7 @@ function marketFilter(){
     const lv=l._lv;
     const aura=getBaseAura(l.pokemon_id,lv);
     const types=[p?.type1,p?.type2].filter(Boolean);
-    const chips=types.map(t=>`<span style="background:${TC[t]||'#888'};color:#fff;font-size:3px;padding:1px 4px;border-radius:2px">${TN[lang]?.[t]||t}</span>`).join(' ');
+    const chips=types.map(t=>`<span style="background:${TC[(t||'').toLowerCase()]||'#888'};color:#fff;font-size:3px;padding:1px 4px;border-radius:2px">${TN[lang]?.[t]||t}</span>`).join(' ');
     return `<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:4px;margin-bottom:5px" onmouseover="this.style.background='rgba(255,255,255,.07)'" onmouseout="this.style.background='rgba(255,255,255,.03)'">
       <img src="${p?fbUrl(p.id):''}" style="width:32px;height:32px;image-rendering:pixelated;flex-shrink:0">
       <div style="flex:1;min-width:0">
@@ -1966,7 +1966,7 @@ async function collectPassiveTokens(){
   pokemon.forEach(p => {
     const s = slots[p.id];
     if(s && s.owner_id === user.id){
-      const aura = (s.aura||0) + getBaseAura(p.id);
+      const aura = Math.min(s.aura||0,200) + getBaseAura(p.id,1);
       const tph = Math.max(5, Math.round(5 + aura/50));
       totalTph += tph;
     }
@@ -2349,7 +2349,7 @@ document.getElementById('h-name').textContent=h[`name_${lang}`]||h.name_en;
 const haura=(hs?.aura||0)+getBaseAura(h.id);
 document.getElementById('h-price').innerHTML=`<span style="color:#c080f0">◈</span> ${haura.toLocaleString()} Aura`;
 document.getElementById('h-owner').textContent=hs?.owner_id?`Dueño: ${hs.owner_username}`:'Disponible';
-let th='';[h.type1,h.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="font-size:4px;padding:1px 4px;border-radius:2px;background:${TC[t]||'#888'};color:#fff">${TN[lang]?.[t]||t}</span> `;});
+let th='';[h.type1,h.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="font-size:4px;padding:1px 4px;border-radius:2px;background:${TC[(t||'').toLowerCase()]||'#888'};color:#fff">${TN[lang]?.[t]||t}</span> `;});
 document.getElementById('h-types').innerHTML=th;
 const st=getStats(h.id);const hpMax=st[0];const hpCur=Math.max(1,hpMax-Math.floor(hprice/10));
 const hpPct=Math.round(hpCur/hpMax*100);
@@ -2579,7 +2579,7 @@ function dexOpenPoke(id){
   document.getElementById('pdex-side-img').src=isSeen?fbUrl(p.id):'';
   document.getElementById('pdex-side-num').textContent='#'+String(p.id).padStart(3,'0');
   document.getElementById('pdex-side-name').textContent=isSeen?(p[`name_${lang}`]||p.name_en):'???';
-  let th='';[p.type1,p.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="background:${TC[t]||'#888'};font-size:4px;padding:1px 4px">${TN[lang]?.[t]||t}</span>`;});
+  let th='';[p.type1,p.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="background:${TC[(t||'').toLowerCase()]||'#888'};font-size:4px;padding:1px 4px">${TN[lang]?.[t]||t}</span>`;});
   document.getElementById('pdex-side-types').innerHTML=isSeen?th:'';
   const isMe=user&&s?.owner_id===user.id;
   const ownerTxt=s?.owner_id?(isMe?'⭐ Tuyo':`👤 ${s.owner_username||'—'}`):'Salvaje';
@@ -2641,7 +2641,7 @@ document.getElementById('ips').src=owUrl(p.id,'down');
 document.getElementById('ips').onerror=function(){this.onerror=null;this.src=fbUrl(p.id);};
 document.getElementById('ipnum').textContent=`#${String(p.id).padStart(3,'0')}`;
 document.getElementById('ipname').textContent=p[`name_${lang}`]||p.name_en;
-let th='';[p.type1,p.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="background:${TC[t]||'#888'};color:#fff;border-bottom:2px solid rgba(0,0,0,.3)">${TN[lang]?.[t]||t}</span>`;});
+let th='';[p.type1,p.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="background:${TC[(t||'').toLowerCase()]||'#888'};color:#fff;border-bottom:2px solid rgba(0,0,0,.3)">${TN[lang]?.[t]||t}</span>`;});
 document.getElementById('iptypes').innerHTML=th;
 const isOwned=!!s?.owner_id;const isMe=user&&s?.owner_id===user.id;
 const serial = s?.claim_count||0;
@@ -2650,7 +2650,7 @@ const firstOwnerStr = s?.first_owner_username&&serial>1 ? `<div style="font-size
 const isInMarket=isMe&&s?.is_locked&&!p.locked;
 document.getElementById('ipowner').innerHTML=(isOwned?(isMe?(isInMarket?`🏪 Tuyo · en el Mercado${serialStr}`:`⭐ Tuyo${serialStr}`):`Dueño: ${s.owner_username}${serialStr}`):(p.locked?'🔒 Bloqueado · evento especial':'Salvaje · disponible'))+firstOwnerStr;
 const _ipLv=isMe?(await xpLoad(p.id)).level:(()=>{const _bst=getStats(p.id).reduce((a,b)=>a+b,0);return Math.min(20,Math.max(1,Math.floor(_bst/35)));})();
-const aura=(s?.aura||0)+getBaseAura(p.id,_ipLv);
+const aura=Math.min(s?.aura||0,200)+getBaseAura(p.id,_ipLv);
 document.getElementById('ipprice').innerHTML=p.locked?'🔒 EVENTO ESPECIAL':`<span style="color:#c080f0">◈</span> ${aura.toLocaleString()} Aura`;
 const st=isMe?getEffectiveStats(p.id,_ipLv):getStats(p.id);
 const hpMax=st[0];const hpCur=Math.max(1,hpMax-Math.floor((price||0)/8));
@@ -2673,7 +2673,7 @@ evoNote.textContent=`🌟 Stats de ${evoPoke?(evoPoke['name_'+lang]||evoPoke.nam
 const _xpBar=document.getElementById('ip-xpbar');
 if(isMe){_xpBar.style.display='block';xpBarHTML(p.id,false).then(h=>_xpBar.innerHTML=h);}
 else{_xpBar.style.display='none';}
-document.getElementById('ip-moves').innerHTML=getMoves(p,_ipLv).map(m=>`<div class="move-chip" style="background:${TC[m.type]||'#888'}">${m.name}<br><span style="opacity:.6">${m.status?'Estado':'Pwr '+m.power}</span></div>`).join('');
+document.getElementById('ip-moves').innerHTML=getMoves(p,_ipLv).map(m=>`<div class="move-chip" style="background:${TC[(m.type||'').toLowerCase()]||'#888'}">${m.name}<br><span style="opacity:.6">${m.status?'Estado':'Pwr '+m.power}</span></div>`).join('');
 const canFree=user&&(profile?.free_claims_remaining||0)>0&&!isOwned&&!p.is_popular&&!p.locked;
 document.getElementById('ib-free').style.display=canFree?'':'none';
 const moneyDiv=document.getElementById('ib-money');if(moneyDiv)moneyDiv.style.display=(!p.locked&&!isMe)?'':'none';
@@ -2765,7 +2765,7 @@ function renderBoxGrid(){
   let totalTph=0;
   myPokemon.forEach(p=>{
     const s=slots[p.id];
-    const aura=(s?.aura||0)+getBaseAura(p.id);
+    const aura=Math.min(s?.aura||0,200)+getBaseAura(p.id,1);
     totalTph+=Math.max(5,Math.round(5+aura/50));
   });
   document.getElementById('box-subtitle').textContent=myPokemon.length
@@ -2929,11 +2929,11 @@ document.getElementById('dex-info').style.display='flex';
 document.getElementById('dex-sprite').src=fbUrl(p.id);
 document.getElementById('dex-num').textContent=`#${String(p.id).padStart(3,'0')}`;
 document.getElementById('dex-name').textContent=p[`name_${lang}`]||p.name_en;
-let th='';[p.type1,p.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="font-size:5px;padding:2px 5px;border-radius:2px;background:${TC[t]||'#888'};color:#fff">${TN[lang]?.[t]||t}</span>`;});
+let th='';[p.type1,p.type2].filter(Boolean).forEach(t=>{th+=`<span class="tbadge" style="font-size:5px;padding:2px 5px;border-radius:2px;background:${TC[(t||'').toLowerCase()]||'#888'};color:#fff">${TN[lang]?.[t]||t}</span>`;});
 document.getElementById('dex-types').innerHTML=th;
 const isOwned=!!s?.owner_id;const isMe=user&&s?.owner_id===user.id;
 const _dexLv=isMe?(await xpLoad(p.id)).level:(()=>{const _bst=getStats(p.id).reduce((a,b)=>a+b,0);return Math.min(20,Math.max(1,Math.floor(_bst/35)));})();
-const dexAura=(s?.aura||0)+getBaseAura(p.id,_dexLv);
+const dexAura=Math.min(s?.aura||0,200)+getBaseAura(p.id,_dexLv);
 document.getElementById('dex-price').innerHTML=p.locked?'🔒 EVENTO ESPECIAL':`<span style="color:#c080f0">◈</span> ${dexAura.toLocaleString()} Aura`;
 document.getElementById('dex-owner').textContent=isOwned?(isMe?'⭐ Tuyo':'Dueño: '+s.owner_username):'Disponible';
 const dexXp=document.getElementById('dex-xpbar');
@@ -2942,7 +2942,7 @@ else{dexXp.style.display='none';}
 // Tokens por hora para este Pokémon
 const dexTph=document.getElementById('dex-tph-info');
 if(isMe&&dexTph){
-  const pAura=(s?.aura||0)+getBaseAura(p.id,_dexLv);
+  const pAura=Math.min(s?.aura||0,200)+getBaseAura(p.id,_dexLv);
   const pTph=Math.max(5,Math.round(5+pAura/50));
   document.getElementById('dex-tph-val').textContent=`₱ ${pTph} / hora`;
   dexTph.style.display='block';
@@ -4305,7 +4305,7 @@ else if(eff===0)effTxt=' No afecta...';
 dgLog(`${p['name_'+lang]||p.name_en} usó ${moveName}! (-${dmg} HP)${effTxt}`);
 dgSound(eff>1?'crit':'hit');
 const _pCat=move&&move.cat?move.cat:'ph';
-dgAttackAnim(_pCat,'.dg-enemy-side',TC[moveType]||'#88ccff');
+dgAttackAnim(_pCat,'.dg-enemy-side',TC[(moveType||'').toLowerCase()]||'#88ccff');
 if(_pCat==='ph')dgShakeBattle('.dg-enemy-side');
 dgFloatDmg('.dg-enemy-side',dmg,eff>1?'#f0c840':'#fff');
 // Aplicar estado por el golpe
@@ -4385,7 +4385,7 @@ const eEffMsg=getEffectiveness(eMoveType,p.type1,p.type2)>1?' ¡Es super efectiv
 dgLog(`${e.name} usó ${chosenMove.name}! (-${eDmg} HP)${eEffMsg}`);
 dgSound('hit');
 const _eCat=chosenMove&&chosenMove.cat?chosenMove.cat:'ph';
-dgAttackAnim(_eCat,'.dg-player-side',TC[eMoveType]||'#ff8844');
+dgAttackAnim(_eCat,'.dg-player-side',TC[(eMoveType||'').toLowerCase()]||'#ff8844');
 if(_eCat==='ph')dgShakeBattle('.dg-player-side');
 dgFloatDmg('.dg-player-side',eDmg,'#ff6050');
 if(dg.playerHP<=0){
@@ -4639,7 +4639,7 @@ document.getElementById('dg-battle-inner').innerHTML=`
 <div class="dg-battle-field">
 <div class="dg-battle-poke dg-enemy-side">
 <div class="dg-b-name">${e.isBoss?"👑 ":""}${e.name} <span class="dg-b-lv">Lv.${e.lv}</span></div>
-<div class="dg-b-types">${[e.type1,e.type2].filter(Boolean).map(t=>`<span class="tbadge" style="background:${TC[t]||'#888'};font-size:4px;padding:1px 4px">${TN[lang]?.[t]||t}</span>`).join(' ')}</div>
+<div class="dg-b-types">${[e.type1,e.type2].filter(Boolean).map(t=>`<span class="tbadge" style="background:${TC[(t||'').toLowerCase()]||'#888'};font-size:4px;padding:1px 4px">${TN[lang]?.[t]||t}</span>`).join(' ')}</div>
 <div class="dg-b-hpwrap"><div class="dg-hp-bar"><div class="dg-hp-fill${e.hp/e.maxHP<.25?' red':e.hp/e.maxHP<.5?' yellow':''}" style="width:${Math.round(e.hp/e.maxHP*100)}%"></div></div><span class="dg-b-hptxt">${e.hp}/${e.maxHP}</span></div>
 <img class="dg-b-sprite" src="${FB}/${e.id}.png" alt="">
 </div>
@@ -6760,7 +6760,7 @@ function stStart(enemy){
     if(!moves||!moves.length)return[];
     return moves.map(m=>{
       const mtype=(m.type||'normal').toLowerCase();
-      const col=TC[mtype]||'#aaa';
+      const col=TC[(mtype||'').toLowerCase()]||'#aaa';
       const isStatus=m.status||m.cat==='st'||!m.power||m.power<=0;
       const cat=isStatus?'st':(m.cat||(_SP_TYPES&&_SP_TYPES.has(mtype)?'sp':'ph'));
       const shape=isStatus?'wave':(cat==='sp'?'beam':'hit');
@@ -7657,7 +7657,7 @@ function swapBuildReveal(result) {
   // Tipos
   const tt = document.getElementById('sw-reveal-types');
   const types = [p.type1, p.type2].filter(Boolean);
-  tt.innerHTML = types.map(t => `<span class="tbadge" style="background:${TC[t]||'#888'}">${TN[lang]?.[t]||t}</span>`).join('');
+  tt.innerHTML = types.map(t => `<span class="tbadge" style="background:${TC[(t||'').toLowerCase()]||'#888'}">${TN[lang]?.[t]||t}</span>`).join('');
 
   // Movimientos base + especial
   const mv = document.getElementById('sw-reveal-moves');
