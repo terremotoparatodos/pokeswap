@@ -18,7 +18,8 @@ const SFX = (() => {
 
   // ── INIT ──
   function init() {
-    if (ctx) return ctx;
+    // Si ya existe y está sano, reutilizar
+    if (ctx && ctx.state !== 'closed') return ctx;
     try {
       ctx = new (window.AudioContext || window.webkitAudioContext)();
       masterGain = ctx.createGain(); masterGain.gain.value = 0.7;
@@ -27,30 +28,26 @@ const SFX = (() => {
       musicGain.connect(masterGain);
       sfxGain = ctx.createGain(); sfxGain.gain.value = 1.0;
       sfxGain.connect(masterGain);
-      // Compresor maestro para que nada clipee
       const comp = ctx.createDynamicsCompressor();
       comp.threshold.value = -18; comp.knee.value = 8;
       comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.15;
       masterGain.disconnect(); masterGain.connect(comp); comp.connect(ctx.destination);
-    } catch(e) { ctx = null; }
+    } catch(e) { ctx = null; return null; }
     return ctx;
   }
 
   function unlock() {
     const c = init(); if (!c) return;
-    if (c.state === 'suspended') {
-      c.resume().then(()=>{
-        if(!_unlocked){
-          _unlocked = true;
-          if(musicEnabled && !currentMusic) setTimeout(()=>musicMap(), 200);
-        }
-      });
-    } else {
-      // Contexto ya en running (Chrome/Firefox sin política de autoplay)
-      if(!_unlocked){
+    const start = () => {
+      if (!_unlocked) {
         _unlocked = true;
-        if(musicEnabled && !currentMusic) setTimeout(()=>musicMap(), 200);
+        if (musicEnabled && !currentMusic) setTimeout(()=>musicMap(), 200);
       }
+    };
+    if (c.state === 'suspended') {
+      c.resume().then(start);
+    } else {
+      start();
     }
   }
 
@@ -487,6 +484,9 @@ const SFX = (() => {
     const c = init(); if (!c) return;
     if (c.state === 'suspended') { c.resume(); }
     stopMusic();
+    // Recrear musicGain conectado al contexto actual
+    musicGain = c.createGain(); musicGain.gain.value = 0.35;
+    musicGain.connect(masterGain);
     const root = N.G3;
     let stopped = false;
     let timeouts = [];
@@ -531,6 +531,8 @@ const SFX = (() => {
     const c = init(); if (!c) return;
     if (c.state === 'suspended') { c.resume(); }
     stopMusic();
+    musicGain = c.createGain(); musicGain.gain.value = 0.35;
+    musicGain.connect(masterGain);
     const root = N.C3;
     let stopped = false;
     let timeouts = [];
@@ -586,6 +588,8 @@ const SFX = (() => {
     const c = init(); if (!c) return;
     if (c.state === 'suspended') { c.resume(); }
     stopMusic();
+    musicGain = c.createGain(); musicGain.gain.value = 0.35;
+    musicGain.connect(masterGain);
     const root = N.C3;
     let stopped = false;
     let timeouts = [];
