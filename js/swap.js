@@ -192,8 +192,29 @@ function swapSelectCard(id, el) {
   el.classList.add('sel');
   swapSelectedId = id;
   const btn = document.getElementById('sw-confirm-btn');
-  btn.disabled = false;
-  btn.style.opacity = '1';
+  if (swapIsReady()) {
+    btn.disabled = false;
+    btn.style.opacity = '1';
+    btn.textContent = '🎲 ¡Hacer el Swap!';
+  } else {
+    btn.disabled = true;
+    btn.style.opacity = '0.6';
+    // Actualizar el botón con countdown en tiempo real
+    if (window._swapBtnTimer) clearInterval(window._swapBtnTimer);
+    const updateBtn = () => {
+      const ms = swapMsLeft();
+      if (ms <= 0) {
+        clearInterval(window._swapBtnTimer);
+        btn.disabled = false;
+        btn.style.opacity = '1';
+        btn.textContent = '🎲 ¡Hacer el Swap!';
+      } else {
+        btn.textContent = `⏳ Disponible en ${swapFmtTime(ms)}`;
+      }
+    };
+    updateBtn();
+    window._swapBtnTimer = setInterval(updateBtn, 1000);
+  }
   SFX.play('swapSelect');
 }
 
