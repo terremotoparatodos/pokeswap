@@ -676,18 +676,19 @@ async function swapSkipCooldown(method) {
     return;
   }
   if (method === 'mp' || method === 'paypal') {
-    // Pago de $1 para adelantar cooldown
     try {
       const { data: { session } } = await sb.auth.getSession();
-      const r = await fetch(`${SB_URL}/functions/v1/create-payment`, {
+      const btn = document.querySelector(`.sw-pay-btn.mp[onclick*="${method}"]`);
+      if (btn) { btn.textContent = '⏳ Cargando...'; btn.disabled = true; }
+      const r = await fetch(`${SB_URL}/functions/v1/create-payment-skip`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'skip_cooldown', method, amount: 1 })
+        body: JSON.stringify({ method })
       }).then(x => x.json());
+      if (btn) { btn.disabled = false; btn.textContent = method === 'mp' ? '💳 MP $1' : '🅿️ PayPal $1'; }
       if (r.error) { toast(r.error, 1); return; }
       if (r.url) window.open(r.url, '_blank');
-      else toast('Sistema de pago en construcción', 0);
-    } catch(e) { toast('Sistema de pago en construcción', 0); }
+    } catch(e) { toast('Error al conectar con el servidor de pagos', 1); }
   }
 }
 
