@@ -691,11 +691,6 @@ async function swapSkipCooldown(method) {
     window.open('https://www.paypal.com/cgi-bin/webscr?' + params.toString(), '_blank');
     toast('🅿️ Completá el pago en PayPal — el cooldown se libera automáticamente', 0, 6000);
   }
-  if (method === 'kofi') {
-    const username = profile?.username || user?.email?.split('@')[0] || '';
-    window.open('https://ko-fi.com/terremotoparatodos', '_blank');
-    toast('💛 Ko-fi abierto — donás $1 y tu cooldown se libera', 0, 6000);
-  }
 }
 
 // --- Botón de tester para swap ---
