@@ -1069,10 +1069,12 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
       <button class="ibt free" id="ib-free" onclick="pay('free')" style="display:none;width:100%">🎁 Adoptar gratis</button>
       <button class="ibt tok" id="ib-tok" onclick="pay('tokens')" style="display:none;width:100%">₱ Adoptar con tokens</button>
       <div id="ib-money" style="display:none;width:100%">
-        <div style="font-size:4px;color:var(--text-dim);margin-bottom:4px;text-align:center;padding-top:2px">— o apoyá con dinero real —</div>
-        <div style="display:flex;gap:4px">
-          <button class="ibt mp" style="flex:1" onclick="this.textContent='⏳ Cargando...';this.disabled=true;pay('mercadopago')">💳 Mercado Pago</button>
-          <button class="ibt pp" style="flex:1" onclick="this.textContent='⏳ Cargando...';this.disabled=true;pay('paypal')">🅿 PayPal</button>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;padding-top:4px">
+          <div style="font-size:8px;color:var(--gold);font-weight:bold;flex-shrink:0">$1 USD</div>
+          <div style="flex:1;display:flex;gap:4px">
+            <button class="ibt mp" style="flex:1" onclick="this.textContent='⏳...';this.disabled=true;pay('mercadopago')">💳 Mercado Pago</button>
+            <button class="ibt pp" style="flex:1" onclick="this.textContent='⏳...';this.disabled=true;pay('paypal')">🅿 PayPal</button>
+          </div>
         </div>
       </div>
     </div>
@@ -3086,15 +3088,16 @@ document.getElementById('ib-free').style.display=canFree?'':'none';
 const moneyDiv=document.getElementById('ib-money');if(moneyDiv)moneyDiv.style.display=(!p.locked&&!isMe)?'':'none';
 const hasTok=(profile?.tokens||0)>=price;
 const tokenPrice=Math.max(1000, price); // Mínimo 1000 tokens = $1
+const displayPrice=price; // Precio real sin cap
 const hasEnoughTok=(profile?.tokens||0)>=tokenPrice;
 const it=document.getElementById('ib-tok');
 if(user&&!p.locked&&!isMe){
   it.style.display='';
-  it.textContent=`₱ ${tokenPrice.toLocaleString()}`;
+  it.textContent=`₱ ${displayPrice.toLocaleString()}`;
   if(hasEnoughTok){
     it.style.opacity='1';it.onclick=()=>pay('tokens');
   } else {
-    it.style.opacity='.45';it.onclick=()=>toast(`Necesitás ₱${tokenPrice.toLocaleString()} tokens (tenés ₱${(profile?.tokens||0).toLocaleString()})`,1);
+    it.style.opacity='.45';it.onclick=()=>toast(`Necesitás ₱${displayPrice.toLocaleString()} tokens (tenés ₱${(profile?.tokens||0).toLocaleString()})`,1);
   }
 } else { it.style.display='none'; }
 document.getElementById('ipnote').textContent=isOwned&&!isMe?`Si te lo sacan recibís ₱${price} PokéTokens`:'';

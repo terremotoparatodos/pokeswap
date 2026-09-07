@@ -576,17 +576,16 @@ function swapBuildReveal(result) {
   const types = [p.type1, p.type2].filter(Boolean);
   tt.innerHTML = types.map(t => `<span class="tbadge" style="background:${TC[(t||'').toLowerCase()]||'#888'}">${TN[lang]?.[t]||t}</span>`).join('');
 
-  // Movimientos base + especial
+  // Movimientos — usar getMoves para cubrir todos los Pokémon
   const mv = document.getElementById('sw-reveal-moves');
-  const levelMoves = LEVEL_MOVES[p.id]||[];
   const lv = swapGetLevel(p.id);
-  const learned = levelMoves.filter(m => m[0]<=lv).slice(-2);
-  let movHTML = learned.map(m => `<div class="sw-reveal-move" style="background:${TC[m[3]]||'#555'}">${m[1]} (${m[4]} pwr)</div>`).join('');
+  const activeMoves = (typeof getMoves === 'function') ? getMoves(p, lv) : [];
+  let movHTML = activeMoves.slice(0,3).map(m => `<div class="sw-reveal-move" style="background:${TC[(m.type||'normal').toLowerCase()]||'#555'}">${m.name}${m.power?' ('+m.power+' pwr)':''}</div>`).join('');
   if (result.specialMove) {
     const sm = result.specialMove;
-    movHTML += `<div class="sw-reveal-move" style="background:${TC[sm[2]]||'#555'};border:1px solid gold">⭐ ${sm[1]} (${sm[3]||'—'} pwr)</div>`;
+    movHTML += `<div class="sw-reveal-move" style="background:${TC[sm[2]]||'#555'};border:1px solid gold">⭐ ${sm[1]}${sm[3]?' ('+sm[3]+' pwr)':''}</div>`;
   }
-  mv.innerHTML = movHTML || '<div style="font-size:4px;color:var(--text-dim)">Sin movimientos</div>';
+  mv.innerHTML = movHTML || '';
 
   // Historial de dueños
   const os = document.getElementById('sw-owners-section');
