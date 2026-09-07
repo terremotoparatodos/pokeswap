@@ -675,20 +675,12 @@ async function swapSkipCooldown(method) {
     } catch(e) { toast(e.message, 1); }
     return;
   }
-  if (method === 'mp' || method === 'paypal') {
-    try {
-      const { data: { session } } = await sb.auth.getSession();
-      const btn = document.querySelector(`.sw-pay-btn.mp[onclick*="${method}"]`);
-      if (btn) { btn.textContent = '⏳ Cargando...'; btn.disabled = true; }
-      const r = await fetch(`${SB_URL}/functions/v1/create-payment-skip`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ method })
-      }).then(x => x.json());
-      if (btn) { btn.disabled = false; btn.textContent = method === 'mp' ? '💳 MP $1' : '🅿️ PayPal $1'; }
-      if (r.error) { toast(r.error, 1); return; }
-      if (r.url) window.open(r.url, '_blank');
-    } catch(e) { toast('Error al conectar con el servidor de pagos', 1); }
+  if (method === 'kofi') {
+    // Abrir Ko-fi con el username del usuario en el mensaje para identificarlo
+    const username = profile?.username || user?.email?.split('@')[0] || '';
+    const url = `https://ko-fi.com/terremotoparatodos/?amount=1&message=${encodeURIComponent('swap ' + username)}`;
+    window.open(url, '_blank');
+    toast('💛 Completá el pago en Ko-fi — el cooldown se libera automáticamente', 0, 6000);
   }
 }
 
