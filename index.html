@@ -2046,7 +2046,7 @@ async function marketPublish(){
   const {error}=await sb.from('market_listings').insert({
     pokemon_id:pokemonId,
     seller_id:user.id,
-    seller_username:userProfile?.username||user.email,
+    seller_username:profile?.username||user.email?.split('@')[0]||user.email,
     price_tokens:price,
     is_purchased:false,
     expires_at:new Date(Date.now()+7*86400000).toISOString()
