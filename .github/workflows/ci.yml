@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main, migration]
+  pull_request:
+    branches: [main, migration]
+
+jobs:
+  check:
+    name: Typecheck / Lint / Test / Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+        env:
+          # Anon key is safe to embed in public builds — it is publishable.
+          # Add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as repository
+          # variables (Settings → Variables → Actions) so the build embeds
+          # the real project URL for deploy previews.
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
