@@ -4536,6 +4536,12 @@ function getEnergyBar(energy){
 async function openDgSelect(){
 if(!user){openAuth();return;}
 await loadSlots();
+// Traer listings activos para doble chequeo aunque is_locked esté desincronizado
+const {data:activeListings}=await sb.from('market_listings')
+  .select('pokemon_id')
+  .eq('is_purchased',false)
+  .gt('expires_at',new Date().toISOString());
+const _listedIds=new Set((activeListings||[]).map(l=>l.pokemon_id));
 const owned=pokemon.filter(p=>slots[p.id]?.owner_id===user?.id);
 if(!owned.length){toast('Necesitás adoptar un Pokémon primero',1);return;}
 
@@ -4571,7 +4577,7 @@ grid.innerHTML=diffHTML+
     const energy=advGetEnergy(slots[p.id]);
     const noEnergy=energy<10;
     const noTokens=remaining<=0;
-    const isInMarket=slots[p.id]?.is_locked||false;
+    const isInMarket=slots[p.id]?.is_locked||_listedIds.has(p.id)||false;
     const disabled=noEnergy||noTokens||isInMarket;
     cardsHTML+=`<div class="dg-sel-card${disabled?' dg-sel-disabled':''}" onclick="${disabled?'':` dgSelectAndGo(${p.id})`}" style="${disabled?'opacity:.5;cursor:not-allowed':''}">
     <img src="${FB}/${p.id}.png" alt="">
