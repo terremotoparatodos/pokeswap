@@ -4533,8 +4533,9 @@ function getEnergyBar(energy){
   </div>`;
 }
 
-function openDgSelect(){
+async function openDgSelect(){
 if(!user){openAuth();return;}
+await loadSlots();
 const owned=pokemon.filter(p=>slots[p.id]?.owner_id===user?.id);
 if(!owned.length){toast('Necesitás adoptar un Pokémon primero',1);return;}
 
