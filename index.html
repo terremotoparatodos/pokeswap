@@ -4968,6 +4968,7 @@ grid.innerHTML=diffHTML+
     <div class="dg-sel-card-lv">Lv.${lv} · ⚡${Math.round(energy)}</div>
     ${getEnergyBar(energy)}
     ${isInMarket?'<div style="font-size:4px;color:#e08020">🏪 En Mercado</div>':noEnergy?'<div style="font-size:4px;color:#e04020">Sin energía</div>':''}
+    <div style="display:flex;flex-wrap:wrap;gap:2px;margin-top:4px">${getMoves(p,lv).map(m=>`<span style="background:${TC[(m.type||'').toLowerCase()]||'#888'};color:#fff;font-size:3px;padding:1px 4px;border-radius:2px;white-space:nowrap">${m.name}</span>`).join('')}</div>
     </div>
     </div>`;
   }
