@@ -68,5 +68,20 @@ function getMoves(p, level){
     statusMoves = [{name:'Danza Espada', type:'normal', power:0, cat:'st', status:true}];
   }
 
-  return [...dmgMoves, ...statusMoves].slice(0,4);
+  // Garantizar siempre 4 moves, rellenando con fallbacks genéricos
+  const combined = [...dmgMoves, ...statusMoves].slice(0,4);
+  if(combined.length < 4){
+    const _fb2 = [
+      {name:'Placaje', type:'normal', power:40, cat:'ph', status:false},
+      {name:'Gruñido', type:'normal', power:0, cat:'st', status:true},
+      {name:'Impresionar', type:'ghost', power:30, cat:'ph', status:false},
+      {name:'Fortaleza', type:'normal', power:0, cat:'st', status:true},
+    ];
+    let fi = 0;
+    while(combined.length < 4 && fi < _fb2.length){
+      const fb = _fb2[fi++];
+      if(!combined.find(m=>m.name===fb.name)) combined.push(fb);
+    }
+  }
+  return combined;
 }
