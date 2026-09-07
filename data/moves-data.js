@@ -21,18 +21,28 @@ function getMoves(p, level){
   if(pool && pool.length){
     const avail = pool.filter(e => e[0] <= level);
     const src = avail.length ? avail : pool;
-    // Separar de daño y estado (poder > 0 = daño)
-    const dmg = src.filter(e => e[4] > 0);
-    const st  = src.filter(e => e[4] === 0);
+    // Separar de daño y estado (poder > 0 = daño, undefined o 0 = estado)
+    const dmg = src.filter(e => e[4] !== undefined && e[4] > 0);
+    const st  = src.filter(e => !e[4] || e[4] === 0);
 
-    // Elegir 3 de daño: los últimos (más altos nivel) priorizando poder
+    // Elegir 3 de daño: los más recientes (nivel más alto) y con más poder
     const sorted = [...dmg].sort((a,b) => (b[0]-a[0]) || (b[4]-a[4]));
     dmgMoves = sorted.slice(0,3).map(e => ({
-      name: e[2], slug: e[1], type: e[3], power: e[4], cat: e[5]||'ph', status: false,
+      name: e[2], slug: e[1], type: e[3], power: e[4]||50, cat: e[5]||'ph', status: false,
       name_en: e[2]
     }));
 
-    // 1 de estado: priorizar buenos (thunderwave, sleep powder, swords dance, etc.)
+    // Si hay menos de 3 de daño, completar con cualquier move disponible
+    if(dmgMoves.length < 3){
+      const used = new Set(dmgMoves.map(m=>m.slug));
+      const extra = src.filter(e=>!used.has(e[1])).sort((a,b)=>b[0]-a[0]);
+      for(const e of extra){
+        if(dmgMoves.length >= 3) break;
+        dmgMoves.push({name:e[2],slug:e[1],type:e[3],power:e[4]||40,cat:e[5]||'ph',status:false});
+      }
+    }
+
+    // 1 de estado: priorizar buenos
     if(st.length){
       const good = st.filter(e => _GOOD_STATUS && _GOOD_STATUS.has(e[1]));
       const pool2 = good.length ? good : st;
