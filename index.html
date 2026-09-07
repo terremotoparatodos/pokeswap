@@ -1166,7 +1166,14 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 <div class="ovl" id="market-ovl" onclick="if(event.target===this)closeMarket()">
   <div class="dsm" style="max-width:440px;width:100%;max-height:90vh;overflow-y:auto;padding:14px">
     <div class="dsm-title" style="margin-bottom:4px">🏪 Mercado</div>
-    <div style="font-size:5px;color:var(--text-dim);text-align:center;margin-bottom:12px">Pokémon en venta · comisión 5% · 7 días de vigencia</div>
+    <div style="font-size:5px;color:var(--text-dim);text-align:center;margin-bottom:8px">Pokémon en venta · comisión 5% · 7 días de vigencia</div>
+    <!-- Market tabs -->
+    <div style="display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:12px">
+      <button id="mkt-tab-market" onclick="marketSwitchTab('market')" style="font-family:inherit;font-size:6px;padding:5px 12px;border:none;border-bottom:2px solid var(--gold);background:transparent;color:var(--gold);cursor:pointer;font-weight:bold">🏪 Mercado</button>
+      <button id="mkt-tab-history" onclick="marketSwitchTab('history')" style="font-family:inherit;font-size:6px;padding:5px 12px;border:none;border-bottom:2px solid transparent;background:transparent;color:var(--text-dim);cursor:pointer" id="mkt-tab-history">📋 Historial</button>
+    </div>
+    <!-- Contenido por tab -->
+    <div id="mkt-content-market">
 
     <!-- Mis publicaciones -->
     <div id="market-mine-section" style="display:none;margin-bottom:12px">
@@ -1204,6 +1211,17 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
     <!-- Listings -->
     <div id="market-listings-list">
       <div style="font-size:6px;color:var(--text-dim);text-align:center;padding:20px">Cargando...</div>
+    </div>
+
+    </div><!-- /mkt-content-market -->
+
+    <!-- Historial -->
+    <div id="mkt-content-history" style="display:none">
+      <div style="display:flex;gap:6px;margin-bottom:10px">
+        <button id="mkt-hist-tab-sold" onclick="marketHistTab('sold')" style="font-family:inherit;font-size:5px;padding:4px 10px;border-radius:3px;background:rgba(240,200,0,.15);color:var(--gold);border:1px solid rgba(240,200,0,.3);cursor:pointer;font-weight:bold">Vendí</button>
+        <button id="mkt-hist-tab-bought" onclick="marketHistTab('bought')" style="font-family:inherit;font-size:5px;padding:4px 10px;border-radius:3px;background:transparent;color:var(--text-dim);border:1px solid var(--border);cursor:pointer">Compré</button>
+      </div>
+      <div id="mkt-history-list"><div style="font-size:6px;color:var(--text-dim);text-align:center;padding:20px">Cargando...</div></div>
     </div>
 
     <button class="mcan" onclick="closeMarket()" style="margin-top:12px">Cerrar</button>
@@ -1840,6 +1858,109 @@ async function marketLoad(){
         return `<option value="${id}"${disabled?' disabled':''}>${p[`name_${lang}`]||p.name_en} · Lv.${lv}${isLocked?' 🔒 En Mercado':''}${alreadyListed&&!isLocked?' (ya publicado)':''}</option>`;
       }).join('');
   }
+}
+
+
+function marketSwitchTab(tab){
+  const isMkt = tab === 'market';
+  document.getElementById('mkt-content-market').style.display = isMkt ? '' : 'none';
+  document.getElementById('mkt-content-history').style.display = isMkt ? 'none' : '';
+  // Estilos tabs
+  const tMkt = document.getElementById('mkt-tab-market');
+  const tHist = document.getElementById('mkt-tab-history');
+  tMkt.style.borderBottomColor = isMkt ? 'var(--gold)' : 'transparent';
+  tMkt.style.color = isMkt ? 'var(--gold)' : 'var(--text-dim)';
+  tMkt.style.fontWeight = isMkt ? 'bold' : 'normal';
+  tHist.style.borderBottomColor = !isMkt ? 'var(--gold)' : 'transparent';
+  tHist.style.color = !isMkt ? 'var(--gold)' : 'var(--text-dim)';
+  tHist.style.fontWeight = !isMkt ? 'bold' : 'normal';
+  if(!isMkt) marketLoadHistory('sold');
+}
+
+let _mktHistTab = 'sold';
+function marketHistTab(tab){
+  _mktHistTab = tab;
+  const sold = document.getElementById('mkt-hist-tab-sold');
+  const bought = document.getElementById('mkt-hist-tab-bought');
+  sold.style.background = tab==='sold' ? 'rgba(240,200,0,.15)' : 'transparent';
+  sold.style.color = tab==='sold' ? 'var(--gold)' : 'var(--text-dim)';
+  sold.style.borderColor = tab==='sold' ? 'rgba(240,200,0,.3)' : 'var(--border)';
+  sold.style.fontWeight = tab==='sold' ? 'bold' : 'normal';
+  bought.style.background = tab==='bought' ? 'rgba(240,200,0,.15)' : 'transparent';
+  bought.style.color = tab==='bought' ? 'var(--gold)' : 'var(--text-dim)';
+  bought.style.borderColor = tab==='bought' ? 'rgba(240,200,0,.3)' : 'var(--border)';
+  bought.style.fontWeight = tab==='bought' ? 'bold' : 'normal';
+  marketLoadHistory(tab);
+}
+
+async function marketLoadHistory(tab){
+  if(!user) return;
+  _mktHistTab = tab || _mktHistTab;
+  const listEl = document.getElementById('mkt-history-list');
+  listEl.innerHTML = '<div style="font-size:6px;color:var(--text-dim);text-align:center;padding:20px">Cargando...</div>';
+
+  let data, error;
+  if(_mktHistTab === 'sold'){
+    ({data, error} = await sb.from('market_listings')
+      .select('pokemon_id,price_tokens,purchased_by,purchased_at,created_at')
+      .eq('seller_id', user.id)
+      .eq('is_purchased', true)
+      .order('purchased_at', {ascending: false})
+      .limit(50));
+  } else {
+    ({data, error} = await sb.from('market_listings')
+      .select('pokemon_id,price_tokens,seller_username,purchased_at,created_at')
+      .eq('purchased_by', user.id)
+      .eq('is_purchased', true)
+      .order('purchased_at', {ascending: false})
+      .limit(50));
+  }
+
+  if(error || !data || data.length === 0){
+    listEl.innerHTML = `<div style="font-size:6px;color:var(--text-dim);text-align:center;padding:20px">${
+      error ? 'Error al cargar.' : _mktHistTab==='sold' ? 'Todavía no vendiste ningún Pokémon.' : 'Todavía no compraste ningún Pokémon.'
+    }</div>`;
+    return;
+  }
+
+  // Necesitamos usernames de compradores si es 'sold'
+  let buyerNames = {};
+  if(_mktHistTab === 'sold'){
+    const buyerIds = [...new Set(data.map(r=>r.purchased_by).filter(Boolean))];
+    if(buyerIds.length){
+      const {data: profiles} = await sb.from('profiles')
+        .select('id,username')
+        .in('id', buyerIds);
+      (profiles||[]).forEach(p => { buyerNames[p.id] = p.username; });
+    }
+  }
+
+  listEl.innerHTML = data.map(r => {
+    const p = pokemon.find(pk => pk.id === r.pokemon_id);
+    const name = p ? (p[`name_${lang}`] || p.name_en) : `#${r.pokemon_id}`;
+    const sprite = p ? fbUrl(p.id) : '';
+    const types = [p?.type1, p?.type2].filter(Boolean);
+    const chips = types.map(t=>`<span style="background:${TC[(t||'').toLowerCase()]||'#888'};color:#fff;font-size:3px;padding:1px 4px;border-radius:2px">${TN[lang]?.[t]||t}</span>`).join(' ');
+    const date = r.purchased_at ? new Date(r.purchased_at).toLocaleDateString('es-AR',{day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+    const counterpart = _mktHistTab === 'sold'
+      ? (buyerNames[r.purchased_by] || 'Desconocido')
+      : (r.seller_username || '—');
+    const counterLabel = _mktHistTab === 'sold' ? 'Comprador' : 'Vendedor';
+    const priceColor = _mktHistTab === 'sold' ? '#80e080' : '#e08080';
+    const pricePrefix = _mktHistTab === 'sold' ? '+' : '-';
+
+    return `<div style="display:flex;align-items:center;gap:8px;padding:7px 8px;background:rgba(255,255,255,.03);border:1px solid var(--border);border-radius:4px;margin-bottom:5px">
+      <img src="${sprite}" style="width:32px;height:32px;image-rendering:pixelated;flex-shrink:0">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:7px;color:var(--text);font-weight:bold">${name}</div>
+        <div style="font-size:4px;color:var(--text-dim);margin-top:1px">${chips}</div>
+        <div style="font-size:4px;color:var(--text-dim);margin-top:2px">${counterLabel}: <span style="color:var(--text)">${counterpart}</span> · ${date}</div>
+      </div>
+      <div style="text-align:right;flex-shrink:0">
+        <div style="font-size:8px;color:${priceColor};font-weight:bold">${pricePrefix}₱ ${r.price_tokens.toLocaleString()}</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function _mktLv(pokemonId){
