@@ -1182,7 +1182,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 
     <!-- LOGIN -->
     <div id="auth-panel-login">
-      <input class="mi" type="email" id="ae" placeholder="Email" style="margin-bottom:8px">
+      <input class="mi" type="text" id="ae" placeholder="Email o nombre de usuario" style="margin-bottom:8px" autocomplete="username">
       <input class="mi" type="password" id="ap" placeholder="Contraseña" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')loginEmail()">
       <button class="me" onclick="loginEmail()" style="margin-bottom:6px">Ingresar</button>
       <button class="mcan" onclick="authShowForgot()">¿Olvidaste tu contraseña?</button>
@@ -1190,6 +1190,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 
     <!-- SIGNUP -->
     <div id="auth-panel-signup" style="display:none">
+      <input class="mi" type="text" id="au2" placeholder="Nombre de usuario" style="margin-bottom:8px" oninput="this.value=this.value.replace(/[^a-zA-Z0-9_]/g,'')">
       <input class="mi" type="email" id="ae2" placeholder="Email" style="margin-bottom:8px">
       <input class="mi" type="password" id="ap2" placeholder="Contraseña (mín. 6 caracteres)" style="margin-bottom:10px" onkeydown="if(event.key==='Enter')signupEmail()">
       <button class="me" onclick="signupEmail()" style="margin-bottom:6px">Crear cuenta</button>
@@ -3424,12 +3425,29 @@ function authShowForgot(){
   if(emailVal)document.getElementById('ae-forgot').value=emailVal;
 }
 async function loginEmail(){
-  console.log('[PSv30] loginEmail start');
-  const email=document.getElementById('ae').value,pass=document.getElementById('ap').value;
-  if(!email||!pass)return toast('Completá email y contraseña',1);
-  const{data,error}=await sb.auth.signInWithPassword({email,password:pass});
-  console.log('[PSv30] signIn result — error:',error,'session:',data?.session?.user?.email);
-  if(error)return toast('Error: '+error.message,1);
+  let emailOrUser=document.getElementById('ae').value.trim();
+  const pass=document.getElementById('ap').value;
+  if(!emailOrUser||!pass)return toast('Completá email/usuario y contraseña',1);
+  // Si no tiene @ es un username — buscar el email
+  if(!emailOrUser.includes('@')){
+    const{data:prof}=await sb.from('profiles').select('id').eq('username',emailOrUser).maybeSingle();
+    if(!prof){
+      const{data:authUsers}=await sb.from('auth_usernames').select('email').eq('username',emailOrUser).maybeSingle().catch(()=>({data:null}));
+      if(!authUsers){return toast('No existe ningún usuario con ese nombre',1);}
+      emailOrUser=authUsers.email;
+    } else {
+      // Buscar email en auth.users por id
+      const{data:authUser}=await sb.rpc('get_email_by_id',{user_id:prof.id}).catch(()=>({data:null}));
+      if(!authUser)return toast('No se pudo resolver el usuario',1);
+      emailOrUser=authUser;
+    }
+  }
+  const{data,error}=await sb.auth.signInWithPassword({email:emailOrUser,password:pass});
+  if(error){
+    if(error.message?.toLowerCase().includes('invalid login'))
+      return toast('Email, usuario o contraseña incorrectos',1);
+    return toast('Error: '+error.message,1);
+  }
   if(!data?.session)return toast('Confirmá tu email antes de ingresar. Revisá tu bandeja.',1);
   user=data.session.user;
   updateAuthUI();
@@ -3442,11 +3460,27 @@ async function loginEmail(){
   refreshEnts();
 }
 async function signupEmail(){
-  const email=document.getElementById('ae2').value,pass=document.getElementById('ap2').value;
+  const username=(document.getElementById('au2')?.value||'').trim();
+  const email=document.getElementById('ae2').value.trim();
+  const pass=document.getElementById('ap2').value;
+  if(!username)return toast('Elegí un nombre de usuario',1);
+  if(username.length<3)return toast('El nombre de usuario necesita al menos 3 caracteres',1);
   if(!email||!pass)return toast('Completá email y contraseña',1);
   if(pass.length<6)return toast('La contraseña necesita al menos 6 caracteres',1);
-  const{error}=await sb.auth.signUp({email,password:pass});
-  if(error)return toast('Error: '+error.message,1);
+  // Verificar username único
+  const{data:existing}=await sb.from('profiles').select('id').eq('username',username).maybeSingle();
+  if(existing)return toast('Ese nombre de usuario ya está en uso',1);
+  // Crear cuenta
+  const{data,error}=await sb.auth.signUp({email,password:pass,options:{data:{username}}});
+  if(error){
+    if(error.message?.toLowerCase().includes('already registered')||error.message?.toLowerCase().includes('already been registered')||error.message?.toLowerCase().includes('user already'))
+      return toast('Ya existe una cuenta con ese email. Iniciá sesión.',1);
+    return toast('Error: '+error.message,1);
+  }
+  // Si Supabase auto-confirma, guardar username en profile
+  if(data?.user){
+    await sb.from('profiles').upsert({id:data.user.id,username},{onConflict:'id',ignoreDuplicates:false});
+  }
   toast('¡Cuenta creada! Revisá tu email para confirmarla.');
   closeAuth();
 }
