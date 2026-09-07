@@ -675,21 +675,26 @@ async function swapSkipCooldown(method) {
     } catch(e) { toast(e.message, 1); }
     return;
   }
+  if (method === 'paypal') {
+    const username = profile?.username || user?.email?.split('@')[0] || '';
+    const params = new URLSearchParams({
+      cmd: '_donations',
+      business: 'rodriguti17@hotmail.com',
+      item_name: 'pokeswap.lol - Skip Cooldown',
+      amount: '1.00',
+      currency_code: 'USD',
+      custom: username,
+      return: 'https://pokeswap.lol?swap_skip=1',
+      cancel_return: 'https://pokeswap.lol',
+      notify_url: 'https://xdhtasxadmhjltmtirxy.supabase.co/functions/v1/paypal-ipn',
+    });
+    window.open('https://www.paypal.com/cgi-bin/webscr?' + params.toString(), '_blank');
+    toast('🅿️ Completá el pago en PayPal — el cooldown se libera automáticamente', 0, 6000);
+  }
   if (method === 'kofi') {
     const username = profile?.username || user?.email?.split('@')[0] || '';
-    // Mostrar instrucciones antes de abrir Ko-fi
-    const msg = `Para liberar el cooldown:
-
-1. Se va a abrir Ko-fi
-2. Donás $1
-3. En el mensaje escribí exactamente:
-
-swap ${username}
-
-¿Listo?`;
-    if (!confirm(msg)) return;
     window.open('https://ko-fi.com/terremotoparatodos', '_blank');
-    toast(`💛 Escribí "swap ${username}" en el mensaje de Ko-fi`, 0, 8000);
+    toast('💛 Ko-fi abierto — donás $1 y tu cooldown se libera', 0, 6000);
   }
 }
 
