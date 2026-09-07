@@ -1060,9 +1060,6 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
     <!-- Movimientos -->
     <div style="font-size:5px;color:var(--text-dim);margin-bottom:4px">MOVIMIENTOS</div>
     <div class="moves-grid" id="ip-moves"></div>
-    <div id="ip-learn-btn-wrap" style="display:none;margin-top:6px">
-      <button id="ip-learn-btn" onclick="learnRandomMove(selectedId)" style="font-family:inherit;font-size:5px;width:100%;padding:6px;border-radius:3px;background:linear-gradient(180deg,#6040c0,#4020a0);color:#e0c0ff;border:2px solid #8060e0;cursor:pointer">🎲 Aprender move al azar · ₱ 150</button>
-    </div>
     <div id="ip-evonote" style="display:none;font-size:5px;color:#a0c8ff;margin-top:4px;text-align:center;background:rgba(100,150,255,.08);border-radius:3px;padding:3px"></div>
     <div id="ip-xpbar" style="display:none;margin-top:6px"></div>
     <button id="ip-register-btn" onclick="dexRegisterCurrent()">📖 Registrar en mi Pokédex</button>
@@ -1124,6 +1121,7 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
               <div id="dex-claim-cd" style="display:none;font-size:4px;color:#888;text-align:center;margin-top:2px"></div>
             </div>
           </div>
+          <button class="dex-btn" id="dex-learn-btn" onclick="learnRandomMove(boxSelectedId)" style="display:none;background:linear-gradient(180deg,#6040c0,#4020a0);color:#e0c0ff;border-color:#8060e0">🎲 Aprender move · ₱ 150</button>
           <button class="dex-btn free" id="dbtn-free" onclick="payBox('free')" style="display:none">🎁 Adoptar gratis</button>
           <button class="dex-btn tok" id="dbtn-tok" onclick="payBox('tokens')" style="display:none">₱ Adoptar con tokens</button>
           <div id="dbtn-money" style="display:none;margin-top:2px">
@@ -3077,8 +3075,7 @@ const _savedMoves = _xpProg.moves || null;
 const _activeMoves = _savedMoves ? getMovesFromSlugs(p, _savedMoves) : getMoves(p,_ipLv);
 document.getElementById('ip-moves').innerHTML=_activeMoves.map(m=>`<div class="move-chip" style="background:${TC[(m.type||'').toLowerCase()]||'#888'}">${m.name}<br><span style="opacity:.6">${m.status?'Estado':'Pwr '+m.power}</span></div>`).join('');
 // Mostrar botón de aprender si es tuyo
-const learnWrap = document.getElementById('ip-learn-btn-wrap');
-if(learnWrap) learnWrap.style.display = (isMe && user) ? '' : 'none';
+
 const canFree=user&&(profile?.free_claims_remaining||0)>0&&!isOwned&&!p.is_popular&&!p.locked;
 document.getElementById('ib-free').style.display=canFree?'':'none';
 const moneyDiv=document.getElementById('ib-money');if(moneyDiv)moneyDiv.style.display=(!p.locked&&!isMe)?'':'none';
@@ -3359,6 +3356,8 @@ if(isMe&&dexTph){
 }else if(dexTph){dexTph.style.display='none';}
 const canFree=user&&(profile?.free_claims_remaining||0)>0&&!isOwned&&!p.is_popular&&!p.locked;
 document.getElementById('dbtn-free').style.display=canFree?'block':'none';
+const learnBtn=document.getElementById('dex-learn-btn');
+if(learnBtn) learnBtn.style.display=(isMe&&user)?'block':'none';
 const tokenPrice=Math.max(1000, price); // Mínimo 1000 tokens = $1
 const hasTok=(profile?.tokens||0)>=tokenPrice;
 const bt=document.getElementById('dbtn-tok');bt.style.display=(user&&hasTok&&!p.locked&&!isMe)?'block':'none';
