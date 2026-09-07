@@ -4570,14 +4570,15 @@ grid.innerHTML=diffHTML+
     const energy=advGetEnergy(slots[p.id]);
     const noEnergy=energy<10;
     const noTokens=remaining<=0;
-    const disabled=noEnergy||noTokens;
+    const isInMarket=slots[p.id]?.is_locked||false;
+    const disabled=noEnergy||noTokens||isInMarket;
     cardsHTML+=`<div class="dg-sel-card${disabled?' dg-sel-disabled':''}" onclick="${disabled?'':` dgSelectAndGo(${p.id})`}" style="${disabled?'opacity:.5;cursor:not-allowed':''}">
     <img src="${FB}/${p.id}.png" alt="">
     <div class="dg-sel-card-info">
     <div class="dg-sel-card-name">${p['name_'+lang]||p.name_en}</div>
     <div class="dg-sel-card-lv">Lv.${lv} · ⚡${Math.round(energy)}</div>
     ${getEnergyBar(energy)}
-    ${noEnergy?'<div style="font-size:4px;color:#e04020">Sin energía</div>':''}
+    ${isInMarket?'<div style="font-size:4px;color:#e08020">🏪 En Mercado</div>':noEnergy?'<div style="font-size:4px;color:#e04020">Sin energía</div>':''}
     </div>
     </div>`;
   }
