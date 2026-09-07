@@ -676,11 +676,20 @@ async function swapSkipCooldown(method) {
     return;
   }
   if (method === 'kofi') {
-    // Abrir Ko-fi con el username del usuario en el mensaje para identificarlo
     const username = profile?.username || user?.email?.split('@')[0] || '';
-    const url = `https://ko-fi.com/terremotoparatodos/?amount=1&message=${encodeURIComponent('swap ' + username)}`;
-    window.open(url, '_blank');
-    toast('💛 Completá el pago en Ko-fi — el cooldown se libera automáticamente', 0, 6000);
+    // Mostrar instrucciones antes de abrir Ko-fi
+    const msg = `Para liberar el cooldown:
+
+1. Se va a abrir Ko-fi
+2. Donás $1
+3. En el mensaje escribí exactamente:
+
+swap ${username}
+
+¿Listo?`;
+    if (!confirm(msg)) return;
+    window.open('https://ko-fi.com/terremotoparatodos', '_blank');
+    toast(`💛 Escribí "swap ${username}" en el mensaje de Ko-fi`, 0, 8000);
   }
 }
 
