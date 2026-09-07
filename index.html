@@ -1315,10 +1315,28 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 <!-- DUNGEON SELECT -->
 <div id="dg-select" onclick="if(event.target===this)this.classList.remove('open')">
   <div class="dg-sel-wrap">
-    <div class="dg-sel-title">⚔️ Elegí un Pokémon para explorar</div>
-    <div class="dg-sel-grid" id="dg-sel-grid"></div>
-    <div style="text-align:center;margin-top:10px">
-      <button class="mcan" onclick="document.getElementById('dg-select').classList.remove('open');mobileNavResetToMap()">Cancelar</button>
+    <div id="dg-sel-list">
+      <div class="dg-sel-title">⚔️ Elegí un Pokémon para explorar</div>
+      <div class="dg-sel-grid" id="dg-sel-grid"></div>
+      <div style="text-align:center;margin-top:10px">
+        <button class="mcan" onclick="document.getElementById('dg-select').classList.remove('open');mobileNavResetToMap()">Cancelar</button>
+      </div>
+    </div>
+    <div id="dg-sel-confirm" style="display:none">
+      <div style="text-align:center;margin-bottom:10px">
+        <img id="dg-conf-sprite" src="" style="width:72px;height:72px;image-rendering:pixelated">
+      </div>
+      <div style="text-align:center;margin-bottom:4px">
+        <span id="dg-conf-name" style="font-size:9px;color:var(--text)"></span>
+        <span id="dg-conf-lv" style="font-size:6px;color:var(--text-dim);margin-left:6px"></span>
+      </div>
+      <div id="dg-conf-types" style="display:flex;gap:4px;justify-content:center;margin-bottom:8px"></div>
+      <div style="font-size:5px;color:var(--text-dim);margin-bottom:5px;text-align:center">MOVIMIENTOS</div>
+      <div id="dg-conf-moves" style="display:grid;grid-template-columns:1fr 1fr;gap:4px;margin-bottom:14px"></div>
+      <div style="display:flex;gap:6px">
+        <button class="mcan" style="flex:1" onclick="dgSelBack()">← Volver</button>
+        <button id="dg-conf-enter" style="flex:2;font-family:inherit;font-size:7px;padding:10px;border-radius:4px;background:linear-gradient(180deg,#c07020,#904010);color:#f8e8a0;border:2px solid #703010;cursor:pointer">⚔️ Ingresar al Dungeon</button>
+      </div>
     </div>
   </div>
 </div>
