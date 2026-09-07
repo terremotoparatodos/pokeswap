@@ -3481,8 +3481,21 @@ async function signupEmail(){
   if(data?.user){
     await sb.from('profiles').upsert({id:data.user.id,username},{onConflict:'id',ignoreDuplicates:false});
   }
-  toast('¡Cuenta creada! Revisá tu email para confirmarla.');
-  closeAuth();
+  // Si Supabase no requiere confirmación, ya viene con sesión
+  if(data?.session){
+    user=data.session.user;
+    updateAuthUI();
+    closeAuth();
+    await loadProfile();
+    await loadSlots();
+    buildRankPanel();
+    renderBoxGrid();
+    refreshEnts();
+    toast('¡Bienvenido a pokeswap.lol!');
+  } else {
+    toast('¡Cuenta creada! Revisá tu email para confirmarla.');
+    closeAuth();
+  }
 }
 async function sendPasswordReset(){
   const email=document.getElementById('ae-forgot').value;
