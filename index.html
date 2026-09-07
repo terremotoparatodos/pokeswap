@@ -1060,6 +1060,9 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
     <!-- Movimientos -->
     <div style="font-size:5px;color:var(--text-dim);margin-bottom:4px">MOVIMIENTOS</div>
     <div class="moves-grid" id="ip-moves"></div>
+    <div id="ip-learn-btn-wrap" style="display:none;margin-top:6px">
+      <button id="ip-learn-btn" onclick="learnRandomMove(selectedId)" style="font-family:inherit;font-size:5px;width:100%;padding:6px;border-radius:3px;background:linear-gradient(180deg,#6040c0,#4020a0);color:#e0c0ff;border:2px solid #8060e0;cursor:pointer">🎲 Aprender move al azar · ₱ 150</button>
+    </div>
     <div id="ip-evonote" style="display:none;font-size:5px;color:#a0c8ff;margin-top:4px;text-align:center;background:rgba(100,150,255,.08);border-radius:3px;padding:3px"></div>
     <div id="ip-xpbar" style="display:none;margin-top:6px"></div>
     <button id="ip-register-btn" onclick="dexRegisterCurrent()">📖 Registrar en mi Pokédex</button>
@@ -2162,6 +2165,123 @@ async function marketCancel(listingId){
 }
 
 let _onbStep=0;
+
+// ── Convierte slugs guardados a objetos de move ──
+function getMovesFromSlugs(p, slugs){
+  if(!slugs||!slugs.length) return getMoves(p);
+  const pool = (typeof LEARNSET !== 'undefined' && LEARNSET[p.id]) ? LEARNSET[p.id] : [];
+  const poolMap = {};
+  pool.forEach(e => poolMap[e[1]] = e);
+  return slugs.map(slug => {
+    const e = poolMap[slug];
+    if(e) return {name:e[2], slug:e[1], type:e[3], power:e[4], cat:e[5]||'ph', status:e[4]===0};
+    return {name:slug.replace(/-/g,' ').replace(/\b\w/g,c=>c.toUpperCase()), slug, type:'normal', power:50, cat:'ph', status:false};
+  });
+}
+
+// ── Aprender move al azar ──
+async function learnRandomMove(pokeId){
+  if(!user||!pokeId){return;}
+  if(!profile||profile.tokens<150){toast('Necesitás ₱ 150 tokens',1);return;}
+
+  const p = pokemon.find(pk=>pk.id===pokeId);
+  if(!p){return;}
+
+  const pool = (typeof LEARNSET!=='undefined'&&LEARNSET[pokeId]) ? LEARNSET[pokeId] : [];
+  if(!pool.length){toast('Este Pokémon no tiene pool de moves',1);return;}
+
+  // Moves actuales
+  const prog = await xpLoad(pokeId);
+  const currentSlugs = prog.moves || getMoves(p, prog.level).map(m=>m.slug||m.name.toLowerCase().replace(/ /g,'-'));
+
+  // Filtrar moves que no sabe ya
+  const unknown = pool.filter(e => !currentSlugs.includes(e[1]));
+  if(!unknown.length){toast('¡Ya conoce todos sus moves posibles!',1);return;}
+
+  // Elegir uno al azar
+  const pick = unknown[Math.floor(Math.random()*unknown.length)];
+  const moveName = pick[2];
+  const moveType = pick[3];
+
+  // Mostrar modal de aprendizaje
+  _pendingLearnMove = {pokeId, pick, currentSlugs, prog};
+  _showLearnModal(p, pick, currentSlugs);
+}
+
+let _pendingLearnMove = null;
+
+function _showLearnModal(p, pick, currentSlugs){
+  const pName = p[`name_${lang}`]||p.name_en;
+  const prog = _pendingLearnMove.prog;
+  const currentMoves = getMovesFromSlugs(p, currentSlugs);
+
+  const modal = document.createElement('div');
+  modal.id = 'learn-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.88);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px';
+
+  const catColor = TC[(pick[3]||'normal').toLowerCase()]||'#888';
+  const isPower = pick[4] > 0;
+
+  modal.innerHTML = `
+    <div style="background:rgba(8,5,2,.98);border:3px solid var(--brown);border-radius:8px;padding:20px;max-width:320px;width:100%;text-align:center">
+      <div style="font-size:9px;color:var(--gold);margin-bottom:12px">🎲 ¡Nuevo Move!</div>
+      <img src="${fbUrl(p.id)}" style="width:56px;height:56px;image-rendering:pixelated;margin-bottom:8px">
+      <div style="font-size:7px;color:var(--text);margin-bottom:4px">${pName} quiere aprender</div>
+      <div style="background:${catColor};color:#fff;font-size:9px;padding:8px 16px;border-radius:4px;margin:8px auto;display:inline-block;font-weight:bold">${pick[2]}</div>
+      <div style="font-size:5px;color:var(--text-dim);margin-bottom:14px">${isPower?'Poder: '+pick[4]+' · ':''}Tipo: ${TN[lang]?.[pick[3]]||pick[3]}</div>
+
+      <div style="font-size:5px;color:var(--text-dim);margin-bottom:8px">¿Reemplazar cuál?</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:12px">
+        ${currentMoves.map((m,i)=>`
+          <button onclick="_confirmLearn(${i})" style="font-family:inherit;font-size:5px;padding:7px 6px;border-radius:3px;background:${TC[(m.type||'').toLowerCase()]||'#888'};color:#fff;border:none;cursor:pointer">
+            ${m.name}<br><span style="opacity:.7">${m.status?'Estado':'Pwr '+(m.power||0)}</span>
+          </button>
+        `).join('')}
+      </div>
+      <button onclick="_cancelLearn()" style="font-family:inherit;font-size:6px;padding:8px 20px;border-radius:4px;background:rgba(255,255,255,.06);color:var(--text-dim);border:1px solid var(--border);cursor:pointer">No aprender · ₱ 150 de todas formas</button>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+async function _confirmLearn(replaceIdx){
+  if(!_pendingLearnMove) return;
+  const {pokeId, pick, currentSlugs, prog} = _pendingLearnMove;
+  _pendingLearnMove = null;
+  document.getElementById('learn-modal')?.remove();
+
+  // Cobrar tokens
+  const {error} = await sb.from('profiles')
+    .update({tokens: (profile.tokens||0)-150})
+    .eq('id', user.id);
+  if(error){toast('Error al cobrar tokens',1);return;}
+  profile.tokens = (profile.tokens||0)-150;
+
+  // Actualizar moves
+  const newSlugs = [...currentSlugs];
+  newSlugs[replaceIdx] = pick[1];
+  prog.moves = newSlugs;
+  await xpSave(pokeId, prog);
+
+  toast(`✓ ¡${pick[2]} aprendido!`);
+  updateAuthUI();
+  if(selectedId===pokeId) updatePanel(pokeId);
+}
+
+async function _cancelLearn(){
+  if(!_pendingLearnMove) return;
+  const {prog, pokeId} = _pendingLearnMove;
+  _pendingLearnMove = null;
+  document.getElementById('learn-modal')?.remove();
+
+  // Cobrar igual (eligió no aprender)
+  const {error} = await sb.from('profiles')
+    .update({tokens: (profile.tokens||0)-150})
+    .eq('id', user.id);
+  if(!error){profile.tokens=(profile.tokens||0)-150;updateAuthUI();}
+  toast('Move descartado · ₱ 150 cobrados');
+}
+
 function openOnboarding(){
   if(localStorage.getItem('onb_done')==='1')return;
   _onbStep=0;onbRender();
@@ -2694,7 +2814,7 @@ async function xpLoad(id){
       const lastTs=new Date(data.last_updated_at).getTime();
       let elapsed=(now-lastTs)/1000;
       elapsed=Math.max(0,Math.min(elapsed,XP_CAP_SECONDS));
-      const prog={level:data.level,xp:data.xp,lastTs:now,_ts:now};
+      const prog={level:data.level,xp:data.xp,lastTs:now,_ts:now,moves:data.moves||null};
       _xpCache[id]=prog;
       return prog;
     }
@@ -2719,6 +2839,7 @@ async function xpSave(id,prog){
       pokemon_id:id,
       level:prog.level,
       xp:prog.xp,
+      moves:prog.moves||null,
       last_updated_at:new Date().toISOString(),
     },{onConflict:'user_id,pokemon_id'});
   } else {
@@ -2951,7 +3072,13 @@ evoNote.textContent=`🌟 Stats de ${evoPoke?(evoPoke['name_'+lang]||evoPoke.nam
 const _xpBar=document.getElementById('ip-xpbar');
 if(isMe){_xpBar.style.display='block';xpBarHTML(p.id,false).then(h=>_xpBar.innerHTML=h);}
 else{_xpBar.style.display='none';}
-document.getElementById('ip-moves').innerHTML=getMoves(p,_ipLv).map(m=>`<div class="move-chip" style="background:${TC[(m.type||'').toLowerCase()]||'#888'}">${m.name}<br><span style="opacity:.6">${m.status?'Estado':'Pwr '+m.power}</span></div>`).join('');
+const _xpProg = isMe ? (_xpCache[p.id]||{}) : {};
+const _savedMoves = _xpProg.moves || null;
+const _activeMoves = _savedMoves ? getMovesFromSlugs(p, _savedMoves) : getMoves(p,_ipLv);
+document.getElementById('ip-moves').innerHTML=_activeMoves.map(m=>`<div class="move-chip" style="background:${TC[(m.type||'').toLowerCase()]||'#888'}">${m.name}<br><span style="opacity:.6">${m.status?'Estado':'Pwr '+m.power}</span></div>`).join('');
+// Mostrar botón de aprender si es tuyo
+const learnWrap = document.getElementById('ip-learn-btn-wrap');
+if(learnWrap) learnWrap.style.display = (isMe && user) ? '' : 'none';
 const canFree=user&&(profile?.free_claims_remaining||0)>0&&!isOwned&&!p.is_popular&&!p.locked;
 document.getElementById('ib-free').style.display=canFree?'':'none';
 const moneyDiv=document.getElementById('ib-money');if(moneyDiv)moneyDiv.style.display=(!p.locked&&!isMe)?'':'none';
