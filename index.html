@@ -2024,6 +2024,47 @@ function marketFilter(){
 }
 
 
+
+async function marketPublish(){
+  if(!user){openAuth();return;}
+  const pokemonId=parseInt(document.getElementById('market-sell-select').value);
+  const price=parseInt(document.getElementById('market-sell-price').value);
+  if(!pokemonId){toast('Elegí un Pokémon',1);return;}
+  if(!price||price<10){toast('El precio mínimo es 10 tokens',1);return;}
+  const p=pokemon.find(pk=>pk.id===pokemonId);
+  const name=p?p[`name_${lang}`]||p.name_en:`#${pokemonId}`;
+  if(!confirm(`¿Publicar ${name} por ₱ ${price.toLocaleString()} tokens? Quedará bloqueado hasta venderse o que lo retires.`))return;
+
+  // Lockear el slot
+  const {error:lockErr}=await sb.from('slots')
+    .update({is_locked:true,updated_at:new Date().toISOString()})
+    .eq('pokemon_id',pokemonId)
+    .eq('owner_id',user.id);
+  if(lockErr){toast('Error al bloquear: '+lockErr.message,1);return;}
+
+  // Insertar en market_listings
+  const {error}=await sb.from('market_listings').insert({
+    pokemon_id:pokemonId,
+    seller_id:user.id,
+    seller_username:userProfile?.username||user.email,
+    price_tokens:price,
+    is_purchased:false,
+    expires_at:new Date(Date.now()+7*86400000).toISOString()
+  });
+  if(error){
+    // Revertir lock si falló el insert
+    await sb.from('slots').update({is_locked:false,updated_at:new Date().toISOString()})
+      .eq('pokemon_id',pokemonId).eq('owner_id',user.id);
+    toast('Error al publicar: '+error.message,1);
+    return;
+  }
+  toast(`✓ ${name} publicado por ₱ ${price.toLocaleString()}`);
+  document.getElementById('market-sell-select').value='';
+  document.getElementById('market-sell-price').value='';
+  await loadSlots();
+  await marketLoad();
+}
+
 async function marketBuy(listingId,name){
   if(!user){openAuth();return;}
   if(!confirm(`¿Comprar ${name}?`))return;
