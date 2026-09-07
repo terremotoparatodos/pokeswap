@@ -1121,6 +1121,10 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
               <div id="dex-claim-cd" style="display:none;font-size:4px;color:#888;text-align:center;margin-top:2px"></div>
             </div>
           </div>
+          <div id="dex-moves-section" style="display:none;margin-bottom:6px">
+            <div style="font-size:4px;color:var(--text-dim);margin-bottom:4px">MOVIMIENTOS</div>
+            <div id="dex-moves-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:3px"></div>
+          </div>
           <button class="dex-btn" id="dex-learn-btn" onclick="learnRandomMove(boxSelectedId)" style="display:none;background:linear-gradient(180deg,#6040c0,#4020a0);color:#e0c0ff;border-color:#8060e0">🎲 Aprender move · ₱ 150</button>
           <button class="dex-btn free" id="dbtn-free" onclick="payBox('free')" style="display:none">🎁 Adoptar gratis</button>
           <button class="dex-btn tok" id="dbtn-tok" onclick="payBox('tokens')" style="display:none">₱ Adoptar con tokens</button>
@@ -2222,7 +2226,7 @@ function _showLearnModal(p, pick, currentSlugs){
 
   modal.innerHTML = `
     <div style="background:rgba(8,5,2,.98);border:3px solid var(--brown);border-radius:8px;padding:20px;max-width:320px;width:100%;text-align:center">
-      <div style="font-size:9px;color:var(--gold);margin-bottom:12px">🎲 ¡Nuevo Move!</div>
+      <div style="font-size:9px;color:var(--gold);margin-bottom:12px">🎲 Move sorteado</div>
       <img src="${fbUrl(p.id)}" style="width:56px;height:56px;image-rendering:pixelated;margin-bottom:8px">
       <div style="font-size:7px;color:var(--text);margin-bottom:4px">${pName} quiere aprender</div>
       <div style="background:${catColor};color:#fff;font-size:9px;padding:8px 16px;border-radius:4px;margin:8px auto;display:inline-block;font-weight:bold">${pick[2]}</div>
@@ -3358,6 +3362,18 @@ const canFree=user&&(profile?.free_claims_remaining||0)>0&&!isOwned&&!p.is_popul
 document.getElementById('dbtn-free').style.display=canFree?'block':'none';
 const learnBtn=document.getElementById('dex-learn-btn');
 if(learnBtn) learnBtn.style.display=(isMe&&user)?'block':'none';
+// Mostrar moves en el dex pane
+const dexMovesSection = document.getElementById('dex-moves-section');
+const dexMovesGrid = document.getElementById('dex-moves-grid');
+if(dexMovesSection && dexMovesGrid && isMe){
+  const _dexXpProg = _xpCache[p.id]||{};
+  const _dexSavedMoves = _dexXpProg.moves||null;
+  const _dexMoves = _dexSavedMoves ? getMovesFromSlugs(p, _dexSavedMoves) : getMoves(p, _dexLv);
+  dexMovesGrid.innerHTML = _dexMoves.map(m=>`<div style="background:${TC[(m.type||'').toLowerCase()]||'#888'};border-radius:3px;padding:5px 6px;font-size:5px;color:#fff;text-align:center"><div style="font-weight:bold;margin-bottom:1px">${m.name}</div><div style="opacity:.7">${m.status?'Estado':'Pwr '+(m.power||0)}</div></div>`).join('');
+  dexMovesSection.style.display='';
+} else if(dexMovesSection){
+  dexMovesSection.style.display='none';
+}
 const tokenPrice=Math.max(1000, price); // Mínimo 1000 tokens = $1
 const hasTok=(profile?.tokens||0)>=tokenPrice;
 const bt=document.getElementById('dbtn-tok');bt.style.display=(user&&hasTok&&!p.locked&&!isMe)?'block':'none';
