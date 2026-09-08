@@ -1,8 +1,8 @@
 // Progression API — R06 service layer.
 //
-// Gap operations (V-01, V-02, V-03) must NOT fall back to direct client writes.
-// Per TRUST_BOUNDARY.md §7, this layer calls the target server-side functions
-// even though they are not yet deployed. They will return errors until R10/R12.
+// Covers: passive token collection, token spending, XP, profile reads/writes.
+// Dungeon session boundary (startDungeon, submitDungeonReward) lives in
+// src/features/dungeon — moved in R18.
 
 import { supabase } from '../../../shared/api/supabase'
 import type { Profile, TokenLedgerEntry, PokemonXp } from '../../../shared/types/database'
@@ -94,44 +94,3 @@ export async function grantXp(
   return data as { new_xp: number; new_level: number; leveled_up: boolean }
 }
 
-// DGN-2 (R15): dungeon-start Edge Function — server gate for dungeon entry.
-// Deducts DUNGEON_ENERGY_COST (30) from slots.energy atomically via
-// consume_dungeon_energy() RPC. Must be called before combat begins.
-// Closes INV-DGN-5: energy deduction is non-refundable and server-authoritative.
-// The client must never write slots.energy directly.
-export async function startDungeon(
-  pokemonId: number,
-): Promise<{ remaining_energy: number }> {
-  const { data, error } = await supabase.functions.invoke('dungeon-start', {
-    body: { pokemon_id: pokemonId },
-  })
-  if (error) throw error
-  return data as { remaining_energy: number }
-}
-
-// DGN-1 (R14): dungeon-reward Edge Function — validates ownership and applies
-// XP + dungeon token rewards atomically via award_dungeon_reward() RPC.
-// Closes V-02 (dungeon tokens) and V-03 (XP awards).
-// The client must never write pokemon_xp or profiles.tokens/dungeon_tokens_today
-// directly; this is the only path for dungeon reward application.
-export async function submitDungeonReward(payload: {
-  pokemon_id:    number
-  xp_earned:     number
-  tokens_earned: number
-}): Promise<{
-  new_xp:         number
-  new_level:      number
-  leveled_up:     boolean
-  tokens_awarded: number
-  new_balance:    number
-}> {
-  const { data, error } = await supabase.functions.invoke('dungeon-reward', { body: payload })
-  if (error) throw error
-  return data as {
-    new_xp:         number
-    new_level:      number
-    leveled_up:     boolean
-    tokens_awarded: number
-    new_balance:    number
-  }
-}

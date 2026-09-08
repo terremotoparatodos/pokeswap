@@ -1,9 +1,8 @@
 // Market API — R06 service layer.
 //
-// Gap operations (V-04, V-05) must NOT fall back to direct client writes.
-// Per TRUST_BOUNDARY.md §7, new code must call the server-side function even
-// before it exists. publish() and cancel() call the respective Edge Functions
-// and will return a clear error until those functions are deployed (R09).
+// All three operations (publish, cancel, buy) are server-authoritative
+// via Edge Functions deployed in R09. Direct client writes to market_listings
+// are blocked by RLS (V-04 and V-05 closed).
 
 import { supabase } from '../../../shared/api/supabase'
 import type { MarketListing } from '../../../shared/types/database'
@@ -29,9 +28,7 @@ export async function getListing(listingId: string): Promise<MarketListing> {
   return data
 }
 
-// Gap V-04 — `market-publish` Edge Function does not yet exist.
-// This stub enforces the trust boundary: no component may INSERT into
-// market_listings directly. The function will be implemented in R09.
+// Server-authoritative — `market-publish` Edge Function (R09).
 export async function publish(pokemonId: number, priceTokens: number): Promise<void> {
   const { error } = await supabase.functions.invoke('market-publish', {
     body: { pokemon_id: pokemonId, price_tokens: priceTokens },
@@ -39,9 +36,7 @@ export async function publish(pokemonId: number, priceTokens: number): Promise<v
   if (error) throw error
 }
 
-// Gap V-05 — `market-cancel` Edge Function does not yet exist.
-// This stub enforces the trust boundary: no component may DELETE from
-// market_listings directly. The function will be implemented in R09.
+// Server-authoritative — `market-cancel` Edge Function (R09).
 export async function cancel(listingId: string): Promise<void> {
   const { error } = await supabase.functions.invoke('market-cancel', {
     body: { listing_id: listingId },

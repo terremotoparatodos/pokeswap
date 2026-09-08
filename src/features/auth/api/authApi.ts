@@ -3,6 +3,10 @@
 // All auth state changes go through Supabase Auth (INV-ID-1).
 // Username uniqueness is enforced by a DB unique constraint (INV-ID-3);
 // the client pre-check here is belt-and-suspenders only.
+//
+// Username-based login: get_email_by_id was dropped (R11/SEC-03) and
+// auth_usernames never existed (OQ-01). Requires a resolve-username Edge
+// Function — deferred. Until then, loginWithEmail requires an email address.
 
 import { supabase } from '../../../shared/api/supabase'
 import type { Profile } from '../../../shared/types/database'
@@ -21,34 +25,11 @@ export async function loginWithGoogle(): Promise<void> {
   if (error) throw error
 }
 
-export async function loginWithEmail(emailOrUsername: string, password: string): Promise<User> {
-  let email = emailOrUsername
-
-  if (!emailOrUsername.includes('@')) {
-    // Username login: resolve to email via profiles → get_email_by_id RPC.
-    const { data: prof } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('username', emailOrUsername)
-      .maybeSingle()
-
-    if (prof) {
-      const { data: resolved } = await supabase
-        .rpc('get_email_by_id', { user_id: prof.id })
-        .catch(() => ({ data: null }))
-      if (!resolved) throw new Error('No se pudo resolver el usuario')
-      email = resolved as string
-    } else {
-      // Fallback: legacy auth_usernames table.
-      const { data: authUser } = await supabase
-        .from('auth_usernames')
-        .select('email')
-        .eq('username', emailOrUsername)
-        .maybeSingle()
-        .catch(() => ({ data: null }))
-      if (!authUser) throw new Error('No existe ningún usuario con ese nombre')
-      email = (authUser as { email: string }).email
-    }
+export async function loginWithEmail(email: string, password: string): Promise<User> {
+  if (!email.includes('@')) {
+    // Username-based login is not yet supported client-side.
+    // get_email_by_id was dropped (R11/SEC-03); a server-side resolver is needed.
+    throw new Error('Ingresá con tu email para iniciar sesión')
   }
 
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
