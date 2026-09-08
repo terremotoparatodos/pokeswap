@@ -76,6 +76,24 @@ export async function getPokemonXp(pokemonId: number): Promise<PokemonXp | null>
   return data
 }
 
+// XP-1 (R12): grant_pokemon_xp RPC — awards XP atomically and recomputes level
+// server-side using the Medium Fast curve (L³). Validates ownership.
+// Called by dungeon-reward (R15) and any future XP source.
+// The client must never write pokemon_xp.xp directly; this is the only path.
+export async function grantXp(
+  pokemonId: number,
+  xpAmount: number,
+  reason = 'dungeon',
+): Promise<{ new_xp: number; new_level: number; leveled_up: boolean }> {
+  const { data, error } = await supabase.rpc('grant_pokemon_xp', {
+    p_pokemon_id: pokemonId,
+    p_xp_amount: xpAmount,
+    p_reason: reason,
+  })
+  if (error) throw error
+  return data as { new_xp: number; new_level: number; leveled_up: boolean }
+}
+
 // Gap V-02 / V-03 — `dungeon-reward` Edge Function does not yet exist.
 // Enforces trust boundary: no component may write pokemon_xp or profiles.tokens
 // from client-computed dungeon results. Will be implemented in R15.

@@ -13,7 +13,7 @@ vi.mock('../../../shared/api/supabase', () => ({
 }))
 
 import { supabase } from '../../../shared/api/supabase'
-import { collectPassiveTokens, learnMove } from './progressionApi'
+import { collectPassiveTokens, learnMove, grantXp } from './progressionApi'
 import { skipCooldown } from '../../swap/api/swapApi'
 
 const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>
@@ -100,6 +100,51 @@ describe('skipCooldown', () => {
     mockRpc.mockResolvedValueOnce({ data: null, error: new Error('no_active_cooldown') })
 
     await expect(skipCooldown()).rejects.toThrow('no_active_cooldown')
+  })
+})
+
+// ── grantXp ───────────────────────────────────────────────────────────────────
+
+describe('grantXp', () => {
+  it('calls grant_pokemon_xp RPC with pokemon id, amount, and reason', async () => {
+    mockRpc.mockResolvedValueOnce({
+      data: { new_xp: 500, new_level: 8, leveled_up: true },
+      error: null,
+    })
+
+    const result = await grantXp(42, 500, 'dungeon')
+
+    expect(mockRpc).toHaveBeenCalledWith('grant_pokemon_xp', {
+      p_pokemon_id: 42,
+      p_xp_amount: 500,
+      p_reason: 'dungeon',
+    })
+    expect(mockFrom).not.toHaveBeenCalled()
+    expect(result).toEqual({ new_xp: 500, new_level: 8, leveled_up: true })
+  })
+
+  it('uses "dungeon" as default reason', async () => {
+    mockRpc.mockResolvedValueOnce({ data: { new_xp: 100, new_level: 5, leveled_up: false }, error: null })
+
+    await grantXp(1, 100)
+
+    expect(mockRpc).toHaveBeenCalledWith('grant_pokemon_xp', {
+      p_pokemon_id: 1,
+      p_xp_amount: 100,
+      p_reason: 'dungeon',
+    })
+  })
+
+  it('propagates not_owner error', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: new Error('not_owner') })
+
+    await expect(grantXp(99, 200)).rejects.toThrow('not_owner')
+  })
+
+  it('propagates invalid_xp_amount error', async () => {
+    mockRpc.mockResolvedValueOnce({ data: null, error: new Error('invalid_xp_amount') })
+
+    await expect(grantXp(1, 0)).rejects.toThrow('invalid_xp_amount')
   })
 })
 
