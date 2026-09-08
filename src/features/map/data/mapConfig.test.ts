@@ -3,7 +3,7 @@
 // The WALKMAP global is absent in the test environment; isWalkable must
 // fall back to "all tiles walkable" so spawn functions still return results.
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import {
   isWalkable,
   getHearthomePoint,

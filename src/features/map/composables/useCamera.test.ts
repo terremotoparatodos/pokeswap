@@ -2,7 +2,7 @@
 // Tests for pan clamping, zoom-around-pivot, scale limits, and minimapViewport.
 // All state is client-side/transient; no Supabase interaction.
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { useCamera } from './useCamera'
 
 // Container: 800×600 viewport, world: 3091×2457
