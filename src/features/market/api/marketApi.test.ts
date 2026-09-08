@@ -27,7 +27,7 @@ vi.mock('../../../shared/api/supabase', () => {
 })
 
 import { supabase } from '../../../shared/api/supabase'
-import { publish, cancel, buy, listActiveListings, getListing } from './marketApi'
+import { publish, cancel, buy, listActiveListings } from './marketApi'
 
 const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>
 const mockFrom = supabase.from as ReturnType<typeof vi.fn>

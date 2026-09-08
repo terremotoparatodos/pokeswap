@@ -62,7 +62,8 @@ Deno.serve(async (req: Request) => {
       throw error;
     }
 
-    return Response.json({ success: true, listing_id: (data as any).listing_id }, { headers: CORS });
+    const result = data as { listing_id: string }
+    return Response.json({ success: true, listing_id: result.listing_id }, { headers: CORS });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error interno';

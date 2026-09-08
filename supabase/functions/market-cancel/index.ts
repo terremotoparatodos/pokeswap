@@ -55,7 +55,8 @@ Deno.serve(async (req: Request) => {
       throw error;
     }
 
-    return Response.json({ success: true, pokemon_id: (data as any).pokemon_id }, { headers: CORS });
+    const result = data as { pokemon_id: number }
+    return Response.json({ success: true, pokemon_id: result.pokemon_id }, { headers: CORS });
 
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : 'Error interno';
