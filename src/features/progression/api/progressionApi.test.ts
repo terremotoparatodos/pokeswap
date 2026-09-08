@@ -13,7 +13,7 @@ vi.mock('../../../shared/api/supabase', () => ({
 }))
 
 import { supabase } from '../../../shared/api/supabase'
-import { collectPassiveTokens, learnMove, grantXp } from './progressionApi'
+import { collectPassiveTokens, learnMove, grantXp, submitDungeonReward } from './progressionApi'
 import { skipCooldown } from '../../swap/api/swapApi'
 
 const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>
@@ -145,6 +145,66 @@ describe('grantXp', () => {
     mockRpc.mockResolvedValueOnce({ data: null, error: new Error('invalid_xp_amount') })
 
     await expect(grantXp(1, 0)).rejects.toThrow('invalid_xp_amount')
+  })
+})
+
+// ── submitDungeonReward ───────────────────────────────────────────────────────
+
+describe('submitDungeonReward', () => {
+  const okResponse = {
+    new_xp: 850, new_level: 12, leveled_up: true, tokens_awarded: 300, new_balance: 1500,
+  }
+
+  it('invokes dungeon-reward with pokemon_id, xp_earned, tokens_earned', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: okResponse, error: null })
+
+    const result = await submitDungeonReward({ pokemon_id: 7, xp_earned: 400, tokens_earned: 300 })
+
+    expect(mockInvoke).toHaveBeenCalledWith('dungeon-reward', {
+      body: { pokemon_id: 7, xp_earned: 400, tokens_earned: 300 },
+    })
+    expect(mockFrom).not.toHaveBeenCalled()
+    expect(result).toEqual(okResponse)
+  })
+
+  it('never calls supabase.from directly (trust boundary — no direct pokemon_xp write)', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: okResponse, error: null })
+
+    await submitDungeonReward({ pokemon_id: 1, xp_earned: 0, tokens_earned: 0 })
+
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
+  it('propagates not_owner error', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: null, error: new Error('not_owner') })
+
+    await expect(submitDungeonReward({ pokemon_id: 99, xp_earned: 100, tokens_earned: 50 }))
+      .rejects.toThrow('not_owner')
+  })
+
+  it('propagates profile_not_found error', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: null, error: new Error('profile_not_found') })
+
+    await expect(submitDungeonReward({ pokemon_id: 1, xp_earned: 100, tokens_earned: 50 }))
+      .rejects.toThrow('profile_not_found')
+  })
+
+  it('returns tokens_awarded=0 when daily cap is already exhausted', async () => {
+    const cappedResponse = { ...okResponse, tokens_awarded: 0, new_balance: 1200 }
+    mockInvoke.mockResolvedValueOnce({ data: cappedResponse, error: null })
+
+    const result = await submitDungeonReward({ pokemon_id: 7, xp_earned: 200, tokens_earned: 500 })
+
+    expect(result.tokens_awarded).toBe(0)
+  })
+
+  it('returns leveled_up=false when no XP level change occurred', async () => {
+    const noLevelUp = { ...okResponse, leveled_up: false }
+    mockInvoke.mockResolvedValueOnce({ data: noLevelUp, error: null })
+
+    const result = await submitDungeonReward({ pokemon_id: 7, xp_earned: 10, tokens_earned: 100 })
+
+    expect(result.leveled_up).toBe(false)
   })
 })
 

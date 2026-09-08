@@ -94,18 +94,29 @@ export async function grantXp(
   return data as { new_xp: number; new_level: number; leveled_up: boolean }
 }
 
-// Gap V-02 / V-03 — `dungeon-reward` Edge Function does not yet exist.
-// Enforces trust boundary: no component may write pokemon_xp or profiles.tokens
-// from client-computed dungeon results. Will be implemented in R15.
-// (Token ledger write is server-side; the debit side lives in the RPC.)
+// DGN-1 (R14): dungeon-reward Edge Function — validates ownership and applies
+// XP + dungeon token rewards atomically via award_dungeon_reward() RPC.
+// Closes V-02 (dungeon tokens) and V-03 (XP awards).
+// The client must never write pokemon_xp or profiles.tokens/dungeon_tokens_today
+// directly; this is the only path for dungeon reward application.
 export async function submitDungeonReward(payload: {
-  run_id: string
-  pokemon_id: number
-  xp_earned: number
+  pokemon_id:    number
+  xp_earned:     number
   tokens_earned: number
-  moves: Record<string, unknown>
-}): Promise<{ new_xp: number; new_balance: number }> {
+}): Promise<{
+  new_xp:         number
+  new_level:      number
+  leveled_up:     boolean
+  tokens_awarded: number
+  new_balance:    number
+}> {
   const { data, error } = await supabase.functions.invoke('dungeon-reward', { body: payload })
   if (error) throw error
-  return data as { new_xp: number; new_balance: number }
+  return data as {
+    new_xp:         number
+    new_level:      number
+    leveled_up:     boolean
+    tokens_awarded: number
+    new_balance:    number
+  }
 }
