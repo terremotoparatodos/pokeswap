@@ -17,6 +17,16 @@ export default tseslint.config(
     },
     rules: {
       'vue/multi-word-component-names': 'off',
+      // R08 — Close HTML injection paths.
+      // v-html and innerHTML render untrusted strings as DOM; use {{ }} instead.
+      'vue/no-v-html': 'error',
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "AssignmentExpression[left.property.name='innerHTML']",
+          message: 'Do not assign innerHTML — use textContent or Vue template interpolation (R08).',
+        },
+      ],
     },
   },
 )
