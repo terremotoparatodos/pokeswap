@@ -13,7 +13,7 @@ vi.mock('../../../shared/api/supabase', () => ({
 }))
 
 import { supabase } from '../../../shared/api/supabase'
-import { collectPassiveTokens, learnMove, grantXp, submitDungeonReward } from './progressionApi'
+import { collectPassiveTokens, learnMove, grantXp, startDungeon, submitDungeonReward } from './progressionApi'
 import { skipCooldown } from '../../swap/api/swapApi'
 
 const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>
@@ -148,6 +148,46 @@ describe('grantXp', () => {
   })
 })
 
+// ── startDungeon ──────────────────────────────────────────────────────────────
+
+describe('startDungeon', () => {
+  it('invokes dungeon-start with pokemon_id and returns remaining_energy', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { remaining_energy: 70 }, error: null })
+
+    const result = await startDungeon(7)
+
+    expect(mockInvoke).toHaveBeenCalledWith('dungeon-start', { body: { pokemon_id: 7 } })
+    expect(mockFrom).not.toHaveBeenCalled()
+    expect(result).toEqual({ remaining_energy: 70 })
+  })
+
+  it('never calls supabase.from directly (trust boundary — no direct slots.energy write)', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { remaining_energy: 40 }, error: null })
+
+    await startDungeon(1)
+
+    expect(mockFrom).not.toHaveBeenCalled()
+  })
+
+  it('propagates not_owner error', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: null, error: new Error('not_owner') })
+
+    await expect(startDungeon(99)).rejects.toThrow('not_owner')
+  })
+
+  it('propagates pokemon_locked error', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: null, error: new Error('pokemon_locked') })
+
+    await expect(startDungeon(5)).rejects.toThrow('pokemon_locked')
+  })
+
+  it('propagates insufficient_energy error', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: null, error: new Error('insufficient_energy') })
+
+    await expect(startDungeon(3)).rejects.toThrow('insufficient_energy')
+  })
+})
+
 // ── submitDungeonReward ───────────────────────────────────────────────────────
 
 describe('submitDungeonReward', () => {
@@ -225,3 +265,18 @@ describe('submitDungeonReward', () => {
 //
 // TKN-INV-5: Concurrent collect_passive_tokens calls
 //   Expected: one wins; total credit equals exactly one calculation period.
+//
+// DGN-INV-1: startDungeon on a pokemon_id not owned by the caller
+//   Expected: raises 'not_owner', slots.energy unchanged.
+//
+// DGN-INV-2: startDungeon on a pokemon with energy < 30
+//   Expected: raises 'insufficient_energy', slots.energy unchanged.
+//
+// DGN-INV-3: startDungeon on a pokemon that is in an active market listing
+//   Expected: raises 'pokemon_locked', slots.energy unchanged.
+//
+// DGN-INV-4: Direct client UPDATE slots SET energy = 100
+//   Expected: column privilege violation (slots.energy has no column grant for authenticated role).
+//
+// DGN-INV-5: startDungeon succeeds — slots.energy decremented by exactly 30,
+//   energy_updated_at updated, returned remaining_energy matches stored value.

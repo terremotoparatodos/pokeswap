@@ -94,6 +94,21 @@ export async function grantXp(
   return data as { new_xp: number; new_level: number; leveled_up: boolean }
 }
 
+// DGN-2 (R15): dungeon-start Edge Function — server gate for dungeon entry.
+// Deducts DUNGEON_ENERGY_COST (30) from slots.energy atomically via
+// consume_dungeon_energy() RPC. Must be called before combat begins.
+// Closes INV-DGN-5: energy deduction is non-refundable and server-authoritative.
+// The client must never write slots.energy directly.
+export async function startDungeon(
+  pokemonId: number,
+): Promise<{ remaining_energy: number }> {
+  const { data, error } = await supabase.functions.invoke('dungeon-start', {
+    body: { pokemon_id: pokemonId },
+  })
+  if (error) throw error
+  return data as { remaining_energy: number }
+}
+
 // DGN-1 (R14): dungeon-reward Edge Function — validates ownership and applies
 // XP + dungeon token rewards atomically via award_dungeon_reward() RPC.
 // Closes V-02 (dungeon tokens) and V-03 (XP awards).
