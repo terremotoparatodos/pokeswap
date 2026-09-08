@@ -42,13 +42,27 @@ export async function getTokenLedger(): Promise<TokenLedgerEntry[]> {
   return data
 }
 
-// Gap V-01 — `collect-passive-tokens` Edge Function does not yet exist.
-// Enforces trust boundary: no component may write profiles.tokens directly.
-// Will be implemented in R10.
+// TKN-3 (R10): collect-passive-tokens Edge Function validates auth and rate-limits,
+// then calls collect_passive_tokens() RPC which owns the token math.
 export async function collectPassiveTokens(): Promise<{ delta: number; new_balance: number }> {
   const { data, error } = await supabase.functions.invoke('collect-passive-tokens', { body: {} })
   if (error) throw error
   return data as { delta: number; new_balance: number }
+}
+
+// TKN-4 (R10): spend_tokens_learn_move RPC — debits 150 tokens atomically and
+// updates pokemon_xp.moves. Cost applies whether the user confirms or cancels
+// (mirrors legacy behavior). new_moves is the full updated move-slug array.
+export async function learnMove(
+  pokemonId: number,
+  newMoves: string[],
+): Promise<{ new_balance: number }> {
+  const { data, error } = await supabase.rpc('spend_tokens_learn_move', {
+    p_pokemon_id: pokemonId,
+    p_new_moves: newMoves,
+  })
+  if (error) throw error
+  return data as { new_balance: number }
 }
 
 // Own XP records — SELECT own rows via RLS.
@@ -65,6 +79,7 @@ export async function getPokemonXp(pokemonId: number): Promise<PokemonXp | null>
 // Gap V-02 / V-03 — `dungeon-reward` Edge Function does not yet exist.
 // Enforces trust boundary: no component may write pokemon_xp or profiles.tokens
 // from client-computed dungeon results. Will be implemented in R15.
+// (Token ledger write is server-side; the debit side lives in the RPC.)
 export async function submitDungeonReward(payload: {
   run_id: string
   pokemon_id: number

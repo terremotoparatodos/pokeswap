@@ -26,6 +26,14 @@ export async function swap(pokemonGivenId?: number): Promise<SwapResult> {
   return data as SwapResult
 }
 
+// TKN-4 (R10): skip_swap_cooldown RPC — debits 1,000 tokens and clears
+// swap_cooldown_until atomically. Raises if no active cooldown or insufficient balance.
+export async function skipCooldown(): Promise<{ new_balance: number }> {
+  const { data, error } = await supabase.rpc('skip_swap_cooldown')
+  if (error) throw error
+  return data as { new_balance: number }
+}
+
 // Own swap history — SELECT own rows via RLS.
 export async function getHistory(): Promise<SwapHistoryEntry[]> {
   const { data, error } = await supabase
