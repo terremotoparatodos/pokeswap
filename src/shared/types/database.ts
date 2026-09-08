@@ -126,6 +126,7 @@ export interface PokemonXp {
 export interface PokedexEntry {
   user_id: string
   pokemon_id: number
+  registered_at: string | null
 }
 
 export interface ActivityFeedEntry {
