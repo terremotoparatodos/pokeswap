@@ -27,6 +27,10 @@ const router = createRouter({
       path: '/map',
       component: () => import('../../features/map/components/MapView.vue'),
     },
+    {
+      path: '/dungeon',
+      component: () => import('../../features/dungeon/components/DungeonView.vue'),
+    },
   ],
 })
 
