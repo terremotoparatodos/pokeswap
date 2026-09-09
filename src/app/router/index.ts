@@ -11,6 +11,10 @@ const router = createRouter({
       path: '/swap',
       component: () => import('../../features/swap/components/SwapView.vue'),
     },
+    {
+      path: '/profile',
+      component: () => import('../../features/progression/components/ProfileView.vue'),
+    },
   ],
 })
 
