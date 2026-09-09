@@ -3,6 +3,7 @@
     <header class="app-nav">
       <router-link class="app-logo" to="/">PokeSwap</router-link>
       <nav class="app-nav-links">
+        <router-link to="/map">Mapa</router-link>
         <router-link to="/swap">Swap</router-link>
         <router-link to="/market">Mercado</router-link>
         <router-link to="/pokedex">Pokédex</router-link>
