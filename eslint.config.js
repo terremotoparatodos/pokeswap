@@ -5,7 +5,7 @@ import tseslint from 'typescript-eslint'
 import prettierConfig from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'legacy/', 'data/', 'js/', 'audio/', 'css/'] },
+  { ignores: ['dist/', 'node_modules/', 'legacy/', 'data/', 'js/', 'audio/', 'css/', 'supabase/'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
@@ -27,6 +27,15 @@ export default tseslint.config(
           message: 'Do not assign innerHTML — use textContent or Vue template interpolation (R08).',
         },
       ],
+    },
+  },
+  {
+    // R21 — Tester isolation.
+    // console.* is banned in frontend src/ — use devLog/devWarn from shared/utils/devTools.ts,
+    // which are stripped to no-ops in production builds (import.meta.env.DEV guard).
+    files: ['src/**/*.{ts,vue}'],
+    rules: {
+      'no-console': 'error',
     },
   },
 )

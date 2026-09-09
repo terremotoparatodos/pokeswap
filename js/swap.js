@@ -99,14 +99,7 @@ function swapUpdateNavBadge() {
 // --- Abrir modal ---
 function openSwapModal() {
   if (!user) {
-    if (TESTER) {
-      // En modo tester: inyectar usuario fake para poder probar
-      user = { id: 'tester-uid', email: 'tester@pokeswap.lol', user_metadata: { full_name: 'Tester' } };
-      if (!profile) profile = { tokens: 9999, username: 'Tester', free_claims_remaining: 5 };
-      updateAuthUI();
-    } else {
-      toast('Iniciá sesión para usar el PokeSwap', 1); return;
-    }
+    toast('Iniciá sesión para usar el PokeSwap', 1); return;
   }
   document.getElementById('swap-modal').classList.add('open');
   swapSelectedId = null;
@@ -166,10 +159,6 @@ function swapBuildPickGrid() {
     const s = slots[p.id];
     return s && s.owner_id === user.id;
   });
-  // En modo tester: si no hay ninguno, usar los primeros 6 del pool
-  if (mine.length === 0 && TESTER) {
-    mine = pokemon.slice(0, 6);
-  }
   if (mine.length === 0) {
     grid.innerHTML = '<div style="font-size:5px;color:var(--text-dim);grid-column:1/-1;text-align:center;padding:20px">No tenés Pokémon adoptados aún</div>';
     return;
@@ -690,12 +679,6 @@ async function swapSkipCooldown(method) {
     window.open('https://www.paypal.com/cgi-bin/webscr?' + params.toString(), '_blank');
     toast('🅿️ Completá el pago en PayPal — el cooldown se libera automáticamente', 0, 6000);
   }
-}
-
-// --- Botón de tester para swap ---
-function tstSwap() {
-  localStorage.removeItem(SWAP_COOLDOWN_KEY);
-  openSwapModal();
 }
 
 // Arrancar el ticker del nav badge cada minuto

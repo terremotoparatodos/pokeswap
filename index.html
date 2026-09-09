@@ -1484,30 +1484,6 @@ button,.dg-btn,.hero-btn,.ibt,.nav-btn{touch-action:manipulation}
 
 <!-- Flash overlay para reveal -->
 <div id="sw-flash"></div>
-<button class="tst-toggle" id="tst-toggle" onclick="document.getElementById('tester-panel').classList.toggle('open')" style="display:none">🧪</button>
-<div id="tester-panel">
-  <div class="tst-title">🧪 MODO TESTER</div>
-  <div class="tst-sec">Dungeon rápido</div>
-  <button class="tst-btn" onclick="tstOpenDungeonAny()">🌲 Abrir sendero (cualquier Pokémon)</button>
-  <button class="tst-btn" onclick="tstJumpFloor(5)">🏁 Saltar a la Encrucijada del Jefe</button>
-  <div class="tst-row">
-    <button class="tst-btn" onclick="tstSetHP(1)">HP=1</button>
-    <button class="tst-btn" onclick="tstSetHP(999)">HP full</button>
-  </div>
-  <button class="tst-btn" onclick="tstGiveLoot()">🎁 Dar loot de prueba</button>
-  <button class="tst-btn" onclick="tstForceWin()">✅ Forzar victoria del sendero</button>
-  <button class="tst-btn" onclick="tstForceLose()">💀 Forzar derrota del sendero</button>
-  <button class="tst-btn" onclick="tstForceBattle()">⚔️ Forzar batalla ahora</button>
-
-  <div class="tst-sec">Cuenta / datos</div>
-  <button class="tst-btn" onclick="tstFakeProfile()">👤 Perfil fake (tokens+claims)</button>
-  <button class="tst-btn" onclick="tstSwap()">🔀 Abrir PokeSwap (reset CD)</button>
-  <button class="tst-btn" onclick="tstOwnRandom()">🎲 Adoptar Pokémon random (local)</button>
-
-  <div class="tst-sec">Vista</div>
-  <button class="tst-btn" onclick="tstToggleWalkOverlay()">🧱 Ver overlay walkmap</button>
-  <button class="tst-btn" onclick="location.reload()">🔄 Recargar limpio</button>
-</div>
 
 
 <!-- ADVENTURE MODAL (dungeon de decisiones) -->
@@ -3456,8 +3432,7 @@ async function loginEmail(){
   closeAuth();
   await loadProfile();
   await loadSlots();
-  console.log('[PSv30] slots cargados, mis pokémon:',Object.values(slots).filter(s=>s.owner_id===user.id).length);
-  buildRankPanel();
+buildRankPanel();
   renderBoxGrid();
   refreshEnts();
 }
@@ -5305,98 +5280,7 @@ function toggleMobileView(){
 }
 
 
-// ══ TESTER MODE ══
-const TESTER=new URLSearchParams(location.search).has('test');
 // ── AUDIO CONTROLS ──
-
-function tstInit(){
-if(!TESTER)return;
-document.getElementById('tst-toggle').style.display='flex';
-toast('🧪 Modo tester activo');
-}
-function tstOpenDungeonAny(){
-if(!pokemon.length){toast('Esperá a que carguen los Pokémon',1);return;}
-const grid=document.getElementById('dg-sel-grid');
-grid.innerHTML=pokemon.slice(0,60).map(p=>{
-const lv=5+Math.floor((slots[p.id]?.current_price||5)/5);
-return `<div class="dg-sel-card" onclick="dgSelectAndGoTester(${p.id})">
-<img src="${FB}/${p.id}.png" alt="">
-<div class="dg-sel-card-info"><div class="dg-sel-card-name">${p['name_'+lang]||p.name_en}</div><div class="dg-sel-card-lv">Lv.${lv}</div></div>
-</div>`;
-}).join('');
-document.getElementById('dg-select').classList.add('open');
-document.getElementById('tester-panel').classList.remove('open');
-}
-function dgSelectAndGoTester(id){
-document.getElementById('dg-select').classList.remove('open');
-advStart(id);
-}
-function tstJumpFloor(n){
-if(!AD.active){toast('Abrí un sendero primero',1);return;}
-AD.layer=AD.normalLayers;
-AD.inBattle=false;AD.battleEnemy=null;
-advRenderChoice();
-toast('🧪 Saltado al Jefe');
-}
-function tstSetHP(v){
-if(!AD.active){toast('Abrí un sendero primero',1);return;}
-AD.hp=Math.min(AD.maxHP,v);
-if(AD.inBattle&&pokes&&pokes[0]){pokes[0].curHp=Math.min(pokes[0].maxHp,v);updateHp(pokes[0]);}
-toast('HP seteado a '+v);
-}
-function tstGiveLoot(){
-if(!AD.active){toast('Abrí un sendero primero',1);return;}
-AD.loot.push({name:'PokéToken x10',icon:'💰',effect:'tokens',value:10});
-AD.loot.push({name:'Súper Poción',icon:'💊',effect:'heal',value:50});
-AD.loot.push({name:'Rare Candy',icon:'🍬',effect:'levelup',value:1});
-toast('+3 objetos de prueba');
-}
-function tstForceWin(){
-if(!AD.active){toast('Abrí un sendero primero',1);return;}
-advEnd(true);
-}
-function tstForceLose(){
-if(!AD.active){toast('Abrí un sendero primero',1);return;}
-advEnd(false);
-}
-function tstForceBattle(){
-if(!AD.active){toast('Abrí un sendero primero',1);return;}
-const node=advGenBattleNode(false);
-advStartBattle(node.enemy);
-}
-function tstFakeProfile(){
-profile={tokens:9999,free_claims_remaining:5,username:'Tester'};
-toast('Perfil fake: 9999 tokens, 5 claims gratis');
-if(selectedId)updatePanel(selectedId);
-if(boxSelectedId)updateDexPane(boxSelectedId);
-}
-function tstOwnRandom(){
-if(!pokemon.length){toast('Esperá a que carguen',1);return;}
-const p=pokemon[Math.floor(Math.random()*pokemon.length)];
-slots[p.id]={pokemon_id:p.id,owner_id:'tester-fake-id',owner_username:'TesterFake',current_price:p.base_price||10};
-refreshEnts();buildRankPanel();renderBoxGrid();drawMM();
-toast('🧪 '+(p['name_'+lang]||p.name_en)+' marcado como adoptado (local)');
-}
-let tstWalkOverlayOn=false;
-function tstToggleWalkOverlay(){
-tstWalkOverlayOn=!tstWalkOverlayOn;
-let ov=document.getElementById('tst-walk-overlay');
-if(!tstWalkOverlayOn){if(ov)ov.remove();return;}
-if(!ov){
-ov=document.createElement('canvas');
-ov.id='tst-walk-overlay';
-ov.width=MAP_W;ov.height=MAP_H;
-ov.style.cssText='position:absolute;top:0;left:0;pointer-events:none;opacity:.5';
-document.getElementById('map-container').appendChild(ov);
-}
-const ctx=ov.getContext('2d');
-ctx.clearRect(0,0,MAP_W,MAP_H);
-for(let ty=0;ty<WALKMAP.length;ty++)for(let tx=0;tx<(WALKMAP[ty]?WALKMAP[ty].length:0);tx++){
-ctx.fillStyle=WALKMAP[ty][tx]===1?'rgba(0,255,0,.4)':'rgba(255,0,0,.15)';
-ctx.fillRect(tx*TILE_W,ty*TILE_W,TILE_W,TILE_W);
-}
-toast('Verde = caminable, rojo = bloqueado');
-}
 
 
 // ══════════════════════════════════════════════════
