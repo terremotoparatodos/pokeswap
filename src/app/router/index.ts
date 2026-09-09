@@ -7,6 +7,10 @@ const router = createRouter({
       path: '/',
       component: () => import('../views/HomeView.vue'),
     },
+    {
+      path: '/swap',
+      component: () => import('../../features/swap/components/SwapView.vue'),
+    },
   ],
 })
 

@@ -1,7 +1,10 @@
 <template>
   <div id="app-shell">
     <header class="app-nav">
-      <span class="app-logo">PokeSwap</span>
+      <router-link class="app-logo" to="/">PokeSwap</router-link>
+      <nav class="app-nav-links">
+        <router-link to="/swap">Swap</router-link>
+      </nav>
       <div class="app-nav-auth">
         <span v-if="isLoading" class="app-nav-loading">…</span>
         <template v-else-if="profile">
@@ -52,6 +55,8 @@ async function handleSignOut() {
   font-weight: 700;
   font-size: 1.2rem;
   letter-spacing: 0.05em;
+  color: #fff;
+  text-decoration: none;
 }
 
 .app-nav-auth {
@@ -81,5 +86,21 @@ async function handleSignOut() {
 
 .app-nav-btn:hover {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.app-nav-links {
+  display: flex;
+  gap: 1rem;
+}
+
+.app-nav-links a {
+  color: rgba(255, 255, 255, 0.8);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.app-nav-links a.router-link-active {
+  color: #fff;
+  font-weight: 600;
 }
 </style>
