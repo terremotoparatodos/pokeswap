@@ -19,6 +19,10 @@ const router = createRouter({
       path: '/market',
       component: () => import('../../features/market/components/MarketView.vue'),
     },
+    {
+      path: '/pokedex',
+      component: () => import('../../features/pokedex/components/PokedexView.vue'),
+    },
   ],
 })
 
