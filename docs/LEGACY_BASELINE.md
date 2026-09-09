@@ -1,6 +1,6 @@
 # PokeSwap — Legacy Baseline
 
-> **Status:** Reference snapshot (R00)
+> **Status:** Archived — legacy retired (R23, 2026-09-09)
 > **Purpose:** Freeze the current prototype as the behavioral reference for the migration described in
 > [`agents/POKESWAP_ARCHITECTURE_MIGRATION_ROADMAP.md`](../agents/POKESWAP_ARCHITECTURE_MIGRATION_ROADMAP.md).
 > **Baseline commit:** `fd8dd1108631fbd937efe77c92f03ad9b4dab300` ("Delete .agents", tip of `main`)
