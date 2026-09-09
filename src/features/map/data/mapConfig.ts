@@ -19,22 +19,22 @@ export const ZONES: MapZone[] = [
   {
     name: 'hearthome',
     x: 1024, y: 0, w: 1031, h: 788,
-    img: 'https://raw.githubusercontent.com/terremotoparatodos/sprites-overworld/main/tiles/hearthome.png',
+    img: '/assets/tiles/hearthome.png',
   },
   {
     name: 'route208',
     x: 0, y: 340, w: 1024, h: 448,
-    img: 'https://raw.githubusercontent.com/terremotoparatodos/sprites-overworld/main/tiles/route208.png',
+    img: '/assets/tiles/route208.png',
   },
   {
     name: 'route209',
     x: 2055, y: 0, w: 1036, h: 848,
-    img: 'https://raw.githubusercontent.com/terremotoparatodos/sprites-overworld/main/tiles/route209.png',
+    img: '/assets/tiles/route209.png',
   },
   {
     name: 'route212',
     x: 1017, y: 788, w: 2032, h: 1669,
-    img: 'https://raw.githubusercontent.com/terremotoparatodos/sprites-overworld/main/tiles/route212.png',
+    img: '/assets/tiles/route212.png',
   },
 ]
 
