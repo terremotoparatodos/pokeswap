@@ -50,7 +50,7 @@ const _recentActivity    = ref<unknown[]>([])
 const _connected         = ref(false)
 
 vi.mock('../composables/useMapRealtime', () => ({
-  useMapRealtime: (_cb: unknown) => ({
+  useMapRealtime: (_: unknown) => ({
     recentActivity: readonly(_recentActivity),
     connected:      readonly(_connected),
     seedActivity:   mockSeedActivity,

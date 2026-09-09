@@ -102,7 +102,7 @@ onMounted(() => {
 onUnmounted(() => { if (_timer) clearInterval(_timer) })
 
 const formattedCooldown = computed(() => {
-  _tick.value // reactive dependency — forces re-evaluation each second
+  void _tick.value // reactive dependency — forces re-evaluation each second
   const s = secondsRemaining.value
   if (s <= 0) return '0s'
   const h = Math.floor(s / 3600)
