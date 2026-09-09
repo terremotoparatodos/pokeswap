@@ -15,6 +15,10 @@ const router = createRouter({
       path: '/profile',
       component: () => import('../../features/progression/components/ProfileView.vue'),
     },
+    {
+      path: '/market',
+      component: () => import('../../features/market/components/MarketView.vue'),
+    },
   ],
 })
 

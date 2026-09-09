@@ -4,6 +4,7 @@
       <router-link class="app-logo" to="/">PokeSwap</router-link>
       <nav class="app-nav-links">
         <router-link to="/swap">Swap</router-link>
+        <router-link to="/market">Mercado</router-link>
         <router-link to="/profile">Perfil</router-link>
       </nav>
       <div class="app-nav-auth">
