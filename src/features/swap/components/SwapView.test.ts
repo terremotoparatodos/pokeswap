@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, readonly, computed } from 'vue'
 import SwapView from './SwapView.vue'
@@ -33,6 +33,12 @@ vi.mock('../../auth/composables/useAuth', () => ({
     user: readonly(ref({ id: 'u1' })),
     profile: readonly(ref({ swap_cooldown_until: null })),
     isLoading: readonly(ref(false)),
+  }),
+}))
+
+vi.mock('../../pokemon/api/pokemonApi', () => ({
+  getPokemon: vi.fn().mockResolvedValue({
+    id: 1, name_es: 'Bulbasaur', sprite_url: null, type1: 'grass', type2: null,
   }),
 }))
 
@@ -81,10 +87,10 @@ describe('SwapView', () => {
   it('shows result after successful swap', async () => {
     const wrapper = mountView()
     await wrapper.find('.swap-btn').trigger('click')
-    await wrapper.vm.$nextTick()
+    await flushPromises()
     expect(wrapper.find('.swap-result').exists()).toBe(true)
-    expect(wrapper.find('.swap-result').text()).toContain('#1')
-    expect(wrapper.find('.swap-result').text()).toContain('#25')
+    // Names come from the mocked getPokemon (always returns Bulbasaur)
+    expect(wrapper.find('.swap-result').text()).toContain('Bulbasaur')
   })
 
   it('shows shiny indicator when swap result is shiny', async () => {

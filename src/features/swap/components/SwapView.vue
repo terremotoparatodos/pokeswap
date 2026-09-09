@@ -37,12 +37,30 @@
       <!-- Last result -->
       <section v-if="lastResult" class="swap-result">
         <h3>Último resultado</h3>
-        <p>Entregaste: <strong>#{{ lastResult.pokemon_given_id }}</strong></p>
-        <p>
-          Recibiste: <strong>#{{ lastResult.pokemon_received_id }}</strong>
-          <span v-if="lastResult.was_shiny" class="swap-shiny"> ✨ ¡Shiny!</span>
-        </p>
-        <p>Rareza: <span class="swap-rarity">{{ lastResult.rarity }}</span></p>
+        <div class="swap-result-trade">
+          <div class="swap-result-poke">
+            <img
+              v-if="lastResultGiven?.sprite_url"
+              :src="lastResultGiven.sprite_url"
+              :alt="lastResultGiven.name_es"
+              class="swap-result-sprite"
+            />
+            <p class="swap-result-label">Entregaste</p>
+            <p class="swap-result-name">{{ lastResultGiven?.name_es ?? `#${lastResult.pokemon_given_id}` }}</p>
+          </div>
+          <span class="swap-result-arrow">→</span>
+          <div class="swap-result-poke">
+            <img
+              v-if="lastResultReceived?.sprite_url"
+              :src="lastResultReceived.sprite_url"
+              :alt="lastResultReceived.name_es"
+              class="swap-result-sprite"
+            />
+            <p class="swap-result-label">Recibiste <span v-if="lastResult.was_shiny" class="swap-shiny">✨</span></p>
+            <p class="swap-result-name">{{ lastResultReceived?.name_es ?? `#${lastResult.pokemon_received_id}` }}</p>
+          </div>
+        </div>
+        <p class="swap-result-rarity">Rareza: <span class="swap-rarity">{{ lastResult.rarity }}</span></p>
       </section>
 
       <!-- History -->
@@ -68,7 +86,9 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useAuth } from '../../auth/composables/useAuth'
 import { useSwap } from '../composables/useSwap'
+import { getPokemon } from '../../pokemon/api/pokemonApi'
 import type { SwapResult } from '../api/swapApi'
+import type { Pokemon } from '../../../shared/types/database'
 
 const { user, profile } = useAuth()
 const {
@@ -83,7 +103,9 @@ const {
   loadHistory,
 } = useSwap()
 
-const lastResult = ref<SwapResult | null>(null)
+const lastResult         = ref<SwapResult | null>(null)
+const lastResultGiven    = ref<Pokemon | null>(null)
+const lastResultReceived = ref<Pokemon | null>(null)
 const swapError  = ref<string | null>(null)
 const isSkipping = ref(false)
 
@@ -122,8 +144,20 @@ function formatDate(iso: string | null): string {
 
 async function handleSwap(): Promise<void> {
   swapError.value = null
+  lastResultGiven.value = null
+  lastResultReceived.value = null
   try {
-    lastResult.value = await executeSwap()
+    const result = await executeSwap()
+    lastResult.value = result
+    // Fetch both pokemon concurrently for display (non-critical; errors silently ignored)
+    if (result.pokemon_given_id && result.pokemon_received_id) {
+      const [given, received] = await Promise.allSettled([
+        getPokemon(result.pokemon_given_id),
+        getPokemon(result.pokemon_received_id),
+      ])
+      if (given.status === 'fulfilled') lastResultGiven.value = given.value
+      if (received.status === 'fulfilled') lastResultReceived.value = received.value
+    }
     await loadHistory()
   } catch (e) {
     swapError.value = e instanceof Error ? e.message : 'Error al hacer swap'
@@ -208,7 +242,49 @@ async function handleSkip(): Promise<void> {
 
 .swap-result h3 {
   margin-top: 0;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.swap-result-trade {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.swap-result-poke {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 80px;
+}
+
+.swap-result-sprite {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+.swap-result-label {
+  font-size: 0.72rem;
+  opacity: 0.55;
+  margin: 0;
+}
+
+.swap-result-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.swap-result-arrow {
+  font-size: 1.5rem;
+  opacity: 0.4;
+}
+
+.swap-result-rarity {
+  font-size: 0.875rem;
 }
 
 .swap-shiny {

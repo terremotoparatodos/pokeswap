@@ -30,6 +30,27 @@ vi.mock('../../auth/composables/useAuth', () => ({
   }),
 }))
 
+vi.mock('../../progression/composables/useMyBox', () => ({
+  useMyBox: () => ({
+    items:     readonly(ref([])),
+    isLoading: readonly(ref(false)),
+    load:      vi.fn().mockResolvedValue(undefined),
+    refresh:   vi.fn().mockResolvedValue(undefined),
+  }),
+}))
+
+vi.mock('../api/marketApi', () => ({
+  listActiveListings: vi.fn().mockResolvedValue([]),
+  getListing:         vi.fn(),
+  publish:            vi.fn().mockResolvedValue(undefined),
+  cancel:             vi.fn().mockResolvedValue(undefined),
+  buy:                vi.fn().mockResolvedValue(undefined),
+}))
+
+vi.mock('../../pokemon/api/pokemonApi', () => ({
+  listPokemon: vi.fn().mockResolvedValue([]),
+}))
+
 const LISTING = {
   id: 'l1', pokemon_id: 25, seller_id: 'u1', seller_username: 'ash',
   price_tokens: 500, is_purchased: false, purchased_by: null, purchased_at: null,
