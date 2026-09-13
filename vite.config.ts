@@ -4,6 +4,8 @@ import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
   root: 'src',
+  publicDir: '../public',
+  envDir: '..',
   plugins: [vue()],
   resolve: {
     alias: {

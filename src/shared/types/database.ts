@@ -118,12 +118,15 @@ export interface PokemonXp {
   user_id: string
   pokemon_id: number
   xp: number
+  level: number
   moves: Record<string, unknown> | null
+  last_updated_at: string | null
 }
 
 export interface PokedexEntry {
   user_id: string
   pokemon_id: number
+  registered_at: string | null
 }
 
 export interface ActivityFeedEntry {
