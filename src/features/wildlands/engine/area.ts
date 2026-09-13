@@ -8,6 +8,7 @@ import type { Actor } from './actors'
 import type { WeatherKind } from './atmosphere'
 import type { Dir, TrainerSprites } from './characters'
 import type { DecorInstance } from './chunks'
+import type { BuildingDoor } from './doors'
 import type { Tile } from './pathfinding'
 import type { PokedexEntry } from './population'
 import type { LensName } from './projection'
@@ -45,6 +46,8 @@ export interface Area {
   readonly kind: 'town' | 'wild'
   readonly lens: LensName
   readonly portals: readonly Portal[]
+  /** Buildings the player can enter (town only). */
+  readonly doors?: readonly BuildingDoor[]
 
   isSolid(tx: number, ty: number): boolean
   isWater(tx: number, ty: number): boolean

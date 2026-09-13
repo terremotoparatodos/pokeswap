@@ -10,6 +10,7 @@ import type { Arrival, Area, AreaId, Populace, PopulaceContext, Portal } from '.
 import { buildingSprite, type BuildingSpec } from '../engine/buildings'
 import type { Dir } from '../engine/characters'
 import type { DecorInstance } from '../engine/chunks'
+import { buildingDoors, doorAt, type BuildingDoor } from '../engine/doors'
 import type { Tile } from '../engine/pathfinding'
 import { packColor, pixelsToCanvas } from '../engine/pixels'
 import { loadPokemonInfo } from '../engine/population'
@@ -20,6 +21,7 @@ import { buildTownProps, type TownPropKind } from '../engine/townProps'
 import { TILE } from '../engine/world'
 import { loadImageSprite } from '../engine/sprite'
 import { devWarn } from '../../../shared/utils/devTools'
+import type { LobbyFeature } from '../lobby/features'
 
 export interface TownGate extends Portal {
   /** Where the player stands when coming back through this gate. */
@@ -38,6 +40,10 @@ export interface TownBuilding extends BuildingSpec {
   blurb?: string
   /** Hand-drawn sprite; replaces the code-painted building once loaded. */
   image?: ArtImage
+  /** Walkable threshold on the bottom row of the footprint; stepping on it enters. */
+  door?: Tile
+  /** PokeSwap function opened by entering (requires `door`). */
+  feature?: LobbyFeature
 }
 
 /** A hand-drawn PNG and where its roof (seen from above) ends. */
@@ -100,6 +106,7 @@ export class TownArea implements Area {
   readonly name: string
   readonly lens: LensName
   readonly portals: readonly TownGate[]
+  readonly doors: readonly BuildingDoor[]
   readonly def: TownDef
   readonly width: number
   readonly height: number
@@ -112,6 +119,7 @@ export class TownArea implements Area {
     this.name = def.name
     this.lens = def.lens ?? 'handheld'
     this.portals = def.gates
+    this.doors = buildingDoors(def.buildings)
     this.width = def.terrain[0].length
     this.height = def.terrain.length
     this.solid = this.buildCollision()
@@ -129,6 +137,7 @@ export class TownArea implements Area {
     for (const b of def.buildings) {
       for (let ty = b.y; ty < b.y + b.d; ty++) for (let tx = b.x; tx < b.x + b.w; tx++) mark(tx, ty, 1)
       for (const t of b.open ?? []) mark(t.tx, t.ty, 0)
+      if (b.door) mark(b.door.tx, b.door.ty, 0)
     }
     for (const f of def.fountains) {
       for (let ty = f.y0; ty <= f.y1; ty++) for (let tx = f.x0; tx <= f.x1; tx++) mark(tx, ty, 1)
@@ -311,7 +320,7 @@ export class TownArea implements Area {
 
   tick(): void {}
 
-  /** Nearest walkable, non-portal tile to `tile` within a small radius. */
+  /** Nearest walkable tile to `tile` within a small radius, off gates and doors. */
   nearestOpen(tile: Tile): Tile {
     const portal = (tx: number, ty: number) => this.portals.some(g => g.tiles.some(t => t.tx === tx && t.ty === ty))
     for (let r = 0; r < 8; r++) {
@@ -320,7 +329,7 @@ export class TownArea implements Area {
           if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue
           const tx = tile.tx + dx
           const ty = tile.ty + dy
-          if (!this.isSolid(tx, ty) && !portal(tx, ty)) return { tx, ty }
+          if (!this.isSolid(tx, ty) && !portal(tx, ty) && !doorAt(this.doors, tx, ty)) return { tx, ty }
         }
       }
     }
