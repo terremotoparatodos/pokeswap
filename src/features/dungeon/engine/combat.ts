@@ -16,7 +16,7 @@ export interface CombatRound {
 
 export interface CombatSummary {
   won:          boolean
-  rounds:       CombatRound[]
+  rounds:       readonly CombatRound[]
   xpEarned:     number  // advisory — server caps at 10 000
   tokensEarned: number  // advisory — server caps at 3 000 and daily remainder
 }
