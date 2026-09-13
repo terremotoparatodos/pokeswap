@@ -38,7 +38,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 **Objetivo:** dejar la base segura y prolija antes de integrar.
 
 - [x] Commit del trabajo actual en `feat/wildlands-prototype`, en 4 commits: fix de tipos, assets, prototipo y refactor R24.
-- [ ] PR hacia `migration` (o `main`, según el flujo del repo). *Pendiente de decidir; el preview de Cloudflare solo se despliega en PRs hacia `main`.*
+- [x] PR hacia `migration`: [#3](https://github.com/terremotoparatodos/pokeswap/pull/3), con CI en verde. `main` está desfasada de `migration` (squash de #2), así que el preview de Cloudflare, que solo se despliega en PRs hacia `main`, llega cuando `migration` pase a `main`.
 - [x] Agregar `src/vite-env.d.ts` para eliminar los errores de tipos preexistentes de `import.meta.env` (y `readonly` en `CombatSummary.rounds` para `DungeonView.vue`).
 - [x] Partir `renderer.ts` (330: `lighting.ts`, `groundMarks.ts`) y `game.ts` (398: `travel.ts`, `keyboard.ts`, `dialogue.ts`). Comportamiento verificado con hashes de píxeles y de trazas de lógica, idénticos antes y después.
 - [x] Decidido: `buildings.ts` se redujo a un bloque genérico por estilo (588 → ~65 líneas); `townProps.ts` se mantiene.

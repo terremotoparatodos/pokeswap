@@ -152,7 +152,7 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
 - **Edificios sin interiores ni puertas funcionales:** tocar un edificio muestra su nombre y descripción.
 - **Mundos:** Pokémon salvajes elegidos por tipo de bioma sobre toda la Pokédex, no con las reglas de pool del mapa legado.
 - **Barra de navegación de PokeSwap:** no entra en 375 px de ancho (fuera de WildLands).
-- **Commit:** el prototipo y R24 están commiteados en `feat/wildlands-prototype`. Falta el PR (hacia `migration` o `main`) y el preview de Cloudflare Pages, que solo se despliega en PRs hacia `main` (`.github/workflows/deploy.yml`).
+- **PR:** el prototipo y R24 están en [#3](https://github.com/terremotoparatodos/pokeswap/pull/3) hacia `migration`, con CI en verde. No hay preview de Cloudflare Pages porque solo se despliega en PRs hacia `main` (`.github/workflows/deploy.yml`). Además, `main` está desfasada de `migration` (recibió la migración como squash en #2), y un PR directo a `main` genera conflictos en archivos ajenos a WildLands. Eso se resuelve al promover `migration`.
 - **Protagonistas sin usar:** `public/assets/trainers/dawnrosa/` y `dawmamarillo/` (GIFs de caminar) están commiteados pero no se usan todavía. Quedan para la elección de personaje (R27).
 - **Tileset fuente:** `public/assets/tilesets/buildings.png` solo lo usa `scripts/extract_town_sprites.py`, pero se publica igual en el build (188 KB).
 
