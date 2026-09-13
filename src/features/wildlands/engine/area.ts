@@ -1,0 +1,79 @@
+// Areas — WildLands prototype
+//
+// An area is one playable map: the Ciudad Corazón lobby (a fixed image) or a
+// procedural world. The game loop, renderer and navigation only talk to this
+// interface, so travelling between them is just swapping the active area.
+
+import type { Actor } from './actors'
+import type { WeatherKind } from './atmosphere'
+import type { Dir, TrainerSprites } from './characters'
+import type { DecorInstance } from './chunks'
+import type { Tile } from './pathfinding'
+import type { PokedexEntry } from './population'
+import type { LensName } from './projection'
+
+export type AreaId = string
+
+export interface Portal {
+  /** Tiles that trigger the trip when the player steps onto them. */
+  tiles: readonly Tile[]
+  to: AreaId
+  /** Shown when the player gets close. */
+  label: string
+  /** Draw a glowing pad on the ground (worlds); town gates are already in the art. */
+  pad?: boolean
+}
+
+export interface Arrival extends Tile {
+  dir: Dir
+}
+
+/** Wandering actors that belong to an area. */
+export interface Populace {
+  readonly actors: Actor[]
+  update(playerTx: number, playerTy: number): void
+}
+
+export interface PopulaceContext {
+  pokedex: readonly PokedexEntry[]
+  npcSprites: readonly TrainerSprites[]
+}
+
+export interface Area {
+  readonly id: AreaId
+  readonly name: string
+  readonly kind: 'town' | 'wild'
+  readonly lens: LensName
+  readonly portals: readonly Portal[]
+
+  isSolid(tx: number, ty: number): boolean
+  isWater(tx: number, ty: number): boolean
+  /** HUD label for a tile, e.g. the biome in a world. */
+  placeName(tx: number, ty: number): string
+
+  /** Where the player appears when arriving from `from` (or first loading the area). */
+  arrival(from: AreaId | null): Arrival
+
+  /** Paints the flat ground for the world-pixel rect [x0, x1) × [y0, y1) at canvas origin (x0, y0). */
+  drawGround(g: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number): void
+  /** Upright props whose feet fall inside the world-pixel rect. */
+  decorIn(x0: number, y0: number, x1: number, y1: number): readonly DecorInstance[]
+
+  createPopulace(context: PopulaceContext): Populace
+  weather(tx: number, ty: number, seconds: number): { kind: WeatherKind; intensity: number }
+  /** Standing-NPC line for a blocked tile, if any. */
+  talkAt(tx: number, ty: number): string | null
+  /** Collects a pickup on the tile; returns true when something was collected. */
+  collect(tx: number, ty: number): boolean
+  paintMinimap(canvas: HTMLCanvasElement, tx: number, ty: number): void
+  /** Per-frame housekeeping (cache eviction). */
+  tick(): void
+}
+
+export function portalAt(area: Area, tx: number, ty: number): Portal | null {
+  return area.portals.find(p => p.tiles.some(t => t.tx === tx && t.ty === ty)) ?? null
+}
+
+export function isPortalTile(area: Area, tx: number, ty: number): boolean {
+  return portalAt(area, tx, ty) !== null
+}

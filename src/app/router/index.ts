@@ -28,6 +28,10 @@ const router = createRouter({
       component: () => import('../../features/map/components/MapView.vue'),
     },
     {
+      path: '/wildlands',
+      component: () => import('../../features/wildlands/components/WildlandsView.vue'),
+    },
+    {
       path: '/dungeon',
       component: () => import('../../features/dungeon/components/DungeonView.vue'),
     },
