@@ -7,11 +7,15 @@
 //   2. project that buffer row by row onto the tilted plane;
 //   3. draw projected shadows, then upright sprites sorted by depth;
 //   4. lighting (multiply tint + additive glows), weather, vignette, fade.
+//
+// Ground markers live in groundMarks.ts and the step-4 effects in lighting.ts.
 
 import { actorPosition, isMoving, walkFrame, type Actor } from './actors'
 import type { Area } from './area'
-import { Precipitation, type Lighting, type WeatherKind } from './atmosphere'
+import type { Lighting, WeatherKind } from './atmosphere'
 import { buildTrainer, NPC_PALETTES, PLAYER_PALETTE, type TrainerSprites } from './characters'
+import { drawGrid, drawPads, drawRoute } from './groundMarks'
+import { drawSparkle, SceneLighting, type LightSource } from './lighting'
 import type { Tile } from './pathfinding'
 import { pixelsToCanvas } from './pixels'
 import { createProjector, type CameraLens, type Projector } from './projection'
@@ -78,7 +82,7 @@ interface FrameInfo {
   /** Screen rects of actor sprites, back to front. */
   hits: { actor: Actor; x0: number; y0: number; x1: number; y1: number }[]
   /** Screen positions of light sources (street lamp globes) drawn this frame. */
-  lights: { x: number; y: number; scale: number }[]
+  lights: LightSource[]
 }
 
 export class Renderer {
@@ -89,7 +93,7 @@ export class Renderer {
   private readonly props: Record<DecorKind, Sprite>
   readonly playerSprites: TrainerSprites
   readonly npcSprites: TrainerSprites[]
-  private readonly rain = new Precipitation()
+  private readonly lighting = new SceneLighting()
   private frame: FrameInfo | null = null
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -136,7 +140,7 @@ export class Renderer {
       }
       this.drawSprites(scene, proj, bounds, W, H)
     }
-    this.drawAtmosphere(scene, proj, W, H, dt)
+    this.lighting.draw(ctx, scene, proj, this.frame.lights, W, H, dt)
   }
 
   private drawSky(top: number, W: number): void {
@@ -173,70 +177,10 @@ export class Renderer {
     }
     scene.area.drawGround(g, x0, y0, x1, y1)
 
-    if (scene.showGrid) this.drawGrid(scene.player, x0, y0, dpr)
-    this.drawPads(scene, x0, y0)
-    this.drawRoute(scene, x0, y0)
+    if (scene.showGrid) drawGrid(g, scene.player, x0, y0, dpr)
+    drawPads(g, scene, x0, y0)
+    drawRoute(g, scene, x0, y0)
     return { x0, y0, x1, y1 }
-  }
-
-  /** Glowing warp pads for portals that are not part of the art. */
-  private drawPads(scene: Scene, x0: number, y0: number): void {
-    const g = this.gctx
-    const pulse = (Math.sin(scene.seconds * 3) + 1) / 2
-    for (const portal of scene.area.portals) {
-      if (!portal.pad) continue
-      for (const { tx, ty } of portal.tiles) {
-        const cx = tx * TILE + TILE / 2 - x0
-        const cy = ty * TILE + TILE / 2 - y0
-        const glow = g.createRadialGradient(cx, cy, 1, cx, cy, TILE * 0.9)
-        glow.addColorStop(0, `rgba(255, 255, 255, ${0.75 + pulse * 0.25})`)
-        glow.addColorStop(0.45, `rgba(120, 200, 255, ${0.55 + pulse * 0.2})`)
-        glow.addColorStop(1, 'rgba(120, 200, 255, 0)')
-        g.fillStyle = glow
-        g.fillRect(cx - TILE, cy - TILE, TILE * 2, TILE * 2)
-        g.strokeStyle = 'rgba(255, 255, 255, 0.9)'
-        g.lineWidth = 1
-        g.beginPath()
-        g.arc(cx, cy, 5 + pulse * 1.5, 0, Math.PI * 2)
-        g.stroke()
-      }
-    }
-  }
-
-  /** Path dots, a pulsing destination square, or a red cross for unreachable taps. */
-  private drawRoute(scene: Scene, x0: number, y0: number): void {
-    const { tiles, target, rejected } = scene.route
-    const g = this.gctx
-    g.save()
-    g.translate(-x0, -y0)
-    g.fillStyle = 'rgba(255, 255, 255, 0.75)'
-    tiles.forEach(({ tx, ty }, i) => {
-      if (i === tiles.length - 1 && target) return
-      g.fillRect(tx * TILE + 7, ty * TILE + 7, 2, 2)
-    })
-    if (target) {
-      const pulse = 1 + Math.sin(scene.seconds * 8) * 0.12
-      const size = (TILE - 2) * pulse
-      const cx = target.tx * TILE + TILE / 2
-      const cy = target.ty * TILE + TILE / 2
-      g.lineWidth = 1.5
-      g.strokeStyle = 'rgba(20, 20, 30, 0.45)'
-      g.strokeRect(cx - size / 2 + 1, cy - size / 2 + 1, size, size)
-      g.strokeStyle = '#ffffff'
-      g.strokeRect(cx - size / 2, cy - size / 2, size, size)
-    }
-    if (rejected && rejected.age < 0.6) {
-      const cx = rejected.tx * TILE + TILE / 2
-      const cy = rejected.ty * TILE + TILE / 2
-      g.globalAlpha = 1 - rejected.age / 0.6
-      g.strokeStyle = '#e03c3c'
-      g.lineWidth = 2
-      g.beginPath()
-      g.moveTo(cx - 5, cy - 5); g.lineTo(cx + 5, cy + 5)
-      g.moveTo(cx + 5, cy - 5); g.lineTo(cx - 5, cy + 5)
-      g.stroke()
-    }
-    g.restore()
   }
 
   /** Resolves a CSS-pixel point on the canvas against the last rendered frame. */
@@ -257,35 +201,6 @@ export class Renderer {
       tile: { tx: Math.floor((frame.camX + ground.wx) / TILE), ty: Math.floor((frame.camY + ground.wy) / TILE) },
       actor: null,
     }
-  }
-
-  /** Tile grid, range circle and current-tile marker, drawn flat on the ground. */
-  private drawGrid(player: Actor, x0: number, y0: number, dpr: number): void {
-    const g = this.gctx
-    const { x, y } = actorPosition(player)
-    const ptx = Math.round(player.tx)
-    const pty = Math.round(player.ty)
-    const radius = 7
-    g.save()
-    g.translate(-x0, -y0)
-    g.lineWidth = 1 / Math.max(1, dpr * 0.75)
-    g.strokeStyle = 'rgba(40, 30, 20, 0.16)'
-    g.beginPath()
-    for (let i = -radius; i <= radius + 1; i++) {
-      g.moveTo((ptx + i) * TILE, (pty - radius) * TILE)
-      g.lineTo((ptx + i) * TILE, (pty + radius + 1) * TILE)
-      g.moveTo((ptx - radius) * TILE, (pty + i) * TILE)
-      g.lineTo((ptx + radius + 1) * TILE, (pty + i) * TILE)
-    }
-    g.stroke()
-    g.strokeStyle = 'rgba(58, 104, 214, 0.9)'
-    g.lineWidth = 1
-    g.beginPath()
-    g.arc(x, y - TILE / 2 + 2, (radius + 0.5) * TILE, 0, Math.PI * 2)
-    g.stroke()
-    g.strokeStyle = 'rgba(255, 255, 255, 0.85)'
-    g.strokeRect(Math.round(x - TILE / 2) + 0.5, Math.round(y - TILE + 2) + 0.5, TILE - 1, TILE - 1)
-    g.restore()
   }
 
   private projectGround(scene: Scene, proj: Projector, top: number, W: number, H: number, b: { x0: number; y0: number }): void {
@@ -409,66 +324,7 @@ export class Renderer {
         ctx.drawImage(sprite.canvas, x, y, Math.round(sprite.w * s), Math.round(sprite.h * s))
       }
       if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: y + 5 * s, scale: s })
-      if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) this.sparkle(d.x + s * 2, y + s * 3, s)
-    }
-  }
-
-  private sparkle(x: number, y: number, s: number): void {
-    const ctx = this.ctx
-    ctx.fillStyle = '#ffffff'
-    const u = Math.max(1, Math.round(s))
-    ctx.fillRect(x - u / 2, y - u * 2.5, u, u * 5)
-    ctx.fillRect(x - u * 2.5, y - u / 2, u * 5, u)
-  }
-
-  private drawAtmosphere(scene: Scene, proj: Projector, W: number, H: number, dt: number): void {
-    const ctx = this.ctx
-    const { tint, darkness } = scene.light
-    const wet = scene.weather.intensity
-    const r = tint[0] * (1 - wet * 0.22)
-    const g = tint[1] * (1 - wet * 0.2)
-    const b = tint[2] * (1 - wet * 0.12)
-    ctx.globalCompositeOperation = 'multiply'
-    ctx.fillStyle = `rgb(${r | 0},${g | 0},${b | 0})`
-    ctx.fillRect(0, 0, W, H)
-
-    if (darkness > 0.15) {
-      ctx.globalCompositeOperation = 'lighter'
-      const p = actorPosition(scene.player)
-      const sp = proj.project(p.x - scene.camX, p.y - scene.camY)
-      if (sp) {
-        const radius = 70 * sp.scale
-        const glow = ctx.createRadialGradient(sp.x, sp.y - 8 * sp.scale, 0, sp.x, sp.y - 8 * sp.scale, radius)
-        glow.addColorStop(0, `rgba(255, 200, 120, ${0.32 * darkness})`)
-        glow.addColorStop(1, 'rgba(255, 200, 120, 0)')
-        ctx.fillStyle = glow
-        ctx.fillRect(sp.x - radius, sp.y - radius - 8 * sp.scale, radius * 2, radius * 2)
-      }
-      // Street lamps: a warm pool around each globe.
-      for (const l of this.frame?.lights ?? []) {
-        const radius = 46 * l.scale
-        const pool = ctx.createRadialGradient(l.x, l.y, 0, l.x, l.y, radius)
-        pool.addColorStop(0, `rgba(255, 236, 180, ${0.55 * darkness})`)
-        pool.addColorStop(0.25, `rgba(255, 210, 130, ${0.25 * darkness})`)
-        pool.addColorStop(1, 'rgba(255, 200, 120, 0)')
-        ctx.fillStyle = pool
-        ctx.fillRect(l.x - radius, l.y - radius, radius * 2, radius * 2)
-      }
-    }
-    ctx.globalCompositeOperation = 'source-over'
-
-    this.rain.update(dt, W, H, scene.weather.kind, scene.weather.intensity)
-    this.rain.draw(ctx, scene.weather.kind)
-
-    const vignette = ctx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.75)
-    vignette.addColorStop(0, 'rgba(10, 14, 30, 0)')
-    vignette.addColorStop(1, `rgba(10, 14, 30, ${0.28 + darkness * 0.25})`)
-    ctx.fillStyle = vignette
-    ctx.fillRect(0, 0, W, H)
-
-    if (scene.fade > 0) {
-      ctx.fillStyle = `rgba(6, 8, 18, ${Math.min(1, scene.fade)})`
-      ctx.fillRect(0, 0, W, H)
+      if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) drawSparkle(ctx, d.x + s * 2, y + s * 3, s)
     }
   }
 }
