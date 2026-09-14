@@ -2,10 +2,9 @@
 //
 // A hand-laid map built entirely with the engine's own art: a terrain grid
 // baked into ground, buildings sized to their footprints, street furniture,
-// forest trees, standing residents with lines, a few wanderers and friendly
-// Pokémon, and gates to the worlds.
+// forest trees, standing residents with lines, a few wanderers, plazas for the
+// owned Pokémon (townPopulace.ts) and gates to the worlds.
 
-import { createActor, type Actor } from '../engine/actors'
 import type { Arrival, Area, AreaId, Populace, PopulaceContext, Portal } from '../engine/area'
 import { buildingSprite, type BuildingSpec } from '../engine/buildings'
 import type { Dir } from '../engine/characters'
@@ -13,7 +12,6 @@ import type { DecorInstance } from '../engine/chunks'
 import { buildingDoors, doorAt, type BuildingDoor } from '../engine/doors'
 import type { Tile } from '../engine/pathfinding'
 import { packColor, pixelsToCanvas } from '../engine/pixels'
-import { loadPokemonInfo } from '../engine/population'
 import type { LensName } from '../engine/projection'
 import { buildPropSprites } from '../engine/props'
 import { bakeTownGround, type TileRect } from '../engine/townGround'
@@ -22,6 +20,7 @@ import { TILE } from '../engine/world'
 import { loadImageSprite } from '../engine/sprite'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { LobbyFeature } from '../lobby/features'
+import { TownPopulace } from './townPopulace'
 
 export interface TownGate extends Portal {
   /** Where the player stands when coming back through this gate. */
@@ -67,6 +66,8 @@ export interface TownProp extends Tile {
   kind: TownPropKind
   /** What a sign says. */
   text?: string
+  /** This sign is the activity board: facing or tapping it opens the board. */
+  board?: boolean
 }
 
 export interface TownResident extends Tile {
@@ -87,7 +88,8 @@ export interface TownDef {
   spawn: Arrival
   residents: readonly TownResident[]
   wanderers: readonly Tile[]
-  pokemon: readonly (Tile & { id: number; name: string })[]
+  /** Where owned Pokémon get their home tiles (R26). */
+  plazaZones?: readonly TileRect[]
   art?: TownArtSet
   /** Raised city blocks (visual only): sidewalk paving with a curb around their union. */
   plots?: readonly TileRect[]
@@ -288,6 +290,10 @@ export class TownArea implements Area {
     return null
   }
 
+  noticeBoardAt(tx: number, ty: number): boolean {
+    return this.def.props.some(p => p.board && p.tx === tx && p.ty === ty)
+  }
+
   collect(): boolean {
     return false
   }
@@ -335,39 +341,4 @@ export class TownArea implements Area {
     }
     return tile
   }
-}
-
-const TOWN_DIRS: Dir[] = ['down', 'left', 'right', 'up']
-
-class TownPopulace implements Populace {
-  readonly actors: Actor[] = []
-
-  constructor(town: TownArea, context: PopulaceContext) {
-    const { def } = town
-    const looks = context.npcSprites
-    def.residents.forEach((r, i) => {
-      const { tx, ty } = town.nearestOpen(r)
-      this.actors.push(createActor({
-        id: `town:r${i}`, kind: 'npc', habitat: 'land', tx, ty, speed: 3, dir: r.dir,
-        trainer: looks[(i + 2) % looks.length], stationary: true, lines: r.lines,
-      }))
-    })
-    def.wanderers.forEach((spot, i) => {
-      const { tx, ty } = town.nearestOpen(spot)
-      this.actors.push(createActor({
-        id: `town:n${i}`, kind: 'npc', habitat: 'land', tx, ty, speed: 3,
-        dir: TOWN_DIRS[i % TOWN_DIRS.length], trainer: looks[i % looks.length],
-      }))
-    })
-    def.pokemon.forEach((spot, i) => {
-      const { tx, ty } = town.nearestOpen(spot)
-      const entry = context.pokedex.find(p => p.id === spot.id) ?? { id: spot.id, name_es: spot.name, sprite_url: null }
-      void loadPokemonInfo(entry, false).then(info => {
-        if (!info) return
-        this.actors.push(createActor({ id: `town:p${i}`, kind: 'pokemon', habitat: 'land', tx, ty, speed: 2.5, pokemon: info }))
-      })
-    })
-  }
-
-  update(): void {}
 }

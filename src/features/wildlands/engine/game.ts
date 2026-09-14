@@ -11,14 +11,15 @@ import {
 } from './actors'
 import { isPortalTile, type Area, type AreaId, type Arrival, type Populace } from './area'
 import { DAY_SECONDS, lighting, type DayPhase, type WeatherKind } from './atmosphere'
-import { devWarn } from '../../../shared/utils/devTools'
 import { Atlas, LOBBY_ID } from '../areas/atlas'
-import { loadTrainerSheet, NPC_HUE_SHIFTS, type Dir } from './characters'
+import { loadTrainerArt, type Dir } from './characters'
 import { actorLine } from './dialogue'
 import { Entrances } from './doors'
 import { KeyboardInput } from './keyboard'
 import { TapNavigator } from './navigator'
 import type { Tile } from './pathfinding'
+import type { PlazaResident } from './plazaPokemon'
+import { plazaHitAt, plazaHitFacing, type PlazaHit } from './plazaTaps'
 import type { PokedexEntry } from './population'
 import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
@@ -54,6 +55,8 @@ export interface GameOptions {
   spawn?: Tile | null
   /** The player walked into a building that hosts a PokeSwap feature. */
   onEnterBuilding?: (buildingId: string, feature: LobbyFeature) => void
+  /** The player tapped (or faced) an owned Pokémon or the activity board. */
+  onInspect?: (hit: PlazaHit) => void
 }
 
 const LENS_ORDER: LensName[] = ['handheld', 'dramatic', 'cenital']
@@ -80,6 +83,8 @@ export class WildlandsGame {
   })
   private readonly travel = new AreaTravel()
   private readonly entrances: Entrances
+  private readonly onInspect?: (hit: PlazaHit) => void
+  private owned: readonly PlazaResident[] = []
   private running = false
   private paused = false
   private frameId = 0
@@ -104,31 +109,12 @@ export class WildlandsGame {
     this.renderer = new Renderer(canvas)
     this.pokedex = options.pokedex
     this.onHud = options.onHud
+    this.onInspect = options.onInspect
     this.entrances = new Entrances(door => options.onEnterBuilding?.(door.buildingId, door.feature))
     this.player = createActor({ id: 'player', kind: 'player', habitat: 'any', tx: 0, ty: 0, trainer: this.renderer.playerSprites })
     const start = options.startArea && Atlas.isKnown(options.startArea) ? options.startArea : LOBBY_ID
     this.enterArea(start, null, options.spawn ?? null)
-    this.loadCharacterArt()
-  }
-
-  /** Swaps the code-drawn trainers for the bundled sheet once it loads; NPCs are recolours. */
-  private loadCharacterArt(): void {
-    loadTrainerSheet(PLAYER_SHEET)
-      .then(({ walk, run }) => {
-        this.player.trainer = walk
-        this.player.trainerRun = run
-      })
-      .catch(error => devWarn('[wildlands] player sheet unavailable, keeping drawn trainer', error))
-
-    Promise.all(NPC_HUE_SHIFTS.map(shift => loadTrainerSheet(PLAYER_SHEET, shift)))
-      .then(sheets => {
-        const looks = this.renderer.npcSprites
-        looks.splice(0, looks.length, ...sheets.map(s => s.walk))
-        for (const actor of this.populace.actors) {
-          if (actor.kind === 'npc') actor.trainer = looks[Math.abs(actor.homeTx * 31 + actor.homeTy) % looks.length]
-        }
-      })
-      .catch(error => devWarn('[wildlands] NPC sheets unavailable, keeping drawn trainers', error))
+    loadTrainerArt(PLAYER_SHEET, this.player, this.renderer.npcSprites, () => this.populace.actors)
   }
 
   private readonly rules: MoveRules = {
@@ -153,6 +139,7 @@ export class WildlandsGame {
     const area = this.atlas.get(id)
     this.area = area
     this.populace = area.createPopulace({ pokedex: this.pokedex, npcSprites: this.renderer.npcSprites })
+    this.populace.setOwned?.(this.owned)
     const arrival = area.arrival(from)
     this.placePlayer(spawn && !area.isSolid(spawn.tx, spawn.ty) ? { ...spawn, dir: arrival.dir } : arrival)
     this.lensName = area.lens
@@ -207,17 +194,27 @@ export class WildlandsGame {
     if (exit && !this.travel.active) this.placePlayer(exit)
   }
 
+  /** Owned Pokémon for the town plazas; kept across trips so the town is repopulated on return. */
+  setOwnedPokemon(list: readonly PlazaResident[]): void {
+    this.owned = list
+    this.populace.setOwned?.(list)
+  }
+
   setVirtualDir(dir: Dir | null): void {
     this.keys.virtualDir = dir
   }
 
   /**
-   * Tap/click at a CSS-pixel point on the canvas. Tapping a Pokémon, NPC or
-   * obstacle walks beside it (and talks); tapping ground walks there.
+   * Tap/click at a CSS-pixel point on the canvas. Tapping an owned Pokémon or
+   * the activity board inspects it; tapping another Pokémon, NPC or obstacle
+   * walks beside it (and talks); tapping ground walks there.
    */
   tap(cssX: number, cssY: number): void {
     if (this.travel.active || this.paused) return
-    this.nav.goTo(this.player, this.entrances.retarget(this.area, this.renderer.pick(cssX, cssY)))
+    const pick = this.renderer.pick(cssX, cssY)
+    const hit = this.onInspect ? plazaHitAt(this.area, pick) : null
+    if (hit) this.onInspect!(hit)
+    else this.nav.goTo(this.player, this.entrances.retarget(this.area, pick))
   }
 
   /** Press-and-drag retargeting: only re-plans when the finger moves to another tile. */
@@ -263,6 +260,11 @@ export class WildlandsGame {
     const tx = this.player.tx + dx
     const ty = this.player.ty + dy
     const other = this.populace.actors.find(a => a.tx === tx && a.ty === ty)
+    const hit = this.onInspect ? plazaHitFacing(this.area, other, tx, ty) : null
+    if (hit) {
+      this.onInspect!(hit)
+      return
+    }
     const said = other ? actorLine(other, this.area.kind === 'town', tx, ty) : null
     if (other && said) {
       other.dir = OPPOSITE[this.player.dir]

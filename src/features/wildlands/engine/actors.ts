@@ -44,6 +44,8 @@ export interface Actor {
   /** What this NPC says when talked to. */
   lines?: readonly string[]
   pokemon?: PokemonInfo
+  /** A real owned Pokémon strolling the plaza (R26); `mine` when the viewer owns it. */
+  owned?: { mine: boolean }
   /** Bounce offset for Pokémon hops, in world px. */
   hop: number
 }
