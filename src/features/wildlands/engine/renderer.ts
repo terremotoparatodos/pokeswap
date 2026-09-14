@@ -16,6 +16,7 @@ import type { Lighting, WeatherKind } from './atmosphere'
 import { buildTrainer, NPC_PALETTES, PLAYER_PALETTE, type TrainerSprites } from './characters'
 import { drawGrid, drawPads, drawRoute } from './groundMarks'
 import { drawSparkle, SceneLighting, type LightSource } from './lighting'
+import { drawOwnerMarker } from './ownerMarker'
 import type { Tile } from './pathfinding'
 import { pixelsToCanvas } from './pixels'
 import { createProjector, type CameraLens, type Projector } from './projection'
@@ -71,6 +72,8 @@ interface Drawable {
   submerged: boolean
   glow: boolean
   light: boolean
+  /** The viewer's own Pokémon: drawn with the owner marker. */
+  mine?: boolean
   actor?: Actor
 }
 
@@ -251,6 +254,7 @@ export class Renderer {
           lift: actor.hop,
           submerged: inWater,
           glow: actor.pokemon.shiny,
+          mine: actor.owned?.mine,
           actor,
         })
       } else if (actor.trainer) {
@@ -325,6 +329,7 @@ export class Renderer {
       }
       if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: y + 5 * s, scale: s })
       if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) drawSparkle(ctx, d.x + s * 2, y + s * 3, s)
+      if (d.mine) drawOwnerMarker(ctx, d.x, y + (sprite.top ?? 0) * s, s, t)
     }
   }
 }

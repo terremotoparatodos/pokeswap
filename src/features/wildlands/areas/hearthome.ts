@@ -60,6 +60,8 @@ function props(): TownProp[] {
     [50, 39, 'Puerta este → Bosque Umbrío'],
   ]
   for (const [tx, ty, text] of signs) out.push({ kind: 'sign', tx, ty, text })
+  // Next to the Pokémon Center: the activity board.
+  out.push({ kind: 'sign', tx: 13, ty: 19, text: 'Tablón de actividad', board: true })
   for (const [tx, ty] of [[33, 35], [33, 37], [45, 35], [45, 37]]) out.push({ kind: 'bench', tx, ty })
   return out
 }
@@ -130,12 +132,12 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
     wanderers: [
       { tx: 30, ty: 21 }, { tx: 46, ty: 21 }, { tx: 20, ty: 32 }, { tx: 40, ty: 38 }, { tx: 13, ty: 20 },
     ],
-    pokemon: [
-      { id: 25, name: 'Pikachu', tx: 11, ty: 13 },
-      { id: 35, name: 'Clefairy', tx: 52, ty: 13 },
-      { id: 133, name: 'Eevee', tx: 31, ty: 38 },
-      { id: 175, name: 'Togepi', tx: 48, ty: 33 },
-      { id: 39, name: 'Jigglypuff', tx: 25, ty: 31 },
+    // The fountain quarter: owned Pokémon (top 10 by price) stroll here.
+    // Tiles near doors and gates are skipped when homes are assigned.
+    plazaZones: [
+      { x0: 13, y0: 33, x1: 25, y1: 40 },
+      { x0: 27, y0: 33, x1: 44, y1: 40 },
+      { x0: 46, y0: 33, x1: 53, y1: 40 },
     ],
   }
 }

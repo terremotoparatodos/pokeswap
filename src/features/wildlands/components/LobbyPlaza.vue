@@ -1,0 +1,74 @@
+<template>
+  <PlazaNotice :text="plaza.notice.value" />
+
+  <PlazaPokemonCard v-if="card" :card="card" @close="cardId = null" @market="openMarket" />
+
+  <ActivityBoard
+    v-if="boardOpen"
+    :entries="boardList"
+    :connected="plaza.connected.value"
+    :load-error="plaza.loadError.value"
+    @close="boardOpen = false"
+  />
+</template>
+
+<script setup lang="ts">
+import { computed, ref, toRef, watch, watchEffect } from 'vue'
+import { useAuth } from '../../auth/composables/useAuth'
+import type { WildlandsGame } from '../engine/game'
+import type { PlazaHit } from '../engine/plazaTaps'
+import type { PokedexEntry } from '../engine/population'
+import { boardEntries } from '../lobby/plazaNotices'
+import { usePlazaData } from '../lobby/usePlazaData'
+import ActivityBoard from './ActivityBoard.vue'
+import PlazaNotice from './PlazaNotice.vue'
+import PlazaPokemonCard from './PlazaPokemonCard.vue'
+
+// The plaza with real data (R26): feeds the town's owned Pokémon to the game and
+// shows their cards, the activity board and toasts. Read-only, like usePlazaData.
+const props = defineProps<{
+  game: WildlandsGame | null
+  pokedex: readonly PokedexEntry[]
+  /** A feature panel, the menu or sign-in covers the town. */
+  covered: boolean
+}>()
+const emit = defineEmits<{ /** A card or the board is showing (the town pauses). */ overlay: [open: boolean]; market: [] }>()
+
+const { user } = useAuth()
+const boardOpen = ref(false)
+const cardId = ref<number | null>(null)
+
+const plaza = usePlazaData({
+  pokedex: toRef(props, 'pokedex'),
+  userId: computed(() => user.value?.id ?? null),
+  quiet: () => props.covered || boardOpen.value,
+})
+const card = computed(() => (cardId.value === null ? null : plaza.card(cardId.value)))
+const boardList = computed(() => boardEntries(plaza.activity.value, plaza.nameOf, Date.now()))
+
+watchEffect(() => props.game?.setOwnedPokemon(plaza.residents.value))
+watchEffect(() => emit('overlay', boardOpen.value || cardId.value !== null))
+// Something else took over the screen: the plaza overlays step aside.
+watch(() => props.covered, covered => {
+  if (covered) {
+    cardId.value = null
+    boardOpen.value = false
+  }
+})
+
+function openMarket(): void {
+  cardId.value = null
+  emit('market')
+}
+
+defineExpose({
+  /** The player tapped or faced an owned Pokémon or the board. */
+  inspect(hit: PlazaHit): void {
+    if (hit.kind === 'board') boardOpen.value = true
+    else cardId.value = hit.pokemonId
+  },
+  openBoard(): void {
+    boardOpen.value = true
+  },
+})
+</script>

@@ -20,23 +20,29 @@ export interface MapData {
  * No auth is required.
  */
 export async function fetchMapData(): Promise<MapData> {
-  const [pokemonResult, slotsResult] = await Promise.all([
+  const [pokemonResult, slots] = await Promise.all([
     supabase.from('pokemon').select('*').order('id'),
-    supabase.from('slots').select('*'),
+    fetchSlots(),
   ])
 
   if (pokemonResult.error) throw pokemonResult.error
-  if (slotsResult.error) throw slotsResult.error
-
-  const slotMap: Record<number, Slot> = {}
-  for (const slot of slotsResult.data) {
-    slotMap[slot.pokemon_id] = slot
-  }
 
   return {
     pokemon: pokemonResult.data,
-    slots: slotMap,
+    slots,
   }
+}
+
+/** Loads all slots, indexed by pokemon_id. Public SELECT; no auth required. */
+export async function fetchSlots(): Promise<Record<number, Slot>> {
+  const { data, error } = await supabase.from('slots').select('*')
+  if (error) throw error
+
+  const slotMap: Record<number, Slot> = {}
+  for (const slot of data) {
+    slotMap[slot.pokemon_id] = slot
+  }
+  return slotMap
 }
 
 /**

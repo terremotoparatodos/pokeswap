@@ -4,6 +4,8 @@
 // NPCs are recolours of the player. Wild Pokémon reuse the sprite_url images
 // already stored in the database.
 
+import { devWarn } from '../../../shared/utils/devTools'
+import type { Actor } from './actors'
 import { fromAscii, silhouette, spriteFromPixels, type Sprite } from './sprite'
 
 export type Dir = 'down' | 'up' | 'left' | 'right'
@@ -240,6 +242,32 @@ export async function loadTrainerSheet(url: string, shift?: HueShift): Promise<T
     if (hasRun) run[dir] = [4, 5, 6, 7].map(frame)
   })
   return hasRun ? { walk, run } : { walk }
+}
+
+/** An actor that can wear trainer art (only NPCs are restyled). */
+type Wearer = Pick<Actor, 'kind' | 'homeTx' | 'homeTy' | 'trainer' | 'trainerRun'>
+
+/**
+ * Swaps the code-drawn trainers for the bundled sheet once it loads: the
+ * player wears it and NPCs get hue-shifted recolours. `looks` is refilled in
+ * place; on failure the drawn trainers stay.
+ */
+export function loadTrainerArt(url: string, player: Wearer, looks: TrainerSprites[], npcs: () => readonly Wearer[]): void {
+  loadTrainerSheet(url)
+    .then(({ walk, run }) => {
+      player.trainer = walk
+      player.trainerRun = run
+    })
+    .catch(error => devWarn('[wildlands] player sheet unavailable, keeping drawn trainer', error))
+
+  Promise.all(NPC_HUE_SHIFTS.map(shift => loadTrainerSheet(url, shift)))
+    .then(sheets => {
+      looks.splice(0, looks.length, ...sheets.map(s => s.walk))
+      for (const actor of npcs()) {
+        if (actor.kind === 'npc') actor.trainer = looks[Math.abs(actor.homeTx * 31 + actor.homeTy) % looks.length]
+      }
+    })
+    .catch(error => devWarn('[wildlands] NPC sheets unavailable, keeping drawn trainers', error))
 }
 
 function crop(img: CanvasImageSource, sx: number, sy: number, sw: number, sh: number, feet: number, mirror = false): Sprite {

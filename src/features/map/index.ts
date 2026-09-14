@@ -9,8 +9,13 @@ export type { MapEntity, MapZone, CameraState, SlotPatch, MapActivityEvent } fro
 export { MAP_W, MAP_H, TILE_W, ZONES, ZONE_TYPES } from './data/mapConfig'
 export { isWalkable, getHearthomePoint, getSpawnPoint } from './data/mapConfig'
 
-export { fetchMapData, fetchRecentActivity } from './api/mapApi'
+export { fetchMapData, fetchRecentActivity, fetchSlots } from './api/mapApi'
 export type { MapData } from './api/mapApi'
+
+export {
+  TOP_OWNED_COUNT, topPricedIds, visibleOwnedIds, mergeSlotPatch, slotPatchFromRow,
+  activityFromRow, diffIds, activityLabel,
+} from './domain/ownedSlots'
 
 export { useCamera } from './composables/useCamera'
 export { useMapEntities } from './composables/useMapEntities'

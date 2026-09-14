@@ -1,0 +1,110 @@
+// Owned-slot rules — R26
+//
+// Which owned Pokémon a world view shows and how realtime slot changes fold
+// into the loaded slots. Shared by the legacy map and the WildLands plaza so
+// both follow one implementation. Pure functions: no Supabase, no Vue, no writes.
+
+import type { ActivityFeedEntry, Slot } from '../../../shared/types/database'
+import type { SlotPatch } from '../types'
+
+/** How many of the most expensive owned Pokémon every viewer sees. */
+export const TOP_OWNED_COUNT = 10
+
+/** Owned Pokémon ids by `current_price`, highest first; ties keep the lower id first. */
+export function topPricedIds(slots: Readonly<Record<number, Slot>>, count = TOP_OWNED_COUNT): number[] {
+  return Object.values(slots)
+    .filter(s => s.owner_id)
+    .sort((a, b) => (b.current_price ?? 0) - (a.current_price ?? 0) || a.pokemon_id - b.pokemon_id)
+    .slice(0, count)
+    .map(s => s.pokemon_id)
+}
+
+/**
+ * Owned Pokémon a view shows: the top by price plus, when `userId` is given,
+ * the viewer's own ones. Pass `userId: null` for a top-only view.
+ */
+export function visibleOwnedIds(slots: Readonly<Record<number, Slot>>, userId: string | null): Set<number> {
+  const visible = new Set(topPricedIds(slots))
+  if (userId) {
+    for (const s of Object.values(slots)) if (s.owner_id === userId) visible.add(s.pokemon_id)
+  }
+  return visible
+}
+
+/** Returns a new slot map with `patch` folded in; the input is never mutated. */
+export function mergeSlotPatch(slots: Readonly<Record<number, Slot>>, patch: SlotPatch): Record<number, Slot> {
+  const current = slots[patch.pokemon_id]
+  return { ...slots, [patch.pokemon_id]: { ...emptySlot(patch.pokemon_id), ...current, ...patch } }
+}
+
+function emptySlot(pokemonId: number): Slot {
+  return {
+    pokemon_id: pokemonId, owner_id: null, owner_username: null, current_price: 0, claim_count: null,
+    is_locked: null, last_claimed_at: null, aura: null, aura_updated_at: null, owned_since: null,
+    first_owner_id: null, first_owner_username: null, energy: null, energy_updated_at: null,
+    link_url: null, link_text: null, created_at: null, updated_at: null,
+  }
+}
+
+const optionalString = (v: unknown): string | null => (typeof v === 'string' ? v : null)
+const optionalNumber = (v: unknown): number | null => (typeof v === 'number' && Number.isFinite(v) ? v : null)
+const optionalBoolean = (v: unknown): boolean | null => (typeof v === 'boolean' ? v : null)
+
+/**
+ * Reads a `slots` row pushed by Realtime. Anything malformed yields null so a
+ * bad payload is ignored instead of corrupting the view.
+ */
+export function slotPatchFromRow(row: unknown): SlotPatch | null {
+  if (!row || typeof row !== 'object') return null
+  const r = row as Record<string, unknown>
+  const id = r['pokemon_id']
+  if (typeof id !== 'number' || !Number.isInteger(id) || id <= 0) return null
+  return {
+    pokemon_id: id,
+    owner_id: optionalString(r['owner_id']),
+    owner_username: optionalString(r['owner_username']),
+    current_price: optionalNumber(r['current_price']) ?? 0,
+    is_locked: optionalBoolean(r['is_locked']),
+    aura: optionalNumber(r['aura']),
+  }
+}
+
+/** Ids that appeared, disappeared or stayed between two visible sets. */
+export function diffIds(prev: ReadonlySet<number>, next: ReadonlySet<number>): { entered: number[]; left: number[]; kept: number[] } {
+  const entered: number[] = []
+  const left: number[] = []
+  const kept: number[] = []
+  for (const id of next) (prev.has(id) ? kept : entered).push(id)
+  for (const id of prev) if (!next.has(id)) left.push(id)
+  return { entered, left, kept }
+}
+
+const ACTIVITY_LABELS: Record<ActivityFeedEntry['type'], string> = {
+  claim: 'Captura',
+  steal: 'Robo',
+  unlock_region: 'Región',
+  unlock_legendary: 'Legendario',
+  free_claim: 'Gratis',
+}
+
+/** Reads an `activity_feed` row pushed by Realtime; malformed rows yield null. */
+export function activityFromRow(row: unknown): ActivityFeedEntry | null {
+  if (!row || typeof row !== 'object') return null
+  const r = row as Record<string, unknown>
+  const id = r['id']
+  const type = r['type']
+  if ((typeof id !== 'string' && typeof id !== 'number') || typeof type !== 'string') return null
+  const pokemonId = optionalNumber(r['pokemon_id'])
+  return {
+    id: String(id),
+    type: type as ActivityFeedEntry['type'],
+    user_id: optionalString(r['user_id']),
+    pokemon_id: pokemonId !== null && Number.isInteger(pokemonId) ? pokemonId : null,
+    created_at: optionalString(r['created_at']),
+  }
+}
+
+/** Short Spanish label for an activity event type; unknown types pass through. */
+export function activityLabel(type: string): string {
+  return ACTIVITY_LABELS[type as ActivityFeedEntry['type']] ?? type
+}
