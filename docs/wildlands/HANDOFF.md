@@ -1,7 +1,7 @@
 # WildLands — Traspaso de contexto
 
 > Documento de respaldo para retomar el trabajo en otra conversación.
-> Estado al **2026-09-13**, tras **R25 (La ciudad como home)**, rama `feat/wildlands-r25` (creada desde `migration`).
+> Estado al **2026-09-14**, tras **R25 (La ciudad como home)**: mergeada en `migration` ([#6](https://github.com/terremotoparatodos/pokeswap/pull/6)) y en producción en https://pokeswap.lol ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
 > Plan siguiente: [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
 
 ---
@@ -196,10 +196,18 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
 - **Edificios sin interiores:** los 6 edificios con función abren su panel. El resto (casas, departamentos, portones) sigue mostrando nombre y descripción al mirarlos.
 - **Vistas de features en panel:** `LobbyPanel` oculta el primer `<h2>` de cada vista (el título ya está en el encabezado) y ajusta su margen con `:deep(main)`. La tabla del Mercado en 375 px usa su propio scroll horizontal.
 - **Combate de Dungeon sin enviar:** cerrar el panel desmonta la vista y lo pierde, igual que navegar a otra página antes de R25.
-- **Dominio:** `pokeswap.lol` sigue apuntando a GitHub Pages (404). Antes de promover R25 a `main` hay que pasarlo a Cloudflare Pages (la app funciona en `pokeswap.pages.dev`). Los links directos (`/mercado`…) dependen del fallback SPA de Cloudflare Pages, que sirve `index.html` porque no hay `404.html`: verificarlo en el preview al promover.
+- **Dominio (resuelto el 2026-09-14):** `pokeswap.lol` y `www.pokeswap.lol` los sirve Cloudflare Pages (proyecto `pokeswap`); `pokeswap.pages.dev` sigue funcionando.
+  - **DNS:** administrado en Cloudflare. El dominio sigue registrado en GoDaddy, con los nameservers apuntando a Cloudflare.
+  - **Supabase Auth:** Site URL `https://pokeswap.lol` y Redirect URLs para el dominio, `www`, `pages.dev`, los previews (`*.pokeswap.pages.dev`) y `localhost`. El login con Google funciona en producción.
+  - **GitHub Pages:** desactivado, sin custom domain ni branch.
+  - **Links directos:** funcionan en producción gracias al fallback SPA de Cloudflare Pages (no hay `404.html`).
 - **Mundos:** Pokémon salvajes elegidos por tipo de bioma sobre toda la Pokédex, no con las reglas de pool del mapa legado.
 - **Barra de navegación de PokeSwap:** eliminada en R25 (la reemplaza el Menú del HUD).
-- **PR:** el prototipo y R24 están en [#3](https://github.com/terremotoparatodos/pokeswap/pull/3) hacia `migration`, con CI en verde. No hay preview de Cloudflare Pages porque solo se despliega en PRs hacia `main` (`.github/workflows/deploy.yml`). Además, `main` está desfasada de `migration` (recibió la migración como squash en #2), y un PR directo a `main` genera conflictos en archivos ajenos a WildLands. Eso se resuelve al promover `migration`.
+- **Flujo de ramas:**
+  - Cada fase va en una rama desde `migration`, con PR hacia `migration`.
+  - Para publicar, se abre un PR `migration` → `main`. Cloudflare despliega un preview en los PRs hacia `main` y producción al mergear (`.github/workflows/deploy.yml`).
+  - Siempre se mergea con **Create a merge commit**, nunca squash.
+  - Historial: prototipo y R24 en [#3](https://github.com/terremotoparatodos/pokeswap/pull/3), sincronización en #5, R25 en [#6](https://github.com/terremotoparatodos/pokeswap/pull/6) y su promoción en [#7](https://github.com/terremotoparatodos/pokeswap/pull/7).
 - **Protagonistas sin usar:** `public/assets/trainers/dawnrosa/` y `dawmamarillo/` (GIFs de caminar) están commiteados pero no se usan todavía. Quedan para la elección de personaje (R27).
 - **Tileset fuente:** `public/assets/tilesets/buildings.png` solo lo usa `scripts/extract_town_sprites.py`, pero se publica igual en el build (188 KB).
 
@@ -209,4 +217,4 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
 
 Pegar algo como:
 
-> Seguimos WildLands de PokeSwap. Leé `docs/wildlands/HANDOFF.md` y `docs/wildlands/LOBBY_INTEGRATION_PLAN.md`, revisá la rama `feat/wildlands-prototype` y arrancá por la fase que indique.
+> Seguimos WildLands de PokeSwap. Leé `docs/wildlands/HANDOFF.md` y `docs/wildlands/LOBBY_INTEGRATION_PLAN.md`, creá la rama de la fase desde `migration` actualizada y arrancá por la fase que indique.
