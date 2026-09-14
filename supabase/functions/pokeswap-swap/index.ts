@@ -137,9 +137,13 @@ Deno.serve(async (req: Request) => {
 
     return Response.json({
       success: true,
-      given: { pokemon_id: mySlot.pokemon_id },
-      received: { pokemon_id: received.id, name: received.name_es, rarity, is_shiny: isShiny },
-      cooldown_until: newCooldown,
+      // Public response contract consumed by src/features/swap.
+      // Keep it flat so the client can update its cooldown and result card.
+      pokemon_given_id: mySlot.pokemon_id,
+      pokemon_received_id: received.id,
+      was_shiny: isShiny,
+      rarity,
+      swap_cooldown_until: newCooldown,
     }, { headers: cors });
 
   } catch (err: any) {
