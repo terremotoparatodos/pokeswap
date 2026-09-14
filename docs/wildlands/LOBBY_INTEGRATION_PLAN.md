@@ -48,7 +48,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ---
 
-## Fase 1 — La ciudad como home *(R25)* ✅ hecha (2026-09-13)
+## Fase 1 — La ciudad como home *(R25)* ✅ hecha (2026-09-13, en producción el 2026-09-14)
 
 **Objetivo:** `/` abre Ciudad Corazón y las funciones se abren desde los edificios.
 
@@ -77,7 +77,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 - [x] En móvil (375 px) todo se usa con tap.
 - [x] Tests de ruteo, de `onEnterBuilding` y de puertas caminables desde el spawn (`atlas.test.ts`, `doors.test.ts`).
 - [x] Motor equivalente fuera de lo nuevo: hashes de trazas de lógica idénticos antes y después.
-- [ ] Antes de promover a `main`: pasar `pokeswap.lol` a Cloudflare Pages y probar links directos en el preview.
+- [x] Antes de promover a `main`: `pokeswap.lol` pasó a Cloudflare Pages y los links directos se probaron en el preview y en producción ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
 
 ---
 
