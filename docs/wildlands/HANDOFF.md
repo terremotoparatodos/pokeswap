@@ -1,7 +1,7 @@
 # WildLands — Traspaso de contexto
 
 > Documento de respaldo para retomar el trabajo en otra conversación.
-> Estado tras **R26 (La plaza con datos reales)**, en la rama `feat/wildlands-r26` con PR hacia `migration`.
+> Estado tras implementar **R27 (Identidad del jugador)** en la rama `feat/wildlands-r27`, todavía sin commit ni PR.
 > R25 (La ciudad como home) está en `migration` ([#6](https://github.com/terremotoparatodos/pokeswap/pull/6)) y en producción en https://pokeswap.lol ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
 > Plan siguiente: [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
 
@@ -16,6 +16,7 @@ WildLands es el mundo explorable de PokeSwap, con estética de Pokémon DS (Plat
 - **Controles:** click/tap para caminar (pensado para móvil) y teclado como alternativa.
 - **Home de PokeSwap (R25):** `/` es la ciudad. Cada función se abre en un panel sobre la ciudad, entrando a su edificio o desde el botón **Menú**.
 - **Plaza con datos reales (R26):** los 10 Pokémon con dueño más caros pasean por la plaza de las fuentes y se actualizan en vivo. Hay un tablón de actividad junto al Centro Pokémon y toasts discretos.
+- **Identidad del jugador (R27):** con sesión se ve el username, se puede elegir personaje y un Pokémon propio que acompaña al jugador; las preferencias y la última posición segura de la ciudad son locales y cosméticas.
 - **Alcance:** el motor es **cosmético y del lado del cliente**. La ciudad solo lee (tokens del perfil, `slots` y `activity_feed`, más Realtime) y navega. Toda escritura sigue dentro de las vistas de las features (ver `AGENTS.md` §2 y `docs/TRUST_BOUNDARY.md`).
 
 Ruta: `/` (la vieja `/wildlands` redirige conservando la query). Parámetros de URL útiles:
@@ -58,7 +59,8 @@ npx vue-tsc --noEmit -p tsconfig.app.json
 npm run build
 ```
 
-**Estado de checks al cierre de R26:** 405 tests del proyecto pasan, `eslint .` sin errores (los mismos 13 warnings previos de orden de atributos en `AuthModal.vue` y `MapView.vue`), `vue-tsc -p tsconfig.app.json` en cero errores y build OK.
+**Estado de checks tras implementar R27:** 435 tests del proyecto pasan, `eslint .` sin errores (los mismos 13 warnings previos de orden de atributos en `AuthModal.vue` y `MapView.vue`), `vue-tsc -p tsconfig.app.json` en cero errores y build OK.
+- R27 sumó tests de preferencias versionadas, ownership/lock mediante `useMyBox`, carreras entre usuarios, sesión tardía/logout, seguimiento y transición de área, fallbacks de personaje/Pokémon, username hostil y la interfaz de Jugador.
 - R26 sumó tests de las reglas compartidas (`ownedSlots.test.ts`), del mapa legado (`useMapEntities.test.ts`, `useMapRealtime.test.ts`) y de la población de la plaza (`plazaPokemon.test.ts`, `plazaTaps.test.ts`, zonas en `atlas.test.ts`).
 - También sumó tests de datos en vivo y avisos (`usePlazaData.test.ts`, `plazaNotices.test.ts`), de render seguro (`PlazaPokemonCard.test.ts`) y de solo lectura (`plazaReadOnly.test.ts`, que escanea las fuentes nuevas).
 - R25 había sumado tests de ruteo, del panel, de `panelAccess`, de puertas, del menú y de `MyBoxView`.
@@ -93,6 +95,7 @@ components/
   LobbyMenu.vue      Botón Menú + tokens (solo lectura); hoja con las 6 funciones y la sesión
   LobbyPanel.vue     Panel de función: modal en escritorio, hoja inferior en ≤720 px
   LobbyPlaza.vue     Plaza (R26): pasa el top 10 al juego; cartel del Pokémon, tablón y toast
+  PlayerIdentitySection.vue  Sección Jugador de Mi caja: personaje y acompañante, mobile-first
   PlazaPokemonCard.vue  Cartel de un Pokémon con dueño: nombre, dueño (texto), precio, "Ver en el Mercado"
   ActivityBoard.vue  Tablón de actividad (usa LobbyPanel)
   PlazaNotice.vue    Toast discreto arriba a la izquierda
@@ -124,7 +127,10 @@ engine/
   navigator.ts     Tap-to-move: planifica, re-planifica, llega junto a actor/obstáculo
   pathfinding.ts   A* acotado (radio y nodos)
   characters.ts    Trainer ASCII de respaldo, hojas overworld de Pokémon (2 frames x 4 dir),
-                   hoja del protagonista (walk/run) y recoloreo HSL de NPCs
+                   hojas de trainer (walk/run) y recoloreo HSL de NPCs
+  playerAppearance.ts  Carga la hoja elegida sin carreras; fallback al trainer dibujado
+  companion.ts     Seguidor cosmético por rastro de casillas, sin colisión ni picking
+  playerNameplate.ts  Username no confiable pintado únicamente con fillText
   population.ts    Pokémon salvajes por bioma/tipo + NPCs en mundos; loadPokemonInfo (caché)
   world.ts         Mundo procedural: biomas, terreno por vértices, decoración, findSpawn
   chunks.ts        Horneado de chunks 32x32 con autotiling dual-grid
@@ -145,6 +151,13 @@ areas/
   townArea.ts      Area de ciudad: colisión, carga de arte PNG con respaldo, re-horneado
   townPopulace.ts  Residentes, paseantes y Pokémon con dueño de la ciudad (movido desde townArea en R26)
   wildArea.ts      Area de mundo procedural + almohadilla de regreso al lobby
+identity/
+  playerCharacters.ts       Catálogo cerrado de personajes y hojas disponibles
+  playerPreferences.ts      Contrato local v1 por user.id, parseo y fallback
+  playerPreferencesStore.ts Estado reactivo cosmético compartido con la sección Jugador
+  playerIdentity.ts         Contrato visual y validación contra items de useMyBox
+  townPosition.ts           Valida posiciones restaurables fuera de sólidos/puertas/portales
+  usePlayerIdentity.ts      Une Auth, useMyBox, preferencias y el puerto del motor
 ```
 
 Otros cambios fuera de la carpeta:
@@ -220,10 +233,22 @@ Otros cambios fuera de la carpeta:
 - Las reglas corren una vez por lote de patches, no por frame. Con 5.000 slots, `topPricedIds` tarda 0,76 ms y una ráfaga de 50 patches con recálculo, 0,91 ms. Con los 195 slots actuales, 0,02 ms y 0,18 ms.
 - **Equivalencia:** mover `TownPopulace`, extraer `loadTrainerArt` y agregar los enganches dio hashes de lógica, HUD y píxeles idénticos al código anterior (sin llamar a `setOwnedPokemon`, sin el cartel nuevo y con los decorativos neutralizados).
 
+### Identidad del jugador (R27)
+
+- **Fuente de identidad.** `useAuth` aporta `user.id` y `profile.username`. El nombre solo se usa si el perfil corresponde al usuario activo y se pinta con `fillText`; nunca entra en HTML.
+- **Preferencias.** Clave `pokeswap:wildlands:player:v1:<user.id>` con personaje, ID preferido de acompañante y última posición segura de la ciudad. JSON corrupto o versión desconocida vuelve al default. Logout limpia la identidad y la caja en memoria, pero conserva la preferencia namespaced para el próximo login.
+- **Ownership.** El ID local se resuelve únicamente dentro de `useMyBox.items`. La selección se elimina tras una lectura exitosa si falta, pertenece a otra sesión o `is_locked` es true. Un error de red oculta temporalmente el acompañante sin borrar la preferencia.
+- **Caja compartida.** `useMyBox` ahora descarta resultados async de una sesión anterior, deduplica una carga concurrente del mismo usuario y expone `clear()` para logout.
+- **Acompañante.** Es un `Actor` Pokémon separado de `Populace`: no ocupa casillas, no bloquea A*, puertas o portales, no recibe taps ni diálogo. Sigue las casillas ya recorridas, con cola acotada y recolocación defensiva; al viajar o teletransportar se reinicia junto al jugador durante el fundido.
+- **Arte.** Las dos protagonistas femeninas se empaquetaron como hojas 4×4 reproducibles con `scripts/pack_trainer_sprites.py`. Una hoja faltante conserva el trainer dibujado; un Pokémon sin overworld usa sprite frontal y luego Poké Ball.
+- **Interfaz.** Mi caja compone una sección Jugador independiente. Elegir personaje o acompañante solo escribe la preferencia local; Vender conserva su flujo previo.
+- **Equivalencia.** Contra `migration` (`46875f5`), escena base `ef424a1e…ad127` y traza lógica `ab638c90…2477` conservaron exactamente sus hashes SHA-256. En prueba viva se verificaron tap-to-move, username hostil literal, seguidor en ciudad, fundido y llegada con acompañante a un mundo; el lobby anónimo se comprobó en escritorio y 375 px.
+
 ### Deuda técnica conocida
 
-- **`game.ts` (435 líneas tras R26).** En R26 la carga de hojas de personajes pasó a `characters.ts` (`loadTrainerArt`) y entraron los enganches de la plaza (~20 líneas). Candidato si vuelve a crecer: el suavizado de clima (a `atmosphere.ts`).
-- **`WildlandsView.vue` (342 líneas tras R26).** La plaza vive en `LobbyPlaza.vue` y la vista solo la compone.
+- **`game.ts` (467 líneas tras R27).** R27 agregó solo el puerto de identidad, callbacks de posición y enganches del acompañante; carga, seguimiento y persistencia viven fuera. Si vuelve a crecer, el suavizado de clima sigue siendo el candidato a extraer a `atmosphere.ts`.
+- **`WildlandsView.vue` (352 líneas tras R27).** La identidad vive en `usePlayerIdentity`; la vista solo espera Auth inicial y conecta el puerto del juego.
+- **`renderer.ts` (346 líneas tras R27).** El nombre se dibuja en `playerNameplate.ts`; el renderer solo incorpora acompañante/nameplate al orden visual.
 - **Tamaño de archivos (resuelto en R24).** `renderer.ts` bajó a 330 líneas (efectos en `lighting.ts`, marcas en `groundMarks.ts`) y `game.ts` a 398 (`travel.ts`, `keyboard.ts`, `dialogue.ts`). `buildings.ts` pasó de 588 a ~65 líneas: un bloque genérico por estilo en lugar de edificios detallados que solo se veían si fallaba un PNG. `game.ts` quedó justo bajo el umbral; lo próximo que crezca (puertas de edificios en R25) debería ir en un módulo propio.
 - **`WildlandsView.vue` en R25:** bajó de 403 a ~320 líneas al separar `LobbyHud`, `LobbyMenu`, `LobbyPanel` y `DevHelp`.
 - **Ahorro de trabajo en ciudad:** `TownArea.decorIn` filtra ~700 elementos por frame (hoy ~3 ms/frame en total). Una grilla espacial ahorraría trabajo si la ciudad crece.
@@ -238,6 +263,7 @@ Otros cambios fuera de la carpeta:
 | `public/assets/overworld/NNNN.png` y `shiny/` | Hojas overworld por especie (ids 1–493), 4 dir x 2 frames | Repo del usuario `terremotoparatodos/sprites-overworld`, empaquetadas en local (raw.githubusercontent limita requests) |
 | `public/assets/trainers/protahombre/*.gif` | Protagonista masculino de Platino (Walk/Run N/S/E/W) | Aportado por el usuario |
 | `public/assets/trainers/protahombre.png` | Hoja 8x4 generada desde los GIFs | Generada |
+| `public/assets/trainers/dawnrosa.png`, `dawmamarillo.png` | Hojas 4x4 de caminar para la elección de personaje | Generadas en R27 |
 | `public/assets/tilesets/buildings.png` | Hoja de edificios y props estilo DS | Aportada por el usuario |
 | `public/assets/town/*.png` | Piezas recortadas de la hoja | `python scripts/extract_town_sprites.py` |
 | `public/assets/tiles/hearthome.png` | Mapa de Ciudad Corazón de Platino | Ya existía en el repo; lo usa `/map` (legado). WildLands solo lo usó como referencia |
@@ -295,7 +321,7 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
   - Para publicar, se abre un PR `migration` → `main`. Cloudflare despliega un preview en los PRs hacia `main` y producción al mergear (`.github/workflows/deploy.yml`).
   - Siempre se mergea con **Create a merge commit**, nunca squash.
   - Historial: prototipo y R24 en [#3](https://github.com/terremotoparatodos/pokeswap/pull/3), sincronización en #5, R25 en [#6](https://github.com/terremotoparatodos/pokeswap/pull/6) y su promoción en [#7](https://github.com/terremotoparatodos/pokeswap/pull/7).
-- **Protagonistas sin usar:** `public/assets/trainers/dawnrosa/` y `dawmamarillo/` (GIFs de caminar) están commiteados pero no se usan todavía. Quedan para la elección de personaje (R27).
+- **Hojas fuente de protagonistas:** los GIFs de `dawnrosa/`, `dawmamarillo/` y `protahombre/` se conservan como fuente; `scripts/pack_trainer_sprites.py` regenera las hojas usadas por el motor.
 - **Tileset fuente:** `public/assets/tilesets/buildings.png` solo lo usa `scripts/extract_town_sprites.py`, pero se publica igual en el build (188 KB).
 
 ---
