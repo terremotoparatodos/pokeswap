@@ -1,7 +1,8 @@
 # WildLands — Traspaso de contexto
 
 > Documento de respaldo para retomar el trabajo en otra conversación.
-> Estado al **2026-09-14**, tras **R25 (La ciudad como home)**: mergeada en `migration` ([#6](https://github.com/terremotoparatodos/pokeswap/pull/6)) y en producción en https://pokeswap.lol ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
+> Estado tras **R26 (La plaza con datos reales)**, en la rama `feat/wildlands-r26` con PR hacia `migration`.
+> R25 (La ciudad como home) está en `migration` ([#6](https://github.com/terremotoparatodos/pokeswap/pull/6)) y en producción en https://pokeswap.lol ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
 > Plan siguiente: [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
 
 ---
@@ -14,7 +15,8 @@ WildLands es el mundo explorable de PokeSwap, con estética de Pokémon DS (Plat
 - **Mundos:** 5 mundos procedurales infinitos a los que se viaja por las puertas de la ciudad.
 - **Controles:** click/tap para caminar (pensado para móvil) y teclado como alternativa.
 - **Home de PokeSwap (R25):** `/` es la ciudad. Cada función se abre en un panel sobre la ciudad, entrando a su edificio o desde el botón **Menú**.
-- **Alcance:** el motor es **cosmético y del lado del cliente**. La ciudad solo lee (tokens del perfil en el HUD) y navega. Toda escritura sigue dentro de las vistas de las features (ver `AGENTS.md` §2 y `docs/TRUST_BOUNDARY.md`).
+- **Plaza con datos reales (R26):** los 10 Pokémon con dueño más caros pasean por la plaza de las fuentes y se actualizan en vivo. Hay un tablón de actividad junto al Centro Pokémon y toasts discretos.
+- **Alcance:** el motor es **cosmético y del lado del cliente**. La ciudad solo lee (tokens del perfil, `slots` y `activity_feed`, más Realtime) y navega. Toda escritura sigue dentro de las vistas de las features (ver `AGENTS.md` §2 y `docs/TRUST_BOUNDARY.md`).
 
 Ruta: `/` (la vieja `/wildlands` redirige conservando la query). Parámetros de URL útiles:
 
@@ -56,7 +58,10 @@ npx vue-tsc --noEmit -p tsconfig.app.json
 npm run build
 ```
 
-**Estado de checks al cierre de R25:** 315 tests del proyecto pasan, `eslint .` sin errores (13 warnings de orden de atributos, previos, en `AuthModal.vue` y `MapView.vue`), `vue-tsc -p tsconfig.app.json` en cero errores y build OK. R25 sumó tests de ruteo (`routes.test.ts`), del panel (`useLobbyPanel.test.ts`), de `panelAccess`, de puertas (`doors.test.ts` y `atlas.test.ts`), del menú y de `MyBoxView`.
+**Estado de checks al cierre de R26:** 405 tests del proyecto pasan, `eslint .` sin errores (los mismos 13 warnings previos de orden de atributos en `AuthModal.vue` y `MapView.vue`), `vue-tsc -p tsconfig.app.json` en cero errores y build OK.
+- R26 sumó tests de las reglas compartidas (`ownedSlots.test.ts`), del mapa legado (`useMapEntities.test.ts`, `useMapRealtime.test.ts`) y de la población de la plaza (`plazaPokemon.test.ts`, `plazaTaps.test.ts`, zonas en `atlas.test.ts`).
+- También sumó tests de datos en vivo y avisos (`usePlazaData.test.ts`, `plazaNotices.test.ts`), de render seguro (`PlazaPokemonCard.test.ts`) y de solo lectura (`plazaReadOnly.test.ts`, que escanea las fuentes nuevas).
+- R25 había sumado tests de ruteo, del panel, de `panelAccess`, de puertas, del menú y de `MyBoxView`.
 - R24 agregó `src/vite-env.d.ts` (tipos de `import.meta.env`) y marcó `CombatSummary.rounds` como `readonly` (el error de `DungeonView.vue`).
 - `npm run typecheck` (lo que corre CI) usa `tsconfig.json`, que solo tiene `references` y no chequea nada sin `-b`. Para chequear de verdad hay que usar `-p tsconfig.app.json`. `tsconfig.node.json` (`vite.config.ts`) tiene errores propios, previos y fuera del alcance de WildLands.
 - El build copia `public/assets/*` completo a `dist/` (verificado: `town`, `overworld`, `trainers` y `tilesets`).
@@ -69,7 +74,13 @@ npm run build
 - **Cámaras alternativas.** La tecla `V` cambia de cámara **solo en desarrollo** (`isDev`). Los jugadores siempre ven la cámara del área (Portátil).
 - **Juego vivo desde la consola.** `document.querySelector('.wl').__vueParentComponent.setupState.game` da la instancia. Con el panel oculto, `requestAnimationFrame` no corre, así que hay que avanzar a mano con `game.update(1/60)` y dibujar con `game.renderer.render(game.scene(), 1/60)` antes de capturar o hacer click. Así se verificaron en R25 la entrada con teclado y con tap, la pausa y la salida por la puerta.
 - **Página sin juego para la equivalencia.** Desde R25 `/` corre el juego, así que el trazo se ejecuta en una URL del mismo origen sin la app, por ejemplo `/assets/town/mart.png`.
-- **Equivalencia de refactors (usada en R24 y R25).** Desde `/` (sin el juego corriendo), reemplazar `Math.random` por un generador sembrado, renderizar escenas fijas con `new Renderer(canvas)` (ciudad de día y de noche, fundido, costa con lluvia) y hashear `getImageData` con `crypto.subtle.digest`. Para la lógica, crear `new WildlandsGame(canvas, …)` sin `start()` y llamar `game.update(1/60)` en un bucle con toques, teclas y viajes, hasheando posiciones, cámara, fundido y HUD. Esperar ~2,5 s antes para que carguen los PNG. Correrlo antes y después del cambio y comparar.
+- **Tiempo real sin escribir en la base (R26).** Con la app abierta, `const { supabase } = await import('/shared/api/supabase.ts')`, buscar el canal con `supabase.getChannels().find(c => c.topic.startsWith('realtime:plaza-slots'))` y llamar `channel.bindings.postgres_changes.forEach(b => b.callback({ eventType: 'UPDATE', new: fila }))`. La plaza reacciona igual que ante un cambio real. Así se verificó entrada, salida, cartel en vivo y username hostil. La prueba de punta a punta (compra o swap en otra pestaña) la hace una persona, porque escribe en la base.
+- **Plaza desde la consola.** `setupState` expone `plazaRef` (el componente `LobbyPlaza`) y `game`. `game.setOwnedPokemon([{ pokemonId, mine }])` pinta cualquier lista (por ejemplo, para ver el marcador sin sesión o saturar la plaza al medir).
+- **Equivalencia de refactors (usada en R24, R25 y R26).** Desde `/` (sin el juego corriendo), reemplazar `Math.random` por un generador sembrado, renderizar escenas fijas con `new Renderer(canvas)` (ciudad de día y de noche, fundido, costa con lluvia) y hashear `getImageData` con `crypto.subtle.digest`. Para la lógica, crear `new WildlandsGame(canvas, …)` sin `start()` y llamar `game.update(1/60)` en un bucle con toques, teclas y viajes, hasheando posiciones, cámara, fundido y HUD. Esperar ~2,5 s antes para que carguen los PNG. Correrlo antes y después del cambio y comparar.
+  - **Trampas encontradas en R26:**
+    - Tras un `git stash`, Vite sirve módulos con `?t=` y puede haber **dos instancias** del mismo módulo (por ejemplo `population.ts`): la caché de sprites que calienta el script no es la del juego. Reiniciar el servidor antes de cada corrida.
+    - Precargar `loadPokemonInfo` para toda la Pokédex de la prueba: si no, los salvajes aparecen en distintos `await` según qué hojas estaban en caché.
+    - Los `await` del script dejan correr promesas pendientes, así que los actores que se cargan de forma asíncrona se agregan ahí. Purgar lo que se quiera excluir en cada paso, no solo al principio.
 
 ---
 
@@ -81,12 +92,22 @@ components/
   LobbyHud.vue       Píldora inferior: lugar, clima, hora, cristales y "Ciudad"
   LobbyMenu.vue      Botón Menú + tokens (solo lectura); hoja con las 6 funciones y la sesión
   LobbyPanel.vue     Panel de función: modal en escritorio, hoja inferior en ≤720 px
+  LobbyPlaza.vue     Plaza (R26): pasa el top 10 al juego; cartel del Pokémon, tablón y toast
+  PlazaPokemonCard.vue  Cartel de un Pokémon con dueño: nombre, dueño (texto), precio, "Ver en el Mercado"
+  ActivityBoard.vue  Tablón de actividad (usa LobbyPanel)
+  PlazaNotice.vue    Toast discreto arriba a la izquierda
   DevHelp.vue        Ayuda de teclas y fps; se carga solo en desarrollo (no llega al build)
 lobby/
   features.ts        LobbyFeature, títulos, qué requiere sesión, panelAccess()
   useLobbyPanel.ts   Ruta → panel abierto, cierre por historial, Esc, origen (door/menu/link)
+  usePlazaData.ts    Lecturas de slots y activity_feed, Realtime, lotes de patches, reconexión, toasts
+  plazaNotices.ts    Textos puros: próximo toast, entradas del tablón, "hace N min"
 engine/
   game.ts          Loop, cámara, jugador y NPCs, interacción, HUD
+  plazaPokemon.ts  Pokémon con dueño en la plaza: candidatos por zona, hogar estable, sync (entran/salen)
+  plazaTaps.ts     Qué señala un tap o la tecla de acción: Pokémon con dueño o tablón
+  pokeball.ts      Poké Ball dibujada por código para especies sin hoja ni sprite
+  ownerMarker.ts   Rombo sobre los Pokémon del usuario
   travel.ts        Viajes entre áreas (fundido) y aviso de puertas cercanas
   doors.ts         Puertas de edificios: umbral caminable, tap en edificio → caminar a la puerta,
                    entrada (onEnterBuilding) y posición de salida
@@ -122,6 +143,7 @@ areas/
                    residentes con frases, paseantes, Pokémon de la ciudad, carteles
   hearthomeTerrain.ts  Terreno 64x49 (s calle, g pasto, p plaza, t bosque) trazado del mapa
   townArea.ts      Area de ciudad: colisión, carga de arte PNG con respaldo, re-horneado
+  townPopulace.ts  Residentes, paseantes y Pokémon con dueño de la ciudad (movido desde townArea en R26)
   wildArea.ts      Area de mundo procedural + almohadilla de regreso al lobby
 ```
 
@@ -131,6 +153,11 @@ Otros cambios fuera de la carpeta:
 - `src/features/progression/components/MyBoxView.vue`: la sección "Mis Pokémon" se movió desde `ProfileView`, que ahora enlaza a `/caja`.
 - `src/features/auth/composables/useAuth.ts`: `refreshProfile()` (solo lectura), llamado al cerrar un panel para actualizar los tokens del HUD.
 - `src/shared/utils/devTools.ts`: se exporta `isDev`.
+- **R26 en `features/map/`:**
+  - `domain/ownedSlots.ts` (nuevo) tiene las reglas compartidas por el mapa y la plaza: `topPricedIds`, `visibleOwnedIds`, `mergeSlotPatch`, `slotPatchFromRow`, `activityFromRow`, `diffIds` y `activityLabel`.
+  - `useMapEntities` y `MapView` las usan.
+  - `mapApi.fetchSlots()` es nuevo.
+  - `useMapRealtime` suma prefijo de canal, `onActivity`, `onReconnect` y validación de payloads.
 
 ### Puertas de edificios (R25)
 
@@ -139,11 +166,66 @@ Otros cambios fuera de la carpeta:
 - **Entrada.** Pisar el umbral dispara `onEnterBuilding(buildingId, feature)` y `WildlandsView` hace `router.push`. Tocar el edificio (footprint más 2 filas de fachada por encima, `TAP_REACH_ROWS`) camina hasta la puerta. Tocar a un personaje delante del edificio sigue hablándole.
 - **Motor.** `game.ts` solo tiene los enganches: `setPaused`, `placeAtDoor`, `Entrances.retarget` en `tap` y `Entrances.arrive` al llegar a una casilla.
 
+### Plaza con datos reales (R26)
+
+**Qué se ve**
+- En la plaza pasean los **10 Pokémon con dueño más caros**. No se agregan los del usuario fuera del top: el acompañante propio queda para R27.
+- Los 5 Pokémon decorativos se eliminaron, incluido `TownDef.pokemon`.
+- Los del top que son del usuario llevan un **rombo amarillo** encima (`ownerMarker.ts`). Sin sesión no hay marcador.
+- **Tocar** un Pokémon con dueño (o mirarlo y usar la tecla de acción) abre su cartel: nombre, dueño, precio y "Ver en el Mercado", que abre el panel como desde el menú. El cartel lee los slots vivos, así que cambia solo si llega un patch.
+- **Tablón:** es el cartel en (13,19), junto al Centro Pokémon, marcado con `TownProp.board`. También se abre desde el Menú → Actividad. Muestra los últimos 20 eventos de `activity_feed` sin usernames: ese feed solo trae `user_id`, y leer `profiles` sería una lectura nueva.
+- **Toasts** (`PlazaNotice`), de a uno cada 4 s:
+  - uno por cada Pokémon del usuario que cambia de dueño;
+  - los eventos nuevos de actividad agrupados ("3 novedades en el tablón").
+  - Se descartan mientras hay un panel, el menú, el login o el tablón abiertos.
+- Con el cartel o el tablón abiertos el juego se pausa, igual que con un panel.
+
+**Dónde aparecen**
+- Hay 3 zonas en `hearthome.ts` (`plazaZones`): la plaza de las fuentes al oeste, al centro y al este, entre las filas 33 y 40.
+- `plazaCandidates` descarta casillas sólidas, a menos de 6 casillas (Chebyshev) de una puerta, a menos de 4 de un portal y las de los residentes.
+- `assignHome` elige la zona menos poblada (a igualdad, la que "prefiere" el id), con 3 casillas de separación entre hogares. Es determinista por `pokemonId`: cada Pokémon vuelve siempre al mismo lugar.
+- Hay lugar para ~23 hogares con los residentes actuales. El test exige al menos 20 (el doble del top), todos alcanzables desde el spawn.
+
+**Motor**
+- `game.ts` solo suma enganches:
+  - `setOwnedPokemon(list)`, que se reaplica en `enterArea` porque la población se recrea al volver de un mundo;
+  - la opción `onInspect`;
+  - una llamada a `plazaTaps` en `tap()` y en `interact()`.
+- `TownPopulace` delega en `PlazaPokemon.sync`, que carga la hoja y crea el actor. Si el Pokémon salió mientras cargaba, no lo agrega. Si no hay hoja ni `sprite_url`, usa la Poké Ball.
+- **El motor nunca recibe usernames ni precios:** solo `{ pokemonId, mine }`.
+
+**Datos (solo lectura)**
+- `usePlazaData` lee `slots` (`fetchSlots`) y `activity_feed` (`fetchRecentActivity`), y se suscribe con `useMapRealtime(…, { channel: 'plaza' })`.
+- Los patches se agrupan cada 250 ms (un swap toca 2 slots). Los que llegan durante una lectura se reaplican encima del resultado.
+- Al reconectar (`SUBSCRIBED` después de una caída) se vuelve a leer todo.
+- **Cada suscripción usa un topic único** (`plaza-slots-3`). supabase-js devuelve el canal existente si el topic se repite, y su baja es asíncrona: un remontaje rápido (HMR, `/map` → `/`) recibía el canal viejo ya suscrito y fallaba con `cannot add postgres_changes callbacks … after subscribe()`.
+- **Escrituras: ninguna.** `usePlazaData.test.ts` usa un mock de Supabase que falla ante cualquier escritura. `plazaReadOnly.test.ts` escanea las fuentes de R26 buscando escrituras, `localStorage` e `innerHTML`/`v-html`.
+- **`activity_feed` solo registra `claim` y `free_claim`** (lo inserta `claim_slot`). Las compras y los swaps no generan eventos: se ven en la plaza por `slots` y, si afectan al usuario, por el toast de cambio de dueño.
+
+**Mapa legado (cambios intencionales)**
+- `useMapEntities` usa las reglas compartidas y ahora corrige tres errores:
+  - `MapView` no actualizaba `_slots` con los patches, así que el top 10 se calculaba con los datos iniciales;
+  - un Pokémon que salía del top 10 quedaba en el mapa;
+  - el que entraba al top 10 porque otro bajaba de precio no aparecía.
+- La vista y su API no cambian. Se retira en R29.
+
+**Rendimiento (escritorio, canvas 1249×800, dpr 1, 600 frames)**
+
+| Pokémon en la plaza | Visibles en cámara | ms/frame promedio | p95 | máx |
+|---|---|---|---|---|
+| 0 | 0 | 2,90 | 3,3 | 6,8 |
+| 10 (datos reales) | 7 | 2,99 | 3,4 | 7,0 |
+| 23 (plaza saturada) | 19 | 3,20 | 3,7 | 8,3 |
+
+- Las reglas corren una vez por lote de patches, no por frame. Con 5.000 slots, `topPricedIds` tarda 0,76 ms y una ráfaga de 50 patches con recálculo, 0,91 ms. Con los 195 slots actuales, 0,02 ms y 0,18 ms.
+- **Equivalencia:** mover `TownPopulace`, extraer `loadTrainerArt` y agregar los enganches dio hashes de lógica, HUD y píxeles idénticos al código anterior (sin llamar a `setOwnedPokemon`, sin el cartel nuevo y con los decorativos neutralizados).
+
 ### Deuda técnica conocida
 
-- **`game.ts` (433 líneas tras R25).** La lógica de puertas está en `doors.ts`; en `game.ts` quedaron los enganches (~35 líneas) y la extracción de `placePlayer`. Candidatos si vuelve a crecer: el suavizado de clima (a `atmosphere.ts`) y la carga de hojas de personajes (a `characters.ts`).
+- **`game.ts` (435 líneas tras R26).** En R26 la carga de hojas de personajes pasó a `characters.ts` (`loadTrainerArt`) y entraron los enganches de la plaza (~20 líneas). Candidato si vuelve a crecer: el suavizado de clima (a `atmosphere.ts`).
+- **`WildlandsView.vue` (342 líneas tras R26).** La plaza vive en `LobbyPlaza.vue` y la vista solo la compone.
 - **Tamaño de archivos (resuelto en R24).** `renderer.ts` bajó a 330 líneas (efectos en `lighting.ts`, marcas en `groundMarks.ts`) y `game.ts` a 398 (`travel.ts`, `keyboard.ts`, `dialogue.ts`). `buildings.ts` pasó de 588 a ~65 líneas: un bloque genérico por estilo en lugar de edificios detallados que solo se veían si fallaba un PNG. `game.ts` quedó justo bajo el umbral; lo próximo que crezca (puertas de edificios en R25) debería ir en un módulo propio.
-- **`WildlandsView.vue`:** bajó de 403 a ~320 líneas en R25 al separar `LobbyHud`, `LobbyMenu`, `LobbyPanel` y `DevHelp`.
+- **`WildlandsView.vue` en R25:** bajó de 403 a ~320 líneas al separar `LobbyHud`, `LobbyMenu`, `LobbyPanel` y `DevHelp`.
 - **Ahorro de trabajo en ciudad:** `TownArea.decorIn` filtra ~700 elementos por frame (hoy ~3 ms/frame en total). Una grilla espacial ahorraría trabajo si la ciudad crece.
 - **Cámara de desarrollo:** `LENSES.dramatic` y `cenital` quedan solo para pruebas.
 
@@ -195,6 +277,11 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
 - **Portón sur:** su techo tapa parcialmente el portal que tiene encima (el viaje funciona igual).
 - **Edificios sin interiores:** los 6 edificios con función abren su panel. El resto (casas, departamentos, portones) sigue mostrando nombre y descripción al mirarlos.
 - **Vistas de features en panel:** `LobbyPanel` oculta el primer `<h2>` de cada vista (el título ya está en el encabezado) y ajusta su margen con `:deep(main)`. La tabla del Mercado en 375 px usa su propio scroll horizontal.
+- **Plaza (R26):**
+  - **Prueba de punta a punta:** una compra o swap real en otra pestaña tiene que verla una persona, porque escribe en la base. El camino del cliente se verificó inyectando eventos de Realtime.
+  - **"Ver en el Mercado"** abre el Mercado sin preseleccionar el Pokémon: `MarketView` no lee la query y cambiarlo tocaría esa feature.
+  - **El tablón no muestra quién hizo cada acción:** mostrarlo requiere leer `profiles` por `user_id`. Queda para una fase que lo justifique.
+  - **En desarrollo** la ayuda (`DevHelp`) tapa el toast y el marcador cuando están arriba a la izquierda. En producción no existe.
 - **Combate de Dungeon sin enviar:** cerrar el panel desmonta la vista y lo pierde, igual que navegar a otra página antes de R25.
 - **Dominio (resuelto el 2026-09-14):** `pokeswap.lol` y `www.pokeswap.lol` los sirve Cloudflare Pages (proyecto `pokeswap`); `pokeswap.pages.dev` sigue funcionando.
   - **DNS:** administrado en Cloudflare. El dominio sigue registrado en GoDaddy, con los nameservers apuntando a Cloudflare.
