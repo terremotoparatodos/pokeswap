@@ -146,7 +146,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ## Más adelante (fuera de este plan)
 
-- **Online en tiempo real:** otros jugadores caminando en la ciudad (Colyseus con sala "lobby"). El modelo de áreas y movimiento por casillas ya está preparado para enviar eventos de paso.
+- **R30 — Presencia multijugador efímera:** plan aprobado en [R30_MULTIPLAYER_PLAN.md](R30_MULTIPLAYER_PLAN.md). Colyseus Cloud, una Ciudad y una zona wild compartidas, espectadores de solo lectura, interés espacial en wild y tope global de 100 conexiones. Sin chat, combate ni persistencia.
 - **Arte propio:** reemplazar los assets de Nintendo por arte con licencia antes de un lanzamiento público.
 - **Más ciudades** con el mismo formato (`TownDef` + terreno + hoja de arte).
 
