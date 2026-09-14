@@ -74,6 +74,7 @@ import { WildlandsGame, type HudState } from '../engine/game'
 import type { PokedexEntry } from '../engine/population'
 import { LOBBY_ID } from '../areas/atlas'
 import { useLobbyPanel } from '../lobby/useLobbyPanel'
+import { usePlayerIdentity } from '../identity/usePlayerIdentity'
 import LobbyHud from './LobbyHud.vue'
 import LobbyMenu from './LobbyMenu.vue'
 import LobbyPanel from './LobbyPanel.vue'
@@ -98,12 +99,14 @@ const hud = reactive<HudState>({
   areaId: LOBBY_ID, areaKind: 'town', place: '—', tx: 0, ty: 0, phase: 'Día', weather: 'clear', crystals: 0,
   lens: 'handheld', toast: null, traveling: false, fps: 0, frameMs: 0,
 })
+const identity = usePlayerIdentity(game)
 
 // Panels over the town. Leaving a building (or a building's direct link) puts the
 // player back outside its door; panels opened from the menu leave them where they were.
 const panel = useLobbyPanel({
   onClosed: (feature, origin) => {
     if (origin !== 'menu') game.value?.placeAtDoor(feature)
+    void identity.refreshOwnership()
   },
 })
 const menuOpen = ref(false)
@@ -169,24 +172,31 @@ function onHud(next: HudState): void {
 }
 
 onMounted(async () => {
+  const authReady = identity.waitUntilReady()
   try {
     pokedex.value = await listPokemon()
   } catch (error) {
     devWarn('[wildlands] Pokédex unavailable, spawning trainers only', error)
   }
+  await authReady
   if (!canvasRef.value) return
   // ?area=<world>&x=&y= jumps straight to a spot, handy for sharing places in the (deterministic) worlds.
   const x = Number(route.query.x)
   const y = Number(route.query.y)
-  const spawn = Number.isInteger(x) && Number.isInteger(y) && route.query.x !== undefined ? { tx: x, ty: y } : null
+  const querySpawn = Number.isInteger(x) && Number.isInteger(y) && route.query.x !== undefined ? { tx: x, ty: y } : null
   const startArea = typeof route.query.area === 'string' ? route.query.area : undefined
+  const savedSpawn = !querySpawn && !panel.feature.value && (!startArea || startArea === LOBBY_ID)
+    ? identity.initialTownPosition()
+    : null
+  const spawn = querySpawn ?? savedSpawn
   const created = new WildlandsGame(canvasRef.value, {
     pokedex: pokedex.value, onHud, spawn, startArea,
     onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
     onInspect: hit => plazaRef.value?.inspect(hit),
+    onTownPosition: identity.recordTownPosition,
   })
   // A direct link to a feature shows the town from that building's door.
-  if (panel.feature.value && !spawn) created.placeAtDoor(panel.feature.value)
+  if (panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
   game.value = created
   created.start()
   loading.value = false

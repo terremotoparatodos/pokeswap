@@ -57,6 +57,7 @@ describe('MyBoxView', () => {
     expect(mockLoad).toHaveBeenCalledWith('u1')
     expect(wrapper.findAll('.profile-box-card')).toHaveLength(1)
     expect(wrapper.find('.profile-box-name').text()).toBe('Pikachu')
+    expect(wrapper.find('.player-settings').exists()).toBe(true)
   })
 
   it('publishes through the market API and refreshes the box', async () => {

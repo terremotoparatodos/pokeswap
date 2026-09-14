@@ -100,18 +100,18 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ---
 
-## Fase 3 — Identidad del jugador *(R27)*
+## Fase 3 — Identidad del jugador *(R27)* ✅ hecha (2026-09-14)
 
 **Objetivo:** que el personaje sea "tuyo".
 
-- [ ] Nombre de usuario sobre el personaje (texto escapado, `INV-ID-4`).
-- [ ] **Pokémon acompañante:** el jugador elige uno de sus Pokémon (de `useMyBox`) que lo sigue caminando. Es el único Pokémon propio fuera del top 10 que se ve en la ciudad (decidido en R26).
-- [ ] Elección de personaje (protagonista hombre, mujer y futuros) cuando haya más hojas. Requiere guardar la preferencia:
-  - Opción A: `localStorage` (cosmético, sin backend).
-  - Opción B: columna en `profiles` actualizada por el propio usuario vía RLS. Revisar con `docs/BACKEND_INVENTORY.md` antes de migrar.
-- [ ] Recordar la última posición en la ciudad (solo `localStorage`, cosmético).
+- [x] Nombre de usuario sobre el personaje mediante `canvas.fillText`, sin interpretar HTML (`INV-ID-4`) y con ancho visual acotado.
+- [x] **Pokémon acompañante:** el jugador elige uno de `useMyBox`; se valida contra la caja server-backed, se descarta si deja de ser propio o queda bloqueado y sigue el rastro del jugador sin colisión, picking ni pathfinding propio.
+- [x] Elección entre las tres hojas disponibles (entrenador, entrenadora rosa y entrenadora amarilla). Las preferencias usan `localStorage` versionado y separado por `user.id`; no se agregaron columnas ni mutaciones en `profiles`.
+- [x] Última posición segura de Ciudad Corazón recordada por usuario. Links con coordenadas, puertas y portales conservan prioridad y nunca se restauran como posición persistida.
+- [x] Sección **Jugador** dentro de Mi caja, mobile-first, con Pokémon bloqueados visibles pero no seleccionables.
+- [x] Sin sesión: aspecto predeterminado, sin nombre, sin acompañante y caja compartida limpiada en memoria.
 
-**Aceptación:** al recargar, el jugador ve su nombre, su acompañante y su personaje elegido. Sin sesión se usa un aspecto por defecto.
+**Aceptación:** 435 tests pasan; lint sin errores, tipos y build OK. Persistencia, ownership/lock, sesión tardía/logout, seguimiento, transición de área, fallbacks de arte y username hostil tienen tests. La escena y la traza lógica base mantienen hashes SHA-256 idénticos a `migration`; la ciudad y el viaje a un mundo se probaron vivos en escritorio y el lobby en 375 px.
 
 ---
 
