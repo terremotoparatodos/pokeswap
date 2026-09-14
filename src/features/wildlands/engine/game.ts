@@ -21,6 +21,7 @@ import { TapNavigator } from './navigator'
 import type { Tile } from './pathfinding'
 import type { PlazaResident } from './plazaPokemon'
 import { plazaHitAt, plazaHitFacing, type PlazaHit } from './plazaTaps'
+import { wildHitAt, wildHitFacing, type WildHit } from './wildTaps'
 import { loadPokemonInfo, type PokedexEntry } from './population'
 import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
@@ -61,8 +62,8 @@ export interface GameOptions {
   spawn?: (Tile & { dir?: Dir }) | null
   /** The player walked into a building that hosts a PokeSwap feature. */
   onEnterBuilding?: (buildingId: string, feature: LobbyFeature) => void
-  /** The player tapped (or faced) an owned Pokémon or the activity board. */
-  onInspect?: (hit: PlazaHit) => void
+  /** The player tapped (or faced) a read-only world interaction. */
+  onInspect?: (hit: PlazaHit | WildHit) => void
   /** Completed safe town tiles, used only for local cosmetic persistence. */
   onTownPosition?: (position: TownPosition) => void
 }
@@ -93,10 +94,11 @@ export class WildlandsGame {
   })
   private readonly travel = new AreaTravel()
   private readonly entrances: Entrances
-  private readonly onInspect?: (hit: PlazaHit) => void
+  private readonly onInspect?: (hit: PlazaHit | WildHit) => void
   private readonly onTownPosition?: (position: TownPosition) => void
   private username: string | null = null
   private owned: readonly PlazaResident[] = []
+  private wildPokemonIds: readonly number[] = []
   private running = false
   private paused = false
   private frameId = 0
@@ -156,6 +158,7 @@ export class WildlandsGame {
     this.area = area
     this.populace = area.createPopulace({ pokedex: this.pokedex, npcSprites: this.renderer.npcSprites })
     this.populace.setOwned?.(this.owned)
+    this.populace.setWildPokemonIds?.(this.wildPokemonIds)
     const arrival = area.arrival(from)
     this.placePlayer(spawn && !area.isSolid(spawn.tx, spawn.ty) ? { ...spawn, dir: spawn.dir ?? arrival.dir } : arrival)
     this.lensName = area.lens
@@ -217,6 +220,12 @@ export class WildlandsGame {
     this.populace.setOwned?.(list)
   }
 
+  /** Server-filtered pool membership for WildLands; no ownership data enters the engine. */
+  setWildPokemonIds(ids: readonly number[]): void {
+    this.wildPokemonIds = ids
+    this.populace.setWildPokemonIds?.(ids)
+  }
+
   /** Applies display-only identity; ownership was validated before it reached the engine. */
   setPlayerIdentity(identity: PlayerVisualIdentity): void {
     this.username = identity.username
@@ -236,7 +245,7 @@ export class WildlandsGame {
   tap(cssX: number, cssY: number): void {
     if (this.travel.active || this.paused) return
     const pick = this.renderer.pick(cssX, cssY)
-    const hit = this.onInspect ? plazaHitAt(this.area, pick) : null
+    const hit = this.onInspect ? plazaHitAt(this.area, pick) ?? wildHitAt(this.area, pick) : null
     if (hit) this.onInspect!(hit)
     else this.nav.goTo(this.player, this.entrances.retarget(this.area, pick))
   }
@@ -284,7 +293,7 @@ export class WildlandsGame {
     const tx = this.player.tx + dx
     const ty = this.player.ty + dy
     const other = this.populace.actors.find(a => a.tx === tx && a.ty === ty)
-    const hit = this.onInspect ? plazaHitFacing(this.area, other, tx, ty) : null
+    const hit = this.onInspect ? plazaHitFacing(this.area, other, tx, ty) ?? wildHitFacing(this.area, other) : null
     if (hit) {
       this.onInspect!(hit)
       return

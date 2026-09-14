@@ -115,13 +115,14 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ---
 
-## Fase 4 — Mundos conectados a PokeSwap *(R28)*
+## Fase 4 — Mundos conectados a PokeSwap *(R28)* ✅ hecha (2026-09-14)
 
 **Objetivo:** que salir por las puertas tenga sentido de juego, sin romper la economía.
 
-- [ ] Los Pokémon salvajes de los mundos usan el **pool rotativo** del mapa legado (`_rollWildPool`: legendarios 2%, aura alta 12%, resto) filtrado por tipo de bioma, en lugar de toda la Pokédex.
-- [ ] Tocar un salvaje abre su ficha de Pokédex y, si está libre, lleva al flujo de Swap o Mercado correspondiente.
-- [ ] Cristales y recompensas: **desactivados** hasta tener una RPC o Edge Function que valide (`AGENTS.md` §2). Alternativa: dejarlos como coleccionable puramente visual y rotularlo claramente.
+- [x] Los Pokémon salvajes usan el pool rotativo compartido `pokemon/domain/wildPool.ts`: legendarios 2%, aura alta 12% y resto 86%, sin dueño, sin duplicados y filtrado por bioma al poblar chunks. El mapa legado lo consume temporalmente hasta R29.
+- [x] El pool es único por sesión y rota cada 60 minutos; viajar entre áreas no lo reinicia. Los patches de `slots` existentes lo filtran inmediatamente y la reconexión relee el snapshot.
+- [x] Tocar o mirar un salvaje abre una ficha pública, segura y de solo lectura. Desde allí se navega a los paneles existentes de Pokédex, Mercado o Swap; no preselecciona especie ni hace mutaciones. Pokédex se mantiene como ficha informativa pública en WildLands, ya que su panel existente requiere sesión.
+- [x] Cristales y recompensas siguen siendo visuales: el HUD y el toast indican “demo, no se guarda”; no hay RPC, Edge Function, escritura ni autoridad persistente.
 
 **Aceptación:** no existe ninguna escritura nueva desde el cliente. Las interacciones de los mundos solo abren features que ya validan en el servidor.
 

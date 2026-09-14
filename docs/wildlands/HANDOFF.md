@@ -1,7 +1,7 @@
 # WildLands — Traspaso de contexto
 
 > Documento de respaldo para retomar el trabajo en otra conversación.
-> Estado tras implementar **R27 (Identidad del jugador)** en la rama `feat/wildlands-r27`, todavía sin commit ni PR.
+> Estado tras implementar **R28 (Mundos conectados)** en la rama `feat/wildlands-r28`, todavía sin commit ni PR.
 > R25 (La ciudad como home) está en `migration` ([#6](https://github.com/terremotoparatodos/pokeswap/pull/6)) y en producción en https://pokeswap.lol ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
 > Plan siguiente: [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
 
@@ -17,6 +17,7 @@ WildLands es el mundo explorable de PokeSwap, con estética de Pokémon DS (Plat
 - **Home de PokeSwap (R25):** `/` es la ciudad. Cada función se abre en un panel sobre la ciudad, entrando a su edificio o desde el botón **Menú**.
 - **Plaza con datos reales (R26):** los 10 Pokémon con dueño más caros pasean por la plaza de las fuentes y se actualizan en vivo. Hay un tablón de actividad junto al Centro Pokémon y toasts discretos.
 - **Identidad del jugador (R27):** con sesión se ve el username, se puede elegir personaje y un Pokémon propio que acompaña al jugador; las preferencias y la última posición segura de la ciudad son locales y cosméticas.
+- **Mundos conectados (R28):** los salvajes salen de un pool global rotativo, libre de propietarios, y una ficha pública solo navega a las features existentes.
 - **Alcance:** el motor es **cosmético y del lado del cliente**. La ciudad solo lee (tokens del perfil, `slots` y `activity_feed`, más Realtime) y navega. Toda escritura sigue dentro de las vistas de las features (ver `AGENTS.md` §2 y `docs/TRUST_BOUNDARY.md`).
 
 Ruta: `/` (la vieja `/wildlands` redirige conservando la query). Parámetros de URL útiles:
@@ -59,7 +60,7 @@ npx vue-tsc --noEmit -p tsconfig.app.json
 npm run build
 ```
 
-**Estado de checks tras implementar R27:** 435 tests del proyecto pasan, `eslint .` sin errores (los mismos 13 warnings previos de orden de atributos en `AuthModal.vue` y `MapView.vue`), `vue-tsc -p tsconfig.app.json` en cero errores y build OK.
+**Estado de checks tras implementar R28:** 440 tests del proyecto pasan, `eslint .` sin errores (los mismos 13 warnings previos de orden de atributos en `AuthModal.vue` y `MapView.vue`), `vue-tsc -p tsconfig.app.json` en cero errores y build OK.
 - R27 sumó tests de preferencias versionadas, ownership/lock mediante `useMyBox`, carreras entre usuarios, sesión tardía/logout, seguimiento y transición de área, fallbacks de personaje/Pokémon, username hostil y la interfaz de Jugador.
 - R26 sumó tests de las reglas compartidas (`ownedSlots.test.ts`), del mapa legado (`useMapEntities.test.ts`, `useMapRealtime.test.ts`) y de la población de la plaza (`plazaPokemon.test.ts`, `plazaTaps.test.ts`, zonas en `atlas.test.ts`).
 - También sumó tests de datos en vivo y avisos (`usePlazaData.test.ts`, `plazaNotices.test.ts`), de render seguro (`PlazaPokemonCard.test.ts`) y de solo lectura (`plazaReadOnly.test.ts`, que escanea las fuentes nuevas).
@@ -243,6 +244,14 @@ Otros cambios fuera de la carpeta:
 - **Arte.** Las dos protagonistas femeninas se empaquetaron como hojas 4×4 reproducibles con `scripts/pack_trainer_sprites.py`. Una hoja faltante conserva el trainer dibujado; un Pokémon sin overworld usa sprite frontal y luego Poké Ball.
 - **Interfaz.** Mi caja compone una sección Jugador independiente. Elegir personaje o acompañante solo escribe la preferencia local; Vender conserva su flujo previo.
 - **Equivalencia.** Contra `migration` (`46875f5`), escena base `ef424a1e…ad127` y traza lógica `ab638c90…2477` conservaron exactamente sus hashes SHA-256. En prueba viva se verificaron tap-to-move, username hostil literal, seguidor en ciudad, fundido y llegada con acompañante a un mundo; el lobby anónimo se comprobó en escritorio y 375 px.
+
+### Mundos conectados (R28)
+
+- **Regla compartida.** `features/pokemon/domain/wildPool.ts` reemplaza el `_rollWildPool` local del mapa. Recibe catálogo, snapshot de `slots`, RNG y tamaño; conserva los límites 2% / 12% / 86%, exclusión de propietarios, unicidad y fallback a cualquier candidato libre cuando una categoría falta. `/map` la consume hasta R29, sin que WildLands dependa de una vista retirada.
+- **Rotación y autoridad.** `usePlazaData` sigue siendo la única lectura y suscripción de `slots` para el lobby y los mundos. Mantiene un pool por sesión, rota a la hora y filtra sus miembros por el snapshot server-backed de cada patch. Si un miembro obtiene dueño desaparece al instante; si queda libre y ya era miembro puede volver a aparecer; otros esperan el siguiente rollover. Al reconectar vuelve a leer.
+- **Población.** `Population` distribuye solo integrantes libres del pool y compatibles con el bioma en chunks activos, reserva cada especie mientras carga arte y no duplica actores visibles. El fallback de hoja overworld a sprite frontal y Poké Ball permanece. La selección, patches y filtrado no corren por frame.
+- **Interacción.** `wildTaps.ts` reconoce únicamente actores con marca cosmética `wild`; el acompañante sigue fuera de picking. Tap y tecla de acción abren `WildPokemonCard.vue`, que solo interpola texto y ofrece navegación general a Pokédex, Mercado o Swap. El motor no recibe owner, precio, tokens ni contratos económicos.
+- **Límite de producto.** Mercado no admite preseleccionar una especie y Swap no permite pedir el resultado; ambos accesos permanecen generales. El panel actual de Pokédex también requiere sesión, por lo que la ficha WildLands es la consulta pública del guest.
 
 ### Deuda técnica conocida
 

@@ -19,9 +19,8 @@ import { mergeSlotPatch, visibleOwnedIds } from '../domain/ownedSlots'
 import {
   getHearthomePoint,
   getSpawnPoint,
-  WILD_POOL_SIZE,
-  WILD_ROTATE_MS,
 } from '../data/mapConfig'
+import { rollWildPool, WILD_ROTATE_MS } from '../../pokemon/domain/wildPool'
 
 interface EntitiesState {
   entities: Record<number, MapEntity>
@@ -38,32 +37,6 @@ export function useMapEntities() {
 
   const entities = computed(() => Object.values(state.value.entities))
 
-  function _rollWildPool(pokemon: Pokemon[], slots: Record<number, Slot>): number[] {
-    const available = pokemon.filter(p => !slots[p.id]?.owner_id)
-    const pool: Pokemon[] = []
-
-    while (pool.length < WILD_POOL_SIZE && available.length > 0) {
-      const r = Math.random()
-      let candidates: Pokemon[]
-      if (r < 0.02) {
-        candidates = available.filter(p => p.is_legendary)
-      } else if (r < 0.14) {
-        candidates = available.filter(p => !p.is_legendary && (p.base_aura ?? 0) >= 250)
-      } else {
-        candidates = available.filter(p => !p.is_legendary && (p.base_aura ?? 0) < 250)
-      }
-      if (!candidates.length) candidates = available
-
-      const pick = candidates[Math.floor(Math.random() * candidates.length)]
-      if (!pool.find(p => p.id === pick.id)) {
-        pool.push(pick)
-      }
-      if (pool.length >= WILD_POOL_SIZE || pool.length >= available.length) break
-    }
-
-    return pool.map(p => p.id)
-  }
-
   /**
    * (Re-)populate all entities from a fresh data load.
    * Call once after fetchMapData() completes.
@@ -77,7 +50,7 @@ export function useMapEntities() {
     const visible = visibleOwnedIds(slots, userId)
 
     const now = Date.now()
-    const wildPool = _rollWildPool(pokemon, slots)
+    const wildPool = rollWildPool(pokemon, slots)
     const wildRotateAt = now + WILD_ROTATE_MS
     const entities: Record<number, MapEntity> = {}
 
@@ -160,7 +133,7 @@ export function useMapEntities() {
    * Removes old wild entities and spawns new ones from the updated pool.
    */
   function rotateWildPool(pokemon: Pokemon[], slots: Record<number, Slot>) {
-    const newPool = _rollWildPool(pokemon, slots)
+    const newPool = rollWildPool(pokemon, slots)
     const next = { ...state.value.entities }
 
     // Remove old wild entities no longer in the pool
