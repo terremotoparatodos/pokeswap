@@ -1,19 +1,21 @@
 // Game loop — WildLands prototype
 //
 // Owns the frame loop, camera, actors and session-only state (clock, collected
-// crystals). Keyboard input lives in keyboard.ts and area travel in travel.ts. Everything here is cosmetic client state:
+// crystals). Keyboard input lives in keyboard.ts, area travel in travel.ts and
+// building doors in doors.ts. Everything here is cosmetic client state:
 // no tokens, ownership or rewards are read or written.
 
 import {
   actorPosition, advance, createActor, createWalkerState, DIRS, driveWalker, isMoving, RUN_SPEED, wander, WALK_SPEED,
   type Actor, type MoveRules,
 } from './actors'
-import { isPortalTile, type Area, type AreaId, type Populace } from './area'
+import { isPortalTile, type Area, type AreaId, type Arrival, type Populace } from './area'
 import { DAY_SECONDS, lighting, type DayPhase, type WeatherKind } from './atmosphere'
 import { devWarn } from '../../../shared/utils/devTools'
 import { Atlas, LOBBY_ID } from '../areas/atlas'
 import { loadTrainerSheet, NPC_HUE_SHIFTS, type Dir } from './characters'
 import { actorLine } from './dialogue'
+import { Entrances } from './doors'
 import { KeyboardInput } from './keyboard'
 import { TapNavigator } from './navigator'
 import type { Tile } from './pathfinding'
@@ -22,8 +24,11 @@ import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
+import type { LobbyFeature } from '../lobby/features'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
+/** While a panel covers the town the scene keeps animating, but at a battery-friendly rate. */
+const PAUSED_FRAME_MS = 100
 
 export interface HudState {
   areaId: AreaId
@@ -47,6 +52,8 @@ export interface GameOptions {
   onHud: (hud: HudState) => void
   startArea?: AreaId
   spawn?: Tile | null
+  /** The player walked into a building that hosts a PokeSwap feature. */
+  onEnterBuilding?: (buildingId: string, feature: LobbyFeature) => void
 }
 
 const LENS_ORDER: LensName[] = ['handheld', 'dramatic', 'cenital']
@@ -72,7 +79,9 @@ export class WildlandsGame {
     occupied: (tx, ty) => this.populace.actors.some(a => a.tx === tx && a.ty === ty),
   })
   private readonly travel = new AreaTravel()
+  private readonly entrances: Entrances
   private running = false
+  private paused = false
   private frameId = 0
   private last = 0
   private seconds = 0
@@ -95,6 +104,7 @@ export class WildlandsGame {
     this.renderer = new Renderer(canvas)
     this.pokedex = options.pokedex
     this.onHud = options.onHud
+    this.entrances = new Entrances(door => options.onEnterBuilding?.(door.buildingId, door.feature))
     this.player = createActor({ id: 'player', kind: 'player', habitat: 'any', tx: 0, ty: 0, trainer: this.renderer.playerSprites })
     const start = options.startArea && Atlas.isKnown(options.startArea) ? options.startArea : LOBBY_ID
     this.enterArea(start, null, options.spawn ?? null)
@@ -125,8 +135,8 @@ export class WildlandsGame {
     blocked: (actor, tx, ty) => {
       const area = this.area
       if (area.isSolid(tx, ty)) return true
-      // Only the player uses gates; wanderers keep them clear.
-      if (actor.kind !== 'player' && isPortalTile(area, tx, ty)) return true
+      // Only the player uses gates and doors; wanderers keep them clear.
+      if (actor.kind !== 'player' && (isPortalTile(area, tx, ty) || this.entrances.isDoor(area, tx, ty))) return true
       if (actor.habitat === 'any') return false
       return area.isWater(tx, ty) !== (actor.habitat === 'water')
     },
@@ -144,7 +154,16 @@ export class WildlandsGame {
     this.area = area
     this.populace = area.createPopulace({ pokedex: this.pokedex, npcSprites: this.renderer.npcSprites })
     const arrival = area.arrival(from)
-    const at = spawn && !area.isSolid(spawn.tx, spawn.ty) ? { ...spawn, dir: arrival.dir } : arrival
+    this.placePlayer(spawn && !area.isSolid(spawn.tx, spawn.ty) ? { ...spawn, dir: arrival.dir } : arrival)
+    this.lensName = area.lens
+    this.lensFrom = LENSES[area.lens]
+    this.lensBlend = 1
+    this.weather = { kind: 'clear', intensity: 0, target: 0 }
+    this.weatherCheck = 0
+  }
+
+  /** Stands the player on `at` and snaps the camera there. */
+  private placePlayer(at: Arrival): void {
     const p = this.player
     p.tx = p.fromTx = at.tx
     p.ty = p.fromTy = at.ty
@@ -153,20 +172,15 @@ export class WildlandsGame {
     p.bumping = false
     this.walker = createWalkerState()
     this.nav.cancel()
-    this.travel.arrived(area, at.tx, at.ty)
+    this.travel.arrived(this.area, at.tx, at.ty)
     const pos = actorPosition(p)
     this.camX = pos.x
     this.camY = pos.y
-    this.lensName = area.lens
-    this.lensFrom = LENSES[area.lens]
-    this.lensBlend = 1
-    this.weather = { kind: 'clear', intensity: 0, target: 0 }
-    this.weatherCheck = 0
   }
 
   start(): void {
     this.running = true
-    this.keys.attach()
+    if (!this.paused) this.keys.attach()
     this.last = performance.now()
     this.frameId = requestAnimationFrame(this.loop)
   }
@@ -175,6 +189,22 @@ export class WildlandsGame {
     this.running = false
     cancelAnimationFrame(this.frameId)
     this.keys.detach()
+  }
+
+  /** Ignores player input (a feature panel is open) and slows the loop down. */
+  setPaused(paused: boolean): void {
+    if (paused === this.paused) return
+    this.paused = paused
+    this.nav.cancel()
+    if (!this.running) return
+    if (paused) this.keys.detach()
+    else this.keys.attach()
+  }
+
+  /** Stands the player outside the building hosting `feature`, facing away from it. */
+  placeAtDoor(feature: LobbyFeature): void {
+    const exit = this.entrances.exitFor(this.area, feature)
+    if (exit && !this.travel.active) this.placePlayer(exit)
   }
 
   setVirtualDir(dir: Dir | null): void {
@@ -186,13 +216,13 @@ export class WildlandsGame {
    * obstacle walks beside it (and talks); tapping ground walks there.
    */
   tap(cssX: number, cssY: number): void {
-    if (this.travel.active) return
-    this.nav.goTo(this.player, this.renderer.pick(cssX, cssY))
+    if (this.travel.active || this.paused) return
+    this.nav.goTo(this.player, this.entrances.retarget(this.area, this.renderer.pick(cssX, cssY)))
   }
 
   /** Press-and-drag retargeting: only re-plans when the finger moves to another tile. */
   drag(cssX: number, cssY: number): void {
-    if (this.travel.active) return
+    if (this.travel.active || this.paused) return
     const pick = this.renderer.pick(cssX, cssY)
     const current = this.nav.route(this.player).target
     if (!pick.tile || (current && current.tx === pick.tile.tx && current.ty === pick.tile.ty)) return
@@ -264,6 +294,10 @@ export class WildlandsGame {
 
   private readonly loop = (now: number): void => {
     if (!this.running) return
+    if (this.paused && now - this.last < PAUSED_FRAME_MS) {
+      this.frameId = requestAnimationFrame(this.loop)
+      return
+    }
     // rAF timestamps can precede the performance.now() taken in start().
     const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000))
     this.last = now
@@ -287,7 +321,7 @@ export class WildlandsGame {
 
     // Player (input is ignored mid-trip)
     const player = this.player
-    const keyDir = this.travel.active ? null : this.keys.direction
+    const keyDir = this.travel.active || this.paused ? null : this.keys.direction
     if (keyDir) this.nav.cancel() // Keyboard always wins over a tap route.
     const navigating = !keyDir && this.nav.active
     player.running = this.keys.sprinting
@@ -354,6 +388,7 @@ export class WildlandsGame {
       this.crystals++
       this.say('+1 cristal · demo, no se guarda')
     }
+    if (this.entrances.arrive(this.area, tx, ty)) this.nav.cancel()
     const to = this.travel.destinationAt(this.area, tx, ty)
     if (to) this.travelTo(to)
   }

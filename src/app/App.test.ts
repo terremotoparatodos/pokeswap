@@ -1,40 +1,34 @@
 import { mount } from '@vue/test-utils'
-import { describe, it, expect, vi } from 'vitest'
-import { ref, readonly } from 'vue'
+import { describe, it, expect } from 'vitest'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import App from './App.vue'
 
-vi.mock('../features/auth/composables/useAuth', () => ({
-  useAuth: () => ({
-    isLoading: readonly(ref(false)),
-    profile: readonly(ref(null)),
-    user: readonly(ref(null)),
-  }),
-}))
-
-vi.mock('../shared/api/supabase', () => ({
-  supabase: { auth: { signOut: vi.fn() } },
-}))
-
-vi.mock('../features/auth/components/AuthModal.vue', () => ({
-  default: { template: '<div />' },
-}))
-
-const router = createRouter({
-  history: createMemoryHistory(),
-  routes: [{ path: '/', component: { template: '<div />' } }],
-})
+function makeRouter() {
+  return createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/', component: { template: '<div class="lobby" />' } },
+      { path: '/map', component: { template: '<div class="map" />' }, meta: { standalone: true } },
+    ],
+  })
+}
 
 describe('App', () => {
-  it('renders the nav bar', async () => {
+  it('renders the lobby without the old nav bar', async () => {
+    const router = makeRouter()
     const wrapper = mount(App, { global: { plugins: [router] } })
     await router.isReady()
-    expect(wrapper.find('.app-logo').text()).toBe('PokeSwap')
+    expect(wrapper.find('.lobby').exists()).toBe(true)
+    expect(wrapper.find('.app-nav').exists()).toBe(false)
+    expect(wrapper.find('.app-back').exists()).toBe(false)
   })
 
-  it('shows sign-in button when not authenticated', async () => {
+  it('offers a way back to the city on standalone pages', async () => {
+    const router = makeRouter()
+    await router.push('/map')
     const wrapper = mount(App, { global: { plugins: [router] } })
     await router.isReady()
-    expect(wrapper.find('.app-nav-btn').text()).toBe('Ingresar')
+    expect(wrapper.find('.map').exists()).toBe(true)
+    expect(wrapper.find('.app-back').attributes('href')).toBe('/')
   })
 })
