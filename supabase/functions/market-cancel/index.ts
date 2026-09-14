@@ -6,7 +6,8 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  // supabase-js adds these to browser invocations; allow the full preflight.
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 const ERROR_MAP: Record<string, [string, number]> = {

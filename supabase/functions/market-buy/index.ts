@@ -7,7 +7,9 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, content-type',
+  // supabase-js adds these to browser invocations. Omitting them lets the
+  // preflight succeed but makes the browser block the actual purchase POST.
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
 const ERROR_MAP: Record<string, [string, number]> = {
