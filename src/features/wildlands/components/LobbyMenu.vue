@@ -18,7 +18,7 @@
     </div>
 
     <div v-if="open" class="lm-backdrop" @click.self="emit('update:open', false)">
-      <nav id="lobby-menu" class="lm-sheet" aria-label="Menú de PokeSwap">
+      <nav id="lobby-menu" ref="sheetRef" class="lm-sheet" aria-label="Menú de PokeSwap" tabindex="-1">
         <ul class="lm-list">
           <li v-for="item in items" :key="item.id">
             <button class="lm-item" @click="choose(item.id)">
@@ -46,13 +46,19 @@
             <button class="lm-btn lm-btn--primary" @click="emit('signIn')">Ingresar</button>
           </template>
         </div>
+        <div class="lm-motion">
+          <span>Movimiento</span>
+          <button class="lm-btn" :aria-pressed="reducedMotion" @click="emit('update:reducedMotion', !reducedMotion)">
+            {{ reducedMotion ? 'Reducido' : 'Completo' }}
+          </button>
+        </div>
       </nav>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useAuth } from '../../auth/composables/useAuth'
 import { logout } from '../../auth/api/authApi'
 import { devWarn } from '../../../shared/utils/devTools'
@@ -60,11 +66,12 @@ import { HEARTHOME } from '../areas/atlas'
 import { LOBBY_FEATURE_IDS, LOBBY_FEATURES, type LobbyFeature } from '../lobby/features'
 
 // Shortcut to every PokeSwap function, plus the session. Tokens are shown read-only.
-const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ 'update:open': [open: boolean]; select: [feature: LobbyFeature]; activity: []; signIn: [] }>()
+const props = withDefaults(defineProps<{ open: boolean; reducedMotion?: boolean }>(), { reducedMotion: false })
+const emit = defineEmits<{ 'update:open': [open: boolean]; 'update:reducedMotion': [reduced: boolean]; select: [feature: LobbyFeature]; activity: []; signIn: [] }>()
 
 const { profile, isLoading } = useAuth()
 const signingOut = ref(false)
+const sheetRef = ref<HTMLElement | null>(null)
 
 const items = LOBBY_FEATURE_IDS.map(id => ({
   id,
@@ -77,6 +84,9 @@ const onKeyDown = (e: KeyboardEvent) => {
 }
 onMounted(() => window.addEventListener('keydown', onKeyDown))
 onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
+watch(() => props.open, open => {
+  if (open) void nextTick(() => sheetRef.value?.querySelector<HTMLButtonElement>('.lm-item')?.focus())
+})
 
 function formatTokens(tokens: number | null | undefined): string {
   return (tokens ?? 0).toLocaleString('es-AR')
@@ -229,6 +239,16 @@ async function signOut(): Promise<void> {
   padding: 0.75rem 1.2rem 0.9rem;
   border-top: 1px solid rgba(255, 255, 255, 0.15);
 }
+.lm-motion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.55rem 1.2rem 0.9rem;
+  color: #9fb2da;
+  font-size: 0.85rem;
+}
+.lm-motion .lm-btn { margin-left: 0; }
 .lm-user {
   font-weight: 700;
 }

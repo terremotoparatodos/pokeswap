@@ -11,7 +11,6 @@ vi.mock('../../features/dungeon/components/DungeonView.vue', () => view)
 vi.mock('../../features/pokedex/components/PokedexView.vue', () => view)
 vi.mock('../../features/progression/components/ProfileView.vue', () => view)
 vi.mock('../../features/progression/components/MyBoxView.vue', () => view)
-vi.mock('../../features/map/components/MapView.vue', () => view)
 
 async function open(path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes })
@@ -45,10 +44,10 @@ describe('lobby routes', () => {
     expect(route.query).toEqual({ area: 'costa', x: '3', y: '4' })
   })
 
-  it('keeps the legacy map as a standalone page', async () => {
-    const route = await open('/map')
-    expect(route.meta.standalone).toBe(true)
-    expect(route.matched).toHaveLength(1)
+  it('redirects legacy map links to the city and keeps their query', async () => {
+    const route = await open('/map?area=bosque')
+    expect(route.name).toBe('lobby')
+    expect(route.query).toEqual({ area: 'bosque' })
   })
 
   it('sends unknown paths to the city', async () => {

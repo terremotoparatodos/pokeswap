@@ -1,4 +1,4 @@
-// Wild pool selection — shared temporary domain rule for /map and WildLands.
+// Wild pool selection — WildLands session-only display rule.
 //
 // The result is display-only. `slots` remains the ownership authority; callers
 // must remove a selected id as soon as their server-backed slot says it is owned.

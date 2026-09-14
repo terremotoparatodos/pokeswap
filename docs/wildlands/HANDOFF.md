@@ -1,7 +1,7 @@
 # WildLands — Traspaso de contexto
 
 > Documento de respaldo para retomar el trabajo en otra conversación.
-> Estado tras implementar **R28 (Mundos conectados)** en la rama `feat/wildlands-r28`, todavía sin commit ni PR.
+> Estado tras implementar **R29 (Retiro del mapa legado y pulido)** en la rama `feat/wildlands-r29`, todavía sin commit ni PR.
 > R25 (La ciudad como home) está en `migration` ([#6](https://github.com/terremotoparatodos/pokeswap/pull/6)) y en producción en https://pokeswap.lol ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
 > Plan siguiente: [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
 
@@ -38,9 +38,8 @@ Ruta: `/` (la vieja `/wildlands` redirige conservando la query). Parámetros de 
 | `/pokedex` | `PokedexView` | Club de Fans Pokémon | sí |
 | `/perfil` | `ProfileView` (stats, recolectar, ledger) | Casa de los Poffins | sí |
 | `/caja` | `MyBoxView` (Mis Pokémon + vender) | Centro Pokémon | sí |
-| `/map` | Mapa legado, página suelta con "← Ciudad" | — | — |
 
-- Redirecciones: `/market` → `/mercado`, `/profile` → `/perfil`, `/wildlands` → `/` y cualquier otra ruta → `/`.
+- Redirecciones: `/market` → `/mercado`, `/profile` → `/perfil`, `/wildlands` y `/map` → `/` (conservan query) y cualquier otra ruta → `/`.
 - Las funciones son rutas hijas de `lobby` (`src/app/router/routes.ts`) y los nombres de ruta coinciden con `LobbyFeature` (`lobby/features.ts`).
 - **Atrás, Esc y la ✕ cierran el panel.** Si el panel se abrió desde la ciudad, se hace `router.back()`. Si fue por link directo, `router.replace('/')`.
 - **Link directo:** la ciudad arranca con el personaje en la puerta del edificio y el panel ya abierto.
@@ -60,9 +59,9 @@ npx vue-tsc --noEmit -p tsconfig.app.json
 npm run build
 ```
 
-**Estado de checks tras implementar R28:** 440 tests del proyecto pasan, `eslint .` sin errores (los mismos 13 warnings previos de orden de atributos en `AuthModal.vue` y `MapView.vue`), `vue-tsc -p tsconfig.app.json` en cero errores y build OK.
+**Estado de checks tras implementar R29:** 375 tests pasan, `eslint .` no tiene errores (quedan 9 warnings preexistentes de orden de atributos en `AuthModal.vue`), `vue-tsc -p tsconfig.app.json` no tiene errores y build OK. R29 retira los warnings históricos de `MapView.vue` junto con el mapa legado.
 - R27 sumó tests de preferencias versionadas, ownership/lock mediante `useMyBox`, carreras entre usuarios, sesión tardía/logout, seguimiento y transición de área, fallbacks de personaje/Pokémon, username hostil y la interfaz de Jugador.
-- R26 sumó tests de las reglas compartidas (`ownedSlots.test.ts`), del mapa legado (`useMapEntities.test.ts`, `useMapRealtime.test.ts`) y de la población de la plaza (`plazaPokemon.test.ts`, `plazaTaps.test.ts`, zonas en `atlas.test.ts`).
+- R26 sumó tests de las reglas compartidas (`ownedSlots.test.ts`), Realtime y de la población de la plaza (`plazaPokemon.test.ts`, `plazaTaps.test.ts`, zonas en `atlas.test.ts`). R29 los reubica bajo `wildlands/lobby/` y elimina los tests exclusivos del mapa.
 - También sumó tests de datos en vivo y avisos (`usePlazaData.test.ts`, `plazaNotices.test.ts`), de render seguro (`PlazaPokemonCard.test.ts`) y de solo lectura (`plazaReadOnly.test.ts`, que escanea las fuentes nuevas).
 - R25 había sumado tests de ruteo, del panel, de `panelAccess`, de puertas, del menú y de `MyBoxView`.
 - R24 agregó `src/vite-env.d.ts` (tipos de `import.meta.env`) y marcó `CombatSummary.rounds` como `readonly` (el error de `DungeonView.vue`).
@@ -162,16 +161,16 @@ identity/
 ```
 
 Otros cambios fuera de la carpeta:
-- `src/app/router/routes.ts`: tabla de rutas (lobby + hijas, redirecciones, `/map` suelta). `index.ts` solo crea el router.
-- `src/app/App.vue`: sin barra superior. Solo `<router-view>` y "← Ciudad" en páginas `meta.standalone`. `HomeView` se eliminó.
+- `src/app/router/routes.ts`: tabla de rutas (lobby + hijas y redirecciones, incluido `/map` → `/`). `index.ts` solo crea el router.
+- `src/app/App.vue`: sin barra superior ni páginas standalone; solo `<router-view>`. `HomeView` se eliminó.
 - `src/features/progression/components/MyBoxView.vue`: la sección "Mis Pokémon" se movió desde `ProfileView`, que ahora enlaza a `/caja`.
 - `src/features/auth/composables/useAuth.ts`: `refreshProfile()` (solo lectura), llamado al cerrar un panel para actualizar los tokens del HUD.
 - `src/shared/utils/devTools.ts`: se exporta `isDev`.
-- **R26 en `features/map/`:**
-  - `domain/ownedSlots.ts` (nuevo) tiene las reglas compartidas por el mapa y la plaza: `topPricedIds`, `visibleOwnedIds`, `mergeSlotPatch`, `slotPatchFromRow`, `activityFromRow`, `diffIds` y `activityLabel`.
-  - `useMapEntities` y `MapView` las usan.
-  - `mapApi.fetchSlots()` es nuevo.
-  - `useMapRealtime` suma prefijo de canal, `onActivity`, `onReconnect` y validación de payloads.
+- **R29 en `features/wildlands/lobby/`:**
+  - `domain/ownedSlots.ts` conserva las reglas de plaza: `topPricedIds`, `mergeSlotPatch`, `slotPatchFromRow`, `activityFromRow`, `diffIds` y `activityLabel`.
+  - `api/plazaApi.ts` conserva `fetchSlots()` y `fetchRecentActivity()` como SELECT públicos.
+  - `usePlazaRealtime.ts` conserva topics únicos, `onActivity`, `onReconnect` y validación de payloads.
+  - Se eliminó todo `features/map/`, la ruta activa y los tiles de Platino exclusivos. `tilesets/buildings.png` se conserva como fuente del extractor de arte de ciudad.
 
 ### Puertas de edificios (R25)
 

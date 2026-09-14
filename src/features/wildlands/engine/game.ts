@@ -101,6 +101,8 @@ export class WildlandsGame {
   private wildPokemonIds: readonly number[] = []
   private running = false
   private paused = false
+  private visibilityPaused = false
+  private reduceMotion = false
   private frameId = 0
   private last = 0
   private seconds = 0
@@ -187,7 +189,7 @@ export class WildlandsGame {
 
   start(): void {
     this.running = true
-    if (!this.paused) this.keys.attach()
+    if (!this.paused && !this.visibilityPaused) this.keys.attach()
     this.last = performance.now()
     this.frameId = requestAnimationFrame(this.loop)
   }
@@ -204,8 +206,26 @@ export class WildlandsGame {
     this.paused = paused
     this.nav.cancel()
     if (!this.running) return
-    if (paused) this.keys.detach()
+    if (paused || this.visibilityPaused) this.keys.detach()
     else this.keys.attach()
+  }
+
+  /** Stops simulation while the document is hidden without conflating it with UI pause. */
+  setVisibilityPaused(paused: boolean): void {
+    if (paused === this.visibilityPaused) return
+    this.visibilityPaused = paused
+    this.nav.cancel()
+    if (!this.running) return
+    if (paused || this.paused) this.keys.detach()
+    else {
+      this.last = performance.now()
+      this.keys.attach()
+    }
+  }
+
+  /** Cosmetic preference only: no weather particles or transition fade. */
+  setReducedMotion(reduced: boolean): void {
+    this.reduceMotion = reduced
   }
 
   /** Stands the player outside the building hosting `feature`, facing away from it. */
@@ -329,6 +349,11 @@ export class WildlandsGame {
 
   private readonly loop = (now: number): void => {
     if (!this.running) return
+    if (this.visibilityPaused) {
+      this.last = now
+      this.frameId = requestAnimationFrame(this.loop)
+      return
+    }
     if (this.paused && now - this.last < PAUSED_FRAME_MS) {
       this.frameId = requestAnimationFrame(this.loop)
       return
@@ -436,13 +461,13 @@ export class WildlandsGame {
   private scene(): Scene {
     return {
       area: this.area,
-      fade: this.travel.fade(),
+      fade: this.reduceMotion ? 0 : this.travel.fade(),
       camX: this.camX,
       camY: this.camY,
       lens: this.currentLens(),
       seconds: this.seconds,
       light: lighting(this.clock),
-      weather: { kind: this.weather.kind, intensity: this.weather.intensity },
+      weather: { kind: this.weather.kind, intensity: this.reduceMotion ? 0 : this.weather.intensity },
       player: this.player,
       companion: this.companion.actor,
       username: this.username,

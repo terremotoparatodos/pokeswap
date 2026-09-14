@@ -26,7 +26,7 @@
 | Gimnasio | Dungeon | `dungeon/DungeonView.vue` |
 | Club de Fans Pokémon | Pokédex | `pokedex/PokedexView.vue` |
 | Casa de los Poffins | Perfil y progresión | `progression/ProfileView.vue` |
-| Cartel junto al Centro Pokémon | Actividad reciente (tablón) | `map/useMapRealtime` (`activity_feed`) |
+| Cartel junto al Centro Pokémon | Actividad reciente (tablón) | `wildlands/lobby/usePlazaRealtime` (`activity_feed`) |
 | Puertas de la ciudad | Mundos WildLands | ya implementado |
 
 La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
@@ -55,7 +55,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 ### Ruteo con paneles superpuestos
 - [x] `/` renderiza `WildlandsView` (lobby). `HomeView` se eliminó: el camino sin juego son el menú y los links directos.
 - [x] Las rutas de features pasan a ser **hijas del lobby**: `/mercado`, `/swap`, `/dungeon`, `/pokedex`, `/perfil`, `/caja`. Se renderizan en un `<router-view>` dentro de `LobbyPanel` (modal en escritorio, hoja inferior en móvil) y la ciudad sigue montada debajo.
-- [x] `/market` y `/profile` redirigen a las nuevas; `/wildlands` redirige a `/` con su query y las rutas desconocidas a `/`. `/map` queda como página suelta hasta R29.
+- [x] `/market` y `/profile` redirigen a las nuevas; `/wildlands` redirige a `/` con su query y las rutas desconocidas a `/`.
 - [x] Botón Atrás del navegador, `Esc` y la ✕ cierran el panel. Los links directos abren la ciudad con el panel ya abierto.
 
 ### Puertas de edificios
@@ -88,7 +88,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 - [x] Llevar al lobby las reglas de `map/useMapEntities` sin duplicarlas: se extrajeron a `map/domain/ownedSlots.ts` y las usan el mapa y la plaza.
   - **Pokémon con dueño visibles:** por decisión de producto, en la plaza **solo se ve el top 10 por precio**. Los del usuario fuera del top no se agregan (el acompañante llega en R27). El mapa legado conserva top 10 + los del usuario. Los 5 Pokémon decorativos se eliminaron.
   - Se usa la hoja overworld de cada especie, o una Poké Ball si no hay hoja ni sprite. Tocar uno muestra nombre, dueño y precio, con acceso al Mercado.
-- [x] Suscripción a `slots` con `useMapRealtime`: los cambios de dueño o precio actualizan la plaza en vivo (entran, salen, cambian de cartel). Al reconectar se vuelve a leer.
+- [x] Suscripción a `slots` con `usePlazaRealtime`: los cambios de dueño o precio actualizan la plaza en vivo (entran, salen, cambian de cartel). Al reconectar se vuelve a leer.
 - [x] **Tablón de actividad** (cartel junto al Centro Pokémon y Menú → Actividad) con `activity_feed`. Hay toasts discretos para eventos nuevos y para cuando un Pokémon del usuario cambia de dueño.
 - [x] Los Pokémon del usuario tienen un distintivo: un rombo amarillo sobre la cabeza.
 - [x] Todo es lectura. Hay tests de que ningún módulo nuevo escribe (mock que falla ante escrituras y escaneo de fuentes).
@@ -128,16 +128,16 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ---
 
-## Fase 5 — Retiro del mapa legado y pulido *(R29)*
+## Fase 5 — Retiro del mapa legado y pulido *(R29)* ✅ hecha (2026-09-14)
 
-- [ ] Eliminar `features/map/components/MapView.vue` y su ruta `/map` (redirigir a `/`) una vez que la Fase 2 cubra sus funciones. Conservar `useMapRealtime` y las reglas de entidades si se reutilizaron.
-- [ ] Evaluar si `public/assets/tiles/*.png` (mapas de Platino) siguen siendo necesarios.
-- [ ] **Carga:**
+- [x] Eliminar `features/map/components/MapView.vue` y todo el feature legado; `/map` redirige a `/` preservando query.
+- [x] Retirar `public/assets/tiles/*.png`, exclusivos del mapa legado. Las lecturas, reglas de slots y Realtime viven ahora bajo `wildlands/lobby/`.
+- [x] **Carga:**
   - Pantalla de carga con precarga de `public/assets/town/*` (~38 KB) y del protagonista.
   - Overworld de Pokémon bajo demanda (ya funciona así).
   - Code-splitting del motor (ya es un chunk propio de ~34 KB gzip).
-- [ ] **Móvil:** barra de navegación reemplazada por el HUD, zoom automático revisado en varios tamaños y pausa del loop con la pestaña oculta (`visibilitychange`).
-- [ ] **Accesibilidad:** menú navegable con teclado, textos alternativos en el HUD y opción "reducir movimiento" (sin lluvia ni fundidos).
+- [x] **Móvil:** barra de navegación reemplazada por el HUD, zoom automático revisado y pausa segura del loop con la pestaña oculta (`visibilitychange`).
+- [x] **Accesibilidad:** menú enfoca su primera opción al abrirse, HUD/minimapa/canvas tienen etiquetas y `prefers-reduced-motion` quita lluvia y fundidos.
 - [ ] Interiores del Centro Pokémon, Tienda y Gimnasio (opcional): áreas pequeñas con cámara más cenital (el soporte de cámara por área ya existe).
 
 **Aceptación:** una sola entrada al producto (la ciudad), sin rutas huérfanas, Lighthouse móvil aceptable y sin regresiones en los tests de las features.
