@@ -19,7 +19,7 @@ vi.mock('../../../shared/api/supabase', () => {
 })
 
 import { supabase } from '../../../shared/api/supabase'
-import { swap, getHistory } from './swapApi'
+import { normaliseSwapResult, swap, getHistory } from './swapApi'
 
 const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>
 const mockFrom   = supabase.from as ReturnType<typeof vi.fn>
@@ -68,6 +68,30 @@ describe('swap', () => {
     mockInvoke.mockResolvedValueOnce({ data: fakeResult, error: null })
     const result = await swap()
     expect(result).toEqual(fakeResult)
+  })
+
+  it('normalises the nested response deployed before the flat contract', async () => {
+    mockInvoke.mockResolvedValueOnce({
+      data: {
+        success: true,
+        given: { pokemon_id: 20 },
+        received: { pokemon_id: 173, rarity: 'raro', is_shiny: false },
+        cooldown_until: '2099-01-01T00:00:00Z',
+      },
+      error: null,
+    })
+
+    await expect(swap()).resolves.toEqual({
+      pokemon_given_id: 20,
+      pokemon_received_id: 173,
+      was_shiny: false,
+      rarity: 'raro',
+      swap_cooldown_until: '2099-01-01T00:00:00Z',
+    })
+  })
+
+  it('rejects a malformed successful response instead of rendering undefined', () => {
+    expect(() => normaliseSwapResult({ success: true })).toThrow('Respuesta de swap inválida')
   })
 
   it('propagates cooldown_active error (swap cooldown enforced server-side)', async () => {
