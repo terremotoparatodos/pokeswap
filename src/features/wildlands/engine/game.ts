@@ -12,7 +12,8 @@ import {
 import { isPortalTile, type Area, type AreaId, type Arrival, type Populace } from './area'
 import { DAY_SECONDS, lighting, type DayPhase, type WeatherKind } from './atmosphere'
 import { Atlas, LOBBY_ID } from '../areas/atlas'
-import { loadTrainerArt, type Dir } from './characters'
+import { loadNpcTrainerArt, type Dir } from './characters'
+import { CompanionFollower } from './companion'
 import { actorLine } from './dialogue'
 import { Entrances } from './doors'
 import { KeyboardInput } from './keyboard'
@@ -20,12 +21,17 @@ import { TapNavigator } from './navigator'
 import type { Tile } from './pathfinding'
 import type { PlazaResident } from './plazaPokemon'
 import { plazaHitAt, plazaHitFacing, type PlazaHit } from './plazaTaps'
-import type { PokedexEntry } from './population'
+import { loadPokemonInfo, type PokedexEntry } from './population'
 import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
+import { PlayerAppearance } from './playerAppearance'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
 import type { LobbyFeature } from '../lobby/features'
+import { DEFAULT_PLAYER_CHARACTER_ID, playerCharacter } from '../identity/playerCharacters'
+import type { PlayerVisualIdentity } from '../identity/playerIdentity'
+import type { TownPosition } from '../identity/playerPreferences'
+import { pokeballInfo } from './pokeball'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
 /** While a panel covers the town the scene keeps animating, but at a battery-friendly rate. */
@@ -52,11 +58,13 @@ export interface GameOptions {
   pokedex: readonly PokedexEntry[]
   onHud: (hud: HudState) => void
   startArea?: AreaId
-  spawn?: Tile | null
+  spawn?: (Tile & { dir?: Dir }) | null
   /** The player walked into a building that hosts a PokeSwap feature. */
   onEnterBuilding?: (buildingId: string, feature: LobbyFeature) => void
   /** The player tapped (or faced) an owned Pokémon or the activity board. */
   onInspect?: (hit: PlazaHit) => void
+  /** Completed safe town tiles, used only for local cosmetic persistence. */
+  onTownPosition?: (position: TownPosition) => void
 }
 
 const LENS_ORDER: LensName[] = ['handheld', 'dramatic', 'cenital']
@@ -66,6 +74,8 @@ export class WildlandsGame {
   private readonly atlas = new Atlas()
   private readonly renderer: Renderer
   private readonly player: Actor
+  private readonly appearance: PlayerAppearance
+  private readonly companion: CompanionFollower
   private readonly onHud: (hud: HudState) => void
   private readonly pokedex: readonly PokedexEntry[]
   private area!: Area
@@ -84,6 +94,8 @@ export class WildlandsGame {
   private readonly travel = new AreaTravel()
   private readonly entrances: Entrances
   private readonly onInspect?: (hit: PlazaHit) => void
+  private readonly onTownPosition?: (position: TownPosition) => void
+  private username: string | null = null
   private owned: readonly PlazaResident[] = []
   private running = false
   private paused = false
@@ -110,11 +122,15 @@ export class WildlandsGame {
     this.pokedex = options.pokedex
     this.onHud = options.onHud
     this.onInspect = options.onInspect
+    this.onTownPosition = options.onTownPosition
     this.entrances = new Entrances(door => options.onEnterBuilding?.(door.buildingId, door.feature))
     this.player = createActor({ id: 'player', kind: 'player', habitat: 'any', tx: 0, ty: 0, trainer: this.renderer.playerSprites })
+    this.appearance = new PlayerAppearance(this.player, this.renderer.playerSprites)
+    this.companion = new CompanionFollower(entry => loadPokemonInfo(entry, false), pokeballInfo)
     const start = options.startArea && Atlas.isKnown(options.startArea) ? options.startArea : LOBBY_ID
     this.enterArea(start, null, options.spawn ?? null)
-    loadTrainerArt(PLAYER_SHEET, this.player, this.renderer.npcSprites, () => this.populace.actors)
+    this.appearance.set(playerCharacter(DEFAULT_PLAYER_CHARACTER_ID))
+    loadNpcTrainerArt(PLAYER_SHEET, this.renderer.npcSprites, () => this.populace.actors)
   }
 
   private readonly rules: MoveRules = {
@@ -135,13 +151,13 @@ export class WildlandsGame {
   }
 
   /** Makes `id` the active area and places the player at its arrival point. */
-  private enterArea(id: AreaId, from: AreaId | null, spawn: Tile | null): void {
+  private enterArea(id: AreaId, from: AreaId | null, spawn: (Tile & { dir?: Dir }) | null): void {
     const area = this.atlas.get(id)
     this.area = area
     this.populace = area.createPopulace({ pokedex: this.pokedex, npcSprites: this.renderer.npcSprites })
     this.populace.setOwned?.(this.owned)
     const arrival = area.arrival(from)
-    this.placePlayer(spawn && !area.isSolid(spawn.tx, spawn.ty) ? { ...spawn, dir: arrival.dir } : arrival)
+    this.placePlayer(spawn && !area.isSolid(spawn.tx, spawn.ty) ? { ...spawn, dir: spawn.dir ?? arrival.dir } : arrival)
     this.lensName = area.lens
     this.lensFrom = LENSES[area.lens]
     this.lensBlend = 1
@@ -160,6 +176,7 @@ export class WildlandsGame {
     this.walker = createWalkerState()
     this.nav.cancel()
     this.travel.arrived(this.area, at.tx, at.ty)
+    this.companion?.reset(p)
     const pos = actorPosition(p)
     this.camX = pos.x
     this.camY = pos.y
@@ -198,6 +215,13 @@ export class WildlandsGame {
   setOwnedPokemon(list: readonly PlazaResident[]): void {
     this.owned = list
     this.populace.setOwned?.(list)
+  }
+
+  /** Applies display-only identity; ownership was validated before it reached the engine. */
+  setPlayerIdentity(identity: PlayerVisualIdentity): void {
+    this.username = identity.username
+    this.appearance.set(identity.character)
+    this.companion.set(identity.companion, this.player)
   }
 
   setVirtualDir(dir: Dir | null): void {
@@ -344,6 +368,7 @@ export class WildlandsGame {
       navigating,
     )
     if (this.nav.update(player, dt)) this.interact()
+    this.companion.update(player, dt)
 
     // Wanderers
     this.populace.update(player.tx, player.ty)
@@ -392,6 +417,10 @@ export class WildlandsGame {
     }
     if (this.entrances.arrive(this.area, tx, ty)) this.nav.cancel()
     const to = this.travel.destinationAt(this.area, tx, ty)
+    if (this.area.id === LOBBY_ID && !to && !this.entrances.isDoor(this.area, tx, ty)) {
+      this.onTownPosition?.({ tx, ty, dir: this.player.dir })
+    }
+    this.companion.playerArrived(this.player)
     if (to) this.travelTo(to)
   }
 
@@ -406,6 +435,8 @@ export class WildlandsGame {
       light: lighting(this.clock),
       weather: { kind: this.weather.kind, intensity: this.weather.intensity },
       player: this.player,
+      companion: this.companion.actor,
+      username: this.username,
       actors: this.populace.actors,
       // The grid helps read procedural terrain; over town art it is noise.
       showGrid: this.showGrid && this.area.kind === 'wild',

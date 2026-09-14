@@ -244,22 +244,15 @@ export async function loadTrainerSheet(url: string, shift?: HueShift): Promise<T
   return hasRun ? { walk, run } : { walk }
 }
 
-/** An actor that can wear trainer art (only NPCs are restyled). */
-type Wearer = Pick<Actor, 'kind' | 'homeTx' | 'homeTy' | 'trainer' | 'trainerRun'>
+/** An actor that can wear trainer art (only NPCs are restyled here). */
+type Wearer = Pick<Actor, 'kind' | 'homeTx' | 'homeTy' | 'trainer'>
 
 /**
- * Swaps the code-drawn trainers for the bundled sheet once it loads: the
- * player wears it and NPCs get hue-shifted recolours. `looks` is refilled in
- * place; on failure the drawn trainers stay.
+ * Swaps code-drawn NPCs for hue-shifted versions of the bundled sheet.
+ * `looks` is refilled in place; on failure the drawn trainers stay. Player
+ * appearance is intentionally independent (playerAppearance.ts).
  */
-export function loadTrainerArt(url: string, player: Wearer, looks: TrainerSprites[], npcs: () => readonly Wearer[]): void {
-  loadTrainerSheet(url)
-    .then(({ walk, run }) => {
-      player.trainer = walk
-      player.trainerRun = run
-    })
-    .catch(error => devWarn('[wildlands] player sheet unavailable, keeping drawn trainer', error))
-
+export function loadNpcTrainerArt(url: string, looks: TrainerSprites[], npcs: () => readonly Wearer[]): void {
   Promise.all(NPC_HUE_SHIFTS.map(shift => loadTrainerSheet(url, shift)))
     .then(sheets => {
       looks.splice(0, looks.length, ...sheets.map(s => s.walk))
