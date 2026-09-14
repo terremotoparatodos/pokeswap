@@ -15,6 +15,7 @@
 import { ref, computed, readonly } from 'vue'
 import type { Pokemon, Slot } from '../../../shared/types/database'
 import type { MapEntity, SlotPatch } from '../types'
+import { mergeSlotPatch, visibleOwnedIds } from '../domain/ownedSlots'
 import {
   getHearthomePoint,
   getSpawnPoint,
@@ -36,17 +37,6 @@ export function useMapEntities() {
   })
 
   const entities = computed(() => Object.values(state.value.entities))
-
-  // Internal helper: top-10 pokemon IDs by current_price (for spawn visibility).
-  let _top10Ids = new Set<number>()
-
-  function _updateTop10(slots: Record<number, Slot>) {
-    const sorted = Object.entries(slots)
-      .filter(([, s]) => s.owner_id)
-      .sort(([, a], [, b]) => (b.current_price ?? 0) - (a.current_price ?? 0))
-      .slice(0, 10)
-    _top10Ids = new Set(sorted.map(([id]) => Number(id)))
-  }
 
   function _rollWildPool(pokemon: Pokemon[], slots: Record<number, Slot>): number[] {
     const available = pokemon.filter(p => !slots[p.id]?.owner_id)
@@ -84,7 +74,7 @@ export function useMapEntities() {
     slots: Record<number, Slot>,
     userId: string | null,
   ) {
-    _updateTop10(slots)
+    const visible = visibleOwnedIds(slots, userId)
 
     const now = Date.now()
     const wildPool = _rollWildPool(pokemon, slots)
@@ -94,9 +84,7 @@ export function useMapEntities() {
     // Owned: only top-10 or the current user's own pokemon
     for (const p of pokemon) {
       const slot = slots[p.id]
-      if (!slot?.owner_id) continue
-      const isMe = userId && slot.owner_id === userId
-      if (!isMe && !_top10Ids.has(p.id)) continue
+      if (!slot?.owner_id || !visible.has(p.id)) continue
 
       const pos = getHearthomePoint()
       entities[p.id] = { id: p.id, pokemon: p, slot, x: pos.x, y: pos.y, isWild: false }
@@ -116,8 +104,9 @@ export function useMapEntities() {
 
   /**
    * Apply a realtime slot patch received from Supabase.
-   * Updates only the entity's slot data and ownership state —
-   * does not move the entity on the map.
+   * `slots` are the slots before the patch; visibility is judged after it, so
+   * Pokémon that enter or leave the top 10 (not only the patched one) are
+   * added or removed. Entities that stay visible keep their position.
    */
   function applySlotPatch(
     patch: SlotPatch,
@@ -129,55 +118,41 @@ export function useMapEntities() {
     const p = pokemon.find(x => x.id === pokemon_id)
     if (!p) return
 
-    _updateTop10(slots)
-    const existing = state.value.entities[pokemon_id]
-    const isOwned = !!patch.owner_id
-    const isMe = !!(userId && patch.owner_id === userId)
+    const nextSlots = mergeSlotPatch(slots, patch)
+    const visible = visibleOwnedIds(nextSlots, userId)
+    const next = { ...state.value.entities }
+    const existing = next[pokemon_id]
 
-    if (isOwned) {
-      if (existing) {
-        // Update slot data in place
-        if (existing.isWild) {
-          // Was wild, now owned — move to city if visible
-          if (isMe || _top10Ids.has(pokemon_id)) {
-            const pos = getHearthomePoint()
-            state.value.entities[pokemon_id] = {
-              ...existing,
-              slot: { ...existing.slot, ...patch } as Slot,
-              x: pos.x, y: pos.y, isWild: false,
-            }
-          } else {
-            // Not top-10 and not mine — remove from map
-            const next = { ...state.value.entities }
-            delete next[pokemon_id]
-            state.value = { ...state.value, entities: next }
-          }
-        } else {
-          state.value.entities[pokemon_id] = {
-            ...existing,
-            slot: { ...existing.slot, ...patch } as Slot,
-          }
-        }
-      } else if (isMe || _top10Ids.has(pokemon_id)) {
-        // New ownership that should appear on the map
-        const pos = getHearthomePoint()
-        state.value.entities[pokemon_id] = {
-          id: pokemon_id, pokemon: p,
-          slot: { ...patch } as Slot,
+    if (patch.owner_id) {
+      if (visible.has(pokemon_id)) {
+        // Newly owned or still owned: wild ones move to the city
+        const pos = existing && !existing.isWild ? existing : getHearthomePoint()
+        next[pokemon_id] = {
+          id: pokemon_id, pokemon: p, slot: nextSlots[pokemon_id],
           x: pos.x, y: pos.y, isWild: false,
         }
+      } else {
+        delete next[pokemon_id]
       }
-    } else {
+    } else if (existing) {
       // Became unowned — replace with a wild entity
-      if (existing) {
-        const pos = getSpawnPoint(p.type1)
-        state.value.entities[pokemon_id] = {
-          ...existing,
-          slot: null,
-          x: pos.x, y: pos.y, isWild: true,
-        }
-      }
+      const pos = getSpawnPoint(p.type1)
+      next[pokemon_id] = { ...existing, slot: null, x: pos.x, y: pos.y, isWild: true }
     }
+
+    // Other owned Pokémon pushed out of (or into) the top 10 by this change
+    for (const entity of Object.values(next)) {
+      if (!entity.isWild && !visible.has(entity.id)) delete next[entity.id]
+    }
+    for (const id of visible) {
+      if (next[id]) continue
+      const other = pokemon.find(x => x.id === id)
+      if (!other) continue
+      const pos = getHearthomePoint()
+      next[id] = { id, pokemon: other, slot: nextSlots[id], x: pos.x, y: pos.y, isWild: false }
+    }
+
+    state.value = { ...state.value, entities: next }
   }
 
   /**

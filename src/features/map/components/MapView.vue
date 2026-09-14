@@ -67,7 +67,7 @@
           :key="event.id"
           class="map-activity-item"
         >
-          <span class="map-activity-type">{{ formatActivityType(event.type) }}</span>
+          <span class="map-activity-type">{{ activityLabel(event.type) }}</span>
           <span v-if="event.pokemon_id"> #{{ event.pokemon_id }}</span>
         </li>
       </ul>
@@ -105,6 +105,7 @@ import { useCamera } from '../composables/useCamera'
 import { useMapEntities } from '../composables/useMapEntities'
 import { useMapRealtime } from '../composables/useMapRealtime'
 import { fetchMapData, fetchRecentActivity } from '../api/mapApi'
+import { activityLabel, mergeSlotPatch } from '../domain/ownedSlots'
 import { ZONES, MAP_W, MAP_H, WILD_ROTATE_MS } from '../data/mapConfig'
 import type { Pokemon, Slot } from '../../../shared/types/database'
 import type { MapEntity } from '../types'
@@ -124,6 +125,7 @@ const _slots   = ref<Record<number, Slot>>({})
 
 const realtime = useMapRealtime((patch) => {
   applySlotPatch(patch, _pokemon.value, _slots.value, user.value?.id ?? null)
+  _slots.value = mergeSlotPatch(_slots.value, patch)
 })
 
 const { recentActivity, connected, seedActivity } = realtime
@@ -168,14 +170,6 @@ function onWheel(e: WheelEvent) {
   const px = rect ? e.clientX - rect.left : e.clientX
   const py = rect ? e.clientY - rect.top  : e.clientY
   camera.zoom(-Math.sign(e.deltaY), px, py)
-}
-
-function formatActivityType(type: string): string {
-  const labels: Record<string, string> = {
-    claim: 'Captura', steal: 'Robo',
-    unlock_region: 'Región', unlock_legendary: 'Legendario', free_claim: 'Gratis',
-  }
-  return labels[type] ?? type
 }
 
 let _rotateTimer: ReturnType<typeof setInterval> | null = null
