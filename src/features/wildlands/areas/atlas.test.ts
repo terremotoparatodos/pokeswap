@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { portalAt } from '../engine/area'
 import { findPath } from '../engine/pathfinding'
+import { assignHome, DOOR_CLEARANCE, plazaCandidates, type Home } from '../engine/plazaPokemon'
 import { LOBBY_FEATURE_IDS } from '../lobby/features'
 import { HEARTHOME, LOBBY_ID, WORLDS } from './atlas'
 import { TownArea } from './townArea'
@@ -97,7 +98,7 @@ describe('Ciudad Corazón lobby', () => {
 
   it('never parks townsfolk on a door', () => {
     const doorTiles = new Set(town.doors.map(d => `${d.door.tx},${d.door.ty}`))
-    for (const spot of [...HEARTHOME.residents, ...HEARTHOME.wanderers, ...HEARTHOME.pokemon]) {
+    for (const spot of [...HEARTHOME.residents, ...HEARTHOME.wanderers]) {
       const { tx, ty } = town.nearestOpen(spot)
       expect(doorTiles.has(`${tx},${ty}`), `spot ${spot.tx},${spot.ty}`).toBe(false)
     }
@@ -111,9 +112,49 @@ describe('Ciudad Corazón lobby', () => {
     expect(town.talkAt(HEARTHOME.spawn.tx, HEARTHOME.spawn.ty)).toBeNull()
   })
 
-  it('places residents, wanderers and Pokémon on open tiles', () => {
-    for (const spot of [...HEARTHOME.residents, ...HEARTHOME.wanderers, ...HEARTHOME.pokemon]) {
+  it('places residents and wanderers on open tiles', () => {
+    for (const spot of [...HEARTHOME.residents, ...HEARTHOME.wanderers]) {
       expect(town.isSolid(spot.tx, spot.ty), `spot ${spot.tx},${spot.ty}`).toBe(false)
+    }
+  })
+
+  it('has one activity board, a solid sign reachable from the spawn', () => {
+    const boards = HEARTHOME.props.filter(p => p.board)
+    expect(boards).toHaveLength(1)
+    const [board] = boards
+    expect(board.kind).toBe('sign')
+    expect(town.isSolid(board.tx, board.ty)).toBe(true)
+    expect(town.noticeBoardAt(board.tx, board.ty)).toBe(true)
+    expect(town.noticeBoardAt(HEARTHOME.spawn.tx, HEARTHOME.spawn.ty)).toBe(false)
+    const blocked = (tx: number, ty: number) => town.isSolid(tx, ty)
+    const path = findPath({
+      start: HEARTHOME.spawn, target: board, blocked, radius: 64, maxNodes: 20000,
+      isGoal: (x, y) => Math.abs(x - board.tx) + Math.abs(y - board.ty) === 1,
+    })
+    expect(path).not.toBeNull()
+  })
+
+  it('has room in the plazas for the top 10, every home reachable and clear of doors and gates', () => {
+    const candidates = plazaCandidates(town, HEARTHOME.plazaZones ?? [], [])
+    expect(candidates.length).toBeGreaterThanOrEqual(3)
+    const taken: Home[] = []
+    // Twice the top 10, so churn (a Pokémon leaving while another arrives) never runs out of room.
+    for (let id = 1; id <= 20; id++) {
+      const home = assignHome(id, candidates, taken)
+      expect(home, `home for #${id}`).not.toBeNull()
+      taken.push(home!)
+    }
+    const blocked = (tx: number, ty: number) => town.isSolid(tx, ty)
+    for (const home of taken) {
+      expect(town.isSolid(home.tx, home.ty)).toBe(false)
+      for (const d of town.doors) {
+        expect(Math.max(Math.abs(d.door.tx - home.tx), Math.abs(d.door.ty - home.ty))).toBeGreaterThanOrEqual(DOOR_CLEARANCE)
+      }
+      const path = findPath({
+        start: HEARTHOME.spawn, target: home, blocked, radius: 64, maxNodes: 20000,
+        isGoal: (x, y) => x === home.tx && y === home.ty,
+      })
+      expect(path, `path to home ${home.tx},${home.ty}`).not.toBeNull()
     }
   })
 })

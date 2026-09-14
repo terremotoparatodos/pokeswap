@@ -23,7 +23,7 @@ beforeEach(() => {
 describe('LobbyMenu', () => {
   it('lists the six functions with the building that hosts each', () => {
     const wrapper = mount(LobbyMenu, { props: { open: true } })
-    const items = wrapper.findAll('.lm-item')
+    const items = wrapper.findAll('.lm-item:not(.lm-item--activity)')
     expect(items.map(i => i.find('.lm-item-title').text())).toEqual(['Mercado', 'Swap', 'Dungeon', 'Pokédex', 'Perfil', 'Mi caja'])
     expect(items[0].find('.lm-item-place').text()).toBe('Tienda')
   })
@@ -33,6 +33,13 @@ describe('LobbyMenu', () => {
     await wrapper.findAll('.lm-item')[4].trigger('click')
     expect(wrapper.emitted('update:open')?.[0]).toEqual([false])
     expect(wrapper.emitted('select')?.[0]).toEqual(['perfil'])
+  })
+
+  it('opens the activity board from the menu', async () => {
+    const wrapper = mount(LobbyMenu, { props: { open: true } })
+    await wrapper.find('.lm-item--activity').trigger('click')
+    expect(wrapper.emitted('update:open')?.[0]).toEqual([false])
+    expect(wrapper.emitted('activity')).toHaveLength(1)
   })
 
   it('offers sign-in without a session and hides tokens', async () => {

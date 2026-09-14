@@ -48,7 +48,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ---
 
-## Fase 1 — La ciudad como home *(R25)* ✅ hecha (2026-09-13)
+## Fase 1 — La ciudad como home *(R25)* ✅ hecha (2026-09-13, en producción el 2026-09-14)
 
 **Objetivo:** `/` abre Ciudad Corazón y las funciones se abren desde los edificios.
 
@@ -77,25 +77,26 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 - [x] En móvil (375 px) todo se usa con tap.
 - [x] Tests de ruteo, de `onEnterBuilding` y de puertas caminables desde el spawn (`atlas.test.ts`, `doors.test.ts`).
 - [x] Motor equivalente fuera de lo nuevo: hashes de trazas de lógica idénticos antes y después.
-- [ ] Antes de promover a `main`: pasar `pokeswap.lol` a Cloudflare Pages y probar links directos en el preview.
+- [x] Antes de promover a `main`: `pokeswap.lol` pasó a Cloudflare Pages y los links directos se probaron en el preview y en producción ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
 
 ---
 
-## Fase 2 — La plaza con datos reales *(R26)*
+## Fase 2 — La plaza con datos reales *(R26)* ✅ hecha (2026-09-13)
 
 **Objetivo:** la ciudad refleja el estado real de PokeSwap y reemplaza al mapa legado (`/map`).
 
-- [ ] Llevar al lobby las reglas de `map/useMapEntities` (sin duplicarlas: extraerlas a funciones puras que compartan ambos):
-  - **Pokémon con dueño visibles:** top 10 por precio y los del usuario pasean por la plaza (reemplazan a los 5 Pokémon decorativos).
-  - Se usa la hoja overworld de cada especie; tocar uno muestra nombre, dueño y precio, con acceso al Mercado.
-- [ ] Suscribirse a `slots` con `useMapRealtime`: cambios de dueño o precio actualizan en vivo a los Pokémon de la plaza (entran, salen, cambian de cartel).
-- [ ] **Tablón de actividad** (cartel junto al Centro Pokémon) con `activity_feed`, y toasts discretos para eventos nuevos.
-- [ ] Los Pokémon del usuario tienen un distintivo (brillo o marcador) para encontrarlos rápido.
-- [ ] Todo es lectura. Ningún cambio de posición o interacción escribe en la base (`TRUST_BOUNDARY` §2).
+- [x] Llevar al lobby las reglas de `map/useMapEntities` sin duplicarlas: se extrajeron a `map/domain/ownedSlots.ts` y las usan el mapa y la plaza.
+  - **Pokémon con dueño visibles:** por decisión de producto, en la plaza **solo se ve el top 10 por precio**. Los del usuario fuera del top no se agregan (el acompañante llega en R27). El mapa legado conserva top 10 + los del usuario. Los 5 Pokémon decorativos se eliminaron.
+  - Se usa la hoja overworld de cada especie, o una Poké Ball si no hay hoja ni sprite. Tocar uno muestra nombre, dueño y precio, con acceso al Mercado.
+- [x] Suscripción a `slots` con `useMapRealtime`: los cambios de dueño o precio actualizan la plaza en vivo (entran, salen, cambian de cartel). Al reconectar se vuelve a leer.
+- [x] **Tablón de actividad** (cartel junto al Centro Pokémon y Menú → Actividad) con `activity_feed`. Hay toasts discretos para eventos nuevos y para cuando un Pokémon del usuario cambia de dueño.
+- [x] Los Pokémon del usuario tienen un distintivo: un rombo amarillo sobre la cabeza.
+- [x] Todo es lectura. Hay tests de que ningún módulo nuevo escribe (mock que falla ante escrituras y escaneo de fuentes).
 
 **Aceptación:**
-- Una compra o swap hecho en otra pestaña se refleja en la plaza en segundos.
-- Con 0, 10 o muchos slots con dueño la plaza sigue fluida (medir ms/frame; objetivo menor a 6 ms en escritorio).
+- [x] Una compra o swap hecho en otra pestaña se refleja en la plaza en segundos: los patches se aplican a los 250 ms. Se verificó con eventos de Realtime inyectados en la app; la prueba con una compra real la hace una persona.
+- [x] Con 0, 10 o la plaza saturada (23) sigue fluida: 2,9 / 3,0 / 3,2 ms/frame en escritorio (p95 ≤ 3,7). Con 5.000 slots, las reglas tardan < 1 ms por lote.
+- [x] Motor equivalente fuera de lo nuevo: hashes de lógica, HUD y píxeles idénticos antes y después.
 
 ---
 
@@ -104,7 +105,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 **Objetivo:** que el personaje sea "tuyo".
 
 - [ ] Nombre de usuario sobre el personaje (texto escapado, `INV-ID-4`).
-- [ ] **Pokémon acompañante:** el jugador elige uno de sus Pokémon (de `useMyBox`) que lo sigue caminando.
+- [ ] **Pokémon acompañante:** el jugador elige uno de sus Pokémon (de `useMyBox`) que lo sigue caminando. Es el único Pokémon propio fuera del top 10 que se ve en la ciudad (decidido en R26).
 - [ ] Elección de personaje (protagonista hombre, mujer y futuros) cuando haya más hojas. Requiere guardar la preferencia:
   - Opción A: `localStorage` (cosmético, sin backend).
   - Opción B: columna en `profiles` actualizada por el propio usuario vía RLS. Revisar con `docs/BACKEND_INVENTORY.md` antes de migrar.

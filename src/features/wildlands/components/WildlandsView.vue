@@ -38,7 +38,21 @@
 
     <LobbyHud :hud="hud" @home="game?.returnToLobby()" />
 
-    <LobbyMenu v-model:open="menuOpen" @select="feature => panel.open(feature, 'menu')" @sign-in="signInOpen = true" />
+    <LobbyPlaza
+      ref="plazaRef"
+      :game="game"
+      :pokedex="pokedex"
+      :covered="covered"
+      @overlay="open => (plazaOpen = open)"
+      @market="panel.open('mercado', 'menu')"
+    />
+
+    <LobbyMenu
+      v-model:open="menuOpen"
+      @select="feature => panel.open(feature, 'menu')"
+      @activity="plazaRef?.openBoard()"
+      @sign-in="signInOpen = true"
+    />
 
     <LobbyPanel v-if="panelShown" :title="panel.title.value" @close="panel.close()">
       <p v-if="panel.access.value === 'wait'" class="wl-panel-wait">Cargando sesión…</p>
@@ -63,6 +77,7 @@ import { useLobbyPanel } from '../lobby/useLobbyPanel'
 import LobbyHud from './LobbyHud.vue'
 import LobbyMenu from './LobbyMenu.vue'
 import LobbyPanel from './LobbyPanel.vue'
+import LobbyPlaza from './LobbyPlaza.vue'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
@@ -107,8 +122,14 @@ function onAuthClose(): void {
   if (needsSignIn.value) panel.close()
 }
 
+// Plaza (R26): owned Pokémon cards and the activity board also pause the town.
+const pokedex = shallowRef<readonly PokedexEntry[]>([])
+const plazaRef = ref<InstanceType<typeof LobbyPlaza> | null>(null)
+const plazaOpen = ref(false)
+const covered = computed(() => panel.feature.value !== null || menuOpen.value || authOpen.value)
+
 watchEffect(() => {
-  game.value?.setPaused(panel.feature.value !== null || menuOpen.value || authOpen.value)
+  game.value?.setPaused(covered.value || plazaOpen.value)
 })
 
 let minimapAt: { area: string; tx: number; ty: number } | null = null
@@ -148,9 +169,8 @@ function onHud(next: HudState): void {
 }
 
 onMounted(async () => {
-  let pokedex: PokedexEntry[] = []
   try {
-    pokedex = await listPokemon()
+    pokedex.value = await listPokemon()
   } catch (error) {
     devWarn('[wildlands] Pokédex unavailable, spawning trainers only', error)
   }
@@ -161,8 +181,9 @@ onMounted(async () => {
   const spawn = Number.isInteger(x) && Number.isInteger(y) && route.query.x !== undefined ? { tx: x, ty: y } : null
   const startArea = typeof route.query.area === 'string' ? route.query.area : undefined
   const created = new WildlandsGame(canvasRef.value, {
-    pokedex, onHud, spawn, startArea,
+    pokedex: pokedex.value, onHud, spawn, startArea,
     onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
+    onInspect: hit => plazaRef.value?.inspect(hit),
   })
   // A direct link to a feature shows the town from that building's door.
   if (panel.feature.value && !spawn) created.placeAtDoor(panel.feature.value)

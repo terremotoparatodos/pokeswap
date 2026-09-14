@@ -10,6 +10,7 @@ import type { Dir, TrainerSprites } from './characters'
 import type { DecorInstance } from './chunks'
 import type { BuildingDoor } from './doors'
 import type { Tile } from './pathfinding'
+import type { PlazaResident } from './plazaPokemon'
 import type { PokedexEntry } from './population'
 import type { LensName } from './projection'
 
@@ -33,6 +34,8 @@ export interface Arrival extends Tile {
 export interface Populace {
   readonly actors: Actor[]
   update(playerTx: number, playerTy: number): void
+  /** Owned Pokémon that should stroll here (towns only). */
+  setOwned?(list: readonly PlazaResident[]): void
 }
 
 export interface PopulaceContext {
@@ -66,6 +69,8 @@ export interface Area {
   weather(tx: number, ty: number, seconds: number): { kind: WeatherKind; intensity: number }
   /** Standing-NPC line for a blocked tile, if any. */
   talkAt(tx: number, ty: number): string | null
+  /** True for the activity board's tile (town only). */
+  noticeBoardAt?(tx: number, ty: number): boolean
   /** Collects a pickup on the tile; returns true when something was collected. */
   collect(tx: number, ty: number): boolean
   paintMinimap(canvas: HTMLCanvasElement, tx: number, ty: number): void
