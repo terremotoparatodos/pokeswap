@@ -8,10 +8,9 @@
 // listens to Realtime. Nothing here writes to Supabase.
 
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type Ref } from 'vue'
-import { fetchRecentActivity, fetchSlots } from '../../map/api/mapApi'
-import { useMapRealtime } from '../../map/composables/useMapRealtime'
-import { mergeSlotPatch, topPricedIds } from '../../map/domain/ownedSlots'
-import type { SlotPatch } from '../../map/types'
+import { fetchRecentActivity, fetchSlots } from './api/plazaApi'
+import { mergeSlotPatch, topPricedIds, type SlotPatch } from './domain/ownedSlots'
+import { usePlazaRealtime } from './usePlazaRealtime'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { ActivityFeedEntry, Slot } from '../../../shared/types/database'
 import type { PlazaResident } from '../engine/plazaPokemon'
@@ -145,7 +144,7 @@ export function usePlazaData(options: PlazaDataOptions) {
     queueNotice(state => ({ ...state, events: [...state.events, event] }))
   }
 
-  const realtime = useMapRealtime(onSlotPatch, {
+  const realtime = usePlazaRealtime(onSlotPatch, {
     channel: 'plaza',
     onActivity,
     // Events may have been missed while disconnected: read the current state again.

@@ -43,11 +43,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/market', redirect: to => ({ name: 'mercado', query: to.query }) },
   { path: '/profile', redirect: to => ({ name: 'perfil', query: to.query }) },
   { path: '/wildlands', redirect: to => ({ path: '/', query: to.query }) },
-  // Legacy map: a full page until R29 retires it.
-  {
-    path: '/map',
-    component: () => import('../../features/map/components/MapView.vue'),
-    meta: { standalone: true },
-  },
+  // Legacy map links now enter Ciudad Corazón.
+  { path: '/map', redirect: to => ({ path: '/', query: to.query }) },
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

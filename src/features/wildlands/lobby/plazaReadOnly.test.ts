@@ -5,10 +5,9 @@ import { describe, expect, it } from 'vitest'
 // edit that adds one fails here and has to be discussed.
 const SOURCES = import.meta.glob<string>(
   [
-    '../../map/domain/ownedSlots.ts',
-    '../../map/api/mapApi.ts',
-    '../../map/composables/useMapRealtime.ts',
-    '../../map/composables/useMapEntities.ts',
+    './domain/ownedSlots.ts',
+    './api/plazaApi.ts',
+    './usePlazaRealtime.ts',
     './usePlazaData.ts',
     './plazaNotices.ts',
     '../engine/plazaPokemon.ts',
@@ -30,11 +29,11 @@ const WRITES = [
   /localStorage|sessionStorage/, /innerHTML|v-html/,
 ]
 /** The only R26 modules allowed to talk to Supabase at all: selects and Realtime. */
-const SUPABASE_CLIENTS = new Set(['../../map/api/mapApi.ts', '../../map/composables/useMapRealtime.ts'])
+const SUPABASE_CLIENTS = new Set(['./api/plazaApi.ts', './usePlazaRealtime.ts'])
 
 describe('R26 plaza modules are read-only', () => {
   it('finds every listed module', () => {
-    expect(Object.keys(SOURCES)).toHaveLength(15)
+    expect(Object.keys(SOURCES)).toHaveLength(14)
   })
 
   it.each(Object.entries(SOURCES))('%s has no write path nor raw HTML', (path, source) => {
