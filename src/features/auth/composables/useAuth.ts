@@ -29,10 +29,16 @@ supabase.auth.onAuthStateChange((_, session) => {
   syncState(session?.user ?? null)
 })
 
+/** Re-reads the signed-in user's profile (e.g. the token balance after a purchase). Read-only. */
+async function refreshProfile(): Promise<void> {
+  if (user.value) profile.value = await getProfile(user.value.id)
+}
+
 export function useAuth() {
   return {
     user: readonly(user),
     profile: readonly(profile),
     isLoading: readonly(isLoading),
+    refreshProfile,
   }
 }

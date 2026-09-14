@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { portalAt } from '../engine/area'
 import { findPath } from '../engine/pathfinding'
+import { LOBBY_FEATURE_IDS } from '../lobby/features'
 import { HEARTHOME, LOBBY_ID, WORLDS } from './atlas'
 import { TownArea } from './townArea'
 import { WildArea } from './wildArea'
@@ -67,6 +68,39 @@ describe('Ciudad Corazón lobby', () => {
     }
     expect(town.arrival('costa')).toMatchObject(town.portals.find(g => g.to === 'costa')!.arrival)
     expect(town.arrival(null)).toMatchObject(HEARTHOME.spawn)
+  })
+
+  it('gives each PokeSwap function one building, with its door on the footprint threshold', () => {
+    const features = town.doors.map(d => d.feature).sort()
+    expect(features).toEqual([...LOBBY_FEATURE_IDS].sort())
+    for (const door of town.doors) {
+      const b = HEARTHOME.buildings.find(x => x.id === door.buildingId)!
+      expect(door.door.ty, `${b.id} door row`).toBe(b.y + b.d - 1)
+      expect(door.door.tx >= b.x && door.door.tx < b.x + b.w, `${b.id} door column`).toBe(true)
+      expect(town.isSolid(door.door.tx, door.door.ty), `${b.id} door walkable`).toBe(false)
+      expect(portalAt(town, door.door.tx, door.door.ty)).toBeNull()
+      expect(town.isSolid(door.exit.tx, door.exit.ty), `${b.id} exit walkable`).toBe(false)
+      expect(door.exit).toEqual({ tx: door.door.tx, ty: door.door.ty + 1, dir: 'down' })
+    }
+  })
+
+  it('can walk from the spawn to every building door', () => {
+    const blocked = (tx: number, ty: number) => town.isSolid(tx, ty)
+    for (const { buildingId, door } of town.doors) {
+      const path = findPath({
+        start: HEARTHOME.spawn, target: door, blocked, radius: 64, maxNodes: 20000,
+        isGoal: (x, y) => x === door.tx && y === door.ty,
+      })
+      expect(path, `path to ${buildingId}`).not.toBeNull()
+    }
+  })
+
+  it('never parks townsfolk on a door', () => {
+    const doorTiles = new Set(town.doors.map(d => `${d.door.tx},${d.door.ty}`))
+    for (const spot of [...HEARTHOME.residents, ...HEARTHOME.wanderers, ...HEARTHOME.pokemon]) {
+      const { tx, ty } = town.nearestOpen(spot)
+      expect(doorTiles.has(`${tx},${ty}`), `spot ${spot.tx},${spot.ty}`).toBe(false)
+    }
   })
 
   it('lets signs and buildings talk when faced', () => {

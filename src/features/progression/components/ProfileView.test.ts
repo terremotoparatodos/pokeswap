@@ -1,4 +1,4 @@
-import { mount } from '@vue/test-utils'
+import { mount, RouterLinkStub } from '@vue/test-utils'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, readonly } from 'vue'
 import ProfileView from './ProfileView.vue'
@@ -9,20 +9,6 @@ const mockGetLedger = vi.fn()
 vi.mock('../api/progressionApi', () => ({
   collectPassiveTokens: (...args: unknown[]) => mockCollect(...args),
   getTokenLedger:       (...args: unknown[]) => mockGetLedger(...args),
-}))
-
-vi.mock('../composables/useMyBox', () => ({
-  useMyBox: () => ({
-    items:     readonly(ref([])),
-    isLoading: readonly(ref(false)),
-    error:     readonly(ref(null)),
-    load:      vi.fn().mockResolvedValue(undefined),
-    refresh:   vi.fn().mockResolvedValue(undefined),
-  }),
-}))
-
-vi.mock('../../market/api/marketApi', () => ({
-  publish: vi.fn().mockResolvedValue(undefined),
 }))
 
 const _user    = ref<{ id: string } | null>({ id: 'u1' })
@@ -50,7 +36,7 @@ beforeEach(() => {
 })
 
 function mountView() {
-  return mount(ProfileView)
+  return mount(ProfileView, { global: { stubs: { RouterLink: RouterLinkStub } } })
 }
 
 describe('ProfileView', () => {
@@ -67,6 +53,13 @@ describe('ProfileView', () => {
     const wrapper = mountView()
     expect(wrapper.find('.profile-unauth').exists()).toBe(true)
     expect(wrapper.find('.profile-stats').exists()).toBe(false)
+  })
+
+  it('links to Mi caja instead of listing the box', async () => {
+    const wrapper = mountView()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.findComponent(RouterLinkStub).props('to')).toEqual({ name: 'caja' })
+    expect(wrapper.find('.profile-box-grid').exists()).toBe(false)
   })
 
   it('loads ledger on mount', async () => {

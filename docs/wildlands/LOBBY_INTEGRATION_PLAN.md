@@ -48,33 +48,36 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ---
 
-## Fase 1 — La ciudad como home *(R25)*
+## Fase 1 — La ciudad como home *(R25)* ✅ hecha (2026-09-13)
 
 **Objetivo:** `/` abre Ciudad Corazón y las funciones se abren desde los edificios.
 
 ### Ruteo con paneles superpuestos
-- [ ] `/` renderiza `WildlandsView` (lobby). La vista actual `HomeView` desaparece o queda como respaldo sin juego.
-- [ ] Las rutas de features pasan a ser **hijas del lobby**: `/mercado`, `/swap`, `/dungeon`, `/pokedex`, `/perfil`, `/caja`. Se renderizan en un `<router-view>` dentro de un panel superpuesto (modal en escritorio, hoja inferior en móvil). La ciudad sigue montada debajo.
-- [ ] Mantener las rutas actuales (`/market`, `/swap`, …) como alias o redirecciones, para no romper links.
-- [ ] Botón Atrás del navegador y `Esc` cierran el panel. Los links directos abren la ciudad con el panel ya abierto.
+- [x] `/` renderiza `WildlandsView` (lobby). `HomeView` se eliminó: el camino sin juego son el menú y los links directos.
+- [x] Las rutas de features pasan a ser **hijas del lobby**: `/mercado`, `/swap`, `/dungeon`, `/pokedex`, `/perfil`, `/caja`. Se renderizan en un `<router-view>` dentro de `LobbyPanel` (modal en escritorio, hoja inferior en móvil) y la ciudad sigue montada debajo.
+- [x] `/market` y `/profile` redirigen a las nuevas; `/wildlands` redirige a `/` con su query y las rutas desconocidas a `/`. `/map` queda como página suelta hasta R29.
+- [x] Botón Atrás del navegador, `Esc` y la ✕ cierran el panel. Los links directos abren la ciudad con el panel ya abierto.
 
 ### Puertas de edificios
-- [ ] `TownBuilding` suma `door: Tile` (casilla caminable frente a la puerta) y `feature: RouteName`.
-- [ ] Pisar la casilla de la puerta, o tocar el edificio (el personaje camina hasta la puerta), dispara `onEnterBuilding(id)`. `WildlandsView` hace `router.push`.
-- [ ] Mientras hay un panel abierto, el juego **pausa el input** y sigue dibujando (o baja a pocos fps para ahorrar batería).
-- [ ] Al cerrar el panel, el personaje aparece frente a la puerta mirando hacia afuera.
+- [x] `TownBuilding` suma `door: Tile` y `feature: LobbyFeature`. La puerta es el umbral caminable en la fila inferior del footprint, para no entrar al pasar por la vereda.
+- [x] Pisar la puerta, o tocar el edificio (el personaje camina hasta ella), dispara `onEnterBuilding(id, feature)` y `WildlandsView` hace `router.push`. La lógica está en `engine/doors.ts`.
+- [x] Mientras hay un panel (o el menú, o el login) abierto, el juego **pausa el input** y dibuja a ~10 fps.
+- [x] Al cerrar un panel abierto por la puerta o por link directo, el personaje aparece frente a la puerta mirando hacia afuera.
 
 ### Interfaz
-- [ ] La barra superior se reemplaza por un botón **Menú** en el HUD (como en la referencia) con acceso directo a cada función, más los datos de sesión (usuario, tokens, salir).
-- [ ] El HUD muestra tokens del perfil (solo lectura, desde `useAuth`/`profiles`).
-- [ ] Sin sesión: el lobby se ve igual, y entrar a una función que la requiere abre `AuthModal`.
-- [ ] Se oculta la ayuda de desarrollo (fps, teclas) en producción.
+- [x] La barra superior se reemplaza por el botón **Menú** del HUD, con las 6 funciones (y su edificio) y los datos de sesión (usuario, tokens, Ingresar/Salir).
+- [x] El HUD muestra los tokens del perfil (solo lectura, `useAuth`). Se relee el perfil al cerrar un panel.
+- [x] Sin sesión el lobby se ve igual, y entrar a una función que la requiere abre `AuthModal`. El Mercado se puede ver sin sesión, como antes.
+- [x] La ayuda de desarrollo (fps, teclas) solo se carga en desarrollo.
+- [x] "Mi caja" es un panel propio (`MyBoxView`), movido desde `ProfileView`.
 
 **Aceptación:**
-- Desde la ciudad se llega a las 6 funciones caminando y también desde el menú.
-- Los links directos funcionan y Atrás cierra paneles.
-- En móvil (375 px) todo se usa con tap.
-- Tests de ruteo, de `onEnterBuilding` y de puertas caminables desde el spawn (extender `atlas.test.ts`).
+- [x] Desde la ciudad se llega a las 6 funciones caminando y también desde el menú.
+- [x] Los links directos funcionan y Atrás cierra paneles.
+- [x] En móvil (375 px) todo se usa con tap.
+- [x] Tests de ruteo, de `onEnterBuilding` y de puertas caminables desde el spawn (`atlas.test.ts`, `doors.test.ts`).
+- [x] Motor equivalente fuera de lo nuevo: hashes de trazas de lógica idénticos antes y después.
+- [ ] Antes de promover a `main`: pasar `pokeswap.lol` a Cloudflare Pages y probar links directos en el preview.
 
 ---
 

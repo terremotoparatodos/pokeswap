@@ -2,7 +2,7 @@ import { ref, readonly } from 'vue'
 import { listOwnedSlotsWithPokemon } from '../../pokemon/api/pokemonApi'
 import type { SlotWithPokemon } from '../../pokemon/api/pokemonApi'
 
-// Module-level singleton — ProfileView and MarketView share the same data.
+// Module-level singleton — MyBoxView and MarketView share the same data.
 const items = ref<SlotWithPokemon[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)

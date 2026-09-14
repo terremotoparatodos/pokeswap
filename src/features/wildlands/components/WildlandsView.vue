@@ -16,16 +16,7 @@
       <p v-if="hud.toast" class="wl-toast" role="status">{{ hud.toast }}</p>
     </transition>
 
-    <aside class="wl-help">
-      <p class="wl-help-title">WildLands · prototipo</p>
-      <ul>
-        <li><b>Click</b> para caminar · click en alguien para hablarle</li>
-        <li>Caminá hasta una puerta de la ciudad para viajar a otro mundo</li>
-        <li><kbd>WASD</kbd>/<kbd>↑↓←→</kbd> también mueven · <kbd>Shift</kbd> correr</li>
-        <li><kbd>E</kbd> interactuar · <kbd>G</kbd> grilla · <kbd>N</kbd> +3 h</li>
-      </ul>
-      <p class="wl-help-perf">{{ hud.fps }} fps · {{ hud.frameMs }} ms/frame</p>
-    </aside>
+    <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
 
     <div class="wl-minimap">
       <canvas ref="minimapRef" />
@@ -45,49 +36,37 @@
       </button>
     </template>
 
-    <div class="wl-hud">
-      <span class="wl-place">
-        {{ hud.place }}<template v-if="hud.areaKind === 'wild'"> ({{ hud.tx }}, {{ hud.ty }})</template>
-      </span>
-      <span class="wl-sep" />
-      <span class="wl-weather" :title="WEATHER_LABEL[hud.weather]">
-        <svg v-if="hud.weather === 'clear'" viewBox="0 0 20 20" aria-hidden="true">
-          <circle cx="10" cy="10" r="3.5" />
-          <path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3M4 4l2 2M14 14l2 2M4 16l2-2M14 6l2-2" />
-        </svg>
-        <svg v-else viewBox="0 0 20 20" aria-hidden="true">
-          <path d="M5.5 12.5a3.5 3.5 0 0 1 .4-7 4.5 4.5 0 0 1 8.6 1.2 3 3 0 0 1-.5 5.8z" />
-          <path v-if="hud.weather === 'rain'" d="M7 15l-1 3M10.5 15l-1 3M14 15l-1 3" />
-          <path v-else d="M7 16h.01M10.5 17.5h.01M14 16h.01" stroke-width="2.4" />
-        </svg>
-      </span>
-      <span class="wl-sep" />
-      <span class="wl-phase">{{ hud.phase }}</span>
-      <template v-if="hud.areaKind === 'wild'">
-        <span class="wl-sep" />
-        <span class="wl-crystals">{{ hud.crystals }} cristales</span>
-        <span class="wl-sep" />
-        <button class="wl-hud-btn wl-home" :disabled="hud.traveling" title="Volver a Ciudad Corazón" @click="game?.returnToLobby()">
-          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9.5 10 3.5l7 6M5 8.5V16h10V8.5M8.5 16v-4h3v4" /></svg>
-          Ciudad
-        </button>
-      </template>
-    </div>
+    <LobbyHud :hud="hud" @home="game?.returnToLobby()" />
+
+    <LobbyMenu v-model:open="menuOpen" @select="feature => panel.open(feature, 'menu')" @sign-in="signInOpen = true" />
+
+    <LobbyPanel v-if="panelShown" :title="panel.title.value" @close="panel.close()">
+      <p v-if="panel.access.value === 'wait'" class="wl-panel-wait">Cargando sesión…</p>
+      <router-view v-else />
+    </LobbyPanel>
+
+    <AuthModal :open="authOpen" @success="authSucceeded = true" @close="onAuthClose" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted, reactive, ref, shallowRef } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, reactive, ref, shallowRef, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
+import AuthModal from '../../auth/components/AuthModal.vue'
 import { listPokemon } from '../../pokemon/api/pokemonApi'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { Dir } from '../engine/characters'
 import { WildlandsGame, type HudState } from '../engine/game'
 import type { PokedexEntry } from '../engine/population'
-import type { WeatherKind } from '../engine/atmosphere'
 import { LOBBY_ID } from '../areas/atlas'
+import { useLobbyPanel } from '../lobby/useLobbyPanel'
+import LobbyHud from './LobbyHud.vue'
+import LobbyMenu from './LobbyMenu.vue'
+import LobbyPanel from './LobbyPanel.vue'
 
-const WEATHER_LABEL: Record<WeatherKind, string> = { clear: 'Despejado', rain: 'Lluvia', snow: 'Nieve' }
+// Controls and fps help: development builds only, so production never ships it.
+const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
+
 const arrows: { dir: Dir; label: string }[] = [
   { dir: 'up', label: 'Arriba' },
   { dir: 'down', label: 'Abajo' },
@@ -103,6 +82,33 @@ const loading = ref(true)
 const hud = reactive<HudState>({
   areaId: LOBBY_ID, areaKind: 'town', place: '—', tx: 0, ty: 0, phase: 'Día', weather: 'clear', crystals: 0,
   lens: 'handheld', toast: null, traveling: false, fps: 0, frameMs: 0,
+})
+
+// Panels over the town. Leaving a building (or a building's direct link) puts the
+// player back outside its door; panels opened from the menu leave them where they were.
+const panel = useLobbyPanel({
+  onClosed: (feature, origin) => {
+    if (origin !== 'menu') game.value?.placeAtDoor(feature)
+  },
+})
+const menuOpen = ref(false)
+const signInOpen = ref(false)
+/** Signing in finished but the session may still be on its way. */
+const authSucceeded = ref(false)
+watch(panel.feature, () => { authSucceeded.value = false })
+
+const needsSignIn = computed(() => panel.access.value === 'auth' && !authSucceeded.value)
+const authOpen = computed(() => signInOpen.value || needsSignIn.value)
+// After a successful sign-in the feature view shows itself (and its own sign-in hint until the session lands).
+const panelShown = computed(() => panel.access.value !== 'closed' && !needsSignIn.value)
+
+function onAuthClose(): void {
+  signInOpen.value = false
+  if (needsSignIn.value) panel.close()
+}
+
+watchEffect(() => {
+  game.value?.setPaused(panel.feature.value !== null || menuOpen.value || authOpen.value)
 })
 
 let minimapAt: { area: string; tx: number; ty: number } | null = null
@@ -154,11 +160,17 @@ onMounted(async () => {
   const y = Number(route.query.y)
   const spawn = Number.isInteger(x) && Number.isInteger(y) && route.query.x !== undefined ? { tx: x, ty: y } : null
   const startArea = typeof route.query.area === 'string' ? route.query.area : undefined
-  game.value = new WildlandsGame(canvasRef.value, { pokedex, onHud, spawn, startArea })
-  game.value.start()
+  const created = new WildlandsGame(canvasRef.value, {
+    pokedex, onHud, spawn, startArea,
+    onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
+  })
+  // A direct link to a feature shows the town from that building's door.
+  if (panel.feature.value && !spawn) created.placeAtDoor(panel.feature.value)
+  game.value = created
+  created.start()
   loading.value = false
   const touch = window.matchMedia('(pointer: coarse)').matches
-  game.value.notify(touch ? 'Tocá el suelo para caminar' : 'Hacé click en el suelo para caminar')
+  created.notify(touch ? 'Tocá el suelo para caminar' : 'Hacé click en el suelo para caminar')
 })
 
 onUnmounted(() => {
@@ -169,8 +181,8 @@ onUnmounted(() => {
 <style scoped>
 .wl {
   position: relative;
-  height: calc(100vh - 52px);
-  height: calc(100dvh - 52px);
+  height: 100vh;
+  height: 100dvh;
   min-height: 420px;
   overflow: hidden;
   background: #0f1a33;
@@ -229,41 +241,6 @@ onUnmounted(() => {
 .wl-fade-leave-to {
   opacity: 0;
   transform: translate(-50%, -6px);
-}
-
-.wl-help {
-  position: absolute;
-  top: 1rem;
-  left: 1rem;
-  padding: 0.55rem 0.8rem;
-  border-radius: 10px;
-  background: rgba(16, 26, 54, 0.78);
-  color: #dfe8ff;
-  font-size: 0.78rem;
-  line-height: 1.6;
-}
-.wl-help-title {
-  margin: 0 0 0.15rem;
-  font-weight: 700;
-  color: #fff;
-}
-.wl-help-perf {
-  margin: 0.2rem 0 0;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.6;
-}
-.wl-help ul {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-kbd {
-  padding: 0 0.3rem;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  font-family: inherit;
-  font-size: 0.72rem;
 }
 
 .wl-minimap {
@@ -325,71 +302,13 @@ kbd {
 .wl-arrow--left { top: 50%; left: 1rem; transform: translateY(-50%) rotate(-90deg); }
 .wl-arrow--right { top: 50%; right: 1rem; transform: translateY(-50%) rotate(90deg); }
 
-.wl-hud {
-  position: absolute;
-  bottom: 1.25rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.55rem 1.25rem;
-  border: 2px solid #3a5fb8;
-  border-radius: 999px;
-  background: rgba(16, 26, 54, 0.92);
-  color: #fff;
-  font-size: 1rem;
-  white-space: nowrap;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-.wl-hud svg {
-  width: 20px;
-  height: 20px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-}
-.wl-hud-btn {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
-}
-.wl-hud-btn:hover {
-  color: #9fc0ff;
-}
-.wl-hud-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-.wl-home {
-  color: #ffd27a;
-}
-.wl-sep {
-  width: 1px;
-  height: 1.1rem;
-  background: rgba(255, 255, 255, 0.25);
-}
-.wl-weather {
-  display: flex;
-  color: #dfe8ff;
-}
-.wl-phase {
-  color: #c7d0e6;
-}
-.wl-crystals {
-  color: #7fe3f5;
-  font-weight: 600;
+.wl-panel-wait {
+  padding: 2rem 1.25rem;
+  text-align: center;
+  opacity: 0.7;
 }
 
 @media (max-width: 720px) {
-  .wl-help { display: none; }
   .wl-toast {
     top: auto;
     bottom: 4.75rem;
@@ -397,7 +316,6 @@ kbd {
     white-space: normal;
     text-align: center;
   }
-  .wl-hud { font-size: 0.8rem; gap: 0.5rem; padding: 0.45rem 0.9rem; }
-  .wl-minimap { width: 96px; height: 96px; }
+  .wl-minimap { top: 0.75rem; right: 0.75rem; width: 96px; height: 96px; }
 }
 </style>
