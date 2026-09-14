@@ -1,9 +1,9 @@
 # WildLands — Traspaso de contexto
 
 > Documento de respaldo para retomar el trabajo en otra conversación.
-> Estado tras implementar **R29 (Retiro del mapa legado y pulido)** en la rama `feat/wildlands-r29`, todavía sin commit ni PR.
+> Estado tras **R29 (Retiro del mapa legado y pulido)**, fusionada en `migration` mediante merge commit `f6d6d80` (PR [#14](https://github.com/terremotoparatodos/pokeswap/pull/14)).
 > R25 (La ciudad como home) está en `migration` ([#6](https://github.com/terremotoparatodos/pokeswap/pull/6)) y en producción en https://pokeswap.lol ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
-> Plan siguiente: [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
+> Plan siguiente: [`R30_MULTIPLAYER_PLAN.md`](R30_MULTIPLAYER_PLAN.md), complementado por [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
 
 ---
 
@@ -338,4 +338,4 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
 
 Pegar algo como:
 
-> Seguimos WildLands de PokeSwap. Leé `docs/wildlands/HANDOFF.md` y `docs/wildlands/LOBBY_INTEGRATION_PLAN.md`, creá la rama de la fase desde `migration` actualizada y arrancá por la fase que indique.
+> Seguimos WildLands de PokeSwap. Vamos a hacer R30: presencia multijugador efímera. Antes de escribir código leé completos `AGENTS.md`, `docs/INVARIANTS.md`, `docs/TRUST_BOUNDARY.md`, `docs/wildlands/HANDOFF.md`, `docs/wildlands/LOBBY_INTEGRATION_PLAN.md` y `docs/wildlands/R30_MULTIPLAYER_PLAN.md`; inspeccioná el motor y las rutas de WildLands. Según AGENTS.md §17, proponé un desglose por responsabilidades y esperá mi confirmación. R29 está fusionada en `migration` mediante `f6d6d80`; verificá el estado con `gh`, actualizá `migration` y creá `feat/wildlands-r30`. No implementes chat, combate, captura, recompensas, escrituras de cliente a Supabase, cambios de economía/auth/RLS/migraciones/RPCs/Edge Functions ni polling. Usa Colyseus Cloud y Docker para un servicio separado; Ciudad con visibilidad total, wild con interés espacial, espectadores sin actor y máximo global de 100 conexiones. Requiere tests de seguridad, protocolo y carga antes del PR hacia `migration`; usa siempre Create a merge commit al fusionar.
