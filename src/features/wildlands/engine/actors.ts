@@ -46,6 +46,8 @@ export interface Actor {
   pokemon?: PokemonInfo
   /** A real owned Pokémon strolling the plaza (R26); `mine` when the viewer owns it. */
   owned?: { mine: boolean }
+  /** Session-only member of the server-filtered WildLands pool. */
+  wild?: true
   /** Bounce offset for Pokémon hops, in world px. */
   hop: number
 }

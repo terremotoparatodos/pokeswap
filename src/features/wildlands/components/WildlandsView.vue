@@ -45,6 +45,7 @@
       :covered="covered"
       @overlay="open => (plazaOpen = open)"
       @market="panel.open('mercado', 'menu')"
+      @feature="feature => panel.open(feature, 'menu')"
     />
 
     <LobbyMenu

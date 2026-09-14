@@ -36,6 +36,8 @@ export interface Populace {
   update(playerTx: number, playerTy: number): void
   /** Owned Pokémon that should stroll here (towns only). */
   setOwned?(list: readonly PlazaResident[]): void
+  /** Current free members of the cosmetic WildLands pool (worlds only). */
+  setWildPokemonIds?(ids: readonly number[]): void
 }
 
 export interface PopulaceContext {
