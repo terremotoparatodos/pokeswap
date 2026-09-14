@@ -26,6 +26,12 @@
               <span v-if="item.building" class="lm-item-place">{{ item.building }}</span>
             </button>
           </li>
+          <li>
+            <button class="lm-item lm-item--activity" @click="showActivity">
+              <span class="lm-item-title">Actividad</span>
+              <span class="lm-item-place">Tablón junto al Centro Pokémon</span>
+            </button>
+          </li>
         </ul>
 
         <div class="lm-session">
@@ -55,7 +61,7 @@ import { LOBBY_FEATURE_IDS, LOBBY_FEATURES, type LobbyFeature } from '../lobby/f
 
 // Shortcut to every PokeSwap function, plus the session. Tokens are shown read-only.
 const props = defineProps<{ open: boolean }>()
-const emit = defineEmits<{ 'update:open': [open: boolean]; select: [feature: LobbyFeature]; signIn: [] }>()
+const emit = defineEmits<{ 'update:open': [open: boolean]; select: [feature: LobbyFeature]; activity: []; signIn: [] }>()
 
 const { profile, isLoading } = useAuth()
 const signingOut = ref(false)
@@ -79,6 +85,11 @@ function formatTokens(tokens: number | null | undefined): string {
 function choose(feature: LobbyFeature): void {
   emit('update:open', false)
   emit('select', feature)
+}
+
+function showActivity(): void {
+  emit('update:open', false)
+  emit('activity')
 }
 
 async function signOut(): Promise<void> {
