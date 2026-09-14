@@ -1,5 +1,5 @@
 <template>
-  <div class="wl-hud">
+  <div class="wl-hud" aria-label="Estado de la exploración">
     <span class="wl-place">
       {{ hud.place }}<template v-if="hud.areaKind === 'wild'"> ({{ hud.tx }}, {{ hud.ty }})</template>
     </span>
