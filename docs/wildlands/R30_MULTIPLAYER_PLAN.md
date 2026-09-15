@@ -1,6 +1,6 @@
 # R30 — Presencia multijugador efímera
 
-> Estado: plan aprobado; sin implementación ni dependencias añadidas.
+> Estado: implementación local aprobada; pendiente de auditoría final, commits y despliegue. No está fusionada ni publicada.
 > Base: R29 fusionada en `migration` mediante merge commit `f6d6d80`.
 
 ## Objetivo
@@ -9,7 +9,7 @@ Hacer visible la presencia multijugador en Ciudad Corazón y la zona wild inicia
 
 ## Decisiones de producto aprobadas
 
-- Una sola Ciudad Corazón y una sola zona wild inaugural; ambas usan la misma semilla de mundo existente para todos.
+- Una sola Ciudad Corazón y una sola zona wild inaugural (**Pradera Brisa**); ambas usan la misma semilla de mundo existente para todos. Bosque, Desierto, Tundra y Costa no tienen presencia compartida en R30.
 - Ciudad: los jugadores autenticados se ven entre sí sin colisión.
 - Wild: los jugadores comparten mundo, pero sólo reciben presencia dentro de su interés visual por sectores cercanos.
 - El username se muestra siempre sobre el actor y se trata como texto no confiable.
@@ -19,9 +19,9 @@ Hacer visible la presencia multijugador en Ciudad Corazón y la zona wild inicia
 - Colyseus Cloud es el hosting inicial elegido.
 - Chat queda explícitamente fuera de R30, pero la identidad y lifecycle se diseñan para no impedir una fase futura de chat con moderación, bloqueo, reporte y rate limiting propios.
 
-### Open question de capacidad
+### Capacidad aprobada
 
-**INFERENCE:** el tope global de 100 debe incluir espectadores, porque consumen sockets, CPU y ancho de banda. Si producto quiere reservar cupos para usuarios autenticados, esa política deberá definirse antes de implementar la cola/rechazo de conexiones.
+El tope global de 100 incluye jugadores y espectadores. No hay cola ni cupos separados por área en R30.
 
 ## Confianza y autoridad
 
@@ -55,7 +55,7 @@ Colyseus server
 - Un proceso y hasta 100 conexiones totales; medir primero con 50 jugadores autenticados y espectadores separados.
 - Ciudad: visibilidad completa dentro de la sala.
 - Wild: sectores y vecinos; no se transmite el mundo entero ni actores a distancia infinita.
-- Frecuencia inicial a decidir mediante prueba de carga; objetivo de diseño: movimiento suave sin saturar 375 px.
+- Movimiento validado por el servidor: 3,75 casillas/s caminando, 7,5 corriendo, intervalo mínimo de 240 ms/100 ms y ráfaga máxima de 10 intenciones por segundo.
 - Si se supera la capacidad: rechazar/encolar de modo explícito; no crear otra copia de la semilla sin una decisión de producto.
 
 ## Estructura propuesta
@@ -73,10 +73,8 @@ services/
     compose.yaml             # sólo desarrollo local
 src/features/wildlands/
   multiplayer/
-    api/
-    state/
-    domain/
-    engine/
+    api/                    # adaptador Colyseus
+    domain/                 # puerto, contrato y reconciliación de área
 ```
 
 `WildlandsGame` recibe un puerto de actores remotos. No importa Colyseus, Supabase ni detalles de socket. Los actores remotos no bloquean colisión/pathfinding, no reciben interacción ni alteran puertas, viajes o recompensas.
@@ -89,23 +87,25 @@ src/features/wildlands/
 - `docker compose` no añade Redis al primer despliegue. Redis/shared presence queda para la futura división horizontal entre procesos.
 - Colyseus Cloud parte de USD 15/mes según su página de precios; validar región, plan y coste real antes de activar facturación.
 
-## Dependencias autorizadas, aún no instaladas
+## Dependencias instaladas
 
-- `@colyseus/core` y `@colyseus/schema`, sólo en `services/realtime`.
-- `colyseus.js`, sólo para el adaptador cliente de WildLands.
+- `@colyseus/core`, `@colyseus/ws-transport` y `@colyseus/schema`, sólo en `services/realtime`.
+- `@colyseus/sdk`, sólo para el adaptador cliente de WildLands.
 - Docker, como empaquetado del servicio, no como dependencia de frontend.
 
-## Pruebas requeridas
+## Verificación realizada
 
-- Guest observa y no crea actor ni puede enviar movimiento.
-- JWT inválido o expirado no obtiene presencia autenticada.
-- Username hostil se dibuja como texto literal.
-- Teletransporte, velocidad imposible, payload malformado y spam se rechazan.
-- Dos jugadores de ciudad se ven y se atraviesan.
-- En wild, jugadores lejanos no se reciben y aparecen al cruzar sectores de interés.
-- Viaje, logout, reconexión, pestaña oculta y cierre limpian presencia sin duplicados.
-- Ningún módulo de R30 hace una escritura de Supabase o conserva estado autoritativo en navegador.
-- Carga: 50 jugadores autenticados en ciudad y distribución wild; confirmar FPS y red en 375 px antes de subir a 100.
+- Protocolo: guest sin actor, JWT inválido como guest, reemplazo de sesión, spawn autoritativo posterior a `presence:ready`, anti-spam, secuencias repetidas, límite de 100 e interés spatial/leave.
+- Seguridad: sin escrituras de Supabase, service-role, secretos, polling ni HTML inseguro en el adaptador.
+- Integración: `WildlandsGame` usa un puerto de presencia; no importa Colyseus ni Supabase. Los actores remotos no bloquean ni reciben interacción.
+- Carga: preflight reproducible de 50 jugadores (`npm run test:load` en `services/realtime`).
+- Manual local: dos clientes autenticados y un espectador; ciudad, Pradera, carrera, click-path, entrada/salida y portal oeste a Pradera. Las puertas de Costa, Tundra, Bosque y Desierto se bloquean mientras presencia esté activa, porque no son zonas compartidas R30.
+
+## Pendiente de despliegue
+
+- Crear el servicio en Colyseus Cloud, cargar variables de entorno y configurar health checks internos.
+- Publicar la URL `wss://` resultante como `VITE_REALTIME_URL` en el build de Cloudflare Pages.
+- Ejecutar una prueba de aceptación con dos cuentas y un espectador en el entorno Cloud antes de abrir el PR de promoción.
 
 ## Criterios de aceptación
 
