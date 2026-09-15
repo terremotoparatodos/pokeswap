@@ -1,4 +1,5 @@
 const LOCAL_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173'])
+const PRODUCTION_ORIGINS = new Set(['https://pokeswap.lol', 'https://www.pokeswap.lol'])
 
 function configuredOrigin(value) {
   const candidate = value.trim().replace(/^[\["']+|[\]"']+$/g, '')
@@ -14,7 +15,8 @@ export function allowedOrigins(env) {
     .split(',')
     .map(configuredOrigin)
     .filter(Boolean)
-  return new Set(configured.length ? configured : env.NODE_ENV === 'production' ? [] : LOCAL_ORIGINS)
+  if (env.NODE_ENV === 'production') return new Set([...PRODUCTION_ORIGINS, ...configured])
+  return new Set(configured.length ? configured : LOCAL_ORIGINS)
 }
 
 /** Reject browser upgrades from an origin not explicitly trusted by this deployment. */
