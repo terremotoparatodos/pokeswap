@@ -58,6 +58,13 @@ export interface HudState {
   frameMs: number
 }
 
+/** A world tile the player tapped beside or faces. */
+export interface WorldObjectTarget {
+  area: Area
+  tx: number
+  ty: number
+}
+
 export interface GameOptions {
   pokedex: readonly PokedexEntry[]
   onHud: (hud: HudState) => void
@@ -67,6 +74,8 @@ export interface GameOptions {
   onEnterBuilding?: (buildingId: string, feature: LobbyFeature) => void
   /** The player tapped (or faced) a read-only world interaction. */
   onInspect?: (hit: PlazaHit | WildHit) => void
+  /** Development prototypes (R31-B professions): returns true when it handled the tile. */
+  onWorldObject?: (target: WorldObjectTarget) => boolean
   /** Completed safe town tiles, used only for local cosmetic persistence. */
   onTownPosition?: (position: TownPosition) => void
   presence?: LocalPresencePort | null
@@ -99,6 +108,7 @@ export class WildlandsGame {
   private readonly travel = new AreaTravel()
   private readonly entrances: Entrances
   private readonly onInspect?: (hit: PlazaHit | WildHit) => void
+  private readonly onWorldObject?: (target: WorldObjectTarget) => boolean
   private readonly onTownPosition?: (position: TownPosition) => void
   private readonly presence?: LocalPresencePort | null
   private remoteActors: Actor[] = []
@@ -140,6 +150,7 @@ export class WildlandsGame {
     this.pokedex = options.pokedex
     this.onHud = options.onHud
     this.onInspect = options.onInspect
+    this.onWorldObject = options.onWorldObject
     this.onTownPosition = options.onTownPosition
     this.presence = options.presence
     this.entrances = new Entrances(door => options.onEnterBuilding?.(door.buildingId, door.feature))
@@ -379,7 +390,14 @@ export class WildlandsGame {
     const pick = this.renderer.pick(cssX, cssY)
     const hit = this.onInspect ? plazaHitAt(this.area, pick) ?? wildHitAt(this.area, pick) : null
     if (hit) this.onInspect!(hit)
-    else this.nav.goTo(this.player, this.entrances.retarget(this.area, pick))
+    else if (!this.worldObjectBeside(pick.tile)) this.nav.goTo(this.player, this.entrances.retarget(this.area, pick))
+  }
+
+  /** A tile next to the player may host a prototype interaction; farther tiles walk there first. */
+  private worldObjectBeside(tile: Tile | null): boolean {
+    if (!tile || !this.onWorldObject) return false
+    if (Math.abs(tile.tx - this.player.tx) + Math.abs(tile.ty - this.player.ty) !== 1) return false
+    return this.onWorldObject({ area: this.area, tx: tile.tx, ty: tile.ty })
   }
 
   /** Press-and-drag retargeting: only re-plans when the finger moves to another tile. */
@@ -437,6 +455,7 @@ export class WildlandsGame {
       this.onInspect!(hit)
       return
     }
+    if (!other && this.onWorldObject?.({ area: this.area, tx, ty })) return
     const said = other ? actorLine(other, this.area.kind === 'town', tx, ty) : null
     if (other && said) {
       other.dir = OPPOSITE[this.player.dir]

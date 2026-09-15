@@ -50,6 +50,13 @@
       @feature="feature => panel.open(feature, 'menu')"
     />
 
+    <ProfessionWorldDemo
+      v-if="ProfessionWorldDemo"
+      ref="professionRef"
+      :area-kind="hud.areaKind"
+      @overlay="(open: boolean) => (professionOpen = open)"
+    />
+
     <LobbyMenu
       v-model:open="menuOpen"
       :reduced-motion="reduceMotion"
@@ -75,7 +82,7 @@ import AuthModal from '../../auth/components/AuthModal.vue'
 import { listPokemon } from '../../pokemon/api/pokemonApi'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { Dir } from '../engine/characters'
-import { WildlandsGame, type HudState } from '../engine/game'
+import { WildlandsGame, type HudState, type WorldObjectTarget } from '../engine/game'
 import type { PokedexEntry } from '../engine/population'
 import { LOBBY_ID } from '../areas/atlas'
 import { useLobbyPanel } from '../lobby/useLobbyPanel'
@@ -91,6 +98,8 @@ import { useAuth } from '../../auth/composables/useAuth'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
+// R31-B profession prototype: development builds only, never shipped to production.
+const ProfessionWorldDemo = import.meta.env.DEV ? defineAsyncComponent(() => import('../../professions/components/world/ProfessionWorldDemo.vue')) : null
 
 const arrows: { dir: Dir; label: string }[] = [
   { dir: 'up', label: 'Arriba' },
@@ -145,13 +154,15 @@ function onAuthClose(): void {
 const pokedex = shallowRef<readonly PokedexEntry[]>([])
 const plazaRef = ref<InstanceType<typeof LobbyPlaza> | null>(null)
 const plazaOpen = ref(false)
+const professionRef = ref<{ inspect: (target: WorldObjectTarget) => boolean } | null>(null)
+const professionOpen = ref(false)
 const covered = computed(() => panel.feature.value !== null || menuOpen.value || authOpen.value)
 const motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
 const reduceMotion = ref(motionMedia.matches)
 const hidden = ref(document.visibilityState === 'hidden')
 
 watchEffect(() => {
-  game.value?.setPaused(covered.value || plazaOpen.value)
+  game.value?.setPaused(covered.value || plazaOpen.value || professionOpen.value)
   game.value?.setVisibilityPaused(hidden.value)
   game.value?.setReducedMotion(reduceMotion.value)
 })
@@ -218,6 +229,7 @@ onMounted(async () => {
     pokedex: pokedex.value, onHud, spawn, startArea,
     onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
     onInspect: hit => plazaRef.value?.inspect(hit),
+    onWorldObject: ProfessionWorldDemo ? target => professionRef.value?.inspect(target) ?? false : undefined,
     onTownPosition: identity.recordTownPosition,
     presence: presencePort,
   })
