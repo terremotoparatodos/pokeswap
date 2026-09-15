@@ -18,7 +18,7 @@ npm run dev
 **Producción no incluye nada de R31-B:**
 - la ruta `/dev/profesiones` no existe;
 - el componente de WildLands no se monta ni se empaqueta;
-- verificado buscando textos del módulo en `dist/` después de `npm run build`: sin coincidencias.
+- verificado buscando textos del módulo en `dist/` después de `npm run build`: sin coincidencias, salvo el nombre de la opción genérica del motor `onWorldObject`, que en producción no recibe callback y queda inerte.
 
 ## 2. Arquitectura de UI
 
