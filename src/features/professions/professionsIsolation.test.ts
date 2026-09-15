@@ -13,11 +13,24 @@ const isComponent = (path: string) => path.startsWith('./components/')
  */
 const DEV_ENTRY_POINTS = ['../../app/router/routes.ts', '../wildlands/components/WildlandsView.vue']
 
+/** WildLands engine modules each layer may use. The engine never imports professions. */
+const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
+  ['./art/', /\/wildlands\/engine\/(noise|pixels|props|sprite)$/],
+  ['./mining/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay|game)$/],
+  ['./components/', /\/wildlands\/engine\/(world|noise|characters|game)$/],
+  ['./', /\/wildlands\/engine\/(world|noise)$/],
+]
+
+/** Vue is allowed in components and in the two composables that wrap pure state. */
+const VUE_ALLOWED = ['./demo/useProfessionDemo.ts', './mining/useMiningController.ts']
+/** Files that instantiate the game engine (dev-only field lab). */
+const ENGINE_VALUE_IMPORT = ['./components/playground/MiningFieldLab.vue']
+
 describe('R31 professions isolation', () => {
   const ownSources = Object.entries(ALL_SOURCES).filter(([path]) => isProfessions(path) && !isTest(path))
 
   it('has sources to scan', () => {
-    expect(ownSources.length).toBeGreaterThan(20)
+    expect(ownSources.length).toBeGreaterThan(40)
   })
 
   it('never persists, fetches or talks to realtime services', () => {
@@ -26,28 +39,35 @@ describe('R31 professions isolation', () => {
     }
   })
 
-  it('keeps domain, simulation, UI models and demo state free of DOM, Vue views and unseeded randomness', () => {
+  it('keeps domain, simulation, art, mining runtime and demo state free of DOM globals and unseeded randomness', () => {
     for (const [path, source] of ownSources.filter(([path]) => !isComponent(path))) {
       expect(source, path).not.toMatch(/from 'vue-router'|document\.|window\.|Math\.random/)
-      if (!path.startsWith('./demo/useProfessionDemo')) expect(source, path).not.toMatch(/from 'vue'/)
+      if (!VUE_ALLOWED.includes(path)) expect(source, path).not.toMatch(/from 'vue'/)
     }
   })
 
-  it('imports other features only through pure world helpers (components may also use engine types and sprite paths)', () => {
+  it('imports the WildLands engine only through the modules allowed for each layer', () => {
     for (const [path, source] of ownSources) {
-      const allowed = isComponent(path) ? /\/wildlands\/engine\/(world|noise|characters|game)$/ : /\/wildlands\/engine\/(world|noise)$/
+      const allowed = ENGINE_ALLOWED.find(([prefix]) => path.startsWith(prefix))![1]
       const imports = [...source.matchAll(/from '([^']+)'/g)].map(match => match[1])
-      for (const specifier of imports.filter(entry => entry.includes('/wildlands/') || entry.includes('/features/') || /\.\.\/\.\.\/\.\.\//.test(entry))) {
+      for (const specifier of imports.filter(entry => entry.includes('/wildlands/') || /\/(features|app|shared)\//.test(entry))) {
         expect(specifier, path).toMatch(allowed)
       }
     }
   })
 
-  it('only type-imports the game engine', () => {
+  it('only type-imports the game engine, except the dev field lab', () => {
     for (const [path, source] of ownSources) {
-      for (const line of source.split('\n').filter(entry => entry.includes('/wildlands/engine/game'))) {
+      if (ENGINE_VALUE_IMPORT.includes(path)) continue
+      for (const line of source.split('\n').filter(entry => /from '[^']*\/wildlands\/engine\/game'/.test(entry))) {
         expect(line, path).toMatch(/^import type /)
       }
+    }
+  })
+
+  it('keeps the engine independent from professions', () => {
+    for (const [path, source] of Object.entries(ALL_SOURCES).filter(([path]) => path.startsWith('../wildlands/engine/'))) {
+      expect(source, path).not.toMatch(/from '[^']*professions/)
     }
   })
 

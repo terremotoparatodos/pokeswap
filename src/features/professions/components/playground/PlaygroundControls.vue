@@ -50,6 +50,19 @@
     </label>
 
     <label class="ctl-field">
+      <span>Mochila</span>
+      <select :value="''" @change="applyPreset(($event.target as HTMLSelectElement))">
+        <option value="" disabled>Elegir preset…</option>
+        <option v-for="(label, preset) in BAG_PRESETS" :key="preset" :value="preset">{{ label }}</option>
+      </select>
+    </label>
+
+    <label class="ctl-field">
+      <span>Capacidad: {{ state.bag.capacity }} espacios (demo)</span>
+      <input type="range" min="12" max="30" :value="state.bag.capacity" @input="session.update(s => setDemoCapacity(s, ($event.target as HTMLInputElement).valueAsNumber))">
+    </label>
+
+    <label class="ctl-field">
       <span>Nodo del catálogo</span>
       <select :value="target?.node.id ?? ''" @change="pickCatalogNode(($event.target as HTMLSelectElement).value)">
         <option v-for="node in nodes" :key="node.id" :value="node.id">{{ node.name }} · Nv. {{ node.requiredLevel }}</option>
@@ -58,9 +71,7 @@
 
     <div class="ctl-buttons">
       <button type="button" :disabled="!target" @click="target && session.update(s => depleteDemoNode(s, target!))">Agotar nodo</button>
-      <button type="button" @click="session.update(s => setDemoInventory(s, { ...s.inventory, stone: (s.inventory.stone ?? 0) + Math.max(0, s.capacity - itemCount(s.inventory)) }))">Llenar inventario</button>
-      <button type="button" @click="session.update(s => setDemoInventory(s, {}))">Vaciar inventario</button>
-      <button type="button" @click="session.update(s => setDemoInventory(s, { ...s.inventory, ...CRAFTING_KIT }))">Kit de insumos</button>
+      <button type="button" @click="session.update(s => setDemoInventory(s, { ...demoCounts(s), ...CRAFTING_KIT }))">Kit de insumos</button>
       <button type="button" @click="session.advance(HOUR_MS)">Avanzar 1 h</button>
       <button type="button" class="ctl-reset" @click="session.reset()">Reiniciar demo</button>
     </div>
@@ -74,8 +85,8 @@ import { MAX_PROFESSION_LEVEL, PROFESSIONS } from '../../domain/catalog/professi
 import { TOOLS } from '../../domain/catalog/tools'
 import { PROFESSION_IDS, type ProfessionId } from '../../domain/types'
 import {
-  demoLevel, demoMaxEnergy, demoTool, depleteDemoNode, equipDemoTool, itemCount, setDemoDurability, setDemoEnergy,
-  setDemoInventory, setDemoLevel, setDemoWorker, setDemoWorkerLevel, type DemoNodeTarget,
+  demoCounts, demoLevel, demoMaxEnergy, demoTool, depleteDemoNode, equipDemoTool, fillDemoBag, setDemoCapacity, setDemoDurability,
+  setDemoEnergy, setDemoInventory, setDemoLevel, setDemoWorker, setDemoWorkerLevel, type BagPreset, type DemoNodeTarget,
 } from '../../demo/demoSession'
 import { DEMO_WORKERS } from '../../demo/demoWorkers'
 import type { ProfessionDemoSession } from '../../demo/useProfessionDemo'
@@ -88,6 +99,16 @@ const emit = defineEmits<{ 'update:profession': [profession: ProfessionId]; 'upd
 const HOUR_MS = 3_600_000
 /** Enough inputs to try most early recipes. */
 const CRAFTING_KIT = { oran_berry: 20, medicinal_herb: 10, seaweed: 10, vial: 10, sitrus_berry: 8, leppa_berry: 6, stone: 30, coal: 15, iron_ore: 10, common_log: 20, resin: 6, fish: 12 }
+
+const BAG_PRESETS: Readonly<Record<BagPreset, string>> = {
+  empty: 'Vacía', partial: 'Parcial', stacks: 'Stacks variados + pico de acero', nearly_full: 'Casi llena (stacks abiertos)', full: 'Llena',
+}
+
+function applyPreset(select: HTMLSelectElement): void {
+  const preset = select.value as BagPreset
+  if (preset) props.session.update(s => fillDemoBag(s, preset))
+  select.value = ''
+}
 
 const state = computed(() => props.session.state.value)
 const level = computed(() => demoLevel(state.value, props.profession))

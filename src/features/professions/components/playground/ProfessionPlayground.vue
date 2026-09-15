@@ -12,11 +12,15 @@
       <button v-for="(label, id) in TABS" :key="id" type="button" :class="{ 'pgd-tab--on': tab === id }" @click="tab = id">{{ label }}</button>
     </nav>
 
-    <div class="pgd-layout">
-      <PlaygroundControls v-model:profession="profession" v-model:target="target" :session="session" />
+    <div class="pgd-layout" :class="{ 'pgd-layout--wide': tab === 'lab' || tab === 'gallery' }">
+      <PlaygroundControls v-if="tab !== 'gallery'" v-model:profession="profession" v-model:target="target" :session="session" />
 
       <main class="pgd-main">
-        <template v-if="tab === 'gathering'">
+        <MiningFieldLab v-if="tab === 'lab'" :session="session" />
+
+        <AssetGallery v-else-if="tab === 'gallery'" />
+
+        <template v-else-if="tab === 'gathering'">
           <div class="pgd-landmarks">
             <span class="pf-kicker">Pradera Brisa (real):</span>
             <button
@@ -62,7 +66,7 @@
 
         <AlchemyBench v-else-if="tab === 'crafting'" :session="session" />
 
-        <DemoInventory v-else :inventory="state.inventory" :capacity="state.capacity" />
+        <InventoryGrid v-else :session="session" />
       </main>
     </div>
   </div>
@@ -78,7 +82,7 @@ import { demoAffinity, demoLevel, demoWorker, type DemoNodeTarget } from '../../
 import { DEMO_WORKERS, workerAffinity } from '../../demo/demoWorkers'
 import { useProfessionDemo } from '../../demo/useProfessionDemo'
 import AlchemyBench from '../AlchemyBench.vue'
-import DemoInventory from '../DemoInventory.vue'
+import InventoryGrid from '../InventoryGrid.vue'
 import NodeInteractionPanel from '../NodeInteractionPanel.vue'
 import PokemonComparison from '../PokemonComparison.vue'
 import PokemonWorkerCard from '../PokemonWorkerCard.vue'
@@ -86,16 +90,22 @@ import ProfessionHud from '../ProfessionHud.vue'
 import ProfessionProgress from '../ProfessionProgress.vue'
 import WorkerParty from '../WorkerParty.vue'
 import WorldNodeMap from '../WorldNodeMap.vue'
+import AssetGallery from './AssetGallery.vue'
+import MiningFieldLab from './MiningFieldLab.vue'
 import NodeStateGallery from './NodeStateGallery.vue'
 import PlaygroundControls from './PlaygroundControls.vue'
 import '../professions.css'
 
-// Internal R31-B tool: routed only in development builds (app/router/routes.ts).
-const TABS = { gathering: 'Recolección', pokemon: 'Pokémon', progression: 'Progresión', crafting: 'Crafteo', inventory: 'Inventario' } as const
+// Internal tool: routed only in development builds (app/router/routes.ts).
+// R31-C1 adds the mining field lab (real engine) and the asset gallery.
+const TABS = {
+  lab: 'Laboratorio minero', gallery: 'Galería', inventory: 'Mochila', gathering: 'Mapa de nodos',
+  pokemon: 'Pokémon', progression: 'Progresión', crafting: 'Crafteo',
+} as const
 
 const session = useProfessionDemo()
 const state = computed(() => session.state.value)
-const tab = ref<keyof typeof TABS>('gathering')
+const tab = ref<keyof typeof TABS>('lab')
 const profession = ref<ProfessionId>('mining')
 const center = reactive<{ tx: number; ty: number }>({ ...PRADERA_SPAWN })
 const target = shallowRef<DemoNodeTarget | null>(null)
@@ -126,6 +136,7 @@ watch(profession, id => {
 .pgd-tabs button { flex: none; min-height: 40px; padding: 0 0.9rem; border: 2px solid var(--pf-line); border-radius: 999px; background: transparent; color: var(--pf-soft); font: inherit; cursor: pointer; }
 .pgd-tabs .pgd-tab--on { border-color: var(--pf-gold); background: var(--pf-gold); color: var(--pf-navy); font-weight: 700; }
 .pgd-layout { display: grid; grid-template-columns: 280px 1fr; align-items: start; gap: 1rem; }
+.pgd-layout--wide:has(> .pgd-main:only-child) { grid-template-columns: 1fr; }
 .pgd-main { display: grid; gap: 1rem; min-width: 0; }
 .pgd-split { display: grid; grid-template-columns: minmax(0, 1fr) minmax(300px, 420px); align-items: start; gap: 1rem; }
 .pgd-landmarks { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
@@ -134,6 +145,10 @@ watch(profession, id => {
 .pgd-cards--wide { grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); }
 .pgd-empty { margin: 0; padding: 1rem; color: var(--pf-muted); }
 @media (max-width: 1100px) { .pgd-split { grid-template-columns: 1fr; } }
-@media (max-width: 820px) { .pgd-layout { grid-template-columns: 1fr; } }
+@media (max-width: 820px) {
+  .pgd-layout { grid-template-columns: 1fr; }
+  /* Controls follow the content on phones so the lab is the first thing visible (R31-B finding B-20). */
+  .pgd-layout > :first-child:not(.pgd-main) { order: 2; }
+}
 @media (max-width: 420px) { .pgd-cards--wide { grid-template-columns: 1fr; } }
 </style>
