@@ -1,0 +1,12 @@
+services:
+  realtime:
+    build: .
+    ports:
+      - "2567:2567"
+      - "2568:2568"
+    environment:
+      PORT: "2567"
+      HEALTH_PORT: "2568"
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173}
+      SUPABASE_URL: ${SUPABASE_URL:?set SUPABASE_URL in your shell}
+      SUPABASE_PUBLISHABLE_KEY: ${SUPABASE_PUBLISHABLE_KEY:?set SUPABASE_PUBLISHABLE_KEY in your shell}
