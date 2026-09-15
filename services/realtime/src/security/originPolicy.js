@@ -1,7 +1,19 @@
 const LOCAL_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173'])
 
+function configuredOrigin(value) {
+  const candidate = value.trim().replace(/^[\["']+|[\]"']+$/g, '')
+  try {
+    return new URL(candidate).origin
+  } catch {
+    return null
+  }
+}
+
 export function allowedOrigins(env) {
-  const configured = (env.ALLOWED_ORIGINS ?? '').split(',').map(value => value.trim()).filter(Boolean)
+  const configured = (env.ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map(configuredOrigin)
+    .filter(Boolean)
   return new Set(configured.length ? configured : env.NODE_ENV === 'production' ? [] : LOCAL_ORIGINS)
 }
 

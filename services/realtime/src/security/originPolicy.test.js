@@ -14,3 +14,12 @@ test('production requires an explicit allowlist', () => {
   assert.equal(policy(new Request('https://service', { headers: { origin: 'https://pokeswap.lol' } })), undefined)
   assert.equal(policy(new Request('https://service', { headers: { origin: 'https://elsewhere.example' } })).status, 403)
 })
+
+test('configured origins tolerate display-only quotes and brackets', () => {
+  const policy = originPolicy({
+    NODE_ENV: 'production',
+    ALLOWED_ORIGINS: '["https://pokeswap.lol","https://www.pokeswap.lol"]',
+  })
+  assert.equal(policy(new Request('https://service', { headers: { origin: 'https://pokeswap.lol' } })), undefined)
+  assert.equal(policy(new Request('https://service', { headers: { origin: 'https://attacker.example' } })).status, 403)
+})
