@@ -10,6 +10,9 @@ export function originPolicy(env) {
   const allowed = allowedOrigins(env)
   return request => {
     const origin = request.headers.get('origin')
-    if (!origin || !allowed.has(origin)) return new Response(null, { status: 403 })
+    if (!origin || !allowed.has(origin)) return new Response(null, {
+      status: 403,
+      headers: { 'x-pokeswap-upgrade-policy': 'origin-rejected' },
+    })
   }
 }
