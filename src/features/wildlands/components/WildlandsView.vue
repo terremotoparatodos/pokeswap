@@ -256,10 +256,9 @@ watch(user, () => {
   void presence.connect(identity.visualIdentity.value)
 })
 
-watch(hidden, isHidden => {
-  if (isHidden) presence?.suspend()
-  else presence?.resume(identity.visualIdentity.value)
-})
+// Visibility pauses rendering and detaches input in WildlandsGame, but does
+// not end presence. A minimized player remains visible at their last
+// server-authoritative tile and cannot move until the document is visible.
 </script>
 
 <style scoped>

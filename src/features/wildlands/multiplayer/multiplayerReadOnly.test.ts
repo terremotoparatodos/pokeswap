@@ -26,6 +26,11 @@ describe('R30 trust boundary', () => {
     expect(source).toMatch(/move:\s*\(direction, running, sequence\)\s*=>\s*presence\?\.move\(direction, running, sequence\)/)
   })
 
+  it('keeps presence connected while the document is hidden', () => {
+    const source = import.meta.glob<string>('../components/WildlandsView.vue', { query: '?raw', import: 'default', eager: true })['../components/WildlandsView.vue']
+    expect(source).not.toMatch(/presence\?\.suspend\(\)/)
+  })
+
   it('installs presence receivers before requesting the authoritative spawn', () => {
     const source = SOURCES['./api/colyseusPresence.ts']
     const selfReceiver = source.indexOf("room.onMessage<RemotePresenceActor>(SELF")
