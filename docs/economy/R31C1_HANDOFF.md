@@ -42,7 +42,7 @@
 | **Trabajador en overworld** | Machamp aparece a la derecha del jugador al empezar el golpe, se queda toda la acción y se va al terminar. Cambiando a Onix en el selector del laboratorio, aparece la especie nueva en la acción siguiente |
 | **Alcance** | Alejarse con la tarjeta abierta y tocar Minar cierra la tarjeta en lugar de minar a distancia |
 | Galería | Estados en contexto (AVAILABLE, INTERACTABLE, TARGETED/IN_PROGRESS, LOCKED_LEVEL, SPECIAL_ACCESS, RARE, DEPLETED, RESPAWNING) y grupos por tipo |
-| Móvil 375×812 | Sin scroll horizontal; la tarjeta abre con botones de 40 px o más; al minar colapsa y deja ver al jugador y la roca; el resultado se lee completo |
+| Móvil 375×812 | Sin scroll horizontal; la tarjeta abre con botones de 40 px o más; al minar colapsa y deja ver al jugador, la roca y al Pokémon trabajador al lado; el resultado se lee completo |
 
 **Correcciones hechas durante estos recorridos:**
 1. **Concordancia:** "Tu pico está rota" → "está roto", con "Reparalo/Reparala" y "Necesitás un/una" según la herramienta (con test).
@@ -56,7 +56,6 @@
 - **WildLands real (`WildlandsView`):** sin Supabase ni realtime el jugador queda como espectador y no se puede caminar. El laboratorio usa la misma clase `WildlandsGame`, el mismo overlay y el mismo controlador, pero no la vista completa.
 - **Respawn cuadro por cuadro** en el mundo: se vio el estado agotado y el arte de respawn en la galería, no la transición completa in situ.
 - **Trabajador desde los cuatro lados:** se verificaron nodo al norte (jugador desde el sur) y el cambio de especie. Norte, sur y este del jugador están cubiertos por tests puros (`workerPresence.test.ts`), no por captura.
-- **Trabajador a 375 px:** la tarjeta y el minado sí; la posición del Pokémon en móvil no se capturó.
 - **Rendimiento:** no se midieron fps en un dispositivo móvil real.
 - **Sonido:** no existe infraestructura de audio; no se implementó.
 
