@@ -10,9 +10,18 @@ export function originPolicy(env) {
   const allowed = allowedOrigins(env)
   return request => {
     const origin = request.headers.get('origin')
+    const originKind = origin === 'https://pokeswap.lol'
+      ? 'canonical'
+      : origin === 'https://www.pokeswap.lol'
+        ? 'www'
+        : origin ? 'other' : 'missing'
     if (!origin || !allowed.has(origin)) return new Response(null, {
       status: 403,
-      headers: { 'x-pokeswap-upgrade-policy': origin ? 'origin-untrusted' : 'origin-missing' },
+      headers: {
+        'x-pokeswap-upgrade-policy': origin ? 'origin-untrusted' : 'origin-missing',
+        'x-pokeswap-allowed-origin-count': String(allowed.size),
+        'x-pokeswap-origin-kind': originKind,
+      },
     })
   }
 }
