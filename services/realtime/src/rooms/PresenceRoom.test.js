@@ -102,6 +102,28 @@ test('a reload replaces presence before an optional companion lookup resolves', 
   room.onLeave(second)
 })
 
+test('a browser refresh recovers only the same player’s short-lived server position', async () => {
+  const room = new PresenceRoom()
+  const first = client('refresh-first')
+  const second = client('refresh-second')
+  const auth = { kind: 'player', userId: 'refresh-user', username: 'Refresh', token: null }
+  const realNow = Date.now
+  Date.now = () => 1_000
+  try {
+    await room.onJoin(first, {}, auth)
+    room.move(first, { direction: 'right', running: false, sequence: 1 })
+    room.onLeave(first)
+    await room.onJoin(second, {}, auth)
+    room.ready(second)
+  } finally {
+    Date.now = realNow
+  }
+  assert.deepEqual(second.messages.at(-1).payload.self, {
+    id: 'refresh-user', areaId: 'ciudad-corazon', tx: 32, ty: 20, username: 'Refresh', characterId: 'lucas', companionId: null, dir: 'right', speed: 3.75, moveSequence: 1,
+  })
+  room.onLeave(second)
+})
+
 test('capacity rejects a new connection before it can create presence', async () => {
   const room = new PresenceRoom()
   const guest = client('over-capacity')
