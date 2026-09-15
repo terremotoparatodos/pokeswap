@@ -4,7 +4,7 @@ import { ENERGY_CONFIG } from './catalog/professions'
 import { RECIPE_BY_ID } from './catalog/recipes'
 import { TOOL_BY_ID } from './catalog/tools'
 import { createToolInstance, wearTool } from './durability'
-import { resolveGathering } from './gathering'
+import { previewGathering, resolveGathering } from './gathering'
 import { resolveProcessing, type ProcessingContext } from './processing'
 import type { EquippedTool, GatheringContext } from './types'
 
@@ -106,6 +106,24 @@ describe('resolveGathering results', () => {
     const rolls = () => sequence([0.99, 0, 0.1])
     expect(resolveGathering(context({ bonuses, homeBiomes: ['desert'], random: rolls() }))).toMatchObject({ drops: [{ itemId: 'iron_ore', quantity: 2 }] })
     expect(resolveGathering(context({ bonuses, homeBiomes: ['forest'], random: rolls() }))).toMatchObject({ drops: [{ itemId: 'iron_ore', quantity: 1 }] })
+  })
+})
+
+describe('previewGathering', () => {
+  it('exposes the resolver deterministic values and final odds without rolling dice', () => {
+    const check = previewGathering(context())
+    expect(check.ok).toBe(true)
+    if (!check.ok) return
+    const result = resolveGathering(context())
+    expect(result).toMatchObject({ energySpent: check.preview.energySpent, actionSeconds: check.preview.actionSeconds, xp: check.preview.xp })
+    expect(check.preview).toMatchObject({ primaryItemId: 'iron_ore', minUnits: 1, maxUnits: 1, durabilityPoints: 1, bareHands: false })
+    // Tool +5 %, level 20 on a level-15 node +2 %.
+    expect(check.preview.extraUnitChance).toBeCloseTo(0.07)
+    expect(check.preview.secondary.find(odds => odds.rare)?.chance).toBeCloseTo(0.006 * 1.1)
+  })
+
+  it('returns the same rejection as the resolver', () => {
+    expect(previewGathering(context({ professionLevel: 1 }))).toEqual({ ok: false, reason: 'level_too_low' })
   })
 })
 
