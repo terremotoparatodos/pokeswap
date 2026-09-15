@@ -6,7 +6,15 @@
       Iniciá sesión para ver tus Pokémon.
     </p>
 
-    <section v-else class="profile-box">
+    <template v-else>
+      <PlayerIdentitySection
+        :user-id="user.id"
+        :items="boxItems"
+        :loading="boxLoading"
+        :error="boxError"
+      />
+
+      <section class="profile-box">
       <p v-if="boxLoading" class="profile-box-loading">Cargando…</p>
       <p v-else-if="boxError" class="profile-error" role="alert">{{ boxError }}</p>
       <p v-else-if="!boxItems.length" class="profile-box-empty">
@@ -81,7 +89,8 @@
           </template>
         </li>
       </ul>
-    </section>
+      </section>
+    </template>
   </main>
 </template>
 
@@ -90,6 +99,7 @@ import { ref, onMounted, watch } from 'vue'
 import { useAuth } from '../../auth/composables/useAuth'
 import { useMyBox } from '../composables/useMyBox'
 import { publish as marketPublish } from '../../market/api/marketApi'
+import PlayerIdentitySection from '../../wildlands/components/PlayerIdentitySection.vue'
 
 const { user } = useAuth()
 const { items: boxItems, isLoading: boxLoading, error: boxError, load: loadBox, refresh: refreshBox } = useMyBox()

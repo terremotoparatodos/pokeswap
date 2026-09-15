@@ -3,6 +3,8 @@
     <canvas
       ref="canvasRef"
       class="wl-canvas"
+      aria-label="Mundo explorable de Ciudad Corazón. Tocá o hacé clic en el suelo para caminar."
+      tabindex="0"
       @pointerdown="onPointerDown"
       @pointermove="onPointerMove"
       @pointerup="onPointerUp"
@@ -18,7 +20,7 @@
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
 
-    <div class="wl-minimap">
+    <div class="wl-minimap" aria-label="Minimapa de la zona actual">
       <canvas ref="minimapRef" />
       <span class="wl-minimap-n">N</span>
     </div>
@@ -45,13 +47,16 @@
       :covered="covered"
       @overlay="open => (plazaOpen = open)"
       @market="panel.open('mercado', 'menu')"
+      @feature="feature => panel.open(feature, 'menu')"
     />
 
     <LobbyMenu
       v-model:open="menuOpen"
+      :reduced-motion="reduceMotion"
       @select="feature => panel.open(feature, 'menu')"
       @activity="plazaRef?.openBoard()"
       @sign-in="signInOpen = true"
+      @update:reduced-motion="reduceMotion = $event"
     />
 
     <LobbyPanel v-if="panelShown" :title="panel.title.value" @close="panel.close()">
@@ -74,10 +79,15 @@ import { WildlandsGame, type HudState } from '../engine/game'
 import type { PokedexEntry } from '../engine/population'
 import { LOBBY_ID } from '../areas/atlas'
 import { useLobbyPanel } from '../lobby/useLobbyPanel'
+import { usePlayerIdentity } from '../identity/usePlayerIdentity'
 import LobbyHud from './LobbyHud.vue'
 import LobbyMenu from './LobbyMenu.vue'
 import LobbyPanel from './LobbyPanel.vue'
 import LobbyPlaza from './LobbyPlaza.vue'
+import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
+import { ColyseusPresence } from '../multiplayer/api/colyseusPresence'
+import type { LocalPresencePort } from '../multiplayer/domain/presence'
+import { useAuth } from '../../auth/composables/useAuth'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
@@ -98,12 +108,21 @@ const hud = reactive<HudState>({
   areaId: LOBBY_ID, areaKind: 'town', place: '—', tx: 0, ty: 0, phase: 'Día', weather: 'clear', crystals: 0,
   lens: 'handheld', toast: null, traveling: false, fps: 0, frameMs: 0,
 })
+const identity = usePlayerIdentity(game)
+const { user } = useAuth()
+let presence: ColyseusPresence | null = null
+const presencePort: LocalPresencePort = {
+  move: (direction, running, sequence) => presence?.move(direction, running, sequence),
+  changeArea: areaId => presence?.changeArea(areaId),
+  observe: (areaId, tx, ty) => presence?.observe(areaId, tx, ty),
+}
 
 // Panels over the town. Leaving a building (or a building's direct link) puts the
 // player back outside its door; panels opened from the menu leave them where they were.
 const panel = useLobbyPanel({
   onClosed: (feature, origin) => {
     if (origin !== 'menu') game.value?.placeAtDoor(feature)
+    void identity.refreshOwnership()
   },
 })
 const menuOpen = ref(false)
@@ -127,10 +146,18 @@ const pokedex = shallowRef<readonly PokedexEntry[]>([])
 const plazaRef = ref<InstanceType<typeof LobbyPlaza> | null>(null)
 const plazaOpen = ref(false)
 const covered = computed(() => panel.feature.value !== null || menuOpen.value || authOpen.value)
+const motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
+const reduceMotion = ref(motionMedia.matches)
+const hidden = ref(document.visibilityState === 'hidden')
 
 watchEffect(() => {
   game.value?.setPaused(covered.value || plazaOpen.value)
+  game.value?.setVisibilityPaused(hidden.value)
+  game.value?.setReducedMotion(reduceMotion.value)
 })
+
+const onMotionChange = (event: MediaQueryListEvent) => { reduceMotion.value = event.matches }
+const onVisibilityChange = () => { hidden.value = document.visibilityState === 'hidden' }
 
 let minimapAt: { area: string; tx: number; ty: number } | null = null
 
@@ -169,33 +196,69 @@ function onHud(next: HudState): void {
 }
 
 onMounted(async () => {
+  const authReady = identity.waitUntilReady()
   try {
-    pokedex.value = await listPokemon()
+    const [catalog] = await Promise.all([listPokemon(), preloadLobbyArt()])
+    pokedex.value = catalog
   } catch (error) {
     devWarn('[wildlands] Pokédex unavailable, spawning trainers only', error)
   }
+  await authReady
   if (!canvasRef.value) return
   // ?area=<world>&x=&y= jumps straight to a spot, handy for sharing places in the (deterministic) worlds.
   const x = Number(route.query.x)
   const y = Number(route.query.y)
-  const spawn = Number.isInteger(x) && Number.isInteger(y) && route.query.x !== undefined ? { tx: x, ty: y } : null
+  const querySpawn = Number.isInteger(x) && Number.isInteger(y) && route.query.x !== undefined ? { tx: x, ty: y } : null
   const startArea = typeof route.query.area === 'string' ? route.query.area : undefined
+  const savedSpawn = !querySpawn && !panel.feature.value && (!startArea || startArea === LOBBY_ID)
+    ? identity.initialTownPosition()
+    : null
+  const spawn = querySpawn ?? savedSpawn
   const created = new WildlandsGame(canvasRef.value, {
     pokedex: pokedex.value, onHud, spawn, startArea,
     onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
     onInspect: hit => plazaRef.value?.inspect(hit),
+    onTownPosition: identity.recordTownPosition,
+    presence: presencePort,
   })
   // A direct link to a feature shows the town from that building's door.
-  if (panel.feature.value && !spawn) created.placeAtDoor(panel.feature.value)
+  if (panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
   game.value = created
+  created.setPresenceAccess('pending')
+  presence = new ColyseusPresence(created)
+  void presence.connect(identity.visualIdentity.value)
+  created.setVisibilityPaused(hidden.value)
+  created.setReducedMotion(reduceMotion.value)
   created.start()
   loading.value = false
   const touch = window.matchMedia('(pointer: coarse)').matches
   created.notify(touch ? 'Tocá el suelo para caminar' : 'Hacé click en el suelo para caminar')
 })
 
+onMounted(() => {
+  motionMedia.addEventListener('change', onMotionChange)
+  document.addEventListener('visibilitychange', onVisibilityChange)
+})
+
 onUnmounted(() => {
+  motionMedia.removeEventListener('change', onMotionChange)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
   game.value?.destroy()
+  presence?.disconnect()
+})
+
+// A session change replaces the socket rather than keeping an authenticated actor after logout.
+watch(user, () => {
+  if (!game.value) return
+  game.value.setPresenceAccess('pending')
+  presence?.disconnect()
+  presence = new ColyseusPresence(game.value)
+  void presence.connect(identity.visualIdentity.value)
+})
+
+watch(hidden, isHidden => {
+  if (isHidden) presence?.suspend()
+  else presence?.resume(identity.visualIdentity.value)
 })
 </script>
 
@@ -257,6 +320,11 @@ onUnmounted(() => {
 .wl-fade-enter-active,
 .wl-fade-leave-active {
   transition: opacity 0.25s, transform 0.25s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wl-fade-enter-active,
+  .wl-fade-leave-active { transition: none; }
 }
 .wl-fade-enter-from,
 .wl-fade-leave-to {

@@ -3,7 +3,7 @@
 // Text for the discreet toasts and the activity board. Pure functions: the
 // view renders every string with text interpolation (INV-ID-4), never as HTML.
 
-import { activityLabel } from '../../map/domain/ownedSlots'
+import { activityLabel } from './domain/ownedSlots'
 import type { ActivityFeedEntry } from '../../../shared/types/database'
 
 export interface NoticeState {

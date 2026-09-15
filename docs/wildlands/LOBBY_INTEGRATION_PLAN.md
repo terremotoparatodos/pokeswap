@@ -26,7 +26,7 @@
 | Gimnasio | Dungeon | `dungeon/DungeonView.vue` |
 | Club de Fans Pokémon | Pokédex | `pokedex/PokedexView.vue` |
 | Casa de los Poffins | Perfil y progresión | `progression/ProfileView.vue` |
-| Cartel junto al Centro Pokémon | Actividad reciente (tablón) | `map/useMapRealtime` (`activity_feed`) |
+| Cartel junto al Centro Pokémon | Actividad reciente (tablón) | `wildlands/lobby/usePlazaRealtime` (`activity_feed`) |
 | Puertas de la ciudad | Mundos WildLands | ya implementado |
 
 La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
@@ -55,7 +55,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 ### Ruteo con paneles superpuestos
 - [x] `/` renderiza `WildlandsView` (lobby). `HomeView` se eliminó: el camino sin juego son el menú y los links directos.
 - [x] Las rutas de features pasan a ser **hijas del lobby**: `/mercado`, `/swap`, `/dungeon`, `/pokedex`, `/perfil`, `/caja`. Se renderizan en un `<router-view>` dentro de `LobbyPanel` (modal en escritorio, hoja inferior en móvil) y la ciudad sigue montada debajo.
-- [x] `/market` y `/profile` redirigen a las nuevas; `/wildlands` redirige a `/` con su query y las rutas desconocidas a `/`. `/map` queda como página suelta hasta R29.
+- [x] `/market` y `/profile` redirigen a las nuevas; `/wildlands` redirige a `/` con su query y las rutas desconocidas a `/`.
 - [x] Botón Atrás del navegador, `Esc` y la ✕ cierran el panel. Los links directos abren la ciudad con el panel ya abierto.
 
 ### Puertas de edificios
@@ -88,7 +88,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 - [x] Llevar al lobby las reglas de `map/useMapEntities` sin duplicarlas: se extrajeron a `map/domain/ownedSlots.ts` y las usan el mapa y la plaza.
   - **Pokémon con dueño visibles:** por decisión de producto, en la plaza **solo se ve el top 10 por precio**. Los del usuario fuera del top no se agregan (el acompañante llega en R27). El mapa legado conserva top 10 + los del usuario. Los 5 Pokémon decorativos se eliminaron.
   - Se usa la hoja overworld de cada especie, o una Poké Ball si no hay hoja ni sprite. Tocar uno muestra nombre, dueño y precio, con acceso al Mercado.
-- [x] Suscripción a `slots` con `useMapRealtime`: los cambios de dueño o precio actualizan la plaza en vivo (entran, salen, cambian de cartel). Al reconectar se vuelve a leer.
+- [x] Suscripción a `slots` con `usePlazaRealtime`: los cambios de dueño o precio actualizan la plaza en vivo (entran, salen, cambian de cartel). Al reconectar se vuelve a leer.
 - [x] **Tablón de actividad** (cartel junto al Centro Pokémon y Menú → Actividad) con `activity_feed`. Hay toasts discretos para eventos nuevos y para cuando un Pokémon del usuario cambia de dueño.
 - [x] Los Pokémon del usuario tienen un distintivo: un rombo amarillo sobre la cabeza.
 - [x] Todo es lectura. Hay tests de que ningún módulo nuevo escribe (mock que falla ante escrituras y escaneo de fuentes).
@@ -100,43 +100,44 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ---
 
-## Fase 3 — Identidad del jugador *(R27)*
+## Fase 3 — Identidad del jugador *(R27)* ✅ hecha (2026-09-14)
 
 **Objetivo:** que el personaje sea "tuyo".
 
-- [ ] Nombre de usuario sobre el personaje (texto escapado, `INV-ID-4`).
-- [ ] **Pokémon acompañante:** el jugador elige uno de sus Pokémon (de `useMyBox`) que lo sigue caminando. Es el único Pokémon propio fuera del top 10 que se ve en la ciudad (decidido en R26).
-- [ ] Elección de personaje (protagonista hombre, mujer y futuros) cuando haya más hojas. Requiere guardar la preferencia:
-  - Opción A: `localStorage` (cosmético, sin backend).
-  - Opción B: columna en `profiles` actualizada por el propio usuario vía RLS. Revisar con `docs/BACKEND_INVENTORY.md` antes de migrar.
-- [ ] Recordar la última posición en la ciudad (solo `localStorage`, cosmético).
+- [x] Nombre de usuario sobre el personaje mediante `canvas.fillText`, sin interpretar HTML (`INV-ID-4`) y con ancho visual acotado.
+- [x] **Pokémon acompañante:** el jugador elige uno de `useMyBox`; se valida contra la caja server-backed, se descarta si deja de ser propio o queda bloqueado y sigue el rastro del jugador sin colisión, picking ni pathfinding propio.
+- [x] Elección entre las tres hojas disponibles (entrenador, entrenadora rosa y entrenadora amarilla). Las preferencias usan `localStorage` versionado y separado por `user.id`; no se agregaron columnas ni mutaciones en `profiles`.
+- [x] Última posición segura de Ciudad Corazón recordada por usuario. Links con coordenadas, puertas y portales conservan prioridad y nunca se restauran como posición persistida.
+- [x] Sección **Jugador** dentro de Mi caja, mobile-first, con Pokémon bloqueados visibles pero no seleccionables.
+- [x] Sin sesión: aspecto predeterminado, sin nombre, sin acompañante y caja compartida limpiada en memoria.
 
-**Aceptación:** al recargar, el jugador ve su nombre, su acompañante y su personaje elegido. Sin sesión se usa un aspecto por defecto.
+**Aceptación:** 435 tests pasan; lint sin errores, tipos y build OK. Persistencia, ownership/lock, sesión tardía/logout, seguimiento, transición de área, fallbacks de arte y username hostil tienen tests. La escena y la traza lógica base mantienen hashes SHA-256 idénticos a `migration`; la ciudad y el viaje a un mundo se probaron vivos en escritorio y el lobby en 375 px.
 
 ---
 
-## Fase 4 — Mundos conectados a PokeSwap *(R28)*
+## Fase 4 — Mundos conectados a PokeSwap *(R28)* ✅ hecha (2026-09-14)
 
 **Objetivo:** que salir por las puertas tenga sentido de juego, sin romper la economía.
 
-- [ ] Los Pokémon salvajes de los mundos usan el **pool rotativo** del mapa legado (`_rollWildPool`: legendarios 2%, aura alta 12%, resto) filtrado por tipo de bioma, en lugar de toda la Pokédex.
-- [ ] Tocar un salvaje abre su ficha de Pokédex y, si está libre, lleva al flujo de Swap o Mercado correspondiente.
-- [ ] Cristales y recompensas: **desactivados** hasta tener una RPC o Edge Function que valide (`AGENTS.md` §2). Alternativa: dejarlos como coleccionable puramente visual y rotularlo claramente.
+- [x] Los Pokémon salvajes usan el pool rotativo compartido `pokemon/domain/wildPool.ts`: legendarios 2%, aura alta 12% y resto 86%, sin dueño, sin duplicados y filtrado por bioma al poblar chunks. El mapa legado lo consume temporalmente hasta R29.
+- [x] El pool es único por sesión y rota cada 60 minutos; viajar entre áreas no lo reinicia. Los patches de `slots` existentes lo filtran inmediatamente y la reconexión relee el snapshot.
+- [x] Tocar o mirar un salvaje abre una ficha pública, segura y de solo lectura. Desde allí se navega a los paneles existentes de Pokédex, Mercado o Swap; no preselecciona especie ni hace mutaciones. Pokédex se mantiene como ficha informativa pública en WildLands, ya que su panel existente requiere sesión.
+- [x] Cristales y recompensas siguen siendo visuales: el HUD y el toast indican “demo, no se guarda”; no hay RPC, Edge Function, escritura ni autoridad persistente.
 
 **Aceptación:** no existe ninguna escritura nueva desde el cliente. Las interacciones de los mundos solo abren features que ya validan en el servidor.
 
 ---
 
-## Fase 5 — Retiro del mapa legado y pulido *(R29)*
+## Fase 5 — Retiro del mapa legado y pulido *(R29)* ✅ hecha (2026-09-14)
 
-- [ ] Eliminar `features/map/components/MapView.vue` y su ruta `/map` (redirigir a `/`) una vez que la Fase 2 cubra sus funciones. Conservar `useMapRealtime` y las reglas de entidades si se reutilizaron.
-- [ ] Evaluar si `public/assets/tiles/*.png` (mapas de Platino) siguen siendo necesarios.
-- [ ] **Carga:**
+- [x] Eliminar `features/map/components/MapView.vue` y todo el feature legado; `/map` redirige a `/` preservando query.
+- [x] Retirar `public/assets/tiles/*.png`, exclusivos del mapa legado. Las lecturas, reglas de slots y Realtime viven ahora bajo `wildlands/lobby/`.
+- [x] **Carga:**
   - Pantalla de carga con precarga de `public/assets/town/*` (~38 KB) y del protagonista.
   - Overworld de Pokémon bajo demanda (ya funciona así).
   - Code-splitting del motor (ya es un chunk propio de ~34 KB gzip).
-- [ ] **Móvil:** barra de navegación reemplazada por el HUD, zoom automático revisado en varios tamaños y pausa del loop con la pestaña oculta (`visibilitychange`).
-- [ ] **Accesibilidad:** menú navegable con teclado, textos alternativos en el HUD y opción "reducir movimiento" (sin lluvia ni fundidos).
+- [x] **Móvil:** barra de navegación reemplazada por el HUD, zoom automático revisado y pausa segura del loop con la pestaña oculta (`visibilitychange`).
+- [x] **Accesibilidad:** menú enfoca su primera opción al abrirse, HUD/minimapa/canvas tienen etiquetas y `prefers-reduced-motion` quita lluvia y fundidos.
 - [ ] Interiores del Centro Pokémon, Tienda y Gimnasio (opcional): áreas pequeñas con cámara más cenital (el soporte de cámara por área ya existe).
 
 **Aceptación:** una sola entrada al producto (la ciudad), sin rutas huérfanas, Lighthouse móvil aceptable y sin regresiones en los tests de las features.
@@ -145,7 +146,7 @@ La asignación se puede cambiar editando datos en `areas/hearthome.ts`.
 
 ## Más adelante (fuera de este plan)
 
-- **Online en tiempo real:** otros jugadores caminando en la ciudad (Colyseus con sala "lobby"). El modelo de áreas y movimiento por casillas ya está preparado para enviar eventos de paso.
+- **R30 — Presencia multijugador efímera:** plan aprobado en [R30_MULTIPLAYER_PLAN.md](R30_MULTIPLAYER_PLAN.md). Colyseus Cloud, una Ciudad y una zona wild compartidas, espectadores de solo lectura, interés espacial en wild y tope global de 100 conexiones. Sin chat, combate ni persistencia.
 - **Arte propio:** reemplazar los assets de Nintendo por arte con licencia antes de un lanzamiento público.
 - **Más ciudades** con el mismo formato (`TownDef` + terreno + hoja de arte).
 

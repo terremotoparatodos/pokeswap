@@ -7,7 +7,7 @@
 import type { Dir, PokemonFrames, TrainerSprites } from './characters'
 import { TILE } from './world'
 
-export type ActorKind = 'player' | 'npc' | 'pokemon'
+export type ActorKind = 'player' | 'remote' | 'npc' | 'pokemon'
 export type Habitat = 'land' | 'water' | 'any'
 
 export interface PokemonInfo {
@@ -46,6 +46,12 @@ export interface Actor {
   pokemon?: PokemonInfo
   /** A real owned Pokémon strolling the plaza (R26); `mine` when the viewer owns it. */
   owned?: { mine: boolean }
+  /** Session-only member of the server-filtered WildLands pool. */
+  wild?: true
+  /** Presence service display text; rendered as literal canvas text only. */
+  remoteUsername?: string
+  /** Ephemeral actor from the presence service; never participates in picking or collision. */
+  remote?: true
   /** Bounce offset for Pokémon hops, in world px. */
   hop: number
 }

@@ -7,7 +7,7 @@
 // Pokémon id and whether it belongs to the viewer: owners, usernames and prices
 // never reach the canvas. Positions are cosmetic and never persisted.
 
-import { diffIds } from '../../map/domain/ownedSlots'
+import { diffIds } from '../lobby/domain/ownedSlots'
 import { createActor, type Actor, type PokemonInfo } from './actors'
 import type { Portal } from './area'
 import type { BuildingDoor } from './doors'

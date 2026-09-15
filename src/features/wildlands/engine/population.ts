@@ -52,6 +52,8 @@ export function candidatesFor(biome: Biome, pokedex: readonly PokedexEntry[]): P
 
 export class Population {
   private readonly active = new Set<string>()
+  private readonly spawnedPokemonIds = new Set<number>()
+  private wildPokemonIds: readonly number[] = []
   readonly actors: Actor[] = []
 
   constructor(
@@ -59,6 +61,18 @@ export class Population {
     private readonly pokedex: readonly PokedexEntry[],
     private readonly npcSprites: readonly TrainerSprites[],
   ) {}
+
+  setWildPokemonIds(ids: readonly number[]): void {
+    this.wildPokemonIds = ids
+    const allowed = new Set(ids)
+    for (let i = this.actors.length - 1; i >= 0; i--) {
+      const actor = this.actors[i]
+      if (actor.wild && actor.pokemon && !allowed.has(actor.pokemon.id)) {
+        this.spawnedPokemonIds.delete(actor.pokemon.id)
+        this.actors.splice(i, 1)
+      }
+    }
+  }
 
   /** Populates chunks within one chunk of the player and releases distant ones. */
   update(playerTx: number, playerTy: number): void {
@@ -82,7 +96,11 @@ export class Population {
   private release(key: string): void {
     this.active.delete(key)
     for (let i = this.actors.length - 1; i >= 0; i--) {
-      if (this.actors[i].id.startsWith(`${key}:`)) this.actors.splice(i, 1)
+      if (this.actors[i].id.startsWith(`${key}:`)) {
+        const actor = this.actors[i]
+        if (actor.wild && actor.pokemon) this.spawnedPokemonIds.delete(actor.pokemon.id)
+        this.actors.splice(i, 1)
+      }
     }
   }
 
@@ -95,15 +113,22 @@ export class Population {
       if (this.world.isSolid(tx, ty)) continue
       const biome = this.world.biomeAt(tx + 0.5, ty + 0.5)
       const water = this.world.isWater(tx, ty)
+      const allowed = new Set(this.wildPokemonIds)
       const pool = candidatesFor(water ? 'ocean' : biome, this.pokedex)
+        .filter(entry => allowed.has(entry.id) && !this.spawnedPokemonIds.has(entry.id))
       if (!pool.length) continue
       const entry = pool[Math.floor(hash2(tx, ty, seed + 903) * pool.length)]
       const shiny = hash2(tx, ty, seed + 904) < SHINY_ODDS
+      // Reserve before async art loads so two chunks cannot schedule the same species.
+      this.spawnedPokemonIds.add(entry.id)
       void this.spriteFor(entry, shiny).then(info => {
-        if (!info || !this.active.has(key)) return
+        if (!info || !this.active.has(key) || !this.wildPokemonIds.includes(entry.id)) {
+          this.spawnedPokemonIds.delete(entry.id)
+          return
+        }
         this.actors.push(createActor({
           id: `${key}:p${i}`, kind: 'pokemon', habitat: water ? 'water' : 'land', tx, ty,
-          speed: 3, pokemon: info, dir: hash2(tx, ty, 3) < 0.5 ? 'left' : 'right',
+          speed: 3, pokemon: info, wild: true, dir: hash2(tx, ty, 3) < 0.5 ? 'left' : 'right',
         }))
       })
     }

@@ -1,0 +1,16 @@
+{
+  "name": "@pokeswap/realtime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test src/**/*.test.js",
+    "test:load": "node scripts/load-presence.js"
+  },
+  "dependencies": {
+    "@colyseus/core": "^0.18.13",
+    "@colyseus/schema": "^5.0.32",
+    "@colyseus/ws-transport": "^0.18.2",
+    "express": "^5.2.1"
+  }
+}

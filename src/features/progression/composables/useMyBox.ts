@@ -6,32 +6,57 @@ import type { SlotWithPokemon } from '../../pokemon/api/pokemonApi'
 const items = ref<SlotWithPokemon[]>([])
 const isLoading = ref(false)
 const error = ref<string | null>(null)
-let _activeUserId: string | null = null
+const activeUserId = ref<string | null>(null)
+let requestVersion = 0
+let pending: { userId: string; promise: Promise<void> } | null = null
 
 export function useMyBox() {
   async function load(userId: string): Promise<void> {
-    if (isLoading.value) return
-    _activeUserId = userId
+    if (pending?.userId === userId) return pending.promise
+    const version = ++requestVersion
+    if (activeUserId.value !== userId) items.value = []
+    activeUserId.value = userId
     isLoading.value = true
     error.value = null
-    try {
-      items.value = await listOwnedSlotsWithPokemon(userId)
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Error cargando Pokémon'
-    } finally {
-      isLoading.value = false
-    }
+    const promise = listOwnedSlotsWithPokemon(userId)
+      .then(result => {
+        if (version === requestVersion && activeUserId.value === userId) items.value = result
+      })
+      .catch(e => {
+        if (version === requestVersion && activeUserId.value === userId) {
+          error.value = e instanceof Error ? e.message : 'Error cargando Pokémon'
+        }
+      })
+      .finally(() => {
+        if (version === requestVersion) {
+          isLoading.value = false
+          pending = null
+        }
+      })
+    pending = { userId, promise }
+    return promise
   }
 
   async function refresh(): Promise<void> {
-    if (_activeUserId) await load(_activeUserId)
+    if (activeUserId.value) await load(activeUserId.value)
+  }
+
+  function clear(): void {
+    requestVersion++
+    pending = null
+    activeUserId.value = null
+    items.value = []
+    isLoading.value = false
+    error.value = null
   }
 
   return {
     items: readonly(items),
     isLoading: readonly(isLoading),
     error: readonly(error),
+    activeUserId: readonly(activeUserId),
     load,
     refresh,
+    clear,
   }
 }
