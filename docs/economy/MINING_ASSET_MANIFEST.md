@@ -69,6 +69,13 @@ Archivo: `art/miningFx.ts`.
 | `marker.bubble.lock` | Nivel insuficiente | 11×10 | Candado dorado |
 | `marker.bubble.seal` | Acceso especial | 11×10 | Rombo azul |
 
+## Reutilizado sin crear assets
+
+| Asset | Uso | Origen |
+|---|---|---|
+| `/assets/overworld/NNNN.png` | Pokémon trabajador al lado del jugador durante la acción | **Reutilizado** de WildLands (hojas ya incluidas en el repo: 493 especies, 4 direcciones × 2 cuadros). Se carga con `loadOverworldFrames` y lo dibuja el overlay, sin colisión |
+| `fx.glint.rare` | Destello de aparición y salida del trabajador | El mismo asset de la tabla de efectos |
+
 ## Dibujado sin asset propio
 
 | Elemento | Dónde | Notas |

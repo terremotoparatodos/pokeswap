@@ -103,8 +103,24 @@ La rareza del resultado es la más alta entre sus ítems, y un doble botín cuen
 
 ## 9. Presencia del Pokémon
 
-- **Dónde aparece:** su retrato y su capacidad principal están en la tarjeta. Su prospección define el radio de destello. Su ahorro, extracción y cuidado cambian los números mostrados.
-- **Qué no hace:** no golpea la roca. Así la mecánica es válida para las 493 especies sin sprites nuevos.
+- **En el mundo:** al empezar la acción, el Pokémon asignado **aparece al lado del jugador** con su sprite overworld normal y mirando al nodo. Se queda toda la acción y desaparece al terminar.
+- **En la tarjeta:** su retrato y su capacidad principal. Su prospección define el radio de destello. Su ahorro, extracción y cuidado cambian los números mostrados.
+- **Qué no hace:** no golpea la roca ni tiene animación propia por especie. Así la mecánica es válida para las 493 especies sin sprites nuevos.
+
+### Trabajador en overworld (`overworld/workerPresence.ts` y `workerCompanion.ts`)
+
+| Aspecto | Regla |
+|---|---|
+| **Posición** | Al lado del jugador, del lado contrario al pico; si está ocupado, el otro lado, después en diagonal detrás y por último justo detrás |
+| **Casillas válidas** | Nunca la del nodo ni la del jugador; nunca sólidas, agua ni otra casilla con nodo. Si el jugador está encajonado, no aparece |
+| **Orientación** | Mira al nodo; en diagonal conserva la dirección del jugador |
+| **Aparición** | 0,22 s: escala de 0,35 a 1 con rebote leve y destello de 4 chispas |
+| **Salida** | 0,18 s de fundido con el mismo destello |
+| **Efecto en el juego** | Ninguno: sin colisión, sin cambios de pathfinding y sin autoridad |
+| **Sprites** | Hoja overworld de la especie (`/assets/overworld/NNNN.png`), cacheada y precargada al cambiar de Pokémon; una especie sin hoja simplemente no aparece |
+| **Compartido** | La pieza es de profesiones, no de Minería: Tala, Pesca y Alquimia la reutilizan tal cual |
+
+**Alcance de la acción:** minar exige estar al lado. Si el jugador se aleja con la tarjeta abierta, la tarjeta se cierra en lugar de minar a distancia (`isBeside`).
 
 ## 10. Pendiente para multiplayer (sin implementar)
 

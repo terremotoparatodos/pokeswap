@@ -82,6 +82,7 @@ windup 220 ms (pico arriba) → strike 90 ms (pico abajo, destello del nodo, tem
 ```
 
 - **Orientación:** el pico va a la derecha o izquierda según hacia dónde mira el jugador. Mirando hacia arriba se dibuja detrás; hacia abajo, delante.
+- **Pokémon trabajador:** aparece al lado del jugador durante la acción, con su sprite overworld normal y mirando al nodo (detalle en `MINING_INTERACTION_SPEC.md` §9). La fantasía es "trabajo junto a mi Pokémon", sin animaciones por especie.
 - **Personaje y entrada:** no se modificaron las hojas del personaje. Durante la acción el motor bloquea el input (`setInputLocked`) sin bajar los fps.
 - **Descartado:**
   - cuadros nuevos de entrenador: habría que hacerlos para los 3 personajes, 4 direcciones y 2 velocidades;
