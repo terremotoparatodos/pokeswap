@@ -54,6 +54,7 @@
       v-if="ProfessionWorldDemo"
       ref="professionRef"
       :area-kind="hud.areaKind"
+      :game="game"
       @overlay="(open: boolean) => (professionOpen = open)"
     />
 
@@ -154,7 +155,7 @@ function onAuthClose(): void {
 const pokedex = shallowRef<readonly PokedexEntry[]>([])
 const plazaRef = ref<InstanceType<typeof LobbyPlaza> | null>(null)
 const plazaOpen = ref(false)
-const professionRef = ref<{ inspect: (target: WorldObjectTarget) => boolean } | null>(null)
+const professionRef = ref<{ inspect: (target: WorldObjectTarget) => boolean; isWorldObject: (target: WorldObjectTarget) => boolean } | null>(null)
 const professionOpen = ref(false)
 const covered = computed(() => panel.feature.value !== null || menuOpen.value || authOpen.value)
 const motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -230,6 +231,7 @@ onMounted(async () => {
     onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
     onInspect: hit => plazaRef.value?.inspect(hit),
     onWorldObject: ProfessionWorldDemo ? target => professionRef.value?.inspect(target) ?? false : undefined,
+    isWorldObject: ProfessionWorldDemo ? target => professionRef.value?.isWorldObject(target) ?? false : undefined,
     onTownPosition: identity.recordTownPosition,
     presence: presencePort,
   })
