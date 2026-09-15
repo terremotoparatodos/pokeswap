@@ -2,12 +2,13 @@
 // mining overlay. Used by the playground field lab and the dev-only WildLands
 // demo, so both surfaces behave identically.
 
-import { ref, shallowRef } from 'vue'
+import { ref, shallowRef, watch } from 'vue'
 import type { WorldObjectTarget } from '../../wildlands/engine/game'
 import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
-import { demoAffinity, demoTool, inspectDemoNode, type DemoGatherOutcome, type DemoNodeTarget } from '../demo/demoSession'
+import { demoAffinity, demoTool, demoWorker, inspectDemoNode, type DemoGatherOutcome, type DemoNodeTarget } from '../demo/demoSession'
 import type { ProfessionDemoSession } from '../demo/useProfessionDemo'
 import type { PickaxeTier } from '../art/miningItems'
+import { isBeside } from '../overworld/workerPresence'
 import { resolveNodeStatus } from '../ui/nodeStatus'
 import { miningTimeline } from './miningAction'
 import { MiningOverlay, type OverlayPlayer } from './miningOverlay'
@@ -26,6 +27,7 @@ export interface MiningSelection {
   readonly ty: number
 }
 
+
 export type MiningPhase = 'idle' | 'mining' | 'result'
 
 export function useMiningController(session: ProfessionDemoSession, game: () => MiningGamePort | null, detectionOverride: () => number | null = () => null) {
@@ -39,6 +41,11 @@ export function useMiningController(session: ProfessionDemoSession, game: () => 
     detection: () => detectionOverride() ?? demoAffinity(session.state.value, 'mining')?.bonuses.detection ?? 0,
     targetId: () => selection.value?.target.nodeId ?? null,
   })
+
+  // Warm the worker's overworld sheet whenever the assigned Pokémon changes.
+  watch(() => demoWorker(session.state.value, 'mining')?.speciesId ?? null, speciesId => {
+    if (speciesId !== null) overlay.preloadWorker(speciesId)
+  }, { immediate: true })
 
   const attach = () => game()?.setSceneOverlay(overlay)
   const detach = () => {
@@ -70,6 +77,12 @@ export function useMiningController(session: ProfessionDemoSession, game: () => 
   function mine(): boolean {
     const current = selection.value
     if (!current || phase.value === 'mining') return false
+    // Walking away with the card open ends the interaction: you mine what you stand next to.
+    const player = game()?.playerSnapshot()
+    if (player && !isBeside(player, current)) {
+      close()
+      return false
+    }
     session.sync()
     const state = session.state.value
     const inspection = inspectDemoNode(state, current.target)
@@ -81,6 +94,7 @@ export function useMiningController(session: ProfessionDemoSession, game: () => 
       target: current.target, tx: current.tx, ty: current.ty,
       timeline: miningTimeline(inspection.check.preview.actionSeconds),
       tier: (demoTool(state, 'mining')?.definition.tier ?? 1) as PickaxeTier,
+      workerSpeciesId: demoWorker(state, 'mining')?.speciesId ?? null,
       onResult: () => {
         const result = session.gather(current.target)
         outcome.value = result

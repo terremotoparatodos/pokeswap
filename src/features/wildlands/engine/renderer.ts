@@ -257,7 +257,7 @@ export class Renderer {
     const area = scene.area
     for (const extra of overlay?.sprites?.(area, scene.seconds) ?? []) {
       const index = list.length
-      push(extra.wx, extra.wy, extra.sprite, { lift: extra.lift ?? 0, alpha: extra.alpha })
+      push(extra.wx, extra.wy, extra.sprite, { lift: extra.lift ?? 0, alpha: extra.alpha, scale: extra.scale })
       if (list.length > index && extra.depthBias) list[index].depth += extra.depthBias
     }
     const visibleActors = !scene.showPlayer ? scene.actors

@@ -23,6 +23,8 @@ export interface OverlaySprite {
   /** Height above the ground, in world pixels. */
   lift?: number
   alpha?: number
+  /** Multiplies the projected size, anchored at the feet (e.g. a quick pop-in). */
+  scale?: number
   /** Added to the depth key: positive draws in front of props at the same row. */
   depthBias?: number
 }

@@ -17,6 +17,7 @@ const DEV_ENTRY_POINTS = ['../../app/router/routes.ts', '../wildlands/components
 const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
   ['./art/', /\/wildlands\/engine\/(noise|pixels|props|sprite)$/],
   ['./mining/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay|game)$/],
+  ['./overworld/', /\/wildlands\/engine\/(world|characters|sceneOverlay)$/],
   ['./components/', /\/wildlands\/engine\/(world|noise|characters|game)$/],
   ['./', /\/wildlands\/engine\/(world|noise)$/],
 ]

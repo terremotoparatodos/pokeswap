@@ -28,6 +28,12 @@ export const DEMO_WORKERS: readonly DemoWorker[] = [
   { speciesId: 44, name: 'Gloom', type1: 'grass', type2: 'poison' },
   { speciesId: 242, name: 'Blissey', type1: 'normal', type2: null },
   { speciesId: 150, name: 'Mewtwo', type1: 'psychic', type2: null },
+  // Size and shape references for the overworld worker (R31-C1): small, flying, long, wide, bulky.
+  { speciesId: 25, name: 'Pikachu', type1: 'electric', type2: null },
+  { speciesId: 18, name: 'Pidgeot', type1: 'normal', type2: 'flying' },
+  { speciesId: 95, name: 'Onix', type1: 'rock', type2: 'ground' },
+  { speciesId: 130, name: 'Gyarados', type1: 'water', type2: 'flying' },
+  { speciesId: 143, name: 'Snorlax', type1: 'normal', type2: null },
 ]
 
 export const TYPE_LABEL: Readonly<Record<string, string>> = {

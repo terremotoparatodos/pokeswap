@@ -19,6 +19,8 @@ import { bubbleArt, chipArt, dustArt, glintArt, RARITY_CHIP_TONES, sparkArt } fr
 import { pickaxeSwingArt, resourceIconArt, type PickaxeTier } from '../art/miningItems'
 import { isMiningAnchor, isMiningNodeId, miningNodeArt, RESPAWN_FRAMES } from '../art/miningNodes'
 import { brighten, toSprite, type PixelArt } from '../art/pixelArt'
+import { WorkerCompanion } from '../overworld/workerCompanion'
+import { workerSpot } from '../overworld/workerPresence'
 import { inspectDemoNode, type DemoNodeTarget, type DemoState } from '../demo/demoSession'
 import { resolveNodeStatus } from '../ui/nodeStatus'
 import { miningPose, strikesBetween, type MiningTimeline } from './miningAction'
@@ -56,6 +58,8 @@ export interface StartMining {
   readonly ty: number
   readonly timeline: MiningTimeline
   readonly tier: PickaxeTier
+  /** Species drawn beside the player during the action; null for bare work. */
+  readonly workerSpeciesId: number | null
   /** Applies the action (local demo) when the last strike lands. */
   readonly onResult: () => MiningReward | null
   readonly onDone: () => void
@@ -66,6 +70,8 @@ interface ActiveAction extends StartMining {
   lastMs: number
   resultApplied: boolean
   linger: number
+  /** The worker spot is chosen on the first drawn frame, when the area is known. */
+  summoned: boolean
 }
 
 interface VisibleNode {
@@ -103,6 +109,7 @@ export class MiningOverlay implements SceneOverlay {
   private particles: Particle[] = []
   private pops: RewardPop[] = []
   private action: ActiveAction | null = null
+  private readonly companion = new WorkerCompanion()
   private seconds = 0
 
   constructor(private readonly deps: MiningOverlayDeps) {}
@@ -130,14 +137,21 @@ export class MiningOverlay implements SceneOverlay {
   }
 
   start(options: StartMining): void {
-    this.action = { ...options, startedAt: this.seconds, lastMs: 0, resultApplied: false, linger: 0 }
+    this.action = { ...options, startedAt: this.seconds, lastMs: 0, resultApplied: false, linger: 0, summoned: false }
     this.views.delete(options.target.nodeId)
+    if (options.workerSpeciesId !== null) this.companion.preload(options.workerSpeciesId)
   }
 
-  /** Stops any running action immediately (e.g. the view unmounts). */
+  /** Warms a worker sheet ahead of the first action. */
+  preloadWorker(speciesId: number): void {
+    this.companion.preload(speciesId)
+  }
+
+  /** Stops any running action immediately (e.g. the view unmounts); the worker fades out. */
   cancel(): void {
     const action = this.action
     this.action = null
+    this.companion.dismiss(this.seconds)
     if (action && !action.resultApplied) action.onDone()
   }
 
@@ -166,6 +180,7 @@ export class MiningOverlay implements SceneOverlay {
     action.lastMs = elapsed
     if (elapsed >= action.timeline.totalMs + action.linger) {
       this.action = null
+      this.companion.dismiss(seconds)
       action.onDone()
     }
   }
@@ -249,8 +264,9 @@ export class MiningOverlay implements SceneOverlay {
     }
   }
 
-  sprites(_area: Area, seconds: number): readonly OverlaySprite[] {
+  sprites(area: Area, seconds: number): readonly OverlaySprite[] {
     const out: OverlaySprite[] = []
+    this.summonWorker(area)
     for (const node of this.visible.values()) {
       if (node.view.bubble && !this.action) {
         out.push({ wx: node.x, wy: node.y, sprite: toSprite(bubbleArt(node.view.bubble), false), lift: node.height + 2 + Math.round(Math.sin(seconds * 3) * 1), depthBias: 0.5 })
@@ -276,6 +292,8 @@ export class MiningOverlay implements SceneOverlay {
       }
     }
 
+    out.push(...this.companion.sprites(seconds))
+
     for (const p of this.particles) {
       const fade = 1 - p.age / p.life
       const art = p.kind === 'chip' ? chipArt(RARITY_CHIP_TONES[p.tone][0], RARITY_CHIP_TONES[p.tone][1])
@@ -293,6 +311,17 @@ export class MiningOverlay implements SceneOverlay {
       out.push({ wx: pop.x, wy: pop.y, sprite: toSprite(icon, false), lift: pop.lift + t * 14, alpha: t > 0.7 ? (1 - t) / 0.3 : 1, depthBias: 2 })
     }
     return out
+  }
+
+  /** Places the worker beside the player once per action: never on the node, water or solid tiles. */
+  private summonWorker(area: Area): void {
+    const action = this.action
+    const player = this.deps.player()
+    if (!action || action.summoned || !player) return
+    action.summoned = true
+    if (action.workerSpeciesId === null) return
+    const spot = workerSpot(player, action, (tx, ty) => !area.isSolid(tx, ty) && !area.isWater(tx, ty) && !this.targetAt(area, tx, ty))
+    if (spot) this.companion.summon(action.workerSpeciesId, spot)
   }
 
   labels(_area: Area, seconds: number): readonly OverlayLabel[] {
