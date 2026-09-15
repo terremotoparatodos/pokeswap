@@ -1,7 +1,7 @@
 {
   "name": "@pokeswap/realtime",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
     "test": "node --test src/**/*.test.js",
