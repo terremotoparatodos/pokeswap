@@ -96,3 +96,11 @@ Antes de sumar sistemas de juego, hacer una fase corta de beta controlada/operac
 4. Sólo si la métrica lo exige, decidir réplicas, Redis o una segunda región. No habilitarlos por anticipado: cambiarían la autoridad de presencia efímera.
 
 Después de esa fase, elegir una única expansión de producto para R31, por ejemplo una segunda zona compartida o interacciones sociales diseñadas con moderación, bloqueo, reportes y rate limiting desde el inicio. Chat no debe añadirse como efecto colateral de presencia.
+
+## Dirección acordada para la siguiente conversación
+
+- La prioridad inmediata es una beta controlada de R30 y su operación: observar tráfico real, latencia México/Argentina, CPU, memoria, capacidad y rechazos antes de cambiar la topología.
+- En paralelo, otra estación de trabajo puede explorar **profesiones, recursos y dungeons** en una rama aislada. Ese trabajo puede producir diseño, prototipos visuales, contratos de autoridad y estrategia de pruebas, pero no debe integrarse a producción todavía.
+- Profesiones, recursos y dungeons afectan progreso, recompensas, ownership y potencialmente economía. Cualquier implementación futura debe pasar por el desglose de responsabilidades de `AGENTS.md` §17 antes de crear tablas, RLS, RPCs, Edge Functions o recompensas persistentes.
+- La integración debe ocurrir por fases: primero aprobar el diseño y límites de confianza; luego elegir una sola responsabilidad inicial (por ejemplo recolección **o** dungeon), nunca ambas economías a la vez.
+- Para retomar: leer primero este documento, `HANDOFF.md`, `INVARIANTS.md` y `TRUST_BOUNDARY.md`; confirmar el estado de la PR documental y crear una nueva rama desde `main` sólo después de aprobar el desglose.
