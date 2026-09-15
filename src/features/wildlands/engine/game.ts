@@ -35,6 +35,7 @@ import type { TownPosition } from '../identity/playerPreferences'
 import { pokeballInfo } from './pokeball'
 import { isPresenceAreaId, type LocalPresencePort, type RemotePresenceActor } from '../multiplayer/domain/presence'
 import { reconcilePresenceArea } from '../multiplayer/domain/areaReconciliation'
+import { keepsPredictedStep } from '../multiplayer/domain/movementReconciliation'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
 /** While a panel covers the town the scene keeps animating, but at a battery-friendly rate. */
@@ -309,6 +310,7 @@ export class WildlandsGame {
       return
     }
     const player = this.player
+    if (keepsPredictedStep(isMoving(player), actor.moveSequence, this.nextMoveSequence)) return
     // A completed local step keeps its previous `from` tile for animation.
     // It is not a server disagreement; reconciling it would cancel click-paths
     // and make running restart every tile.

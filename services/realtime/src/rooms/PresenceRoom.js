@@ -2,6 +2,7 @@ import { Room, ServerError } from '@colyseus/core'
 import { authenticateSupabase, authorizedCompanion } from '../auth/supabaseAuth.js'
 import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
 import { acceptMove } from '../presence/movement.js'
+import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
 import { AREA, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor } from '../protocol/messages.js'
 import { metrics } from '../observability/metrics.js'
@@ -13,6 +14,7 @@ const observers = new Map()
 // transport state, not player state: it lets us send an explicit leave when a
 // player crosses a wild-sector boundary.
 const visibleByClient = new Map()
+const reconnectingActors = new ReconnectCache()
 const WILD_SPAWN = Object.freeze({ tx: 8, ty: 41 })
 
 export class PresenceRoom extends Room {
@@ -47,7 +49,10 @@ export class PresenceRoom extends Room {
     const characterId = ['lucas', 'dawn-pink', 'dawn-yellow'].includes(visual?.characterId) ? visual.characterId : 'lucas'
     // Replace the old socket before any optional visual lookup. Otherwise a
     // reload can let the old onLeave remove presence seen by other clients.
-    const actor = { id: auth.userId, areaId: AREA.TOWN, tx: 31, ty: 20, username: auth.username, characterId, companionId: null, dir: 'down', speed: 3.75, moveSequence: 0, lastMoveAt: 0, moves: [] }
+    const actor = actors.get(auth.userId) ?? reconnectingActors.take(auth.userId) ??
+      { id: auth.userId, areaId: AREA.TOWN, tx: 31, ty: 20, username: auth.username, characterId, companionId: null, dir: 'down', speed: 3.75, moveSequence: 0, lastMoveAt: 0, moves: [] }
+    actor.username = auth.username
+    actor.characterId = characterId
     actors.set(actor.id, actor); clientsByActor.set(actor.id, client); observers.set(client.sessionId, client); client.userData = { actorId: actor.id }; metrics.joined('player')
     this.publish(actor)
     // Companion ownership is a display enhancement. It must never delay or
@@ -81,7 +86,10 @@ export class PresenceRoom extends Room {
     // It must not remove the newer actor with the same user id.
     if (clientsByActor.get(id) !== client) return
     const actor = actors.get(id); actors.delete(id); clientsByActor.delete(id)
-    if (actor) this.broadcastDelta({ type: 'leave', actor: publicActor(actor) }, actor)
+    if (actor) {
+      reconnectingActors.remember(id, actor)
+      this.broadcastDelta({ type: 'leave', actor: publicActor(actor) }, actor)
+    }
   }
 
   move(client, payload) {

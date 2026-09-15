@@ -1,7 +1,7 @@
 {
   "name": "@pokeswap/realtime",
   "private": true,
-  "type": "module",
+  "type": "commonjs",
   "scripts": {
     "start": "node src/index.js",
     "test": "node --test src/**/*.test.js",
@@ -10,6 +10,7 @@
   "dependencies": {
     "@colyseus/core": "^0.18.13",
     "@colyseus/schema": "^5.0.32",
+    "@colyseus/tools": "^0.18.3",
     "@colyseus/ws-transport": "^0.18.2",
     "express": "^5.2.1"
   }
