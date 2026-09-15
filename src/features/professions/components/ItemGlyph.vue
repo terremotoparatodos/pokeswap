@@ -1,5 +1,16 @@
 <template>
+  <img
+    v-if="iconUrl"
+    class="ig ig-pixel"
+    :src="iconUrl"
+    :width="size"
+    :height="size"
+    :alt="name"
+    :title="name"
+    draggable="false"
+  >
   <span
+    v-else
     class="ig"
     :class="[`ig--${tone}`, `ig--t${tier}`]"
     :style="{ width: `${size}px`, height: `${size}px`, fontSize: `${Math.round(size * 0.48)}px` }"
@@ -11,13 +22,23 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ITEM_BY_ID } from '../domain/catalog/items'
+import { PICKAXE_ITEMS, pickaxeIconArt, resourceIconArt, type PickaxeTier, type ToolArtCondition } from '../art/miningItems'
+import { toDataUrl } from '../art/pixelArt'
 
-// No item art exists yet: a tier-ringed token coloured by material family.
-const props = withDefaults(defineProps<{ itemId: string; size?: number }>(), { size: 22 })
+// Mining items use the R31-C1 pixel icons; items without art keep the
+// tier-ringed token until their profession gets its own kit.
+const props = withDefaults(defineProps<{ itemId: string; size?: number; condition?: ToolArtCondition }>(), { size: 22, condition: 'ok' })
+
+const PICKAXE_TIER = Object.fromEntries(Object.entries(PICKAXE_ITEMS).map(([tier, itemId]) => [itemId, Number(tier) as PickaxeTier]))
 
 const item = computed(() => ITEM_BY_ID.get(props.itemId))
 const name = computed(() => item.value?.name ?? props.itemId)
 const tier = computed(() => item.value?.tier ?? 1)
+const iconUrl = computed(() => {
+  const pickaxe = PICKAXE_TIER[props.itemId]
+  const art = pickaxe ? pickaxeIconArt(pickaxe, props.condition) : resourceIconArt(props.itemId)
+  return art ? toDataUrl(art, Math.max(1, Math.round(props.size / 16))) : null
+})
 const tone = computed(() => {
   const tags = item.value?.tags ?? []
   if (tags.includes('rare')) return 'rare'
@@ -44,6 +65,7 @@ const tone = computed(() => {
   line-height: 1;
   box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.25);
 }
+.ig-pixel { border-radius: 0; box-shadow: none; image-rendering: pixelated; object-fit: contain; }
 .ig--stone { background: #b9b2a6; }
 .ig--fuel { background: #6f6a66; color: #fff; }
 .ig--metal { background: #c7d3e6; }
