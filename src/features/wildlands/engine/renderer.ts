@@ -41,6 +41,8 @@ export interface Scene {
   companion: Actor | null
   /** Untrusted profile text, rendered only through fillText. */
   username: string | null
+  /** Guests keep a camera anchor but do not render a local playable avatar. */
+  showPlayer: boolean
   actors: readonly Actor[]
   showGrid: boolean
   route: RouteMarker
@@ -246,7 +248,8 @@ export class Renderer {
     }
 
     const area = scene.area
-    const visibleActors = scene.companion ? [scene.player, scene.companion, ...scene.actors] : [scene.player, ...scene.actors]
+    const visibleActors = !scene.showPlayer ? scene.actors
+      : scene.companion ? [scene.player, scene.companion, ...scene.actors] : [scene.player, ...scene.actors]
     for (const actor of visibleActors) {
       const pos = actorPosition(actor)
       const inWater = area.isWater(actor.tx, actor.ty) && area.isWater(actor.fromTx, actor.fromTy)
@@ -262,14 +265,14 @@ export class Renderer {
           submerged: inWater,
           glow: actor.pokemon.shiny,
           mine: actor.owned?.mine,
-          actor: actor === scene.companion ? undefined : actor,
+          actor: actor === scene.companion || actor.remote ? undefined : actor,
         })
       } else if (actor.trainer) {
         const set = actor.running && actor.trainerRun && isMoving(actor) && !inWater ? actor.trainerRun : actor.trainer
         push(pos.x, pos.y, set[actor.dir][walkFrame(actor)], {
           submerged: inWater,
-          actor: actor === scene.player ? undefined : actor,
-          username: actor === scene.player ? scene.username ?? undefined : undefined,
+          actor: actor.kind === 'npc' ? actor : undefined,
+          username: actor === scene.player ? scene.username ?? undefined : actor.remoteUsername,
         })
       }
     }
@@ -298,7 +301,7 @@ export class Renderer {
     ctx.globalAlpha = 1
 
     const t = scene.seconds
-    let nameplate: { username: string; x: number; y: number } | null = null
+    const nameplates: { username: string; x: number; y: number }[] = []
     for (const d of drawables) {
       const { sprite, scale: s } = d
       const x = Math.round(d.x - sprite.ax * s)
@@ -339,8 +342,8 @@ export class Renderer {
       if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: y + 5 * s, scale: s })
       if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) drawSparkle(ctx, d.x + s * 2, y + s * 3, s)
       if (d.mine) drawOwnerMarker(ctx, d.x, y + (sprite.top ?? 0) * s, s, t)
-      if (d.username) nameplate = { username: d.username, x: d.x, y: y + (sprite.top ?? 0) * s - 4 * (this.frame?.dpr ?? 1) }
+      if (d.username) nameplates.push({ username: d.username, x: d.x, y: y + (sprite.top ?? 0) * s - 4 * (this.frame?.dpr ?? 1) })
     }
-    if (nameplate && this.frame) drawPlayerNameplate(ctx, nameplate.username, nameplate.x, nameplate.y, this.frame.dpr)
+    if (this.frame) for (const nameplate of nameplates) drawPlayerNameplate(ctx, nameplate.username, nameplate.x, nameplate.y, this.frame.dpr)
   }
 }
