@@ -85,6 +85,9 @@ import LobbyMenu from './LobbyMenu.vue'
 import LobbyPanel from './LobbyPanel.vue'
 import LobbyPlaza from './LobbyPlaza.vue'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
+import { ColyseusPresence } from '../multiplayer/api/colyseusPresence'
+import type { LocalPresencePort } from '../multiplayer/domain/presence'
+import { useAuth } from '../../auth/composables/useAuth'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
@@ -106,6 +109,13 @@ const hud = reactive<HudState>({
   lens: 'handheld', toast: null, traveling: false, fps: 0, frameMs: 0,
 })
 const identity = usePlayerIdentity(game)
+const { user } = useAuth()
+let presence: ColyseusPresence | null = null
+const presencePort: LocalPresencePort = {
+  move: (direction, running, sequence) => presence?.move(direction, running, sequence),
+  changeArea: areaId => presence?.changeArea(areaId),
+  observe: (areaId, tx, ty) => presence?.observe(areaId, tx, ty),
+}
 
 // Panels over the town. Leaving a building (or a building's direct link) puts the
 // player back outside its door; panels opened from the menu leave them where they were.
@@ -209,10 +219,14 @@ onMounted(async () => {
     onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
     onInspect: hit => plazaRef.value?.inspect(hit),
     onTownPosition: identity.recordTownPosition,
+    presence: presencePort,
   })
   // A direct link to a feature shows the town from that building's door.
   if (panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
   game.value = created
+  created.setPresenceAccess('pending')
+  presence = new ColyseusPresence(created)
+  void presence.connect(identity.visualIdentity.value)
   created.setVisibilityPaused(hidden.value)
   created.setReducedMotion(reduceMotion.value)
   created.start()
@@ -230,6 +244,21 @@ onUnmounted(() => {
   motionMedia.removeEventListener('change', onMotionChange)
   document.removeEventListener('visibilitychange', onVisibilityChange)
   game.value?.destroy()
+  presence?.disconnect()
+})
+
+// A session change replaces the socket rather than keeping an authenticated actor after logout.
+watch(user, () => {
+  if (!game.value) return
+  game.value.setPresenceAccess('pending')
+  presence?.disconnect()
+  presence = new ColyseusPresence(game.value)
+  void presence.connect(identity.visualIdentity.value)
+})
+
+watch(hidden, isHidden => {
+  if (isHidden) presence?.suspend()
+  else presence?.resume(identity.visualIdentity.value)
 })
 </script>
 

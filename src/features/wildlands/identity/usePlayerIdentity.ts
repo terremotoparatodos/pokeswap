@@ -122,6 +122,7 @@ export function usePlayerIdentity(game: ShallowRef<IdentityGamePort | null>) {
   })
 
   return {
+    visualIdentity,
     waitUntilReady,
     initialTownPosition,
     recordTownPosition,

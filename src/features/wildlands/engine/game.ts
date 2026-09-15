@@ -12,7 +12,7 @@ import {
 import { isPortalTile, type Area, type AreaId, type Arrival, type Populace } from './area'
 import { DAY_SECONDS, lighting, type DayPhase, type WeatherKind } from './atmosphere'
 import { Atlas, LOBBY_ID } from '../areas/atlas'
-import { loadNpcTrainerArt, type Dir } from './characters'
+import { loadNpcTrainerArt, loadTrainerSheet, type Dir } from './characters'
 import { CompanionFollower } from './companion'
 import { actorLine } from './dialogue'
 import { Entrances } from './doors'
@@ -29,10 +29,12 @@ import { PlayerAppearance } from './playerAppearance'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
 import type { LobbyFeature } from '../lobby/features'
-import { DEFAULT_PLAYER_CHARACTER_ID, playerCharacter } from '../identity/playerCharacters'
+import { DEFAULT_PLAYER_CHARACTER_ID, isPlayerCharacterId, playerCharacter } from '../identity/playerCharacters'
 import type { PlayerVisualIdentity } from '../identity/playerIdentity'
 import type { TownPosition } from '../identity/playerPreferences'
 import { pokeballInfo } from './pokeball'
+import { isPresenceAreaId, type LocalPresencePort, type RemotePresenceActor } from '../multiplayer/domain/presence'
+import { reconcilePresenceArea } from '../multiplayer/domain/areaReconciliation'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
 /** While a panel covers the town the scene keeps animating, but at a battery-friendly rate. */
@@ -66,6 +68,7 @@ export interface GameOptions {
   onInspect?: (hit: PlazaHit | WildHit) => void
   /** Completed safe town tiles, used only for local cosmetic persistence. */
   onTownPosition?: (position: TownPosition) => void
+  presence?: LocalPresencePort | null
 }
 
 const LENS_ORDER: LensName[] = ['handheld', 'dramatic', 'cenital']
@@ -96,11 +99,21 @@ export class WildlandsGame {
   private readonly entrances: Entrances
   private readonly onInspect?: (hit: PlazaHit | WildHit) => void
   private readonly onTownPosition?: (position: TownPosition) => void
+  private readonly presence?: LocalPresencePort | null
+  private remoteActors: Actor[] = []
+  private remoteCompanions: Actor[] = []
+  private remoteGeneration = 0
+  private observerAt: string | null = null
+  private receivedAuthoritativeActor = false
+  /** Area requested locally; old-area socket acknowledgements cannot undo it. */
+  private pendingPresenceArea: 'ciudad-corazon' | 'pradera' | null = null
+  private nextMoveSequence = 0
   private username: string | null = null
   private owned: readonly PlazaResident[] = []
   private wildPokemonIds: readonly number[] = []
   private running = false
   private paused = false
+  private spectator = false
   private visibilityPaused = false
   private reduceMotion = false
   private frameId = 0
@@ -127,6 +140,7 @@ export class WildlandsGame {
     this.onHud = options.onHud
     this.onInspect = options.onInspect
     this.onTownPosition = options.onTownPosition
+    this.presence = options.presence
     this.entrances = new Entrances(door => options.onEnterBuilding?.(door.buildingId, door.feature))
     this.player = createActor({ id: 'player', kind: 'player', habitat: 'any', tx: 0, ty: 0, trainer: this.renderer.playerSprites })
     this.appearance = new PlayerAppearance(this.player, this.renderer.playerSprites)
@@ -189,7 +203,7 @@ export class WildlandsGame {
 
   start(): void {
     this.running = true
-    if (!this.paused && !this.visibilityPaused) this.keys.attach()
+    if (!this.spectator && !this.paused && !this.visibilityPaused) this.keys.attach()
     this.last = performance.now()
     this.frameId = requestAnimationFrame(this.loop)
   }
@@ -253,6 +267,102 @@ export class WildlandsGame {
     this.companion.set(identity.companion, this.player)
   }
 
+  /** Guests keep the live scene but cannot create a local actor or movement intent. */
+  setSpectator(spectator: boolean): void {
+    this.spectator = spectator
+    this.nav.cancel()
+    if (spectator) this.keys.detach()
+    else if (this.running && !this.paused && !this.visibilityPaused) this.keys.attach()
+  }
+
+  /** The presence service, not a browser session guess, decides actor access. */
+  setPresenceAccess(access: 'pending' | 'player' | 'guest'): void {
+    this.setSpectator(access !== 'player')
+  }
+
+  /** Reconciles the playable avatar to the ephemeral position confirmed by the server. */
+  setAuthoritativeActor(actor: RemotePresenceActor | null): void {
+    if (!actor) {
+      this.receivedAuthoritativeActor = false
+      this.pendingPresenceArea = null
+      this.nextMoveSequence = 0
+      return
+    }
+    if (this.spectator) return
+    const area = reconcilePresenceArea(this.pendingPresenceArea, actor.areaId)
+    this.pendingPresenceArea = area.pendingArea
+    if (!area.accept) return
+    if (!this.receivedAuthoritativeActor) {
+      this.receivedAuthoritativeActor = true
+      this.nextMoveSequence = actor.moveSequence
+      if (this.area.id !== actor.areaId) this.enterArea(actor.areaId, null, { tx: actor.tx, ty: actor.ty, dir: actor.dir })
+      else this.placePlayer({ tx: actor.tx, ty: actor.ty, dir: actor.dir })
+      this.player.speed = actor.speed
+      return
+    }
+    // A local prediction may be one or more steps ahead while the server is
+    // processing prior input. Never rewind it to an older acknowledgement.
+    if (actor.moveSequence < this.nextMoveSequence) return
+    if (this.area.id !== actor.areaId) {
+      this.enterArea(actor.areaId, null, { tx: actor.tx, ty: actor.ty, dir: actor.dir })
+      this.player.speed = actor.speed
+      return
+    }
+    const player = this.player
+    // A completed local step keeps its previous `from` tile for animation.
+    // It is not a server disagreement; reconciling it would cancel click-paths
+    // and make running restart every tile.
+    const differs = player.tx !== actor.tx || player.ty !== actor.ty
+    if (differs) this.placePlayer({ tx: actor.tx, ty: actor.ty, dir: actor.dir })
+    else player.dir = actor.dir
+    player.speed = actor.speed
+    player.running = actor.speed > WALK_SPEED
+  }
+
+  /** Applies server-authoritative ephemeral actor snapshots through the remote-actor port. */
+  setRemoteActors(actors: readonly RemotePresenceActor[]): void {
+    const generation = ++this.remoteGeneration
+    const previous = new Map(this.remoteActors.map(actor => [actor.id, actor]))
+    const previousCompanions = new Map(this.remoteCompanions.map(actor => [actor.id, actor]))
+    this.remoteActors = actors.filter(actor => actor.areaId === this.area.id).map(remote => {
+      const old = previous.get(`remote:${remote.id}`)
+      const actor = createActor({ id: `remote:${remote.id}`, kind: 'remote', habitat: 'any', tx: remote.tx, ty: remote.ty,
+        trainer: this.renderer.playerSprites, remoteUsername: remote.username, remote: true, dir: remote.dir, speed: remote.speed,
+      })
+      if (old && (old.tx !== remote.tx || old.ty !== remote.ty)) {
+        actor.fromTx = old.tx; actor.fromTy = old.ty; actor.progress = 0; actor.speed = remote.speed
+      }
+      const character = playerCharacter(isPlayerCharacterId(remote.characterId) ? remote.characterId : DEFAULT_PLAYER_CHARACTER_ID)
+      void loadTrainerSheet(character.sheetUrl).then(sheet => {
+        if (generation !== this.remoteGeneration || !this.remoteActors.includes(actor)) return
+        actor.trainer = sheet.walk; actor.trainerRun = sheet.run
+      }).catch(() => undefined)
+      return actor
+    })
+    this.remoteCompanions = actors.filter(actor => actor.areaId === this.area.id && actor.companionId !== null).map(remote => {
+      const id = remote.companionId!
+      const owner = this.remoteActors.find(actor => actor.id === `remote:${remote.id}`)
+      const companionId = `remote-companion:${remote.id}:${id}`
+      const old = previousCompanions.get(companionId)
+      const tx = owner?.fromTx ?? remote.tx
+      const ty = owner?.fromTy ?? remote.ty
+      const companion = createActor({
+        id: companionId, kind: 'pokemon', habitat: 'any', tx, ty,
+        dir: remote.dir, speed: remote.speed, remote: true, pokemon: pokeballInfo({ id, name_es: String(id) }),
+      })
+      // Follow the remote trainer's previous completed tile. Preserving the
+      // old companion position makes running a continuous one-tile trail.
+      if (old && (old.tx !== tx || old.ty !== ty)) {
+        companion.fromTx = old.tx; companion.fromTy = old.ty; companion.progress = 0
+      }
+      const entry = this.pokedex.find(pokemon => pokemon.id === id)
+      if (entry) void loadPokemonInfo(entry, false).then(info => {
+        if (generation === this.remoteGeneration && this.remoteCompanions.includes(companion) && info) companion.pokemon = info
+      }).catch(() => undefined)
+      return companion
+    })
+  }
+
   setVirtualDir(dir: Dir | null): void {
     this.keys.virtualDir = dir
   }
@@ -263,7 +373,7 @@ export class WildlandsGame {
    * walks beside it (and talks); tapping ground walks there.
    */
   tap(cssX: number, cssY: number): void {
-    if (this.travel.active || this.paused) return
+    if (this.spectator || this.travel.active || this.paused) return
     const pick = this.renderer.pick(cssX, cssY)
     const hit = this.onInspect ? plazaHitAt(this.area, pick) ?? wildHitAt(this.area, pick) : null
     if (hit) this.onInspect!(hit)
@@ -272,7 +382,7 @@ export class WildlandsGame {
 
   /** Press-and-drag retargeting: only re-plans when the finger moves to another tile. */
   drag(cssX: number, cssY: number): void {
-    if (this.travel.active || this.paused) return
+    if (this.spectator || this.travel.active || this.paused) return
     const pick = this.renderer.pick(cssX, cssY)
     const current = this.nav.route(this.player).target
     if (!pick.tile || (current && current.tx === pick.tile.tx && current.ty === pick.tile.ty)) return
@@ -281,6 +391,13 @@ export class WildlandsGame {
 
   /** Starts a fade-out trip to another area. */
   travelTo(to: AreaId): void {
+    // R30 intentionally shares just Ciudad Corazón and Pradera. Letting a
+    // legacy local-only gate transition while presence is active would split
+    // client and server area authority.
+    if (this.presence && !isPresenceAreaId(to)) {
+      this.say('Esta zona llegará próximamente')
+      return
+    }
     if (this.travel.begin(this.area.id, to)) this.nav.cancel()
   }
 
@@ -376,12 +493,17 @@ export class WildlandsGame {
     if (this.lensBlend < 1) this.lensBlend = Math.min(1, this.lensBlend + dt * 1.8)
     this.travel.update(dt, (to, from) => {
       this.enterArea(to, from, null)
+      // Only these two areas participate in R30 presence. The request is
+      // recorded before it crosses the socket so an older town snapshot cannot
+      // pull the local player back through the portal.
+      this.pendingPresenceArea = this.area.id === LOBBY_ID ? 'ciudad-corazon' : this.area.id === 'pradera' ? 'pradera' : null
+      this.presence?.changeArea(this.area.id)
       this.say(this.area.name)
     })
 
     // Player (input is ignored mid-trip)
     const player = this.player
-    const keyDir = this.travel.active || this.paused ? null : this.keys.direction
+    const keyDir = this.travel.active || this.paused || this.spectator ? null : this.keys.direction
     if (keyDir) this.nav.cancel() // Keyboard always wins over a tap route.
     const navigating = !keyDir && this.nav.active
     player.running = this.keys.sprinting
@@ -410,6 +532,8 @@ export class WildlandsGame {
       wander(actor, this.seconds, this.rules)
       advance(actor, dt)
     }
+    for (const actor of this.remoteActors) advance(actor, dt)
+    for (const actor of this.remoteCompanions) advance(actor, dt)
 
     // Camera: locked to the player's whole-pixel position, like the handheld games.
     // Easing only kicks in after a large jump so the view never snaps across the map.
@@ -445,6 +569,8 @@ export class WildlandsGame {
   }
 
   private onPlayerArrive(tx: number, ty: number): void {
+    // Only the direction crosses the trust boundary; the presence server derives the position.
+    this.presence?.move(this.player.dir, this.player.running, ++this.nextMoveSequence)
     if (this.area.collect(tx, ty)) {
       this.crystals++
       this.say('+1 cristal · demo, no se guarda')
@@ -471,7 +597,8 @@ export class WildlandsGame {
       player: this.player,
       companion: this.companion.actor,
       username: this.username,
-      actors: this.populace.actors,
+      showPlayer: !this.spectator,
+      actors: [...this.populace.actors, ...this.remoteActors, ...this.remoteCompanions],
       // The grid helps read procedural terrain; over town art it is noise.
       showGrid: this.showGrid && this.area.kind === 'wild',
       route: this.nav.route(this.player),
@@ -480,6 +607,13 @@ export class WildlandsGame {
 
   private emitHud(): void {
     const p = this.player
+    if (this.spectator) {
+      const key = `${this.area.id}:${p.tx}:${p.ty}`
+      if (key !== this.observerAt) {
+        this.observerAt = key
+        this.presence?.observe(this.area.id, p.tx, p.ty)
+      }
+    }
     if (this.toast && this.seconds > this.toast.until) this.toast = null
     this.onHud({
       areaId: this.area.id,
