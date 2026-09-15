@@ -7,7 +7,7 @@ import { describeNodeStatus, formatCountdown, resolveNodeStatus, type NodeStatus
 const ok = { ok: true, preview: {} } as unknown as GatheringCheck
 const rejected = (reason: 'level_too_low' | 'insufficient_energy' | 'tool_broken'): GatheringCheck => ({ ok: false, reason })
 const input = (overrides: Partial<NodeStatusInput> = {}): NodeStatusInput => ({
-  check: ok, remainingCharges: 3, freeCapacity: 50, maxUnits: 2, phase: 'idle', ...overrides,
+  check: ok, remainingCharges: 3, inventoryFits: true, phase: 'idle', ...overrides,
 })
 
 describe('node status', () => {
@@ -22,7 +22,7 @@ describe('node status', () => {
     expect(resolveNodeStatus(input({ check: rejected('level_too_low'), remainingCharges: 0 }))).toBe('locked_level')
     expect(resolveNodeStatus(input({ check: rejected('tool_broken') }))).toBe('tool_broken')
     expect(resolveNodeStatus(input({ check: rejected('insufficient_energy'), remainingCharges: 0 }))).toBe('depleted')
-    expect(resolveNodeStatus(input({ check: rejected('insufficient_energy'), freeCapacity: 1 }))).toBe('inventory_full')
+    expect(resolveNodeStatus(input({ check: rejected('insufficient_energy'), inventoryFits: false }))).toBe('inventory_full')
     expect(resolveNodeStatus(input({ check: rejected('insufficient_energy') }))).toBe('no_energy')
     expect(resolveNodeStatus(input())).toBe('available')
   })

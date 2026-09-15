@@ -36,9 +36,11 @@ export function statusForRejection(reason: GatheringRejection): NodeStatus {
 export interface NodeStatusInput {
   readonly check: GatheringCheck
   readonly remainingCharges: number
-  readonly freeCapacity: number
-  /** Units one action can add before a critical doubles them. */
-  readonly maxUnits: number
+  /**
+   * The guaranteed part of the reward fits the inventory (R31-C1 slots and
+   * stacks). Extra units that do not fit go to a visible pending pouch.
+   */
+  readonly inventoryFits: boolean
   readonly phase: NodePhase
 }
 
@@ -57,7 +59,7 @@ export function resolveNodeStatus(input: NodeStatusInput): NodeStatus {
   }
   if (!input.check.ok && input.check.reason !== 'insufficient_energy') return statusForRejection(input.check.reason)
   if (input.remainingCharges <= 0) return 'depleted'
-  if (input.freeCapacity < input.maxUnits) return 'inventory_full'
+  if (!input.inventoryFits) return 'inventory_full'
   if (!input.check.ok) return 'no_energy'
   return 'available'
 }

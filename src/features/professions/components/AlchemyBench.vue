@@ -69,7 +69,7 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import { PROFESSIONS } from '../domain/catalog/professions'
 import { RECIPES } from '../domain/catalog/recipes'
 import type { ProfessionId } from '../domain/types'
-import { demoLevel } from '../demo/demoSession'
+import { demoCounts, demoLevel } from '../demo/demoSession'
 import type { ProfessionDemoSession } from '../demo/useProfessionDemo'
 import { craftingFeedback, type FeedbackLine } from '../ui/feedback'
 import { recipeView } from '../ui/recipeView'
@@ -91,16 +91,16 @@ const feedback = shallowRef<readonly FeedbackLine[]>([])
 
 const views = computed(() => RECIPES
   .filter(recipe => recipe.profession === profession.value)
-  .map(recipe => recipeView(recipe, state.value.inventory, demoLevel(state.value, recipe.profession)))
+  .map(recipe => recipeView(recipe, demoCounts(state.value), demoLevel(state.value, recipe.profession)))
   .sort((a, b) => AVAILABILITY_ORDER[a.availability] - AVAILABILITY_ORDER[b.availability] || a.requiredLevel - b.requiredLevel))
 
 const selectedRecipe = computed(() => RECIPES.find(recipe => recipe.id === (selectedId.value ?? views.value[0]?.id)))
 const maxQuantity = computed(() => Math.max(1, detailBase.value?.maxCraftable ?? 1))
 const detailBase = computed(() => selectedRecipe.value
-  ? recipeView(selectedRecipe.value, state.value.inventory, demoLevel(state.value, selectedRecipe.value.profession))
+  ? recipeView(selectedRecipe.value, demoCounts(state.value), demoLevel(state.value, selectedRecipe.value.profession))
   : null)
 const detail = computed(() => selectedRecipe.value
-  ? recipeView(selectedRecipe.value, state.value.inventory, demoLevel(state.value, selectedRecipe.value.profession), quantity.value)
+  ? recipeView(selectedRecipe.value, demoCounts(state.value), demoLevel(state.value, selectedRecipe.value.profession), quantity.value)
   : null)
 
 watch(maxQuantity, max => { if (quantity.value > max) quantity.value = max })

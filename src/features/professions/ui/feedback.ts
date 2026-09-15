@@ -42,6 +42,26 @@ export function gatheringFeedback(result: Extract<GatheringResult, { ok: true }>
   return lines
 }
 
+/** How rewards landed in the slot inventory (R31-C1). */
+export function inventoryFeedback(
+  placements: readonly { readonly itemId: string; readonly newStack: boolean; readonly filledStack: boolean }[],
+  overflow: readonly { readonly itemId: string; readonly quantity: number }[],
+): FeedbackLine[] {
+  const lines: FeedbackLine[] = []
+  const seen = new Set<string>()
+  for (const placement of placements) {
+    const key = `${placement.itemId}:${placement.newStack}:${placement.filledStack}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    if (placement.filledStack) lines.push({ text: `Stack de ${itemName(placement.itemId)} completo`, tone: 'level', itemId: placement.itemId })
+    else if (placement.newStack) lines.push({ text: `Nuevo espacio: ${itemName(placement.itemId)}`, tone: 'item', itemId: placement.itemId })
+  }
+  for (const stack of overflow) {
+    lines.push({ text: `No entró: ${stack.quantity} ${itemName(stack.itemId)} (queda pendiente)`, tone: 'warn', itemId: stack.itemId })
+  }
+  return lines
+}
+
 export function craftingFeedback(result: Extract<ProcessingResult, { ok: true }>, profession: ProfessionId, leveledUp: boolean, newLevel: number): FeedbackLine[] {
   const name = PROFESSIONS[profession].name
   return [
