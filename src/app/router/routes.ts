@@ -27,6 +27,9 @@ const PANEL_VIEWS: Record<LobbyFeature, LazyView> = {
   caja: () => import('../../features/progression/components/MyBoxView.vue'),
 }
 
+// R31-B: internal profession playground. Development builds only; production has no such route.
+const professionPlayground: LazyView | null = import.meta.env.DEV ? () => import('../../features/professions/components/playground/ProfessionPlayground.vue') : null
+
 export const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -45,5 +48,8 @@ export const routes: RouteRecordRaw[] = [
   { path: '/wildlands', redirect: to => ({ path: '/', query: to.query }) },
   // Legacy map links now enter Ciudad Corazón.
   { path: '/map', redirect: to => ({ path: '/', query: to.query }) },
+  ...(professionPlayground
+    ? [{ path: '/dev/profesiones', name: 'dev-profesiones', component: professionPlayground, meta: { standalone: true } }]
+    : []),
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
