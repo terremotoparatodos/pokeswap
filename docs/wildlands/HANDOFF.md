@@ -1,9 +1,9 @@
 # WildLands — Traspaso de contexto
 
 > Documento de respaldo para retomar el trabajo en otra conversación.
-> Estado tras **R30 (Presencia multijugador efímera)**: implementación local aprobada en `feat/wildlands-r30`, pendiente de auditoría final, commits, PR y despliegue. R29 (Retiro del mapa legado y pulido) fue fusionada en `migration` mediante merge commit `f6d6d80` (PR [#14](https://github.com/terremotoparatodos/pokeswap/pull/14)).
+> Estado tras **R30 (Presencia multijugador efímera)**: cerrada y publicada en producción el 2026-09-15. PR [#19](https://github.com/terremotoparatodos/pokeswap/pull/19) incorporó el cierre operativo y PR [#20](https://github.com/terremotoparatodos/pokeswap/pull/20) corrigió la visibilidad al minimizar. R29 (Retiro del mapa legado y pulido) fue fusionada en `migration` mediante merge commit `f6d6d80` (PR [#14](https://github.com/terremotoparatodos/pokeswap/pull/14)).
 > R25 (La ciudad como home) está en `migration` ([#6](https://github.com/terremotoparatodos/pokeswap/pull/6)) y en producción en https://pokeswap.lol ([#7](https://github.com/terremotoparatodos/pokeswap/pull/7)).
-> Plan siguiente: [`R30_MULTIPLAYER_PLAN.md`](R30_MULTIPLAYER_PLAN.md), complementado por [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
+> Respaldo operativo: [`R30_PRODUCTION_HANDOFF.md`](R30_PRODUCTION_HANDOFF.md). El plan cerrado está en [`R30_MULTIPLAYER_PLAN.md`](R30_MULTIPLAYER_PLAN.md), complementado por [`LOBBY_INTEGRATION_PLAN.md`](LOBBY_INTEGRATION_PLAN.md).
 
 ---
 
@@ -65,7 +65,7 @@ npm test
 npm run test:load
 ```
 
-**Estado de checks tras R30 local:** 384 tests de frontend, 18 pruebas del servicio, typecheck y build pasan; el preflight de carga valida 50 jugadores. La configuración local de Docker y las claves publicables quedan ignoradas por Git.
+**Estado de checks al cierre R30:** 386 tests de frontend, 23 pruebas del servicio, typecheck y build pasan; el preflight de carga valida 50 jugadores. Producción validó WebSocket, dos jugadores, espectador, click-path, F5 y minimizado. La configuración local de Docker y las claves publicables quedan ignoradas por Git.
 - R27 sumó tests de preferencias versionadas, ownership/lock mediante `useMyBox`, carreras entre usuarios, sesión tardía/logout, seguimiento y transición de área, fallbacks de personaje/Pokémon, username hostil y la interfaz de Jugador.
 - R26 sumó tests de las reglas compartidas (`ownedSlots.test.ts`), Realtime y de la población de la plaza (`plazaPokemon.test.ts`, `plazaTaps.test.ts`, zonas en `atlas.test.ts`). R29 los reubica bajo `wildlands/lobby/` y elimina los tests exclusivos del mapa.
 - También sumó tests de datos en vivo y avisos (`usePlazaData.test.ts`, `plazaNotices.test.ts`), de render seguro (`PlazaPokemonCard.test.ts`) y de solo lectura (`plazaReadOnly.test.ts`, que escanea las fuentes nuevas).
@@ -298,7 +298,7 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
 2. **Una sola cámara (Portátil)** para el jugador: el arte DS está pensado para esa inclinación. Las otras quedan solo para desarrollo.
 3. **Tap/click para moverse como control principal**, para que funcione en móvil. El teclado sigue disponible y tiene prioridad.
 4. **Movimiento estilo Gen 4:** 3,75 casillas/s, sin pausas entre casillas, toque corto para girar y caminar en el lugar contra obstáculos.
-5. **Presencia R30.** Ciudad Corazón y Pradera Brisa comparten presencia efímera mediante Colyseus; Supabase sólo verifica el JWT y resuelve identidad visual autorizada. No se persisten posiciones ni estado de presencia. Colyseus Cloud es el hosting previsto; aún no hay despliegue.
+5. **Presencia R30.** Ciudad Corazón y Pradera Brisa comparten presencia efímera mediante Colyseus Cloud; Supabase sólo verifica el JWT y resuelve identidad visual autorizada. No se persisten posiciones ni estado de presencia. Un F5 recupera en memoria la posición del mismo usuario durante 15 segundos; un reinicio o una desconexión más larga la descarta. Ver [`R30_PRODUCTION_HANDOFF.md`](R30_PRODUCTION_HANDOFF.md).
 6. **Ciudad Corazón como lobby, recreada con el motor.** Primero se usó la imagen de Platino, después edificios pintados por código (el usuario los juzgó insuficientes) y finalmente **sprites de la hoja**, que es la dirección elegida.
 7. **Asignación de edificios (hoja → ciudad):**
    - Salón de Concursos = edificio con cúpula y 4 faroles; Centro Pokémon, Tienda y Gimnasio = los de la hoja.
@@ -317,7 +317,7 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
 
 ## 6. Pendientes y detalles menores
 
-- **R30 / despliegue:** crear servicio en Colyseus Cloud, definir la URL `wss://` como `VITE_REALTIME_URL` en Cloudflare Pages y ejecutar aceptación con dos cuentas y un espectador. No activar réplicas ni Redis: el límite inicial es un proceso y 100 conexiones globales.
+- **R30 / operación:** no activar réplicas ni Redis aún: el límite inicial sigue siendo un proceso y 100 conexiones globales. Medir uso real antes de cambiar la topología; el runbook está en [`R30_PRODUCTION_HANDOFF.md`](R30_PRODUCTION_HANDOFF.md).
 - **R30 / áreas:** sólo la puerta oeste a Pradera está habilitada para presencia compartida. Las puertas de Costa, Tundra, Bosque y Desierto muestran que llegarán próximamente mientras R30 esté activo.
 
 - **Bancos:** la hoja los dibuja vistos desde arriba y parecen tablones.
@@ -351,4 +351,4 @@ Para agregar personajes nuevos: carpeta en `public/assets/trainers/<nombre>/` co
 
 Pegar algo como:
 
-> Seguimos WildLands de PokeSwap. Vamos a hacer R30: presencia multijugador efímera. Antes de escribir código leé completos `AGENTS.md`, `docs/INVARIANTS.md`, `docs/TRUST_BOUNDARY.md`, `docs/wildlands/HANDOFF.md`, `docs/wildlands/LOBBY_INTEGRATION_PLAN.md` y `docs/wildlands/R30_MULTIPLAYER_PLAN.md`; inspeccioná el motor y las rutas de WildLands. Según AGENTS.md §17, proponé un desglose por responsabilidades y esperá mi confirmación. R29 está fusionada en `migration` mediante `f6d6d80`; verificá el estado con `gh`, actualizá `migration` y creá `feat/wildlands-r30`. No implementes chat, combate, captura, recompensas, escrituras de cliente a Supabase, cambios de economía/auth/RLS/migraciones/RPCs/Edge Functions ni polling. Usa Colyseus Cloud y Docker para un servicio separado; Ciudad con visibilidad total, wild con interés espacial, espectadores sin actor y máximo global de 100 conexiones. Requiere tests de seguridad, protocolo y carga antes del PR hacia `migration`; usa siempre Create a merge commit al fusionar.
+> Seguimos WildLands de PokeSwap después de cerrar R30. Antes de escribir código leé completos `AGENTS.md`, `docs/INVARIANTS.md`, `docs/TRUST_BOUNDARY.md`, `docs/wildlands/HANDOFF.md` y `docs/wildlands/R30_PRODUCTION_HANDOFF.md`; verificá con `gh` que la PR documental de R30 esté fusionada y actualizá `main`. La prioridad inmediata es beta controlada/operación de la presencia: no agregues producto sin un objetivo aprobado. En paralelo existe una exploración aislada de profesiones, recursos y dungeons; puede producir diseño y prototipos sin persistencia, pero no debe aplicar RLS, migraciones, RPCs, Edge Functions, economía, recompensas ni ownership hasta un desglose aprobado según `AGENTS.md` §17. Cuando se apruebe una fase de producto, crear una rama nueva desde `main`, elegir una sola responsabilidad inicial y usar Create a merge commit al fusionar.

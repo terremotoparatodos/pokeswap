@@ -1,6 +1,6 @@
 # R30 — Presencia multijugador efímera
 
-> Estado: implementación local aprobada; pendiente de auditoría final, commits y despliegue. No está fusionada ni publicada.
+> Estado: cerrada y publicada en producción el 2026-09-15. La implementación inicial se fusionó en `migration` mediante PR #16; los hotfixes de producción se fusionaron en `main` mediante PR #19 y PR #20.
 > Base: R29 fusionada en `migration` mediante merge commit `f6d6d80`.
 
 ## Objetivo
@@ -40,7 +40,7 @@ Colyseus server
 - El cliente nunca es autoridad de `userId`, username, posición, área, personaje, acompañante o cosmético.
 - El navegador no recibe secretos ni usa service-role.
 - El servidor valida JWT, límites, área, velocidad, frecuencia y formato de cada intención.
-- La posición, presencia y acompañante se descartan al desconectar; no se restauran desde `localStorage` ni se escriben a la base.
+- La posición, presencia y acompañante no se restauran desde `localStorage` ni se escriben a la base. Tras una desconexión se conserva en memoria, exclusivamente para el mismo usuario y durante 15 segundos, antes de descartarla.
 - `slots`, economía y ownership siguen fuera del alcance del servicio. La plaza de R26/R28 conserva su lectura y Realtime actuales, sin duplicar suscripciones.
 
 ## Sin polling
@@ -101,11 +101,13 @@ src/features/wildlands/
 - Carga: preflight reproducible de 50 jugadores (`npm run test:load` en `services/realtime`).
 - Manual local: dos clientes autenticados y un espectador; ciudad, Pradera, carrera, click-path, entrada/salida y portal oeste a Pradera. Las puertas de Costa, Tundra, Bosque y Desierto se bloquean mientras presencia esté activa, porque no son zonas compartidas R30.
 
-## Pendiente de despliegue
+## Despliegue completado
 
-- Crear el servicio en Colyseus Cloud, cargar variables de entorno y configurar health checks internos.
-- Publicar la URL `wss://` resultante como `VITE_REALTIME_URL` en el build de Cloudflare Pages.
-- Ejecutar una prueba de aceptación con dos cuentas y un espectador en el entorno Cloud antes de abrir el PR de promoción.
+- El servicio corre en Colyseus Cloud como proceso separado, con Docker para desarrollo local y `ecosystem.config.js` como manifiesto de proceso Cloud.
+- Cloudflare Pages publica el cliente. La URL pública `wss://` del servicio se inyecta durante el build desde la variable de repositorio de GitHub `VITE_REALTIME_URL`; una variable sólo en el panel de Cloudflare no modifica assets ya compilados por GitHub Actions.
+- Colyseus Cloud usa `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` y `ALLOWED_ORIGINS`. Son valores de runtime del servicio; no se versionan secretos. Las únicas origins oficiales son `https://pokeswap.lol` y `https://www.pokeswap.lol`.
+- La aceptación final confirmó WebSocket `101 Switching Protocols` desde `https://pokeswap.lol`, dos clientes autenticados, espectador, Ciudad, Pradera, click-path, carrera, F5 y minimizado.
+- El historial operativo, variables sin secretos, validación y rollback está en [R30_PRODUCTION_HANDOFF.md](R30_PRODUCTION_HANDOFF.md).
 
 ## Criterios de aceptación
 
