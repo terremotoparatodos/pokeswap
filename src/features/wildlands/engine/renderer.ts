@@ -22,6 +22,7 @@ import { pixelsToCanvas } from './pixels'
 import { drawPlayerNameplate } from './playerNameplate'
 import { createProjector, type CameraLens, type Projector } from './projection'
 import { buildPropSprites } from './props'
+import type { OverlayLabel, SceneOverlay } from './sceneOverlay'
 import type { Sprite } from './sprite'
 import { WATER_TEX, waterFramePixels } from './terrainArt'
 import { TILE, type DecorKind } from './world'
@@ -46,6 +47,8 @@ export interface Scene {
   actors: readonly Actor[]
   showGrid: boolean
   route: RouteMarker
+  /** Optional prototype effects (see sceneOverlay.ts). */
+  overlay?: SceneOverlay | null
 }
 
 /** Tap-to-move feedback drawn on the ground. */
@@ -79,6 +82,7 @@ interface Drawable {
   submerged: boolean
   glow: boolean
   light: boolean
+  alpha?: number
   /** The viewer's own Pokémon: drawn with the owner marker. */
   mine?: boolean
   username?: string
@@ -191,6 +195,7 @@ export class Renderer {
     if (scene.showGrid) drawGrid(g, scene.player, x0, y0, dpr)
     drawPads(g, scene, x0, y0)
     drawRoute(g, scene, x0, y0)
+    scene.overlay?.ground?.(g, scene.area, x0, y0, scene.seconds)
     return { x0, y0, x1, y1 }
   }
 
@@ -237,17 +242,24 @@ export class Renderer {
       list.push({ depth: wy, x: p.x, y: p.y, sprite, lift: 0, submerged: false, glow: false, light: false, ...extra, scale: s })
     }
 
+    const overlay = scene.overlay ?? null
     for (const d of scene.area.decorIn(b.x0, b.y0, b.x1, b.y1)) {
-      const sprite = d.sprite ?? (d.kind ? this.props[d.kind] : null)
+      const style = overlay?.decor?.(d, scene.area, scene.seconds) ?? null
+      const sprite = style?.sprite ?? d.sprite ?? (d.kind ? this.props[d.kind] : null)
       if (!sprite) continue
-      push(d.x, d.y, sprite, {
+      push(d.x + (style?.dx ?? 0), d.y + (style?.dy ?? 0), sprite, {
         submerged: d.kind === 'searock',
-        glow: d.kind === 'crystal',
+        glow: d.kind === 'crystal' && !style?.sprite,
         light: d.light ?? false,
       })
     }
 
     const area = scene.area
+    for (const extra of overlay?.sprites?.(area, scene.seconds) ?? []) {
+      const index = list.length
+      push(extra.wx, extra.wy, extra.sprite, { lift: extra.lift ?? 0, alpha: extra.alpha })
+      if (list.length > index && extra.depthBias) list[index].depth += extra.depthBias
+    }
     const visibleActors = !scene.showPlayer ? scene.actors
       : scene.companion ? [scene.player, scene.companion, ...scene.actors] : [scene.player, ...scene.actors]
     for (const actor of visibleActors) {
@@ -328,6 +340,8 @@ export class Renderer {
         ctx.stroke()
         continue
       }
+      const faded = d.alpha !== undefined && d.alpha < 1
+      if (faded) ctx.globalAlpha = Math.max(0, d.alpha!)
       const flat = sprite.flatTop ?? 0
       if (flat > 0) {
         // Upright façade, then the roof squashed by the camera tilt like the ground.
@@ -339,11 +353,34 @@ export class Renderer {
       } else {
         ctx.drawImage(sprite.canvas, x, y, Math.round(sprite.w * s), Math.round(sprite.h * s))
       }
+      if (faded) ctx.globalAlpha = 1
       if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: y + 5 * s, scale: s })
       if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) drawSparkle(ctx, d.x + s * 2, y + s * 3, s)
       if (d.mine) drawOwnerMarker(ctx, d.x, y + (sprite.top ?? 0) * s, s, t)
       if (d.username) nameplates.push({ username: d.username, x: d.x, y: y + (sprite.top ?? 0) * s - 4 * (this.frame?.dpr ?? 1) })
     }
     if (this.frame) for (const nameplate of nameplates) drawPlayerNameplate(ctx, nameplate.username, nameplate.x, nameplate.y, this.frame.dpr)
+    const labels = scene.overlay?.labels?.(scene.area, t)
+    if (labels?.length && this.frame) for (const label of labels) this.drawLabel(label, scene, proj, this.frame.dpr)
+  }
+
+  /** Floating feedback text (e.g. "+2"): canvas text with a dark rim, never markup. */
+  private drawLabel(label: OverlayLabel, scene: Scene, proj: Projector, dpr: number): void {
+    const p = proj.project(label.wx - scene.camX, label.wy - scene.camY)
+    if (!p) return
+    const ctx = this.ctx
+    ctx.save()
+    ctx.globalAlpha = Math.max(0, Math.min(1, label.alpha ?? 1))
+    ctx.font = `800 ${Math.round(12 * dpr)}px system-ui, sans-serif`
+    ctx.textAlign = 'center'
+    ctx.textBaseline = 'bottom'
+    ctx.lineJoin = 'round'
+    ctx.lineWidth = 3 * dpr
+    ctx.strokeStyle = 'rgba(16, 26, 54, 0.9)'
+    const y = Math.round(p.y - label.lift * p.scale)
+    ctx.strokeText(label.text, Math.round(p.x), y)
+    ctx.fillStyle = label.color
+    ctx.fillText(label.text, Math.round(p.x), y)
+    ctx.restore()
   }
 }

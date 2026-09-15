@@ -25,6 +25,7 @@ import { wildHitAt, wildHitFacing, type WildHit } from './wildTaps'
 import { loadPokemonInfo, type PokedexEntry } from './population'
 import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
+import type { SceneOverlay } from './sceneOverlay'
 import { PlayerAppearance } from './playerAppearance'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
@@ -76,6 +77,8 @@ export interface GameOptions {
   onInspect?: (hit: PlazaHit | WildHit) => void
   /** Development prototypes (R31-B professions): returns true when it handled the tile. */
   onWorldObject?: (target: WorldObjectTarget) => boolean
+  /** Side-effect-free probe: walkable tiles to stand beside and face (R31-C1). */
+  isWorldObject?: (target: WorldObjectTarget) => boolean
   /** Completed safe town tiles, used only for local cosmetic persistence. */
   onTownPosition?: (position: TownPosition) => void
   presence?: LocalPresencePort | null
@@ -104,11 +107,15 @@ export class WildlandsGame {
   private readonly nav = new TapNavigator({
     isSolid: (tx, ty) => this.area.isSolid(tx, ty),
     occupied: (tx, ty) => this.populace.actors.some(a => a.tx === tx && a.ty === ty),
+    isInteractive: (tx, ty) => this.isWorldObject?.({ area: this.area, tx, ty }) ?? false,
   })
+  private overlay: SceneOverlay | null = null
+  private inputLocked = false
   private readonly travel = new AreaTravel()
   private readonly entrances: Entrances
   private readonly onInspect?: (hit: PlazaHit | WildHit) => void
   private readonly onWorldObject?: (target: WorldObjectTarget) => boolean
+  private readonly isWorldObject?: (target: WorldObjectTarget) => boolean
   private readonly onTownPosition?: (position: TownPosition) => void
   private readonly presence?: LocalPresencePort | null
   private remoteActors: Actor[] = []
@@ -151,6 +158,7 @@ export class WildlandsGame {
     this.onHud = options.onHud
     this.onInspect = options.onInspect
     this.onWorldObject = options.onWorldObject
+    this.isWorldObject = options.isWorldObject
     this.onTownPosition = options.onTownPosition
     this.presence = options.presence
     this.entrances = new Entrances(door => options.onEnterBuilding?.(door.buildingId, door.feature))
@@ -376,6 +384,24 @@ export class WildlandsGame {
     })
   }
 
+  /** Prototype effects drawn with the scene; null removes them. */
+  setSceneOverlay(overlay: SceneOverlay | null): void {
+    this.overlay = overlay
+  }
+
+  /** Keeps rendering at full rate but ignores movement, taps and actions (e.g. while an action animates). */
+  setInputLocked(locked: boolean): void {
+    this.inputLocked = locked
+    if (locked) this.nav.cancel()
+  }
+
+  /** Read-only snapshot of the local player for overlays. */
+  playerSnapshot(): { tx: number; ty: number; dir: Dir; x: number; y: number; moving: boolean; areaId: AreaId } {
+    const p = this.player
+    const { x, y } = actorPosition(p)
+    return { tx: p.tx, ty: p.ty, dir: p.dir, x, y, moving: isMoving(p), areaId: this.area.id }
+  }
+
   setVirtualDir(dir: Dir | null): void {
     this.keys.virtualDir = dir
   }
@@ -386,7 +412,7 @@ export class WildlandsGame {
    * walks beside it (and talks); tapping ground walks there.
    */
   tap(cssX: number, cssY: number): void {
-    if (this.spectator || this.travel.active || this.paused) return
+    if (this.spectator || this.travel.active || this.paused || this.inputLocked) return
     const pick = this.renderer.pick(cssX, cssY)
     const hit = this.onInspect ? plazaHitAt(this.area, pick) ?? wildHitAt(this.area, pick) : null
     if (hit) this.onInspect!(hit)
@@ -396,13 +422,17 @@ export class WildlandsGame {
   /** A tile next to the player may host a prototype interaction; farther tiles walk there first. */
   private worldObjectBeside(tile: Tile | null): boolean {
     if (!tile || !this.onWorldObject) return false
-    if (Math.abs(tile.tx - this.player.tx) + Math.abs(tile.ty - this.player.ty) !== 1) return false
-    return this.onWorldObject({ area: this.area, tx: tile.tx, ty: tile.ty })
+    const dx = tile.tx - this.player.tx
+    const dy = tile.ty - this.player.ty
+    if (Math.abs(dx) + Math.abs(dy) !== 1) return false
+    const handled = this.onWorldObject({ area: this.area, tx: tile.tx, ty: tile.ty })
+    if (handled) this.player.dir = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up'
+    return handled
   }
 
   /** Press-and-drag retargeting: only re-plans when the finger moves to another tile. */
   drag(cssX: number, cssY: number): void {
-    if (this.spectator || this.travel.active || this.paused) return
+    if (this.spectator || this.travel.active || this.paused || this.inputLocked) return
     const pick = this.renderer.pick(cssX, cssY)
     const current = this.nav.route(this.player).target
     if (!pick.tile || (current && current.tx === pick.tile.tx && current.ty === pick.tile.ty)) return
@@ -446,6 +476,7 @@ export class WildlandsGame {
   }
 
   interact(): void {
+    if (this.inputLocked) return
     const [dx, dy] = DIRS[this.player.dir]
     const tx = this.player.tx + dx
     const ty = this.player.ty + dy
@@ -524,7 +555,7 @@ export class WildlandsGame {
 
     // Player (input is ignored mid-trip)
     const player = this.player
-    const keyDir = this.travel.active || this.paused || this.spectator ? null : this.keys.direction
+    const keyDir = this.travel.active || this.paused || this.spectator || this.inputLocked ? null : this.keys.direction
     if (keyDir) this.nav.cancel() // Keyboard always wins over a tap route.
     const navigating = !keyDir && this.nav.active
     player.running = this.keys.sprinting
@@ -623,6 +654,7 @@ export class WildlandsGame {
       // The grid helps read procedural terrain; over town art it is noise.
       showGrid: this.showGrid && this.area.kind === 'wild',
       route: this.nav.route(this.player),
+      overlay: this.overlay,
     }
   }
 

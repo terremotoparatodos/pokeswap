@@ -18,6 +18,8 @@ export interface NavWorld {
   isSolid(tx: number, ty: number): boolean
   /** Another actor stands on the tile. */
   occupied(tx: number, ty: number): boolean
+  /** Walkable tiles the player should stand beside and face, like props (e.g. resource nodes). */
+  isInteractive?(tx: number, ty: number): boolean
 }
 
 export class TapNavigator {
@@ -93,7 +95,7 @@ export class TapNavigator {
       if (this.replans++ >= MAX_REPLANS || !this.plan(player, goal)) this.giveUp()
       return false
     }
-    const faceIt = adjacent && (this.goalActor !== null || this.world.isSolid(goal.tx, goal.ty))
+    const faceIt = adjacent && (this.goalActor !== null || this.world.isSolid(goal.tx, goal.ty) || this.interactive(goal))
     if (faceIt) player.dir = faceToward(player, goal)
     this.cancel()
     return faceIt
@@ -105,6 +107,10 @@ export class TapNavigator {
       target: this.target,
       rejected: this.rejected,
     }
+  }
+
+  private interactive(tile: Tile): boolean {
+    return this.world.isInteractive?.(tile.tx, tile.ty) ?? false
   }
 
   private goalTile(): Tile {
@@ -119,7 +125,7 @@ export class TapNavigator {
   private plan(player: Actor, tile: Tile): boolean {
     const blocked = (tx: number, ty: number) => this.world.isSolid(tx, ty) || this.world.occupied(tx, ty)
     // Solid props and actors can't be stood on: aim for a tile beside them instead.
-    const beside = this.goalActor !== null || blocked(tile.tx, tile.ty)
+    const beside = this.goalActor !== null || blocked(tile.tx, tile.ty) || this.interactive(tile)
     const isGoal = beside
       ? (tx: number, ty: number) => Math.abs(tx - tile.tx) + Math.abs(ty - tile.ty) === 1
       : (tx: number, ty: number) => tx === tile.tx && ty === tile.ty

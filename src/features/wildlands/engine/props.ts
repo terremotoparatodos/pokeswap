@@ -83,14 +83,46 @@ function palm(): Sprite {
   return spriteFromPixels(w, h, layer(layer(stem, leaves), nuts), 15, 45)
 }
 
-type Shape = readonly (readonly [number, number, number, number])[]
+export type Shape = readonly (readonly [number, number, number, number])[]
 
-function blob(w: number, h: number, shape: Shape, tones: string[], outline: string, holes = 0): Sprite {
+export interface BlobRecipe {
+  readonly w: number
+  readonly h: number
+  readonly shape: Shape
+  readonly tones: readonly string[]
+  readonly outline: string
+}
+
+/**
+ * Rock recipes shared with prototypes that derive variants from the same
+ * volumes (R31-C1 mining nodes), so a node keeps the prop's exact footprint.
+ */
+export const ROCK_RECIPES = {
+  rock: { w: 16, h: 12, shape: [[8, 7, 7, 4.8], [6, 6, 4, 3.5]], tones: ['#5b5d66', '#80838c', '#a6a9b0', '#cfd1d4'], outline: '#34353c' },
+  boulder: {
+    w: 30, h: 23, shape: [[15, 13, 13, 9], [10, 9, 7.5, 6.5], [20, 10, 7.5, 6.5]],
+    tones: ['#4c3b31', '#6d5546', '#8e735f', '#b09580'], outline: '#2c211b',
+  },
+  icerock: { w: 20, h: 15, shape: [[10, 9, 9, 5.5], [8, 7, 5, 4.5]], tones: ['#5e7ea8', '#86a8cf', '#b9d6f0', '#eef7ff'], outline: '#3a5578' },
+} as const satisfies Record<string, BlobRecipe>
+
+export const CRYSTAL_RECIPE = {
+  w: 14, h: 18,
+  shards: [[7, 9, 3.2, 8], [3.5, 12, 2.2, 5], [10.5, 12.5, 2.2, 4.5]] as readonly (readonly [number, number, number, number])[],
+  tones: ['#2a7fa8', '#46b3d6', '#8fe3f5', '#e9fdff'],
+  outline: '#1a4d66',
+} as const
+
+function blob(w: number, h: number, shape: Shape, tones: readonly string[], outline: string, holes = 0): Sprite {
   const fn = ellipses(shape)
   const holed: ShadeFn = holes > 0
     ? (x, y) => (hash2(x, y, 5) < holes ? null : fn(x, y))
     : fn
   return spriteFromPixels(w, h, shade(w, h, holed, { tones, outline }), w / 2, h - 1)
+}
+
+function rockBlob(recipe: BlobRecipe): Sprite {
+  return blob(recipe.w, recipe.h, recipe.shape, recipe.tones, recipe.outline)
 }
 
 function cactus(): Sprite {
@@ -119,8 +151,7 @@ function coral(): Sprite {
 }
 
 function crystal(): Sprite {
-  const w = 14, h = 18
-  const shards: [number, number, number, number][] = [[7, 9, 3.2, 8], [3.5, 12, 2.2, 5], [10.5, 12.5, 2.2, 4.5]]
+  const { w, h, shards } = CRYSTAL_RECIPE
   const fn: ShadeFn = (x, y) => {
     for (const [cx, cy, hw, hh] of shards) {
       const dx = x + 0.5 - cx
@@ -129,7 +160,7 @@ function crystal(): Sprite {
     }
     return null
   }
-  const px = shade(w, h, fn, { tones: ['#2a7fa8', '#46b3d6', '#8fe3f5', '#e9fdff'], outline: '#1a4d66', dither: 0 })
+  const px = shade(w, h, fn, { tones: CRYSTAL_RECIPE.tones, outline: CRYSTAL_RECIPE.outline, dither: 0 })
   return spriteFromPixels(w, h, px, 7, 17)
 }
 
@@ -145,10 +176,9 @@ export function buildPropSprites(): Record<DecorKind, Sprite> {
     bush: blob(24, 17, [[8, 10, 6.5, 5.5], [16, 10, 6.5, 5.5], [12, 7, 6.5, 5.5]], LEAVES.slice(1), LEAF_OUTLINE),
     drybush: blob(22, 15, [[7, 9, 6, 4.5], [15, 9, 6, 4.5], [11, 6, 6, 4.5]],
       ['#6b4a2a', '#8a6436', '#a88148', '#c9a15e'], '#3e2a17', 0.2),
-    rock: blob(16, 12, [[8, 7, 7, 4.8], [6, 6, 4, 3.5]], ['#5b5d66', '#80838c', '#a6a9b0', '#cfd1d4'], '#34353c'),
-    boulder: blob(30, 23, [[15, 13, 13, 9], [10, 9, 7.5, 6.5], [20, 10, 7.5, 6.5]],
-      ['#4c3b31', '#6d5546', '#8e735f', '#b09580'], '#2c211b'),
-    icerock: blob(20, 15, [[10, 9, 9, 5.5], [8, 7, 5, 4.5]], ['#5e7ea8', '#86a8cf', '#b9d6f0', '#eef7ff'], '#3a5578'),
+    rock: rockBlob(ROCK_RECIPES.rock),
+    boulder: rockBlob(ROCK_RECIPES.boulder),
+    icerock: rockBlob(ROCK_RECIPES.icerock),
     searock: blob(24, 16, [[12, 10, 11, 6], [9, 8, 6, 5], [16, 8, 5, 4.5]], ['#3c4a5c', '#5a6b80', '#7e90a6', '#a8b8c9'], '#222b36'),
     shell: blob(10, 8, [[5, 4.5, 4, 3]], ['#d9a08a', '#f0c2ae', '#fde3d6'], '#9b6a58'),
   }
