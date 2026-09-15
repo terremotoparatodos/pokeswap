@@ -36,6 +36,16 @@ describe('node status', () => {
     expect(describeNodeStatus('available', context).canAct).toBe(true)
     expect(formatCountdown(0)).toBe('0:00')
   })
+
+  it('agrees broken and missing tool texts with the tool noun', () => {
+    const base = { level: 20, respawnInSeconds: 0, energyNeeded: 20, energyHave: 50 }
+    const pickaxe = { ...base, node: NODE_BY_ID.get('iron_vein')! }
+    const rod = { ...base, node: NODE_BY_ID.get('shore_spot')! }
+    expect(describeNodeStatus('tool_broken', pickaxe)).toMatchObject({ title: 'Tu pico está roto', detail: 'Reparalo para seguir' })
+    expect(describeNodeStatus('tool_broken', rod)).toMatchObject({ title: 'Tu caña está rota', detail: 'Reparala para seguir' })
+    expect(describeNodeStatus('no_tool', pickaxe).title).toBe('Necesitás un pico')
+    expect(describeNodeStatus('no_tool', rod).title).toBe('Necesitás una caña')
+  })
 })
 
 describe('fishing session', () => {

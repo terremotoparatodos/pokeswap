@@ -71,6 +71,13 @@ export const ACCESS_LABEL: Readonly<Record<AccessTag, string>> = {
 }
 
 export const TOOL_KIND_LABEL: Readonly<Record<ToolKind, string>> = { pickaxe: 'pico', axe: 'hacha', rod: 'caña', sickle: 'hoz' }
+/** Spanish agreement per tool noun ("un hacha" keeps "un" before stressed a-). */
+const TOOL_GRAMMAR: Readonly<Record<ToolKind, { article: string; broken: string; it: string }>> = {
+  pickaxe: { article: 'un', broken: 'roto', it: 'Reparalo' },
+  axe: { article: 'un', broken: 'rota', it: 'Reparala' },
+  rod: { article: 'una', broken: 'rota', it: 'Reparala' },
+  sickle: { article: 'una', broken: 'rota', it: 'Reparala' },
+}
 
 export function formatCountdown(seconds: number): string {
   const whole = Math.max(0, Math.ceil(seconds))
@@ -108,9 +115,9 @@ export function describeNodeStatus(status: NodeStatus, context: StatusContext): 
       tone: 'blocked', title: 'Tu Pokémon no puede llegar', detail: node.requiredAccess ? ACCESS_LABEL[node.requiredAccess] : '', canAct: false,
     }
     case 'wrong_biome': return { tone: 'blocked', title: 'No crece en este bioma', detail: '', canAct: false }
-    case 'no_tool': return { tone: 'blocked', title: `Necesitás un ${tool}`, detail: `Tier ${node.minToolTier} o superior`, canAct: false }
+    case 'no_tool': return { tone: 'blocked', title: `Necesitás ${TOOL_GRAMMAR[profession.toolKind].article} ${tool}`, detail: `Tier ${node.minToolTier} o superior`, canAct: false }
     case 'tool_tier': return { tone: 'blocked', title: `Tu ${tool} no alcanza`, detail: `Tier ${node.minToolTier} o superior`, canAct: false }
-    case 'tool_broken': return { tone: 'warn', title: `Tu ${tool} está rota`, detail: 'Reparala para seguir', canAct: false }
+    case 'tool_broken': return { tone: 'warn', title: `Tu ${tool} está ${TOOL_GRAMMAR[profession.toolKind].broken}`, detail: `${TOOL_GRAMMAR[profession.toolKind].it} para seguir`, canAct: false }
     case 'no_energy': return {
       tone: 'warn', title: 'Te falta energía',
       detail: context.energyNeeded === null ? `Tenés ${Math.floor(context.energyHave)}` : `Necesitás ${context.energyNeeded}; tenés ${Math.floor(context.energyHave)}`,

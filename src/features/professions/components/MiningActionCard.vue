@@ -41,7 +41,12 @@
       <li class="mc-chip mc-chip--xp">+{{ check.preview.xp }} XP</li>
     </ul>
 
-    <GatheringFeedback v-if="phase === 'result' && lines.length" :lines="lines" :rare="rare" />
+    <GatheringFeedback
+      v-if="phase === 'result' && lines.length"
+      :lines="lines"
+      :rare="rarity === 'rare' || rarity === 'special'"
+      :banner="rarity === 'special' ? '¡Hallazgo especial!' : '¡Hallazgo raro!'"
+    />
 
     <details v-if="check.ok && phase === 'idle'" class="mc-details">
       <summary>Ver detalle</summary>
@@ -108,7 +113,7 @@ const lines = computed(() => {
     ...inventoryFeedback(outcome.placements, outcome.overflow),
   ]
 })
-const rare = computed(() => props.outcome?.ok ? ['rare', 'special'].includes(outcomeRarity(props.outcome.result)) : false)
+const rarity = computed(() => props.outcome?.ok ? outcomeRarity(props.outcome.result) : 'common')
 
 const note = ref('')
 function repair(): void {
@@ -155,8 +160,10 @@ function collect(): void {
 .mc-chip--energy { color: var(--pf-energy); }
 .mc-chip--xp { color: var(--pf-gold); }
 .mc-details summary { color: var(--pf-muted); font-size: 0.78rem; cursor: pointer; }
-.mc-actions { display: flex; gap: 0.4rem; }
-.mc-mine { flex: 1; font-size: 1.02rem; }
+.mc-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.mc-actions .pf-btn { white-space: nowrap; }
+.mc-mine { flex: 1 1 9rem; font-size: 1.02rem; }
+.mc-actions .pf-btn--ghost { flex: 1 1 auto; }
 .mc-note { margin: 0; color: var(--pf-muted); font-size: 0.78rem; }
 @media (max-width: 420px) {
   .mc-crew { grid-template-columns: 1fr; }

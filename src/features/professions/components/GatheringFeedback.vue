@@ -1,6 +1,6 @@
 <template>
   <div class="gf" :class="{ 'gf--rare': rare }" role="status" aria-live="polite">
-    <p v-if="rare" class="gf-banner">¡Hallazgo especial!</p>
+    <p v-if="rare" class="gf-banner">{{ banner }}</p>
     <ul>
       <li v-for="(line, index) in lines" :key="`${line.text}-${index}`" :class="`gf--${line.tone}`" :style="{ animationDelay: `${index * 70}ms` }">
         <ItemGlyph v-if="line.itemId" :item-id="line.itemId" :size="18" />
@@ -14,7 +14,7 @@
 import type { FeedbackLine } from '../ui/feedback'
 import ItemGlyph from './ItemGlyph.vue'
 
-withDefaults(defineProps<{ lines: readonly FeedbackLine[]; rare?: boolean }>(), { rare: false })
+withDefaults(defineProps<{ lines: readonly FeedbackLine[]; rare?: boolean; banner?: string }>(), { rare: false, banner: '¡Hallazgo especial!' })
 </script>
 
 <style scoped>

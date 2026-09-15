@@ -97,8 +97,11 @@ const props = defineProps<{ session: ProfessionDemoSession; profession: Professi
 const emit = defineEmits<{ 'update:profession': [profession: ProfessionId]; 'update:target': [target: DemoNodeTarget] }>()
 
 const HOUR_MS = 3_600_000
-/** Enough inputs to try most early recipes. */
-const CRAFTING_KIT = { oran_berry: 20, medicinal_herb: 10, seaweed: 10, vial: 10, sitrus_berry: 8, leppa_berry: 6, stone: 30, coal: 15, iron_ore: 10, common_log: 20, resin: 6, fish: 12 }
+/** Enough inputs to try most early recipes and to repair every demo tool tier. */
+const CRAFTING_KIT = {
+  oran_berry: 20, medicinal_herb: 10, seaweed: 10, vial: 10, sitrus_berry: 8, leppa_berry: 6, stone: 30, coal: 15, iron_ore: 10,
+  common_log: 20, resin: 6, fish: 12, iron_ingot: 6, steel_ingot: 4, plank: 4,
+}
 
 const BAG_PRESETS: Readonly<Record<BagPreset, string>> = {
   empty: 'Vacía', partial: 'Parcial', stacks: 'Stacks variados + pico de acero', nearly_full: 'Casi llena (stacks abiertos)', full: 'Llena',
