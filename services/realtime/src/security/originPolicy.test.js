@@ -18,6 +18,12 @@ test('production permits only the official origins plus an explicit allowlist', 
   assert.equal(policy(new Request('https://service', { headers: { origin: 'https://elsewhere.example' } })).status, 403)
 })
 
+test('a hosted process without NODE_ENV keeps the official production allowlist', () => {
+  const policy = originPolicy({ ALLOWED_ORIGINS: 'https://stale.example' })
+  assert.equal(policy(new Request('https://service', { headers: { origin: 'https://pokeswap.lol' } })), undefined)
+  assert.equal(policy(new Request('https://service', { headers: { origin: 'https://attacker.example' } })).status, 403)
+})
+
 test('configured origins tolerate display-only quotes and brackets', () => {
   const policy = originPolicy({
     NODE_ENV: 'production',

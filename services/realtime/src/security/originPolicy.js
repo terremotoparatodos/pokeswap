@@ -15,8 +15,8 @@ export function allowedOrigins(env) {
     .split(',')
     .map(configuredOrigin)
     .filter(Boolean)
-  if (env.NODE_ENV === 'production') return new Set([...PRODUCTION_ORIGINS, ...configured])
-  return new Set(configured.length ? configured : LOCAL_ORIGINS)
+  if (configured.length) return new Set([...PRODUCTION_ORIGINS, ...configured])
+  return env.NODE_ENV === 'development' ? LOCAL_ORIGINS : PRODUCTION_ORIGINS
 }
 
 /** Reject browser upgrades from an origin not explicitly trusted by this deployment. */
