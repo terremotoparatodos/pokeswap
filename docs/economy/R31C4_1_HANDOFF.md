@@ -22,7 +22,7 @@
 **Automática (en esta rama):**
 - `vitest`: 83 archivos, 637 tests OK (16 nuevos de recolección);
 - `eslint`: 0 errores; 9 warnings en `AuthModal.vue`, anteriores a R31;
-- `vue-tsc` / `npm run typecheck`: OK;
+- `vue-tsc` / `npm run typecheck`: reportado OK, **pero era incorrecto** (corrección R31-Z): `npx vue-tsc --noEmit -p tsconfig.app.json` fallaba con 2 errores heredados de R31-C4, y `npm run typecheck` no chequeaba la app. Ambos se corrigieron en `integration/r31` (ver `R31_INTEGRATION_AUDIT.md` §8.1);
 - `npm run build`: OK;
 - `dist/` sin strings del playground, laboratorios ni galería;
 - diff sin secretos.
@@ -65,7 +65,7 @@ R31-C4 dejó anotado que el jugador puede pararse encima de la mesa. **No se cor
 
 - **Sin nodos nuevos ni cambios de economía:** los cuatro nodos, sus cargas, respawns, niveles y drops son los del catálogo de R31-A.
 - **El generador del mundo no se tocó:** las plantas aparecen donde `nodeAt` ya decía, con la misma densidad por ancla (30 % de los arbustos, 2 % del pasto alto, 60 % de los cristales).
-- **El parche de hierbas se escanea alrededor del jugador** (13 casillas, 3 veces por segundo) porque su ancla es terreno y el renderer no ofrece ganchos para tiles. Es barato y cacheado, pero no es tan elegante como el gancho de decor.
+- **El parche de hierbas se escanea alrededor del jugador** (radio 13: una ventana de 27×27 = **729 casillas**, cada 0,3 s; corrección R31-Z, el texto original decía "13 casillas") porque su ancla es terreno y el renderer no ofrece ganchos para tiles. Es barato y cacheado, pero no es tan elegante como el gancho de decor.
 - **Una sola forma de recolectar por nodo:** no hay variantes por bioma ni por especie del Pokémon.
 - **Todo sigue siendo local:** sin persistencia ni servidor.
 

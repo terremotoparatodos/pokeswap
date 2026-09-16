@@ -23,7 +23,7 @@
 **Automática (en esta rama):**
 - `vitest`: 82 archivos, 621 tests OK (22 nuevos de Alquimia);
 - `eslint`: 0 errores; 9 warnings en `AuthModal.vue`, anteriores a R31;
-- `vue-tsc` / `npm run typecheck`: OK;
+- `vue-tsc` / `npm run typecheck`: reportado OK, **pero era incorrecto** (corrección R31-Z): esta fase introdujo 2 errores TS6133 que `npx vue-tsc --noEmit -p tsconfig.app.json` detecta, y `npm run typecheck` no chequeaba la app. Corregidos en `integration/r31`;
 - `npm run build`: OK;
 - `dist/` sin strings del playground, laboratorios ni galería;
 - diff sin secretos.

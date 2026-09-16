@@ -12,6 +12,8 @@
 
 **a) Arnés headless (`src/features/professions/professionsStress.test.ts`).** Los overlays solo tocan el canvas cuando *dibujan*; su reloj, su resultado y su limpieza corren desde `ground`, que apenas necesita un contexto 2D para un par de elipses. Con un contexto simulado se puede correr **la acción entera sin canvas y sin navegador**, manejando los controladores y la sesión demo reales: un consumo o una recompensa duplicada aparecerían como un inventario equivocado, no como un assert equivocado.
 
+> **Corrección R31-Z (estación principal, `integration/r31`):** tres tests del arnés no podían fallar. Los dos de **pesca** retornaban temprano porque el jugador no estaba en la orilla (`cast()` era rechazado), y el overlay de pesca **sí** necesita un contexto 2D dentro de `ground`. El de **mochila llena** solo recorría la rama de rechazo. El de **XP entre profesiones** comparaba niveles contra 0. Se corrigieron en `99c61dd`: la pesca ahora lanza de verdad, hay un test determinista de desborde a pendientes y el XP se compara por profesión. Las conclusiones de este informe sobre pesca que dependían del arnés quedan respaldadas recién desde ese commit.
+
 **b) Navegador real** (Vite dev, `.env.local` de placeholders), con instrumentación inyectada en la página: contadores de `setInterval`/`clearInterval`, de `addEventListener`/`removeEventListener` por tipo y destino, de `<canvas>` vivos y de errores de ventana.
 
 ## 3. Lo que se verificó y salió bien
@@ -75,7 +77,7 @@
 
 **F-4 · El parche de hierbas se descubre por escaneo, no por gancho**
 
-- **Detalle:** su ancla es *terreno* (pasto alto) y el renderer solo ofrece gancho para props, así que el overlay escanea ±13 casillas alrededor del jugador 3 veces por segundo.
+- **Detalle:** su ancla es *terreno* (pasto alto) y el renderer solo ofrece gancho para props, así que el overlay escanea ±13 casillas alrededor del jugador (una ventana de 27×27 = 729 casillas) cada 0,3 s.
 - **Medición:** sin impacto observable (fps y heap estables), pero es un patrón distinto al de las otras profesiones.
 - **Archivos:** `forage/forageOverlay.ts`.
 - **Corregido:** **no** (necesitaría un gancho de tiles en el renderer).
