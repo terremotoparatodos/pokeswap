@@ -2,6 +2,7 @@
 
 > Rama: `feat/r31c4-alchemy-visual-design` (hija de `feat/r31c3-logging-visual-design` @ 9b587e6). **No mergeada.**
 > Docs: [Dirección de arte](R31C4_ALCHEMY_ART_DIRECTION.md) · [Manifest](ALCHEMY_ASSET_MANIFEST.md) · [Interacción](ALCHEMY_INTERACTION_SPEC.md)
+> **Continuación:** [R31-C4.1 — Recolección de Alquimia](R31C4_1_ALCHEMY_GATHERING.md) · [handoff](R31C4_1_HANDOFF.md) cerró la deuda H-1 en `feat/r31c4-1-alchemy-gathering-polish`.
 > Fases previas: [Minería](R31C1_HANDOFF.md) · [Pesca](R31C2_HANDOFF.md) · [Tala](R31C3_HANDOFF.md)
 
 ## 1. Qué se entregó
@@ -70,7 +71,7 @@
 
 ## 4. Límites y deuda
 
-- **Alquimia tiene una mitad sin construir (H-1):** sus cuatro nodos de recolección (arbusto de bayas, parche de hierbas, arboleda silvestre, flor de escarcha) y la hoz siguen sin arte ni interacción propia. Es lo más grande que queda de esta etapa.
+- ~~**Alquimia tiene una mitad sin construir (H-1)**~~ **Cerrado en R31-C4.1:** los cuatro nodos de recolección y la hoz ya tienen arte, interacción, estados y VFX propios.
 - **La mesa no tiene colisión:** la dibuja el overlay y la solidez la decide el área, así que el jugador puede pararse encima; parado sobre ella no puede abrirla (hay que dar un paso al costado). Se arregla cuando la mesa sea un prop real o un mueble de interior.
 - **Una sola mesa por mundo**, siempre en el mismo claro, sin interiores ni mesa propia del jugador.
 - **Todo es local:** sin persistencia ni servidor; otros jugadores no ven la mesa ni la preparación.
