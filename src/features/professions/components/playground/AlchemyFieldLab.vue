@@ -150,9 +150,19 @@ const whereLabel = computed(() => (place.value === 'bench'
 const here = ref<{ tx: number; ty: number } | null>(null)
 const hereLabel = computed(() => (here.value ? `jugador en ${here.value.tx}, ${here.value.ty}` : 'sin jugador'))
 
-const hint = computed(() => (place.value === 'bench'
-  ? 'Caminá hasta la mesa de alquimia y tocála para abrirla.'
-  : 'Buscá la planta con fruto y tocála para recolectarla.'))
+const hint = computed(() => {
+  // R31-QA: the bench has no collision yet, so the player can end up standing
+  // on its tile — and from there the engine has no adjacent tile to inspect.
+  // Say so, instead of leaving a reviewer tapping a bench that will not open.
+  const player = here.value
+  const bench = station.value
+  if (place.value === 'bench' && player && bench && player.tx === bench.tx && player.ty === bench.ty) {
+    return 'Estás parado sobre la mesa: dá un paso al costado y tocála.'
+  }
+  return place.value === 'bench'
+    ? 'Caminá hasta la mesa de alquimia y tocála para abrirla.'
+    : 'Buscá la planta con fruto y tocála para recolectarla.'
+})
 
 const setWorker = (value: string) => props.session.update(state => setDemoWorker(state, 'alchemy', value ? Number(value) : null))
 
