@@ -1,13 +1,13 @@
-// R31-Z / T-S1 — overlay trace baseline.
+// R31-Z / T-S1 · T-S1.1 — overlay trace baseline.
 //
 // Freezes what the five profession overlays hand the renderer, so the
 // gathering/processing refactor can prove it changed nothing by accident.
 // These tests judge nothing: they record. A snapshot diff is the finding.
 //
 // Determinism, in one place:
-//  - worker Pokémon set to `null` everywhere (no overworld sheets to load);
 //  - system time frozen, so the demo clock (energy, respawn, RNG seed) is fixed;
-//  - scene clock stepped at exactly 1/30 s, sampled every 50 ms;
+//  - scene clock stepped at exactly 1/30 s; every hook runs on every step and
+//    only every 50 ms is written down (T-S1.1);
 //  - world from `World(PRADERA_SEED)` and tiles from `PRADERA_LANDMARKS`;
 //  - `toSprite` wrapped, so art is hashed from its pixels and no canvas is used.
 
@@ -38,8 +38,9 @@ import { useForageController } from './forage/useForageController'
 import { useLoggingController } from './logging/useLoggingController'
 import { useMiningController } from './mining/useMiningController'
 import {
-  finalState, resetSpriteInterceptions, SceneTrace, spriteInterceptions,
-  type DecorProbe, type TraceHost, type TraceOverlay,
+  finalState, recordingContext, resetSpriteInterceptions, SceneTrace,
+  spriteInterceptions, STEP_SECONDS,
+  type DecorProbe, type TraceEntry, type TraceFrame, type TraceHost, type TraceOverlay,
 } from './testing/overlayTrace'
 import { World } from '../wildlands/engine/world'
 
@@ -96,6 +97,9 @@ function targetAt(definitionId: string): { target: DemoNodeTarget; tx: number; t
  * The decor prop of a node's tile, with the `kind` the world really places
  * there. The chunk jitters `x` by a couple of pixels per prop; the trace uses
  * the un-jittered centre so the baseline does not depend on that detail.
+ *
+ * Terrain-anchored nodes (the herb patch) have no prop: this returns nothing
+ * for them, and they reach the scene through `sprites()` instead.
  */
 function decorProbe(tx: number, ty: number): DecorProbe[] {
   const kind = world.decorAt(tx, ty)
@@ -105,12 +109,20 @@ function decorProbe(tx: number, ty: number): DecorProbe[] {
 
 const beside = (spot: { tx: number; ty: number }) => ({ tx: spot.tx, ty: spot.ty + 1 })
 
-function host(overlay: unknown, game: StubPort, probes: DecorProbe[], phase: () => string): TraceHost {
+interface HostOptions {
+  readonly probes?: DecorProbe[]
+  /** Fishing's bite: the one window a player has to react to. */
+  readonly window?: () => boolean
+}
+
+function host(label: string, overlay: unknown, game: StubPort, phase: () => string, options: HostOptions = {}): TraceHost {
   return {
+    label,
     overlay: overlay as TraceOverlay,
     area,
-    probes,
+    probes: options.probes ?? [],
     phase,
+    window: options.window,
     locked: () => game.locked,
   }
 }
@@ -122,6 +134,8 @@ beforeEach(() => {
   vi.setSystemTime(FROZEN_NOW)
   resetSpriteInterceptions()
   session = useProfessionDemo()
+  // Workers are off by default so each scenario says explicitly whether it
+  // covers the worker path; two of them turn their profession's worker back on.
   session.update(state => (['mining', 'woodcutting', 'fishing', 'alchemy'] as const)
     .reduce((next: DemoState, id) => setDemoWorker(next, id, null), state))
 })
@@ -136,6 +150,8 @@ function expectIntercepted(): void {
   expect(spriteInterceptions(), 'toSprite wrapper never ran: the art hashes would be null').toBeGreaterThan(0)
 }
 
+const isFrame = (entry: TraceEntry): entry is TraceFrame => 'state' in entry
+
 describe('overlay trace · mining', () => {
   it('stone_outcrop · one action and a second tap during it', () => {
     const spot = targetAt('stone_outcrop')
@@ -144,7 +160,8 @@ describe('overlay trace · mining', () => {
     mining.attach()
     mining.inspect({ area, tx: spot.tx, ty: spot.ty } as never)
 
-    const trace = new SceneTrace(host(mining.overlay, game, decorProbe(spot.tx, spot.ty), () => mining.phase.value))
+    const trace = new SceneTrace(host('mining · stone_outcrop', mining.overlay, game, () => mining.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty) }))
     trace.mark('selected')
     trace.run(0.2)
     trace.mark(`mine() → ${mining.mine()}`)
@@ -156,7 +173,12 @@ describe('overlay trace · mining', () => {
     trace.run(0.5)
 
     expectIntercepted()
-    expect({ trace: trace.trace, state: finalState(session.state.value, [spot.target]) }).toMatchSnapshot('mining · stone_outcrop · double tap')
+    // T-S1.1: the hooks run on every frame, not only on the ones recorded.
+    const recorded = trace.trace.filter(isFrame).length
+    expect(trace.hookRuns.sprites).toBe(trace.hookRuns.frames)
+    expect(trace.hookRuns.frames).toBeGreaterThan(recorded)
+
+    expect({ trace: trace.trace, session: finalState(session.state.value, [spot.target]) }).toMatchSnapshot('mining · stone_outcrop · double tap')
   })
 })
 
@@ -169,7 +191,8 @@ describe('overlay trace · logging', () => {
     logging.inspect({ area, tx: spot.tx, ty: spot.ty } as never)
 
     const charges = spot.target.node.personalCharges
-    const trace = new SceneTrace(host(logging.overlay, game, decorProbe(spot.tx, spot.ty), () => logging.phase.value))
+    const trace = new SceneTrace(host('logging · common_tree', logging.overlay, game, () => logging.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty) }))
     trace.mark('selected')
     let actions = 0
     for (let i = 0; i < charges + 2; i++) {
@@ -179,7 +202,7 @@ describe('overlay trace · logging', () => {
       actions++
       // The first chop and the last one — the one that fells the tree — are
       // sampled in full. The middle ones repeat the first one's shape, so they
-      // only advance the clock.
+      // only run the hooks and advance the clock.
       const sample = i === 0 || i === charges - 1
       trace.runUntil(() => logging.phase.value !== 'chopping', 15, { sample, note: `chop #${i + 1} (middle charge)` })
       trace.run(0.4, { sample })
@@ -189,7 +212,7 @@ describe('overlay trace · logging', () => {
     trace.run(0.5)
 
     expectIntercepted()
-    expect({ actions, trace: trace.trace, state: finalState(session.state.value, [spot.target]) })
+    expect({ actions, trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
       .toMatchSnapshot('logging · common_tree · felled and depleted')
   })
 })
@@ -204,7 +227,8 @@ describe('overlay trace · forage', () => {
     forage.attach()
     forage.inspect({ area, tx: spot.tx, ty: spot.ty } as never)
 
-    const trace = new SceneTrace(host(forage.overlay, game, decorProbe(spot.tx, spot.ty), () => forage.phase.value))
+    const trace = new SceneTrace(host('forage · bare hands', forage.overlay, game, () => forage.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty) }))
     trace.mark('selected · no sickle')
     trace.mark(`gather() → ${forage.gather()}`)
     trace.runUntil(() => forage.phase.value !== 'gathering', 15)
@@ -212,7 +236,7 @@ describe('overlay trace · forage', () => {
     trace.run(0.5)
 
     expectIntercepted()
-    expect({ trace: trace.trace, state: finalState(session.state.value, [spot.target]) })
+    expect({ trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
       .toMatchSnapshot('forage · berry_bush · bare hands')
   })
 
@@ -223,7 +247,8 @@ describe('overlay trace · forage', () => {
     forage.attach()
     forage.inspect({ area, tx: spot.tx, ty: spot.ty } as never)
 
-    const trace = new SceneTrace(host(forage.overlay, game, decorProbe(spot.tx, spot.ty), () => forage.phase.value))
+    const trace = new SceneTrace(host('forage · sickle', forage.overlay, game, () => forage.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty) }))
     trace.mark('selected · sickle equipped')
     trace.mark(`gather() → ${forage.gather()}`)
     trace.runUntil(() => forage.phase.value !== 'gathering', 15)
@@ -231,7 +256,7 @@ describe('overlay trace · forage', () => {
     trace.run(0.5)
 
     expectIntercepted()
-    expect({ trace: trace.trace, state: finalState(session.state.value, [spot.target]) })
+    expect({ trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
       .toMatchSnapshot('forage · berry_bush · sickle')
   })
 })
@@ -261,9 +286,16 @@ describe('overlay trace · fishing', () => {
     return { spot, game, fishing }
   }
 
+  /** The bite is the one profession state worth telling apart from "busy". */
+  const biteWindow = (fishing: ReturnType<typeof useFishingController>) => () => {
+    fishing.syncBite()
+    return fishing.biting.value
+  }
+
   it('shore_spot · cast, wait, reel inside the window', () => {
     const { spot, game, fishing } = onTheBank()
-    const trace = new SceneTrace(host(fishing.overlay, game, decorProbe(spot.tx, spot.ty), () => fishing.phase.value))
+    const trace = new SceneTrace(host('fishing · in the window', fishing.overlay, game, () => fishing.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty), window: biteWindow(fishing) }))
 
     trace.mark('selected')
     const cast = fishing.cast()
@@ -279,6 +311,7 @@ describe('overlay trace · fishing', () => {
       return fishing.biting.value
     }, 60, { sample: false, note: 'waiting for the bite' })
     expect(fishing.biting.value, 'the bite never arrived').toBe(true)
+    trace.run(0.2)
     const grade = fishing.reel()
     trace.mark(`bite after ${waited} ms · reel() → ${grade}`)
     trace.runUntil(() => fishing.phase.value === 'result', 15)
@@ -286,13 +319,18 @@ describe('overlay trace · fishing', () => {
     trace.run(1)
 
     expectIntercepted()
-    expect({ grade, trace: trace.trace, state: finalState(session.state.value, [spot.target]) })
+    // The bite is an observable state of its own, and the trace must show it.
+    expect(trace.trace.filter(isFrame).some(frame => frame.state === 'window'),
+      'the bite window never reached the trace').toBe(true)
+
+    expect({ grade, trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
       .toMatchSnapshot('fishing · shore_spot · reel in the window')
   })
 
   it('shore_spot · cast and reel far too early', () => {
     const { spot, game, fishing } = onTheBank()
-    const trace = new SceneTrace(host(fishing.overlay, game, decorProbe(spot.tx, spot.ty), () => fishing.phase.value))
+    const trace = new SceneTrace(host('fishing · too early', fishing.overlay, game, () => fishing.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty), window: biteWindow(fishing) }))
 
     trace.mark('selected')
     const cast = fishing.cast()
@@ -309,7 +347,10 @@ describe('overlay trace · fishing', () => {
     trace.run(1)
 
     expectIntercepted()
-    expect({ grade, trace: trace.trace, state: finalState(session.state.value, [spot.target]) })
+    expect(trace.trace.filter(isFrame).every(frame => frame.state !== 'window'),
+      'no bite window should ever open in this scenario').toBe(true)
+
+    expect({ grade, trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
       .toMatchSnapshot('fishing · shore_spot · reel too early')
   })
 })
@@ -335,7 +376,7 @@ describe('overlay trace · alchemy (processing)', () => {
 
   it('brew_potion · batch of 1', () => {
     const { game, alchemy } = bench(1)
-    const trace = new SceneTrace(host(alchemy.overlay, game, [], () => alchemy.phase.value))
+    const trace = new SceneTrace(host('alchemy · batch 1', alchemy.overlay, game, () => alchemy.phase.value))
     trace.mark('bench open · quantity 1')
     trace.mark(`brew() → ${alchemy.brew()}`)
     trace.runUntil(() => alchemy.phase.value !== 'brewing', 20)
@@ -343,13 +384,13 @@ describe('overlay trace · alchemy (processing)', () => {
     trace.run(0.5)
 
     expectIntercepted()
-    expect({ trace: trace.trace, state: finalState(session.state.value) }).toMatchSnapshot('alchemy · brew_potion · batch 1')
+    expect({ trace: trace.trace, session: finalState(session.state.value) }).toMatchSnapshot('alchemy · brew_potion · batch 1')
   })
 
   it('brew_potion · batch of 3', () => {
     const { game, alchemy } = bench(3)
     expect(alchemy.quantity.value).toBe(3)
-    const trace = new SceneTrace(host(alchemy.overlay, game, [], () => alchemy.phase.value))
+    const trace = new SceneTrace(host('alchemy · batch 3', alchemy.overlay, game, () => alchemy.phase.value))
     trace.mark('bench open · quantity 3')
     trace.mark(`brew() → ${alchemy.brew()}`)
     trace.runUntil(() => alchemy.phase.value !== 'brewing', 25)
@@ -357,6 +398,138 @@ describe('overlay trace · alchemy (processing)', () => {
     trace.run(0.5)
 
     expectIntercepted()
-    expect({ trace: trace.trace, state: finalState(session.state.value) }).toMatchSnapshot('alchemy · brew_potion · batch 3')
+    expect({ trace: trace.trace, session: finalState(session.state.value) }).toMatchSnapshot('alchemy · brew_potion · batch 3')
+  })
+})
+
+// ── The harness itself (T-S1.1) ────────────────────────────────────────────
+
+describe('overlay trace · harness', () => {
+  /** A hook that only runs when a frame is recorded is the defect T-S1.1 fixes. */
+  it('runs every hook on frames that are never written down', () => {
+    const groundAt: number[] = []
+    const decorAt: number[] = []
+    const labelsAt: number[] = []
+    const overlay: TraceOverlay = {
+      ground: (_g, _a, _x, _y, seconds) => { groundAt.push(Math.round(seconds * 1000)) },
+      decor: (_d, _a, seconds) => { decorAt.push(Math.round(seconds * 1000)); return null },
+      sprites: () => [],
+      // A label that changes every frame, so nothing collapses into `repeat`
+      // and the recorded timestamps can be read straight off the trace.
+      labels: (_a, seconds) => {
+        labelsAt.push(Math.round(seconds * 1000))
+        return [{ wx: 0, wy: 0, lift: 0, text: `${Math.round(seconds * 1000)}`, color: '#fff' }]
+      },
+    }
+    const probe: DecorProbe = { label: 'probe@0,0', decor: { kind: 'rock', tx: 0, ty: 0, x: 8, y: 13 } }
+    const trace = new SceneTrace({
+      overlay, area, probes: [probe], phase: () => 'idle', locked: () => false,
+    })
+    trace.run(0.5)
+
+    // 0.5 s at 1/30 s is 15 frames; at one sample per 50 ms only 10 are kept.
+    expect(trace.hookRuns).toEqual({ frames: 15, ground: 15, decor: 15, sprites: 15, labels: 15 })
+    const recordedAt = trace.trace.filter(isFrame).map(frame => frame.atMs)
+    expect(recordedAt.length).toBeLessThan(15)
+    expect(recordedAt.length).toBeGreaterThan(1)
+
+    // Where two kept samples are more than one frame apart, a frame ran in
+    // between — and every hook must have run on it.
+    const gaps = recordedAt.slice(1)
+      .map((at, i) => [recordedAt[i], at] as const)
+      .filter(([from, to]) => to - from > Math.ceil(STEP_SECONDS * 1000))
+    expect(gaps.length, 'the sampling never skipped a frame: the test proves nothing').toBeGreaterThan(0)
+
+    for (const [name, list] of Object.entries({
+      ground: groundAt, decor: decorAt, labels: labelsAt, sprites: [...trace.spriteRunTimes],
+    })) {
+      for (const [from, to] of gaps) {
+        expect(list.some(at => at > from && at < to), `${name}() never ran between ${from} ms and ${to} ms`).toBe(true)
+      }
+    }
+  })
+
+  it('keeps running the hooks through a stretch that is not sampled', () => {
+    let calls = 0
+    const trace = new SceneTrace({
+      overlay: { sprites: () => { calls++; return [] } },
+      area, probes: [], phase: () => 'idle', locked: () => false,
+    })
+    trace.run(1, { sample: false, note: 'quiet stretch' })
+    expect(calls).toBe(30)
+    expect(trace.trace).toEqual([{ skippedMs: 1000, note: 'quiet stretch' }])
+  })
+
+  /** Reordering assignments that do not change the picture must not diff. */
+  it('records the drawing, not the style assignments that led to it', () => {
+    const build = (script: (ctx: CanvasRenderingContext2D) => void): string[] => {
+      const recorder = recordingContext()
+      script(recorder.ctx as CanvasRenderingContext2D)
+      return [...recorder.calls]
+    }
+
+    const noisy = build(ctx => {
+      ctx.fillStyle = '#111111'
+      ctx.lineWidth = 9
+      ctx.strokeStyle = '#999999'
+      ctx.fillStyle = '#222222'
+      ctx.beginPath()
+      ctx.ellipse(10, 6, 4, 2, 0, 0, Math.PI * 2)
+      ctx.fill()
+    })
+    const lean = build(ctx => {
+      ctx.beginPath()
+      ctx.ellipse(10, 6, 4, 2, 0, 0, Math.PI * 2)
+      ctx.fillStyle = '#222222'
+      ctx.fill()
+    })
+    expect(noisy).toEqual(lean)
+    expect(noisy).toEqual(['fill [ellipse(10 6 4 2 0 0 6.28)] fill=#222222 alpha=1'])
+
+    // A style that *does* reach a stroke is part of the picture and is kept.
+    const stroked = build(ctx => {
+      ctx.strokeStyle = '#a4e27c'
+      ctx.lineWidth = 1.5
+      ctx.globalAlpha = 0.5
+      ctx.beginPath()
+      ctx.moveTo(0, 0)
+      ctx.lineTo(4, 3)
+      ctx.stroke()
+    })
+    expect(stroked).toEqual(['stroke [move(0 0) line(4 3)] stroke=#a4e27c lw=1.5 alpha=0.5'])
+
+    // `restore()` puts the earlier style back, and the next draw shows it.
+    const scoped = build(ctx => {
+      ctx.fillStyle = '#000000'
+      ctx.save()
+      ctx.fillStyle = '#ffffff'
+      ctx.restore()
+      ctx.fillRect(0, 0, 2, 2)
+    })
+    expect(scoped).toEqual(['fillRect [0 0 2 2] fill=#000000 alpha=1'])
+  })
+
+  /** The refactor may rename any phase; the snapshot must not notice. */
+  it('never serialises a controller phase name', () => {
+    const internal = ['mining', 'chopping', 'gathering', 'casting', 'brewing']
+    const spot = targetAt('stone_outcrop')
+    const game = stubPort(beside(spot).tx, beside(spot).ty)
+    const mining = useMiningController(session, () => game)
+    mining.attach()
+    mining.inspect({ area, tx: spot.tx, ty: spot.ty } as never)
+
+    const trace = new SceneTrace(host('harness · phases', mining.overlay, game, () => mining.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty) }))
+    mining.mine()
+    trace.run(0.4)
+    expect(mining.phase.value, 'the controller really is in its internal phase').toBe('mining')
+
+    const frames = trace.trace.filter(isFrame)
+    expect(frames.length).toBeGreaterThan(0)
+    for (const frame of frames) {
+      expect(internal).not.toContain(frame.state)
+      expect(['idle', 'active', 'window', 'resolved']).toContain(frame.state)
+      expect(frame, 'the raw phase must not be serialised at all').not.toHaveProperty('phase')
+    }
   })
 })
