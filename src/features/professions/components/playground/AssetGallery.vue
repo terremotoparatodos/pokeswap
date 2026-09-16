@@ -49,6 +49,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ALCHEMY_ASSETS } from '../../art/alchemyAssets'
+import { forageNodeArt, plainForageArt } from '../../art/forageNodes'
 import { liquidOf } from '../../art/alchemyPalette'
 import { alchemyStationArt } from '../../art/alchemyStation'
 import { FISHING_ASSETS } from '../../art/fishingAssets'
@@ -69,7 +70,7 @@ const CONTEXT_TITLE: Readonly<Record<Kit, string>> = {
   mining: 'Estados de nodo en contexto (Veta de hierro)',
   fishing: 'Estados del spot en contexto (Orilla)',
   logging: 'Estados del árbol en contexto (Árbol común)',
-  alchemy: 'Estados de la mesa en contexto',
+  alchemy: 'Mesa y recolección en contexto',
 }
 const GROUNDS: Readonly<Record<string, string>> = { Pradera: '#6fbf5a', Desierto: '#d9a55a', Tundra: '#dfe9f5', Bosque: '#3f8a45', Panel: '#101a36' }
 /** Fishing marks are painted on water, so they are shown over water. */
@@ -82,7 +83,7 @@ const ORDER: Readonly<Record<Kit, readonly AssetKind[]>> = {
   mining: ['node', 'tool', 'icon', 'fx', 'marker'],
   fishing: ['spot', 'tool', 'icon', 'fx', 'marker'],
   logging: ['tree', 'tool', 'icon', 'fx', 'marker'],
-  alchemy: ['station', 'icon', 'fx', 'marker'],
+  alchemy: ['station', 'node', 'tool', 'icon', 'fx', 'marker'],
 }
 
 interface ContextState {
@@ -156,6 +157,17 @@ const ALCHEMY_STATES: readonly ContextState[] = [
   { label: 'PREPARANDO · Revivir', note: 'La receta rara del catálogo', art: alchemyStationArt('brewing', liquidOf('revive'), 1), bubble: null, scale: 4 },
   { label: 'LISTO', note: 'Frasco tapado y un destello', art: alchemyStationArt('done', liquidOf('potion')), bubble: null, scale: 4 },
   { label: 'BLOQUEADA POR NIVEL', note: 'Receta que todavía no alcanzás', art: alchemyStationArt('ready'), bubble: bubbleArt('lock'), scale: 4 },
+  { label: 'ARBUSTO DECORATIVO', note: 'La mayoría del follaje no es recurso', art: plainForageArt('bush'), bubble: null, scale: 4 },
+  { label: 'ARBUSTO DE BAYAS', note: 'Bayas azules a la vista; se recolecta a mano', art: forageNodeArt('berry_bush', 'ready'), bubble: bubbleArt('hand'), scale: 4 },
+  { label: 'RECOLECTADO', note: 'Quedan las ramitas peladas', art: forageNodeArt('berry_bush', 'picked'), bubble: null, scale: 4 },
+  { label: 'REBROTANDO', note: 'Primero brotes, después color', art: forageNodeArt('berry_bush', 'regrowing', 1), bubble: null, scale: 4 },
+  { label: 'PASTO ALTO', note: 'Terreno decorativo: no es recurso', art: plainForageArt('tallGrass'), bubble: null, scale: 4 },
+  { label: 'PARCHE DE HIERBAS', note: 'Matas más altas y con flores', art: forageNodeArt('herb_patch', 'ready'), bubble: bubbleArt('hand'), scale: 4 },
+  { label: 'HIERBA CORTADA', note: 'Tallos al ras con el corte pálido', art: forageNodeArt('herb_patch', 'picked'), bubble: null, scale: 4 },
+  { label: 'ARBOLEDA SILVESTRE', note: 'Zidra y Zanama + flores: necesita hoz', art: forageNodeArt('wild_grove', 'ready'), bubble: bubbleArt('sickle'), scale: 4 },
+  { label: 'CRISTAL SIN FLOR', note: 'Tundra: el cristal que no floreció', art: plainForageArt('crystal'), bubble: null, scale: 5 },
+  { label: 'FLOR DE ESCARCHA', note: 'Flor de hielo sobre el cristal', art: forageNodeArt('frost_bloom', 'ready'), bubble: bubbleArt('sickle'), scale: 5 },
+  { label: 'FLOR RECOLECTADA', note: 'Queda el tallo escarchado', art: forageNodeArt('frost_bloom', 'picked'), bubble: null, scale: 5 },
 ]
 
 const CONTEXT: Readonly<Record<Kit, readonly ContextState[]>> = {

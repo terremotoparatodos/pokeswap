@@ -23,6 +23,8 @@
 import { computed } from 'vue'
 import { ITEM_BY_ID } from '../domain/catalog/items'
 import { alchemyIconArt } from '../art/alchemyItems'
+import { sickleIconArt, SICKLE_ITEMS } from '../art/forageItems'
+import type { SickleTier } from '../art/foragePalette'
 import { fishingResourceIconArt, ROD_ITEMS, rodIconArt, type RodTier } from '../art/fishingItems'
 import { AXE_ITEMS, axeIconArt, loggingResourceIconArt } from '../art/loggingItems'
 import type { AxeTier } from '../art/loggingPalette'
@@ -36,6 +38,7 @@ const props = withDefaults(defineProps<{ itemId: string; size?: number; conditio
 const PICKAXE_TIER = Object.fromEntries(Object.entries(PICKAXE_ITEMS).map(([tier, itemId]) => [itemId, Number(tier) as PickaxeTier]))
 const ROD_TIER = Object.fromEntries(Object.entries(ROD_ITEMS).map(([tier, itemId]) => [itemId, Number(tier) as RodTier]))
 const AXE_TIER = Object.fromEntries(Object.entries(AXE_ITEMS).map(([tier, itemId]) => [itemId, Number(tier) as AxeTier]))
+const SICKLE_TIER = Object.fromEntries(Object.entries(SICKLE_ITEMS).map(([tier, itemId]) => [itemId, Number(tier) as SickleTier]))
 
 const item = computed(() => ITEM_BY_ID.get(props.itemId))
 const name = computed(() => item.value?.name ?? props.itemId)
@@ -44,9 +47,11 @@ const iconUrl = computed(() => {
   const pickaxe = PICKAXE_TIER[props.itemId]
   const rod = ROD_TIER[props.itemId]
   const axe = AXE_TIER[props.itemId]
+  const sickle = SICKLE_TIER[props.itemId]
   const art = pickaxe ? pickaxeIconArt(pickaxe, props.condition)
     : rod ? rodIconArt(rod, props.condition)
       : axe ? axeIconArt(axe, props.condition)
+        : sickle ? sickleIconArt(sickle, props.condition)
         : resourceIconArt(props.itemId) ?? fishingResourceIconArt(props.itemId) ?? loggingResourceIconArt(props.itemId) ?? alchemyIconArt(props.itemId)
   return art ? toDataUrl(art, Math.max(1, Math.round(props.size / 16))) : null
 })

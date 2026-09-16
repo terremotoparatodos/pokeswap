@@ -1,7 +1,7 @@
 <template>
   <div class="pf pwd">
     <p v-if="areaKind === 'wild' && !anySelection && !target" class="pwd-hint">
-      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol con cinta, la mesa de alquimia del claro o la orilla
+      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia o la orilla
     </p>
 
     <div v-if="anySelection" class="pwd-mining">
@@ -40,6 +40,16 @@
         :phase="logging.phase.value"
         :outcome="logging.outcome.value"
         @chop="logging.chop()"
+        @close="closeAll"
+      />
+      <ForageActionCard
+        v-else-if="forage.selection.value"
+        :key="forage.selection.value.target.nodeId"
+        :session="session"
+        :target="forage.selection.value.target"
+        :phase="forage.phase.value"
+        :outcome="forage.outcome.value"
+        @gather="forage.gather()"
         @close="closeAll"
       />
       <AlchemyStationCard
@@ -82,11 +92,13 @@ import type { DemoNodeTarget } from '../../demo/demoSession'
 import { useProfessionDemo } from '../../demo/useProfessionDemo'
 import { useAlchemyController } from '../../alchemy/useAlchemyController'
 import { useFishingController } from '../../fishing/useFishingController'
+import { useForageController } from '../../forage/useForageController'
 import { useLoggingController } from '../../logging/useLoggingController'
 import { useMiningController, type MiningGamePort } from '../../mining/useMiningController'
 import { CompositeOverlay } from '../../overworld/compositeOverlay'
 import AlchemyStationCard from '../AlchemyStationCard.vue'
 import FishingActionCard from '../FishingActionCard.vue'
+import ForageActionCard from '../ForageActionCard.vue'
 import InventoryGrid from '../InventoryGrid.vue'
 import LoggingActionCard from '../LoggingActionCard.vue'
 import MiningActionCard from '../MiningActionCard.vue'
@@ -104,7 +116,7 @@ const emit = defineEmits<{ overlay: [open: boolean] }>()
 /** The fishing bite window is short, so the card has to light up promptly. */
 const BITE_POLL_MS = 80
 /** Professions that draw themselves in the world instead of opening the R31-B panel. */
-const OVERLAY_PROFESSIONS: readonly ProfessionId[] = ['mining', 'fishing', 'woodcutting']
+const OVERLAY_PROFESSIONS: readonly ProfessionId[] = ['mining', 'fishing', 'woodcutting', 'alchemy']
 
 const session = useProfessionDemo()
 const target = shallowRef<DemoNodeTarget | null>(null)
@@ -114,10 +126,11 @@ const fishing = useFishingController(session, () => props.game)
 const logging = useLoggingController(session, () => props.game)
 // Alchemy has no node: the bench is derived from the world's own spawn.
 const alchemy = useAlchemyController(session, () => props.game, () => null)
+const forage = useForageController(session, () => props.game)
 /** The engine holds one overlay, so the professions share a composite. */
-const overlay = new CompositeOverlay(mining.overlay, fishing.overlay, logging.overlay, alchemy.overlay)
+const overlay = new CompositeOverlay(mining.overlay, fishing.overlay, logging.overlay, forage.overlay, alchemy.overlay)
 
-const anySelection = computed(() => !!(mining.selection.value || fishing.selection.value || logging.selection.value || alchemy.open.value))
+const anySelection = computed(() => !!(mining.selection.value || fishing.selection.value || logging.selection.value || forage.selection.value || alchemy.open.value))
 const activeProfession = computed<ProfessionId>(() => {
   if (mining.selection.value) return 'mining'
   if (fishing.selection.value) return 'fishing'
@@ -126,6 +139,7 @@ const activeProfession = computed<ProfessionId>(() => {
 const highlight = computed(() => {
   if (mining.outcome.value?.ok) return mining.outcome.value.placements
   if (logging.outcome.value?.ok) return logging.outcome.value.placements
+  if (forage.outcome.value?.ok) return forage.outcome.value.placements
   const gather = fishing.outcome.value?.gather
   return gather?.ok ? gather.placements : []
 })
@@ -141,11 +155,12 @@ onUnmounted(() => {
   fishing.detach()
   logging.detach()
   alchemy.detach()
+  forage.detach()
 })
 
 /** Engine probe: tiles the navigator should approach and face. */
 function isWorldObject(hit: WorldObjectTarget): boolean {
-  return mining.isNode(hit) || fishing.isSpot(hit) || logging.isTree(hit) || alchemy.isStation(hit) || otherNodeAt(hit) !== null
+  return mining.isNode(hit) || fishing.isSpot(hit) || logging.isTree(hit) || forage.isPlant(hit) || alchemy.isStation(hit) || otherNodeAt(hit) !== null
 }
 
 function otherNodeAt(hit: WorldObjectTarget): DemoNodeTarget | null {
@@ -175,10 +190,18 @@ function inspect(hit: WorldObjectTarget): boolean {
     fishing.close()
     return true
   }
+  if (forage.inspect(hit)) {
+    mining.close()
+    fishing.close()
+    logging.close()
+    alchemy.close()
+    return true
+  }
   if (alchemy.inspect(hit)) {
     mining.close()
     fishing.close()
     logging.close()
+    forage.close()
     return true
   }
   const other = otherNodeAt(hit)
@@ -193,6 +216,7 @@ function closeAll(): void {
   fishing.close()
   logging.close()
   alchemy.close()
+  forage.close()
   bagOpen.value = false
 }
 

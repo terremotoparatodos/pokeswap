@@ -22,6 +22,7 @@ const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
   // Alchemy also reads the world atlas: with no node to attach to, the bench is
   // derived from each world's own spawn.
   ['./alchemy/', /\/wildlands\/(engine\/(world|area|chunks|characters|sceneOverlay|game)|areas\/atlas)$/],
+  ['./forage/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay|game)$/],
   ['./overworld/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay)$/],
   ['./components/', /\/wildlands\/engine\/(world|noise|characters|game)$/],
   ['./', /\/wildlands\/engine\/(world|noise)$/],
@@ -30,7 +31,7 @@ const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
 /** Vue is allowed in components and in the two composables that wrap pure state. */
 const VUE_ALLOWED = [
   './demo/useProfessionDemo.ts', './mining/useMiningController.ts', './fishing/useFishingController.ts',
-  './logging/useLoggingController.ts', './alchemy/useAlchemyController.ts',
+  './logging/useLoggingController.ts', './alchemy/useAlchemyController.ts', './forage/useForageController.ts',
 ]
 /** Files that instantiate the game engine (dev-only field lab). */
 const ENGINE_VALUE_IMPORT = [
