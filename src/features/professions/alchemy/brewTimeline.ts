@@ -104,7 +104,7 @@ export function bottlesBetween(timeline: BrewTimeline, fromMs: number, toMs: num
 /** Ingredient drops that begin in (fromMs, toMs]: one per ingredient, while loading. */
 export function loadsBetween(timeline: BrewTimeline, ingredients: number, fromMs: number, toMs: number): number[] {
   const hits: number[] = []
-  const step = BREW_MS.load / Math.max(1, ingredients)
+  const step = timeline.loadAtMs / Math.max(1, ingredients)
   for (let i = 0; i < ingredients; i++) {
     // Offset by half a step so the first ingredient still lands after t = 0.
     const at = (i + 0.5) * step

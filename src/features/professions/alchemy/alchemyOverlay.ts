@@ -203,7 +203,7 @@ export class AlchemyOverlay implements SceneOverlay {
     if (!brew.resultApplied && elapsed >= brew.timeline.resultAtMs) {
       brew.resultApplied = true
       const reward = brew.onResult()
-      if (reward) this.celebrate(brew, reward, x, y, ink)
+      if (reward) this.celebrate(reward, x, y, ink)
     }
     brew.lastMs = elapsed
     if (elapsed >= brew.timeline.totalMs) {
@@ -213,7 +213,7 @@ export class AlchemyOverlay implements SceneOverlay {
     }
   }
 
-  private celebrate(brew: ActiveBrew, reward: AlchemyReward, x: number, y: number, ink: Liquid): void {
+  private celebrate(reward: AlchemyReward, x: number, y: number, ink: Liquid): void {
     for (let i = 0; i < 3; i++) this.spawn({ x: x - 4 + i * 4, y, z: 30 + i * 2, life: 0.7, kind: 'spark', tone: ink })
     reward.stacks.forEach((stack, index) => {
       this.pops.push({
