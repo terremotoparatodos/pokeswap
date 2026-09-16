@@ -1,7 +1,7 @@
 <template>
   <div class="pf pwd">
     <p v-if="areaKind === 'wild' && !anySelection && !target" class="pwd-hint">
-      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol marcado, un arbusto o la orilla
+      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol con cinta, la mesa de alquimia del claro o la orilla
     </p>
 
     <div v-if="anySelection" class="pwd-mining">
@@ -42,6 +42,21 @@
         @chop="logging.chop()"
         @close="closeAll"
       />
+      <AlchemyStationCard
+        v-else-if="alchemy.open.value"
+        :recipes="alchemy.recipes.value"
+        :detail="alchemy.view.value"
+        :phase="alchemy.phase.value"
+        :quantity="alchemy.quantity.value"
+        :max-quantity="alchemy.maxQuantity.value"
+        :level="alchemy.level.value"
+        :outcome="alchemy.outcome.value"
+        :progress="alchemy.progress.value"
+        @select="alchemy.select($event)"
+        @quantity="alchemy.setQuantity($event)"
+        @brew="alchemy.brew()"
+        @close="closeAll"
+      />
     </div>
 
     <div v-if="target" class="pwd-backdrop" @click.self="close">
@@ -65,10 +80,12 @@ import { nodeAt, worldNodePort } from '../../domain/nodePlacement'
 import type { ProfessionId } from '../../domain/types'
 import type { DemoNodeTarget } from '../../demo/demoSession'
 import { useProfessionDemo } from '../../demo/useProfessionDemo'
+import { useAlchemyController } from '../../alchemy/useAlchemyController'
 import { useFishingController } from '../../fishing/useFishingController'
 import { useLoggingController } from '../../logging/useLoggingController'
 import { useMiningController, type MiningGamePort } from '../../mining/useMiningController'
 import { CompositeOverlay } from '../../overworld/compositeOverlay'
+import AlchemyStationCard from '../AlchemyStationCard.vue'
 import FishingActionCard from '../FishingActionCard.vue'
 import InventoryGrid from '../InventoryGrid.vue'
 import LoggingActionCard from '../LoggingActionCard.vue'
@@ -95,13 +112,16 @@ const bagOpen = ref(false)
 const mining = useMiningController(session, () => props.game)
 const fishing = useFishingController(session, () => props.game)
 const logging = useLoggingController(session, () => props.game)
+// Alchemy has no node: the bench is derived from the world's own spawn.
+const alchemy = useAlchemyController(session, () => props.game, () => null)
 /** The engine holds one overlay, so the professions share a composite. */
-const overlay = new CompositeOverlay(mining.overlay, fishing.overlay, logging.overlay)
+const overlay = new CompositeOverlay(mining.overlay, fishing.overlay, logging.overlay, alchemy.overlay)
 
-const anySelection = computed(() => !!(mining.selection.value || fishing.selection.value || logging.selection.value))
+const anySelection = computed(() => !!(mining.selection.value || fishing.selection.value || logging.selection.value || alchemy.open.value))
 const activeProfession = computed<ProfessionId>(() => {
   if (mining.selection.value) return 'mining'
-  return fishing.selection.value ? 'fishing' : 'woodcutting'
+  if (fishing.selection.value) return 'fishing'
+  return logging.selection.value ? 'woodcutting' : 'alchemy'
 })
 const highlight = computed(() => {
   if (mining.outcome.value?.ok) return mining.outcome.value.placements
@@ -120,11 +140,12 @@ onUnmounted(() => {
   mining.detach()
   fishing.detach()
   logging.detach()
+  alchemy.detach()
 })
 
 /** Engine probe: tiles the navigator should approach and face. */
 function isWorldObject(hit: WorldObjectTarget): boolean {
-  return mining.isNode(hit) || fishing.isSpot(hit) || logging.isTree(hit) || otherNodeAt(hit) !== null
+  return mining.isNode(hit) || fishing.isSpot(hit) || logging.isTree(hit) || alchemy.isStation(hit) || otherNodeAt(hit) !== null
 }
 
 function otherNodeAt(hit: WorldObjectTarget): DemoNodeTarget | null {
@@ -154,6 +175,12 @@ function inspect(hit: WorldObjectTarget): boolean {
     fishing.close()
     return true
   }
+  if (alchemy.inspect(hit)) {
+    mining.close()
+    fishing.close()
+    logging.close()
+    return true
+  }
   const other = otherNodeAt(hit)
   if (!other) return false
   target.value = other
@@ -165,6 +192,7 @@ function closeAll(): void {
   mining.close()
   fishing.close()
   logging.close()
+  alchemy.close()
   bagOpen.value = false
 }
 
