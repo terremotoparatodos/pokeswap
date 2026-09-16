@@ -44,7 +44,7 @@ export function glintArt(special: boolean): PixelArt {
 }
 
 /** Shared marker vocabulary across professions ('rod' is used by fishing). */
-export type BubbleKind = 'pick' | 'lock' | 'seal' | 'rod'
+export type BubbleKind = 'pick' | 'lock' | 'seal' | 'rod' | 'axe'
 
 /** Pokémon-style thought bubble above an interactable node. */
 export function bubbleArt(kind: BubbleKind): PixelArt {
@@ -54,6 +54,7 @@ export function bubbleArt(kind: BubbleKind): PixelArt {
       lock: ['.ggg.', '.g.g.', 'ggggg', 'gg.gg', 'ggggg'],
       seal: ['..v..', '.vVv.', 'vVwVv', '.vVv.', '..v..'],
       rod: ['....s', '...s.', '..s..', '.s...', 'h.s..'],
+      axe: ['.hhh.', '.hh..', '..s..', '.s...', 's....'],
     }
     const rows = [
       '.ooooooooo.',
