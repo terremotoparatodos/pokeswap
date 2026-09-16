@@ -23,9 +23,10 @@ import { bubbleArt, glintArt } from '../art/miningFx'
 import { resourceIconArt } from '../art/miningItems'
 import { brighten, toSprite, type PixelArt } from '../art/pixelArt'
 import { inspectDemoNode, type DemoNodeTarget, type DemoState } from '../demo/demoSession'
-import { RARITY_FEEDBACK, rarityOfItem, type DropRarity } from '../mining/miningRarity'
+import { RARITY_FEEDBACK, type DropRarity } from '../mining/miningRarity'
 import type { OverlayPlayer } from '../mining/miningOverlay'
 import { spawnImpact, stepParticles, type Particle } from '../mining/particles'
+import { RewardPops } from '../overworld/rewardPops'
 import { WorkerCompanion } from '../overworld/workerCompanion'
 import { workerSpot } from '../overworld/workerPresence'
 import { resolveNodeStatus } from '../ui/nodeStatus'
@@ -78,17 +79,6 @@ interface VisibleTree {
   readonly view: TreeVisualView
 }
 
-interface RewardPop {
-  readonly itemId: string | null
-  readonly text: string
-  readonly color: string
-  readonly x: number
-  readonly y: number
-  readonly lift: number
-  readonly start: number
-  readonly life: number
-}
-
 /** Hardwood and boreal trees are the ones worth spotting from afar. */
 const RARE_TREES = new Set(['hardwood_tree', 'boreal_tree'])
 const VIEW_REFRESH_SECONDS = 0.2
@@ -104,7 +94,7 @@ export class LoggingOverlay implements SceneOverlay {
   private previous = new Map<string, VisibleTree>()
   private particles: Particle[] = []
   private leaves: Leaf[] = []
-  private pops: RewardPop[] = []
+  private readonly pops = new RewardPops()
   private action: ActiveAction | null = null
   private seconds = 0
 
@@ -155,7 +145,7 @@ export class LoggingOverlay implements SceneOverlay {
     this.views.clear()
     this.particles = []
     this.leaves = []
-    this.pops = []
+    this.pops.clear()
     this.visible = new Map()
     this.previous = new Map()
     this.seconds = 0
@@ -167,7 +157,7 @@ export class LoggingOverlay implements SceneOverlay {
     this.seconds = seconds
     this.particles = stepParticles(this.particles, dt)
     this.leaves = stepLeaves(this.leaves, dt)
-    this.pops = this.pops.filter(pop => seconds - pop.start < pop.life)
+    this.pops.prune(seconds)
 
     const action = this.action
     if (!action) return
@@ -208,16 +198,7 @@ export class LoggingOverlay implements SceneOverlay {
     const feedback = RARITY_FEEDBACK[reward.rarity]
     action.linger = feedback.lingerMs
     this.particles = spawnImpact(this.particles, { x, y, z: 12, rarity: reward.rarity, away, random: this.random })
-    const base = 22
-    reward.stacks.forEach((stack, index) => {
-      const rarity = rarityOfItem(stack.itemId)
-      this.pops.push({
-        itemId: stack.itemId, text: `+${stack.quantity}`, color: RARITY_FEEDBACK[rarity].labelColor,
-        x: x + (index - (reward.stacks.length - 1) / 2) * 14, y, lift: base, start: this.seconds + index * 0.12,
-        life: 1.2 + RARITY_FEEDBACK[rarity].lingerMs / 1000,
-      })
-    })
-    this.pops.push({ itemId: null, text: `+${reward.xp} XP`, color: '#ffd27a', x, y, lift: base + 16, start: this.seconds + 0.2, life: 1.3 })
+    this.pops.pushGathered(reward.stacks, reward.xp, x, y, 22, this.seconds)
   }
 
   private viewFor(target: DemoNodeTarget, tx: number, ty: number): TreeVisualView {
@@ -342,13 +323,7 @@ export class LoggingOverlay implements SceneOverlay {
       })
     }
 
-    for (const pop of this.pops) {
-      if (!pop.itemId) continue
-      const icon = loggingResourceIconArt(pop.itemId) ?? resourceIconArt(pop.itemId)
-      const t = (seconds - pop.start) / pop.life
-      if (!icon || t < 0) continue
-      out.push({ wx: pop.x, wy: pop.y, sprite: toSprite(icon, false), lift: pop.lift + t * 14, alpha: t > 0.7 ? (1 - t) / 0.3 : 1, depthBias: 2 })
-    }
+    out.push(...this.pops.iconSprites(seconds, itemId => loggingResourceIconArt(itemId) ?? resourceIconArt(itemId)))
     return out
   }
 
@@ -365,13 +340,6 @@ export class LoggingOverlay implements SceneOverlay {
   }
 
   labels(_area: Area, seconds: number): readonly OverlayLabel[] {
-    return this.pops.flatMap(pop => {
-      const t = (seconds - pop.start) / pop.life
-      if (t < 0) return []
-      return [{
-        wx: pop.itemId ? pop.x + 12 : pop.x, wy: pop.y, lift: pop.lift + t * 14 + (pop.itemId ? 4 : 0),
-        text: pop.text, color: pop.color, alpha: t > 0.7 ? (1 - t) / 0.3 : 1,
-      }]
-    })
+    return this.pops.labels(seconds)
   }
 }

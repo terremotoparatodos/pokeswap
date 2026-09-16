@@ -23,6 +23,7 @@ import { bubbleArt } from '../art/miningFx'
 import { resourceIconArt } from '../art/miningItems'
 import { toSprite } from '../art/pixelArt'
 import type { OverlayPlayer } from '../mining/miningOverlay'
+import { RewardPops } from '../overworld/rewardPops'
 import { WorkerCompanion } from '../overworld/workerCompanion'
 import { workerSpot } from '../overworld/workerPresence'
 import { bottlesBetween, brewPose, loadsBetween, type BrewTimeline } from './brewTimeline'
@@ -71,17 +72,6 @@ interface Puff {
   tone: Liquid
 }
 
-interface RewardPop {
-  readonly itemId: string | null
-  readonly text: string
-  readonly color: string
-  readonly x: number
-  readonly y: number
-  readonly lift: number
-  readonly start: number
-  readonly life: number
-}
-
 const MAX_PUFFS = 28
 
 function iconFor(itemId: string) {
@@ -94,7 +84,7 @@ export class AlchemyOverlay implements SceneOverlay {
   private readonly companion = new WorkerCompanion()
   private readonly random = createSeededRandom(0xa1c4)
   private puffs: Puff[] = []
-  private pops: RewardPop[] = []
+  private readonly pops = new RewardPops()
   private brew: ActiveBrew | null = null
   private seconds = 0
 
@@ -156,7 +146,7 @@ export class AlchemyOverlay implements SceneOverlay {
   /** A new game restarts the scene clock, so cached frames must be dropped. */
   private rewind(): void {
     this.puffs = []
-    this.pops = []
+    this.pops.clear()
     this.seconds = 0
   }
 
@@ -175,7 +165,7 @@ export class AlchemyOverlay implements SceneOverlay {
       puff.x += (puff.kind === 'steam' ? 3 : 0) * dt
     }
     this.puffs = this.puffs.filter(puff => puff.age < puff.life)
-    this.pops = this.pops.filter(pop => seconds - pop.start < pop.life)
+    this.pops.prune(seconds)
 
     const brew = this.brew
     const tile = this.stationAt(area)
@@ -215,13 +205,14 @@ export class AlchemyOverlay implements SceneOverlay {
 
   private celebrate(reward: AlchemyReward, x: number, y: number, ink: Liquid): void {
     for (let i = 0; i < 3; i++) this.spawn({ x: x - 4 + i * 4, y, z: 30 + i * 2, life: 0.7, kind: 'spark', tone: ink })
+    // Processing products are not rarity-graded: one warm colour, a tighter stagger.
     reward.stacks.forEach((stack, index) => {
       this.pops.push({
         itemId: stack.itemId, text: `+${stack.quantity}`, color: '#ffe9c9',
         x: x + (index - (reward.stacks.length - 1) / 2) * 14, y, lift: 26, start: this.seconds + index * 0.1, life: 1.4,
       })
     })
-    this.pops.push({ itemId: null, text: `+${reward.xp} XP`, color: '#ffd27a', x, y, lift: 44, start: this.seconds + 0.2, life: 1.3 })
+    this.pops.pushXp(reward.xp, x, y, 44, this.seconds)
     if (reward.savedInputs > 0) {
       // The Pokémon's processing trait gave an ingredient back: worth saying.
       this.pops.push({
@@ -278,13 +269,7 @@ export class AlchemyOverlay implements SceneOverlay {
       out.push({ wx: puff.x, wy: puff.y, sprite: toSprite(art, false), lift: puff.z, alpha: Math.min(1, (1 - t) * 2), depthBias: 1 })
     }
 
-    for (const pop of this.pops) {
-      if (!pop.itemId) continue
-      const icon = iconFor(pop.itemId)
-      const t = (seconds - pop.start) / pop.life
-      if (!icon || t < 0) continue
-      out.push({ wx: pop.x, wy: pop.y, sprite: toSprite(icon, false), lift: pop.lift + t * 14, alpha: t > 0.7 ? (1 - t) / 0.3 : 1, depthBias: 2 })
-    }
+    out.push(...this.pops.iconSprites(seconds, iconFor))
     return out
   }
 
@@ -301,13 +286,6 @@ export class AlchemyOverlay implements SceneOverlay {
   }
 
   labels(_area: Area, seconds: number): readonly OverlayLabel[] {
-    return this.pops.flatMap(pop => {
-      const t = (seconds - pop.start) / pop.life
-      if (t < 0) return []
-      return [{
-        wx: pop.itemId ? pop.x + 12 : pop.x, wy: pop.y, lift: pop.lift + t * 14 + (pop.itemId ? 4 : 0),
-        text: pop.text, color: pop.color, alpha: t > 0.7 ? (1 - t) / 0.3 : 1,
-      }]
-    })
+    return this.pops.labels(seconds)
   }
 }

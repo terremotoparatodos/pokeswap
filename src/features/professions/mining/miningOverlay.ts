@@ -19,6 +19,7 @@ import { bubbleArt, chipArt, dustArt, glintArt, RARITY_CHIP_TONES, sparkArt } fr
 import { pickaxeSwingArt, resourceIconArt, type PickaxeTier } from '../art/miningItems'
 import { isMiningAnchor, isMiningNodeId, miningNodeArt, RESPAWN_FRAMES } from '../art/miningNodes'
 import { brighten, toSprite, type PixelArt } from '../art/pixelArt'
+import { RewardPops } from '../overworld/rewardPops'
 import { WorkerCompanion } from '../overworld/workerCompanion'
 import { workerSpot } from '../overworld/workerPresence'
 import { inspectDemoNode, type DemoNodeTarget, type DemoState } from '../demo/demoSession'
@@ -84,17 +85,6 @@ interface VisibleNode {
   readonly view: NodeVisualView
 }
 
-interface RewardPop {
-  readonly itemId: string | null
-  readonly text: string
-  readonly color: string
-  readonly x: number
-  readonly y: number
-  readonly lift: number
-  readonly start: number
-  readonly life: number
-}
-
 const RARE_NODES = new Set(['gold_vein', 'crystal_cluster'])
 const VIEW_REFRESH_SECONDS = 0.2
 
@@ -107,7 +97,7 @@ export class MiningOverlay implements SceneOverlay {
   private visible = new Map<string, VisibleNode>()
   private previous = new Map<string, VisibleNode>()
   private particles: Particle[] = []
-  private pops: RewardPop[] = []
+  private readonly pops = new RewardPops()
   private action: ActiveAction | null = null
   private readonly companion = new WorkerCompanion()
   private seconds = 0
@@ -159,7 +149,7 @@ export class MiningOverlay implements SceneOverlay {
   private rewind(): void {
     this.views.clear()
     this.particles = []
-    this.pops = []
+    this.pops.clear()
     this.visible = new Map()
     this.previous = new Map()
     this.seconds = 0
@@ -170,7 +160,7 @@ export class MiningOverlay implements SceneOverlay {
     const dt = Math.max(0, Math.min(0.1, seconds - this.seconds))
     this.seconds = seconds
     this.particles = stepParticles(this.particles, dt)
-    this.pops = this.pops.filter(pop => seconds - pop.start < pop.life)
+    this.pops.prune(seconds)
     const action = this.action
     if (!action) return
     const elapsed = (seconds - action.startedAt) * 1000
@@ -200,16 +190,7 @@ export class MiningOverlay implements SceneOverlay {
     const feedback = RARITY_FEEDBACK[reward.rarity]
     action.linger = feedback.lingerMs
     this.particles = spawnImpact(this.particles, { x, y, z: 8, rarity: reward.rarity, away, random: this.random })
-    const base = 20
-    reward.stacks.forEach((stack, index) => {
-      const rarity = rarityOfItem(stack.itemId)
-      this.pops.push({
-        itemId: stack.itemId, text: `+${stack.quantity}`, color: RARITY_FEEDBACK[rarity].labelColor,
-        x: x + (index - (reward.stacks.length - 1) / 2) * 14, y, lift: base, start: this.seconds + index * 0.12,
-        life: 1.2 + RARITY_FEEDBACK[rarity].lingerMs / 1000,
-      })
-    })
-    this.pops.push({ itemId: null, text: `+${reward.xp} XP`, color: '#ffd27a', x, y, lift: base + 16, start: this.seconds + 0.2, life: 1.3 })
+    this.pops.pushGathered(reward.stacks, reward.xp, x, y, 20, this.seconds)
   }
 
   private viewFor(target: DemoNodeTarget, tx: number, ty: number): NodeVisualView {
@@ -314,13 +295,7 @@ export class MiningOverlay implements SceneOverlay {
       out.push({ wx: p.x, wy: p.y, sprite: toSprite(art, false), lift: p.z, alpha: p.kind === 'chip' ? Math.min(1, fade * 2) : fade, depthBias: 1 })
     }
 
-    for (const pop of this.pops) {
-      if (!pop.itemId) continue
-      const icon = resourceIconArt(pop.itemId)
-      const t = (seconds - pop.start) / pop.life
-      if (!icon || t < 0) continue
-      out.push({ wx: pop.x, wy: pop.y, sprite: toSprite(icon, false), lift: pop.lift + t * 14, alpha: t > 0.7 ? (1 - t) / 0.3 : 1, depthBias: 2 })
-    }
+    out.push(...this.pops.iconSprites(seconds, resourceIconArt))
     return out
   }
 
@@ -336,13 +311,6 @@ export class MiningOverlay implements SceneOverlay {
   }
 
   labels(_area: Area, seconds: number): readonly OverlayLabel[] {
-    return this.pops.flatMap(pop => {
-      const t = (seconds - pop.start) / pop.life
-      if (t < 0) return []
-      return [{
-        wx: pop.itemId ? pop.x + 12 : pop.x, wy: pop.y, lift: pop.lift + t * 14 + (pop.itemId ? 4 : 0),
-        text: pop.text, color: pop.color, alpha: t > 0.7 ? (1 - t) / 0.3 : 1,
-      }]
-    })
+    return this.pops.labels(seconds)
   }
 }
