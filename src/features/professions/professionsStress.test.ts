@@ -11,7 +11,7 @@
 // no mocks of the domain, so a double reward or a double consumption would
 // show up as a wrong inventory, not as a wrong assertion.
 
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Area } from '../wildlands/engine/area'
 import type { SceneOverlay } from '../wildlands/engine/sceneOverlay'
 import { World } from '../wildlands/engine/world'
@@ -19,8 +19,9 @@ import { useAlchemyController } from './alchemy/useAlchemyController'
 import { alchemyStationTile } from './alchemy/stationPlacement'
 import { NODE_BY_ID } from './domain/catalog/nodes'
 import { nodeAt, worldNodePort } from './domain/nodePlacement'
+import { remainingCharges } from './domain/nodeDepletion'
 import {
-  demoCounts, demoLevel, demoTool, fillDemoBag, setDemoDurability, setDemoInventory, setDemoWorker,
+  DEMO_USER_ID, demoCounts, demoRules, demoTool, fillDemoBag, gatherDemo, setDemoBag, setDemoDurability, setDemoInventory, setDemoWorker,
   type DemoNodeTarget, type DemoState,
 } from './demo/demoSession'
 import { PRADERA_LANDMARKS, PRADERA_SEED, PRADERA_SPAWN } from './demo/praderaLandmarks'
@@ -109,6 +110,11 @@ function bagCount(state: DemoState, itemId: string): number {
   return demoCounts(state)[itemId] ?? 0
 }
 
+function chargesLeft(session: ProfessionDemoSession, target: DemoNodeTarget): number {
+  const state = session.state.value
+  return remainingCharges(state.charges, target.nodeId, DEMO_USER_ID, target.node, state.now)
+}
+
 // ── Mining: the loop under repeated and conflicting input ───────────────────
 
 describe('QA · mining', () => {
@@ -129,16 +135,22 @@ describe('QA · mining', () => {
     mining.inspect({ area, tx: spot.tx, ty: spot.ty })
 
     const before = bagCount(session.state.value, 'stone')
+    const charges = chargesLeft(session, spot.target)
     expect(mining.mine()).toBe(true)
     // Four more taps while the pickaxe is already swinging.
     expect([mining.mine(), mining.mine(), mining.mine(), mining.mine()]).toEqual([false, false, false, false])
     run(clock, 6, [mining.overlay])
 
     expect(mining.phase.value).toBe('result')
-    const gained = bagCount(session.state.value, 'stone') - before
-    expect(gained).toBeGreaterThan(0)
-    // One action, one drop roll: the node lost exactly one charge.
-    expect(mining.outcome.value?.ok).toBe(true)
+    const outcome = mining.outcome.value
+    expect(outcome?.ok).toBe(true)
+    if (!outcome?.ok) return
+    // One action, one drop roll: the bag gained exactly that roll and the node lost exactly one charge.
+    const rolled = [...outcome.result.drops, ...outcome.result.rareDrops]
+      .filter(stack => stack.itemId === 'stone').reduce((sum, stack) => sum + stack.quantity, 0)
+    expect(rolled).toBeGreaterThan(0)
+    expect(bagCount(session.state.value, 'stone') - before).toBe(rolled)
+    expect(chargesLeft(session, spot.target)).toBe(charges - 1)
     expect(game.locked).toBe(false)
   })
 
@@ -213,28 +225,58 @@ describe('QA · mining', () => {
     expect(mining.outcome.value?.ok).toBe(true)
   })
 
-  it('keeps the reward when the bag is full by sending it to pending', () => {
+  it('refuses up front when not even the guaranteed minimum fits', () => {
     const spot = targetAt('stone_outcrop')
     const game = stubPort(beside(spot).tx, beside(spot).ty)
     const mining = useMiningController(session, () => game)
     session.update(state => fillDemoBag(state, 'full'))
     mining.inspect({ area, tx: spot.tx, ty: spot.ty })
+    const bag = session.state.value.bag
 
-    const ok = mining.mine()
+    expect(mining.mine()).toBe(false)
     run(clock, 6, [mining.overlay])
-    if (ok) {
-      const outcome = mining.outcome.value
-      expect(outcome?.ok).toBe(true)
-      if (outcome?.ok) {
-        // Nothing is silently dropped: it either lands in a slot or waits in pending.
-        const stored = outcome.placements.length + outcome.overflow.length
-        expect(stored).toBeGreaterThan(0)
-        if (outcome.overflow.length) expect(session.state.value.pending.length).toBeGreaterThan(0)
-      }
-    } else {
-      // Or the card refuses up front, which is the other acceptable answer.
-      expect(mining.phase.value).toBe('idle')
+    expect(mining.phase.value).toBe('idle')
+    expect(session.state.value.bag).toBe(bag)
+    expect(game.locked).toBe(false)
+  })
+
+  it('never drops a reward silently: what does not fit waits in pending', () => {
+    const spot = targetAt('stone_outcrop')
+    const game = stubPort(beside(spot).tx, beside(spot).ty)
+    const mining = useMiningController(session, () => game)
+    // No free slot and a single stone stack with room for exactly one unit: the
+    // guaranteed minimum fits, so the action is allowed, and anything extra overflows.
+    session.update(state => {
+      const full = fillDemoBag(state, 'full')
+      const max = demoRules(full).maxStack('stone')
+      return setDemoBag(full, full.bag.slots.map((_, i) => (i === 0 ? { itemId: 'stone', quantity: max - 1 } : { itemId: 'coal', quantity: demoRules(full).maxStack('coal') })))
+    })
+    // Pick the demo seed whose roll overflows, using the same pure reducer the controller calls.
+    const seed = Array.from({ length: 2000 }, (_, i) => i).find(candidate => {
+      const probe = gatherDemo({ ...session.state.value, rngSeed: candidate }, spot.target)
+      return probe.ok && probe.overflow.length > 0
+    })
+    expect(seed).toBeDefined()
+    session.update(state => ({ ...state, rngSeed: seed! }))
+    mining.inspect({ area, tx: spot.tx, ty: spot.ty })
+    const counts = demoCounts(session.state.value)
+    const pendingBefore = session.state.value.pending
+
+    expect(mining.mine()).toBe(true)
+    run(clock, 8, [mining.overlay])
+    const outcome = mining.outcome.value
+    expect(outcome?.ok).toBe(true)
+    if (!outcome?.ok) return
+
+    const after = demoCounts(session.state.value)
+    const pending = (itemId: string) => session.state.value.pending.filter(stack => stack.itemId === itemId).reduce((sum, stack) => sum + stack.quantity, 0)
+      - pendingBefore.filter(stack => stack.itemId === itemId).reduce((sum, stack) => sum + stack.quantity, 0)
+    for (const stack of [...outcome.result.drops, ...outcome.result.rareDrops]) {
+      const stored = (after[stack.itemId] ?? 0) - (counts[stack.itemId] ?? 0)
+      expect(stored + pending(stack.itemId), stack.itemId).toBeGreaterThanOrEqual(stack.quantity)
     }
+    expect(outcome.overflow.length).toBeGreaterThan(0)
+    expect(game.locked).toBe(false)
   })
 })
 
@@ -321,37 +363,57 @@ describe('QA · fishing', () => {
   let session: ProfessionDemoSession
   let clock: { seconds: number }
 
+  // Unlike the other overlays, fishing paints its water marks inside `ground`,
+  // which bakes sprites into canvases. jsdom has no 2D context, so give the
+  // canvases just enough of one to bake (the pixels themselves are not checked).
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
   beforeEach(() => {
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ({
+      ...stubContext(),
+      createImageData: (w: number, h: number) => ({ width: w, height: h, data: new Uint8ClampedArray(w * h * 4) }),
+      putImageData: () => undefined,
+    }) as unknown as CanvasRenderingContext2D)
     session = useProfessionDemo()
     session.update(state => setDemoWorker(state, 'fishing', null))
     clock = { seconds: 0 }
   })
 
-  it('reeling before the bite and reeling twice never double-reward', () => {
+  /** The shore spot is dry land touching water: standing on it is a valid cast position. */
+  function onTheBank() {
     const spot = targetAt('shore_spot')
-    const game = stubPort(beside(spot).tx, beside(spot).ty)
+    const game = stubPort(spot.tx, spot.ty)
     const fishing = useFishingController(session, () => game)
-    const hit = fishing.inspect({ area, tx: spot.tx, ty: spot.ty })
-    if (!hit) return // the shore landmark needs water beside it; covered elsewhere
+    expect(fishing.inspect({ area, tx: spot.tx, ty: spot.ty })).toBe(true)
+    return { spot, game, fishing }
+  }
 
-    const before = bagCount(session.state.value, 'fish')
-    if (!fishing.cast()) return
+  it('reeling before the bite and reeling twice never double-reward', () => {
+    const { game, fishing } = onTheBank()
+    const before = demoCounts(session.state.value)
+
+    expect(fishing.cast()).toBe(true)
     // Reel far too early: the grade may be a miss, but nothing is rewarded twice.
     fishing.reel()
     fishing.reel()
     run(clock, 20, [fishing.overlay])
 
     expect(game.locked).toBe(false)
-    expect(bagCount(session.state.value, 'fish') - before).toBeLessThanOrEqual(3)
-    expect(fishing.phase.value).not.toBe('casting')
+    expect(fishing.phase.value).toBe('result')
+    const gather = fishing.outcome.value?.gather
+    const after = demoCounts(session.state.value)
+    const rolled = gather?.ok ? [...gather.result.drops, ...gather.result.rareDrops] : []
+    for (const itemId of new Set([...Object.keys(before), ...Object.keys(after)])) {
+      const expected = rolled.filter(stack => stack.itemId === itemId).reduce((sum, stack) => sum + stack.quantity, 0)
+      expect((after[itemId] ?? 0) - (before[itemId] ?? 0), itemId).toBe(expected)
+    }
   })
 
   it('a second cast while the line is out is refused', () => {
-    const spot = targetAt('shore_spot')
-    const game = stubPort(beside(spot).tx, beside(spot).ty)
-    const fishing = useFishingController(session, () => game)
-    if (!fishing.inspect({ area, tx: spot.tx, ty: spot.ty })) return
-    if (!fishing.cast()) return
+    const { game, fishing } = onTheBank()
+    expect(fishing.cast()).toBe(true)
     expect(fishing.cast()).toBe(false)
     run(clock, 20, [fishing.overlay])
     expect(game.locked).toBe(false)
@@ -368,6 +430,10 @@ describe('QA · alchemy bench', () => {
     isWater: (tx, ty) => world.isWater(tx, ty),
     hasNode: (tx, ty) => nodeAt(port, tx, ty) !== null,
   }, PRADERA_SPAWN)
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
 
   beforeEach(() => {
     vi.useFakeTimers()
@@ -475,6 +541,7 @@ describe('QA · cross-profession session', () => {
     const forage = useForageController(session, () => game)
     const alchemy = useAlchemyController(session, () => game, () => PRADERA_SPAWN)
     const overlays = [mining.overlay, logging.overlay, forage.overlay, alchemy.overlay]
+    const xpBefore = { ...session.state.value.xp }
 
     mining.inspect({ area, tx: rock.tx, ty: rock.ty })
     expect(mining.mine()).toBe(true)
@@ -515,8 +582,11 @@ describe('QA · cross-profession session', () => {
     expect(bagCount(session.state.value, 'potion')).toBe(1)
     expect(bagCount(session.state.value, 'oran_berry')).toBe(berries - 2)
     expect(game.locked).toBe(false)
-    // Every profession kept its own XP; nothing leaked into another.
-    expect(demoLevel(session.state.value, 'mining')).toBeGreaterThan(0)
-    expect(demoLevel(session.state.value, 'alchemy')).toBeGreaterThan(0)
+    // Every profession kept its own XP; nothing leaked into another (fishing was never worked).
+    const xp = session.state.value.xp
+    expect(xp.mining).toBeGreaterThan(xpBefore.mining)
+    expect(xp.woodcutting).toBeGreaterThan(xpBefore.woodcutting)
+    expect(xp.alchemy).toBeGreaterThan(xpBefore.alchemy)
+    expect(xp.fishing).toBe(xpBefore.fishing)
   })
 })
