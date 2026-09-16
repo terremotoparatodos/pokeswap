@@ -23,7 +23,9 @@ export function toolCondition(instance: ToolInstance, definition: ToolDefinition
   return canBeRepaired(instance, definition) ? 'broken' : 'retired'
 }
 
+/** Wear is counted in whole points; a NaN, infinite or fractional loss is a bug upstream, not a value to store. */
 export function wearTool(instance: ToolInstance, loss: number): ToolInstance {
+  if (!Number.isInteger(loss)) throw new RangeError(`durability loss must be a whole number, got ${loss}`)
   return { ...instance, durability: Math.max(0, instance.durability - Math.max(0, loss)) }
 }
 

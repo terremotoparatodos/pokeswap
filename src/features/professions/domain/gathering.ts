@@ -55,7 +55,8 @@ export type GatheringCheck =
 export function previewGathering(context: GatheringContext): GatheringCheck {
   const { node, tool, bonuses } = context
 
-  if (context.professionLevel < node.requiredLevel) return { ok: false, reason: 'level_too_low' }
+  // Written as !(a >= b) so a NaN level or energy fails closed instead of passing.
+  if (!(context.professionLevel >= node.requiredLevel)) return { ok: false, reason: 'level_too_low' }
   if (!node.biomes.includes(context.biome)) return { ok: false, reason: 'wrong_biome' }
   if (node.requiredAccess && !context.access.includes(node.requiredAccess)) return { ok: false, reason: 'access_required' }
   const usableTool = tool && tool.definition.kind === PROFESSIONS[node.profession].toolKind ? tool : null
@@ -65,7 +66,7 @@ export function previewGathering(context: GatheringContext): GatheringCheck {
 
   const efficiency = levelEfficiency(context.professionLevel, node.requiredLevel)
   const energySpent = actionEnergyCost(node.energyCost, bonuses.energySaving ?? 0, efficiency.energy, context.energyConfig)
-  if (energySpent > context.availableEnergy) return { ok: false, reason: 'insufficient_energy' }
+  if (!(energySpent <= context.availableEnergy)) return { ok: false, reason: 'insufficient_energy' }
 
   const toolSpeed = usableTool ? usableTool.definition.speedMultiplier : BARE_HANDS_SPEED_MULTIPLIER
   const home = context.homeBiomes.includes(context.biome)

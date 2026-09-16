@@ -5,6 +5,7 @@
 // Pure: every operation returns a new container and reports what happened,
 // and nothing is ever dropped silently (overflow is returned to the caller).
 
+import { assertWholePositive, isWholePositive } from '../domain/inventory'
 import type { Inventory, ItemId, ItemStack } from '../domain/types'
 
 export type ContainerKind = 'player_inventory' | 'storage' | 'house_storage' | 'shop_stock'
@@ -74,7 +75,8 @@ export function addStacks(container: SlotContainer, stacks: readonly ItemStack[]
   const overflow: ItemStack[] = []
 
   for (const stack of stacks) {
-    let remaining = Math.max(0, Math.floor(stack.quantity))
+    assertWholePositive(stack.quantity, `quantity of ${stack.itemId}`)
+    let remaining = stack.quantity
     const max = Math.max(1, Math.floor(rules.maxStack(stack.itemId)))
     // 1. Top up existing stacks of the same item, in slot order.
     for (let i = 0; i < slots.length && remaining > 0; i++) {
@@ -119,6 +121,7 @@ export function canFit(container: SlotContainer, stacks: readonly ItemStack[], r
 export function removeStacks(container: SlotContainer, stacks: readonly ItemStack[]): SlotContainer | null {
   const slots = [...container.slots]
   for (const stack of stacks) {
+    if (!isWholePositive(stack.quantity)) return null
     let remaining = stack.quantity
     for (let i = slots.length - 1; i >= 0 && remaining > 0; i--) {
       const slot = slots[i]
@@ -149,8 +152,8 @@ export function transferSlot(
   from: SlotContainer, to: SlotContainer, index: number, quantity: number, rules: StackRules,
 ): { from: SlotContainer; to: SlotContainer; moved: number } | null {
   const slot = from.slots[index]
-  if (!slot) return null
-  const amount = Math.min(slot.quantity, Math.max(1, Math.floor(quantity)))
+  if (!slot || !isWholePositive(quantity)) return null
+  const amount = Math.min(slot.quantity, quantity)
   const added = slot.instanceId ? addInstance(to, slot.itemId, slot.instanceId) : addStacks(to, [{ itemId: slot.itemId, quantity: amount }], rules)
   if (added.overflow.length) return null
   const slots = [...from.slots]

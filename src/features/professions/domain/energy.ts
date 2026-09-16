@@ -55,7 +55,8 @@ export function actionEnergyCost(baseCost: number, energySaving: number, levelRe
 
 /** Returns null when the action cannot be afforded. `rested` tells whether the XP bonus applies. */
 export function spendEnergy(state: EnergyState, amount: number): { state: EnergyState; rested: boolean } | null {
-  if (amount < 0 || amount > state.current + 1e-9) return null
+  // Written positively so NaN amounts fail closed.
+  if (!(amount >= 0 && amount <= state.current + 1e-9)) return null
   return {
     state: { ...state, current: round2(Math.max(0, state.current - amount)), rested: round2(Math.max(0, state.rested - amount)) },
     rested: state.rested > 0,

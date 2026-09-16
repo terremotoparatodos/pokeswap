@@ -23,25 +23,33 @@ export interface ProcessingContext {
   readonly random: () => number
 }
 
+/** A time reduction must be a fraction in [0, 1); anything else (NaN, ≥ 1, negative) counts as no reduction. */
+function reductionOrNone(value: number): number {
+  return Number.isFinite(value) && value >= 0 && value < 1 ? value : 0
+}
+
 export function resolveProcessing(context: ProcessingContext): ProcessingResult {
   const { recipe, quantity, random } = context
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > MAX_BATCH) return { ok: false, reason: 'invalid_quantity' }
-  if (context.professionLevel < recipe.requiredLevel) return { ok: false, reason: 'level_too_low' }
+  // Written as !(a >= b) so a NaN level fails closed instead of passing.
+  if (!(context.professionLevel >= recipe.requiredLevel)) return { ok: false, reason: 'level_too_low' }
   if (!hasItems(context.inventory, recipe.inputs, quantity)) return { ok: false, reason: 'missing_inputs' }
 
-  const bonus = Math.min(MAX_PROCESSING_BONUS, Math.max(0, context.processingBonus))
+  const bonus = Math.min(MAX_PROCESSING_BONUS, reductionOrNone(context.processingBonus))
   let savedInputs = 0
   for (let craft = 0; craft < quantity; craft++) if (random() < bonus) savedInputs++
 
   // A saved input refunds one unit of the first ingredient of that craft.
+  // An input fully refunded is left out, rather than reported as a stack of zero.
   const consumed: ItemStack[] = mergeStacks(recipe.inputs).map((stack, index) => ({
     itemId: stack.itemId,
     quantity: stack.quantity * quantity - (index === 0 ? Math.min(savedInputs, stack.quantity * quantity) : 0),
-  }))
+  })).filter(stack => stack.quantity > 0)
 
+  // The station bonus is not balanced here; this only guarantees time stays finite and positive.
   const stationMultiplier = recipe.station === null
     ? 1
-    : context.station === 'public' ? PUBLIC_STATION_TIME_MULTIPLIER : 1 - Math.max(0, context.stationSpeedBonus)
+    : context.station === 'public' ? PUBLIC_STATION_TIME_MULTIPLIER : 1 - reductionOrNone(context.stationSpeedBonus)
 
   return {
     ok: true,
