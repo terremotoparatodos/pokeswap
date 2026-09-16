@@ -12,11 +12,13 @@
       <button v-for="(label, id) in TABS" :key="id" type="button" :class="{ 'pgd-tab--on': tab === id }" @click="tab = id">{{ label }}</button>
     </nav>
 
-    <div class="pgd-layout" :class="{ 'pgd-layout--wide': tab === 'lab' || tab === 'gallery' }">
+    <div class="pgd-layout" :class="{ 'pgd-layout--wide': tab === 'lab' || tab === 'fishing' || tab === 'gallery' }">
       <PlaygroundControls v-if="tab !== 'gallery'" v-model:profession="profession" v-model:target="target" :session="session" />
 
       <main class="pgd-main">
         <MiningFieldLab v-if="tab === 'lab'" :session="session" />
+
+        <FishingFieldLab v-else-if="tab === 'fishing'" :session="session" />
 
         <AssetGallery v-else-if="tab === 'gallery'" />
 
@@ -91,6 +93,7 @@ import ProfessionProgress from '../ProfessionProgress.vue'
 import WorkerParty from '../WorkerParty.vue'
 import WorldNodeMap from '../WorldNodeMap.vue'
 import AssetGallery from './AssetGallery.vue'
+import FishingFieldLab from './FishingFieldLab.vue'
 import MiningFieldLab from './MiningFieldLab.vue'
 import NodeStateGallery from './NodeStateGallery.vue'
 import PlaygroundControls from './PlaygroundControls.vue'
@@ -99,7 +102,7 @@ import '../professions.css'
 // Internal tool: routed only in development builds (app/router/routes.ts).
 // R31-C1 adds the mining field lab (real engine) and the asset gallery.
 const TABS = {
-  lab: 'Laboratorio minero', gallery: 'Galería', inventory: 'Mochila', gathering: 'Mapa de nodos',
+  lab: 'Laboratorio minero', fishing: 'Laboratorio de pesca', gallery: 'Galería', inventory: 'Mochila', gathering: 'Mapa de nodos',
   pokemon: 'Pokémon', progression: 'Progresión', crafting: 'Crafteo',
 } as const
 

@@ -1,0 +1,200 @@
+<template>
+  <section class="lab">
+    <div class="lab-bar">
+      <span class="pf-kicker">Ir a:</span>
+      <button
+        v-for="landmark in FISHING_LANDMARKS"
+        :key="landmark.definitionId"
+        type="button"
+        class="pf-chip lab-go"
+        :class="{ 'lab-go--on': spawnId === landmark.definitionId }"
+        @click="spawnId = landmark.definitionId"
+      >
+        {{ NODE_BY_ID.get(landmark.definitionId)?.name }}
+      </button>
+      <label class="lab-worker">
+        <span>Trabajador</span>
+        <select :value="session.state.value.workers.fishing ?? ''" aria-label="Pokémon trabajador" @change="setWorker(($event.target as HTMLSelectElement).value)">
+          <option value="">Sin Pokémon</option>
+          <option v-for="worker in DEMO_WORKERS" :key="worker.speciesId" :value="worker.speciesId">{{ worker.name }}</option>
+        </select>
+      </label>
+      <label class="lab-detect">
+        <span>Prospección {{ detectionLabel }}</span>
+        <input v-model.number="detection" type="range" min="-0.05" max="1" step="0.05" aria-label="Prospección (radio de detección)">
+      </label>
+    </div>
+
+    <div class="lab-stage">
+      <canvas
+        ref="canvasRef"
+        class="lab-canvas"
+        tabindex="0"
+        aria-label="Costa de Pradera Brisa en el motor real de WildLands. Tocá el agua marcada para pescar."
+        @pointerdown="onPointerDown"
+        @pointermove="onPointerMove"
+        @pointerup="press = null"
+        @pointercancel="press = null"
+        @contextmenu.prevent
+      />
+      <div class="lab-top">
+        <ProfessionHud :session="session" profession="fishing" />
+        <span class="pf-demo-badge">Motor real · local</span>
+      </div>
+      <button type="button" class="lab-bag-btn" :aria-expanded="bagOpen" @click="bagOpen = !bagOpen">
+        Mochila {{ usedSlots(session.state.value.bag) }}/{{ session.state.value.bag.capacity }}
+      </button>
+      <div class="lab-dock">
+        <div v-if="bagOpen" class="lab-bag">
+          <InventoryGrid :session="session" :highlight="highlight" compact />
+        </div>
+        <p v-if="!controller.selection.value" class="lab-hint">Caminá hasta la orilla marcada y tocála (o E / Espacio frente a ella).</p>
+        <div v-else class="lab-card">
+          <FishingActionCard
+            :key="controller.selection.value.target.nodeId"
+            :session="session"
+            :target="controller.selection.value.target"
+            :phase="controller.phase.value"
+            :outcome="controller.outcome.value"
+            :biting="controller.biting.value"
+            @cast="controller.cast()"
+            @reel="controller.reel()"
+            @close="controller.close()"
+          />
+        </div>
+      </div>
+    </div>
+    <p class="lab-note">Mismo motor, navegación y nodos que Minería: el jugador pesca parado en la orilla y nunca camina al agua para lanzar.</p>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
+import type { Dir } from '../../../wildlands/engine/characters'
+import { WildlandsGame } from '../../../wildlands/engine/game'
+import { World } from '../../../wildlands/engine/world'
+import { NODE_BY_ID } from '../../domain/catalog/nodes'
+import { setDemoWorker } from '../../demo/demoSession'
+import { DEMO_WORKERS } from '../../demo/demoWorkers'
+import { PRADERA_LANDMARKS, PRADERA_SEED } from '../../demo/praderaLandmarks'
+import type { ProfessionDemoSession } from '../../demo/useProfessionDemo'
+import { useFishingController } from '../../fishing/useFishingController'
+import { usedSlots } from '../../inventory/slotInventory'
+import FishingActionCard from '../FishingActionCard.vue'
+import InventoryGrid from '../InventoryGrid.vue'
+import ProfessionHud from '../ProfessionHud.vue'
+
+// R31-C2 field lab: the real WildLands engine on the Pradera coast, without
+// presence or Supabase, with the fishing overlay attached.
+const props = defineProps<{ session: ProfessionDemoSession }>()
+
+const FISHING_LANDMARKS = PRADERA_LANDMARKS.filter(landmark => NODE_BY_ID.get(landmark.definitionId)?.profession === 'fishing')
+/** The bite window is short: poll often enough for the card to light up in time. */
+const BITE_POLL_MS = 80
+
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const game = shallowRef<WildlandsGame | null>(null)
+const spawnId = ref('shore_spot')
+const bagOpen = ref(false)
+/** -0.05 means "use the worker's real detection". */
+const detection = ref(-0.05)
+const detectionLabel = computed(() => detection.value < 0 ? '(del Pokémon)' : `+${Math.round(detection.value * 100)} %`)
+
+const controller = useFishingController(props.session, () => game.value, () => (detection.value < 0 ? null : detection.value))
+const highlight = computed(() => {
+  const gather = controller.outcome.value?.gather
+  return gather?.ok ? gather.placements : []
+})
+const setWorker = (value: string) => props.session.update(state => setDemoWorker(state, 'fishing', value ? Number(value) : null))
+
+let bitePoll: ReturnType<typeof setInterval> | null = null
+
+function createGame(): void {
+  controller.detach()
+  game.value?.destroy()
+  if (!canvasRef.value) return
+  const landmark = FISHING_LANDMARKS.find(entry => entry.definitionId === spawnId.value) ?? FISHING_LANDMARKS[0]
+  const created = new WildlandsGame(canvasRef.value, {
+    pokedex: [],
+    onHud: () => undefined,
+    startArea: 'pradera',
+    spawn: spawnBeside(landmark),
+    onWorldObject: hit => controller.inspect(hit),
+    isWorldObject: hit => controller.isSpot(hit),
+  })
+  game.value = created
+  controller.close()
+  controller.attach()
+  created.start()
+}
+
+/** A dry tile next to the spot (two steps back when possible), facing it. */
+function spawnBeside(landmark: { tx: number; ty: number }): { tx: number; ty: number; dir: Dir } {
+  const world = new World(PRADERA_SEED)
+  const dry = (tx: number, ty: number) => !world.isSolid(tx, ty) && !world.isWater(tx, ty)
+  const sides: readonly [number, number, Dir][] = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
+  for (const distance of [2, 1]) {
+    for (const [dx, dy, dir] of sides) {
+      const tx = landmark.tx + dx * distance
+      const ty = landmark.ty + dy * distance
+      const path = distance === 2 ? dry(landmark.tx + dx, landmark.ty + dy) : true
+      if (path && dry(tx, ty)) return { tx, ty, dir }
+    }
+  }
+  // Open reef: no bank at all, so start on the nearest tile and swim.
+  return { tx: landmark.tx, ty: landmark.ty + 1, dir: 'up' }
+}
+
+const DRAG_START_PX = 12
+const press = ref<{ id: number; x: number; y: number; dragging: boolean } | null>(null)
+function onPointerDown(event: PointerEvent): void {
+  if (!event.isPrimary || event.button > 0) return
+  ;(event.target as HTMLElement).setPointerCapture(event.pointerId)
+  press.value = { id: event.pointerId, x: event.offsetX, y: event.offsetY, dragging: false }
+  game.value?.tap(event.offsetX, event.offsetY)
+}
+function onPointerMove(event: PointerEvent): void {
+  const current = press.value
+  if (!current || event.pointerId !== current.id) return
+  if (!current.dragging && Math.hypot(event.offsetX - current.x, event.offsetY - current.y) < DRAG_START_PX) return
+  current.dragging = true
+  game.value?.drag(event.offsetX, event.offsetY)
+}
+
+watch(spawnId, createGame)
+onMounted(() => {
+  createGame()
+  bitePoll = setInterval(() => controller.syncBite(), BITE_POLL_MS)
+})
+onUnmounted(() => {
+  if (bitePoll) clearInterval(bitePoll)
+  controller.detach()
+  game.value?.destroy()
+})
+</script>
+
+<style scoped>
+.lab { display: grid; gap: 0.6rem; }
+.lab-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; }
+.lab-go { border: 1px solid var(--pf-line); font: inherit; font-size: 0.78rem; cursor: pointer; }
+.lab-go--on { border-color: var(--pf-gold); background: var(--pf-gold); color: var(--pf-navy); font-weight: 700; }
+.lab-worker { display: grid; gap: 0.1rem; margin-left: auto; color: var(--pf-soft); font-size: 0.76rem; }
+.lab-worker select { min-height: 36px; border: 1px solid var(--pf-line); border-radius: 8px; background: var(--pf-navy-2); color: inherit; font: inherit; }
+.lab-detect { display: grid; gap: 0.1rem; min-width: 170px; color: var(--pf-soft); font-size: 0.76rem; }
+.lab-stage { position: relative; height: min(70vh, 620px); min-height: 420px; border: 2px solid var(--pf-line); border-radius: 14px; overflow: hidden; background: #0f1a33; }
+.lab-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; touch-action: none; cursor: pointer; }
+.lab-top { position: absolute; top: 0.6rem; left: 0.6rem; right: 0.6rem; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.4rem; pointer-events: none; }
+.lab-dock { position: absolute; top: 6.4rem; right: 0.6rem; bottom: 0.75rem; left: 0.6rem; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; gap: 0.5rem; pointer-events: none; }
+.lab-dock > * { pointer-events: auto; }
+.lab-hint { margin: 0; padding: 0.45rem 0.8rem; border: 2px solid var(--pf-line); border-radius: 10px; background: rgba(16, 26, 54, 0.92); color: var(--pf-soft); font-size: 0.84rem; white-space: nowrap; }
+.lab-card { flex: none; width: min(380px, 100%); }
+.lab-bag-btn { position: absolute; right: 0.6rem; top: 3.4rem; min-height: 40px; padding: 0 0.8rem; border: 2px solid var(--pf-gold); border-radius: 999px; background: rgba(16, 26, 54, 0.92); color: var(--pf-gold); font: inherit; font-weight: 700; cursor: pointer; }
+.lab-bag { flex: 0 1 auto; align-self: flex-end; width: min(360px, 100%); min-height: 0; overflow-y: auto; }
+.lab-note { margin: 0; color: var(--pf-muted); font-size: 0.76rem; }
+@media (max-width: 520px) {
+  .lab-stage { height: 78vh; min-height: 520px; }
+  .lab-detect, .lab-worker { margin-left: 0; }
+  .lab-hint { white-space: normal; text-align: center; }
+  .lab-bag { align-self: stretch; }
+}
+</style>
