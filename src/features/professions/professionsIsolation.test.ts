@@ -19,15 +19,24 @@ const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
   ['./mining/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay|game)$/],
   ['./fishing/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay|game)$/],
   ['./logging/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay|game)$/],
+  // Alchemy also reads the world atlas: with no node to attach to, the bench is
+  // derived from each world's own spawn.
+  ['./alchemy/', /\/wildlands\/(engine\/(world|area|chunks|characters|sceneOverlay|game)|areas\/atlas)$/],
   ['./overworld/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay)$/],
   ['./components/', /\/wildlands\/engine\/(world|noise|characters|game)$/],
   ['./', /\/wildlands\/engine\/(world|noise)$/],
 ]
 
 /** Vue is allowed in components and in the two composables that wrap pure state. */
-const VUE_ALLOWED = ['./demo/useProfessionDemo.ts', './mining/useMiningController.ts', './fishing/useFishingController.ts', './logging/useLoggingController.ts']
+const VUE_ALLOWED = [
+  './demo/useProfessionDemo.ts', './mining/useMiningController.ts', './fishing/useFishingController.ts',
+  './logging/useLoggingController.ts', './alchemy/useAlchemyController.ts',
+]
 /** Files that instantiate the game engine (dev-only field lab). */
-const ENGINE_VALUE_IMPORT = ['./components/playground/MiningFieldLab.vue', './components/playground/FishingFieldLab.vue', './components/playground/LoggingFieldLab.vue']
+const ENGINE_VALUE_IMPORT = [
+  './components/playground/MiningFieldLab.vue', './components/playground/FishingFieldLab.vue',
+  './components/playground/LoggingFieldLab.vue', './components/playground/AlchemyFieldLab.vue',
+]
 
 describe('R31 professions isolation', () => {
   const ownSources = Object.entries(ALL_SOURCES).filter(([path]) => isProfessions(path) && !isTest(path))

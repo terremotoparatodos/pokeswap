@@ -48,6 +48,9 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { ALCHEMY_ASSETS } from '../../art/alchemyAssets'
+import { liquidOf } from '../../art/alchemyPalette'
+import { alchemyStationArt } from '../../art/alchemyStation'
 import { FISHING_ASSETS } from '../../art/fishingAssets'
 import { biteMarkArt, bobberArt } from '../../art/fishingFx'
 import { fishingSpotArt } from '../../art/fishingSpots'
@@ -58,26 +61,28 @@ import { MINING_ASSETS } from '../../art/miningAssets'
 import { miningNodeArt } from '../../art/miningNodes'
 import { brighten, toDataUrl, type PixelArt } from '../../art/pixelArt'
 
-type Kit = 'mining' | 'fishing' | 'logging'
-type AssetKind = 'node' | 'spot' | 'tree' | 'tool' | 'icon' | 'fx' | 'marker'
+type Kit = 'mining' | 'fishing' | 'logging' | 'alchemy'
+type AssetKind = 'node' | 'spot' | 'tree' | 'station' | 'tool' | 'icon' | 'fx' | 'marker'
 
-const KIT_LABEL: Readonly<Record<Kit, string>> = { mining: 'Minería', fishing: 'Pesca', logging: 'Tala' }
+const KIT_LABEL: Readonly<Record<Kit, string>> = { mining: 'Minería', fishing: 'Pesca', logging: 'Tala', alchemy: 'Alquimia' }
 const CONTEXT_TITLE: Readonly<Record<Kit, string>> = {
   mining: 'Estados de nodo en contexto (Veta de hierro)',
   fishing: 'Estados del spot en contexto (Orilla)',
   logging: 'Estados del árbol en contexto (Árbol común)',
+  alchemy: 'Estados de la mesa en contexto',
 }
 const GROUNDS: Readonly<Record<string, string>> = { Pradera: '#6fbf5a', Desierto: '#d9a55a', Tundra: '#dfe9f5', Bosque: '#3f8a45', Panel: '#101a36' }
 /** Fishing marks are painted on water, so they are shown over water. */
 const WATER_BACKDROP = '#3a7fc0'
 const KIND_LABEL: Readonly<Record<AssetKind, string>> = {
-  node: 'Nodos', spot: 'Spots de pesca', tree: 'Árboles', tool: 'Herramientas', icon: 'Íconos de recursos', fx: 'Efectos', marker: 'Marcadores',
+  node: 'Nodos', spot: 'Spots de pesca', tree: 'Árboles', station: 'Estación', tool: 'Herramientas', icon: 'Íconos de recursos', fx: 'Efectos', marker: 'Marcadores',
 }
-const SCALE: Readonly<Record<AssetKind, number>> = { node: 4, spot: 4, tree: 3, tool: 4, icon: 3, fx: 8, marker: 4 }
+const SCALE: Readonly<Record<AssetKind, number>> = { node: 4, spot: 4, tree: 3, station: 4, tool: 4, icon: 3, fx: 8, marker: 4 }
 const ORDER: Readonly<Record<Kit, readonly AssetKind[]>> = {
   mining: ['node', 'tool', 'icon', 'fx', 'marker'],
   fishing: ['spot', 'tool', 'icon', 'fx', 'marker'],
   logging: ['tree', 'tool', 'icon', 'fx', 'marker'],
+  alchemy: ['station', 'icon', 'fx', 'marker'],
 }
 
 interface ContextState {
@@ -92,7 +97,7 @@ interface ContextState {
 const kit = ref<Kit>('mining')
 const ground = ref(GROUNDS.Desierto)
 const KITS: Readonly<Record<Kit, readonly { id: string; kind: string; label: string; usage: string; build: () => PixelArt }[]>> = {
-  mining: MINING_ASSETS, fishing: FISHING_ASSETS, logging: LOGGING_ASSETS,
+  mining: MINING_ASSETS, fishing: FISHING_ASSETS, logging: LOGGING_ASSETS, alchemy: ALCHEMY_ASSETS,
 }
 const assets = computed(() => KITS[kit.value])
 const groups = computed(() => ORDER[kit.value].map(kind => ({
@@ -143,8 +148,18 @@ const LOGGING_STATES: readonly ContextState[] = [
   { label: 'PALMERA DECORATIVA', note: 'Costa: la mayoría tampoco es recurso', art: plainTreeArt('palm'), bubble: null, scale: 3 },
 ]
 
+const ALCHEMY_STATES: readonly ContextState[] = [
+  { label: 'INACTIVA', note: 'Matraz vacío, hornillo apagado', art: alchemyStationArt('idle'), bubble: null, scale: 4 },
+  { label: 'INTERACTABLE', note: 'Al lado: burbuja con matraz', art: alchemyStationArt('ready'), bubble: bubbleArt('flask'), scale: 4 },
+  { label: 'PREPARANDO · Poción', note: 'Hornillo encendido y el matraz toma color', art: alchemyStationArt('brewing', liquidOf('potion'), 2), bubble: null, scale: 4 },
+  { label: 'PREPARANDO · Éter', note: 'El mismo proceso, otro producto', art: alchemyStationArt('brewing', liquidOf('ether'), 3), bubble: null, scale: 4 },
+  { label: 'PREPARANDO · Revivir', note: 'La receta rara del catálogo', art: alchemyStationArt('brewing', liquidOf('revive'), 1), bubble: null, scale: 4 },
+  { label: 'LISTO', note: 'Frasco tapado y un destello', art: alchemyStationArt('done', liquidOf('potion')), bubble: null, scale: 4 },
+  { label: 'BLOQUEADA POR NIVEL', note: 'Receta que todavía no alcanzás', art: alchemyStationArt('ready'), bubble: bubbleArt('lock'), scale: 4 },
+]
+
 const CONTEXT: Readonly<Record<Kit, readonly ContextState[]>> = {
-  mining: MINING_STATES, fishing: FISHING_STATES, logging: LOGGING_STATES,
+  mining: MINING_STATES, fishing: FISHING_STATES, logging: LOGGING_STATES, alchemy: ALCHEMY_STATES,
 }
 const contextStates = computed(() => CONTEXT[kit.value])
 </script>

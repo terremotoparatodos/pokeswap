@@ -101,6 +101,8 @@ const HOUR_MS = 3_600_000
 const CRAFTING_KIT = {
   oran_berry: 20, medicinal_herb: 10, seaweed: 10, vial: 10, sitrus_berry: 8, leppa_berry: 6, stone: 30, coal: 15, iron_ore: 10,
   common_log: 20, resin: 6, fish: 12, iron_ingot: 6, steel_ingot: 4, plank: 4,
+  // Alchemy's own shelf (R31-C4): the late recipes need these five.
+  revival_herb: 4, wild_essence: 3, heart_scale: 2, fish_oil: 4, herbal_extract: 6,
 }
 
 const BAG_PRESETS: Readonly<Record<BagPreset, string>> = {

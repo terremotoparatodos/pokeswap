@@ -12,7 +12,7 @@
       <button v-for="(label, id) in TABS" :key="id" type="button" :class="{ 'pgd-tab--on': tab === id }" @click="tab = id">{{ label }}</button>
     </nav>
 
-    <div class="pgd-layout" :class="{ 'pgd-layout--wide': tab === 'lab' || tab === 'fishing' || tab === 'logging' || tab === 'gallery' }">
+    <div class="pgd-layout" :class="{ 'pgd-layout--wide': tab === 'lab' || tab === 'fishing' || tab === 'logging' || tab === 'alchemy' || tab === 'gallery' }">
       <PlaygroundControls v-if="tab !== 'gallery'" v-model:profession="profession" v-model:target="target" :session="session" />
 
       <main class="pgd-main">
@@ -21,6 +21,9 @@
         <FishingFieldLab v-else-if="tab === 'fishing'" :session="session" />
 
         <LoggingFieldLab v-else-if="tab === 'logging'" :session="session" />
+
+        <!-- R31-C4: the alchemy bench in the real engine. -->
+        <AlchemyFieldLab v-else-if="tab === 'alchemy'" :session="session" />
 
         <AssetGallery v-else-if="tab === 'gallery'" />
 
@@ -96,6 +99,7 @@ import WorkerParty from '../WorkerParty.vue'
 import WorldNodeMap from '../WorldNodeMap.vue'
 import AssetGallery from './AssetGallery.vue'
 import FishingFieldLab from './FishingFieldLab.vue'
+import AlchemyFieldLab from './AlchemyFieldLab.vue'
 import LoggingFieldLab from './LoggingFieldLab.vue'
 import MiningFieldLab from './MiningFieldLab.vue'
 import NodeStateGallery from './NodeStateGallery.vue'
@@ -105,7 +109,7 @@ import '../professions.css'
 // Internal tool: routed only in development builds (app/router/routes.ts).
 // R31-C1 adds the mining field lab (real engine) and the asset gallery.
 const TABS = {
-  lab: 'Laboratorio minero', fishing: 'Laboratorio de pesca', logging: 'Laboratorio de tala', gallery: 'Galería', inventory: 'Mochila', gathering: 'Mapa de nodos',
+  lab: 'Laboratorio minero', fishing: 'Laboratorio de pesca', logging: 'Laboratorio de tala', alchemy: 'Laboratorio de alquimia', gallery: 'Galería', inventory: 'Mochila', gathering: 'Mapa de nodos',
   pokemon: 'Pokémon', progression: 'Progresión', crafting: 'Crafteo',
 } as const
 
