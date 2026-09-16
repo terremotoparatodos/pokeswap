@@ -1,32 +1,27 @@
 // Mining controller: connects a WildLands game, the local demo session and the
 // mining overlay. Used by the playground field lab and the dev-only WildLands
 // demo, so both surfaces behave identically.
+//
+// R31-Z: selecting, closing and running an action are shared with logging and
+// foraging in `overworld/gatheringController.ts`. This facade keeps mining's
+// public surface — its refs, `isNode`, `mine` and the `mining` phase.
 
 import { ref, shallowRef, watch } from 'vue'
-import type { WorldObjectTarget } from '../../wildlands/engine/game'
-import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
-import { demoAffinity, demoTool, demoWorker, inspectDemoNode, type DemoGatherOutcome, type DemoNodeTarget } from '../demo/demoSession'
-import type { ProfessionDemoSession } from '../demo/useProfessionDemo'
 import type { PickaxeTier } from '../art/miningItems'
-import { isBeside } from '../overworld/workerPresence'
-import { resolveNodeStatus } from '../ui/nodeStatus'
-import { miningTimeline } from './miningAction'
-import { MiningOverlay, type OverlayPlayer } from './miningOverlay'
-import { outcomeRarity } from './miningRarity'
+import { demoAffinity, demoWorker, type DemoGatherOutcome, type DemoNodeTarget } from '../demo/demoSession'
+import type { ProfessionDemoSession } from '../demo/useProfessionDemo'
+import { gatheringController, type GatheringGamePort } from '../overworld/gatheringController'
+import { miningTimeline, type MiningTimeline } from './miningAction'
+import { MiningOverlay } from './miningOverlay'
 
 /** The part of WildlandsGame the controller needs. */
-export interface MiningGamePort {
-  setSceneOverlay(overlay: SceneOverlay | null): void
-  setInputLocked(locked: boolean): void
-  playerSnapshot(): OverlayPlayer
-}
+export type MiningGamePort = GatheringGamePort
 
 export interface MiningSelection {
   readonly target: DemoNodeTarget
   readonly tx: number
   readonly ty: number
 }
-
 
 export type MiningPhase = 'idle' | 'mining' | 'result'
 
@@ -47,69 +42,15 @@ export function useMiningController(session: ProfessionDemoSession, game: () => 
     if (speciesId !== null) overlay.preloadWorker(speciesId)
   }, { immediate: true })
 
-  const attach = () => game()?.setSceneOverlay(overlay)
-  const detach = () => {
-    overlay.cancel()
-    game()?.setSceneOverlay(null)
-    game()?.setInputLocked(false)
+  const core = gatheringController<'mining', MiningTimeline, PickaxeTier>({
+    session, game, profession: 'mining', overlay, selection, phase, outcome, busyPhase: 'mining',
+    timeline: preview => miningTimeline(preview.actionSeconds),
+  })
+
+  return {
+    selection, phase, outcome, overlay,
+    attach: core.attach, detach: core.detach, isNode: core.isTarget, inspect: core.inspect, close: core.close, mine: core.act,
   }
-
-  /** Side-effect-free probe for the engine navigator. */
-  const isNode = (hit: WorldObjectTarget) => overlay.targetAt(hit.area, hit.tx, hit.ty) !== null
-
-  function inspect(hit: WorldObjectTarget): boolean {
-    const target = overlay.targetAt(hit.area, hit.tx, hit.ty)
-    if (!target) return false
-    if (phase.value === 'mining') return true
-    selection.value = { target, tx: hit.tx, ty: hit.ty }
-    outcome.value = null
-    phase.value = 'idle'
-    return true
-  }
-
-  function close(): void {
-    if (phase.value === 'mining') return
-    selection.value = null
-    outcome.value = null
-    phase.value = 'idle'
-  }
-
-  function mine(): boolean {
-    const current = selection.value
-    if (!current || phase.value === 'mining') return false
-    // Walking away with the card open ends the interaction: you mine what you stand next to.
-    const player = game()?.playerSnapshot()
-    if (player && !isBeside(player, current)) {
-      close()
-      return false
-    }
-    session.sync()
-    const state = session.state.value
-    const inspection = inspectDemoNode(state, current.target)
-    if (resolveNodeStatus({ ...inspection, phase: 'idle' }) !== 'available' || !inspection.check.ok) return false
-    phase.value = 'mining'
-    outcome.value = null
-    game()?.setInputLocked(true)
-    overlay.start({
-      target: current.target, tx: current.tx, ty: current.ty,
-      timeline: miningTimeline(inspection.check.preview.actionSeconds),
-      tier: (demoTool(state, 'mining')?.definition.tier ?? 1) as PickaxeTier,
-      workerSpeciesId: demoWorker(state, 'mining')?.speciesId ?? null,
-      onResult: () => {
-        const result = session.gather(current.target)
-        outcome.value = result
-        if (!result.ok) return null
-        return { stacks: [...result.result.drops, ...result.result.rareDrops], xp: result.result.xp, rarity: outcomeRarity(result.result) }
-      },
-      onDone: () => {
-        phase.value = outcome.value?.ok ? 'result' : 'idle'
-        game()?.setInputLocked(false)
-      },
-    })
-    return true
-  }
-
-  return { selection, phase, outcome, overlay, attach, detach, isNode, inspect, close, mine }
 }
 
 export type MiningController = ReturnType<typeof useMiningController>
