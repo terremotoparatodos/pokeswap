@@ -125,7 +125,7 @@ La hipótesis de la QA (A* elige una vecina lejana) **no es la causa principal**
 
 **Alcance:** es un problema general del motor (R24/R30). Afecta a **todo prop alto** en la ciudad y en los mundos, en producción. Los edificios ya lo resolvieron con `doorForTap` (footprint + `TAP_REACH_ROWS`).
 
-**PROPUESTA (R31-Z, commit aislado en el motor, requiere aprobación porque cambia comportamiento de producción):**
+**PROPUESTA — fuera de R31-Z (decisión 2026-09-16): fix independiente de R30 desde `main`, rama propia, tests antes del fix:**
 1. **Tests primero:**
    - extraer `hitTest(hits, sx, sy)` puro;
    - test de proyección que demuestre que un toque en la copa de un sprite de 42 px resuelve el tile ancla;
@@ -197,7 +197,6 @@ src/features/professions/
                                  input lock, overlay compuesto, provider de obstáculos
     rewardPops.ts                Pops "+N" / "+XP" / rareza (hoy ×5)
     workerSummon.ts              summon/dismiss del trabajador sobre WorkerCompanion (hoy ×5)
-    nodeIndex.ts                 §7 (reemplaza 5 cachés de targetAt)
   gathering/
     useGatheringController.ts    selección, inspect/close, act() con guardas de fase,
                                  alcance vía adapter, outcome, detach, preload de trabajador
@@ -206,7 +205,7 @@ src/features/professions/
     adapters/
       mining.ts                  matches, timeline (golpes), pose → shake/flash, pico, partículas
       logging.ts                 + caída en última carga, hojas
-      forage.ts                  + gesto mano/hoz según preview.bareHands, parches por nodeIndex
+      forage.ts                  + gesto mano/hoz según preview.bareHands (el scan de parches se conserva tal cual)
       fishing.ts                 + fase "wait/bite", input "reel", splash, cobro al atrapar
   processing/
     useStationController.ts      estación del registro, receta, cantidad, brew (hoy useAlchemyController)
@@ -221,7 +220,7 @@ src/features/professions/
 ```
 
 **Regla para no forzar:**
-- si el adapter de pesca necesita **más de 2 hooks exclusivos** (hoy se estiman `phase: waiting/biting` y `input: reel`), pesca conserva su controlador y solo comparte overlay base, pops, trabajador e índice;
+- si el adapter de pesca necesita **más de 2 hooks exclusivos** (hoy se estiman `phase: waiting/biting` y `input: reel`), pesca conserva su controlador y solo comparte overlay base, pops y trabajador;
 - Alquimia **no** implementa `GatheringAdapter`;
 - `StationController` no se generaliza hasta que exista una segunda estación (horno o banco).
 
@@ -231,7 +230,7 @@ src/features/professions/
 |---|---|
 | 4 controladores de gathering (→ 1 + 4 adapters) | Timelines (`miningAction`, `choppingTimeline`, `forageTimeline`, `fishingTimeline`, `brewTimeline`) |
 | Andamiaje duplicado de 4 overlays (cachés, pops, trabajador, rewind) | Kits de arte, paletas, VFX, estados visuales por profesión |
-| 5 cachés `placements` → `nodeIndex` | `fishingApproach`, caída del árbol, hojas, splash |
+| — (las cachés `placements` y el scan de hierbas **no se tocan** en el refactor; ver §7) | `fishingApproach`, caída del árbol, hojas, splash |
 | 4 copias de `spawnBeside` | `recipeBrowser`, `stationPlacement` → registro |
 | Rama muerta `otherNodeAt` + backdrop en `ProfessionWorldDemo` (E1) | Tarjeta de estación de Alquimia |
 | `ui/fishingSession.ts` + `FishingCast.vue`, `AlchemyBench.vue` + `RecipeCard.vue` (E2/E3), si el playground no los necesita | Laboratorios (solo pierden duplicación) |
@@ -246,11 +245,15 @@ src/features/professions/
 3. **Después:** snapshots **idénticos**. Cualquier diferencia se explica en el PR o se corrige.
 4. **Manual:** recorrido de los 4 laboratorios en escritorio y a 375 px.
 
-**Coste estimado:** −1.500 / +900 líneas aproximadamente, 5–6 commits (host + pops + trabajador → nodeIndex → gathering controller → overlay base + adapters → tarjeta base → borrados). **Es transversal: espero aprobación.**
+**Coste estimado:** −1.400 / +850 líneas aproximadamente, 5 commits (host + pops + trabajador → gathering controller → overlay base + adapters → tarjeta base → borrados de código muerto real).
+
+**Aprobado conceptualmente (2026-09-16). Orden obligatorio:** baseline T-S1 revisado e incorporado → refactor de controllers → equivalencia comprobada → recién después se evalúa el índice de nodos. El playground, los laboratorios y la galería **se conservan**; solo se retira código muerto real.
 
 ---
 
-## 7. Node index (PROPUESTA)
+## 7. Node index (DISEÑO DOCUMENTADO — NO IMPLEMENTAR TODAVÍA)
+
+> **Decisión (2026-09-16):** el índice **no** entra en el refactor, para aislar variables. El scan actual es feo pero no muestra un problema de rendimiento medible (FPS y heap estables en la QA). Después del refactor se decide si entra en R31-Z tardío o en R32-0.
 
 **Hoy (FACT):**
 - `nodeAt` cuesta 2,67 µs por tile;
@@ -274,7 +277,9 @@ class NodeIndex {
 - **Parche de hierbas:** `inRect(viewport)` filtrado por `anchor === 'tallGrass'`. Desaparece el scan periódico y el caso especial del terreno.
 - **Servidor:** **no necesita el índice.** Valida un tile por acción con `nodeAt` O(1). Lo que se comparte es la función, no la caché. Por eso el índice vive en `professions/interaction` (cliente) y `nodeAt` en el paquete de reglas (R32-0).
 - **Pico de coste** al entrar a un chunk nuevo: comparable al horneado de chunks que el motor ya hace. Si hiciera falta, se reparte en `requestIdleCallback`. Medir antes de optimizar.
-- **Coste de implementación:** ~120 líneas + tests (igualdad con `nodeAt` en una muestra, evicción LRU, `inRect`). Se implementa **dentro** del refactor (§6, paso 2), no antes, para no migrar 5 cachés dos veces.
+- **Coste de implementación:** ~120 líneas + tests (igualdad con `nodeAt` en una muestra, evicción LRU, `inRect`), más la migración de las cachés de los overlays que existan después del refactor.
+- **Alternativa por tile** (sin chunk): `Map<tileKey, placement>` con LRU por entradas. Más simple, pero no permite `inRect` sin recorrer tiles y sigue necesitando el scan para el pasto alto. Descartada salvo que el refactor deje una sola caché.
+- **Alternativa por área** (precalcular todo): imposible en un mundo infinito.
 
 ---
 
@@ -293,8 +298,9 @@ class NodeIndex {
 | Crafting sin validar estación | **R32-0** (y registro de estaciones de §5) | Pendiente |
 | Ledger de cargas: copia O(n) y ráfaga en la frontera de ventana | **R32-0** (modelo token-bucket) | Pendiente |
 | Colisión en `acceptMove`, spawn servidor/cliente | **Hotfix R30** (spawn) / **R32-0** (colisión) | Pendiente |
-| Velocidad máxima de acciones, energía, rare drops, tope exacto de pendientes, gasto de hoz opcional (F-3), pérdida de máximo al reparar | **BALANCE** | Sin tocar |
-| Tope de pendientes (que exista) | **R32-0** como invariante de persistencia; el número es **BALANCE** | Pendiente |
+| Velocidad máxima de acciones, energía, rare drops, tope exacto de pendientes, pérdida de máximo al reparar | **BALANCE** | Sin tocar |
+| Tope de pendientes | **Invariante:** los pendientes **no pueden ser ilimitados en producción**. El número exacto es **BALANCE** (economía / R32). Hoy el demo local no tiene tope | Documentado; sin implementar |
+| Hoz opcional (F-3): con hoz equipada se gasta durabilidad aunque la planta no la pida | **Decisión de diseño/economía**, junto con el resto de herramientas. Se **mantiene el comportamiento actual** (`preview.bareHands === false`, la tarjeta lo muestra como "opcional") | Documentado; sin cambios |
 
 ---
 
@@ -306,13 +312,13 @@ class NodeIndex {
 
 | Campo | Valor |
 |---|---|
-| **Rama base exacta** | `origin/integration/r31` @ **`<hash informado al hacer push>`** (hoy local: el commit que contiene este documento) |
+| **Rama base exacta** | `origin/integration/r31` en el HEAD publicado por la estación principal (el hash exacto se entrega junto con el prompt; es la base contractual) |
 | **Rama a crear** | `test/r31z-overlay-trace-baseline` |
 | **Objetivo** | Congelar, **antes** del refactor, la salida observable de los 5 overlays y de la sesión demo, para demostrar equivalencia después |
 | **Puede crear** | `src/features/professions/testing/overlayTrace.ts` (utilidades), `src/features/professions/overlayTrace.test.ts`, `src/features/professions/__snapshots__/overlayTrace.test.ts.snap`, `docs/economy/R31Z_OVERLAY_TRACE.md` |
 | **Puede leer** | Todo el repo |
 | **Prohibido modificar** | Cualquier archivo existente. En particular `src/features/professions/**` (salvo los nuevos), `professionsStress.test.ts`, `src/features/wildlands/**`, `services/**`, `supabase/**`, `.github/**`, `package.json`, `docs/economy/*` existentes |
-| **Entregables** | 1) Por profesión (minería, tala, forage mano, forage hoz, pesca, alquimia lote 1 y 3): guion determinista (trabajador `null`, semilla fija, reloj de escena fijo a 1/30 s, muestreo cada 50 ms). 2) Traza serializada: `decor()` (tile, dx, dy, hash de píxeles del arte), `ground()` (llamadas al contexto stub con args redondeados), `sprites()` (wx, wy, lift, alpha, scale, depthBias, hash de píxeles), `labels()` y estado de la demo al final (inventario, XP, energía, durabilidad, cargas). 3) Snapshot commiteado. 4) Doc breve: cómo regenerar y qué significa una diferencia |
+| **Entregables** | 1) Por profesión (minería, tala, forage mano, forage hoz, pesca; alquimia lote 1 y 3 como baseline separado de processing si aporta valor): guion determinista (trabajador `null`, semilla fija, reloj de escena fijo a 1/30 s, muestreo cada 50 ms). 2) Traza serializada: `decor()` (tile, dx, dy, hash de píxeles del arte), `ground()` (llamadas al contexto stub con args redondeados), `sprites()` (wx, wy, lift, alpha, scale, depthBias, hash de píxeles), `labels()` y estado de la demo al final (inventario, XP, energía, durabilidad, cargas). 3) Snapshot commiteado. 4) Doc breve: cómo regenerar y qué significa una diferencia |
 | **Técnica sugerida** | Reutilizar la idea del stub de `professionsStress.test.ts` (copiar, no importar ni modificar). Para hashear arte sin canvas: `vi.mock` parcial de `art/pixelArt` que envuelva `toSprite` y registre el `PixelArt` → FNV-1a sobre `pixels`. Pesca necesita `getContext` stub (ver `99c61dd`) |
 | **Tests / checks** | `npx vitest run` (todo verde), `npm run typecheck`, `npx eslint .`, `npm run build`, y búsqueda en `dist/` de `overlayTrace` = 0. **Determinismo:** correr el test 3 veces y además `--sequence.shuffle`; los snapshots no deben cambiar |
 | **Condición de stop** | Snapshot estable en 3 corridas + shuffle, o bloqueo documentado (por ejemplo, un overlay no determinista: reportarlo, **no** arreglarlo) |
@@ -325,17 +331,24 @@ class NodeIndex {
 
 ### Mientras tanto, la estación principal (sin solaparse)
 
-- Hotfix R30 del spawn (rama desde `main`, servicio + test cliente), **tras aprobación**.
-- F-2 (renderer pick) y F-1 (obstacle provider + registro de estaciones) en `integration/r31`, **tras aprobación**.
-- Refactor §6, **tras aprobación y tras T-S1**.
+- Verificar el spawn en producción y, si se reproduce, fix **independiente de R30** desde `main` (`fix/wildlands-authoritative-spawn`).
+- F-2 **independiente de R30** desde `main` (`fix/wildlands-prop-tap-picking`), tests primero.
+- F-1 (`ObstacleProvider` + registro de estaciones) en `integration/r31`, tests primero.
+- Refactor §6 **solo después** de revisar e incorporar T-S1.
 
 ---
 
-## 10. Decisiones que necesito
+## 10. Decisiones tomadas (2026-09-16)
 
-1. ¿Push de `integration/r31` a GitHub? Es requisito para delegar T-S1.
-2. ¿Hotfix del spawn como PR aparte a `main` (servicio realtime + test cliente)?
-3. ¿F-2 (hitboxes de props en `pick`) dentro de R31-Z? Cambia el toque en producción: es un bugfix.
-4. ¿F-1 con `ObstacleProvider` + registro de estaciones fijo?
-5. ¿Aprobás la arquitectura de §6 y el orden §7 → §6?
-6. E2/E3: ¿el playground conserva el panel genérico R31-B o se retira?
+1. **Push de `integration/r31`:** aprobado. Su HEAD publicado es la base contractual para la estación secundaria. No se mergea a `main`.
+2. **QA:** se conservan el arnés, los tests de estrés reforzados, el informe y la pista dev de la mesa (inocua).
+3. **Spawn:** bug independiente de R30. Primero verificar en producción; si se confirma, rama desde `main`, tests, fix mínimo, verificación multiplayer y PR independiente **sin merge automático**. R31/R32 consumen el comportamiento corregido.
+4. **F-2:** bug independiente de R30 (`pick` no reconoce props altos). Rama desde `main`, tests antes del fix, PR separado del de spawn. No va dentro del refactor.
+5. **F-1:** aprobado conceptualmente. La solidez es un **dato del mundo** consultable por colisión, navegación, interacción y (después) el servidor; `SceneOverlay` solo representa. Tests antes: estación sólida, pathfinding alrededor, interacción adyacente, sin estación, dos obstáculos, limpieza y cambio de área. Si hacerlo bien exige un cambio mucho mayor, detenerse y proponer.
+6. **Refactor:** aprobado conceptualmente (Gathering: Minería, Tala, Forage; Pesca solo si no deforma la abstracción; Processing: Alquimia aparte). Empieza después del baseline.
+7. **Node index:** fuera del refactor. Solo diseño y coste (§7).
+8. **T-S1:** aprobada para la estación secundaria.
+9. **Playground, laboratorios y galería:** se conservan. Solo se retira código muerto real.
+10. **Hardening:** aprobado mientras no cambie resultados válidos y el simulador siga idéntico. Autoridad (posición, distancia, ownership, reloj, replay, RNG, estación real, catálogo autoritativo) queda para R32-0.
+11. **Pendientes:** deben tener tope en producción; el número es balance.
+12. **Hoz opcional:** sin cambios; se decide con el resto de herramientas.
