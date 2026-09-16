@@ -25,7 +25,7 @@ import { toSprite } from '../art/pixelArt'
 import type { OverlayPlayer } from '../mining/miningOverlay'
 import { RewardPops } from '../overworld/rewardPops'
 import { WorkerCompanion } from '../overworld/workerCompanion'
-import { workerSpot } from '../overworld/workerPresence'
+import { openGround, summonWorkerOnce } from '../overworld/workerSummon'
 import { bottlesBetween, brewPose, loadsBetween, type BrewTimeline } from './brewTimeline'
 import { alchemyStationTile, type StationTile } from './stationPlacement'
 
@@ -277,12 +277,8 @@ export class AlchemyOverlay implements SceneOverlay {
   private summonWorker(area: Area, tile: StationTile): void {
     const brew = this.brew
     const player = this.deps.player()
-    if (!brew || brew.summoned || !player) return
-    brew.summoned = true
-    if (brew.workerSpeciesId === null) return
-    const spot = workerSpot(player, tile, (tx, ty) =>
-      !area.isSolid(tx, ty) && !area.isWater(tx, ty) && !this.isStation(area, tx, ty))
-    if (spot) this.companion.summon(brew.workerSpeciesId, spot)
+    if (!brew || !player) return
+    summonWorkerOnce(this.companion, brew, player, tile, openGround(area, (tx, ty) => this.isStation(area, tx, ty)))
   }
 
   labels(_area: Area, seconds: number): readonly OverlayLabel[] {

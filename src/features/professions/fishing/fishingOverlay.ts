@@ -25,7 +25,8 @@ import type { OverlayPlayer } from '../mining/miningOverlay'
 import type { Particle } from '../mining/particles'
 import { RewardPops } from '../overworld/rewardPops'
 import { WorkerCompanion } from '../overworld/workerCompanion'
-import { workerSpot, type TilePoint } from '../overworld/workerPresence'
+import type { TilePoint } from '../overworld/workerPresence'
+import { openGround, summonWorkerOnce } from '../overworld/workerSummon'
 import { resolveNodeStatus } from '../ui/nodeStatus'
 import { spawnSplash, stepParticles } from './fishingSplash'
 import { fishingPose, gradeReel, isCatch, type FishingPlan, type ReelGrade } from './fishingTimeline'
@@ -386,12 +387,8 @@ export class FishingOverlay implements SceneOverlay {
 
   /** Places the worker beside the player once per cast, never in the water. */
   private summonWorker(area: Area, cast: ActiveCast, player: OverlayPlayer): void {
-    if (cast.summoned) return
-    cast.summoned = true
-    if (cast.workerSpeciesId === null) return
-    const spot = workerSpot(player, { tx: cast.tx, ty: cast.ty }, (tx, ty) =>
-      !area.isSolid(tx, ty) && !area.isWater(tx, ty) && !this.targetAt(area, tx, ty))
-    if (spot) this.companion.summon(cast.workerSpeciesId, spot)
+    summonWorkerOnce(this.companion, cast, player, { tx: cast.tx, ty: cast.ty },
+      openGround(area, (tx, ty) => this.targetAt(area, tx, ty) !== null))
   }
 
   labels(_area: Area, seconds: number): readonly OverlayLabel[] {

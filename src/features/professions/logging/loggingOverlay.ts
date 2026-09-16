@@ -28,7 +28,7 @@ import type { OverlayPlayer } from '../mining/miningOverlay'
 import { spawnImpact, stepParticles, type Particle } from '../mining/particles'
 import { RewardPops } from '../overworld/rewardPops'
 import { WorkerCompanion } from '../overworld/workerCompanion'
-import { workerSpot } from '../overworld/workerPresence'
+import { openGround, summonWorkerOnce } from '../overworld/workerSummon'
 import { resolveNodeStatus } from '../ui/nodeStatus'
 import { bitesBetween, choppingPose, type ChoppingTimeline } from './choppingTimeline'
 import { leafAlpha, leafFrame, spawnLeaves, stepLeaves, type Leaf } from './leaves'
@@ -331,12 +331,8 @@ export class LoggingOverlay implements SceneOverlay {
   private summonWorker(area: Area): void {
     const action = this.action
     const player = this.deps.player()
-    if (!action || action.summoned || !player) return
-    action.summoned = true
-    if (action.workerSpeciesId === null) return
-    const spot = workerSpot(player, action, (tx, ty) =>
-      !area.isSolid(tx, ty) && !area.isWater(tx, ty) && !this.targetAt(area, tx, ty))
-    if (spot) this.companion.summon(action.workerSpeciesId, spot)
+    if (!action || !player) return
+    summonWorkerOnce(this.companion, action, player, action, openGround(area, (tx, ty) => this.targetAt(area, tx, ty) !== null))
   }
 
   labels(_area: Area, seconds: number): readonly OverlayLabel[] {
