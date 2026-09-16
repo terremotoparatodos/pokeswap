@@ -9,9 +9,35 @@
 //  - scene clock stepped at exactly 1/30 s; every hook runs on every step and
 //    only every 50 ms is written down (T-S1.1);
 //  - world from `World(PRADERA_SEED)` and tiles from `PRADERA_LANDMARKS`;
-//  - `toSprite` wrapped, so art is hashed from its pixels and no canvas is used.
+//  - `toSprite` wrapped, so art is hashed from its pixels and no canvas is used;
+//  - the overworld sheet loader replaced by synthetic frames, one distinct art
+//    per species/direction/frame, so a worker sprite is identifiable by hash.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+
+// Fixtures the hoisted `vi.mock` factory below needs. `vi.hoisted` is the only
+// way to share state with it: a factory runs before this module's own imports.
+const workerFixtures = vi.hoisted(() => {
+  const dirs = ['down', 'up', 'left', 'right'] as const
+  return {
+    dirs,
+    /** Species ids the loader was asked for; the worker scenarios assert on it. */
+    loaded: [] as number[],
+    /** `${speciesId}:${dir}:${index}` → art hash of that frame. */
+    hashes: new Map<string, string>(),
+    frames: new Map<number, unknown>(),
+    /** A small, distinct, fully deterministic art per frame. */
+    art(seed: number) {
+      const w = 8
+      const h = 8
+      const pixels = new Uint32Array(w * h)
+      for (let i = 0; i < pixels.length; i++) {
+        pixels[i] = (0xff000000 | (Math.imul(seed + 1, 2654435761) ^ Math.imul(i + 1, 40503))) >>> 0
+      }
+      return { w, h, ax: 4, ay: 7, pixels }
+    },
+  }
+})
 
 // The wrapper has to exist before the overlays import `toSprite`, and a
 // `vi.mock` factory is hoisted above the imports, so it pulls the registry in
@@ -21,6 +47,35 @@ vi.mock('./art/pixelArt', async importOriginal => {
   const actual = await importOriginal<typeof import('./art/pixelArt')>()
   const trace = await import('./testing/overlayTrace')
   return { ...actual, toSprite: trace.traceSprite }
+})
+
+// The real loader goes `new Image()` → `getImageData` → `drawImage`, none of
+// which jsdom can do, so a worker would be active but never draw. Only
+// `loadOverworldFrames` is replaced, and its frames are minted through the same
+// `traceSprite` registry as everything else so they carry an art hash.
+// Path checked against the tree: `src/features/wildlands/engine/characters.ts`.
+vi.mock('../wildlands/engine/characters', async importOriginal => {
+  const actual = await importOriginal<typeof import('../wildlands/engine/characters')>()
+  const trace = await import('./testing/overlayTrace')
+  return {
+    ...actual,
+    loadOverworldFrames: async (id: number) => {
+      workerFixtures.loaded.push(id)
+      let frames = workerFixtures.frames.get(id)
+      if (!frames) {
+        const built: Record<string, unknown[]> = {}
+        workerFixtures.dirs.forEach((dir, row) => {
+          built[dir] = [0, 1].map(index => {
+            const art = workerFixtures.art(id * 1000 + row * 10 + index)
+            workerFixtures.hashes.set(`${id}:${dir}:${index}`, trace.artHash(art))
+            return trace.traceSprite(art, false)
+          })
+        })
+        workerFixtures.frames.set(id, (frames = built))
+      }
+      return frames
+    },
+  }
 })
 
 import { useAlchemyController } from './alchemy/useAlchemyController'
@@ -38,7 +93,7 @@ import { useForageController } from './forage/useForageController'
 import { useLoggingController } from './logging/useLoggingController'
 import { useMiningController } from './mining/useMiningController'
 import {
-  finalState, recordingContext, resetSpriteInterceptions, SceneTrace,
+  finalState, flushPromises, recordingContext, resetSpriteInterceptions, SceneTrace,
   spriteInterceptions, STEP_SECONDS,
   type DecorProbe, type TraceEntry, type TraceFrame, type TraceHost, type TraceOverlay,
 } from './testing/overlayTrace'
@@ -47,6 +102,10 @@ import { World } from '../wildlands/engine/world'
 /** A fixed wall clock: the demo session stamps state with `Date.now()`. */
 const FROZEN_NOW = new Date('2026-01-01T12:00:00.000Z')
 const TILE = 16
+
+/** The demo's own lead workers; no new fixture is invented for the trace. */
+const MINING_WORKER = 68 // Machamp
+const ALCHEMY_WORKER = 242 // Blissey
 
 const world = new World(PRADERA_SEED)
 const nodePort = worldNodePort(world)
@@ -152,6 +211,26 @@ function expectIntercepted(): void {
 
 const isFrame = (entry: TraceEntry): entry is TraceFrame => 'state' in entry
 
+/** Every sprite line of every recorded frame, for the "did it appear" asserts. */
+const spriteLines = (trace: readonly TraceEntry[]): string[] =>
+  trace.flatMap(entry => (isFrame(entry) ? [...(entry.sprites ?? [])] : []))
+
+/** The tile a worker sprite sits on, from the coordinates `WorkerCompanion` emits. */
+function workerTileOf(line: string): { tx: number; ty: number } {
+  const [wx, wy] = line.split(' ')[0].split(',').map(Number)
+  return { tx: (wx - TILE / 2) / TILE, ty: (wy - (TILE - 2)) / TILE }
+}
+
+function expectWorkerDrawn(trace: readonly TraceEntry[], speciesId: number, dir: string): string[] {
+  const hashes = workerFixtures.dirs.includes(dir as 'up')
+    ? [0, 1].map(index => workerFixtures.hashes.get(`${speciesId}:${dir}:${index}`))
+    : []
+  expect(hashes.every(Boolean), 'the mocked sheet loader never produced frames').toBe(true)
+  const lines = spriteLines(trace).filter(line => hashes.some(hash => line.endsWith(`art=${hash}`)))
+  expect(lines.length, `no worker sprite (${speciesId}, facing ${dir}) was ever drawn`).toBeGreaterThan(0)
+  return lines
+}
+
 describe('overlay trace · mining', () => {
   it('stone_outcrop · one action and a second tap during it', () => {
     const spot = targetAt('stone_outcrop')
@@ -179,6 +258,49 @@ describe('overlay trace · mining', () => {
     expect(trace.hookRuns.frames).toBeGreaterThan(recorded)
 
     expect({ trace: trace.trace, session: finalState(session.state.value, [spot.target]) }).toMatchSnapshot('mining · stone_outcrop · double tap')
+  })
+
+  it('stone_outcrop · with the demo worker Pokémon beside the player', async () => {
+    session.update(state => setDemoWorker(state, 'mining', MINING_WORKER))
+    const spot = targetAt('stone_outcrop')
+    const player = beside(spot)
+    const game = stubPort(player.tx, player.ty)
+    const mining = useMiningController(session, () => game)
+    mining.attach()
+    mining.inspect({ area, tx: spot.tx, ty: spot.ty } as never)
+
+    const trace = new SceneTrace(host('mining · worker', mining.overlay, game, () => mining.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty) }))
+    trace.mark('selected · worker Machamp (68)')
+    trace.run(0.2)
+    trace.mark(`mine() → ${mining.mine()}`)
+    // The overlay summons the worker inside the first `sprites()` after the
+    // action starts, and assigns its sheet in a `.then`: one frame, then the
+    // microtask queue, and only then does the companion have frames to draw.
+    trace.run(STEP_SECONDS)
+    await flushPromises()
+    trace.run(0.6)
+    trace.runUntil(() => mining.phase.value !== 'mining', 12, { sample: false, note: 'rest of the swing' })
+    trace.mark('action over · worker dismissed')
+    trace.run(0.6)
+
+    expectIntercepted()
+    expect(workerFixtures.loaded, 'the sheet loader mock never ran').toContain(MINING_WORKER)
+
+    // Facing: the player works the tile above, the worker stands beside them
+    // and keeps the player's facing on the diagonal tie (workerPresence.ts).
+    const drawn = expectWorkerDrawn(trace.trace, MINING_WORKER, 'up')
+    const tiles = drawn.map(workerTileOf)
+    for (const tile of tiles) {
+      expect(Math.max(Math.abs(tile.tx - player.tx), Math.abs(tile.ty - player.ty)),
+        'the worker must stand next to the player').toBeLessThanOrEqual(1)
+      expect(`${tile.tx},${tile.ty}`, 'the worker must never stand on the node').not.toBe(`${spot.tx},${spot.ty}`)
+      expect(`${tile.tx},${tile.ty}`, 'the worker must never stand on the player').not.toBe(`${player.tx},${player.ty}`)
+    }
+    expect(new Set(tiles.map(tile => `${tile.tx},${tile.ty}`)).size, 'the spot must hold for the whole action').toBe(1)
+
+    expect({ trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
+      .toMatchSnapshot('mining · stone_outcrop · worker')
   })
 })
 
@@ -258,6 +380,45 @@ describe('overlay trace · forage', () => {
     expectIntercepted()
     expect({ trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
       .toMatchSnapshot('forage · berry_bush · sickle')
+  })
+
+  /**
+   * T-S1.1. The herb patch is the one node with no prop to restyle: it is
+   * anchored to tall grass, so `decor()` never sees it and the overlay finds it
+   * by rescanning the tiles around the player from inside `sprites()`. That is
+   * why this scenario has no decor probe and why it lets the scene run a full
+   * scan interval before asserting the patch is on screen.
+   */
+  it('herb_patch · found by the terrain scan, then gathered', () => {
+    const spot = targetAt('herb_patch')
+    const player = beside(spot)
+    const game = stubPort(player.tx, player.ty)
+    expect(decorProbe(spot.tx, spot.ty), 'the patch is terrain: it must have no prop').toHaveLength(0)
+
+    const forage = useForageController(session, () => game)
+    forage.attach()
+    forage.inspect({ area, tx: spot.tx, ty: spot.ty } as never)
+
+    const trace = new SceneTrace(host('forage · herb_patch', forage.overlay, game, () => forage.phase.value))
+    trace.mark('selected · terrain-anchored patch')
+    // A full scan interval (0.3 s) with the hooks running on every frame.
+    trace.run(0.4)
+
+    // The patch draws its tuft at the centre of its tile, one pixel above the
+    // bottom edge; finding that line proves the real `sprites()` path saw it.
+    const patchAt = `${spot.tx * TILE + TILE / 2},${spot.ty * TILE + TILE - 1}`
+    expect(spriteLines(trace.trace).some(line => line.startsWith(patchAt)),
+      'the terrain scan never put the herb patch on screen').toBe(true)
+
+    trace.mark(`gather() → ${forage.gather()}`)
+    trace.run(1)
+    trace.runUntil(() => forage.phase.value !== 'gathering', 25, { sample: false, note: 'rest of the gather' })
+    trace.mark('action over')
+    trace.run(0.8)
+
+    expectIntercepted()
+    expect({ trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
+      .toMatchSnapshot('forage · herb_patch · scan and gather')
   })
 })
 
@@ -399,6 +560,39 @@ describe('overlay trace · alchemy (processing)', () => {
 
     expectIntercepted()
     expect({ trace: trace.trace, session: finalState(session.state.value) }).toMatchSnapshot('alchemy · brew_potion · batch 3')
+  })
+
+  /**
+   * T-S1.1. Processing places the worker against the *station*, not against a
+   * gathering node, which is a different call site of the same shared code.
+   * The species is the demo's own lead alchemist so no new variable enters.
+   */
+  it('brew_potion · with the demo worker Pokémon beside the bench', async () => {
+    session.update(state => setDemoWorker(state, 'alchemy', ALCHEMY_WORKER))
+    const { tile, game, alchemy } = bench(1)
+    const player = { tx: tile.tx, ty: tile.ty + 1 }
+    const trace = new SceneTrace(host('alchemy · worker', alchemy.overlay, game, () => alchemy.phase.value))
+    trace.mark('bench open · worker Blissey (242)')
+    trace.mark(`brew() → ${alchemy.brew()}`)
+    trace.run(STEP_SECONDS)
+    await flushPromises()
+    trace.run(0.8)
+    trace.runUntil(() => alchemy.phase.value !== 'brewing', 25, { sample: false, note: 'rest of the brew' })
+    trace.mark('brew over · worker dismissed')
+    trace.run(0.6)
+
+    expectIntercepted()
+    expect(workerFixtures.loaded, 'the sheet loader mock never ran').toContain(ALCHEMY_WORKER)
+
+    const drawn = expectWorkerDrawn(trace.trace, ALCHEMY_WORKER, 'up')
+    for (const tile2 of drawn.map(workerTileOf)) {
+      expect(Math.max(Math.abs(tile2.tx - player.tx), Math.abs(tile2.ty - player.ty)),
+        'the worker must stand next to the player').toBeLessThanOrEqual(1)
+      expect(`${tile2.tx},${tile2.ty}`, 'the worker must never stand on the bench').not.toBe(`${tile.tx},${tile.ty}`)
+    }
+
+    expect({ trace: trace.trace, session: finalState(session.state.value) })
+      .toMatchSnapshot('alchemy · brew_potion · worker')
   })
 })
 
