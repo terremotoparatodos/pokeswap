@@ -44,7 +44,7 @@ export function glintArt(special: boolean): PixelArt {
 }
 
 /** Shared marker vocabulary across professions ('rod' is used by fishing). */
-export type BubbleKind = 'pick' | 'lock' | 'seal' | 'rod' | 'axe'
+export type BubbleKind = 'pick' | 'lock' | 'seal' | 'rod' | 'axe' | 'flask'
 
 /** Pokémon-style thought bubble above an interactable node. */
 export function bubbleArt(kind: BubbleKind): PixelArt {
@@ -55,6 +55,8 @@ export function bubbleArt(kind: BubbleKind): PixelArt {
       seal: ['..v..', '.vVv.', 'vVwVv', '.vVv.', '..v..'],
       rod: ['....s', '...s.', '..s..', '.s...', 'h.s..'],
       axe: ['.hhh.', '.hh..', '..s..', '.s...', 's....'],
+      // A round-bottomed flask: neck, shoulders and a filled belly.
+      flask: ['..c..', '..L..', '.LLL.', 'LlllL', '.LLL.'],
     }
     const rows = [
       '.ooooooooo.',
@@ -74,6 +76,7 @@ export function bubbleArt(kind: BubbleKind): PixelArt {
       h: color('#8b96a1'), s: color('#8c5a33'),
       g: color(UI_GOLD),
       v: color('#5e7ea8'), V: color('#86a8cf'),
+      c: color('#c09257'), L: color('#2c4250'), l: color('#d2436b'),
     }, 5, 9)
   })
 }
