@@ -352,3 +352,32 @@ class NodeIndex {
 10. **Hardening:** aprobado mientras no cambie resultados válidos y el simulador siga idéntico. Autoridad (posición, distancia, ownership, reloj, replay, RNG, estación real, catálogo autoritativo) queda para R32-0.
 11. **Pendientes:** deben tener tope en producción; el número es balance.
 12. **Hoz opcional:** sin cambios; se decide con el resto de herramientas.
+
+---
+
+## 11. Baseline congelado y Bloque A (2026-09-16)
+
+**`PRE-REFACTOR BASELINE FROZEN`** sobre `origin/integration/r31 @ f2c615e578bf2725d957c15d211ff311382a9a63`.
+
+- Snapshot: `src/features/professions/__snapshots__/overlayTrace.test.ts.snap`, md5 `334b1e04eb1e40f528f313573d4ac618` (idéntico en las dos estaciones).
+- **Regla:** el snapshot solo se actualiza por una regresión corregida intencionalmente, un cambio visual o de gameplay aprobado, o una autorización explícita. **Un refactor interno nunca justifica `-u`.**
+
+### Bloque A — refactor productivo (estación principal, sin delegación)
+
+Objetivo: **mismo comportamiento observable**, menos duplicación estructural.
+
+| # | Commit | Alcance |
+|---|---|---|
+| 0 | Este documento | Freeze y plan |
+| 1 | `overworld/rewardPops.ts` | Las cinco overlays |
+| 2 | `overworld/workerSummon.ts` | Las cinco overlays; sigue usando `workerSpot` y `WorkerCompanion` |
+| 3 | Núcleo de overlay de gathering + Minería | Solo Minería |
+| 4 | Tala sobre el núcleo | Incluye la caída y la regla de última carga, específicas |
+| 5 | Forage sobre el núcleo | Mano/hoz, motas y el scan de `herb_patch` **sin cambios** |
+| 6 | Núcleo de controller de gathering detrás de la fachada de Minería | API pública intacta |
+| 7 | Tala y Forage sobre el núcleo de controller | API pública intacta |
+| 8 | Ciclo de vida compartido con Pesca y Alquimia | Solo si es pequeño y natural; si no, se omite |
+
+**Reglas:** trace sin `-u` después de cada paso (si cambia un snapshot, detenerse y explicar); stress y `hostileInputs` en verde; suite de professions en cada paso y suite completa en los checkpoints; fachadas (`useMiningController`, `useLoggingController`, `useForageController`), nombres de función, refs y literales de phase **sin cambios**. Pesca conserva su controller (opción B) y Alquimia sigue siendo processing.
+
+**Fuera del Bloque A:** node index, tarjetas de acción, interaction host, `spawnBeside` compartido y retiro de `otherNodeAt` (R31-Z.1), economía, balance, timings, VFX, assets, motor de WildLands, servicio realtime, Supabase y `main`.
