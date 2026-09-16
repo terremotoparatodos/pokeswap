@@ -1,12 +1,12 @@
 <template>
   <div class="pf pwd">
-    <p v-if="areaKind === 'wild' && !mining.selection.value && !fishing.selection.value && !target" class="pwd-hint">
-      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol, un arbusto o la orilla marcada
+    <p v-if="areaKind === 'wild' && !anySelection && !target" class="pwd-hint">
+      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol marcado, un arbusto o la orilla
     </p>
 
-    <div v-if="mining.selection.value || fishing.selection.value" class="pwd-mining">
+    <div v-if="anySelection" class="pwd-mining">
       <div class="pwd-top">
-        <ProfessionHud :session="session" :profession="mining.selection.value ? 'mining' : 'fishing'" />
+        <ProfessionHud :session="session" :profession="activeProfession" />
         <button type="button" class="pwd-bag-btn" :aria-expanded="bagOpen" @click="bagOpen = !bagOpen">Mochila</button>
       </div>
       <InventoryGrid v-if="bagOpen" class="pwd-bag" :session="session" :highlight="highlight" compact />
@@ -18,7 +18,7 @@
         :phase="mining.phase.value"
         :outcome="mining.outcome.value"
         @mine="mining.mine()"
-        @close="closeMining"
+        @close="closeAll"
       />
       <FishingActionCard
         v-else-if="fishing.selection.value"
@@ -30,7 +30,17 @@
         :biting="fishing.biting.value"
         @cast="fishing.cast()"
         @reel="fishing.reel()"
-        @close="closeFishing"
+        @close="closeAll"
+      />
+      <LoggingActionCard
+        v-else-if="logging.selection.value"
+        :key="logging.selection.value.target.nodeId"
+        :session="session"
+        :target="logging.selection.value.target"
+        :phase="logging.phase.value"
+        :outcome="logging.outcome.value"
+        @chop="logging.chop()"
+        @close="closeAll"
       />
     </div>
 
@@ -52,56 +62,69 @@ import type { WorldObjectTarget } from '../../../wildlands/engine/game'
 import type { World } from '../../../wildlands/engine/world'
 import { NODE_BY_ID } from '../../domain/catalog/nodes'
 import { nodeAt, worldNodePort } from '../../domain/nodePlacement'
+import type { ProfessionId } from '../../domain/types'
 import type { DemoNodeTarget } from '../../demo/demoSession'
 import { useProfessionDemo } from '../../demo/useProfessionDemo'
 import { useFishingController } from '../../fishing/useFishingController'
+import { useLoggingController } from '../../logging/useLoggingController'
 import { useMiningController, type MiningGamePort } from '../../mining/useMiningController'
 import { CompositeOverlay } from '../../overworld/compositeOverlay'
 import FishingActionCard from '../FishingActionCard.vue'
 import InventoryGrid from '../InventoryGrid.vue'
+import LoggingActionCard from '../LoggingActionCard.vue'
 import MiningActionCard from '../MiningActionCard.vue'
 import NodeInteractionPanel from '../NodeInteractionPanel.vue'
 import ProfessionHud from '../ProfessionHud.vue'
 import '../professions.css'
 
 // Visual integration inside WildLands, mounted only in development builds
-// (WildlandsView). Mining (R31-C1) and fishing (R31-C2) use their overlays in
-// the real scene; other professions keep the R31-B panel. Local demo session
-// only: no writes, no network, no presence messages.
+// (WildlandsView). Mining (R31-C1), fishing (R31-C2) and logging (R31-C3) use
+// their overlays in the real scene; the rest keep the R31-B panel. Local demo
+// session only: no writes, no network, no presence messages.
 const props = defineProps<{ areaKind: 'town' | 'wild'; game: MiningGamePort | null }>()
 const emit = defineEmits<{ overlay: [open: boolean] }>()
 
-/** The bite window is short, so the card has to light up promptly. */
+/** The fishing bite window is short, so the card has to light up promptly. */
 const BITE_POLL_MS = 80
+/** Professions that draw themselves in the world instead of opening the R31-B panel. */
+const OVERLAY_PROFESSIONS: readonly ProfessionId[] = ['mining', 'fishing', 'woodcutting']
 
 const session = useProfessionDemo()
 const target = shallowRef<DemoNodeTarget | null>(null)
 const bagOpen = ref(false)
 const mining = useMiningController(session, () => props.game)
 const fishing = useFishingController(session, () => props.game)
-/** The engine holds one overlay, so both professions share a composite. */
-const overlay = new CompositeOverlay(mining.overlay, fishing.overlay)
+const logging = useLoggingController(session, () => props.game)
+/** The engine holds one overlay, so the professions share a composite. */
+const overlay = new CompositeOverlay(mining.overlay, fishing.overlay, logging.overlay)
+
+const anySelection = computed(() => !!(mining.selection.value || fishing.selection.value || logging.selection.value))
+const activeProfession = computed<ProfessionId>(() => {
+  if (mining.selection.value) return 'mining'
+  return fishing.selection.value ? 'fishing' : 'woodcutting'
+})
 const highlight = computed(() => {
   if (mining.outcome.value?.ok) return mining.outcome.value.placements
+  if (logging.outcome.value?.ok) return logging.outcome.value.placements
   const gather = fishing.outcome.value?.gather
   return gather?.ok ? gather.placements : []
 })
 
-let bitePoll: ReturnType<typeof setInterval> | null = null
+const bitePoll = setInterval(() => fishing.syncBite(), BITE_POLL_MS)
 
 watch(() => props.game, game => {
   if (game) game.setSceneOverlay(overlay)
 }, { immediate: true })
-bitePoll = setInterval(() => fishing.syncBite(), BITE_POLL_MS)
 onUnmounted(() => {
-  if (bitePoll) clearInterval(bitePoll)
+  clearInterval(bitePoll)
   mining.detach()
   fishing.detach()
+  logging.detach()
 })
 
-/** Engine probe: walkable node tiles the navigator should approach and face. */
+/** Engine probe: tiles the navigator should approach and face. */
 function isWorldObject(hit: WorldObjectTarget): boolean {
-  return mining.isNode(hit) || fishing.isSpot(hit) || otherNodeAt(hit) !== null
+  return mining.isNode(hit) || fishing.isSpot(hit) || logging.isTree(hit) || otherNodeAt(hit) !== null
 }
 
 function otherNodeAt(hit: WorldObjectTarget): DemoNodeTarget | null {
@@ -110,18 +133,25 @@ function otherNodeAt(hit: WorldObjectTarget): DemoNodeTarget | null {
   if (!world) return null
   const placement = nodeAt(worldNodePort(world), hit.tx, hit.ty)
   const node = placement ? NODE_BY_ID.get(placement.definitionId) : undefined
-  const handled = node && (node.profession === 'mining' || node.profession === 'fishing')
-  return placement && node && !handled ? { nodeId: placement.nodeId, node, biome: placement.biome } : null
+  if (!placement || !node || OVERLAY_PROFESSIONS.includes(node.profession)) return null
+  return { nodeId: placement.nodeId, node, biome: placement.biome }
 }
 
 /** Called by the engine for a tile beside or in front of the player. */
 function inspect(hit: WorldObjectTarget): boolean {
   if (mining.inspect(hit)) {
     fishing.close()
+    logging.close()
     return true
   }
   if (fishing.inspect(hit)) {
     mining.close()
+    logging.close()
+    return true
+  }
+  if (logging.inspect(hit)) {
+    mining.close()
+    fishing.close()
     return true
   }
   const other = otherNodeAt(hit)
@@ -131,13 +161,10 @@ function inspect(hit: WorldObjectTarget): boolean {
   return true
 }
 
-function closeMining(): void {
+function closeAll(): void {
   mining.close()
-  bagOpen.value = false
-}
-
-function closeFishing(): void {
   fishing.close()
+  logging.close()
   bagOpen.value = false
 }
 
