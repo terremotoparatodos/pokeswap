@@ -1,16 +1,17 @@
 <template>
   <div class="pf pwd">
-    <p v-if="areaKind === 'wild' && !mining.selection.value && !target" class="pwd-hint">
-      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, árbol, arbusto u orilla
+    <p v-if="areaKind === 'wild' && !mining.selection.value && !fishing.selection.value && !target" class="pwd-hint">
+      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol, un arbusto o la orilla marcada
     </p>
 
-    <div v-if="mining.selection.value" class="pwd-mining">
+    <div v-if="mining.selection.value || fishing.selection.value" class="pwd-mining">
       <div class="pwd-top">
-        <ProfessionHud :session="session" profession="mining" />
+        <ProfessionHud :session="session" :profession="mining.selection.value ? 'mining' : 'fishing'" />
         <button type="button" class="pwd-bag-btn" :aria-expanded="bagOpen" @click="bagOpen = !bagOpen">Mochila</button>
       </div>
       <InventoryGrid v-if="bagOpen" class="pwd-bag" :session="session" :highlight="highlight" compact />
       <MiningActionCard
+        v-if="mining.selection.value"
         :key="mining.selection.value.target.nodeId"
         :session="session"
         :target="mining.selection.value.target"
@@ -18,6 +19,18 @@
         :outcome="mining.outcome.value"
         @mine="mining.mine()"
         @close="closeMining"
+      />
+      <FishingActionCard
+        v-else-if="fishing.selection.value"
+        :key="fishing.selection.value.target.nodeId"
+        :session="session"
+        :target="fishing.selection.value.target"
+        :phase="fishing.phase.value"
+        :outcome="fishing.outcome.value"
+        :biting="fishing.biting.value"
+        @cast="fishing.cast()"
+        @reel="fishing.reel()"
+        @close="closeFishing"
       />
     </div>
 
@@ -41,7 +54,10 @@ import { NODE_BY_ID } from '../../domain/catalog/nodes'
 import { nodeAt, worldNodePort } from '../../domain/nodePlacement'
 import type { DemoNodeTarget } from '../../demo/demoSession'
 import { useProfessionDemo } from '../../demo/useProfessionDemo'
+import { useFishingController } from '../../fishing/useFishingController'
 import { useMiningController, type MiningGamePort } from '../../mining/useMiningController'
+import { CompositeOverlay } from '../../overworld/compositeOverlay'
+import FishingActionCard from '../FishingActionCard.vue'
 import InventoryGrid from '../InventoryGrid.vue'
 import MiningActionCard from '../MiningActionCard.vue'
 import NodeInteractionPanel from '../NodeInteractionPanel.vue'
@@ -49,24 +65,43 @@ import ProfessionHud from '../ProfessionHud.vue'
 import '../professions.css'
 
 // Visual integration inside WildLands, mounted only in development builds
-// (WildlandsView). Mining uses the R31-C1 overlay in the real scene; other
-// professions keep the R31-B panel. Local demo session only: no writes, no
-// network, no presence messages.
+// (WildlandsView). Mining (R31-C1) and fishing (R31-C2) use their overlays in
+// the real scene; other professions keep the R31-B panel. Local demo session
+// only: no writes, no network, no presence messages.
 const props = defineProps<{ areaKind: 'town' | 'wild'; game: MiningGamePort | null }>()
 const emit = defineEmits<{ overlay: [open: boolean] }>()
+
+/** The bite window is short, so the card has to light up promptly. */
+const BITE_POLL_MS = 80
 
 const session = useProfessionDemo()
 const target = shallowRef<DemoNodeTarget | null>(null)
 const bagOpen = ref(false)
 const mining = useMiningController(session, () => props.game)
-const highlight = computed(() => (mining.outcome.value?.ok ? mining.outcome.value.placements : []))
+const fishing = useFishingController(session, () => props.game)
+/** The engine holds one overlay, so both professions share a composite. */
+const overlay = new CompositeOverlay(mining.overlay, fishing.overlay)
+const highlight = computed(() => {
+  if (mining.outcome.value?.ok) return mining.outcome.value.placements
+  const gather = fishing.outcome.value?.gather
+  return gather?.ok ? gather.placements : []
+})
 
-watch(() => props.game, game => { if (game) mining.attach() }, { immediate: true })
-onUnmounted(() => mining.detach())
+let bitePoll: ReturnType<typeof setInterval> | null = null
+
+watch(() => props.game, game => {
+  if (game) game.setSceneOverlay(overlay)
+}, { immediate: true })
+bitePoll = setInterval(() => fishing.syncBite(), BITE_POLL_MS)
+onUnmounted(() => {
+  if (bitePoll) clearInterval(bitePoll)
+  mining.detach()
+  fishing.detach()
+})
 
 /** Engine probe: walkable node tiles the navigator should approach and face. */
 function isWorldObject(hit: WorldObjectTarget): boolean {
-  return mining.isNode(hit) || otherNodeAt(hit) !== null
+  return mining.isNode(hit) || fishing.isSpot(hit) || otherNodeAt(hit) !== null
 }
 
 function otherNodeAt(hit: WorldObjectTarget): DemoNodeTarget | null {
@@ -75,12 +110,20 @@ function otherNodeAt(hit: WorldObjectTarget): DemoNodeTarget | null {
   if (!world) return null
   const placement = nodeAt(worldNodePort(world), hit.tx, hit.ty)
   const node = placement ? NODE_BY_ID.get(placement.definitionId) : undefined
-  return placement && node && node.profession !== 'mining' ? { nodeId: placement.nodeId, node, biome: placement.biome } : null
+  const handled = node && (node.profession === 'mining' || node.profession === 'fishing')
+  return placement && node && !handled ? { nodeId: placement.nodeId, node, biome: placement.biome } : null
 }
 
 /** Called by the engine for a tile beside or in front of the player. */
 function inspect(hit: WorldObjectTarget): boolean {
-  if (mining.inspect(hit)) return true
+  if (mining.inspect(hit)) {
+    fishing.close()
+    return true
+  }
+  if (fishing.inspect(hit)) {
+    mining.close()
+    return true
+  }
   const other = otherNodeAt(hit)
   if (!other) return false
   target.value = other
@@ -90,6 +133,11 @@ function inspect(hit: WorldObjectTarget): boolean {
 
 function closeMining(): void {
   mining.close()
+  bagOpen.value = false
+}
+
+function closeFishing(): void {
+  fishing.close()
   bagOpen.value = false
 }
 
