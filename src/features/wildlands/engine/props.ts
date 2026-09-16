@@ -8,31 +8,68 @@ import { packColor } from './pixels'
 import { capsules, ellipses, layer, shade, spriteFromPixels, type ShadeFn, type Sprite } from './sprite'
 import type { DecorKind } from './world'
 
-const LEAVES = ['#1d5a2e', '#2c7a37', '#44a043', '#6cc255', '#a4e27c']
-const LEAF_OUTLINE = '#133d20'
+export const LEAVES = ['#1d5a2e', '#2c7a37', '#44a043', '#6cc255', '#a4e27c']
+export const LEAF_OUTLINE = '#133d20'
+export const TRUNK_TONES = ['#4a2c1a', '#6b4125', '#8c5a33', '#a8743f']
+export const TRUNK_OUTLINE = '#2a180e'
 
 function trunk(w: number, h: number, x0: number, x1: number, y0: number, y1: number): Uint32Array {
   const cx = (x0 + x1) / 2
   const r = (x1 - x0) / 2
   return shade(w, h, capsules([[cx, y0, cx, y1, r]]), {
-    tones: ['#4a2c1a', '#6b4125', '#8c5a33', '#a8743f'],
-    outline: '#2a180e',
+    tones: TRUNK_TONES,
+    outline: TRUNK_OUTLINE,
     dither: 0.4,
   })
 }
 
-function tree(): Sprite {
-  const w = 34, h = 42
-  const base = trunk(w, h, 14, 20, 26, 38)
-  const canopy = shade(w, h, ellipses([
-    [17, 16, 12, 10], [9, 21, 7.5, 6.5], [25, 21, 7.5, 6.5], [17, 22, 10, 7], [12, 9, 6.5, 5.5], [22, 9, 6.5, 5.5],
-  ]), { tones: LEAVES, outline: LEAF_OUTLINE })
-  return spriteFromPixels(w, h, layer(base, canopy), 17, 39)
+/** Trees prototypes derive variants from, keeping the prop's exact footprint (R31-C3). */
+export type TreeKind = 'tree' | 'pine' | 'snowpine' | 'palm'
+
+export interface TreeMetrics {
+  readonly w: number
+  readonly h: number
+  /** Feet anchor inside the sprite. */
+  readonly ax: number
+  readonly ay: number
+  /** Trunk box: x0, x1, top, bottom. */
+  readonly trunk: readonly [number, number, number, number]
 }
 
-function pine(snowy: boolean): Sprite {
-  const w = 28, h = 44
-  const base = trunk(w, h, 11.5, 16.5, 32, 42)
+export const TREE_METRICS = {
+  tree: { w: 34, h: 42, ax: 17, ay: 39, trunk: [14, 20, 26, 38] },
+  pine: { w: 28, h: 44, ax: 14, ay: 43, trunk: [11.5, 16.5, 32, 42] },
+  snowpine: { w: 28, h: 44, ax: 14, ay: 43, trunk: [11.5, 16.5, 32, 42] },
+  palm: { w: 40, h: 46, ax: 15, ay: 45, trunk: [13, 18, 34, 44] },
+} as const satisfies Record<TreeKind, TreeMetrics>
+
+const TREE_CANOPY = [
+  [17, 16, 12, 10], [9, 21, 7.5, 6.5], [25, 21, 7.5, 6.5], [17, 22, 10, 7], [12, 9, 6.5, 5.5], [22, 9, 6.5, 5.5],
+] as const
+
+/** Bare trunk of a tree kind: what a stump or a sapling is carved from. */
+export function treeTrunkPixels(kind: TreeKind): Uint32Array {
+  const { w, h, trunk: box } = TREE_METRICS[kind]
+  return trunk(w, h, box[0], box[1], box[2], box[3])
+}
+
+/** The very pixels the world draws for this prop. */
+export function treeKindPixels(kind: TreeKind): Uint32Array {
+  if (kind === 'palm') return palmPixels()
+  if (kind !== 'tree') return pinePixels(kind === 'snowpine')
+  const { w, h } = TREE_METRICS.tree
+  const canopy = shade(w, h, ellipses(TREE_CANOPY), { tones: LEAVES, outline: LEAF_OUTLINE })
+  return layer(treeTrunkPixels('tree'), canopy)
+}
+
+function tree(): Sprite {
+  const { w, h, ax, ay } = TREE_METRICS.tree
+  return spriteFromPixels(w, h, treeKindPixels('tree'), ax, ay)
+}
+
+function pinePixels(snowy: boolean): Uint32Array {
+  const { w, h } = TREE_METRICS.pine
+  const base = treeTrunkPixels('pine')
   const tiers = [0, 1, 2, 3].map(i => ({ top: 1 + i * 8, bottom: 16 + i * 8, half: 5 + i * 3 }))
   const fn: ShadeFn = (x, y) => {
     const px = x + 0.5 - 14
@@ -54,11 +91,16 @@ function pine(snowy: boolean): Sprite {
     ? ['#173f33', '#255a45', '#35775a', '#dfe9f5', '#ffffff']
     : ['#143a29', '#1f5a38', '#2f7c47', '#48a258', '#76c56f']
   const crown = shade(w, h, fn, { tones, outline: '#0e2a1e', dither: 0.6 })
-  return spriteFromPixels(w, h, layer(base, crown), 14, 43)
+  return layer(base, crown)
 }
 
-function palm(): Sprite {
-  const w = 40, h = 46
+function pine(snowy: boolean): Sprite {
+  const { w, h, ax, ay } = TREE_METRICS.pine
+  return spriteFromPixels(w, h, pinePixels(snowy), ax, ay)
+}
+
+function palmPixels(): Uint32Array {
+  const { w, h } = TREE_METRICS.palm
   const stem = shade(w, h, capsules([
     [15, 44, 16, 34, 2.4], [16, 34, 19, 24, 2.2], [19, 24, 23, 15, 2],
   ]), { tones: ['#5d3b1f', '#86592f', '#a87a45', '#c9a066'], outline: '#35210f', dither: 0.3 })
@@ -80,7 +122,12 @@ function palm(): Sprite {
   const nuts = shade(w, h, ellipses([[21, 17, 2, 2], [25, 17, 2, 2]]), {
     tones: ['#4a2c14', '#7a4a22'], outline: '#2a180a', dither: 0,
   })
-  return spriteFromPixels(w, h, layer(layer(stem, leaves), nuts), 15, 45)
+  return layer(layer(stem, leaves), nuts)
+}
+
+function palm(): Sprite {
+  const { w, h, ax, ay } = TREE_METRICS.palm
+  return spriteFromPixels(w, h, palmPixels(), ax, ay)
 }
 
 export type Shape = readonly (readonly [number, number, number, number])[]
