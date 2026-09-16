@@ -155,7 +155,18 @@ export class MiningOverlay implements SceneOverlay {
     if (action && !action.resultApplied) action.onDone()
   }
 
+  /** A new game restarts the scene clock, so cached frames must be dropped. */
+  private rewind(): void {
+    this.views.clear()
+    this.particles = []
+    this.pops = []
+    this.visible = new Map()
+    this.previous = new Map()
+    this.seconds = 0
+  }
+
   private tick(seconds: number): void {
+    if (seconds < this.seconds) this.rewind()
     const dt = Math.max(0, Math.min(0.1, seconds - this.seconds))
     this.seconds = seconds
     this.particles = stepParticles(this.particles, dt)

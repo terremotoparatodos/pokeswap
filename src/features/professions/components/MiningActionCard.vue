@@ -54,11 +54,11 @@
     </details>
 
     <footer v-if="phase !== 'mining'" class="mc-actions">
-      <button type="button" class="pf-btn mc-mine" :disabled="phase === 'mining' || !statusView.canAct" @click="emit('mine')">
-        {{ phase === 'mining' ? 'Minando…' : phase === 'result' ? 'Seguir minando' : 'Minar' }}
+      <button type="button" class="pf-btn mc-mine" :disabled="!statusView.canAct" @click="emit('mine')">
+        {{ phase === 'result' ? 'Seguir minando' : 'Minar' }}
       </button>
       <button v-if="canRepair" type="button" class="pf-btn pf-btn--ghost" @click="repair">Reparar</button>
-      <button v-if="state.pending.length && phase !== 'mining'" type="button" class="pf-btn pf-btn--ghost" @click="collect">Recoger pendientes</button>
+      <button v-if="state.pending.length" type="button" class="pf-btn pf-btn--ghost" @click="collect">Recoger pendientes</button>
     </footer>
     <p v-if="note" class="mc-note">{{ note }}</p>
   </section>
