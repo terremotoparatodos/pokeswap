@@ -48,7 +48,7 @@
         <div v-if="bagOpen" class="lab-bag">
           <InventoryGrid :session="session" :highlight="highlight" compact />
         </div>
-        <p v-if="!controller.selection.value" class="lab-hint">Buscá un árbol con una marca de hacha en el tronco y tocálo.</p>
+        <p v-if="!controller.selection.value" class="lab-hint">Buscá un árbol con una cinta roja en el tronco y tocálo.</p>
         <div v-else class="lab-card">
           <LoggingActionCard
             :key="controller.selection.value.target.nodeId"

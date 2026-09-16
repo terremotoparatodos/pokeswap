@@ -128,8 +128,8 @@ const FISHING_STATES: readonly ContextState[] = [
 
 const commonTree = loggingTreeArt('common_tree', 'tree', 'ready')
 const LOGGING_STATES: readonly ContextState[] = [
-  { label: 'DECORATIVO', note: 'La mayoría del bosque: sin marca en el tronco', art: plainTreeArt('tree'), bubble: null, scale: 3 },
-  { label: 'AVAILABLE', note: 'Marca de hacha tallada en el tronco', art: commonTree, bubble: null, scale: 3 },
+  { label: 'DECORATIVO', note: 'La mayoría del bosque: sin cinta ni troncos al pie', art: plainTreeArt('tree'), bubble: null, scale: 3 },
+  { label: 'AVAILABLE', note: 'Cinta roja, muesca y troncos al pie', art: commonTree, bubble: null, scale: 3 },
   { label: 'INTERACTABLE', note: 'Al lado: burbuja con hacha + anillo suave', art: commonTree, bubble: bubbleArt('axe'), scale: 3 },
   { label: 'CHOPPING', note: 'Destello leve del tronco y temblor', art: brighten(commonTree, 0.18), bubble: null, scale: 3 },
   { label: 'LOCKED_LEVEL', note: 'Solo al acercarse', art: loggingTreeArt('pine_tree', 'pine', 'ready'), bubble: bubbleArt('lock'), scale: 3 },
@@ -138,6 +138,9 @@ const LOGGING_STATES: readonly ContextState[] = [
   { label: 'BROTE', note: 'Primer rebrote del tocón', art: loggingTreeArt('common_tree', 'tree', 'sprout'), bubble: null, scale: 4 },
   { label: 'ÁRBOL JOVEN', note: 'Casi listo para volver a talar', art: loggingTreeArt('common_tree', 'tree', 'sapling'), bubble: null, scale: 4 },
   { label: 'BOREAL', note: 'Corteza gris y copa nevada', art: loggingTreeArt('boreal_tree', 'snowpine', 'ready'), bubble: null, scale: 3 },
+  { label: 'PINO DECORATIVO', note: 'El pino del bosque, sin cinta', art: plainTreeArt('pine'), bubble: null, scale: 3 },
+  { label: 'PALMERA TALABLE', note: 'La misma cinta sobre el tronco inclinado', art: loggingTreeArt('common_tree', 'palm', 'ready'), bubble: null, scale: 3 },
+  { label: 'PALMERA DECORATIVA', note: 'Costa: la mayoría tampoco es recurso', art: plainTreeArt('palm'), bubble: null, scale: 3 },
 ]
 
 const CONTEXT: Readonly<Record<Kit, readonly ContextState[]>> = {

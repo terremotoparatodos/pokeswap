@@ -12,6 +12,9 @@ export const LEAVES = ['#1d5a2e', '#2c7a37', '#44a043', '#6cc255', '#a4e27c']
 export const LEAF_OUTLINE = '#133d20'
 export const TRUNK_TONES = ['#4a2c1a', '#6b4125', '#8c5a33', '#a8743f']
 export const TRUNK_OUTLINE = '#2a180e'
+/** The palm's stem is paler than the other trunks and always was; named, not changed. */
+export const PALM_TRUNK_TONES = ['#5d3b1f', '#86592f', '#a87a45', '#c9a066']
+export const PALM_TRUNK_OUTLINE = '#35210f'
 
 function trunk(w: number, h: number, x0: number, x1: number, y0: number, y1: number): Uint32Array {
   const cx = (x0 + x1) / 2
@@ -103,7 +106,7 @@ function palmPixels(): Uint32Array {
   const { w, h } = TREE_METRICS.palm
   const stem = shade(w, h, capsules([
     [15, 44, 16, 34, 2.4], [16, 34, 19, 24, 2.2], [19, 24, 23, 15, 2],
-  ]), { tones: ['#5d3b1f', '#86592f', '#a87a45', '#c9a066'], outline: '#35210f', dither: 0.3 })
+  ]), { tones: PALM_TRUNK_TONES, outline: PALM_TRUNK_OUTLINE, dither: 0.3 })
   const fronds: [number, number, number, number, number][] = []
   const top = [23, 14]
   for (const angle of [-165, -125, -60, -15, 25, 150]) {

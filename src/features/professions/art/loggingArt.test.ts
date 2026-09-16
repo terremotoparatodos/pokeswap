@@ -3,7 +3,7 @@ import { TREE_METRICS, treeKindPixels } from '../../wildlands/engine/props'
 import { LOGGING_ASSETS } from './loggingAssets'
 import { barkFlakeArt, leafArt, sawdustArt, splinterArt } from './loggingFx'
 import { axeIconArt, axeSwingArt, LOGGING_RESOURCE_ICON_IDS, loggingResourceIconArt } from './loggingItems'
-import { CUT_TONES, WOOD_TIERS } from './loggingPalette'
+import { CUT_TONES, RIBBON, WOOD_TIERS } from './loggingPalette'
 import { LOGGING_NODE_IDS, loggingTreeArt, NODE_TREE_KINDS, regrowState } from './loggingTrees'
 import { color, hasColor, opaqueCount } from './pixelArt'
 
@@ -21,12 +21,27 @@ describe('logging trees', () => {
     }
   })
 
-  it('marks a harvestable tree with a blaze without redrawing the prop', () => {
+  it('breaks the trunk silhouette with a notch and stacks logs at the foot', () => {
+    const { w, trunk } = TREE_METRICS.tree
     const plain = treeKindPixels('tree')
     const ready = loggingTreeArt('common_tree', 'tree', 'ready')
     expect(hasColor(ready, color(CUT_TONES[2]))).toBe(true)
-    // Same silhouette: the blaze only repaints bark pixels.
-    expect(opaqueCount(ready)).toBe(plain.filter(value => value !== 0).length)
+    expect(hasColor(ready, color(RIBBON.light)), 'ribbon').toBe(true)
+
+    // The notch is cut out of the trunk, not painted over it: somewhere down the
+    // trunk a row of the ready tree is narrower than the same row of the plain one.
+    const trunkRow = (pixels: Uint32Array, y: number) => {
+      let count = 0
+      for (let x = Math.floor(trunk[0]) - 1; x <= Math.ceil(trunk[1]) + 1; x++) if (pixels[y * w + x] !== 0) count++
+      return count
+    }
+    const rows = []
+    for (let y = Math.round(trunk[2]); y <= Math.round(trunk[3]); y++) rows.push(y)
+    expect(rows.some(y => trunkRow(ready.pixels, y) < trunkRow(plain, y)), 'notch').toBe(true)
+
+    // The logs sit beside the foot, so the tile-level silhouette changes too.
+    const footY = TREE_METRICS.tree.ay - 1
+    expect(trunkRow(ready.pixels, footY)).toBeGreaterThan(trunkRow(plain, footY))
   })
 
   it('gives each wood tier its own bark', () => {

@@ -25,6 +25,11 @@ export const RESIN_OUTLINE = '#4e330a'
 export const APRICORN_TONES = ['#4b2a6b', '#7a45a8', '#b183d6'] as const
 export const APRICORN_OUTLINE = '#2c173f'
 export const SAWDUST_TONE = '#d8b47e'
+/**
+ * The forester's ribbon: the one deliberately loud colour in the forest, the
+ * way the bobber is on the water. Nothing else in a WildLands wood is red.
+ */
+export const RIBBON = { light: '#f05a4a', dark: '#a82d27', tie: '#ffe9c9', outline: '#5e1712' } as const
 export const SPROUT_TONES = ['#2c7a37', '#6cc255', '#a4e27c'] as const
 
 export type AxeTier = 1 | 2 | 3
