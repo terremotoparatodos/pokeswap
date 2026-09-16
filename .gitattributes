@@ -1,0 +1,3 @@
+# Vitest writes snapshots with LF; checking them out as CRLF (core.autocrlf on Windows)
+# makes every test run rewrite the file and dirty the tree.
+*.snap text eol=lf
