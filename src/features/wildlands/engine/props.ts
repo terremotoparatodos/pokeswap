@@ -156,6 +156,18 @@ export const ROCK_RECIPES = {
   icerock: { w: 20, h: 15, shape: [[10, 9, 9, 5.5], [8, 7, 5, 4.5]], tones: ['#5e7ea8', '#86a8cf', '#b9d6f0', '#eef7ff'], outline: '#3a5578' },
 } as const satisfies Record<string, BlobRecipe>
 
+/**
+ * Bush volumes, shared with prototypes that derive variants from them
+ * (R31-C4.1 alchemy foraging), so a forage node keeps the prop's footprint.
+ */
+export const BUSH_RECIPES = {
+  bush: { w: 24, h: 17, shape: [[8, 10, 6.5, 5.5], [16, 10, 6.5, 5.5], [12, 7, 6.5, 5.5]], tones: LEAVES.slice(1), outline: LEAF_OUTLINE },
+  drybush: {
+    w: 22, h: 15, shape: [[7, 9, 6, 4.5], [15, 9, 6, 4.5], [11, 6, 6, 4.5]],
+    tones: ['#6b4a2a', '#8a6436', '#a88148', '#c9a15e'], outline: '#3e2a17',
+  },
+} as const satisfies Record<string, BlobRecipe>
+
 export const CRYSTAL_RECIPE = {
   w: 14, h: 18,
   shards: [[7, 9, 3.2, 8], [3.5, 12, 2.2, 5], [10.5, 12.5, 2.2, 4.5]] as readonly (readonly [number, number, number, number])[],
@@ -173,6 +185,10 @@ function blob(w: number, h: number, shape: Shape, tones: readonly string[], outl
 
 function rockBlob(recipe: BlobRecipe): Sprite {
   return blob(recipe.w, recipe.h, recipe.shape, recipe.tones, recipe.outline)
+}
+
+function blobOf(recipe: BlobRecipe, holes = 0): Sprite {
+  return blob(recipe.w, recipe.h, recipe.shape, recipe.tones, recipe.outline, holes)
 }
 
 function cactus(): Sprite {
@@ -223,9 +239,8 @@ export function buildPropSprites(): Record<DecorKind, Sprite> {
     cactus: cactus(),
     coral: coral(),
     crystal: crystal(),
-    bush: blob(24, 17, [[8, 10, 6.5, 5.5], [16, 10, 6.5, 5.5], [12, 7, 6.5, 5.5]], LEAVES.slice(1), LEAF_OUTLINE),
-    drybush: blob(22, 15, [[7, 9, 6, 4.5], [15, 9, 6, 4.5], [11, 6, 6, 4.5]],
-      ['#6b4a2a', '#8a6436', '#a88148', '#c9a15e'], '#3e2a17', 0.2),
+    bush: blobOf(BUSH_RECIPES.bush),
+    drybush: blobOf(BUSH_RECIPES.drybush, 0.2),
     rock: rockBlob(ROCK_RECIPES.rock),
     boulder: rockBlob(ROCK_RECIPES.boulder),
     icerock: rockBlob(ROCK_RECIPES.icerock),

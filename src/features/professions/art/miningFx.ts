@@ -44,7 +44,7 @@ export function glintArt(special: boolean): PixelArt {
 }
 
 /** Shared marker vocabulary across professions ('rod' is used by fishing). */
-export type BubbleKind = 'pick' | 'lock' | 'seal' | 'rod' | 'axe' | 'flask'
+export type BubbleKind = 'pick' | 'lock' | 'seal' | 'rod' | 'axe' | 'flask' | 'sickle' | 'hand'
 
 /** Pokémon-style thought bubble above an interactable node. */
 export function bubbleArt(kind: BubbleKind): PixelArt {
@@ -57,6 +57,10 @@ export function bubbleArt(kind: BubbleKind): PixelArt {
       axe: ['.hhh.', '.hh..', '..s..', '.s...', 's....'],
       // A round-bottomed flask: neck, shoulders and a filled belly.
       flask: ['..c..', '..L..', '.LLL.', 'LlllL', '.LLL.'],
+      // The sickle: a curved blade over a short grip.
+      sickle: ['.hhh.', 'h...h', 'h....', '..s..', '.s...'],
+      // An open hand: what you gather a berry or a herb with.
+      hand: ['.p.p.', 'ppppp', 'ppppp', '.ppp.', '..s..'],
     }
     const rows = [
       '.ooooooooo.',
@@ -77,6 +81,7 @@ export function bubbleArt(kind: BubbleKind): PixelArt {
       g: color(UI_GOLD),
       v: color('#5e7ea8'), V: color('#86a8cf'),
       c: color('#c09257'), L: color('#2c4250'), l: color('#d2436b'),
+      p: color('#e8b48a'),
     }, 5, 9)
   })
 }
