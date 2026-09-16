@@ -10,14 +10,14 @@ Minería agrega rocas con mineral; Pesca marca el agua. Tala tiene que convivir 
 
 De ahí la regla que ordena todo el kit:
 
-> **Un árbol talable es el árbol del mundo con una marca de hachero en el tronco.** Nada más. Sin contorno, sin ícono flotante, sin tinte.
+> **Un árbol talable es el árbol del mundo con la cinta de un hachero atada al tronco, una muesca abierta y sus primeros leños al pie.** Nada más. Sin contorno, sin ícono flotante, sin tinte.
 
 ## 2. Auditoría del bosque (antes de dibujar)
 
 | Aspecto | Qué encontré | Consecuencia |
 |---|---|---|
 | **Árboles** | `tree` 34×42, `pine` y `snowpine` 28×44, `palm` 40×46, generados con volúmenes y paleta de 5 tonos | Los nodos usan **las mismas recetas** (`treeKindPixels`), exportadas en R31-C3 sin cambiar un píxel del mundo |
-| **Tronco** | Cápsula de 4 tonos, contorno `#2a180e`, en una caja conocida por especie | La marca y el tocón se tallan sobre esa caja (`TREE_METRICS.trunk`) |
+| **Tronco** | Cápsula de 4 tonos, contorno `#2a180e`, en una caja conocida por especie | Las marcas y el tocón se tallan sobre esa caja (`TREE_METRICS.trunk`) |
 | **Colisión** | Todos los árboles son decor sólido | Se talan desde una casilla vecina, igual que las rocas: reusa la navegación de R31-C1 |
 | **Anclaje** | Pies en la base del tronco; sombra proyectada por hora | Tocón y árbol joven mantienen ancla y sombra |
 | **Copas** | Se superponen entre árboles vecinos | La selección se resuelve por casilla tocada, no por píxel de copa |
@@ -27,16 +27,24 @@ De ahí la regla que ordena todo el kit:
 
 | Nodo (R31-A) | Anfitrión | Qué lo distingue |
 |---|---|---|
-| Árbol común (T1) | `tree`, `palm` | Marca de hacha |
-| Pino (T1, Nv. 8) | `pine` | Marca + tres gotas de resina ámbar en el tronco |
-| Árbol de madera dura (T2, Nv. 15) | `tree` | Marca + corteza oscura con veta marcada |
-| Pino boreal (T3, Nv. 30) | `snowpine` | Marca + corteza gris y escarcha |
+| Árbol común (T1) | `tree`, `palm` | Cinta + muesca + troncos al pie |
+| Pino (T1, Nv. 8) | `pine` | Lo mismo + tres gotas de resina ámbar |
+| Árbol de madera dura (T2, Nv. 15) | `tree` | Lo mismo + corteza oscura con veta marcada |
+| Pino boreal (T3, Nv. 30) | `snowpine` | Lo mismo + corteza gris y escarcha |
 
 La **corteza se repinta por tier** (`retint`) sin tocar la copa: el árbol sigue siendo el mismo volumen, pero se lee que la madera es distinta.
 
-## 4. La marca de hacha (el descubrimiento)
+## 4. Cómo se distingue un árbol talable (el descubrimiento)
 
-Tres filas de madera clara con labio oscuro, talladas a media altura del tronco. Es una señal **diegética**: los hacheros marcan así los árboles que van a cortar.
+Este fue el punto más revisado de la fase. La primera versión era una **marca de hacha tallada en el tronco**: madera clara sobre corteza marrón. En el bosque no funcionaba — marrón sobre marrón, a tamaño de juego se leía como una mancha sucia en el medio del tronco y no como un corte.
+
+La señal definitiva son **tres cosas juntas**, todas diegéticas y todas parte del árbol:
+
+1. **La cinta del leñador** (`RIBBON`, `#f05a4a`): dos filas rojas atadas alrededor del tronco, con nudo claro y dos colas colgando, y un píxel de desborde a cada lado para que el contorno se quiebre. El rojo es **el único de su clase en un bosque de WildLands** (verdes y marrones), igual que el flotador en el agua de Pesca. Es lo que se ve desde lejos.
+2. **La muesca** (`carveNotch`): una cuña en V **recortada de la silueta**, no pintada encima, con duramen pálido adentro. Cambia el contorno del tronco, que es lo que el ojo lee cuando la pantalla está llena de árboles.
+3. **Los troncos cortados al pie** (`logStack`): dos leños con la cara pálida hacia el jugador, a ras de suelo, donde el bosque se lee casilla por casilla.
+
+**Todo va sobre el tronco que se ve.** `exposedTrunk` busca la franja de corteza libre de copa (comparando color de corteza, no opacidad) y ubica ahí cinta, muesca y marcas de tier. Sin eso, en un pino la cinta caía sobre la falda de la copa y quedaba una barra roja flotando; la palmera, que tiene su propio tono de tronco (`PALM_TRUNK_TONES`), no recibía ninguna marca. Con la franja medida, las cuatro categorías (común, palmera, pino, boreal) llevan la misma señal en el lugar correcto de cada especie.
 
 **Alternativas evaluadas:**
 
@@ -45,14 +53,15 @@ Tres filas de madera clara con labio oscuro, talladas a media altura del tronco.
 | Contorno o brillo en el árbol entero | Descartado: convierte el bosque en UI |
 | Ícono de hacha flotante sobre cada árbol | Descartado: mismo problema, y no escala a un bosque |
 | Una especie distinta solo para talar | Descartado: rompe la composición del bioma |
-| **Marca tallada en el tronco + burbuja al lado** | **Elegido**: se aprende una vez y sirve para siempre |
+| Marca de hacha tallada, sin color de contraste | **Probado y descartado**: marrón sobre marrón no se lee |
+| **Cinta roja + muesca en la silueta + troncos al pie** | **Elegido**: color que no existe en el bioma, silueta rota y una pista a ras de suelo |
 | Partículas continuas (hojas cayendo) | Descartado por rendimiento: serían decenas de árboles animados |
 
 ## 5. Estados visuales
 
 | Estado | Señal |
 |---|---|
-| AVAILABLE | Árbol normal con la marca en el tronco |
+| AVAILABLE | El árbol del mundo con cinta, muesca y leños al pie |
 | INTERACTABLE | Burbuja con hacha y anillo suave, solo al lado |
 | TARGETED | Anillo dorado |
 | CHOPPING | Destello leve del tronco y temblor de 1 px por hachazo |

@@ -11,14 +11,14 @@ Esta es la decisión estructural de la fase.
 - **Quién decide:** `nodeAt(world, tx, ty)` de R31-A. Para cada casilla con árbol tira un hash determinista con la semilla del mundo y lo compara con `ANCHOR_DENSITY` del ancla: **12 % de `tree`, 10 % de `pine` y `snowpine`, 20 % de `palm`**. El resto del bosque no es recurso.
 - **Determinista y sin estado:** la misma semilla da el mismo bosque para todos los jugadores y para el servidor; no hay lista de árboles guardada.
 - **Cómo escala al generador real:** no hace falta tocarlo. El cliente pinta lo que `nodeAt` dice, y el servidor de R32 validará con la misma función. Si más adelante se quiere menos densidad en zonas de ciudad o rutas, se ajusta `ANCHOR_DENSITY` o se agrega una regla de zona: el arte no cambia.
-- **Cómo lo ve el jugador:** el árbol talable tiene una **marca de hacha tallada en el tronco**; el decorativo no tiene nada. La galería muestra los dos juntos para comparar.
+- **Cómo lo ve el jugador:** el árbol talable lleva la **cinta roja de un hachero atada al tronco**, una **muesca** recortada de la silueta y **dos leños cortados al pie**; el decorativo no tiene nada. Las tres señales van sobre la franja de tronco que la copa deja ver, así que valen igual para un roble, una palmera, un pino o un boreal. La galería muestra talable y decorativo juntos, en las cuatro categorías, para comparar.
 - **La demo usa landmarks** (árbol común, pino, madera dura, boreal) solo para llevarte hasta un ejemplar concreto; el resto del bosque sigue la regla general.
 
 ## 2. Descubrimiento
 
 | Distancia | Qué ve el jugador |
 |---|---|
-| En pantalla | La marca en el tronco: un árbol talable se reconoce por el árbol, no por un ícono |
+| En pantalla | La cinta roja en el tronco (el único rojo del bosque) y los leños al pie: un árbol talable se reconoce por el árbol, no por un ícono |
 | Dentro del radio de prospección | Madera dura y boreal destellan cada pocos segundos |
 | Al lado | Burbuja con hacha sobre la copa y anillo suave en el suelo |
 

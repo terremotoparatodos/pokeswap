@@ -11,7 +11,7 @@ Archivo: `art/loggingTrees.ts` · función `loggingTreeArt(nodeId, kind, state)`
 
 | id (patrón) | Uso | Dimensiones | Variantes | Notas |
 |---|---|---|---|---|
-| `tree.common_tree.tree.{ready,stump,sprout,sapling}` | Overworld, reemplaza el árbol anfitrión | 34×42 | 4 | Marca de hacha; tocón con anillos |
+| `tree.common_tree.tree.{ready,stump,sprout,sapling}` | Overworld, reemplaza el árbol anfitrión | 34×42 | 4 | Cinta roja, muesca y leños al pie; tocón con anillos |
 | `tree.common_tree.palm.*` | Overworld (playa) | 40×46 | 4 | Mismo lenguaje sobre la palmera |
 | `tree.pine_tree.pine.*` | Overworld (bosque) | 28×44 | 4 | Marca + gotas de resina |
 | `tree.hardwood_tree.tree.*` | Overworld (bosque) | 34×42 | 4 | Corteza oscura con veta |

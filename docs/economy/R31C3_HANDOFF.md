@@ -30,7 +30,7 @@
 
 | Verificado | Resultado |
 |---|---|
-| Laboratorio de tala | El motor real renderiza el bosque de Pradera; solo algunos árboles llevan marca |
+| Laboratorio de tala | El motor real renderiza el bosque de Pradera; solo algunos árboles llevan cinta |
 | Seleccionar árbol | El jugador camina hasta el costado, encara el árbol y abre la tarjeta ("Quedan 6 cortes") |
 | Talar | La tarjeta colapsa a "Talando…", aparece el Pokémon trabajador, se ve el hacha y sale "+1 Tronco Común, +1 Resina, +45 XP Tala, −9,16 energía, −1 durabilidad"; mochila 9 → 11 |
 | Agotar | 6 cortes dejan "Agotado para vos · Se recupera en 1:04" y el árbol pasa a tocón (`art: 'stump'`) mientras el resto del bosque sigue en pie |
@@ -39,13 +39,14 @@
 | Reparar | "Reparada · usaste 3 Piedra"; el máximo baja de 60 a 55 |
 | Madera dura | Nivel 18 ≥ 15: "+1 Madera Dura, +110 XP Tala, −18,81 energía, −2 durabilidad" y destello de prospección sobre el árbol |
 | Inventario lleno | Preset "Llena": "Inventario lleno · Liberá espacio para seguir" y botón deshabilitado |
-| Galería | Pestaña Tala con 54 assets y la fila de contexto, incluyendo **decorativo frente a talable** |
+| Galería | Pestaña Tala con 54 assets y la fila de contexto, incluyendo **decorativo frente a talable** en las cuatro categorías (roble, pino, boreal y palmera) |
 | Móvil 375×812 | Loop completo: selección, tala con la tarjeta colapsada, resultado con íconos y mochila 9 → 11; botones de 44 px y sin scroll horizontal |
 
 **Bugs encontrados y corregidos durante la fase:**
 1. **Hacha rota poco legible:** el ícono roto tenía la misma cantidad de píxeles que el sano; ahora el mango queda partido y la cabeza desprendida (lo detectó un test).
-2. **Marca de hacha demasiado sutil:** pasó de dos a tres filas con labio oscuro para leerse a distancia.
-3. **Íconos de madera como letras:** el servidor de desarrollo tenía módulos viejos en caché; con un servidor limpio se confirmó que `ItemGlyph` ya usa el kit de Tala. No era un bug del código.
+2. **La marca de hacha no se leía (revisión del usuario):** era madera clara sobre corteza marrón y a tamaño de juego parecía una mancha en el medio del tronco. Se reemplazó por tres señales: cinta roja del leñador, muesca recortada de la silueta y dos leños al pie. Además, todas se ubican sobre la franja de tronco libre de copa (`exposedTrunk`), porque atarla a una altura fija dejaba la cinta flotando sobre la falda del pino y a la palmera sin ninguna marca (su tronco usa su propia paleta, ahora nombrada `PALM_TRUNK_TONES`).
+3. **Cuidado con el entorno de desarrollo (no es un bug del producto):** en la ruta virtualizada donde se trabajó esta fase el watcher de Vite no detecta los cambios de archivo, así que el navegador sigue sirviendo el módulo viejo por más que se recargue. Cualquier revisión visual exige matar el proceso del puerto, borrar `node_modules/.vite` y levantar el servidor de nuevo. Esto explicó dos falsos "bugs" de la fase.
+4. **Íconos de madera como letras:** el servidor de desarrollo tenía módulos viejos en caché; con un servidor limpio se confirmó que `ItemGlyph` ya usa el kit de Tala. No era un bug del código.
 
 **No verificado** (dicho con honestidad):
 - **WildLands real (`WildlandsView`):** sin Supabase ni realtime el jugador es espectador; el laboratorio usa la misma clase `WildlandsGame`, el mismo overlay y el mismo controlador.
@@ -58,7 +59,7 @@
 ## 3. Decisiones que requieren aprobación
 
 1. **Árboles talables = subconjunto determinista** por densidad de ancla (12 % `tree`, 10 % `pine`/`snowpine`, 20 % `palm`), sin lista guardada.
-2. **La marca de hacha en el tronco** es la única señal permanente; nada de contornos ni íconos flotantes.
+2. **Cinta roja + muesca + leños al pie** son las únicas señales permanentes, siempre sobre el tronco visible; nada de contornos ni íconos flotantes. El rojo es deliberado: es el único del bioma.
 3. **El árbol cae solo en el último corte** (opción C: inclinación + hojas + tocón), no en cada acción.
 4. **Corteza repintada por tier** sobre el mismo volumen del prop.
 5. **Sin recursos nuevos:** troncos, resina y Bonguri son los de R31-A. Corteza, savia y semillas quedan como propuesta.
@@ -89,7 +90,7 @@ Esa extracción es mecánica y está cubierta por tests puros; conviene hacerla 
 
 ## 6. Siguiente paso sugerido
 
-1. **Aprobar el lenguaje de Tala** (marca en el tronco, caída en el último corte, tres etapas de rebrote).
+1. **Aprobar el lenguaje de Tala** (cinta, muesca y leños en el tronco visible; caída en el último corte; tres etapas de rebrote).
 2. **Extracción corta** de las piezas de §5.
 3. **Alquimia** con el kit ya compartido.
 4. **R32:** contrato de servidor para nodos y contenedores.
