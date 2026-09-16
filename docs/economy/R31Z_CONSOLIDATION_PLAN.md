@@ -381,3 +381,51 @@ Objetivo: **mismo comportamiento observable**, menos duplicación estructural.
 **Reglas:** trace sin `-u` después de cada paso (si cambia un snapshot, detenerse y explicar); stress y `hostileInputs` en verde; suite de professions en cada paso y suite completa en los checkpoints; fachadas (`useMiningController`, `useLoggingController`, `useForageController`), nombres de función, refs y literales de phase **sin cambios**. Pesca conserva su controller (opción B) y Alquimia sigue siendo processing.
 
 **Fuera del Bloque A:** node index, tarjetas de acción, interaction host, `spawnBeside` compartido y retiro de `otherNodeAt` (R31-Z.1), economía, balance, timings, VFX, assets, motor de WildLands, servicio realtime, Supabase y `main`.
+
+### Resultado del Bloque A (2026-09-16)
+
+**Estructura final**
+
+| Módulo compartido (`overworld/`) | Qué contiene | Usado por |
+|---|---|---|
+| `rewardPops.ts` | Pops "+N"/"+XP": layout, stagger, deriva, fundido, poda, íconos y labels | Las 5 overlays |
+| `workerSummon.ts` | `summonWorkerOnce` (una vez por acción sobre `workerSpot` + `WorkerCompanion`) y `openGround` | Las 5 overlays |
+| `gatheringOverlayCore.ts` | Caché de targets, vistas cacheadas, ciclo de vida de la acción (start/resultado/linger/done/cancel/rewind), anillos, burbujas y destellos, herramienta en mano, worker, pops | Minería, Tala, Forage |
+| `gatheringController.ts` | attach/detach, sonda del navegador, inspect, close y la acción (adyacencia, re-chequeo del nodo, lock de input, arranque, aplicación del resultado) | Fachadas de Minería, Tala, Forage |
+
+Vive en `overworld/` porque es la carpeta de infraestructura compartida que el test de aislamiento ya autoriza a usar los puertos del motor. El núcleo de controller no importa Vue (recibe los refs como `{ value }`), así que no hizo falta tocar ese test.
+
+**Lo que siguió siendo específico:** arte, timelines y poses; chips (Minería); astillas, hojas y caída en la última carga (Tala); mano/hoz, motas y el scan de `herb_patch` sin cambios (Forage); todo el flujo de lanzar/esperar/pique/recoger (Pesca); estación, recetas, lote y progreso (Alquimia).
+
+**Paso 8 — no se extrajo un ciclo de vida compartido con Pesca y Alquimia.** `detach` de Alquimia necesita `stopProgress()` en medio (un hook propio) y la precarga del worker usa `watch` de Vue: compartirla obligaría a ampliar la lista de composables del test de aislamiento o a inyectar `watch`. Ganancia estimada: ~12 líneas. No compensa.
+
+**Equivalencia**
+
+| Evidencia | Resultado |
+|---|---|
+| Overlay trace (11 escenarios + 4 del arnés), sin `-u`, después de cada commit | md5 `334b1e04eb1e40f528f313573d4ac618` en todos los pasos |
+| `professionsStress.test.ts` + `hostileInputs.test.ts` | Verdes en todos los pasos |
+| Suite completa | 88 archivos / 727 tests (720 + 7 unitarios nuevos de pops y worker) |
+| Simulador (base, month-100, veterans) | Totales idénticos |
+| Build de producción vs `f2c615e` | **Idéntico byte a byte** (1.061 archivos) |
+| Cambios fuera de `src/features/professions` y `docs` | Ninguno |
+
+**Líneas (controllers y overlays afectados)**
+
+| Archivo | Antes | Después |
+|---|---|---|
+| `miningOverlay.ts` | 348 | 141 |
+| `loggingOverlay.ts` | 377 | 172 |
+| `forageOverlay.ts` | 444 | 234 |
+| `fishingOverlay.ts` | 432 | 397 |
+| `alchemyOverlay.ts` | 313 | 287 |
+| `useMiningController.ts` | 115 | 56 |
+| `useLoggingController.ts` | 111 | 59 |
+| `useForageController.ts` | 117 | 65 |
+| `useFishingController.ts` | 154 | 154 |
+| `useAlchemyController.ts` | 172 | 172 |
+| **Subtotal** | **2.583** | **1.737** |
+| Módulos compartidos nuevos (sin tests) | — | 615 |
+| **Total** | **2.583** | **2.352 (−231, −9 %)** |
+
+La duplicación estructural eliminada es mayor que el neto: las tres overlays de gathering bajaron 622 líneas y sus controllers 163, reemplazadas por 479 líneas compartidas (núcleo de overlay + núcleo de controller); los pops y el summon repetidos cinco veces pasaron a 136 líneas.
