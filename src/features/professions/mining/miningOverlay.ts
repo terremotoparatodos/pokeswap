@@ -2,6 +2,10 @@
 // the WildLands renderer — node variants, proximity bubbles and rings,
 // prospecting glints, the pickaxe swing, impact particles and reward pops.
 //
+// R31-Z: the lifecycle, rings, markers, worker and pops shared with logging
+// and foraging live in `overworld/gatheringOverlayCore.ts`; this file keeps
+// what is mining's own — rock art, the swing, the chips.
+//
 // Browser runtime only (it builds canvases). All decisions come from pure
 // modules: node status (demo session), visual state, action timeline,
 // particles and rarity. It never writes anything outside local memory.
@@ -9,23 +13,19 @@
 import type { Area } from '../../wildlands/engine/area'
 import type { Dir } from '../../wildlands/engine/characters'
 import type { DecorInstance } from '../../wildlands/engine/chunks'
-import type { DecorStyle, OverlayLabel, OverlaySprite, SceneOverlay } from '../../wildlands/engine/sceneOverlay'
-import { TILE, type World } from '../../wildlands/engine/world'
-import { NODE_BY_ID } from '../domain/catalog/nodes'
-import { detectionRadius, nodeAt, worldNodePort, type NodeWorldPort } from '../domain/nodePlacement'
+import type { DecorStyle, OverlaySprite } from '../../wildlands/engine/sceneOverlay'
 import { createSeededRandom } from '../domain/rng'
-import type { ItemStack } from '../domain/types'
-import { bubbleArt, chipArt, dustArt, glintArt, RARITY_CHIP_TONES, sparkArt } from '../art/miningFx'
+import { chipArt, dustArt, glintArt, RARITY_CHIP_TONES, sparkArt } from '../art/miningFx'
 import { pickaxeSwingArt, resourceIconArt, type PickaxeTier } from '../art/miningItems'
 import { isMiningAnchor, isMiningNodeId, miningNodeArt, RESPAWN_FRAMES } from '../art/miningNodes'
-import { brighten, toSprite, type PixelArt } from '../art/pixelArt'
-import { RewardPops } from '../overworld/rewardPops'
-import { WorkerCompanion } from '../overworld/workerCompanion'
-import { openGround, summonWorkerOnce } from '../overworld/workerSummon'
-import { inspectDemoNode, type DemoNodeTarget, type DemoState } from '../demo/demoSession'
-import { resolveNodeStatus } from '../ui/nodeStatus'
+import { toSprite } from '../art/pixelArt'
+import {
+  GatheringOverlayCore,
+  type ActiveGathering, type GatheringOverlayDeps, type GatheringReward, type RingStyle, type StartGathering,
+  type ViewInput, type VisibleNode,
+} from '../overworld/gatheringOverlayCore'
 import { miningPose, strikesBetween, type MiningTimeline } from './miningAction'
-import { RARITY_FEEDBACK, rarityOfItem, type DropRarity } from './miningRarity'
+import { rarityOfItem } from './miningRarity'
 import { nodeVisual, respawnFrame, type NodeVisualView } from './nodeVisualState'
 import { spawnImpact, stepParticles, type Particle } from './particles'
 
@@ -39,178 +39,57 @@ export interface OverlayPlayer {
   readonly areaId: string
 }
 
-export interface MiningOverlayDeps {
-  state(): DemoState
-  player(): OverlayPlayer | null
-  /** Prospecting bonus (affinity `detection`) used for the glint radius. */
-  detection(): number
-  targetId(): string | null
-}
+export type MiningOverlayDeps = GatheringOverlayDeps
+export type MiningReward = GatheringReward
+export type StartMining = StartGathering<MiningTimeline, PickaxeTier>
 
-export interface MiningReward {
-  readonly stacks: readonly ItemStack[]
-  readonly xp: number
-  readonly rarity: DropRarity
-}
-
-export interface StartMining {
-  readonly target: DemoNodeTarget
-  readonly tx: number
-  readonly ty: number
-  readonly timeline: MiningTimeline
-  readonly tier: PickaxeTier
-  /** Species drawn beside the player during the action; null for bare work. */
-  readonly workerSpeciesId: number | null
-  /** Applies the action (local demo) when the last strike lands. */
-  readonly onResult: () => MiningReward | null
-  readonly onDone: () => void
-}
-
-interface ActiveAction extends StartMining {
-  readonly startedAt: number
-  lastMs: number
-  resultApplied: boolean
-  linger: number
-  /** The worker spot is chosen on the first drawn frame, when the area is known. */
-  summoned: boolean
-}
-
-interface VisibleNode {
-  readonly target: DemoNodeTarget
-  readonly tx: number
-  readonly ty: number
-  readonly x: number
-  readonly y: number
-  readonly height: number
-  readonly view: NodeVisualView
-}
+type ActiveAction = ActiveGathering<StartMining>
 
 const RARE_NODES = new Set(['gold_vein', 'crystal_cluster'])
-const VIEW_REFRESH_SECONDS = 0.2
 
-export class MiningOverlay implements SceneOverlay {
-  private readonly ports = new Map<string, NodeWorldPort>()
-  private readonly placements = new Map<string, DemoNodeTarget | null>()
-  private readonly views = new Map<string, { at: number; view: NodeVisualView }>()
-  private readonly flashes = new WeakMap<PixelArt, PixelArt>()
+export class MiningOverlay extends GatheringOverlayCore<StartMining, ActiveAction, NodeVisualView, VisibleNode<NodeVisualView>> {
   private readonly random = createSeededRandom(0x51ab)
-  private visible = new Map<string, VisibleNode>()
-  private previous = new Map<string, VisibleNode>()
   private particles: Particle[] = []
-  private readonly pops = new RewardPops()
-  private action: ActiveAction | null = null
-  private readonly companion = new WorkerCompanion()
-  private seconds = 0
+  protected readonly rewardLift = 20
+  protected readonly ring: RingStyle = { rx: 10, ry: 6, strongFill: 'rgba(255, 210, 122, 0.16)', strongStroke: '#ffd27a' }
 
-  constructor(private readonly deps: MiningOverlayDeps) {}
-
-  get busy(): boolean {
-    return this.action !== null
+  protected ownsNode(nodeId: string): boolean {
+    return isMiningNodeId(nodeId)
   }
 
-  /** Mining node hosted by a world tile, or null. Cached: nodes are deterministic. */
-  targetAt(area: Area, tx: number, ty: number): DemoNodeTarget | null {
-    if (area.kind !== 'wild') return null
-    const key = `${area.id}:${tx}:${ty}`
-    if (this.placements.has(key)) return this.placements.get(key)!
-    const world = (area as { world?: World }).world
-    let target: DemoNodeTarget | null = null
-    if (world) {
-      let port = this.ports.get(area.id)
-      if (!port) this.ports.set(area.id, (port = worldNodePort(world)))
-      const placement = nodeAt(port, tx, ty)
-      const node = placement ? NODE_BY_ID.get(placement.definitionId) : undefined
-      if (placement && node && isMiningNodeId(node.id)) target = { nodeId: placement.nodeId, node, biome: placement.biome }
-    }
-    this.placements.set(key, target)
-    return target
-  }
-
-  start(options: StartMining): void {
-    this.action = { ...options, startedAt: this.seconds, lastMs: 0, resultApplied: false, linger: 0, summoned: false }
-    this.views.delete(options.target.nodeId)
-    if (options.workerSpeciesId !== null) this.companion.preload(options.workerSpeciesId)
-  }
-
-  /** Warms a worker sheet ahead of the first action. */
-  preloadWorker(speciesId: number): void {
-    this.companion.preload(speciesId)
-  }
-
-  /** Stops any running action immediately (e.g. the view unmounts); the worker fades out. */
-  cancel(): void {
-    const action = this.action
-    this.action = null
-    this.companion.dismiss(this.seconds)
-    if (action && !action.resultApplied) action.onDone()
-  }
-
-  /** A new game restarts the scene clock, so cached frames must be dropped. */
-  private rewind(): void {
-    this.views.clear()
-    this.particles = []
-    this.pops.clear()
-    this.visible = new Map()
-    this.previous = new Map()
-    this.seconds = 0
-  }
-
-  private tick(seconds: number): void {
-    if (seconds < this.seconds) this.rewind()
-    const dt = Math.max(0, Math.min(0.1, seconds - this.seconds))
-    this.seconds = seconds
-    this.particles = stepParticles(this.particles, dt)
-    this.pops.prune(seconds)
-    const action = this.action
-    if (!action) return
-    const elapsed = (seconds - action.startedAt) * 1000
-    const x = action.tx * TILE + TILE / 2
-    const y = action.ty * TILE + TILE - 3
-    const player = this.deps.player()
-    const away = player ? Math.sign(action.tx - player.tx) : 0
-    const nodeRarity = rarityOfItem(action.target.node.drops.primary.itemId)
-    for (let i = strikesBetween(action.timeline, action.lastMs, elapsed).length; i > 0; i--) {
-      this.particles = spawnImpact(this.particles, { x, y, z: 6, rarity: nodeRarity === 'common' ? 'common' : 'uncommon', away, random: this.random })
-    }
-    if (!action.resultApplied && elapsed >= action.timeline.resultAtMs) {
-      action.resultApplied = true
-      this.views.delete(action.target.nodeId)
-      const reward = action.onResult()
-      if (reward) this.celebrate(action, reward, x, y, away)
-    }
-    action.lastMs = elapsed
-    if (elapsed >= action.timeline.totalMs + action.linger) {
-      this.action = null
-      this.companion.dismiss(seconds)
-      action.onDone()
-    }
-  }
-
-  private celebrate(action: ActiveAction, reward: MiningReward, x: number, y: number, away: number): void {
-    const feedback = RARITY_FEEDBACK[reward.rarity]
-    action.linger = feedback.lingerMs
-    this.particles = spawnImpact(this.particles, { x, y, z: 8, rarity: reward.rarity, away, random: this.random })
-    this.pops.pushGathered(reward.stacks, reward.xp, x, y, 20, this.seconds)
-  }
-
-  private viewFor(target: DemoNodeTarget, tx: number, ty: number): NodeVisualView {
-    const targeted = this.deps.targetId() === target.nodeId
-    const mining = this.action?.target.nodeId === target.nodeId
-    const player = this.deps.player()
-    const adjacent = !!player && !player.moving && Math.abs(player.tx - tx) + Math.abs(player.ty - ty) === 1
-    const cached = this.views.get(target.nodeId)
-    if (cached && !targeted && !mining && this.seconds - cached.at < VIEW_REFRESH_SECONDS && (cached.view.bubble !== null) === adjacent) return cached.view
-    const inspection = inspectDemoNode(this.deps.state(), target)
-    const radius = detectionRadius(this.deps.detection())
-    const view = nodeVisual({
-      status: resolveNodeStatus({ ...inspection, phase: 'idle' }),
-      adjacent, targeted, mining,
+  protected buildView({ target, status, inspection, adjacent, targeted, working, detected }: ViewInput): NodeVisualView {
+    return nodeVisual({
+      status, adjacent, targeted, mining: working,
       respawnInSeconds: inspection.respawnInSeconds, respawnSeconds: target.node.respawnSeconds,
       rareNode: RARE_NODES.has(target.node.id),
-      detected: !!player && Math.max(Math.abs(player.tx - tx), Math.abs(player.ty - ty)) <= radius,
+      detected,
     })
-    this.views.set(target.nodeId, { at: this.seconds, view })
-    return view
+  }
+
+  protected stepEffects(dt: number): void {
+    this.particles = stepParticles(this.particles, dt)
+  }
+
+  protected resetEffects(): void {
+    this.particles = []
+  }
+
+  protected actionFrame(action: ActiveAction, elapsedMs: number, x: number, y: number): void {
+    const nodeRarity = rarityOfItem(action.target.node.drops.primary.itemId)
+    const away = this.awayFromPlayer(action)
+    for (let i = strikesBetween(action.timeline, action.lastMs, elapsedMs).length; i > 0; i--) {
+      this.particles = spawnImpact(this.particles, { x, y, z: 6, rarity: nodeRarity === 'common' ? 'common' : 'uncommon', away, random: this.random })
+    }
+  }
+
+  protected celebrationEffects(action: ActiveAction, reward: GatheringReward, x: number, y: number): void {
+    this.particles = spawnImpact(this.particles, { x, y, z: 8, rarity: reward.rarity, away: this.awayFromPlayer(action), random: this.random })
+  }
+
+  /** Chips fly away from the player: -1, 0 or 1 along x. */
+  private awayFromPlayer(action: ActiveAction): number {
+    const player = this.deps.player()
+    return player ? Math.sign(action.tx - player.tx) : 0
   }
 
   decor(decor: DecorInstance, area: Area): DecorStyle | null {
@@ -224,49 +103,16 @@ export class MiningOverlay implements SceneOverlay {
     if (action?.target.nodeId === target.nodeId) {
       const pose = miningPose(action.timeline, (this.seconds - action.startedAt) * 1000)
       dx = pose.nodeShake
-      if (pose.phase === 'strike') {
-        let flash = this.flashes.get(art)
-        if (!flash) this.flashes.set(art, (flash = brighten(art, 0.35)))
-        art = flash
-      }
+      if (pose.phase === 'strike') art = this.flashOf(art, 0.35)
     }
     this.visible.set(target.nodeId, { target, tx: decor.tx, ty: decor.ty, x: decor.x, y: decor.y, height: art.h, view })
     return { sprite: toSprite(art), dx }
   }
 
-  ground(g: CanvasRenderingContext2D, _area: Area, x0: number, y0: number, seconds: number): void {
-    this.tick(seconds)
-    this.previous = this.visible
-    this.visible = new Map()
-    for (const node of this.previous.values()) {
-      if (node.view.ring === 'none') continue
-      const cx = node.tx * TILE + TILE / 2 - x0
-      const cy = node.ty * TILE + TILE / 2 + 2 - y0
-      const strong = node.view.ring === 'strong'
-      const pulse = strong ? Math.sin(seconds * 5) * 0.6 : 0
-      g.save()
-      g.beginPath()
-      g.ellipse(cx, cy, 10 + pulse, 6 + pulse * 0.6, 0, 0, Math.PI * 2)
-      g.fillStyle = strong ? 'rgba(255, 210, 122, 0.16)' : 'rgba(255, 255, 255, 0.1)'
-      g.fill()
-      g.lineWidth = strong ? 1.5 : 1
-      g.strokeStyle = strong ? '#ffd27a' : 'rgba(255, 255, 255, 0.7)'
-      g.stroke()
-      g.restore()
-    }
-  }
-
   sprites(area: Area, seconds: number): readonly OverlaySprite[] {
     const out: OverlaySprite[] = []
     this.summonWorker(area)
-    for (const node of this.visible.values()) {
-      if (node.view.bubble && !this.action) {
-        out.push({ wx: node.x, wy: node.y, sprite: toSprite(bubbleArt(node.view.bubble), false), lift: node.height + 2 + Math.round(Math.sin(seconds * 3) * 1), depthBias: 0.5 })
-      }
-      if (node.view.glint && Math.sin(seconds * 2.3 + node.tx * 1.7 + node.ty) > 0.55) {
-        out.push({ wx: node.x - 3, wy: node.y, sprite: toSprite(glintArt(node.target.node.id === 'crystal_cluster'), false), lift: Math.round(node.height * 0.6), depthBias: 0.6 })
-      }
-    }
+    this.pushMarkers(out, seconds, node => ({ special: node.target.node.id === 'crystal_cluster', heightRatio: 0.6 }))
 
     const action = this.action
     const player = this.deps.player()
@@ -274,13 +120,7 @@ export class MiningOverlay implements SceneOverlay {
       const pose = miningPose(action.timeline, (seconds - action.startedAt) * 1000)
       if (pose.phase !== 'done') {
         const side = player.dir === 'left' || player.dir === 'up'
-        const offsetX = player.dir === 'right' ? 5 : player.dir === 'left' ? -5 : player.dir === 'down' ? 4 : -4
-        const offsetY = player.dir === 'down' ? 1 : player.dir === 'up' ? -1 : 0
-        out.push({
-          wx: player.x + offsetX, wy: player.y + offsetY,
-          sprite: toSprite(pickaxeSwingArt(action.tier, pose.phase === 'reward' ? 1 : pose.toolFrame, side), false),
-          lift: 7, depthBias: player.dir === 'up' ? -0.6 : 0.6,
-        })
+        out.push(this.toolSprite(player, pickaxeSwingArt(action.tier, pose.phase === 'reward' ? 1 : pose.toolFrame, side), 7))
       }
     }
 
@@ -297,17 +137,5 @@ export class MiningOverlay implements SceneOverlay {
 
     out.push(...this.pops.iconSprites(seconds, resourceIconArt))
     return out
-  }
-
-  /** Places the worker beside the player once per action: never on the node, water or solid tiles. */
-  private summonWorker(area: Area): void {
-    const action = this.action
-    const player = this.deps.player()
-    if (!action || !player) return
-    summonWorkerOnce(this.companion, action, player, action, openGround(area, (tx, ty) => this.targetAt(area, tx, ty) !== null))
-  }
-
-  labels(_area: Area, seconds: number): readonly OverlayLabel[] {
-    return this.pops.labels(seconds)
   }
 }
