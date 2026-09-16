@@ -22,14 +22,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { ITEM_BY_ID } from '../domain/catalog/items'
+import { alchemyIconArt } from '../art/alchemyItems'
 import { fishingResourceIconArt, ROD_ITEMS, rodIconArt, type RodTier } from '../art/fishingItems'
 import { AXE_ITEMS, axeIconArt, loggingResourceIconArt } from '../art/loggingItems'
 import type { AxeTier } from '../art/loggingPalette'
 import { PICKAXE_ITEMS, pickaxeIconArt, resourceIconArt, type PickaxeTier, type ToolArtCondition } from '../art/miningItems'
 import { toDataUrl } from '../art/pixelArt'
 
-// Mining (R31-C1) and fishing (R31-C2) items use pixel icons; items without art keep the
-// tier-ringed token until their profession gets its own kit.
+// Every profession kit (R31-C1 to C4) draws its own items; anything still
+// without art keeps the tier-ringed token.
 const props = withDefaults(defineProps<{ itemId: string; size?: number; condition?: ToolArtCondition }>(), { size: 22, condition: 'ok' })
 
 const PICKAXE_TIER = Object.fromEntries(Object.entries(PICKAXE_ITEMS).map(([tier, itemId]) => [itemId, Number(tier) as PickaxeTier]))
@@ -46,7 +47,7 @@ const iconUrl = computed(() => {
   const art = pickaxe ? pickaxeIconArt(pickaxe, props.condition)
     : rod ? rodIconArt(rod, props.condition)
       : axe ? axeIconArt(axe, props.condition)
-        : resourceIconArt(props.itemId) ?? fishingResourceIconArt(props.itemId) ?? loggingResourceIconArt(props.itemId)
+        : resourceIconArt(props.itemId) ?? fishingResourceIconArt(props.itemId) ?? loggingResourceIconArt(props.itemId) ?? alchemyIconArt(props.itemId)
   return art ? toDataUrl(art, Math.max(1, Math.round(props.size / 16))) : null
 })
 const tone = computed(() => {
