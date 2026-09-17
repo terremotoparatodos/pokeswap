@@ -42,13 +42,26 @@ describe('clean slate', () => {
   })
 
   it('does not reach into other product features for its data', () => {
+    // D1.1 §2: the lab is allowed to *consume* the shared WildLands engine —
+    // its sprite recipe and its real character sheets are what make the dungeon
+    // look like the same game. Everything else stays inside the namespace, and
+    // nothing in WildLands is modified.
+    const allowed = /\.\.\/\.\.\/wildlands\/engine\//
     for (const [path, source] of Object.entries(files)) {
+      if (path.includes('dungeonRoute.test')) continue
       const imports = [...source.matchAll(/from\s+['"](\.\.[^'"]*)['"]/g)].map(match => match[1])
       for (const specifier of imports) {
-        // Only the router test may look outside; everything else stays inside
-        // the prototype namespace.
-        if (path.includes('dungeonRoute.test')) continue
+        if (allowed.test(specifier)) continue
         expect(specifier.includes('/features/'), `${path} → ${specifier}`).toBe(false)
+      }
+    }
+  })
+
+  it('consumes the engine read-only: no import reaches a non-engine WildLands module', () => {
+    for (const [path, source] of Object.entries(files)) {
+      const wild = [...source.matchAll(/from\s+['"]([^'"]*wildlands[^'"]*)['"]/g)].map(match => match[1])
+      for (const specifier of wild) {
+        expect(specifier.includes('/engine/'), `${path} → ${specifier}`).toBe(true)
       }
     }
   })
