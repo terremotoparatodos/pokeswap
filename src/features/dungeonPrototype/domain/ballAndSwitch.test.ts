@@ -6,7 +6,7 @@
 // and catch rate of the Pokémon that left.
 
 import { describe, expect, it } from 'vitest'
-import { ballDuration, BALL_TIMING, createBattle, tick, type BattleState } from './battle'
+import { ballDuration, BALL_TIMING, createBattle, flee, tick, type BattleState } from './battle'
 import { BATTLE_ITEMS, buildParty, buildWild, combatantFor } from '../data/runFixtures'
 import { damage } from './party'
 import type { Rng } from './rng'
@@ -133,5 +133,46 @@ describe('a switch brings its own species (§3)', () => {
     ally.bar = 1
     tick(battle, 1 / 60)
     expect(ally.combatant.species).toBe(before)
+  })
+})
+
+describe('nobody stands there doing nothing (D1.2.4 §5)', () => {
+  it('falls back on Combate when every move is out of PP, and it hurts', () => {
+    const battle = fight(0.5, 999)
+    const ally = battle.actors.find(actor => actor.side === 'ally')!
+    const pokemon = ally.combatant.pokemon
+    for (const moveId of pokemon.moves) pokemon.pp[moveId] = 0
+    const before = pokemon.hp
+
+    ally.bar = 1
+    tick(battle, 1 / 60)
+
+    expect(battle.log.some(event => event.text.startsWith('Combate:'))).toBe(true)
+    // A quarter of its maximum, and it still hit the other side.
+    expect(before - pokemon.hp).toBeGreaterThanOrEqual(Math.round(pokemon.maxHp * 0.25))
+    expect(battle.log.some(event => event.text.includes('de daño'))).toBe(true)
+  })
+
+  it('never leaves a switch prepared, so the newcomer attacks', () => {
+    const battle = fight(0.5, 999)
+    const ally = battle.actors.find(actor => actor.side === 'ally')!
+    ally.prepared = { kind: 'switch', instanceId: battle.bench.p1[0].instanceId }
+    ally.bar = 1
+    tick(battle, 1 / 60)
+    expect(ally.prepared.kind).toBe('idle')
+
+    // The very next window is an attack, not another switch.
+    ally.bar = 1
+    tick(battle, 1 / 60)
+    const lines = battle.log.filter(event => event.actorId === ally.id)
+    expect(lines.some(event => event.kind === 'move')).toBe(true)
+    expect(lines.filter(event => event.kind === 'switch')).toHaveLength(1)
+  })
+
+  it('lets the player run from a fight without ending the run', () => {
+    const battle = fight(0.5, 999)
+    expect(flee(battle)).toBe(true)
+    expect(battle.outcome).toBe('aborted')
+    expect(flee(battle)).toBe(false)
   })
 })

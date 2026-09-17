@@ -36,11 +36,13 @@ const run = (battle: BattleState, seconds: number, step = 1 / 30): BattleState =
 }
 
 describe('action bar rhythm (D1 §21)', () => {
-  it('lands an average Pokémon in the 2–3 second window', () => {
+  // D1.2.4 §5 raised every cooldown by 50 %, so the window the D1 brief called
+  // 2–3 seconds is now 3–4.5. The shape is the approved one; the numbers moved.
+  it('lands an average Pokémon in the 3–4.5 second window', () => {
     const battle = battleOf()
     const average = cooldownOf(battle, actorById(battle, 'ally-0')!)
-    expect(average).toBeGreaterThanOrEqual(2)
-    expect(average).toBeLessThanOrEqual(3)
+    expect(average).toBeGreaterThanOrEqual(3)
+    expect(average).toBeLessThanOrEqual(4.5)
   })
 
   it('is deterministic: the same combatant always gets the same cooldown', () => {
@@ -96,7 +98,7 @@ describe('auto-repeat (D1 §20)', () => {
 
   it('falls back to the first usable move when nothing was ever chosen', () => {
     const battle = battleOf()
-    run(battle, 4)
+    run(battle, 8)
     const first = MOVES[buildParty()[0].moves[0]]
     expect(battle.log.some(event => event.actorId === 'ally-0' && event.text.includes(first.name))).toBe(true)
   })
@@ -111,7 +113,7 @@ describe('protect (D1 §24)', () => {
     expect(ally.shield).toBe(2)
 
     // Every enemy action that could hurt spends one charge.
-    run(battle, 20)
+    run(battle, 40)
     const absorbed = battle.log.filter(event => event.text.includes('Protección absorbió'))
     expect(absorbed.length).toBeGreaterThanOrEqual(1)
     expect(ally.shield).toBeLessThan(2)

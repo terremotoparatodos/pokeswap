@@ -53,8 +53,20 @@ export interface MoveDefinition {
   readonly recharges?: boolean
   /** True in ORAS; **single target in PokeSwap v1**. Kept so the data stays honest. */
   readonly spreadInOras?: boolean
+  /** Fraction of the user's own max HP this costs them (Combate). */
+  readonly recoilOfMaxHp?: number
+  /** Never offered in the four slots and never spends PP: it is what is left. */
+  readonly lastResort?: boolean
   readonly description: string
 }
+
+/**
+ * D1.2.4 §5: a Pokémon with nothing left to use falls back on this instead of
+ * standing there. 50 power Normal, and it costs the user a quarter of its own
+ * maximum HP. It is not in anybody's move list and never shows in the four
+ * slots — it is what happens when the slots are empty.
+ */
+export const STRUGGLE_ID = 'struggle'
 
 export const MOVES: Readonly<Record<string, MoveDefinition>> = {
   tackle: {
@@ -130,6 +142,11 @@ export const MOVES: Readonly<Record<string, MoveDefinition>> = {
     power: 150, accuracy: 90, pp: 5, priority: 0, recharges: true,
     description: 'Mucho daño a cambio de duplicar el cooldown siguiente: el coste es tiempo, no PP.',
   },
+  struggle: {
+    id: 'struggle', name: 'Combate', type: 'normal', category: 'physical', family: 'damage',
+    power: 50, accuracy: null, pp: 0, priority: 0, recoilOfMaxHp: 0.25, lastResort: true,
+    description: 'Lo que queda cuando no queda nada: 50 de potencia normal y te cuesta un cuarto de tu vida máxima.',
+  },
 }
 
 export const MOVE_IDS = Object.keys(MOVES)
@@ -141,7 +158,12 @@ export const isSingleTargetInV1 = (): true => true
 
 /** Up to four moves, as the UI shows them. */
 export const movesOf = (ids: readonly string[]): MoveDefinition[] =>
-  ids.map(moveById).filter((move): move is MoveDefinition => move !== null).slice(0, 4)
+  ids.map(moveById)
+    .filter((move): move is MoveDefinition => move !== null && !move.lastResort)
+    .slice(0, 4)
+
+/** The move a Pokémon is left with when every slot is empty. */
+export const struggleMove = (): MoveDefinition => MOVES[STRUGGLE_ID]
 
 /** A move counts as offensive — and so is absorbed by Protect — when it can hurt. */
 export const isOffensive = (move: MoveDefinition): boolean =>

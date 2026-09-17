@@ -87,11 +87,14 @@ export function effectiveStat(combatant: Combatant, stat: StatKey): number {
  *   Machamp L30 (eff. 47) → 2.94 s             "average"
  *   Jolteon L30 (eff. 92) → 2.10 s             "fast"
  */
+// D1.2.4 §5: every cooldown is 50 %% longer than the D1 values, so a fight is
+// readable while it is being played. PLAYTEST VALUES — the shapes are the
+// approved ones, only the numbers moved.
 export const ACTION_BAR = {
-  baseSeconds: 2.6,
+  baseSeconds: 3.9,
   referenceSpeed: 60,
-  minSeconds: 1.4,
-  maxSeconds: 4,
+  minSeconds: 2.1,
+  maxSeconds: 6,
   /** Multipliers applied to the *next* cooldown. APPROVED shapes, playtest values. */
   priorityMultiplier: 0.5,
   rechargeMultiplier: 2,

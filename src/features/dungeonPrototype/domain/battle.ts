@@ -23,7 +23,7 @@ import {
   ACTION_BAR, applyStage, computeDamage, confusionSelfDamage, cooldownAfter, cooldownSeconds,
   effectiveStat, poisonDamage, STATUS, type ActionBarConfig, type Combatant, type DamageRolls,
 } from './damage'
-import { isOffensive, moveById, type MoveDefinition } from './moves'
+import { isOffensive, moveById, STRUGGLE_ID, type MoveDefinition } from './moves'
 import { damage as dealDamage, heal, isFainted, restorePp, revive, spendPp, type PokemonInstance } from './party'
 import type { Rng } from './rng'
 
@@ -170,6 +170,14 @@ export const log = (battle: BattleState, actorId: string, kind: BattleEvent['kin
   battle.log.push({ at: Math.round(battle.seconds * 100) / 100, actorId, text, kind })
 }
 
+/** Running away (D1.2.4 §5): the fight ends, the Pokémon stays where it was. */
+export function flee(battle: BattleState): boolean {
+  if (battle.outcome !== 'ongoing' || battle.throw) return false
+  battle.outcome = 'aborted'
+  log(battle, 'ally-0', 'end', 'Huida')
+  return true
+}
+
 /** What the player taps. It only changes what is prepared; the bar keeps filling. */
 export function prepare(battle: BattleState, actorId: string, action: PreparedAction): boolean {
   const actor = actorById(battle, actorId)
@@ -195,15 +203,22 @@ const usableMoves = (pokemon: PokemonInstance): string[] =>
  * a player who never chose anything falls back to the first usable move. The
  * fight never stalls because the player looked away.
  */
+/**
+ * D1.2.4 §5: a Pokémon always does something. Whatever is prepared wins; then
+ * the move it used last if that still has PP; then its first move with PP; and
+ * when every slot is empty, Combate. The fight can no longer stall on an actor
+ * that has nothing to say.
+ */
 function resolveChoice(battle: BattleState, actor: BattleActor): PreparedAction {
   if (actor.prepared.kind !== 'idle') return actor.prepared
   const usable = usableMoves(actor.combatant.pokemon)
+  if (!usable.length) return { kind: 'move', moveId: STRUGGLE_ID }
   if (actor.side === 'enemy') {
     const moveId = battle.rng.pick(usable)
-    return moveId ? { kind: 'move', moveId } : { kind: 'idle' }
+    return { kind: 'move', moveId: moveId ?? usable[0] }
   }
   if (actor.lastMoveId && usable.includes(actor.lastMoveId)) return { kind: 'move', moveId: actor.lastMoveId }
-  return usable.length ? { kind: 'move', moveId: usable[0] } : { kind: 'idle' }
+  return { kind: 'move', moveId: usable[0] }
 }
 
 /** v1: one target, always the other side. No AoE, no friendly fire (§18, §34). */
@@ -214,11 +229,17 @@ function targetFor(battle: BattleState, actor: BattleActor): BattleActor | undef
 
 function executeMove(battle: BattleState, actor: BattleActor, move: MoveDefinition): void {
   const pokemon = actor.combatant.pokemon
-  if (!spendPp(pokemon, move.id)) {
+  // Combate has no PP to spend: it is what happens when there is none left.
+  if (!move.lastResort && !spendPp(pokemon, move.id)) {
     log(battle, actor.id, 'move', `${move.name} no tiene PP`)
     return
   }
-  actor.lastMoveId = move.id
+  if (move.recoilOfMaxHp) {
+    const cost = Math.max(1, Math.round(pokemon.maxHp * move.recoilOfMaxHp))
+    dealDamage(pokemon, cost)
+    log(battle, actor.id, 'move', `${move.name}: se hiere (${cost})`)
+  }
+  actor.lastMoveId = move.lastResort ? null : move.id
   actor.cooldownMultiplier = cooldownAfter(move, battle.config)
 
   if (move.family === 'protect') {
@@ -361,6 +382,10 @@ function resolve(battle: BattleState, actor: BattleActor): void {
     actor.cooldownMultiplier = 1
   } else if (action.kind === 'switch') {
     executeSwitch(battle, actor, action.instanceId)
+    // D1.2.4 §5: the switch is spent. Leaving it prepared made every later
+    // window try to send the same Pokémon in again — which is why the one that
+    // came in never attacked.
+    actor.prepared = { kind: 'idle' }
     return
   } else {
     actor.cooldownMultiplier = 1

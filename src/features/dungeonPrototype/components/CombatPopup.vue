@@ -24,6 +24,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (event: 'choose', actorId: string, action: PreparedAction): void
+  (event: 'flee'): void
 }>()
 
 type Drawer = 'none' | 'bag' | 'party'
@@ -45,9 +46,58 @@ watch(() => active.value && isFainted(active.value.combatant.pokemon), fainted =
   }
 })
 
-const SHORT: Record<StatusCondition, string> = {
-  none: '', burn: 'BRN', paralysis: 'PAR', poison: 'PSN', freeze: 'FRZ', sleep: 'SLP',
+// D1.2.4 §5: the panel talks like a person, not like a data sheet.
+const LONG: Record<StatusCondition, string> = {
+  none: '',
+  burn: 'Quemado',
+  paralysis: 'Paralizado',
+  poison: 'Envenenado',
+  freeze: 'Congelado',
+  sleep: 'Dormido',
 }
+
+const hpPct = (actor: BattleActor | undefined): number => (actor
+  ? Math.max(0, Math.min(100, (actor.combatant.pokemon.hp / actor.combatant.pokemon.maxHp) * 100))
+  : 0)
+
+/**
+ * The last thing that happened, rewritten for somebody who has never played a
+ * Pokémon game. The engine's log is precise; this is the version you read while
+ * the fight is running.
+ */
+const story = computed(() => {
+  void props.rev
+  const battle = props.battle
+  if (battle.throw) return 'La Poké Ball está en el aire…'
+  const last = battle.log[battle.log.length - 1]
+  if (!last) return 'El combate empezó.'
+  const who = last.actorId.startsWith('ally') ? 'Tu Pokémon' : 'El rival'
+  const text = last.text
+
+  const hurt = /^(.+?): (\d+) de daño/.exec(text)
+  if (hurt) return `${who} usó ${hurt[1]} e hizo ${hurt[2]} de daño.`
+  if (text.includes('Protección absorbió')) return `${who} bloqueó el ataque con Protección.`
+  if (text.includes('escudo')) return `${who} se protegió.`
+  if (text.startsWith('Estado: ')) {
+    const mark = LONG[text.replace('Estado: ', '') as StatusCondition]
+    return mark ? `${who} quedó ${mark.toLowerCase()}.` : `${who} sufrió un estado.`
+  }
+  if (text === 'Confusión') return `${who} quedó confundido.`
+  if (text.startsWith('Confusión:')) return `${who} está confundido y se golpeó solo.`
+  if (text.startsWith('Veneno:')) return `${who} perdió salud por el veneno.`
+  if (text === 'Despertó') return `${who} se despertó.`
+  if (text === 'Se debilitó') return `${who} ya no puede seguir.`
+  if (text.startsWith('Combate:')) return `${who} no tiene PP: usó Combate y se lastimó.`
+  if (text.includes('no tiene PP')) return `${who} se quedó sin PP en ese movimiento.`
+  if (text.startsWith('Cambio:')) return 'Cambiaste de Pokémon.'
+  if (text.startsWith('¡Capturado')) return '¡Lo atrapaste!'
+  if (text.startsWith('Se escapó')) return 'La Poké Ball se abrió: se escapó.'
+  if (text.includes('lanzada')) return 'Lanzaste una Poké Ball…'
+  if (text.startsWith('Huida')) return 'Te alejaste del combate.'
+  const item = /^(.+?): \+(\d+) (HP|PP)/.exec(text)
+  if (item) return `Usaste ${item[1]}: +${item[2]} ${item[3]}.`
+  return text
+})
 
 const nameOf = (actor: BattleActor | undefined): string =>
   actor ? speciesById(actor.combatant.pokemon.speciesId)?.name ?? '???' : ''
@@ -80,8 +130,9 @@ const bagList = computed(() => Object.entries(props.bag)
     <header class="cp-foe">
       <b>{{ nameOf(foe) }}</b>
       <span>{{ hpOf(foe) }}</span>
-      <em v-if="foe && foe.combatant.pokemon.status !== 'none'">{{ SHORT[foe.combatant.pokemon.status] }}</em>
+      <em v-if="foe && foe.combatant.pokemon.status !== 'none'">{{ LONG[foe.combatant.pokemon.status] }}</em>
     </header>
+    <div class="cp-bar"><i class="cp-bar--foe" :style="{ width: `${hpPct(foe)}%` }" /></div>
 
     <div v-if="allies.length > 1" class="cp-tabs">
       <button
@@ -94,8 +145,12 @@ const bagList = computed(() => Object.entries(props.bag)
     <header v-if="active" class="cp-mine">
       <b>{{ nameOf(active) }}</b>
       <span>{{ hpOf(active) }}</span>
-      <em v-if="active.combatant.pokemon.status !== 'none'">{{ SHORT[active.combatant.pokemon.status] }}</em>
+      <em v-if="active.combatant.pokemon.status !== 'none'">{{ LONG[active.combatant.pokemon.status] }}</em>
     </header>
+    <div class="cp-bar"><i class="cp-bar--mine" :style="{ width: `${hpPct(active)}%` }" /></div>
+
+    <!-- D1.2.4 §5: what just happened, in words anyone can read. -->
+    <p class="cp-log">{{ story }}</p>
 
     <div v-if="drawer === 'none'" class="cp-moves">
       <button
@@ -131,6 +186,7 @@ const bagList = computed(() => Object.entries(props.bag)
 
     <footer class="cp-tools">
       <button type="button" :class="{ 'cp-on': drawer === 'party' }" @click="drawer = drawer === 'party' ? 'none' : 'party'">Cambiar</button>
+      <button type="button" class="cp-flee" @click="emit('flee')">Huir</button>
       <button type="button" :class="{ 'cp-on': drawer === 'bag' }" @click="drawer = drawer === 'bag' ? 'none' : 'bag'">Mochila</button>
     </footer>
   </section>
@@ -181,7 +237,19 @@ const bagList = computed(() => Object.entries(props.bag)
 .cp-list button:disabled { opacity: 0.4; cursor: default; }
 .cp-list p { margin: 0; color: #6b7ba8; }
 
-.cp-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin-top: 6px; }
+.cp-bar {
+  position: relative; height: 5px; margin-top: 3px; overflow: hidden;
+  border-radius: 999px; background: #10162a;
+}
+.cp-bar i { position: absolute; inset: 0 auto 0 0; display: block; transition: width 0.2s linear; }
+.cp-bar--foe { background: #e3735a; }
+.cp-bar--mine { background: #57d86a; }
+.cp-log {
+  margin: 6px 0 0; min-height: 2.2em; padding: 4px 6px; border-radius: 6px;
+  background: #0d1426; color: #cfe0ff; font-size: 0.66rem; line-height: 1.25;
+}
+.cp-tools { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 6px; }
+.cp-tools .cp-flee { border-color: #7a4a3a; color: #ffc0a8; }
 .cp-tools button {
   padding: 6px; border: 1px solid #2b3a5e; border-radius: 7px; background: #101a2e;
   color: #cfe0ff; font: inherit; font-size: 0.68rem; cursor: pointer;
