@@ -103,7 +103,7 @@ export interface OverlaySource {
 const burstCache = new Map<string, Sprite>()
 
 /** A soft coloured ball of light, the one shape every attack effect is made of. */
-function burst(colour: string, radius: number): Sprite {
+export function burst(colour: string, radius: number): Sprite {
   const key = `${colour}:${radius}`
   const hit = burstCache.get(key)
   if (hit) return hit

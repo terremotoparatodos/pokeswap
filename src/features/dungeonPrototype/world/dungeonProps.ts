@@ -25,6 +25,8 @@ const PALETTE = {
   O: '#ffb03a', // flame light
   L: '#fff2c0', // glow
   I: '#c7e6ff', // ice/crystal highlight
+  r: '#c0392b', // deep red
+  c: '#2b3242', // clasp centre
 }
 
 function sprite(rows: readonly string[], ax?: number, ay?: number): Sprite {
@@ -32,52 +34,49 @@ function sprite(rows: readonly string[], ax?: number, ay?: number): Sprite {
   return spriteFromPixels(w, h, pixels, ax ?? w / 2, ay ?? h - 1)
 }
 
+// ── The chest (D1.2.2 §6) ──────────────────────────────────────────────────
+//
+// Redrawn to look like it belongs to PokeSwap rather than to a generic
+// dungeon: a rounded wooden case banded in gold, with a white-and-red lid and
+// a round clasp — the Poké Ball read, without being one.
+
 const CHEST_CLOSED = [
-  '..KKKKKKKKKK..',
-  '.KWWWWWWWWWWK.',
-  'KWWWWWWWWWWWWK',
-  'KWddddddddddWK',
-  'KKKKKKKKKKKKKK',
-  'KwGGGGGGGGGGwK',
-  'KwwwwGYYGwwwwK',
-  'KwwwwGYYGwwwwK',
-  'KwddwwwwwwddwK',
-  'KwddwwwwwwddwK',
-  '.KddddddddddK.',
-  '..KKKKKKKKKK..',
+  '....KKKKKKKK....',
+  '..KKGGGGGGGGKK..',
+  '.KGRRRRRRRRRRGK.',
+  'KGRRRRRRRRRRRRGK',
+  'KGRrRRRRRRRRrRGK',
+  'KKGGGGGGGGGGGGKK',
+  'KwWWWWWWWWWWWWwK',
+  'KwWWWWKKKKWWWWwK',
+  'KwWWWKGYYGKWWWwK',
+  'KwWWWKGYcYGKWWwK',
+  'KwWWWWKKKKWWWWwK',
+  'KwWWWWWWWWWWWWwK',
+  'KwWWWWWWWWWWWWwK',
+  '.KGGGGGGGGGGGGK.',
+  '..KKKKKKKKKKKK..',
 ]
 
 const CHEST_OPEN = [
-  '..K........K..',
-  '.KWKKKKKKKKWK.',
-  'KWWddddddddWWK',
-  'KWddddddddddWK',
-  '.KBBBBBBBBBBK.',
-  'KwBLLLLLLLLBwK',
-  'KwBLYYYYYYLBwK',
-  'KwwwwwwwwwwwwK',
-  'KwddwwwwwwddwK',
-  'KwddwwwwwwddwK',
-  '.KddddddddddK.',
-  '..KKKKKKKKKK..',
+  '..K..........K..',
+  '.KGKKKKKKKKKKGK.',
+  'KGRRRRRRRRRRRRGK',
+  'KGRrrrrrrrrrrRGK',
+  '.KKGGGGGGGGGGKK.',
+  'KKBBBBBBBBBBBBKK',
+  'KwBLLLLLLLLLLBwK',
+  'KwBLYYYYYYYYLBwK',
+  'KwBLLLLLLLLLLBwK',
+  'KwWWWWWWWWWWWWwK',
+  'KwWWWWWWWWWWWWwK',
+  'KwWWWWWWWWWWWWwK',
+  'KwWWWWWWWWWWWWwK',
+  '.KGGGGGGGGGGGGK.',
+  '..KKKKKKKKKKKK..',
 ]
 
-const STAIRS = [
-  'KKKKKKKKKKKKKKKK',
-  'KttttttttttttttK',
-  'KtBBBBBBBBBBBBtK',
-  'KtBssssssssssBtK',
-  'KtBsttttttttsBtK',
-  'KtBstSSSSSStsBtK',
-  'KtBstSBBBBStsBtK',
-  'KtBstSBBBBStsBtK',
-  'KtBstSSSSSStsBtK',
-  'KtBsttttttttsBtK',
-  'KtBssssssssssBtK',
-  'KtBBBBBBBBBBBBtK',
-  'KttttttttttttttK',
-  'KKKKKKKKKKKKKKKK',
-]
+// ── Doors ──────────────────────────────────────────────────────────────────
 
 const DOOR_LOCKED = [
   '...KKKKKKKK...',
@@ -155,14 +154,83 @@ const ENTRANCE = [
   '...KKKttttttttttKKK.....',
 ]
 
+// ── The stairway (D1.2.2 §7) ───────────────────────────────────────────────
+//
+// Read from directly above: a square landing cut into the floor, with steps
+// running down it as concentric bands that darken toward the middle. That is
+// the reading the handheld dungeon crawlers made famous — this is an original
+// drawing of it, generated rather than copied, so it sits flush in the ground
+// and is unmistakable from a distance.
+//
+// LOCKED puts a stone slab with a keyhole over the opening; OPEN shows the
+// steps, and the overlay adds a slow glint on top.
+
+const STAIR_SIZE = 22
+
+function stairPixels(open: boolean): Uint32Array {
+  const size = STAIR_SIZE
+  const out = new Uint32Array(size * size)
+  const frame = [packColor('#1a1f2b'), packColor('#4d5668'), packColor('#6f7a90'), packColor('#8b97ad')]
+  const steps = [packColor('#7f8b9f'), packColor('#69748a'), packColor('#535d72'), packColor('#3d4659'), packColor('#262d3d'), packColor('#11151f')]
+  const slab = [packColor('#5c6578'), packColor('#48505f'), packColor('#343b47')]
+  const gold = packColor('#d9a441')
+  const dark = packColor('#161a24')
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      // Chebyshev distance from the edge: concentric square bands.
+      const ring = Math.min(x, y, size - 1 - x, size - 1 - y)
+      let colour: number
+      if (ring === 0) colour = frame[0]
+      else if (ring <= 2) colour = frame[Math.min(frame.length - 1, ring)]
+      else {
+        const step = Math.min(steps.length - 1, ring - 3)
+        colour = steps[step]
+        // A groove between steps, so each band reads as an edge and not a blur.
+        if ((ring - 3) % 2 === 1 && (x + y) % 2 === 0) colour = steps[Math.min(steps.length - 1, step + 1)]
+      }
+      out[y * size + x] = colour
+    }
+  }
+
+  if (!open) {
+    // A slab over the hole, with a keyhole in the middle.
+    for (let y = 3; y < size - 3; y++) {
+      for (let x = 3; x < size - 3; x++) {
+        const band = ((x - 3) >> 2) + ((y - 3) >> 2)
+        out[y * size + x] = slab[band % slab.length]
+      }
+    }
+    const c = size / 2
+    for (let y = -3; y <= 3; y++) {
+      for (let x = -2; x <= 2; x++) {
+        const round = Math.abs(x) + Math.abs(y) <= 3
+        if (round) out[(c + y) * size + (c + x)] = dark
+      }
+    }
+    out[(c - 1) * size + c] = gold
+    out[c * size + c] = gold
+  }
+  return out
+}
+
 let cache: Record<string, Sprite> | null = null
 
 function all(): Record<string, Sprite> {
   if (cache) return cache
+  const landing = (open: boolean): Sprite => {
+    const made = spriteFromPixels(STAIR_SIZE, STAIR_SIZE, stairPixels(open), STAIR_SIZE / 2, STAIR_SIZE * 0.72)
+    // It is a hole in the ground, not a body: no projected shadow, and the
+    // anchor sits in the middle so the landing lies *around* the tile rather
+    // than standing up behind it.
+    made.castShadow = false
+    return made
+  }
   cache = {
     chestClosed: sprite(CHEST_CLOSED),
     chestOpen: sprite(CHEST_OPEN),
-    stairs: sprite(STAIRS, 8, 13),
+    stairsOpen: landing(true),
+    stairsLocked: landing(false),
     doorLocked: sprite(DOOR_LOCKED),
     doorOpen: sprite(DOOR_OPEN),
     torchA: sprite(TORCH_A),
@@ -173,7 +241,8 @@ function all(): Record<string, Sprite> {
 }
 
 export const chestSprite = (open: boolean): Sprite => (open ? all().chestOpen : all().chestClosed)
-export const stairsSprite = (): Sprite => all().stairs
+/** The way down: locked until the key drops, then open (§7). */
+export const stairsSprite = (open: boolean): Sprite => (open ? all().stairsOpen : all().stairsLocked)
 export const doorSprite = (open: boolean): Sprite => (open ? all().doorOpen : all().doorLocked)
 export const torchSprite = (seconds: number): Sprite => (Math.floor(seconds * 6) % 2 ? all().torchB : all().torchA)
 export const entranceSprite = (): Sprite => all().entrance
