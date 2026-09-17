@@ -323,6 +323,15 @@ function onArrive(tx: number, ty: number): void {
 }
 
 const nearby = computed(() => (session.value ? reachable(session.value) : []))
+
+/** E or Space, like the overworld: take the nearest thing worth taking. */
+function interactNearest(): void {
+  const live = session.value
+  if (!live || live.phase !== 'exploring') return
+  const first = nearby.value[0]
+  if (first) interact(first.id)
+  else if (atStairs(live)) useStairs()
+}
 const onStairs = computed(() => (session.value ? atStairs(session.value) : false))
 const doorOpen = computed(() => session.value?.expedition.key.hasKey ?? false)
 
@@ -506,7 +515,7 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
     <div class="pd-world">
       <WildStage
         v-if="!legacyRenderer" ref="wild" :session="session"
-        :pad="session.phase === 'exploring'" class="pd-stage" @arrive="onArrive"
+        :pad="session.phase === 'exploring'" class="pd-stage" @arrive="onArrive" @interact="interactNearest"
       />
       <DungeonStage
         v-else ref="stage" :view="view" :pad="session.phase === 'exploring'"

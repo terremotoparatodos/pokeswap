@@ -11,8 +11,9 @@ import CaptureLab from './CaptureLab.vue'
 import ExpeditionLab from './ExpeditionLab.vue'
 import GeneratorLab from './GeneratorLab.vue'
 import PlayDungeon from './PlayDungeon.vue'
+import WorldCompare from './WorldCompare.vue'
 
-type Tab = 'play' | 'generator' | 'battle' | 'capture' | 'expedition' | 'alpha'
+type Tab = 'play' | 'compare' | 'generator' | 'battle' | 'capture' | 'expedition' | 'alpha'| 'generator' | 'battle' | 'capture' | 'expedition' | 'alpha'
 
 const TABS: Readonly<Record<Tab, string>> = {
   play: '▶ PLAY DUNGEON',
@@ -21,6 +22,7 @@ const TABS: Readonly<Record<Tab, string>> = {
   capture: 'Captura',
   expedition: 'Expedición',
   alpha: 'Alpha Boss',
+  compare: 'Comparar con WildLands',
 }
 
 // The playable loop is the default: the technical labs stay for debugging.
@@ -49,6 +51,7 @@ const tab = ref<Tab>('play')
 
     <main class="dp-main">
       <PlayDungeon v-if="tab === 'play'" />
+      <WorldCompare v-else-if="tab === 'compare'" />
       <GeneratorLab v-else-if="tab === 'generator'" />
       <BattleLab v-else-if="tab === 'battle'" />
       <CaptureLab v-else-if="tab === 'capture'" />
