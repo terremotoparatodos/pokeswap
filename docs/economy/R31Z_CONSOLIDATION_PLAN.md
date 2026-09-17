@@ -429,3 +429,82 @@ Vive en `overworld/` porque es la carpeta de infraestructura compartida que el t
 | **Total** | **2.583** | **2.352 (−231, −9 %)** |
 
 La duplicación estructural eliminada es mayor que el neto: las tres overlays de gathering bajaron 622 líneas y sus controllers 163, reemplazadas por 479 líneas compartidas (núcleo de overlay + núcleo de controller); los pops y el summon repetidos cinco veces pasaron a 136 líneas.
+
+---
+
+## 12. Cierre de R31-Z (2026-09-16)
+
+### 12.1 Estado
+
+| Hito | Estado | Referencia |
+|---|---|---|
+| Baseline pre-refactor congelado | ✅ | `f2c615e`, snapshot md5 `334b1e04eb1e40f528f313573d4ac618` |
+| Bloque A: refactor productivo | ✅ | `781fc74`…`15075df` (§11) |
+| T-S2: QA post-refactor (estación secundaria) | ✅ Aprobada, **APTO PARA R31-Z.1** | `7aa153c`, integrada por merge `e89f150`; informe en [`R31Z_POST_REFACTOR_QA.md`](R31Z_POST_REFACTOR_QA.md) |
+| R31-Z.1: limpieza dev-only | ✅ | Ver §12.2 |
+
+T-S2 no encontró P0, P1 ni P2 atribuibles al refactor. Minería se validó manualmente de punta a punta; **Tala, Forage, Pesca y Alquimia no pudieron recorrerse manualmente** en el entorno de la estación secundaria. Eso no bloquea R31-Z.1, pero queda como gate antes de R32 (§12.3).
+
+### 12.2 R31-Z.1 — limpieza dev-only
+
+| Tarea | Resultado | Commit |
+|---|---|---|
+| A. `spawnBeside` compartido | Función pura en `components/playground/spawnBeside.ts` (recibe un puerto `isSolid`/`isWater`), con 6 tests. Igual a la copia anterior en 4.553 tiles de Pradera. Los 4 field labs la usan. `workerSpot` no se tocó | `af77efe` |
+| B. Camino muerto del demo en mundo | Retirados `otherNodeAt`, el ref `target`, el backdrop, `close()` y el uso de `NodeInteractionPanel` en `ProfessionWorldDemo.vue`. El componente sigue existiendo (lo usa el playground). El evento `overlay` sigue declarado para no cambiar el contrato con `WildlandsView` | `289a412` |
+| C. Mover `OverlayPlayer` a `overworld/` | **No se hizo.** Obligaba a cambiar los imports de `gatheringOverlayCore.ts` y `gatheringController.ts`, que esta fase no debía tocar. Sigue exportado desde `mining/miningOverlay.ts` | — |
+
+**Verificación:**
+- overlay trace sin `-u` (md5 `334b1e04…` después de cada commit);
+- stress y hostile inputs en verde;
+- suite completa, typecheck, lint y build;
+- aislamiento de `dist/`.
+
+**Pasada manual (Vite dev, caché limpia, variables placeholder):**
+- En los 4 labs, cada selector de ubicación (17 en total) dejó al jugador exactamente donde indica `spawnBeside`, en escritorio (1280 px) y a 375 px, con 1 canvas vivo, sin scroll horizontal y sin errores más allá de la red del Supabase placeholder.
+- En el demo en mundo (`/?area=pradera`) los 16 tipos de nodo siguen siendo interactuables, un tile vacío no lo es, tocar un nodo abre su tarjeta y no aparece ningún backdrop, también a 375 px.
+
+### 12.3 PRE-R32 GATE
+
+Antes de empezar R32 productivo, una **persona** recorre manualmente, en un entorno donde se pueda interactuar establemente con los nodos:
+
+| Profesión | Recorrido mínimo |
+|---|---|
+| **Tala** | `common_tree` hasta agotarlo: cada carga, la última con caída y tocón, respawn, worker, hacha, reparación |
+| **Forage** | `berry_bush` a mano y con hoz; **`herb_patch`**: aparición, selección, recolección, cambio de estado, respawn; worker, desgaste de hoz |
+| **Pesca** | Orilla: lanzar, espera, pique, recogida válida y temprana, agotamiento, respawn, worker, reward pop, caña |
+| **Alquimia** | Estación: receta, cantidad 1, 3 y máximo, ingredientes suficientes e insuficientes, proceso, reward y "Ahorró N", worker, cancelar durante el proceso |
+
+Resultado esperado por profesión: `VISUALMENTE EQUIVALENTE` o `DIFERENCIA DETECTADA` (comparando con `f2c615e` ante dudas). No hace falta un atajo nuevo de selección para esto.
+
+### 12.4 Bugs de R30 separados (ramas propias desde `main`)
+
+| Bug | Estado | Rama propuesta |
+|---|---|---|
+| Spawn autoritativo: el servidor manda Pradera a (8,41) y la ciudad a (31,20) (§3) | Confirmado en el motor real; falta verificar en producción | `fix/wildlands-authoritative-spawn` |
+| Pick de props: tocar la parte alta de árboles, rocas o arbustos selecciona el tile de atrás (§4) | Confirmado en el motor real | `fix/wildlands-prop-tap-picking` |
+
+### 12.5 R32-0 — fundaciones de autoridad
+
+- Autoridad de servidor para las acciones de profesión y paquete de reglas compartido cliente/servidor.
+- Trust boundary: intención del cliente, resultado del servidor.
+- Posición y distancia autoritativas; colisión autoritativa en `acceptMove`.
+- Replay e idempotencia (`actionId`/`batchId`).
+- Reloj de servidor.
+- RNG autoritativo (CSPRNG, semilla nunca expuesta).
+- Validación contra catálogo autoritativo (ítems, recetas, estaciones).
+- Ledger de cargas: modelo token-bucket, sin copia O(n) ni ráfaga en la frontera.
+- Estaciones como dato del área (F-1, `ObstacleProvider`).
+
+### 12.6 Economía pendiente (balance)
+
+Energía y regeneración, curva de XP y niveles, **tope de pendientes** (debe existir en producción; el número es balance), **hoz opcional** (F-3, sin cambios), yields, rare drops, respawns, stacks y capacidad, herramientas y reparación, y la relación faucet/sink (~14:1) en general.
+
+### 12.7 Deuda técnica restante (no bloquea)
+
+- Node index por chunk (§7), postergado: el scan de `herb_patch` y las cachés de targets sin límite siguen iguales.
+- Tarjetas de acción duplicadas (4 `.vue`), sin cubrir por el baseline.
+- `OverlayPlayer` exportado desde `mining/`.
+- Harness: `fillText` etiquetado como `fillRect`; `workerFixtures.loaded` sin reinicio entre tests.
+- `game.ts` sobre el umbral de tamaño (extraer la interacción con el mundo cuando se toque).
+- `tsconfig.node.json` con errores previos por falta de `@types/node`.
+- 9 warnings de lint previos en `AuthModal.vue`.
