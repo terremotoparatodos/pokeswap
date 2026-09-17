@@ -19,6 +19,7 @@ import { buildPropSprites } from '../../wildlands/engine/props'
 import type { Sprite } from '../../wildlands/engine/sprite'
 import { TILE, type DecorKind } from '../../wildlands/engine/world'
 import { tileAt, WALKABLE, type FloorTiles, type TileKind } from '../domain/floorTiles'
+import { planDecor, solidPropTiles, type CaveStyle, type PlannedProp } from '../domain/decorPlan'
 import { torchSprite } from './dungeonProps'
 import { plankPixels, sampleTexture, textureFor, themePaint, type ThemePaint } from './dungeonTerrain'
 
@@ -94,46 +95,24 @@ function blend(base: number, over: number): number {
   return ((255 << 24) | (mix(16) << 16) | (mix(8) << 8) | mix(0)) >>> 0
 }
 
-/** Static props: rocks on the wall edges, biome accents and wall torches. */
-function buildDecor(tiles: FloorTiles, paint: ThemePaint, seed: number): DecorInstance[] {
+/**
+ * Turns the plan (domain/decorPlan.ts) into sprites the renderer can draw.
+ *
+ * D1.2.2 §5: that plan is also what collision reads, so a boulder on screen and
+ * a boulder in `isSolid` are the same decision, made once.
+ */
+function buildDecor(props: readonly PlannedProp[], seed: number): DecorInstance[] {
   const sprites = propSprites()
-  const out: DecorInstance[] = []
-  const push = (tx: number, ty: number, kind: DecorKind | null, sprite: Sprite | undefined, light = false) => {
-    out.push({
-      kind, sprite, light, tx, ty,
-      x: tx * TILE + TILE / 2, y: ty * TILE + TILE - 2,
-      seed: Math.floor(hash2(tx, ty, seed) * 1e6),
-    })
-  }
-
-  for (let ty = 0; ty < tiles.height; ty++) {
-    for (let tx = 0; tx < tiles.width; tx++) {
-      const kind = tileAt(tiles, tx, ty)
-      const open = (x: number, y: number) => WALKABLE.has(tileAt(tiles, x, y))
-      const facing = open(tx, ty + 1)
-
-      if (kind === 'rock') {
-        // Only the rock that actually borders the floor gets art: an interior
-        // wall tile is never seen.
-        if (!facing && !open(tx - 1, ty) && !open(tx + 1, ty) && !open(tx, ty - 1)) continue
-        const roll = hash2(tx, ty, seed + 11)
-        if (facing && roll < 0.1 && hash2(tx, ty, seed + 12) < 0.5) {
-          push(tx, ty, null, torchSprite(0), true)
-          continue
-        }
-        if (roll < 0.55) {
-          const choice = paint.wallProps[Math.floor(hash2(tx, ty, seed + 13) * paint.wallProps.length)]
-          push(tx, ty, choice, sprites[choice])
-        }
-        continue
-      }
-      if (kind === 'accent' && hash2(tx, ty, seed + 21) < 0.55) {
-        const choice = paint.accentProps[Math.floor(hash2(tx, ty, seed + 22) * paint.accentProps.length)]
-        push(tx, ty, choice, sprites[choice])
-      }
-    }
-  }
-  return out.sort((a, b) => a.y - b.y)
+  return props.map(prop => ({
+    kind: prop.kind === 'torch' ? null : prop.kind,
+    sprite: prop.kind === 'torch' ? torchSprite(0) : sprites[prop.kind],
+    light: prop.light,
+    tx: prop.tx,
+    ty: prop.ty,
+    x: prop.tx * TILE + TILE / 2,
+    y: prop.ty * TILE + TILE - 2,
+    seed: Math.floor(hash2(prop.tx, prop.ty, seed) * 1e6),
+  })).sort((a, b) => a.y - b.y)
 }
 
 const EMPTY_POPULACE: Populace = { actors: [], update: () => {} }
@@ -148,23 +127,32 @@ export class DungeonArea implements Area {
   readonly tiles: FloorTiles
   private readonly canvas: HTMLCanvasElement
   private readonly decor: DecorInstance[]
+  /** Tiles a solid prop is standing on: rock, boulder, tree, crystal (§5). */
+  private readonly blocked: ReadonlySet<string>
   private rockTile: HTMLCanvasElement | null = null
 
-  constructor(tiles: FloorTiles, seed: number, floor: number) {
+  constructor(tiles: FloorTiles, seed: number, floor: number, style: CaveStyle = 'A') {
     this.tiles = tiles
     this.paint = themePaint(tiles.theme)
     this.id = `dungeon-${seed}-${floor}`
     this.name = `${this.paint.name} · piso ${floor}`
     this.canvas = bakeGround(tiles, this.paint)
-    this.decor = buildDecor(tiles, this.paint, seed + floor * 97)
+    const props = planDecor(tiles, seed + floor * 97, style)
+    this.blocked = solidPropTiles(props)
+    this.decor = buildDecor(props, seed + floor * 97)
   }
 
   arrival(): Arrival {
     return { tx: this.tiles.entrance.x, ty: this.tiles.entrance.y, dir: 'down' }
   }
 
+  /**
+   * D1.2.2 §5: what looks like it blocks, blocks. A tile is solid when the
+   * terrain says so **or** when something solid is standing on it.
+   */
   isSolid(tx: number, ty: number): boolean {
-    return !WALKABLE.has(tileAt(this.tiles, tx, ty))
+    if (!WALKABLE.has(tileAt(this.tiles, tx, ty))) return true
+    return this.blocked.has(`${tx}:${ty}`)
   }
 
   isWater(tx: number, ty: number): boolean {
