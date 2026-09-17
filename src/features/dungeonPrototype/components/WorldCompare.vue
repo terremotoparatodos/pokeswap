@@ -27,11 +27,14 @@ import { buildFloorTiles, openWidth, PATH_WIDTH, type FloorTiles } from '../doma
 import { dungeonProfile, DUNGEON_THEMES, type DungeonTheme } from '../domain/tiers'
 import { caveLight } from '../world/dungeonScene'
 import { DungeonArea } from '../world/dungeonArea'
+import type { CaveStyle } from '../domain/decorPlan'
 import { SampleArea } from '../world/sampleArea'
 
 const props = defineProps<{ theme?: DungeonTheme; seed?: number }>()
 
 const theme = ref<DungeonTheme>(props.theme ?? 'cave')
+/** D1.2.2 §8: Style A is the approved base; Style B only dresses it. */
+const style = ref<CaveStyle>('A')
 const seed = ref(props.seed ?? 4242)
 
 const left = ref<HTMLCanvasElement | null>(null)
@@ -146,13 +149,13 @@ function build(): void {
   measure(tiles)
   sides.value = [
     makeSide(left.value, new SampleArea(seed.value), false),
-    makeSide(right.value, new DungeonArea(tiles, seed.value, 3), true),
+    makeSide(right.value, new DungeonArea(tiles, seed.value, 3, style.value), true),
   ]
 }
 
 const reroll = (): void => { seed.value = Math.floor(Math.random() * 100000); build() }
 
-watch(theme, build)
+watch([theme, style], build)
 
 onMounted(() => {
   build()
@@ -177,6 +180,8 @@ onUnmounted(() => {
         :class="{ 'wc-on': theme === option }" @click="theme = option"
       >{{ option }}</button>
       <button type="button" @click="reroll">Otra seed</button>
+      <button type="button" :class="{ 'wc-on': style === 'A' }" @click="style = 'A'">Style A</button>
+      <button type="button" :class="{ 'wc-on': style === 'B' }" @click="style = 'B'">Style B</button>
     </div>
     <div class="wc-grid">
       <figure>
@@ -184,7 +189,7 @@ onUnmounted(() => {
         <canvas ref="left" />
       </figure>
       <figure>
-        <figcaption>Dungeon · {{ theme }}</figcaption>
+        <figcaption>Dungeon · {{ theme }} · style {{ style }}</figcaption>
         <canvas ref="right" />
       </figure>
     </div>
