@@ -11,6 +11,7 @@ import { buildFloorTiles, isWalkable, placeEntities, type FloorEntity, type Floo
 import { dungeonProfile } from '../domain/tiers'
 import { createWorldOverlay, type WorldBar } from '../render/worldOverlay'
 import { chestSprite, doorSprite } from './dungeonProps'
+import { actorPosition } from '../../wildlands/engine/actors'
 import { DungeonWorld } from './dungeonScene'
 
 // jsdom has no 2D context; the scene only needs one that does not throw.
@@ -223,5 +224,46 @@ describe('props that have two states', () => {
 
   it('draws a different door once the key is in hand', () => {
     expect(doorSprite(true)).not.toBe(doorSprite(false))
+  })
+})
+
+// D1.2.4 §3 — the Alpha has to be on screen for the shortcut to be worth anything.
+describe('the Boss Room is framed so the Alpha is visible', () => {
+  function bossWorld(seed = 7) {
+    const profile = dungeonProfile(seed, 'B', 'cave')
+    const plan = generateFloor(profile, profile.floors, [4, 7, 25])
+    const tiles = buildFloorTiles(plan, 'cave', seed)
+    const entities = placeEntities(plan, tiles, seed)
+    const scene = new DungeonWorld(TRAINER, tiles, entities, tiles.entrance, seed, profile.floors)
+    return { tiles, entities, scene }
+  }
+
+  const alphaEntity = (entities: readonly FloorEntity[]) => entities.find(entity => entity.isAlpha)!
+
+  it('looks at the player while exploring, exactly like the overworld', () => {
+    const { scene } = world()
+    expect(scene.cameraTarget()).toEqual(actorPosition(scene.player))
+  })
+
+  it('looks between the trainer and the Alpha once the fight is staged', () => {
+    const { tiles, entities, scene } = bossWorld()
+    const alpha = alphaEntity(entities)
+    scene.openCombat(tiles, alpha.id, [{ combatantId: 'ally-0', speciesId: 4 }])
+    expect(scene.bossFraming).toBe(true)
+
+    const target = scene.cameraTarget()
+    const trainer = actorPosition(scene.player)
+    const boss = actorPosition(scene.alphaActor!)
+    expect(target.y).toBeCloseTo((trainer.y + boss.y) / 2, 3)
+    // Both ends of the arena sit the same distance from the middle of the view.
+    expect(Math.abs(target.y - trainer.y)).toBeCloseTo(Math.abs(boss.y - target.y), 3)
+  })
+
+  it('gives the camera back to the player when the fight ends', () => {
+    const { tiles, entities, scene } = bossWorld()
+    scene.openCombat(tiles, alphaEntity(entities).id, [{ combatantId: 'ally-0', speciesId: 4 }])
+    scene.closeCombat(null)
+    expect(scene.bossFraming).toBe(false)
+    expect(scene.cameraTarget()).toEqual(actorPosition(scene.player))
   })
 })

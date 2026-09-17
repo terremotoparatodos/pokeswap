@@ -61,8 +61,22 @@ export class DungeonWorld {
   private readonly nav: TapNavigator
   /** True on the frame the tap route finished next to something to interact with. */
   arrivedAtTarget = false
+  /**
+   * Tiles an unbroken obstacle is sealing (D1.2.4 §1). The scene has to know:
+   * otherwise a tap route is planned straight through a rockfall and the walk
+   * stops dead against something the pathfinder thought was open.
+   */
+  private sealed: ReadonlySet<string> = new Set()
   /** Set while a fight is on: the trainer keeps their tile and stops walking. */
   locked = false
+  /**
+   * Set while the Alpha fight is staged (D1.2.4 §3). The Boss Room puts the
+   * Alpha thirteen tiles ahead of the trainer, which is more than the handheld
+   * lens can hold: framed on the trainer alone the boss is simply off screen.
+   * While this is on, and only while it is on, the camera looks at the middle
+   * of the arena instead. Exploration keeps the overworld's rule untouched.
+   */
+  bossFraming = false
   camX = 0
   camY = 0
 
@@ -76,7 +90,7 @@ export class DungeonWorld {
       id: 'player', kind: 'player', habitat: 'any', tx: at.x, ty: at.y, trainer,
     })
     this.nav = new TapNavigator({
-      isSolid: (tx, ty) => this.area.isSolid(tx, ty),
+      isSolid: (tx, ty) => this.area.isSolid(tx, ty) || this.sealed.has(`${tx}:${ty}`),
       occupied: (tx, ty) => this.actorsIncludingAlpha().some(actor => actor.tx === tx && actor.ty === ty),
     })
     this.appearance = new PlayerAppearance(this.player, trainer)
@@ -98,6 +112,11 @@ export class DungeonWorld {
     const home = actorPosition(this.player)
     this.camX = home.x
     this.camY = home.y
+  }
+
+  /** What the obstacles are currently closing. Cleared ones simply drop out. */
+  setSealed(tiles: ReadonlySet<string>): void {
+    this.sealed = tiles
   }
 
   place(at: TilePoint): void {
@@ -216,6 +235,7 @@ export class DungeonWorld {
       const slots = tiles.boss
       this.place(slots.trainers[0])
       this.locked = true
+      this.bossFraming = true
       this.player.dir = 'up'
       foe.dir = 'down'
       this.spawnAllies(allies, slots.allies.slice(0, allies.length), foeAt)
@@ -307,6 +327,7 @@ export class DungeonWorld {
     this.allies.clear()
     if (clearedEntityId) this.wild.delete(clearedEntityId)
     this.locked = false
+    this.bossFraming = false
   }
 
   /** Every actor the scene should draw, the player excluded (the scene adds it). */
@@ -318,7 +339,8 @@ export class DungeonWorld {
   rules(tiles: FloorTiles): MoveRules {
     const occupied = () => [...this.wild.values(), ...this.allies.values()]
     return {
-      blocked: (_actor, tx, ty) => !isWalkable(tiles, tx, ty),
+      blocked: (_actor, tx, ty) => !isWalkable(tiles, tx, ty) || this.area.isSolid(tx, ty)
+        || this.sealed.has(`${tx}:${ty}`),
       occupied: (tx, ty, self) => occupied().some(other => other !== self && other.tx === tx && other.ty === ty),
     }
   }
@@ -354,7 +376,7 @@ export class DungeonWorld {
     }
     for (const actor of this.actors()) advance(actor, dt)
 
-    const target = actorPosition(player)
+    const target = this.cameraTarget()
     const gap = Math.hypot(target.x - this.camX, target.y - this.camY)
     if (gap > TILE * 3) {
       const follow = 1 - Math.exp(-dt * 10)
@@ -364,5 +386,18 @@ export class DungeonWorld {
       this.camX = target.x
       this.camY = target.y
     }
+  }
+
+  /**
+   * Where the camera looks. The overworld answer — the player — except in the
+   * staged Alpha fight, where it is the point between the trainer and the Alpha
+   * so both ends of the arena are on screen at once (§3).
+   */
+  cameraTarget(): { x: number; y: number } {
+    const home = actorPosition(this.player)
+    const alpha = this.bossFraming ? this.alphaActor : null
+    if (!alpha) return home
+    const boss = actorPosition(alpha)
+    return { x: (home.x + boss.x) / 2, y: (home.y + boss.y) / 2 }
   }
 }

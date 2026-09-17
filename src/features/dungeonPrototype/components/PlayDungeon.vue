@@ -23,14 +23,15 @@ import {
 import { DUNGEON_DEFINITIONS, poolOf } from '../data/dungeonCatalog'
 import { speciesById } from '../data/speciesFixtures'
 import { isWalkable } from '../domain/floorTiles'
-import { BALL_TIMING, tick, type BattleActor, type BattleEvent, type PreparedAction } from '../domain/battle'
+import { OBSTACLES } from '../domain/obstacles'
+import { BALL_TIMING, flee, tick, type BattleActor, type BattleEvent, type PreparedAction } from '../domain/battle'
 import { createSpawn, formatCountdown, type DungeonDefinition } from '../domain/dungeonSpawn'
 import { MOVES } from '../domain/moves'
 import { heal, isFainted, revive } from '../domain/party'
 import { streamFor } from '../domain/rng'
 import {
-  act, advanceClock, atStairs, descend, endRun, engage, enterAntechamber, move,
-  openChest, reachable, settleCombat, startBoss, startPlay, type PlaySession,
+  act, advanceClock, atStairs, clearObstacle, descend, endRun, engage, enterAntechamber, move,
+  obstaclesInReach, openChest, reachable, settleCombat, startBoss, startPlay, type PlaySession,
 } from '../domain/playSession'
 import { DungeonRenderer, type CombatantView, type RenderView } from '../render/dungeonRenderer'
 import { preloadSpecies } from '../render/dungeonSprites'
@@ -121,15 +122,24 @@ function spawnInWorld(event: BattleEvent, live: PlaySession): void {
       // in, it wobbles `shakes` times, and the verdict lands at the end — the
       // fight is held for exactly as long as that takes.
       const source = from ?? at
+      const start = view.now()
+      const shakesEnd = start + BALL_TIMING.flight + flight.shakes * BALL_TIMING.perShake
       view.spawn({ kind: 'ball', wx: source.x, wy: source.y, toX: target.x, toY: target.y, life: BALL_TIMING.flight })
-      view.spawn({ kind: 'swallow', wx: target.x, wy: target.y, bornAt: view.now() + BALL_TIMING.flight, life: 0.3 })
+      // The Pokémon is drawn in, and from here on only the ball is on screen.
+      view.spawn({ kind: 'swallow', wx: target.x, wy: target.y, bornAt: start + BALL_TIMING.flight, life: 0.3 })
       for (let i = 0; i < flight.shakes; i++) {
         view.spawn({
           kind: 'shake', wx: target.x, wy: target.y,
-          bornAt: view.now() + BALL_TIMING.flight + i * BALL_TIMING.perShake,
+          bornAt: start + BALL_TIMING.flight + i * BALL_TIMING.perShake,
           life: BALL_TIMING.perShake,
         })
       }
+      // D1.2.4 §2: a catch holds the ball still and glowing; a miss bursts it
+      // open with the red beam and the Pokémon is back.
+      view.spawn({
+        kind: flight.captured ? 'held' : 'breakout',
+        wx: target.x, wy: target.y, bornAt: shakesEnd, life: BALL_TIMING.verdict,
+      })
       return
     }
     const ok = event.text.startsWith('¡Capturado')
@@ -297,6 +307,8 @@ function runDev(command: DevCommand): void {
     }
     live.player = live.tiles.exit
     enterAntechamber(live)
+    launchBoss()
+    return
   }
   triggerRef(session)
 }
@@ -364,6 +376,21 @@ function onArrive(tx: number, ty: number): void {
 }
 
 const nearby = computed(() => (session.value ? reachable(session.value) : []))
+/** Rockfalls and barricades you could break from here (D1.2.4 §1). */
+const blockers = computed(() => (session.value ? obstaclesInReach(session.value) : []))
+
+/** Breaking one open: the tool is the point, not the loot (§4). */
+function breakObstacle(id: string): void {
+  const live = session.value
+  if (!live) return
+  const obstacle = live.obstacles.find(candidate => candidate.id === id)
+  if (!obstacle || !clearObstacle(live, id)) return
+  const at = tileCentre(obstacle.at.x, obstacle.at.y)
+  const skill = OBSTACLES[obstacle.kind].skill
+  wild.value?.spawn({ kind: 'physical', wx: at.x, wy: at.y, life: 0.4, colour: skill === 'mine' ? '#c6c0a8' : '#8e653c' })
+  wild.value?.say({ wx: at.x, wy: at.y, text: skill === 'mine' ? '⛏' : '🪓', colour: '#ffd27a', life: 0.9 })
+  triggerRef(session)
+}
 
 /** E or Space, like the overworld: take the nearest thing worth taking. */
 function interactNearest(): void {
@@ -535,6 +562,13 @@ function launchBoss(): void {
   triggerRef(session)
 }
 
+/** Running from a fight: the Pokémon stays on the floor (D1.2.4 §5). */
+function runAway(): void {
+  const live = session.value
+  if (!live?.battle || !flee(live.battle)) return
+  triggerRef(session)
+}
+
 const restart = (): void => { stop(); session.value = null; toast.value = null }
 </script>
 
@@ -571,7 +605,7 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
         <CombatPopup
           v-if="fighting && !legacyRenderer && battle"
           class="pd-popup" :battle="battle" :bag="bag" :bench="bench" :items="BATTLE_ITEMS" :rev="hudRev"
-          @choose="choose"
+          @choose="choose" @flee="runAway"
         />
 
         <div v-if="session.phase === 'exploring'" class="pd-context">
@@ -583,6 +617,14 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
             <template v-else-if="entity.kind === 'lucky'">✦ {{ speciesById(entity.speciesId ?? 0)?.name }} · con suerte</template>
             <template v-else-if="entity.isAlpha">★ Enfrentar al Alpha</template>
             <template v-else>⚔ {{ speciesById(entity.speciesId ?? 0)?.name }} Nv. {{ entity.level }}</template>
+          </button>
+          <!-- D1.2.4 §1: a rockfall or a barricade, and the tool that opens it. -->
+          <button
+            v-for="obstacle in blockers" :key="obstacle.id" type="button" class="pd-cta pd-cta--work"
+            @click="breakObstacle(obstacle.id)"
+          >
+            {{ OBSTACLES[obstacle.kind].skill === 'mine' ? '⛏' : '🪓' }}
+            {{ OBSTACLES[obstacle.kind].label }}
           </button>
           <button
             v-if="onStairs" type="button" class="pd-cta"
@@ -696,6 +738,7 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
   background: rgba(23, 32, 56, 0.94); color: #ffd27a; font: inherit; font-weight: 700; cursor: pointer;
 }
 .pd-cta--locked { border-color: #6b7ba8; color: #93a2c6; }
+.pd-cta--work { border-color: #9ad0ff; color: #cfe6ff; }
 
 .pd-overlay {
   position: absolute; inset: 0; display: grid; place-items: center;

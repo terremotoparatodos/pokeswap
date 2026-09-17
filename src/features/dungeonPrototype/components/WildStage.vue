@@ -19,9 +19,10 @@ import { Renderer, type Scene } from '../../wildlands/engine/renderer'
 import type { PlaySession } from '../domain/playSession'
 import { isWalkable } from '../domain/floorTiles'
 import { isBossFloor } from '../domain/bossRoom'
+import { blockedByObstacles } from '../domain/obstacles'
 import { caveLight, DungeonWorld } from '../world/dungeonScene'
 import { tileCentre } from '../world/dungeonArea'
-import { chestSprite, doorSprite, stairsSprite, torchSprite } from '../world/dungeonProps'
+import { chestSprite, doorSprite, obstacleSprite, stairsSprite, torchSprite } from '../world/dungeonProps'
 import {
   burst, createWorldOverlay,
   type StatusMark, type WorldBar, type WorldEffect, type WorldProp, type WorldText,
@@ -64,6 +65,8 @@ function combatBars(): WorldBar[] {
     const pokemon = actor.combatant.pokemon
     const spot = actor.side === 'ally' ? scene.allyActor(actor.id) : foeActor()
     if (!spot) continue
+    // A Pokémon inside a ball has no bar to show.
+    if (actor.side === 'enemy' && live.battle.throw) continue
     const at = actorPosition(spot)
     // The Alpha is the Alpha whichever way the fight started.
     const alpha = actor.side === 'enemy' && spot === scene.alphaActor
@@ -115,6 +118,16 @@ function overlayProps(): WorldProp[] {
       out.push({ wx: at.x, wy: at.y, sprite: GLOW, lift: 7, scale: 1 + pulse * 0.4, alpha: Math.max(0, pulse), depthBias: -1 })
     }
     out.push({ wx: at.x, wy: at.y, sprite: chestSprite(entity.taken) })
+  }
+
+  // Rockfalls and barricades: solid until somebody breaks them (D1.2.4 §1).
+  for (const obstacle of live.obstacles) {
+    if (obstacle.cleared) continue
+    // A barrier is drawn tile by tile: it has to read as a wall, not a pebble.
+    for (const tile of obstacle.tiles) {
+      const at = tileCentre(tile.x, tile.y)
+      out.push({ wx: at.x, wy: at.y, sprite: obstacleSprite(obstacle.kind) })
+    }
   }
 
   const boss = isBossFloor(live.tiles) ? live.tiles.boss : null
@@ -315,6 +328,7 @@ function loop(time: number): void {
   const scene = syncFloor(live)
   if (!scene) return
   scene.syncWild(live.entities)
+  scene.setSealed(blockedByObstacles(live.obstacles))
   scene.refreshFrames()
   syncCombat(live, scene)
   scene.locked = live.phase !== 'exploring'
@@ -331,7 +345,11 @@ function loop(time: number): void {
   for (let i = effects.length - 1; i >= 0; i--) if (clock - effects[i].bornAt > effects[i].life) effects.splice(i, 1)
   for (let i = texts.length - 1; i >= 0; i--) if (clock - texts[i].bornAt > texts[i].life) texts.splice(i, 1)
 
+  // While a ball is in the air the wild Pokémon is inside it: only the ball is
+  // on screen, and its bar goes with it (D1.2.4 §2).
+  const swallowed = live.battle?.throw ? foeActor() : null
   const actors = scene.actors().filter(actor => {
+    if (actor === swallowed) return false
     const reveal = revealAt.get(actor.id.replace(/^ally-/, ''))
     return reveal === undefined || clock >= reveal
   })
