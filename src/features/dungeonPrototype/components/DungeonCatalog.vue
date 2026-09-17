@@ -10,6 +10,7 @@ import { poolOf } from '../data/dungeonCatalog'
 import { speciesById } from '../data/speciesFixtures'
 import { DEFAULT_DUNGEON_MINUTES, type DungeonDefinition } from '../domain/dungeonSpawn'
 import { THEME_LOOK } from '../domain/floorTiles'
+import EntranceArt from './EntranceArt.vue'
 
 const props = defineProps<{ definitions: readonly DungeonDefinition[]; players: number }>()
 const emit = defineEmits<{
@@ -55,7 +56,8 @@ const enter = (definition: DungeonDefinition): void => emit('enter', definition,
         :style="{ '--accent': card.accent }"
         @click="pick(card.definition)"
       >
-        <div class="dc-art" :style="{ background: `linear-gradient(160deg, ${card.accent}, #121a2e 70%)` }">
+        <div class="dc-art">
+          <EntranceArt :theme="card.definition.theme" />
           <span class="dc-tier">TIER {{ card.definition.tier }}</span>
         </div>
         <h3>{{ card.definition.name }}</h3>
@@ -91,7 +93,7 @@ const enter = (definition: DungeonDefinition): void => emit('enter', definition,
   border: 1px solid #2b3a5e; border-radius: 12px; background: #141c31;
 }
 .dc-card--on { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
-.dc-art { position: relative; height: 74px; border-radius: 8px; }
+.dc-art { position: relative; height: 74px; overflow: hidden; border-radius: 8px; background: #121a2e; }
 .dc-tier {
   position: absolute; right: 8px; bottom: 6px; padding: 2px 8px; border-radius: 999px;
   background: rgba(8, 12, 24, 0.8); font-size: 0.66rem; font-weight: 800; letter-spacing: 0.06em;
