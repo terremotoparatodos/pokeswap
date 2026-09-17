@@ -508,3 +508,21 @@ Energía y regeneración, curva de XP y niveles, **tope de pendientes** (debe ex
 - `game.ts` sobre el umbral de tamaño (extraer la interacción con el mundo cuando se toque).
 - `tsconfig.node.json` con errores previos por falta de `@types/node`.
 - 9 warnings de lint previos en `AuthModal.vue`.
+
+### 12.8 R31-Z COMPLETADO
+
+| Etapa | Estado |
+|---|---|
+| Systems foundation (R31-A) | ✅ |
+| UX / prototype (R31-B) | ✅ |
+| Cuatro profesiones y sus visuales (R31-C1–C4.1) | ✅ |
+| QA (R31-QA, T-S2) | ✅ |
+| Hardening puro de dominio | ✅ |
+| Overlay baseline congelado (T-S1, T-S1.1) | ✅ |
+| Refactor productivo (Bloque A) | ✅ |
+| Post-refactor QA (T-S2) | ✅ |
+| Dev cleanup (R31-Z.1) | ✅ `spawnBeside` extraído, dead path eliminado, validado en escritorio y a 375 px |
+
+`OverlayPlayer relocation deferred because it would touch the frozen production core.`
+
+La pasada humana de §12.3 **no invalida R31-Z**: es el gate obligatorio antes de R32 productivo.
