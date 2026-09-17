@@ -19,7 +19,11 @@ import { Renderer, type Scene } from '../../wildlands/engine/renderer'
 import type { PlaySession } from '../domain/playSession'
 import { isWalkable } from '../domain/floorTiles'
 import { isBossFloor } from '../domain/bossRoom'
-import { blockedByObstacles } from '../domain/obstacles'
+import { blockedByObstacles, type MinableProp } from '../domain/obstacles'
+
+/** Prop tiles the player has cleared: the area takes them off the floor. */
+const clearedPropTiles = (props: readonly MinableProp[]): Set<string> =>
+  new Set(props.filter(prop => prop.cleared).map(prop => prop.at.x + ':' + prop.at.y))
 import { caveLight, DungeonWorld } from '../world/dungeonScene'
 import { tileCentre } from '../world/dungeonArea'
 import { chestSprite, doorSprite, obstacleSprite, stairsSprite, torchSprite } from '../world/dungeonProps'
@@ -329,6 +333,7 @@ function loop(time: number): void {
   if (!scene) return
   scene.syncWild(live.entities)
   scene.setSealed(blockedByObstacles(live.obstacles))
+  scene.clearProps(clearedPropTiles(live.minable))
   scene.refreshFrames()
   syncCombat(live, scene)
   scene.locked = live.phase !== 'exploring'

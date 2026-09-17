@@ -153,3 +153,35 @@ describe('the way in (§12, §13)', () => {
     expect(openWidth(tiles, tiles.boss.approach.x, tiles.boss.approach.y)).toBeGreaterThanOrEqual(BOSS_ROOM.corridorWidth)
   })
 })
+
+// D1.2.4bis §2 — close quarters: two tiles to the Alpha, three behind our own.
+describe('how close the fight stands', () => {
+  it.each(SEEDS)('seed %i: our Pokémon are two tiles off the Alpha', seed => {
+    const { tiles } = bossFloorOf(seed)
+    if (!isBossFloor(tiles)) throw new Error('not a boss floor')
+    const boss = tiles.boss
+    for (const ally of boss.allies) {
+      expect(ally.y - boss.alpha.y).toBe(2)
+      expect(Math.abs(ally.x - boss.alpha.x)).toBeLessThanOrEqual(3)
+    }
+  })
+
+  it.each(SEEDS)('seed %i: the trainer stands three tiles behind their Pokémon', seed => {
+    const { tiles } = bossFloorOf(seed)
+    if (!isBossFloor(tiles)) throw new Error('not a boss floor')
+    const boss = tiles.boss
+    for (let i = 0; i < boss.trainers.length; i++) {
+      expect(boss.trainers[i].y - boss.allies[i].y).toBe(3)
+      expect(boss.trainers[i].x).toBe(boss.allies[i].x)
+    }
+  })
+
+  it('fills the middle slots first, which is what a solo run sees', () => {
+    const { tiles } = bossFloorOf(SEEDS[0])
+    if (!isBossFloor(tiles)) throw new Error('not a boss floor')
+    const boss = tiles.boss
+    const offsets = boss.allies.map(ally => Math.abs(ally.x - boss.alpha.x))
+    expect(offsets[0]).toBeLessThan(offsets[2])
+    expect(offsets[1]).toBeLessThan(offsets[3])
+  })
+})

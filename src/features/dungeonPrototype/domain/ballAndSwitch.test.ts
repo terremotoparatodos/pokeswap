@@ -176,3 +176,17 @@ describe('nobody stands there doing nothing (D1.2.4 §5)', () => {
     expect(flee(battle)).toBe(false)
   })
 })
+
+// D1.2.4bis §3 — the throw is a moment, so it has to last like one.
+describe('the throw has room to breathe', () => {
+  it('runs about four seconds on three shakes, like the handheld', () => {
+    expect(ballDuration(3)).toBeGreaterThan(3.2)
+    expect(ballDuration(3)).toBeLessThan(4.6)
+  })
+
+  it('gives every shake the same beat, and a verdict you can read', () => {
+    expect(ballDuration(3) - ballDuration(2)).toBeCloseTo(BALL_TIMING.perShake, 5)
+    expect(BALL_TIMING.perShake).toBeGreaterThan(0.8)
+    expect(BALL_TIMING.verdict).toBeGreaterThan(0.6)
+  })
+})

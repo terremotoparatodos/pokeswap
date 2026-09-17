@@ -133,3 +133,79 @@ entrenador.
 - El CTA de obstáculo se superpone al botón CORRER en pantallas angostas.
 - Minar/talar es instantáneo: `OBSTACLES[kind].seconds` está definido pero
   todavía no se consume como tiempo de trabajo.
+
+---
+
+# D1.2.4bis — Cuatro ajustes del playtest
+
+## 1 · Las rocas y cristales que ya estaban también se rompen
+
+> «Hay lugares todavía inaccesibles por culpa de los diamantes o rocas normales.
+> Yo me refería a poder hacerlo con los recursos que andan dando vuelta.»
+
+Correcto, y era la mitad que faltaba: las barreras nuevas se podían picar, pero
+el peñasco o la formación de cristal que ya estaba puesta seguía siendo un muro
+sin respuesta. Ahora **todo prop sólido parado sobre suelo** se despeja con la
+herramienta que le corresponde: pico para roca, peñasco, cristal y hielo; hacha
+para árbol, pino y matorral.
+
+Un prop dibujado contra la pared **no** se ofrece: el tile de abajo es roca y
+romperlo no abriría nada. Ese filtro bajó la lista de 170 a 49 por piso, que son
+exactamente los que estorban de verdad.
+
+Al despejar uno, el prop deja de bloquear, deja de dibujarse y el suelo se
+hornea otra vez, así que no queda sombra. Sigue sin dar nada: ni botín, ni XP,
+ni recurso. Las profesiones no se tocaron.
+
+## 2 · La pelea del boss, a distancia corta
+
+> «Me gustaría estar más cerca del boss. 2 tiles de distancia los pokes y el
+> entrenador a 3 de los pokémon.»
+
+Los slots de la Boss Room se reanclan al Alpha en vez de a la puerta: los
+Pokémon a **2 tiles** del Alpha, el entrenador **3** detrás de ellos. Los slots
+centrales se llenan primero, que es lo que ve una run en solitario. Antes había
+9 y 4 tiles respectivamente, con el Alpha fuera de pantalla.
+
+## 3 · La Poké Ball, con tiempo
+
+> «Que pueda girar hasta 3 veces como el juego original, dura muy poco. Dale más
+> vida.»
+
+Vuelo 0,45 → **0,7 s**; cada sacudida 0,55 → **0,95 s**; veredicto 0,5 → **0,85
+s**. Tres sacudidas ahora son **4,4 s** medidos en vivo.
+
+Y la sacudida cambió de forma: el tirón ocurre en el primer 45 % del beat —
+inclinación, saltito, chispa — y el resto la bola queda quieta. Esa espera es
+la que hace que se sientan tres. La captura suma un segundo anillo, más ceñido,
+justo al final: el clic.
+
+## 4 · La interfaz de combate
+
+> «Dale más diseño a la interfaz de combate. Sorpréndeme con íconos.»
+
+`CombatIcon.vue` (nuevo): quince íconos dibujados como paths sobre una grilla
+24×24, trazados con `currentColor` para que hereden el color de lo que los
+rodea. Son propios: no hay fuente de íconos ni asset de terceros que atribuir.
+
+Qué cambió en el panel:
+
+- **Cada bando en su tarjeta**, con chips de tipo coloreados con la paleta de
+  tipos del prototipo y la barra de HP que pasa de verde a ámbar a rojo.
+- **Los estados son chips con su propio ícono y color**: quemado, paralizado,
+  envenenado, congelado, dormido.
+- **Los movimientos llevan su tipo como color** (borde izquierdo y fondo
+  teñido) y **su categoría como ícono**: puño para físico, estallido para
+  especial, espiral para estado. El PP es número y barrita.
+- **El log tiene el ícono de lo que pasó**: escudo si bloqueó, bola si hubo
+  lanzamiento, calavera si alguien cayó, corazón si se curó.
+- **El pie es Cambiar | Huir | Mochila con íconos**, y la mochila y el banquillo
+  también los usan en cada fila.
+
+A 375 px los chips de tipo se ocultan y el resto se mantiene legible.
+
+## Estado
+
+- 1108 tests en 104 archivos, verdes.
+- Typecheck limpio, `eslint .` sin errores (9 warnings preexistentes).
+- `vite build` OK; el prototipo sigue fuera de `dist`.

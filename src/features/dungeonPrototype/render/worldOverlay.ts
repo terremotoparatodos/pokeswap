@@ -212,8 +212,16 @@ export function createWorldOverlay(source: OverlaySource): SceneOverlay {
             // moment before the click (D1.2.4 §2).
             out.push({
               wx: effect.wx, wy: effect.wy, sprite: burst('#ffe08a', 12), lift: 5,
-              scale: 0.8 + Math.sin(t * Math.PI) * 0.5, alpha: 0.55 * Math.sin(t * Math.PI), depthBias: 6,
+              scale: 0.8 + Math.sin(t * Math.PI) * 0.6, alpha: 0.6 * Math.sin(t * Math.PI), depthBias: 6,
             })
+            // The click: a second, tighter ring right at the end.
+            if (t > 0.55) {
+              const late = (t - 0.55) / 0.45
+              out.push({
+                wx: effect.wx, wy: effect.wy, sprite: burst('#fffbe8', 9), lift: 5,
+                scale: 0.4 + late * 1.6, alpha: 0.9 * (1 - late), depthBias: 6,
+              })
+            }
             out.push({ wx: effect.wx, wy: effect.wy, sprite: balls[0], lift: 4, depthBias: 7 })
             break
           case 'breakout':
@@ -236,9 +244,21 @@ export function createWorldOverlay(source: OverlaySource): SceneOverlay {
             out.push({ wx: effect.wx, wy: effect.wy, sprite: balls[0], lift: 4, depthBias: 7 })
             break
           case 'shake': {
-            // One wobble: the ball tips left, then right, then settles.
-            const swing = Math.sin(t * Math.PI * 2) * 3
-            out.push({ wx: effect.wx + swing, wy: effect.wy, sprite: balls[0], lift: 4, depthBias: 7 })
+            // One wobble, handheld-style (D1.2.4bis §3): a quick tip left and
+            // right, a small hop, and then the ball rests while the tension
+            // sits. The waiting is most of the beat, which is what makes three
+            // shakes feel like three shakes.
+            const k = Math.min(1, t / 0.45)
+            const swing = Math.sin(k * Math.PI * 2) * 3.6 * (1 - k * 0.4)
+            const hop = Math.sin(k * Math.PI) * 1.6
+            out.push({ wx: effect.wx + swing, wy: effect.wy, sprite: balls[0], lift: 4 + hop, depthBias: 7 })
+            // A spark on the catch as it tips: the ball is fighting back.
+            if (k < 0.5) {
+              out.push({
+                wx: effect.wx, wy: effect.wy, sprite: burst('#ffe08a', 7), lift: 6,
+                scale: 0.5 + k, alpha: 0.5 * (1 - k * 2), depthBias: 6,
+              })
+            }
             break
           }
           case 'summon':

@@ -148,10 +148,13 @@ export class DungeonArea implements Area {
   readonly portals: readonly Portal[] = []
   readonly paint: ThemePaint
   readonly tiles: FloorTiles
-  private readonly canvas: HTMLCanvasElement
-  private readonly decor: DecorInstance[]
+  private canvas: HTMLCanvasElement
+  private decor: DecorInstance[]
   /** Tiles a solid prop is standing on: rock, boulder, tree, crystal (§5). */
-  private readonly blocked: ReadonlySet<string>
+  private blocked: ReadonlySet<string>
+  /** Everything the floor was dressed with, so a cleared prop can be removed. */
+  private readonly planned: PlannedProp[]
+  private readonly decorSeed: number
   private rockTile: HTMLCanvasElement | null = null
 
   constructor(tiles: FloorTiles, seed: number, floor: number, style: CaveStyle = 'A') {
@@ -159,10 +162,24 @@ export class DungeonArea implements Area {
     this.paint = themePaint(tiles.theme)
     this.id = `dungeon-${seed}-${floor}`
     this.name = `${this.paint.name} · piso ${floor}`
-    const props = planDecor(tiles, seed + floor * 97, style)
-    this.canvas = bakeGround(tiles, this.paint, props)
-    this.blocked = solidPropTiles(props)
-    this.decor = buildDecor(props, seed + floor * 97)
+    this.planned = planDecor(tiles, seed + floor * 97, style)
+    this.decorSeed = seed + floor * 97
+    this.canvas = bakeGround(tiles, this.paint, this.planned)
+    this.blocked = solidPropTiles(this.planned)
+    this.decor = buildDecor(this.planned, this.decorSeed)
+  }
+
+  /**
+   * Takes cleared scenery off the floor (D1.2.4bis §1): the prop stops
+   * blocking, stops being drawn, and the ground under it is baked again so no
+   * shadow is left behind. Nothing is rebuilt when nothing was cleared.
+   */
+  openProps(tiles: ReadonlySet<string>): void {
+    const standing = this.planned.filter(prop => !tiles.has(`${prop.tx}:${prop.ty}`))
+    if (standing.length === this.decor.length) return
+    this.canvas = bakeGround(this.tiles, this.paint, standing)
+    this.blocked = solidPropTiles(standing)
+    this.decor = buildDecor(standing, this.decorSeed)
   }
 
   arrival(): Arrival {

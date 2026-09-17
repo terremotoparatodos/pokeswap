@@ -17,6 +17,7 @@
 //
 // Pure: tiles in, obstacles out, deterministic from the seed.
 
+import { isSolidProp, planDecor, type CaveStyle, type PropKind } from './decorPlan'
 import { streamFor } from './rng'
 import { isWalkable, tileAt, WALKABLE, type FloorTiles, type TilePoint } from './tileKinds'
 import type { DungeonTheme } from './tiers'
@@ -191,3 +192,67 @@ export const isObstacleTile = (obstacles: readonly FloorObstacle[], x: number, y
   obstacles.some(obstacle => !obstacle.cleared && obstacle.tiles.some(at => at.x === x && at.y === y))
 
 export { WALKABLE }
+
+// ── The scenery you can also clear (D1.2.4bis §1) ───────────────────────────
+//
+// The playtest found the real problem: it is not only the placed barriers that
+// shut a way. A boulder, a crystal formation or a tree standing in a gallery
+// blocks just as hard, and being told "you cannot pass" by a rock you can see
+// is only fair if you can also break that rock. So every solid prop is
+// clearable with the tool it deserves — and, exactly like a barrier, it gives
+// nothing but the ground it was on.
+
+/** Which tool a solid prop asks for, or null when it is pure decoration. */
+export function skillForProp(kind: PropKind): ObstacleSkill | null {
+  if (!isSolidProp(kind)) return null
+  return CHOPPABLE.has(kind) ? 'chop' : 'mine'
+}
+
+const CHOPPABLE: ReadonlySet<PropKind> = new Set<PropKind>(['tree', 'pine', 'bush'])
+
+/** What the prompt calls it. */
+const PROP_LABELS: Partial<Record<PropKind, string>> = {
+  rock: 'Roca',
+  boulder: 'Peñasco',
+  crystal: 'Formación de cristal',
+  icerock: 'Bloque de hielo',
+  tree: 'Árbol',
+  pine: 'Pino',
+  bush: 'Matorral',
+}
+
+export interface MinableProp {
+  readonly id: string
+  readonly at: TilePoint
+  readonly kind: PropKind
+  readonly skill: ObstacleSkill
+  readonly label: string
+  cleared: boolean
+}
+
+/**
+ * Every solid prop on this floor, as something you can work through. The plan
+ * is the same deterministic one the renderer draws from, so what blocks on
+ * screen is what the prompt offers to clear.
+ */
+export function minableProps(tiles: FloorTiles, seed: number, floor: number, style: CaveStyle = 'A'): MinableProp[] {
+  return planDecor(tiles, seed + floor * 97, style)
+    // Only what stands **on the ground**: a boulder drawn against a wall is
+    // part of the wall, and breaking it would open nothing.
+    .filter(prop => prop.solid && isWalkable(tiles, prop.tx, prop.ty))
+    .map(prop => {
+      const skill = skillForProp(prop.kind) ?? 'mine'
+      return {
+        id: `f${floor}-prop-${prop.tx}-${prop.ty}`,
+        at: { x: prop.tx, y: prop.ty },
+        kind: prop.kind,
+        skill,
+        label: PROP_LABELS[prop.kind] ?? (skill === 'chop' ? 'Maleza' : 'Roca'),
+        cleared: false,
+      }
+    })
+}
+
+/** The prop tiles still standing: what collision and pathfinding must refuse. */
+export const blockedByProps = (props: readonly MinableProp[]): Set<string> =>
+  new Set(props.filter(prop => !prop.cleared).map(prop => key(prop.at)))

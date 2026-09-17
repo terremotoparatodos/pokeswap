@@ -134,11 +134,16 @@ export function buildBossRoom(plan: FloorPlan, theme: DungeonTheme, seed: number
  * Alpha — so the room reads front to back the moment it opens.
  */
 export function layoutSlots(centre: TilePoint, door: TilePoint): BossSlots {
-  const trainerRow = door.y - 3
-  const allyRow = door.y - 7
-  const spread = [-6, -2, 2, 6]
+  // D1.2.4bis §2: close quarters. Our Pokémon stand two tiles off the Alpha and
+  // the trainer three behind them, so the three ranks read as one confrontation
+  // instead of a hall with people at both ends. The middle slots are filled
+  // first, which is what a solo run sees.
+  const alpha = { x: centre.x, y: centre.y - 4 }
+  const allyRow = alpha.y + 2
+  const trainerRow = allyRow + 3
+  const spread = [-1, 1, -3, 3]
   return {
-    alpha: { x: centre.x, y: centre.y - 4 },
+    alpha,
     trainers: spread.slice(0, MAX_PLAYERS).map(dx => ({ x: centre.x + dx, y: trainerRow })),
     allies: spread.slice(0, MAX_PLAYERS).map(dx => ({ x: centre.x + dx, y: allyRow })),
     door,

@@ -6,9 +6,10 @@
 import { describe, expect, it } from 'vitest'
 import { generateFloor } from './floorPlan'
 import { buildFloorTiles, isWalkable, type FloorTiles } from './floorTiles'
+import { planDecor } from './decorPlan'
 import {
-  blockedByObstacles, exitReachableWithout, isObstacleTile, MAX_BARRIER, OBSTACLES, placeObstacles,
-  reachableFrom,
+  blockedByObstacles, blockedByProps, exitReachableWithout, isObstacleTile, MAX_BARRIER, minableProps,
+  OBSTACLES, placeObstacles, reachableFrom, skillForProp,
 } from './obstacles'
 import { dungeonProfile, DUNGEON_THEMES, type DungeonTheme } from './tiers'
 
@@ -127,5 +128,45 @@ describe('a barrier, not a pebble', () => {
       }
     }
     expect(empty / floors).toBeLessThan(0.1)
+  })
+})
+
+// D1.2.4bis §1 — the scenery that shuts a way can be worked through too.
+describe('the rocks and trees already lying around', () => {
+  it.each(SEEDS)('seed %i: offers every solid prop standing on the ground', seed => {
+    const tiles = floor(seed)
+    const props = minableProps(tiles, seed, 3)
+    const solidOnGround = planDecor(tiles, seed + 3 * 97)
+      .filter(prop => prop.solid && isWalkable(tiles, prop.tx, prop.ty))
+    expect(props).toHaveLength(solidOnGround.length)
+    expect(props.length).toBeGreaterThan(0)
+  })
+
+  it.each(SEEDS)('seed %i: never offers one that is part of a wall', seed => {
+    const tiles = floor(seed)
+    // Breaking a boulder drawn against the rock would open nothing: the tile
+    // under it is wall, and it would stay wall.
+    for (const prop of minableProps(tiles, seed, 3)) {
+      expect(isWalkable(tiles, prop.at.x, prop.at.y)).toBe(true)
+    }
+  })
+
+  it('asks for the pick on stone and the axe on wood', () => {
+    expect(skillForProp('boulder')).toBe('mine')
+    expect(skillForProp('crystal')).toBe('mine')
+    expect(skillForProp('tree')).toBe('chop')
+    expect(skillForProp('bush')).toBe('chop')
+    // Decoration stays decoration: there is nothing to break.
+    expect(skillForProp('torch')).toBeNull()
+    expect(skillForProp('shell')).toBeNull()
+  })
+
+  it('stops blocking once it is cleared', () => {
+    const tiles = floor(909)
+    const props = minableProps(tiles, 909, 3)
+    const first = props[0]
+    expect(blockedByProps(props).has(`${first.at.x}:${first.at.y}`)).toBe(true)
+    first.cleared = true
+    expect(blockedByProps(props).has(`${first.at.x}:${first.at.y}`)).toBe(false)
   })
 })

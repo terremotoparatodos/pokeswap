@@ -31,7 +31,8 @@ import { heal, isFainted, revive } from '../domain/party'
 import { streamFor } from '../domain/rng'
 import {
   act, advanceClock, atStairs, clearObstacle, descend, endRun, engage, enterAntechamber, move,
-  obstaclesInReach, openChest, reachable, settleCombat, startBoss, startPlay, type PlaySession,
+  clearProp, minableInReach, obstaclesInReach, openChest, reachable, settleCombat, startBoss, startPlay,
+  type PlaySession,
 } from '../domain/playSession'
 import { DungeonRenderer, type CombatantView, type RenderView } from '../render/dungeonRenderer'
 import { preloadSpecies } from '../render/dungeonSprites'
@@ -378,6 +379,8 @@ function onArrive(tx: number, ty: number): void {
 const nearby = computed(() => (session.value ? reachable(session.value) : []))
 /** Rockfalls and barricades you could break from here (D1.2.4 §1). */
 const blockers = computed(() => (session.value ? obstaclesInReach(session.value) : []))
+/** Rocks, crystal and trees in the way: scenery you can also work through. */
+const scenery = computed(() => (session.value ? minableInReach(session.value) : []))
 
 /** Breaking one open: the tool is the point, not the loot (§4). */
 function breakObstacle(id: string): void {
@@ -389,6 +392,18 @@ function breakObstacle(id: string): void {
   const skill = OBSTACLES[obstacle.kind].skill
   wild.value?.spawn({ kind: 'physical', wx: at.x, wy: at.y, life: 0.4, colour: skill === 'mine' ? '#c6c0a8' : '#8e653c' })
   wild.value?.say({ wx: at.x, wy: at.y, text: skill === 'mine' ? '⛏' : '🪓', colour: '#ffd27a', life: 0.9 })
+  triggerRef(session)
+}
+
+/** The same swing, against the scenery that is shutting a way (§1). */
+function breakScenery(id: string): void {
+  const live = session.value
+  if (!live) return
+  const prop = live.minable.find(candidate => candidate.id === id)
+  if (!prop || !clearProp(live, id)) return
+  const at = tileCentre(prop.at.x, prop.at.y)
+  wild.value?.spawn({ kind: 'physical', wx: at.x, wy: at.y, life: 0.4, colour: prop.skill === 'mine' ? '#c6c0a8' : '#8e653c' })
+  wild.value?.say({ wx: at.x, wy: at.y, text: prop.skill === 'mine' ? '⛏' : '🪓', colour: '#ffd27a', life: 0.9 })
   triggerRef(session)
 }
 
@@ -625,6 +640,13 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
           >
             {{ OBSTACLES[obstacle.kind].skill === 'mine' ? '⛏' : '🪓' }}
             {{ OBSTACLES[obstacle.kind].label }}
+          </button>
+          <!-- The scenery that blocks: the same tools, the same nothing in return. -->
+          <button
+            v-for="prop in scenery" :key="prop.id" type="button" class="pd-cta pd-cta--work"
+            @click="breakScenery(prop.id)"
+          >
+            {{ prop.skill === 'mine' ? '⛏' : '🪓' }} {{ prop.label }}
           </button>
           <button
             v-if="onStairs" type="button" class="pd-cta"

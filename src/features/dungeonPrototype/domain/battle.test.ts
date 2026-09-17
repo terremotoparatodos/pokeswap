@@ -330,7 +330,9 @@ describe('faint, outcome and capture', () => {
     enemy.sleepFor = 60
     battle.rng.next = () => 0
     prepare(battle, 'ally-0', { kind: 'item', itemId: 'poke_ball' })
-    run(battle, 8)
+    // Long enough for the action bar to fill and for the whole throw to play:
+    // the animation runs about four seconds on three shakes (D1.2.4bis §3).
+    run(battle, 14)
     expect(battle.outcome).toBe('captured')
     expect(battle.capturedInstanceId).toBe(enemy.instanceId)
   })

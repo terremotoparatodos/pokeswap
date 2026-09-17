@@ -119,6 +119,11 @@ export class DungeonWorld {
     this.sealed = tiles
   }
 
+  /** Scenery the player has broken through: it stops blocking and drawing. */
+  clearProps(tiles: ReadonlySet<string>): void {
+    this.area.openProps(tiles)
+  }
+
   place(at: TilePoint): void {
     this.player.tx = at.x
     this.player.ty = at.y

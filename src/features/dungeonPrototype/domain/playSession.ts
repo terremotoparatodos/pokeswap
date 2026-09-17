@@ -24,7 +24,10 @@ import {
   buildFloorTiles, isAdjacent, isWalkable, placeEntities, samePoint,
   type FloorEntity, type FloorTiles, type TilePoint,
 } from './floorTiles'
-import { isObstacleTile, OBSTACLES, placeObstacles, type FloorObstacle } from './obstacles'
+import {
+  isObstacleTile, minableProps, OBSTACLES, placeObstacles,
+  type FloorObstacle, type MinableProp,
+} from './obstacles'
 import { cloneParty, isFainted, type PokemonInstance } from './party'
 import { createRng, streamFor, type Rng } from './rng'
 import { dungeonProfile, type DungeonProfile } from './tiers'
@@ -51,6 +54,8 @@ export interface PlaySession {
   entities: FloorEntity[]
   /** Rockfalls and barricades sealing side pockets (D1.2.4 §1). */
   obstacles: FloorObstacle[]
+  /** Solid scenery you can work through: rocks, crystal, trees (§1). */
+  minable: MinableProp[]
   player: TilePoint
   battle: BattleState | null
   boss: BossController | null
@@ -109,6 +114,7 @@ export function startPlay(input: StartPlayInput): PlaySession {
     tiles,
     entities: placeEntities(plan, tiles, seed, input.definition.modifiers?.luckyChance ?? 0.1),
     obstacles: placeObstacles(tiles, seed, plan.floor),
+    minable: minableProps(tiles, seed, plan.floor),
     player: tiles.entrance,
     battle: null,
     boss: null,
@@ -255,6 +261,22 @@ export const obstaclesInReach = (session: PlaySession): FloorObstacle[] =>
   session.obstacles.filter(obstacle => !obstacle.cleared && withinReach(session, obstacle))
 
 /**
+ * Solid scenery beside us: the rock or the tree that is shutting this way. It
+ * is cleared with the same tools and pays the same as a barrier — nothing.
+ */
+export const minableInReach = (session: PlaySession): MinableProp[] =>
+  session.minable.filter(prop => !prop.cleared && isAdjacent(session.player, prop.at))
+
+export function clearProp(session: PlaySession, propId: string): boolean {
+  if (session.phase !== 'exploring') return false
+  const prop = session.minable.find(candidate => candidate.id === propId && !candidate.cleared)
+  if (!prop || !isAdjacent(session.player, prop.at)) return false
+  prop.cleared = true
+  say(session, `${prop.label}: despejado. El paso queda abierto.`)
+  return true
+}
+
+/**
  * Breaks a rockfall or a barricade open. D1.2.4 §4: this is a way past, not a
  * way to farm — it yields nothing but the tile.
  */
@@ -305,6 +327,7 @@ export function descend(session: PlaySession): boolean {
     session.plan, session.tiles, session.expedition.seed, session.definition.modifiers?.luckyChance ?? 0.1,
   )
   session.obstacles = placeObstacles(session.tiles, session.expedition.seed, session.plan.floor)
+  session.minable = minableProps(session.tiles, session.expedition.seed, session.plan.floor)
   session.player = session.tiles.entrance
   say(session, `Piso ${session.expedition.floor}. HP y PP siguen como estaban.`)
   if (isLast) say(session, 'El último piso: el Alpha te espera.')

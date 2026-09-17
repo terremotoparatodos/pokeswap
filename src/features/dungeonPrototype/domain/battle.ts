@@ -111,8 +111,14 @@ export interface BallThrow {
   remaining: number
 }
 
-/** Ball timings, in seconds. PLAYTEST PARAMETERS. */
-export const BALL_TIMING = { flight: 0.45, perShake: 0.55, verdict: 0.5 } as const
+/**
+ * Ball timings, in seconds. PLAYTEST PARAMETERS.
+ *
+ * D1.2.4bis §3: the throw was over before it registered. These are the
+ * handheld's own beats — a slow arc, a wobble you can count to three, and a
+ * verdict that is allowed to hang — so three shakes take about four seconds.
+ */
+export const BALL_TIMING = { flight: 0.7, perShake: 0.95, verdict: 0.85 } as const
 
 export const ballDuration = (shakes: number): number =>
   BALL_TIMING.flight + shakes * BALL_TIMING.perShake + BALL_TIMING.verdict
