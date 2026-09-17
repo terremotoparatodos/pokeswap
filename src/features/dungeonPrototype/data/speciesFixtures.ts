@@ -1,11 +1,12 @@
 // Species fixtures for the prototype (D0).
 //
-// Deliberately tiny. The repo already holds real base stats for 493 species in
-// `features/professions/domain/catalog/speciesBaseStats.ts`, and types live in
-// the `pokemon` table — but neither is a shared battle catalog, and neither has
-// catch rates, abilities, moves or learnsets. Rather than reach across features
-// for half the data, the prototype declares the handful of species it needs and
-// the gap report says what a real catalog must contain.
+// Deliberately tiny. The repo already holds real base stats for 493 species
+// (extracted from the legacy baseline, under the professions catalog) and types
+// live in the `pokemon` table — but neither is a shared battle catalog, and
+// neither has catch rates, abilities, moves or learnsets. Rather than reach
+// across features for half the data, the prototype declares the handful of
+// species it needs; the gap report says what a real catalog must contain and
+// gives the exact paths.
 //
 // The values below are canonical Pokémon data (base stats, types, catch rates),
 // not invented balance.
