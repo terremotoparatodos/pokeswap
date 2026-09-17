@@ -229,6 +229,16 @@ Entorno: `http://localhost:5188/dev/profesiones`, un laboratorio por profesión.
 3. Commit + push solo en `integration/r31`.
 4. Limpieza del entorno (§8.2).
 
+### 7.1 Registro del gate y decisiones de producto (2026-09-16)
+
+- **Registro de hallazgos:** [`PRE_R32_HUMAN_GATE.md`](PRE_R32_HUMAN_GATE.md). Clasifica cada observación (REGRESIÓN, BUG PREEXISTENTE, UX / POLISH, SISTEMA INCOMPLETO, DECISIÓN DE DISEÑO, DEUDA TÉCNICA). Hasta ahora hay **0 regresiones**.
+- **Decisiones de producto:** [`PRE_R32_DESIGN_DECISIONS.md`](PRE_R32_DESIGN_DECISIONS.md), separadas en APPROVED y OPEN. Nada está implementado.
+- **Party activo de hasta 6 Pokémon**, compartido por exploración, combate, dungeon y profesiones: `worker ∈ activeParty`, 1 worker por acción. R32-0 debe contemplarlo.
+- **Dungeon legacy descartada** como base (`src/features/dungeon/` queda LEGACY: no se borra, no se reutiliza).
+- **WILDLANDS DUNGEON / PVE — CLEAN-SLATE DESIGN:** reservada a la **estación secundaria**. No iniciada, sin rama; el usuario prepara el brief. La principal audita la integración.
+- **Economía sin balancear** hasta definir el loop PvE/Dungeon.
+- **El gate sigue ABIERTO.**
+
 ---
 
 ## 8. Entorno local actual
@@ -348,6 +358,7 @@ Entorno: `http://localhost:5188/dev/profesiones`, un laboratorio por profesión.
 3. `docs/economy/R31Z_CONSOLIDATION_PLAN.md`: §10 decisiones, §11 Bloque A, **§12 cierre + gate + deuda**. §3/§4 para los bugs R30 y §7 para el node index.
 4. `docs/economy/R31Z_POST_REFACTOR_QA.md`: T-S2.
 5. `docs/economy/R31Z_OVERLAY_TRACE.md`: qué captura el baseline.
+5b. `docs/economy/PRE_R32_HUMAN_GATE.md` y `docs/economy/PRE_R32_DESIGN_DECISIONS.md`: hallazgos del gate y decisiones de producto (APPROVED / OPEN).
 6. `docs/economy/R31_INTEGRATION_AUDIT.md`: auditoría profunda, trust boundary, propuestas de persistencia y multiplayer.
 7. `docs/wildlands/R30_PRODUCTION_HANDOFF.md`: multiplayer en producción.
 8. Según la tarea:
@@ -366,7 +377,7 @@ Entorno: `http://localhost:5188/dev/profesiones`, un laboratorio por profesión.
 3. **Bugs R30 independientes, solo con orden del usuario:**
    - verificar el spawn en producción (hoy **PENDIENTE DE VERIFICAR EN PRODUCCIÓN**);
    - solo si se confirma, crear `fix/wildlands-authoritative-spawn` y `fix/wildlands-prop-tap-picking` desde `origin/main`, tests primero, PRs separados, sin auto-merge.
-4. **Decidir la economía base pendiente** (§9.3) con el usuario: tope de pendientes, energía, XP, herramientas y hoz.
+4. **Economía:** no se balancea hasta definir el loop PvE/Dungeon (`PRE_R32_DESIGN_DECISIONS.md` A-12). La Dungeon nueva la diseña la estación secundaria con un brief del usuario (A-14).
 5. **Diseñar R32-0** (§9.4): descomposición según `AGENTS.md` §17 y aprobación, **antes** de escribir código.
 6. **No empezar R32** productivo antes de: gate humano PASSED, decisión sobre los bugs R30 y diseño de R32-0 aprobado.
 7. Merge de `integration/r31` a `main`: solo cuando el usuario lo ordene explícitamente.
