@@ -24,6 +24,7 @@ import {
   buildFloorTiles, isAdjacent, isWalkable, placeEntities, samePoint,
   type FloorEntity, type FloorTiles, type TilePoint,
 } from './floorTiles'
+import { isObstacleTile, OBSTACLES, placeObstacles, type FloorObstacle } from './obstacles'
 import { cloneParty, isFainted, type PokemonInstance } from './party'
 import { createRng, streamFor, type Rng } from './rng'
 import { dungeonProfile, type DungeonProfile } from './tiers'
@@ -48,6 +49,8 @@ export interface PlaySession {
   plan: FloorPlan
   tiles: FloorTiles
   entities: FloorEntity[]
+  /** Rockfalls and barricades sealing side pockets (D1.2.4 §1). */
+  obstacles: FloorObstacle[]
   player: TilePoint
   battle: BattleState | null
   boss: BossController | null
@@ -105,6 +108,7 @@ export function startPlay(input: StartPlayInput): PlaySession {
     plan,
     tiles,
     entities: placeEntities(plan, tiles, seed, input.definition.modifiers?.luckyChance ?? 0.1),
+    obstacles: placeObstacles(tiles, seed, plan.floor),
     player: tiles.entrance,
     battle: null,
     boss: null,
@@ -129,6 +133,8 @@ export function move(session: PlaySession, dx: number, dy: number): boolean {
   if (session.phase !== 'exploring') return false
   const next = { x: session.player.x + dx, y: session.player.y + dy }
   if (!isWalkable(session.tiles, next.x, next.y)) return false
+  // D1.2.4 §1: a rockfall or a barricade has to be cleared first.
+  if (isObstacleTile(session.obstacles, next.x, next.y)) return false
   // APPROVED (§7): walking past a Pokémon does nothing. There is no aggro.
   const blocking = session.entities.find(entity =>
     !entity.taken && entity.kind !== 'chest' && samePoint(entity.at, next))
@@ -225,7 +231,9 @@ export function settleCombat(session: PlaySession, lootFor: () => { itemId: stri
       say(session, `Botín: ${drops.map(drop => `${drop.itemId} ×${drop.quantity}`).join(', ')}`)
     }
   } else if (battle.outcome === 'aborted') {
-    say(session, 'El combate se interrumpió: la Dungeon cerró.')
+    // D1.2.4 §5: running away costs the fight, not the run. The Pokémon stays
+    // on the floor and can be fought again.
+    say(session, session.phase === 'boss' ? 'El combate se interrumpió.' : 'Huiste del combate.')
   } else {
     say(session, 'Derrota.')
   }
@@ -234,6 +242,30 @@ export function settleCombat(session: PlaySession, lootFor: () => { itemId: stri
   session.engagedId = null
   session.phase = session.phase === 'boss' ? 'ended' : 'exploring'
   if (shouldWipe(session.expedition)) endRun(session, 'wipe')
+}
+
+/**
+ * Obstacles within arm's reach: what the CTA offers (D1.2.4 §1). A barrier is
+ * several tiles wide, so standing next to any of them is standing next to it.
+ */
+const withinReach = (session: PlaySession, obstacle: FloorObstacle): boolean =>
+  obstacle.tiles.some(at => isAdjacent(session.player, at))
+
+export const obstaclesInReach = (session: PlaySession): FloorObstacle[] =>
+  session.obstacles.filter(obstacle => !obstacle.cleared && withinReach(session, obstacle))
+
+/**
+ * Breaks a rockfall or a barricade open. D1.2.4 §4: this is a way past, not a
+ * way to farm — it yields nothing but the tile.
+ */
+export function clearObstacle(session: PlaySession, obstacleId: string): boolean {
+  if (session.phase !== 'exploring') return false
+  const obstacle = session.obstacles.find(candidate => candidate.id === obstacleId && !candidate.cleared)
+  if (!obstacle || !withinReach(session, obstacle)) return false
+  obstacle.cleared = true
+  const definition = OBSTACLES[obstacle.kind]
+  say(session, `${definition.label}: despejado. El paso queda abierto.`)
+  return true
 }
 
 export function openChest(session: PlaySession, entityId: string, loot: () => { itemId: string; quantity: number }[]): boolean {
@@ -272,6 +304,7 @@ export function descend(session: PlaySession): boolean {
   session.entities = placeEntities(
     session.plan, session.tiles, session.expedition.seed, session.definition.modifiers?.luckyChance ?? 0.1,
   )
+  session.obstacles = placeObstacles(session.tiles, session.expedition.seed, session.plan.floor)
   session.player = session.tiles.entrance
   say(session, `Piso ${session.expedition.floor}. HP y PP siguen como estaban.`)
   if (isLast) say(session, 'El último piso: el Alpha te espera.')

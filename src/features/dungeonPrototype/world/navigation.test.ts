@@ -11,6 +11,7 @@ import { RUN_SPEED, WALK_SPEED } from '../../wildlands/engine/actors'
 import { generateFloor } from '../domain/floorPlan'
 import { buildFloorTiles, isWalkable, placeEntities, type FloorEntity, type FloorTiles } from '../domain/floorTiles'
 import { planDecor, solidPropTiles } from '../domain/decorPlan'
+import { blockedByObstacles, placeObstacles } from '../domain/obstacles'
 import { dungeonProfile } from '../domain/tiers'
 import { DungeonWorld } from './dungeonScene'
 
@@ -129,6 +130,52 @@ describe('running (§3)', () => {
         expect(rules.blocked(scene.player, x, y)).toBe(walking)
         scene.player.running = false
       }
+    }
+  })
+})
+
+// D1.2.4 §1 — the scene has to believe in the barriers too, or a tap route is
+// planned straight through a rockfall and the walk stops dead against it.
+describe('obstacles the scene is told about', () => {
+  const at = (x: number, y: number): string => x + ':' + y
+
+  it('never lands the player on a sealed tile, only beside it', () => {
+    const { tiles, scene } = build()
+    const obstacles = placeObstacles(tiles, SEED, 3)
+    expect(obstacles.length).toBeGreaterThan(0)
+    const sealed = blockedByObstacles(obstacles)
+    scene.setSealed(sealed)
+
+    for (const tile of obstacles[0].tiles) {
+      scene.goTo({ tile: { tx: tile.x, ty: tile.y }, actor: null })
+      settle(scene, tiles)
+      expect(sealed.has(at(scene.player.tx, scene.player.ty))).toBe(false)
+    }
+  })
+
+  it('opens the way again once the obstacle is cleared', () => {
+    const { tiles, scene } = build()
+    const obstacles = placeObstacles(tiles, SEED, 3)
+    scene.setSealed(blockedByObstacles(obstacles))
+    const centre = obstacles[0].at
+    expect(blockedByObstacles(obstacles).has(at(centre.x, centre.y))).toBe(true)
+
+    obstacles[0].cleared = true
+    scene.setSealed(blockedByObstacles(obstacles))
+    // The ground underneath was always ground: with the barrier gone, nothing
+    // about the scene refuses it any more.
+    expect(scene.area.isSolid(centre.x, centre.y)).toBe(false)
+    expect(blockedByObstacles(obstacles).has(at(centre.x, centre.y))).toBe(false)
+  })
+
+  it('never walks onto a sealed tile when the keys push into one', () => {
+    const { tiles, scene } = build()
+    const obstacles = placeObstacles(tiles, SEED, 3)
+    const sealed = blockedByObstacles(obstacles)
+    scene.setSealed(sealed)
+    for (let i = 0; i < 400; i++) {
+      scene.update(1 / 60, tiles, i % 2 === 0 ? 'right' : 'down')
+      expect(sealed.has(at(scene.player.tx, scene.player.ty))).toBe(false)
     }
   })
 })
