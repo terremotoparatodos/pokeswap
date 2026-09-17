@@ -22,7 +22,8 @@ import {
 } from '../data/runFixtures'
 import { DUNGEON_DEFINITIONS, poolOf } from '../data/dungeonCatalog'
 import { speciesById } from '../data/speciesFixtures'
-import { tick, type BattleActor, type BattleEvent, type PreparedAction } from '../domain/battle'
+import { isWalkable } from '../domain/floorTiles'
+import { BALL_TIMING, tick, type BattleActor, type BattleEvent, type PreparedAction } from '../domain/battle'
 import { createSpawn, formatCountdown, type DungeonDefinition } from '../domain/dungeonSpawn'
 import { MOVES } from '../domain/moves'
 import { heal, isFainted, revive } from '../domain/party'
@@ -112,18 +113,30 @@ function spawnInWorld(event: BattleEvent, live: PlaySession): void {
   } else if (event.kind === 'status') {
     view.spawn({ kind: 'statusHit', wx: at.x, wy: at.y, life: 0.6, colour: '#e8a33c' })
   } else if (event.kind === 'capture') {
-    const ok = event.text.startsWith('¡Capturado')
     const foe = live.battle?.actors.find(actor => actor.side === 'enemy')
     const target = (foe ? view.anchorOf(foe.id) : null) ?? at
-    const source = from ?? at
-    view.spawn({ kind: 'ball', wx: source.x, wy: source.y, toX: target.x, toY: target.y, life: 0.4 })
-    // Three shakes, then the verdict.
-    for (let i = 0; i < 3; i++) {
-      view.spawn({ kind: 'open', wx: target.x, wy: target.y, bornAt: view.now() + 0.4 + i * 0.35, life: 0.3 })
+    const flight = live.battle?.throw
+    if (flight) {
+      // D1.2.3 §5: the throw is its own moment. The ball flies, the Pokémon goes
+      // in, it wobbles `shakes` times, and the verdict lands at the end — the
+      // fight is held for exactly as long as that takes.
+      const source = from ?? at
+      view.spawn({ kind: 'ball', wx: source.x, wy: source.y, toX: target.x, toY: target.y, life: BALL_TIMING.flight })
+      view.spawn({ kind: 'swallow', wx: target.x, wy: target.y, bornAt: view.now() + BALL_TIMING.flight, life: 0.3 })
+      for (let i = 0; i < flight.shakes; i++) {
+        view.spawn({
+          kind: 'shake', wx: target.x, wy: target.y,
+          bornAt: view.now() + BALL_TIMING.flight + i * BALL_TIMING.perShake,
+          life: BALL_TIMING.perShake,
+        })
+      }
+      return
     }
+    const ok = event.text.startsWith('¡Capturado')
+    view.spawn({ kind: ok ? 'summon' : 'open', wx: target.x, wy: target.y, life: 0.5 })
     view.say({
       wx: target.x, wy: target.y, text: ok ? '¡Capturado!' : 'Se soltó',
-      colour: ok ? '#7ee2a8' : '#ffb0a8', bornAt: view.now() + 1.5, life: 1.2,
+      colour: ok ? '#7ee2a8' : '#ffb0a8', life: 1.2,
     })
   } else if (event.kind === 'item') {
     const healed = /\+(\d+) HP/.exec(event.text)
@@ -131,10 +144,8 @@ function spawnInWorld(event: BattleEvent, live: PlaySession): void {
       view.spawn({ kind: 'heal', wx: from.x, wy: from.y, life: 0.7 })
       view.say({ wx: from.x, wy: from.y, text: `+${healed[1]}`, colour: '#7ee2a8', life: 0.9 })
     }
-  } else if (event.kind === 'switch' && from) {
-    view.spawn({ kind: 'recall', wx: from.x, wy: from.y, life: 0.35 })
-    view.spawn({ kind: 'summon', wx: from.x, wy: from.y, bornAt: view.now() + 0.2, life: 0.45 })
   }
+  // A switch draws itself: WildStage watches the battle and swaps the sprite.
 }
 
 /** The D1.1 renderer's own effect language, kept for the DEV comparison. */
@@ -256,6 +267,36 @@ function runDev(command: DevCommand): void {
     for (const member of live.expedition.party) for (const moveId of member.moves) member.pp[moveId] = 0
   } else if (command.kind === 'addMinutes') {
     advanceClock(live, command.minutes * 60_000)
+  } else if (command.kind === 'fightNearest') {
+    // Walk us onto the nearest Pokémon's doorstep and start the fight (§1).
+    const target = live.entities
+      .filter(entity => entity.kind !== 'chest' && !entity.taken && !entity.isAlpha)
+      .sort((a, b) => Math.hypot(a.at.x - live.player.x, a.at.y - live.player.y)
+        - Math.hypot(b.at.x - live.player.x, b.at.y - live.player.y))[0]
+    if (target) {
+      const beside = [[0, 1], [0, -1], [1, 0], [-1, 0]]
+        .map(([dx, dy]) => ({ x: target.at.x + dx, y: target.at.y + dy }))
+        .find(spot => isWalkable(live.tiles, spot.x, spot.y))
+      if (beside) live.player = beside
+      interact(target.id)
+      return
+    }
+  } else if (command.kind === 'weakenFoe') {
+    for (const actor of live.battle?.actors ?? []) {
+      if (actor.side !== 'enemy') continue
+      actor.combatant.pokemon.hp = Math.max(1, Math.round(actor.combatant.pokemon.maxHp * command.fraction))
+    }
+  } else if (command.kind === 'giveBalls') {
+    bag.value.poke_ball = (bag.value.poke_ball ?? 0) + command.count
+  } else if (command.kind === 'toBoss') {
+    // Last floor, in front of the door, with the antechamber already open.
+    while (live.expedition.floor < live.expedition.floors) {
+      live.expedition = { ...live.expedition, key: { hasKey: true, defeatsWithoutKey: 0 } }
+      live.player = live.tiles.exit
+      if (!descend(live)) break
+    }
+    live.player = live.tiles.exit
+    enterAntechamber(live)
   }
   triggerRef(session)
 }

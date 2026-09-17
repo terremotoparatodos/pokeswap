@@ -175,6 +175,8 @@ export function engage(session: PlaySession, entityId: string, deps: {
     bench: { p1: party.slice(1) },
     items: deps.battleItems,
     rng: streamFor(session.expedition.seed, 'fight', session.expedition.floor, entity.id),
+    // A switch has to bring its own species with it (D1.2.3).
+    speciesFor: pokemon => deps.makeCombatant(pokemon).species,
   })
   session.engagedId = entity.id
   session.phase = 'combat'
@@ -312,6 +314,7 @@ export function startBoss(session: PlaySession, deps: {
     bench: { p1: party.slice(active) },
     items: deps.battleItems,
     rng: streamFor(session.expedition.seed, 'boss'),
+    speciesFor: pokemon => deps.makeCombatant(pokemon).species,
   })
   const kitRng = streamFor(session.expedition.seed, 'bossKit')
   session.bossKit = bossKitFor(session.definition.tier, (min, max) => kitRng.int(min, max), items => kitRng.shuffle(items))

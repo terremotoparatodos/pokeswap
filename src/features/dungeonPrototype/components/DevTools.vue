@@ -13,7 +13,12 @@ import { isFainted } from '../domain/party'
 import type { PlaySession } from '../domain/playSession'
 
 export type DevCommand =
-  | { readonly kind: 'forceKey' }
+  | { readonly kind: 'addMinutes'; readonly minutes: number }
+  // D1.2.3 §1: the lab can jump straight into any scenario, not only start a run.
+  | { readonly kind: 'fightNearest' }
+  | { readonly kind: 'weakenFoe'; readonly fraction: number }
+  | { readonly kind: 'toBoss' }
+  | { readonly kind: 'giveBalls'; readonly count: number }| { readonly kind: 'forceKey' }
   | { readonly kind: 'toStairs' }
   | { readonly kind: 'skipToLast' }
   | { readonly kind: 'repopulate' }
@@ -81,6 +86,14 @@ const run = (command: DevCommand): void => emit('command', command)
         <button type="button" @click="run({ kind: 'skipToLast' })">Ir al último piso</button>
         <button type="button" @click="run({ kind: 'repopulate' })">Repoblar</button>
         <button type="button" @click="run({ kind: 'clearFloor' })">Vaciar encuentros</button>
+      </div>
+
+      <div class="dt-group">
+        <span>Escenario</span>
+        <button type="button" @click="run({ kind: 'fightNearest' })">Combate ya</button>
+        <button type="button" @click="run({ kind: 'weakenFoe', fraction: 0.12 })">Rival al 12 %</button>
+        <button type="button" @click="run({ kind: 'giveBalls', count: 10 })">+10 Balls</button>
+        <button type="button" @click="run({ kind: 'toBoss' })">Boss ya</button>
       </div>
 
       <div class="dt-group">

@@ -222,26 +222,54 @@ export class DungeonWorld {
       return { spots: slots.allies.slice(0, allies.length), foe }
     }
 
-    // The Alpha stands on the stairs, which is exactly where the player arrives.
-    // Step the trainer back so the room reads front to back: the Alpha, then our
-    // Pokémon, then us. Placement only — the fight is still on the same tile.
-    if (this.player.tx === foeAt.x && this.player.ty === foeAt.y) {
+    // D1.2.3 §2: the trainer takes one step back — straight back from whatever
+    // they are facing, and to a side when that is blocked — and our Pokémon
+    // takes the tile they were standing on. The fight reads foe → ours → us.
+    const here = { x: this.player.tx, y: this.player.ty }
+    const vacated = this.player.tx === foeAt.x && this.player.ty === foeAt.y ? null : here
+    const stepped = this.stepBackFrom(tiles, foeAt, busy)
+    if (!stepped && !vacated) {
+      // Standing on the foe with nowhere to retreat: fall back to the old rule.
       const behind = { x: foeAt.x, y: foeAt.y + 2 }
-      const spot = isWalkable(tiles, behind.x, behind.y)
-        ? behind
-        : openGround(tiles, foeAt, busy, { x: foeAt.x, y: foeAt.y + 3 })[0]
-      if (spot) this.place(spot)
+      if (isWalkable(tiles, behind.x, behind.y)) this.place(behind)
     }
 
-    const staged = stageCombat(tiles, foeAt, { x: this.player.tx, y: this.player.ty }, busy, allies.length)
+    const trainerAt = { x: this.player.tx, y: this.player.ty }
+    const staged = stageCombat(tiles, foeAt, trainerAt, busy, allies.length)
+    // The first Pokémon out stands where we were, facing the foe.
+    const spots = stepped && vacated
+      ? [vacated, ...staged.allies.filter(spot => spot.x !== vacated.x || spot.y !== vacated.y)]
+      : staged.allies
 
     this.locked = true
-    this.player.dir = staged.trainerFacing
+    this.player.dir = facingBetween(trainerAt, foeAt)
     this.player.progress = 1
-    if (foe) foe.dir = staged.foeFacing
+    if (foe) foe.dir = facingBetween(foeAt, spots[0] ?? trainerAt)
 
-    this.spawnAllies(allies, staged.allies, foeAt)
-    return { spots: staged.allies, foe }
+    this.spawnAllies(allies, spots, foeAt)
+    return { spots, foe }
+  }
+
+  /**
+   * One step directly away from `from`, or to a side when that is rock, or
+   * nothing when the trainer is boxed in. Returns whether they moved.
+   */
+  private stepBackFrom(tiles: FloorTiles, from: TilePoint, busy: readonly TilePoint[]): boolean {
+    const here = { x: this.player.tx, y: this.player.ty }
+    const dx = Math.sign(here.x - from.x)
+    const dy = Math.sign(here.y - from.y)
+    const back = dx !== 0 || dy !== 0 ? { x: here.x + dx, y: here.y + dy } : null
+    const sides = dx !== 0
+      ? [{ x: here.x, y: here.y - 1 }, { x: here.x, y: here.y + 1 }]
+      : [{ x: here.x - 1, y: here.y }, { x: here.x + 1, y: here.y }]
+    const taken = new Set([...busy, from].map(spot => `${spot.x}:${spot.y}`))
+    for (const spot of [back, ...sides]) {
+      if (!spot || taken.has(`${spot.x}:${spot.y}`)) continue
+      if (!isWalkable(tiles, spot.x, spot.y) || this.area.isSolid(spot.x, spot.y)) continue
+      this.place(spot)
+      return true
+    }
+    return false
   }
 
   /** Puts our Pokémon on the given tiles, facing the foe. */

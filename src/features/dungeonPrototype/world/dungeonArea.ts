@@ -26,8 +26,10 @@ import { plankPixels, sampleTexture, textureFor, themePaint, type ThemePaint } f
 /** How dark the ambient gets away from a torch; the renderer's lantern does the rest. */
 export const DUNGEON_DARKNESS = 0.62
 
-let props: Record<DecorKind, Sprite> | null = null
-const propSprites = (): Record<DecorKind, Sprite> => (props ??= buildPropSprites())
+// Named for what it is: sharing the name `props` with a parameter below made
+// the bundler pick the wrong binding.
+let propCache: Record<DecorKind, Sprite> | null = null
+const propSprites = (): Record<DecorKind, Sprite> => (propCache ??= buildPropSprites())
 
 function rimColour(paint: ThemePaint, alpha: number): number {
   return packColor(paint.rim, alpha)
@@ -38,7 +40,7 @@ function rimColour(paint: ThemePaint, alpha: number): number {
  * sampled per world pixel, water left transparent for the animated layer, and
  * a dark rim where a walkable tile meets rock so the cave has depth.
  */
-function bakeGround(tiles: FloorTiles, paint: ThemePaint): HTMLCanvasElement {
+function bakeGround(tiles: FloorTiles, paint: ThemePaint, placed: readonly PlannedProp[]): HTMLCanvasElement {
   const w = tiles.width * TILE
   const h = tiles.height * TILE
   const pixels = new Uint32Array(w * h)
@@ -74,6 +76,27 @@ function bakeGround(tiles: FloorTiles, paint: ThemePaint): HTMLCanvasElement {
     }
   }
 
+  // D1.2.3 §4: every solid prop gets a dark footprint painted into the ground.
+  // The art of a boulder spills over its neighbours, so without this you cannot
+  // tell which tile it actually occupies — and that is what made the collisions
+  // feel arbitrary.
+  const base = rimColour(paint, 190)
+  const soft = rimColour(paint, 90)
+  for (const prop of placed) {
+    if (!prop.solid || !WALKABLE.has(tileAt(tiles, prop.tx, prop.ty))) continue
+    for (let py = 0; py < TILE; py++) {
+      for (let px = 0; px < TILE; px++) {
+        const dx = (px - TILE / 2 + 0.5) / (TILE / 2)
+        const dy = (py - TILE / 2 + 0.5) / (TILE / 2.6)
+        const d = dx * dx + dy * dy
+        if (d > 1) continue
+        const at = (prop.ty * TILE + py) * w + prop.tx * TILE + px
+        if (pixels[at] === 0) continue
+        pixels[at] = blend(pixels[at], d > 0.55 ? soft : base)
+      }
+    }
+  }
+
   const canvas = document.createElement('canvas')
   canvas.width = w
   canvas.height = h
@@ -101,9 +124,9 @@ function blend(base: number, over: number): number {
  * D1.2.2 §5: that plan is also what collision reads, so a boulder on screen and
  * a boulder in `isSolid` are the same decision, made once.
  */
-function buildDecor(props: readonly PlannedProp[], seed: number): DecorInstance[] {
+function buildDecor(placed: readonly PlannedProp[], seed: number): DecorInstance[] {
   const sprites = propSprites()
-  return props.map(prop => ({
+  return placed.map(prop => ({
     kind: prop.kind === 'torch' ? null : prop.kind,
     sprite: prop.kind === 'torch' ? torchSprite(0) : sprites[prop.kind],
     light: prop.light,
@@ -136,8 +159,8 @@ export class DungeonArea implements Area {
     this.paint = themePaint(tiles.theme)
     this.id = `dungeon-${seed}-${floor}`
     this.name = `${this.paint.name} · piso ${floor}`
-    this.canvas = bakeGround(tiles, this.paint)
     const props = planDecor(tiles, seed + floor * 97, style)
+    this.canvas = bakeGround(tiles, this.paint, props)
     this.blocked = solidPropTiles(props)
     this.decor = buildDecor(props, seed + floor * 97)
   }

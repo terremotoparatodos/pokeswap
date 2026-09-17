@@ -30,8 +30,12 @@ type Drawer = 'none' | 'bag' | 'party'
 const drawer = ref<Drawer>('none')
 const activeIndex = ref(0)
 
-const allies = computed(() => props.battle.actors.filter(actor => actor.side === 'ally'))
-const foe = computed(() => props.battle.actors.find(actor => actor.side === 'enemy'))
+// The battle is a plain object mutated in place, so nothing here may cache on
+// its own: every derivation reads `rev` first, which is the redraw token the
+// parent bumps. Without it a switch left the panel showing the four moves of
+// the Pokémon that walked off, every one of them at 0 PP (D1.2.3 §3).
+const allies = computed(() => (props.rev, props.battle.actors.filter(actor => actor.side === 'ally')))
+const foe = computed(() => (props.rev, props.battle.actors.find(actor => actor.side === 'enemy')))
 const active = computed<BattleActor | undefined>(() => allies.value[activeIndex.value] ?? allies.value[0])
 
 watch(() => active.value && isFainted(active.value.combatant.pokemon), fainted => {
@@ -50,7 +54,7 @@ const nameOf = (actor: BattleActor | undefined): string =>
 const hpOf = (actor: BattleActor | undefined): string =>
   actor ? `${Math.max(0, actor.combatant.pokemon.hp)}/${actor.combatant.pokemon.maxHp}` : ''
 
-const moves = computed(() => (active.value
+const moves = computed(() => (props.rev, active.value
   ? active.value.combatant.pokemon.moves.map(id => moveById(id)!).filter(Boolean)
   : []))
 

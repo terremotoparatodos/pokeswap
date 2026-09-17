@@ -88,7 +88,34 @@ export interface BattleState {
   readonly config: ActionBarConfig
   /** Set by the boss controller; the engine only renders and applies it. */
   telegraph: { readonly skillId: string; readonly name: string; readonly endsAt: number } | null
+  /**
+   * A Poké Ball is in the air (D1.2.3). While this is set the fight is held:
+   * no bar moves, no poison ticks, nothing resolves — exactly like the handheld
+   * games, where the throw is its own moment. It resolves itself on `tick`.
+   */
+  throw: BallThrow | null
+  /** How the species behind a bench member is found when it switches in. */
+  readonly speciesFor?: (pokemon: PokemonInstance) => Combatant['species']
 }
+
+/** A ball in flight: the shakes are decided up front, the verdict lands last. */
+export interface BallThrow {
+  readonly actorId: string
+  readonly targetId: string
+  readonly itemId: string
+  /** 0–3 wobbles before it opens or clicks. */
+  readonly shakes: number
+  readonly captured: boolean
+  readonly chance: number
+  /** Seconds left of the whole animation. */
+  remaining: number
+}
+
+/** Ball timings, in seconds. PLAYTEST PARAMETERS. */
+export const BALL_TIMING = { flight: 0.45, perShake: 0.55, verdict: 0.5 } as const
+
+export const ballDuration = (shakes: number): number =>
+  BALL_TIMING.flight + shakes * BALL_TIMING.perShake + BALL_TIMING.verdict
 
 export interface CreateBattleInput {
   readonly allies: readonly { combatant: Combatant; owner?: string }[]
@@ -97,6 +124,12 @@ export interface CreateBattleInput {
   readonly items?: Readonly<Record<string, BattleItem>>
   readonly rng: Rng
   readonly config?: ActionBarConfig
+  /**
+   * How to look up the species behind a party member. A switch needs it: the
+   * Pokémon coming in has its own types, stats and catch rate, and without it
+   * the newcomer would keep fighting with the outgoing one's.
+   */
+  readonly speciesFor?: (pokemon: PokemonInstance) => Combatant['species']
 }
 
 const actorFor = (combatant: Combatant, side: BattleSide, index: number, owner: string): BattleActor => ({
@@ -120,6 +153,8 @@ export function createBattle(input: CreateBattleInput): BattleState {
     rng: input.rng,
     config: input.config ?? ACTION_BAR,
     telegraph: null,
+    throw: null,
+    speciesFor: input.speciesFor,
   }
 }
 
@@ -246,18 +281,25 @@ function executeItem(battle: BattleState, actor: BattleActor, itemId: string, ta
   if (!item) return
   if (item.kind === 'ball') {
     const target = livingActors(battle, 'enemy')[0]
-    if (!target) return
+    if (!target || battle.throw) return
     const attempt = attemptCapture(
       { target: target.combatant.pokemon, catchRate: target.combatant.species.catchRate, ball: item.ball ?? BASIC_BALL },
       battle.rng.next(),
     )
-    if (attempt.captured) {
-      battle.capturedInstanceId = target.combatant.pokemon.instanceId
-      battle.outcome = 'captured'
-      log(battle, actor.id, 'capture', `¡Capturado! (${Math.round(attempt.chance * 100)} %)`)
-    } else {
-      log(battle, actor.id, 'capture', `Se escapó (${Math.round(attempt.chance * 100)} %)`)
+    // D1.2.3: the throw is its own moment. The wild Pokémon goes into the ball,
+    // it wobbles, and only then does it click or break open — and while that is
+    // happening the fight is held, the way the handheld games hold it.
+    const shakes = attempt.captured ? 3 : Math.min(3, Math.floor(attempt.chance * 4))
+    battle.throw = {
+      actorId: actor.id,
+      targetId: target.id,
+      itemId: item.id,
+      shakes,
+      captured: attempt.captured,
+      chance: attempt.chance,
+      remaining: ballDuration(shakes),
     }
+    log(battle, actor.id, 'capture', `${item.name}: lanzada`)
     return
   }
   const bench = benchOf(battle, actor.owner).find(member => member.instanceId === targetId)
@@ -286,7 +328,10 @@ function executeSwitch(battle: BattleState, actor: BattleActor, instanceId: stri
   }
   const incoming = bench[index]
   bench[index] = actor.combatant.pokemon
-  actor.combatant = { ...actor.combatant, pokemon: incoming, stages: {} }
+  // D1.2.3: the species comes with it. Keeping the outgoing one's meant the
+  // newcomer fought with somebody else's types, stats and catch rate.
+  const species = battle.speciesFor?.(incoming) ?? actor.combatant.species
+  actor.combatant = { ...actor.combatant, pokemon: incoming, species, stages: {} }
   actor.bar = 0
   actor.shield = 0
   actor.cooldownMultiplier = 1
@@ -366,8 +411,33 @@ function checkOutcome(battle: BattleState): void {
  * Advances the battle by `dt` seconds. There is **no pause parameter and no
  * pause flag**: whatever the UI is doing, the bars keep filling.
  */
+/**
+ * Runs the ball animation instead of the fight. Returns true while it owns the
+ * clock — nothing else advances until it lands (D1.2.3 §5).
+ */
+function tickThrow(battle: BattleState, dt: number): boolean {
+  const flight = battle.throw
+  if (!flight) return false
+  flight.remaining -= dt
+  if (flight.remaining > 0) return true
+
+  battle.throw = null
+  const target = battle.actors.find(actor => actor.id === flight.targetId)
+  const percent = Math.round(flight.chance * 100)
+  if (flight.captured && target) {
+    battle.capturedInstanceId = target.combatant.pokemon.instanceId
+    battle.outcome = 'captured'
+    log(battle, flight.actorId, 'capture', `¡Capturado! (${percent} %)`)
+  } else {
+    log(battle, flight.actorId, 'capture', `Se escapó (${percent} %)`)
+  }
+  return true
+}
+
 export function tick(battle: BattleState, dt: number): BattleState {
   if (battle.outcome !== 'ongoing' || dt <= 0) return battle
+  // The throw holds everything: bars, poison, cooldowns, the boss.
+  if (tickThrow(battle, dt)) return battle
   battle.seconds += dt
 
   for (const actor of battle.actors) {

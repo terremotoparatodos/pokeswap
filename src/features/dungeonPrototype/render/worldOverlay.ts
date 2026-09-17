@@ -51,7 +51,8 @@ export interface WorldBar {
 }
 
 export type EffectKind =
-  | 'ball' | 'open' | 'summon' | 'recall'
+  | 'ball' | 'open' | 'summon' | 'recall' | 'swallow' | 'shake'
+  | 'physical' | 'special' | 'statusHit' | 'shield' | 'heal' | 'aoe'| 'ball' | 'open' | 'summon' | 'recall'
   | 'physical' | 'special' | 'statusHit' | 'shield' | 'heal' | 'aoe' | 'shake'
 
 export interface WorldEffect {
@@ -207,6 +208,20 @@ export function createWorldOverlay(source: OverlaySource): SceneOverlay {
           case 'open':
             out.push({ wx: effect.wx, wy: effect.wy, sprite: balls[t < 0.5 ? 1 : 2], lift: 6, scale: 1 + t, alpha: 1 - t * 0.5, depthBias: 6 })
             break
+          case 'swallow':
+            // The wild Pokémon is drawn in: a flash that shrinks into the ball.
+            out.push({
+              wx: effect.wx, wy: effect.wy, sprite: burst('#ff9d6a', 9), lift: 8,
+              scale: 1.6 - t * 1.3, alpha: 1 - t * 0.5, depthBias: 6,
+            })
+            out.push({ wx: effect.wx, wy: effect.wy, sprite: balls[0], lift: 4, depthBias: 7 })
+            break
+          case 'shake': {
+            // One wobble: the ball tips left, then right, then settles.
+            const swing = Math.sin(t * Math.PI * 2) * 3
+            out.push({ wx: effect.wx + swing, wy: effect.wy, sprite: balls[0], lift: 4, depthBias: 7 })
+            break
+          }
           case 'summon':
           case 'recall':
             out.push({

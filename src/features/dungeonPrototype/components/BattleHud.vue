@@ -30,8 +30,9 @@ type Drawer = 'none' | 'bag' | 'party'
 const drawer = ref<Drawer>('none')
 const activeIndex = ref(0)
 
-const allies = computed(() => props.battle.actors.filter(actor => actor.side === 'ally'))
-const enemies = computed(() => props.battle.actors.filter(actor => actor.side === 'enemy'))
+// Same reason as CombatPopup: the battle object is mutated in place.
+const allies = computed(() => (props.rev, props.battle.actors.filter(actor => actor.side === 'ally')))
+const enemies = computed(() => (props.rev, props.battle.actors.filter(actor => actor.side === 'enemy')))
 const active = computed<BattleActor | undefined>(() => allies.value[activeIndex.value] ?? allies.value[0])
 
 // If the one you are looking at faints, look at the other one.
@@ -51,7 +52,7 @@ const hpClass = (actor: BattleActor) => {
   return pct <= 20 ? 'bh-hp--low' : pct <= 50 ? 'bh-hp--mid' : ''
 }
 
-const moves = computed(() => (active.value
+const moves = computed(() => (props.rev, active.value
   ? active.value.combatant.pokemon.moves.map(id => moveById(id)!).filter(Boolean)
   : []))
 

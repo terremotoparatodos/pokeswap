@@ -245,6 +245,28 @@ function syncFloor(live: PlaySession): DungeonWorld | null {
   return scene
 }
 
+/**
+ * D1.2.3 §3: a switch used to be invisible — the sprite kept fighting as the
+ * Pokémon that left. This watches the battle rather than the log: whenever the
+ * species on an ally slot stops matching the sprite standing there, the sprite
+ * is recalled and the newcomer comes out of its Ball on the same tile.
+ */
+function syncSwitches(live: PlaySession, scene: DungeonWorld): void {
+  if (!live.battle) return
+  for (const actor of live.battle.actors) {
+    if (actor.side !== 'ally') continue
+    const sprite = scene.allyActor(actor.id)
+    const speciesId = actor.combatant.pokemon.speciesId
+    if (!sprite?.pokemon || sprite.pokemon.id === speciesId) continue
+    const at = actorPosition(sprite)
+    scene.swapAlly(actor.id, speciesId)
+    revealAt.set(actor.id, clock + 0.3)
+    spawn({ kind: 'recall', wx: at.x, wy: at.y, life: 0.3 })
+    spawn({ kind: 'open', wx: at.x, wy: at.y, bornAt: clock + 0.3, life: 0.25 })
+    spawn({ kind: 'summon', wx: at.x, wy: at.y, bornAt: clock + 0.3, life: 0.45 })
+  }
+}
+
 /** Sends our side out by Ball when a fight starts, and recalls it when it ends. */
 function syncCombat(live: PlaySession, scene: DungeonWorld): void {
   const fighting = live.phase === 'combat' || live.phase === 'boss'
@@ -300,6 +322,7 @@ function loop(time: number): void {
   scene.update(dt, live.tiles, keys.direction, (tx, ty) => emit('arrive', tx, ty), keys.sprinting)
   // A tap route that ended beside something is the same as pressing E there.
   if (scene.arrivedAtTarget) emit('interact')
+  syncSwitches(live, scene)
   // DEV probe: /dev/dungeon only exists in development, and this is how the
   // scene is inspected from the console during a visual QA pass.
   if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__dungeon = { scene, live }

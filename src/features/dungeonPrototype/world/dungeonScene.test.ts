@@ -7,7 +7,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { generateFloor } from '../domain/floorPlan'
-import { buildFloorTiles, placeEntities, type FloorEntity, type FloorTiles } from '../domain/floorTiles'
+import { buildFloorTiles, isWalkable, placeEntities, type FloorEntity, type FloorTiles } from '../domain/floorTiles'
 import { dungeonProfile } from '../domain/tiers'
 import { createWorldOverlay, type WorldBar } from '../render/worldOverlay'
 import { chestSprite, doorSprite } from './dungeonProps'
@@ -81,7 +81,7 @@ describe('one Pokémon, one sprite', () => {
 })
 
 describe('the trainer', () => {
-  it('stays in the scene and on their tile when the fight starts', () => {
+  it('takes one step back and leaves its tile to our Pokémon (D1.2.3 §2)', () => {
     const { tiles, entities, scene } = world()
     const target = firstEncounter(entities)
     scene.player.tx = target.at.x
@@ -90,9 +90,18 @@ describe('the trainer', () => {
     scene.player.fromTy = scene.player.ty
     const before = { x: scene.player.tx, y: scene.player.ty }
 
-    scene.openCombat(tiles, target.id, [{ combatantId: 'ally-0', speciesId: 25 }])
-    expect(scene.player).toBeDefined()
-    expect({ x: scene.player.tx, y: scene.player.ty }).toEqual(before)
+    const staged = scene.openCombat(tiles, target.id, [{ combatantId: 'ally-0', speciesId: 25 }])
+    const after = { x: scene.player.tx, y: scene.player.ty }
+
+    // Still in the scene, one tile at most from where they were, and further
+    // from the foe than before.
+    expect(Math.abs(after.x - before.x) + Math.abs(after.y - before.y)).toBeLessThanOrEqual(1)
+    expect(isWalkable(tiles, after.x, after.y)).toBe(true)
+    if (after.x !== before.x || after.y !== before.y) {
+      expect(staged.spots[0]).toEqual(before)
+      const near = (spot: { x: number; y: number }) => Math.hypot(spot.x - target.at.x, spot.y - target.at.y)
+      expect(near(after)).toBeGreaterThanOrEqual(near(before))
+    }
   })
 
   it('cannot walk while the fight is on, and walks again afterwards', () => {
@@ -133,15 +142,18 @@ describe('ending the fight', () => {
     expect(scene.wildActor(target.id)).toBeUndefined()
   })
 
-  it('stages our Pokémon on ground, never on the foe or the trainer', () => {
+  it('stages our Pokémon on ground, never on the foe or under the trainer', () => {
     const { tiles, entities, scene } = world()
     const target = firstEncounter(entities)
     const staged = scene.openCombat(tiles, target.id, [{ combatantId: 'ally-0', speciesId: 25 }])
+    const trainer = { x: scene.player.tx, y: scene.player.ty }
     for (const spot of staged.spots) {
       expect(spot).not.toEqual(target.at)
-      const ally = scene.allyActor('ally-0')!
-      expect({ x: ally.tx, y: ally.ty }).toEqual(spot)
+      expect(spot).not.toEqual(trainer)
+      expect(isWalkable(tiles, spot.x, spot.y)).toBe(true)
     }
+    const ally = scene.allyActor('ally-0')!
+    expect({ x: ally.tx, y: ally.ty }).toEqual(staged.spots[0])
   })
 })
 
