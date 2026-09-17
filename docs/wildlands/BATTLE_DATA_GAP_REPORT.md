@@ -112,9 +112,16 @@ Ninguna fuente externa está aprobada dentro del proyecto hoy. Las opciones, con
 
 **Recomendación:** un import único y versionado, revisado por la estación principal, hacia tablas propias (`battle_species`, `battle_moves`, `battle_learnsets`, `battle_abilities`, `type_chart`), con un script bajo `scripts/` igual que el de base stats, y el resultado commiteado como datos generados. Eso mantiene el determinismo cliente/servidor y evita depender de una API en runtime. **La decisión no es mía**: toca licencias, producto y persistencia.
 
-## 5. La decisión que sigue OPEN: generación / ruleset
+## 5. Generación / ruleset — **CERRADA en D1**
 
-Sin cerrar. Opciones y qué arrastran:
+> **APPROVED: `PokeSwap Battle Ruleset v1 = Pokémon Omega Ruby / Alpha Sapphire — Generation VI`.**
+> La referencia de datos es Gen 6 / ORAS: typing Gen 6 con Hada, base stats Gen 6, movimientos ORAS con su potencia, precisión, PP, categoría, prioridad y efectos, abilities, learnsets y tabla de tipos Gen 6.
+>
+> **Sigue OPEN:** la fuente concreta del dataset, su licencia, el pipeline de import, las formas, las Megaevoluciones y los Primals (que **no** se habilitan automáticamente) y el detalle final de `PokemonInstance`.
+>
+> Los fixtures de D1 ya son coherentes con Gen 6 — Clefairy es Hada, Magnemite es Eléctrico/Acero, Azumarill es Agua/Hada — y la tabla de tipos del prototipo ya era la Gen 6+, así que no hubo que cambiarla.
+
+Lo que sigue queda como registro de por qué se eligió, y de lo que arrastra cada opción:
 
 | Ruleset | Tipos | Implicancias |
 |---|---|---|

@@ -265,7 +265,7 @@ describe('items and the bag (D1 §30, §31)', () => {
 describe('targeting (D1 §18, §34)', () => {
   it('treats an ORAS spread move as single target in v1', () => {
     expect(MOVES.earthquake.spreadInOras).toBe(true)
-    expect(isSingleTargetInV1(MOVES.earthquake)).toBe(true)
+    expect(isSingleTargetInV1()).toBe(true)
   })
 
   it('never damages an ally, even with two active Pokémon', () => {

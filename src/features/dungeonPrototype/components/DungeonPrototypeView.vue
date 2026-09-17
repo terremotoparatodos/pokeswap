@@ -10,10 +10,12 @@ import BattleLab from './BattleLab.vue'
 import CaptureLab from './CaptureLab.vue'
 import ExpeditionLab from './ExpeditionLab.vue'
 import GeneratorLab from './GeneratorLab.vue'
+import PlayDungeon from './PlayDungeon.vue'
 
-type Tab = 'generator' | 'battle' | 'capture' | 'expedition' | 'alpha'
+type Tab = 'play' | 'generator' | 'battle' | 'capture' | 'expedition' | 'alpha'
 
 const TABS: Readonly<Record<Tab, string>> = {
+  play: '▶ PLAY DUNGEON',
   generator: 'Generador',
   battle: 'Combate realtime',
   capture: 'Captura',
@@ -21,7 +23,8 @@ const TABS: Readonly<Record<Tab, string>> = {
   alpha: 'Alpha Boss',
 }
 
-const tab = ref<Tab>('generator')
+// The playable loop is the default: the technical labs stay for debugging.
+const tab = ref<Tab>('play')
 </script>
 
 <template>
@@ -45,7 +48,8 @@ const tab = ref<Tab>('generator')
     </nav>
 
     <main class="dp-main">
-      <GeneratorLab v-if="tab === 'generator'" />
+      <PlayDungeon v-if="tab === 'play'" />
+      <GeneratorLab v-else-if="tab === 'generator'" />
       <BattleLab v-else-if="tab === 'battle'" />
       <CaptureLab v-else-if="tab === 'capture'" />
       <ExpeditionLab v-else-if="tab === 'expedition'" />

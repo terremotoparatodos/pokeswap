@@ -137,7 +137,7 @@ export const MOVE_IDS = Object.keys(MOVES)
 export const moveById = (id: string): MoveDefinition | null => MOVES[id] ?? null
 
 /** APPROVED (D1 §18): every move resolves against exactly one target in v1. */
-export const isSingleTargetInV1 = (_move: MoveDefinition): true => true
+export const isSingleTargetInV1 = (): true => true
 
 /** Up to four moves, as the UI shows them. */
 export const movesOf = (ids: readonly string[]): MoveDefinition[] =>
