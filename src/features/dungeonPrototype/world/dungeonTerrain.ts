@@ -163,10 +163,15 @@ export function themePaint(theme: DungeonTheme): ThemePaint {
         : theme === 'ruin' ? art.textures[T.SAND]
           : floor,
     rubble: theme === 'ruin' ? art.textures[T.DUNE] : rubble,
+    // D1.2.1 §10: the patch is a real overworld material wherever one fits, so a
+    // biome reads as WildLands growing into the cave and not as a tinted floor.
     accent: theme === 'volcano' ? crust(seed + 120)
       : theme === 'forest' ? art.textures[T.TALL]
         : theme === 'glacier' ? art.textures[T.SNOW]
-          : ground(palette.floor.map(shiftUp), seed + 160),
+          : theme === 'ruin' ? art.textures[T.DUNE]
+            : theme === 'mine' ? art.textures[T.SAND]
+              : theme === 'cave' ? art.textures[T.SAND]
+                : ground(palette.floor.map(shiftUp), seed + 160),
     wallProps: theme === 'glacier' ? ['icerock', 'rock']
       : theme === 'forest' ? ['rock', 'bush']
         : ['rock', 'boulder'],
