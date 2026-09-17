@@ -46,7 +46,9 @@ describe('clean slate', () => {
     // its sprite recipe and its real character sheets are what make the dungeon
     // look like the same game. Everything else stays inside the namespace, and
     // nothing in WildLands is modified.
-    const allowed = /\.\.\/\.\.\/wildlands\/engine\//
+    // D1.2.1 §2 also allows identity/playerCharacters: the contract for that phase
+    // is that the dungeon uses the *same* player, and the sheet lives there.
+    const allowed = /\.\.\/\.\.\/wildlands\/(engine|identity\/playerCharacters)/
     for (const [path, source] of Object.entries(files)) {
       if (path.includes('dungeonRoute.test')) continue
       const imports = [...source.matchAll(/from\s+['"](\.\.[^'"]*)['"]/g)].map(match => match[1])
@@ -57,11 +59,15 @@ describe('clean slate', () => {
     }
   })
 
-  it('consumes the engine read-only: no import reaches a non-engine WildLands module', () => {
+  it('consumes WildLands read-only, and only the engine plus the player roster', () => {
+    // The roster (identity/playerCharacters) is data: three ids and three sheet
+    // URLs. It is on the list because D1.2.1 requires the dungeon player to be
+    // the overworld player, sheet included — not because the door is open.
     for (const [path, source] of Object.entries(files)) {
       const wild = [...source.matchAll(/from\s+['"]([^'"]*wildlands[^'"]*)['"]/g)].map(match => match[1])
       for (const specifier of wild) {
-        expect(specifier.includes('/engine/'), `${path} → ${specifier}`).toBe(true)
+        const ok = specifier.includes('/engine/') || specifier.endsWith('/identity/playerCharacters')
+        expect(ok, `${path} → ${specifier}`).toBe(true)
       }
     }
   })

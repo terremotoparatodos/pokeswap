@@ -10,7 +10,12 @@
 // that was standing on the floor a second earlier — the fight never makes a
 // second copy of it.
 
-import { actorPosition, createActor, driveWalker, createWalkerState, advance, type Actor, type MoveRules } from '../../wildlands/engine/actors'
+import {
+  actorPosition, advance, createActor, createWalkerState, driveWalker, isMoving,
+  RUN_SPEED, WALK_SPEED, type Actor, type MoveRules,
+} from '../../wildlands/engine/actors'
+import { PlayerAppearance } from '../../wildlands/engine/playerAppearance'
+import { DEFAULT_PLAYER_CHARACTER_ID, playerCharacter } from '../../wildlands/identity/playerCharacters'
 import type { Lighting } from '../../wildlands/engine/atmosphere'
 import type { Dir, TrainerSprites } from '../../wildlands/engine/characters'
 import { TILE } from '../../wildlands/engine/world'
@@ -45,6 +50,8 @@ export class DungeonWorld {
   private readonly wild = new Map<string, Actor>()
   private readonly allies = new Map<string, Actor>()
   private readonly walker = createWalkerState()
+  /** Loads the same character sheet the overworld puts on the player. */
+  private readonly appearance: PlayerAppearance
   /** The Alpha is drawn at twice the size by the overlay, so it is not a plain actor. */
   private alphaId: string | null = null
   /** Set while a fight is on: the trainer keeps their tile and stops walking. */
@@ -54,9 +61,15 @@ export class DungeonWorld {
 
   constructor(trainer: TrainerSprites, tiles: FloorTiles, entities: readonly FloorEntity[], at: TilePoint, seed: number, floor: number) {
     this.area = new DungeonArea(tiles, seed, floor)
+    // D1.2.1 §2: the same actor WildLands makes, field for field — the same id,
+    // the same `habitat: 'any'`, the same drawn fallback, and the same character
+    // sheet loaded over it by PlayerAppearance. Nothing about the player is
+    // "the dungeon's version of" anything.
     this.player = createActor({
-      id: 'trainer', kind: 'player', habitat: 'land', tx: at.x, ty: at.y, trainer, dir: 'down',
+      id: 'player', kind: 'player', habitat: 'any', tx: at.x, ty: at.y, trainer,
     })
+    this.appearance = new PlayerAppearance(this.player, trainer)
+    this.appearance.set(playerCharacter(DEFAULT_PLAYER_CHARACTER_ID))
     this.syncWild(entities)
     const home = actorPosition(this.player)
     this.camX = home.x
@@ -231,25 +244,34 @@ export class DungeonWorld {
   }
 
   /**
-   * One frame: the trainer walks (unless a fight has them), everyone advances,
-   * and the camera eases toward the trainer.
+   * One frame, run exactly the way `engine/game.ts` runs the overworld (§3, §4):
+   * the speed is latched per tile, `driveWalker` does the walking, and the
+   * camera is **locked** to the player's whole-pixel position — easing only
+   * kicks in after a jump of more than three tiles, so the view never drifts
+   * behind a step.
    */
-  update(dt: number, tiles: FloorTiles, want: Dir | null, onArrive?: (tx: number, ty: number) => void): void {
+  update(dt: number, tiles: FloorTiles, want: Dir | null, onArrive?: (tx: number, ty: number) => void, sprinting = false): void {
     const rules = this.rules(tiles)
+    const player = this.player
     if (this.locked) {
-      this.player.progress = 1
-      this.player.bumping = false
+      player.progress = 1
+      player.bumping = false
     } else {
-      driveWalker(this.player, want, dt, rules, this.walker, onArrive)
+      player.running = sprinting
+      if (!isMoving(player)) {
+        player.speed = (sprinting ? RUN_SPEED : WALK_SPEED) * (this.area.isWater(player.tx, player.ty) ? 0.7 : 1)
+      }
+      driveWalker(player, want, dt, rules, this.walker, onArrive)
     }
     for (const actor of this.actors()) advance(actor, dt)
 
-    const target = actorPosition(this.player)
-    const ease = Math.min(1, dt * 9)
-    this.camX += (target.x - this.camX) * ease
-    this.camY += (target.y - this.camY) * ease
-    // A floor change is a jump, not a walk: snap when we are far away.
-    if (Math.hypot(target.x - this.camX, target.y - this.camY) > TILE * 6) {
+    const target = actorPosition(player)
+    const gap = Math.hypot(target.x - this.camX, target.y - this.camY)
+    if (gap > TILE * 3) {
+      const follow = 1 - Math.exp(-dt * 10)
+      this.camX += (target.x - this.camX) * follow
+      this.camY += (target.y - this.camY) * follow
+    } else {
       this.camX = target.x
       this.camY = target.y
     }

@@ -13,6 +13,7 @@
 import { computed, onMounted, onUnmounted, ref, shallowRef } from 'vue'
 import { actorPosition, type Actor } from '../../wildlands/engine/actors'
 import type { Dir } from '../../wildlands/engine/characters'
+import { KeyboardInput } from '../../wildlands/engine/keyboard'
 import { LENSES } from '../../wildlands/engine/projection'
 import { Renderer, type Scene } from '../../wildlands/engine/renderer'
 import type { PlaySession } from '../domain/playSession'
@@ -26,7 +27,10 @@ import {
 import { speciesFrames } from '../render/dungeonSprites'
 
 const props = defineProps<{ session: PlaySession | null; pad?: boolean }>()
-const emit = defineEmits<{ (event: 'arrive', tx: number, ty: number): void }>()
+const emit = defineEmits<{
+  (event: 'arrive', tx: number, ty: number): void
+  (event: 'interact'): void
+}>()
 
 const canvas = ref<HTMLCanvasElement | null>(null)
 const renderer = shallowRef<Renderer | null>(null)
@@ -37,7 +41,6 @@ let last = 0
 let clock = 0
 /** The floor the scene was built from; a new one means a new area. */
 let builtFrom: unknown = null
-let held: Dir | null = null
 /** When each ally's sprite becomes visible: its Ball has to land first. */
 const revealAt = new Map<string, number>()
 
@@ -157,25 +160,18 @@ defineExpose({ spawn, say, anchorOf, clearEffects, now })
 
 // ── Input ──────────────────────────────────────────────────────────────────
 
-const KEYS: Record<string, Dir> = {
-  ArrowUp: 'up', KeyW: 'up', ArrowDown: 'down', KeyS: 'down',
-  ArrowLeft: 'left', KeyA: 'left', ArrowRight: 'right', KeyD: 'right',
-}
+// D1.2.1 §4: the overworld's own input object, not a copy of it. Held keys
+// stack and the last one wins, Shift runs, and the d-pad feeds `virtualDir`
+// exactly as it does in WildLands.
+const keys = new KeyboardInput({
+  cycleLens: () => undefined,
+  toggleGrid: () => undefined,
+  skipTime: () => undefined,
+  interact: () => emit('interact'),
+})
 
-function onKeyDown(event: KeyboardEvent): void {
-  if (event.target instanceof HTMLInputElement || event.target instanceof HTMLSelectElement) return
-  const dir = KEYS[event.code]
-  if (!dir) return
-  event.preventDefault()
-  held = dir
-}
-
-function onKeyUp(event: KeyboardEvent): void {
-  if (KEYS[event.code] && KEYS[event.code] === held) held = null
-}
-
-const press = (dir: Dir): void => { held = dir }
-const release = (): void => { held = null }
+const press = (dir: Dir): void => { keys.virtualDir = dir }
+const release = (): void => { keys.virtualDir = null }
 
 // ── Frame ──────────────────────────────────────────────────────────────────
 
@@ -251,7 +247,7 @@ function loop(time: number): void {
   syncCombat(live, scene)
   scene.locked = live.phase !== 'exploring'
 
-  scene.update(dt, live.tiles, held, (tx, ty) => emit('arrive', tx, ty))
+  scene.update(dt, live.tiles, keys.direction, (tx, ty) => emit('arrive', tx, ty), keys.sprinting)
   // DEV probe: /dev/dungeon only exists in development, and this is how the
   // scene is inspected from the console during a visual QA pass.
   if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__dungeon = { scene, live }
@@ -288,17 +284,13 @@ function loop(time: number): void {
 
 onMounted(() => {
   if (canvas.value) renderer.value = new Renderer(canvas.value)
-  window.addEventListener('keydown', onKeyDown)
-  window.addEventListener('keyup', onKeyUp)
-  window.addEventListener('blur', release)
+  keys.attach()
   frame = requestAnimationFrame(loop)
 })
 
 onUnmounted(() => {
   cancelAnimationFrame(frame)
-  window.removeEventListener('keydown', onKeyDown)
-  window.removeEventListener('keyup', onKeyUp)
-  window.removeEventListener('blur', release)
+  keys.detach()
 })
 
 const walkable = computed(() => {
