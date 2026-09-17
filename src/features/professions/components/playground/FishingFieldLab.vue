@@ -70,7 +70,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import type { Dir } from '../../../wildlands/engine/characters'
 import { WildlandsGame } from '../../../wildlands/engine/game'
 import { World } from '../../../wildlands/engine/world'
 import { NODE_BY_ID } from '../../domain/catalog/nodes'
@@ -83,6 +82,7 @@ import { usedSlots } from '../../inventory/slotInventory'
 import FishingActionCard from '../FishingActionCard.vue'
 import InventoryGrid from '../InventoryGrid.vue'
 import ProfessionHud from '../ProfessionHud.vue'
+import { spawnBeside } from './spawnBeside'
 
 // R31-C2 field lab: the real WildLands engine on the Pradera coast, without
 // presence or Supabase, with the fishing overlay attached.
@@ -118,7 +118,7 @@ function createGame(): void {
     pokedex: [],
     onHud: () => undefined,
     startArea: 'pradera',
-    spawn: spawnBeside(landmark),
+    spawn: spawnBeside(new World(PRADERA_SEED), landmark),
     onWorldObject: hit => controller.inspect(hit),
     isWorldObject: hit => controller.isSpot(hit),
   })
@@ -126,23 +126,6 @@ function createGame(): void {
   controller.close()
   controller.attach()
   created.start()
-}
-
-/** A dry tile next to the spot (two steps back when possible), facing it. */
-function spawnBeside(landmark: { tx: number; ty: number }): { tx: number; ty: number; dir: Dir } {
-  const world = new World(PRADERA_SEED)
-  const dry = (tx: number, ty: number) => !world.isSolid(tx, ty) && !world.isWater(tx, ty)
-  const sides: readonly [number, number, Dir][] = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
-  for (const distance of [2, 1]) {
-    for (const [dx, dy, dir] of sides) {
-      const tx = landmark.tx + dx * distance
-      const ty = landmark.ty + dy * distance
-      const path = distance === 2 ? dry(landmark.tx + dx, landmark.ty + dy) : true
-      if (path && dry(tx, ty)) return { tx, ty, dir }
-    }
-  }
-  // Open reef: no bank at all, so start on the nearest tile and swim.
-  return { tx: landmark.tx, ty: landmark.ty + 1, dir: 'up' }
 }
 
 const DRAG_START_PX = 12

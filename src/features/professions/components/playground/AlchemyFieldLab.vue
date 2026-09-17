@@ -84,7 +84,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import type { Dir } from '../../../wildlands/engine/characters'
 import { WildlandsGame } from '../../../wildlands/engine/game'
 import { World } from '../../../wildlands/engine/world'
 import { alchemyStationTile, type StationTile } from '../../alchemy/stationPlacement'
@@ -102,6 +101,7 @@ import AlchemyStationCard from '../AlchemyStationCard.vue'
 import ForageActionCard from '../ForageActionCard.vue'
 import InventoryGrid from '../InventoryGrid.vue'
 import ProfessionHud from '../ProfessionHud.vue'
+import { spawnBeside } from './spawnBeside'
 
 // R31-C4 field lab, extended in R31-C4.1: the real WildLands engine with both
 // halves of Alchemy attached — the bench in its clearing and the four forage
@@ -178,7 +178,7 @@ function createGame(): void {
     pokedex: [],
     onHud: () => undefined,
     startArea: 'pradera',
-    spawn: spawnBeside(tile),
+    spawn: spawnBeside(new World(PRADERA_SEED), tile),
     onWorldObject: hit => inspect(hit),
     isWorldObject: hit => forage.isPlant(hit) || alchemy.isStation(hit),
   })
@@ -200,22 +200,6 @@ function inspect(hit: { area: Parameters<typeof forage.isPlant>[0]['area']; tx: 
     return true
   }
   return false
-}
-
-/** A free, dry tile two steps from the target, facing it, so the walk is visible. */
-function spawnBeside(tile: { tx: number; ty: number }): { tx: number; ty: number; dir: Dir } {
-  const world = new World(PRADERA_SEED)
-  const free = (tx: number, ty: number) => !world.isSolid(tx, ty) && !world.isWater(tx, ty)
-  const sides: readonly [number, number, Dir][] = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
-  for (const distance of [2, 1]) {
-    for (const [dx, dy, dir] of sides) {
-      const tx = tile.tx + dx * distance
-      const ty = tile.ty + dy * distance
-      const path = distance === 2 ? free(tile.tx + dx, tile.ty + dy) : true
-      if (path && free(tx, ty)) return { tx, ty, dir }
-    }
-  }
-  return { tx: tile.tx, ty: tile.ty + 1, dir: 'up' }
 }
 
 const DRAG_START_PX = 12

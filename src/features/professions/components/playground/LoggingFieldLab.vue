@@ -68,7 +68,6 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import type { Dir } from '../../../wildlands/engine/characters'
 import { WildlandsGame } from '../../../wildlands/engine/game'
 import { World } from '../../../wildlands/engine/world'
 import { NODE_BY_ID } from '../../domain/catalog/nodes'
@@ -81,6 +80,7 @@ import { useLoggingController } from '../../logging/useLoggingController'
 import InventoryGrid from '../InventoryGrid.vue'
 import LoggingActionCard from '../LoggingActionCard.vue'
 import ProfessionHud from '../ProfessionHud.vue'
+import { spawnBeside } from './spawnBeside'
 
 // R31-C3 field lab: the real WildLands engine in the Pradera woods, without
 // presence or Supabase, with the logging overlay attached.
@@ -109,7 +109,7 @@ function createGame(): void {
     pokedex: [],
     onHud: () => undefined,
     startArea: 'pradera',
-    spawn: spawnBeside(landmark),
+    spawn: spawnBeside(new World(PRADERA_SEED), landmark),
     onWorldObject: hit => controller.inspect(hit),
     isWorldObject: hit => controller.isTree(hit),
   })
@@ -117,22 +117,6 @@ function createGame(): void {
   controller.close()
   controller.attach()
   created.start()
-}
-
-/** A free, dry tile two steps from the tree (so the approach is visible), facing it. */
-function spawnBeside(landmark: { tx: number; ty: number }): { tx: number; ty: number; dir: Dir } {
-  const world = new World(PRADERA_SEED)
-  const free = (tx: number, ty: number) => !world.isSolid(tx, ty) && !world.isWater(tx, ty)
-  const sides: readonly [number, number, Dir][] = [[0, 1, 'up'], [0, -1, 'down'], [1, 0, 'left'], [-1, 0, 'right']]
-  for (const distance of [2, 1]) {
-    for (const [dx, dy, dir] of sides) {
-      const tx = landmark.tx + dx * distance
-      const ty = landmark.ty + dy * distance
-      const path = distance === 2 ? free(landmark.tx + dx, landmark.ty + dy) : true
-      if (path && free(tx, ty)) return { tx, ty, dir }
-    }
-  }
-  return { tx: landmark.tx, ty: landmark.ty + 1, dir: 'up' }
 }
 
 const DRAG_START_PX = 12
