@@ -65,16 +65,18 @@ avanza, ningún estado tickea, nada se resuelve. Fases y tiempos
 
 | Fase | Duración | Qué se ve |
 | --- | --- | --- |
-| `ball` | 0,45 s | la bola vuela hacia el rival |
+| `ball` | 0,7 s | la bola vuela hacia el rival |
 | `swallow` | 0,3 s | el Pokémon entra; **desde acá sólo queda la bola** |
-| `shake` × N | 0,55 s c/u | la bola se sacude, 0 a 3 veces |
-| `held` | 0,5 s | captura: la bola queda fija con el brillo |
-| `breakout` | 0,5 s | fallo: rayo rojo y el Pokémon vuelve |
+| `shake` × N | 0,95 s c/u | la bola se sacude, 0 a 3 veces |
+| `held` | 0,85 s | captura: la bola queda fija con el brillo |
+| `breakout` | 0,85 s | fallo: rayo rojo y el Pokémon vuelve |
+
+(Los tiempos son los de D1.2.4bis §3, que alargó la secuencia.)
 
 El rival y su barra se ocultan mientras la bola está en el aire, que es lo que
 hacía falta para que «sólo quede el sprite de la pokebola girando».
 
-Verificado en vivo: un escape resolvió `sh0 | captured=false` en 0,95 s y el
+Verificado en vivo: un escape resolvió `sh0 | captured=false` y el
 combate siguió; una captura resolvió `sh3 | captured=true` y terminó el combate
 ahí mismo, con el reloj congelado durante todo el lanzamiento.
 
