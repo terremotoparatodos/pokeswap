@@ -18,6 +18,8 @@ const props = defineProps<{
   bag: Readonly<Record<string, number>>
   bench: readonly PokemonInstance[]
   items: Readonly<Record<string, { id: string; name: string }>>
+  /** Redraw token: the battle object is mutated in place (see PlayDungeon). */
+  rev: number
 }>()
 
 const emit = defineEmits<{

@@ -24,11 +24,12 @@ export type DevCommand =
 
 // `rev` is a redraw token: the session is mutated in place, so this is what
 // tells Vue the readout below is worth rendering again.
-defineProps<{ session: PlaySession; clockSpeed: number; players: number; rev: number }>()
+defineProps<{ session: PlaySession; clockSpeed: number; players: number; rev: number; legacyRenderer: boolean }>()
 
 const emit = defineEmits<{
   (event: 'update:clockSpeed', value: number): void
   (event: 'update:players', value: number): void
+  (event: 'update:legacyRenderer', value: boolean): void
   (event: 'command', command: DevCommand): void
   (event: 'wipe'): void
   (event: 'restart'): void
@@ -63,6 +64,14 @@ const run = (command: DevCommand): void => emit('command', command)
           @input="emit('update:players', Number(($event.target as HTMLInputElement).value))"
         >
         <em>1 → dos Pokémon activos contra el Alpha</em>
+      </div>
+
+      <div class="dt-group">
+        <span>Motor</span>
+        <button type="button" @click="emit('update:legacyRenderer', !legacyRenderer)">
+          {{ legacyRenderer ? 'Volver al render WildLands' : 'Comparar con el render D1.1' }}
+        </button>
+        <em>{{ legacyRenderer ? 'prototipo D1.1' : 'WildLands nativo' }}</em>
       </div>
 
       <div class="dt-group">

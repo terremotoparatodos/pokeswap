@@ -1,13 +1,20 @@
 <script setup lang="ts">
-// JUGAR DUNGEON — the Field Lab (D1.1).
+// JUGAR DUNGEON — the Field Lab (D1.1, rebuilt on the WildLands renderer in D1.2).
 //
-// The world is the screen. This component owns the loop and the presentation;
-// every rule lives in `domain/`. The technical controls moved into a collapsed
-// DEV drawer at the bottom, where they cannot be mistaken for the game.
+// The world is the screen, and since D1.2 that world is drawn by the engine's
+// own renderer: the floor is a real `Area`, the trainer and every Pokémon are
+// real `Actor`s, and the fight happens on the floor where the Pokémon was
+// standing. This component owns the loop and the framing; every rule still
+// lives in `domain/`, and the technical controls stay in a collapsed DEV drawer.
+//
+// The D1.1 prototype renderer is still here, behind a DEV switch, purely so the
+// two can be compared side by side (§4, §32).
 
 import { computed, onUnmounted, ref, shallowRef, triggerRef } from 'vue'
 import BattleHud from './BattleHud.vue'
+import CombatPopup from './CombatPopup.vue'
 import DungeonStage from './DungeonStage.vue'
+import WildStage from './WildStage.vue'
 import DungeonCatalog from './DungeonCatalog.vue'
 import DevTools, { type DevCommand } from './DevTools.vue'
 import {
@@ -17,7 +24,7 @@ import { DUNGEON_DEFINITIONS, poolOf } from '../data/dungeonCatalog'
 import { speciesById } from '../data/speciesFixtures'
 import { tick, type BattleActor, type BattleEvent, type PreparedAction } from '../domain/battle'
 import { createSpawn, formatCountdown, type DungeonDefinition } from '../domain/dungeonSpawn'
-import { moveById } from '../domain/moves'
+import { MOVES } from '../domain/moves'
 import { heal, isFainted, revive } from '../domain/party'
 import { streamFor } from '../domain/rng'
 import {
@@ -26,12 +33,17 @@ import {
 } from '../domain/playSession'
 import { DungeonRenderer, type CombatantView, type RenderView } from '../render/dungeonRenderer'
 import { preloadSpecies } from '../render/dungeonSprites'
+import { colourOfType } from '../render/worldOverlay'
+import { tileCentre } from '../world/dungeonArea'
 
 const session = shallowRef<PlaySession | null>(null)
 const stage = ref<InstanceType<typeof DungeonStage> | null>(null)
+const wild = ref<InstanceType<typeof WildStage> | null>(null)
 const bag = ref<Record<string, number>>({ ...STARTING_INVENTORY })
 const players = ref(1)
 const clockSpeed = ref(1)
+/** D1.2: the WildLands renderer is the experience; the old one is a DEV compare. */
+const legacyRenderer = ref(false)
 /** A monotonic clock for the visuals: effects and the renderer share it. */
 const clock = ref(0)
 // The session is a shallowRef mutated in place, so a child that only holds it as
@@ -40,6 +52,8 @@ const clock = ref(0)
 // debug readout and costs nothing next to the frame loop.
 const devPulse = ref(0)
 const devRev = computed(() => Math.floor(clock.value * 4) + devPulse.value)
+/** The combat panel needs the same trick, faster: HP has to read as live. */
+const hudRev = computed(() => Math.floor(clock.value * 12))
 const confirmRetreat = ref(false)
 const toast = ref<{ title: string; body: string; tone: 'good' | 'bad' } | null>(null)
 
@@ -54,12 +68,77 @@ onUnmounted(stop)
 
 const worldOf = (tile: { x: number; y: number }) => DungeonRenderer.world(tile.x, tile.y)
 
+/** Log lines name the move, so the move (and its type colour) can be found again. */
+const MOVE_BY_NAME = Object.fromEntries(Object.values(MOVES).map(entry => [entry.name, entry]))
+
+const sideOf = (actorId: string): 'ally' | 'enemy' => (actorId.startsWith('ally') ? 'ally' : 'enemy')
+
 function combatAnchor(live: PlaySession): { x: number; y: number } {
   const engaged = live.entities.find(entity => entity.id === live.engagedId)
   return engaged ? engaged.at : live.player
 }
 
-function spawnFor(event: BattleEvent, live: PlaySession): void {
+/**
+ * D1.2 effects: everything is placed at the real world position of the actor
+ * that caused it, so an attack reads as "this one hit that one" on the floor.
+ */
+function spawnInWorld(event: BattleEvent, live: PlaySession): void {
+  const view = wild.value
+  if (!view) return
+  const from = view.anchorOf(event.actorId)
+  const other = live.battle?.actors.find(actor => actor.side !== sideOf(event.actorId))
+  const at = (other ? view.anchorOf(other.id) : null) ?? from
+  if (!at) return
+
+  if (event.kind === 'move') {
+    const name = /^(.+?):/.exec(event.text)?.[1]
+    const used = name ? MOVE_BY_NAME[name] : undefined
+    const colour = colourOfType(used?.type)
+    if (event.text.includes('Protección absorbió')) {
+      view.spawn({ kind: 'shield', wx: at.x, wy: at.y, life: 0.5, colour })
+    } else if (used?.category === 'special') {
+      view.spawn({ kind: 'special', wx: from?.x ?? at.x, wy: from?.y ?? at.y, toX: at.x, toY: at.y, life: 0.42, colour })
+    } else if (used?.category === 'status') {
+      view.spawn({ kind: 'statusHit', wx: at.x, wy: at.y, life: 0.6, colour })
+    } else {
+      view.spawn({ kind: 'physical', wx: at.x, wy: at.y, life: 0.32, colour })
+    }
+    const hurt = /: (\d+) de daño/.exec(event.text)
+    if (hurt) view.say({ wx: at.x, wy: at.y, text: `-${hurt[1]}`, colour: '#ffb0a8', life: 0.9 })
+  } else if (event.kind === 'boss') {
+    const amount = /: (\d+) de daño/.exec(event.text)
+    view.spawn({ kind: 'aoe', wx: at.x, wy: at.y, life: 0.55, colour: '#ff7a5a' })
+    if (amount) view.say({ wx: at.x, wy: at.y, text: `-${amount[1]}`, colour: '#ffb0a8', life: 0.9 })
+  } else if (event.kind === 'status') {
+    view.spawn({ kind: 'statusHit', wx: at.x, wy: at.y, life: 0.6, colour: '#e8a33c' })
+  } else if (event.kind === 'capture') {
+    const ok = event.text.startsWith('¡Capturado')
+    const foe = live.battle?.actors.find(actor => actor.side === 'enemy')
+    const target = (foe ? view.anchorOf(foe.id) : null) ?? at
+    const source = from ?? at
+    view.spawn({ kind: 'ball', wx: source.x, wy: source.y, toX: target.x, toY: target.y, life: 0.4 })
+    // Three shakes, then the verdict.
+    for (let i = 0; i < 3; i++) {
+      view.spawn({ kind: 'open', wx: target.x, wy: target.y, bornAt: view.now() + 0.4 + i * 0.35, life: 0.3 })
+    }
+    view.say({
+      wx: target.x, wy: target.y, text: ok ? '¡Capturado!' : 'Se soltó',
+      colour: ok ? '#7ee2a8' : '#ffb0a8', bornAt: view.now() + 1.5, life: 1.2,
+    })
+  } else if (event.kind === 'item') {
+    const healed = /\+(\d+) HP/.exec(event.text)
+    if (healed && from) {
+      view.spawn({ kind: 'heal', wx: from.x, wy: from.y, life: 0.7 })
+      view.say({ wx: from.x, wy: from.y, text: `+${healed[1]}`, colour: '#7ee2a8', life: 0.9 })
+    }
+  } else if (event.kind === 'switch' && from) {
+    view.spawn({ kind: 'recall', wx: from.x, wy: from.y, life: 0.35 })
+    view.spawn({ kind: 'summon', wx: from.x, wy: from.y, bornAt: view.now() + 0.2, life: 0.45 })
+  }
+}
+
+/** The D1.1 renderer's own effect language, kept for the DEV comparison. */
+function spawnLegacy(event: BattleEvent, live: PlaySession): void {
   const view = stage.value
   if (!view) return
   const anchor = worldOf(combatAnchor(live))
@@ -71,49 +150,31 @@ function spawnFor(event: BattleEvent, live: PlaySession): void {
   const now = clock.value
 
   if (event.kind === 'move') {
-    const match = /^(.+?):/.exec(event.text)
-    const move = match ? Object.values(MOVE_LOOKUP).find(candidate => candidate.name === match[1]) : null
+    const name = /^(.+?):/.exec(event.text)?.[1]
+    const used = name ? MOVE_BY_NAME[name] : undefined
     const kind = event.text.includes('Protección absorbió') ? 'shieldBreak'
-      : move?.category === 'special' ? 'special'
-        : move?.category === 'status' ? (move.family === 'buff' ? 'buff' : move.family === 'protect' ? 'protect' : 'status')
+      : used?.category === 'special' ? 'special'
+        : used?.category === 'status' ? (used.family === 'buff' ? 'buff' : used.family === 'protect' ? 'protect' : 'status')
           : 'physical'
     view.spawn({ kind, x: from.x, y: from.y - 12, toX: to.x, toY: to.y - 12, bornAt: now, life: 0.35 })
-    const damage = /: (\d+) de daño/.exec(event.text)
-    if (damage) {
+    const hurt = /: (\d+) de daño/.exec(event.text)
+    if (hurt) {
       view.spawn({ kind: 'impact', x: to.x, y: to.y - 12, bornAt: now + 0.25, life: 0.3 })
-      view.spawn({ kind: 'damage', text: `-${damage[1]}`, x: to.x, y: to.y - 18, bornAt: now + 0.25, life: 0.9 })
+      view.spawn({ kind: 'damage', text: `-${hurt[1]}`, x: to.x, y: to.y - 18, bornAt: now + 0.25, life: 0.9 })
     }
-  } else if (event.kind === 'boss') {
-    if (event.text.includes('de daño')) {
-      const amount = /: (\d+) de daño/.exec(event.text)
-      view.spawn({ kind: 'aoe', x: ally.x + 10, y: ally.y - 10, bornAt: now, life: 0.45 })
-      if (amount) view.spawn({ kind: 'damage', text: `-${amount[1]}`, x: ally.x, y: ally.y - 18, bornAt: now, life: 0.9 })
-    }
-  } else if (event.kind === 'status') {
-    view.spawn({ kind: 'status', x: to.x, y: to.y - 14, toX: to.x, toY: to.y - 24, bornAt: now, life: 0.6 })
   } else if (event.kind === 'capture') {
     const ok = event.text.startsWith('¡Capturado')
     view.spawn({ kind: 'ballThrow', x: ally.x, y: ally.y - 10, toX: foe.x, toY: foe.y - 8, bornAt: now, life: 0.4 })
     view.spawn({ kind: ok ? 'capture' : 'captureFail', x: foe.x, y: foe.y - 8, bornAt: now + 0.4, life: 1.4 })
-  } else if (event.kind === 'item') {
-    const healed = /\+(\d+) HP/.exec(event.text)
-    if (healed) view.spawn({ kind: 'heal', text: `+${healed[1]}`, x: ally.x, y: ally.y - 18, bornAt: now, life: 0.9 })
-  } else if (event.kind === 'switch') {
-    view.spawn({ kind: 'recall', x: ally.x, y: ally.y - 10, toX: ally.x, toY: ally.y - 10, bornAt: now, life: 0.4 })
-    view.spawn({ kind: 'summon', x: ally.x, y: ally.y - 8, bornAt: now + 0.2, life: 0.5 })
   }
 }
 
-/** A tiny lookup so the log line can be matched back to the move that made it. */
-const MOVE_LOOKUP = Object.fromEntries(
-  ['tackle', 'flamethrower', 'iceBeam', 'thunderWave', 'toxic', 'confuseRay', 'quickAttack',
-    'protect', 'swordsDance', 'growl', 'bodySlam', 'earthquake', 'hyperBeam']
-    .map(id => [id, moveById(id)!]),
-)
-
 function drainLog(live: PlaySession): void {
   const log = live.battle?.log ?? []
-  for (let i = logCursor; i < log.length; i++) spawnFor(log[i], live)
+  for (let i = logCursor; i < log.length; i++) {
+    if (legacyRenderer.value) spawnLegacy(log[i], live)
+    else spawnInWorld(log[i], live)
+  }
   logCursor = log.length
 }
 
@@ -151,14 +212,22 @@ function loop(now: number): void {
 }
 
 function announceRewards(live: PlaySession, hadKey: boolean): void {
-  const view = stage.value
-  const spot = worldOf(live.player)
   const latest = live.log[0] ?? ''
-  if (view && latest.startsWith('Botín:')) {
-    view.spawn({ kind: 'reward', text: latest.replace('Botín: ', ''), x: spot.x, y: spot.y - 26, bornAt: clock.value, life: 1.6 })
+  const at = tileCentre(live.player.x, live.player.y)
+  if (!legacyRenderer.value) {
+    const view = wild.value
+    if (view && latest.startsWith('Botín:')) {
+      view.say({ wx: at.x, wy: at.y, text: latest.replace('Botín: ', ''), colour: '#ffd27a', life: 1.8 })
+    }
+    if (view && !hadKey && live.expedition.key.hasKey) {
+      view.say({ wx: at.x, wy: at.y, text: '🔑 Llave del piso', colour: '#ffe2a8', life: 2.2, rise: 16 })
+      view.spawn({ kind: 'summon', wx: at.x, wy: at.y, life: 0.6 })
+    }
+    return
   }
-  if (view && !hadKey && live.expedition.key.hasKey) {
-    view.spawn({ kind: 'key', text: '🔑 Llave de piso', x: spot.x, y: spot.y - 40, bornAt: clock.value, life: 2 })
+  const spot = worldOf(live.player)
+  if (latest.startsWith('Botín:')) {
+    stage.value?.spawn({ kind: 'reward', text: latest.replace('Botín: ', ''), x: spot.x, y: spot.y - 26, bornAt: clock.value, life: 1.6 })
   }
 }
 
@@ -240,9 +309,17 @@ function begin(definition: DungeonDefinition, minutes: number): void {
 
 // ── Exploration ────────────────────────────────────────────────────────────
 
+/** The legacy stage steps tile by tile; the WildLands stage reports arrivals. */
 function step(dx: number, dy: number): void {
   const live = session.value
   if (live && move(live, dx, dy)) triggerRef(session)
+}
+
+function onArrive(tx: number, ty: number): void {
+  const live = session.value
+  if (!live) return
+  live.player = { x: tx, y: ty }
+  triggerRef(session)
 }
 
 const nearby = computed(() => (session.value ? reachable(session.value) : []))
@@ -255,24 +332,28 @@ function interact(entityId: string): void {
   const entity = live.entities.find(candidate => candidate.id === entityId)
   if (!entity) return
   if (entity.kind === 'chest') {
-    const spot = worldOf(entity.at)
     openChest(live, entityId, () => {
       const rng = streamFor(live.expedition.seed, 'chest', entityId)
       const pick = FLOOR_LOOT.entries[rng.int(0, FLOOR_LOOT.entries.length - 1)]
       return [{ itemId: pick.itemId, quantity: pick.quantity }]
     })
-    stage.value?.spawn({ kind: 'reward', text: live.log[0]?.split(': ')[1] ?? 'Cofre', x: spot.x, y: spot.y - 24, bornAt: clock.value, life: 1.6 })
+    const at = tileCentre(entity.at.x, entity.at.y)
+    if (legacyRenderer.value) {
+      const spot = worldOf(entity.at)
+      stage.value?.spawn({ kind: 'reward', text: live.log[0]?.split(': ')[1] ?? 'Cofre', x: spot.x, y: spot.y - 24, bornAt: clock.value, life: 1.6 })
+    } else {
+      wild.value?.spawn({ kind: 'summon', wx: at.x, wy: at.y, life: 0.5 })
+      wild.value?.say({ wx: at.x, wy: at.y, text: live.log[0]?.split(': ')[1] ?? 'Cofre', colour: '#ffd27a', life: 1.8 })
+    }
   } else {
-    // The encounter starts the way it should look: a ball, then our Pokémon.
-    const anchor = worldOf(entity.at)
+    // The fight starts where the Pokémon is standing: the stage sends our side
+    // out by Poké Ball and keeps the trainer on screen.
     engage(live, entityId, {
       makeWild: (speciesId, level) => buildWild(speciesId, level),
       makeCombatant: pokemon => combatantFor(pokemon),
       battleItems: BATTLE_ITEMS,
     })
     logCursor = live.battle?.log.length ?? 0
-    stage.value?.spawn({ kind: 'ballThrow', x: anchor.x - 40, y: anchor.y + 10, toX: anchor.x - 34, toY: anchor.y + 6, bornAt: clock.value, life: 0.4 })
-    stage.value?.spawn({ kind: 'summon', x: anchor.x - 34, y: anchor.y + 6, bornAt: clock.value + 0.4, life: 0.5 })
   }
   triggerRef(session)
 }
@@ -281,7 +362,10 @@ function useStairs(): void {
   const live = session.value
   if (!live) return
   if (live.expedition.floor >= live.expedition.floors) enterAntechamber(live)
-  else if (descend(live)) stage.value?.clearVfx()
+  else if (descend(live)) {
+    stage.value?.clearVfx()
+    wild.value?.clearEffects()
+  }
   triggerRef(session)
 }
 
@@ -289,6 +373,7 @@ function useStairs(): void {
 
 const battle = computed(() => session.value?.battle ?? null)
 const bench = computed(() => session.value?.battle?.bench.p1 ?? [])
+const fighting = computed(() => !!battle.value && battle.value.outcome === 'ongoing')
 
 function choose(actorId: string, action: PreparedAction): void {
   const live = session.value
@@ -305,7 +390,7 @@ function choose(actorId: string, action: PreparedAction): void {
   triggerRef(session)
 }
 
-// ── View for the renderer ──────────────────────────────────────────────────
+// ── View for the legacy renderer (DEV compare only) ────────────────────────
 
 const combatantView = (actor: BattleActor, alpha: boolean): CombatantView => ({
   id: actor.id,
@@ -320,9 +405,9 @@ const combatantView = (actor: BattleActor, alpha: boolean): CombatantView => ({
 
 const view = computed<RenderView | null>(() => {
   const live = session.value
-  if (!live) return null
+  if (!live || !legacyRenderer.value) return null
   const isBoss = live.phase === 'boss'
-  const telegraph = live.battle?.telegraph
+  const cast = live.battle?.telegraph
     ? {
       name: live.battle.telegraph.name,
       progress: Math.max(0, Math.min(1, 1 - (live.battle.telegraph.endsAt - live.battle.seconds) / 2.8)),
@@ -338,13 +423,16 @@ const view = computed<RenderView | null>(() => {
         allies: live.battle.actors.filter(actor => actor.side === 'ally').map(actor => combatantView(actor, isBoss)),
         enemies: live.battle.actors.filter(actor => actor.side === 'enemy').map(actor => combatantView(actor, isBoss)),
         at: combatAnchor(live),
-        telegraph,
+        telegraph: cast,
       }
       : null,
     busyIds: [],
     dimmed: live.phase === 'antechamber' || live.phase === 'ended',
   }
 })
+
+/** The boss telegraph is the one thing the world cannot say by itself. */
+const telegraph = computed(() => session.value?.battle?.telegraph?.name ?? null)
 
 // ── Party, items, endings ──────────────────────────────────────────────────
 
@@ -361,13 +449,14 @@ function quickItem(kind: 'potion' | 'revive'): void {
     : live.expedition.party.find(isFainted)
   if (!target) return
   bag.value[kind] -= 1
-  const spot = worldOf(live.player)
+  const at = tileCentre(live.player.x, live.player.y)
   if (kind === 'potion') {
     const healed = heal(target, 40)
-    stage.value?.spawn({ kind: 'heal', text: `+${healed}`, x: spot.x, y: spot.y - 24, bornAt: clock.value, life: 1 })
+    wild.value?.spawn({ kind: 'heal', wx: at.x, wy: at.y, life: 0.7 })
+    wild.value?.say({ wx: at.x, wy: at.y, text: `+${healed}`, colour: '#7ee2a8', life: 1 })
   } else {
     revive(target, 0.5)
-    stage.value?.spawn({ kind: 'summon', x: spot.x, y: spot.y - 10, bornAt: clock.value, life: 0.6 })
+    wild.value?.spawn({ kind: 'summon', wx: at.x, wy: at.y, life: 0.6 })
   }
   triggerRef(session)
 }
@@ -385,7 +474,6 @@ function finish(kind: 'retreat' | 'wipe'): void {
 function launchBoss(): void {
   const live = session.value
   if (!live) return
-  const anchor = worldOf(live.player)
   if (startBoss(live, {
     makeWild: (speciesId, level) => buildWild(speciesId, level),
     makeCombatant: pokemon => combatantFor(pokemon),
@@ -393,8 +481,6 @@ function launchBoss(): void {
     players: players.value,
   })) {
     logCursor = live.battle?.log.length ?? 0
-    stage.value?.spawn({ kind: 'summon', x: anchor.x - 34, y: anchor.y + 14, bornAt: clock.value, life: 0.6 })
-    stage.value?.spawn({ kind: 'summon', x: anchor.x - 56, y: anchor.y + 24, bornAt: clock.value + 0.15, life: 0.6 })
   }
   triggerRef(session)
 }
@@ -407,7 +493,7 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
   <DungeonCatalog v-if="!session" v-model:players="players" :definitions="DUNGEON_DEFINITIONS" @enter="begin" />
 
   <div v-else class="pd">
-    <!-- Expedition HUD: small, over the world, never covering the middle. -->
+    <!-- Expedition HUD: one thin line, never covering the world. -->
     <div class="pd-hud">
       <span class="pd-floor">PISO {{ session.expedition.floor }}/{{ session.expedition.floors }}</span>
       <span class="pd-tier">TIER {{ session.definition.tier }}</span>
@@ -417,78 +503,97 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
       <span class="pd-party">{{ healthy }}/{{ party.length }}</span>
     </div>
 
-    <DungeonStage ref="stage" :view="view" :pad="session.phase === 'exploring'" class="pd-stage" @step="step">
-      <!-- Contextual actions float over the world, right where the player looks. -->
-      <div v-if="session.phase === 'exploring'" class="pd-context">
-        <button
-          v-for="entity in nearby" :key="entity.id" type="button" class="pd-cta"
-          @click="interact(entity.id)"
-        >
-          <template v-if="entity.kind === 'chest'">▣ Abrir cofre</template>
-          <template v-else-if="entity.kind === 'lucky'">✦ {{ speciesById(entity.speciesId ?? 0)?.name }} · con suerte</template>
-          <template v-else-if="entity.isAlpha">★ Enfrentar al Alpha</template>
-          <template v-else>⚔ {{ speciesById(entity.speciesId ?? 0)?.name }} Nv. {{ entity.level }}</template>
-        </button>
-        <button
-          v-if="onStairs" type="button" class="pd-cta"
-          :class="{ 'pd-cta--locked': !doorOpen && session.expedition.floor < session.expedition.floors }"
-          @click="useStairs"
-        >
-          <template v-if="session.expedition.floor >= session.expedition.floors">⇩ Antecámara del Alpha</template>
-          <template v-else-if="doorOpen">⇩ Bajar · ABIERTA</template>
-          <template v-else>⛔ BLOQUEADA · falta la llave</template>
-        </button>
-      </div>
+    <div class="pd-world">
+      <WildStage
+        v-if="!legacyRenderer" ref="wild" :session="session"
+        :pad="session.phase === 'exploring'" class="pd-stage" @arrive="onArrive"
+      />
+      <DungeonStage
+        v-else ref="stage" :view="view" :pad="session.phase === 'exploring'"
+        class="pd-stage" @step="step"
+      />
 
-      <!-- Antechamber: a real room, with the door and the danger showing. -->
-      <div v-if="session.phase === 'antechamber'" class="pd-overlay">
-        <div class="pd-sheet">
-          <h2>ANTECÁMARA</h2>
-          <p class="pd-warn">Detrás de esa puerta hay un Alpha. Acá no se cura nada.</p>
-          <ul class="pd-party-list">
-            <li v-for="member in party" :key="member.instanceId" :class="{ 'pd-down': isFainted(member) }">
-              <strong>{{ speciesById(member.speciesId)?.name }}</strong>
-              <span>Nv. {{ member.level }}</span>
-              <span class="pd-mini"><i :style="{ width: `${Math.max(0, (member.hp / member.maxHp) * 100)}%` }" /></span>
-              <span>{{ Math.max(0, member.hp) }}/{{ member.maxHp }}</span>
-            </li>
-          </ul>
-          <p class="pd-note">
-            Poción ×{{ bag.potion ?? 0 }} · Revivir ×{{ bag.revive ?? 0 }} · Éter ×{{ bag.ether ?? 0 }} ·
-            Ball ×{{ bag.poke_ball ?? 0 }} · quedan {{ countdown }} · listos {{ players }}/{{ players }}
-          </p>
-          <div class="pd-row">
-            <button type="button" class="pd-go" @click="launchBoss">ENTRAR</button>
-            <button type="button" class="pd-alt" @click="confirmRetreat = true">Retirarse</button>
+      <!-- Everything below floats over the scene; only the controls take clicks. -->
+      <div class="pd-layer">
+        <p v-if="telegraph" class="pd-telegraph">⚠ {{ telegraph }}</p>
+
+        <!-- The fight's own panel: small, in a corner, world first. -->
+        <CombatPopup
+          v-if="fighting && !legacyRenderer && battle"
+          class="pd-popup" :battle="battle" :bag="bag" :bench="bench" :items="BATTLE_ITEMS" :rev="hudRev"
+          @choose="choose"
+        />
+
+        <div v-if="session.phase === 'exploring'" class="pd-context">
+          <button
+            v-for="entity in nearby" :key="entity.id" type="button" class="pd-cta"
+            @click="interact(entity.id)"
+          >
+            <template v-if="entity.kind === 'chest'">▣ Abrir cofre</template>
+            <template v-else-if="entity.kind === 'lucky'">✦ {{ speciesById(entity.speciesId ?? 0)?.name }} · con suerte</template>
+            <template v-else-if="entity.isAlpha">★ Enfrentar al Alpha</template>
+            <template v-else>⚔ {{ speciesById(entity.speciesId ?? 0)?.name }} Nv. {{ entity.level }}</template>
+          </button>
+          <button
+            v-if="onStairs" type="button" class="pd-cta"
+            :class="{ 'pd-cta--locked': !doorOpen && session.expedition.floor < session.expedition.floors }"
+            @click="useStairs"
+          >
+            <template v-if="session.expedition.floor >= session.expedition.floors">⇩ Antecámara del Alpha</template>
+            <template v-else-if="doorOpen">⇩ Bajar · ABIERTA</template>
+            <template v-else>⛔ BLOQUEADA · falta la llave</template>
+          </button>
+        </div>
+
+        <!-- Antechamber: a real room, with the door and the danger showing. -->
+        <div v-if="session.phase === 'antechamber'" class="pd-overlay">
+          <div class="pd-sheet">
+            <h2>ANTECÁMARA</h2>
+            <p class="pd-warn">Detrás de esa puerta hay un Alpha. Acá no se cura nada.</p>
+            <ul class="pd-party-list">
+              <li v-for="member in party" :key="member.instanceId" :class="{ 'pd-down': isFainted(member) }">
+                <strong>{{ speciesById(member.speciesId)?.name }}</strong>
+                <span>Nv. {{ member.level }}</span>
+                <span class="pd-mini"><i :style="{ width: `${Math.max(0, (member.hp / member.maxHp) * 100)}%` }" /></span>
+                <span>{{ Math.max(0, member.hp) }}/{{ member.maxHp }}</span>
+              </li>
+            </ul>
+            <p class="pd-note">
+              Poción ×{{ bag.potion ?? 0 }} · Revivir ×{{ bag.revive ?? 0 }} · Éter ×{{ bag.ether ?? 0 }} ·
+              Ball ×{{ bag.poke_ball ?? 0 }} · quedan {{ countdown }} · listos {{ players }}/{{ players }}
+            </p>
+            <div class="pd-row">
+              <button type="button" class="pd-go" @click="launchBoss">ENTRAR</button>
+              <button type="button" class="pd-alt" @click="confirmRetreat = true">Retirarse</button>
+            </div>
+          </div>
+        </div>
+
+        <div v-if="toast" class="pd-overlay">
+          <div class="pd-sheet" :class="`pd-sheet--${toast.tone}`">
+            <h2>{{ toast.title }}</h2>
+            <p>{{ toast.body }}</p>
+            <button type="button" class="pd-go" @click="restart">Volver al catálogo</button>
+          </div>
+        </div>
+
+        <div v-if="confirmRetreat" class="pd-overlay">
+          <div class="pd-sheet">
+            <h2>¿Abandonar la Dungeon?</h2>
+            <p>Asegurás todo el botín y las capturas de esta expedición. La próxima vez empezás en el piso 1.</p>
+            <div class="pd-row">
+              <button type="button" class="pd-go" @click="finish('retreat')">Sí, salir</button>
+              <button type="button" class="pd-alt" @click="confirmRetreat = false">Seguir explorando</button>
+            </div>
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Endings -->
-      <div v-if="toast" class="pd-overlay">
-        <div class="pd-sheet" :class="`pd-sheet--${toast.tone}`">
-          <h2>{{ toast.title }}</h2>
-          <p>{{ toast.body }}</p>
-          <button type="button" class="pd-go" @click="restart">Volver al catálogo</button>
-        </div>
-      </div>
-
-      <div v-if="confirmRetreat" class="pd-overlay">
-        <div class="pd-sheet">
-          <h2>¿Abandonar la Dungeon?</h2>
-          <p>Asegurás todo el botín y las capturas de esta expedición. La próxima vez empezás en el piso 1.</p>
-          <div class="pd-row">
-            <button type="button" class="pd-go" @click="finish('retreat')">Sí, salir</button>
-            <button type="button" class="pd-alt" @click="confirmRetreat = false">Seguir explorando</button>
-          </div>
-        </div>
-      </div>
-    </DungeonStage>
-
-    <!-- Combat HUD, or the exploration bar. Never both. -->
+    <!-- The legacy renderer keeps its own HUD; the new one puts it in the world. -->
     <BattleHud
-      v-if="battle && battle.outcome === 'ongoing'"
-      :battle="battle" :bag="bag" :bench="bench" :items="BATTLE_ITEMS"
+      v-if="fighting && legacyRenderer && battle"
+      :battle="battle" :bag="bag" :bench="bench" :items="BATTLE_ITEMS" :rev="hudRev"
       @choose="choose"
     />
     <div v-else-if="session.phase === 'exploring'" class="pd-bar">
@@ -502,7 +607,8 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
     </div>
 
     <DevTools
-      v-model:clock-speed="clockSpeed" v-model:players="players" :rev="devRev" :session="session"
+      v-model:clock-speed="clockSpeed" v-model:players="players" v-model:legacy-renderer="legacyRenderer"
+      :rev="devRev" :session="session"
       @command="runDev" @wipe="finish('wipe')" @restart="restart"
     />
   </div>
@@ -510,7 +616,10 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
 
 <style scoped>
 .pd { display: grid; gap: 8px; }
-.pd-stage { height: min(52vh, 470px); }
+.pd-world { position: relative; }
+.pd-stage { height: min(58vh, 520px); }
+.pd-layer { position: absolute; inset: 0; pointer-events: none; }
+.pd-layer > * { pointer-events: auto; }
 
 .pd-hud {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
@@ -524,9 +633,16 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
 .pd-key { color: #6b7ba8; }
 .pd-key--on { color: #ffd27a; }
 
+.pd-popup { position: absolute; right: 10px; bottom: 10px; }
+.pd-telegraph {
+  position: absolute; top: 10px; left: 50%; margin: 0; padding: 5px 12px; transform: translateX(-50%);
+  border: 1px solid #e3573f; border-radius: 999px; background: rgba(28, 10, 10, 0.86);
+  color: #ffb0a8; font-size: 0.72rem; font-weight: 800; letter-spacing: 0.04em;
+}
+
 .pd-context { position: absolute; right: 10px; bottom: 10px; display: grid; gap: 6px; justify-items: end; }
 .pd-cta {
-  min-height: 44px; padding: 8px 12px; border: 1px solid #ffd27a; border-radius: 10px;
+  min-height: 42px; padding: 8px 12px; border: 1px solid #ffd27a; border-radius: 10px;
   background: rgba(23, 32, 56, 0.94); color: #ffd27a; font: inherit; font-weight: 700; cursor: pointer;
 }
 .pd-cta--locked { border-color: #6b7ba8; color: #93a2c6; }
@@ -573,6 +689,7 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
 .pd-dot--revive { background: #ffd27a; }
 
 @media (max-width: 420px) {
-  .pd-stage { height: 42vh; }
+  .pd-stage { height: 50vh; }
+  .pd-context { right: 8px; bottom: 8px; }
 }
 </style>
