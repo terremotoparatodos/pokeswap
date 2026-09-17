@@ -22,7 +22,7 @@ export interface BallDefinition {
 export const BASIC_BALL: BallDefinition = { id: 'poke_ball', name: 'Poké Ball', bonus: 1 }
 
 export const STATUS_BONUS: Readonly<Record<StatusCondition, number>> = {
-  none: 1, burn: 1.5, poison: 1.5, paralysis: 1.5, sleep: 2.5,
+  none: 1, burn: 1.5, poison: 1.5, paralysis: 1.5, freeze: 2, sleep: 2.5,
 }
 
 export interface CaptureConfig {

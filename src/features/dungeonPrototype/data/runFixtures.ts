@@ -20,10 +20,10 @@ export interface PartyBlueprint {
 export const DEFAULT_PARTY: readonly PartyBlueprint[] = [
   { speciesId: 68, level: 30, moves: ['bodySlam', 'quickAttack', 'swordsDance', 'protect'] },
   { speciesId: 135, level: 30, moves: ['quickAttack', 'thunderWave', 'tackle', 'protect'] },
-  { speciesId: 4, level: 28, moves: ['flamethrower', 'tackle', 'growl', 'hyperBeam'] },
-  { speciesId: 79, level: 28, moves: ['tackle', 'growl', 'protect', 'bodySlam'] },
+  { speciesId: 6, level: 30, moves: ['flamethrower', 'earthquake', 'growl', 'hyperBeam'] },
+  { speciesId: 124, level: 28, moves: ['iceBeam', 'confuseRay', 'protect', 'tackle'] },
   { speciesId: 81, level: 26, moves: ['tackle', 'thunderWave', 'protect', 'quickAttack'] },
-  { speciesId: 43, level: 26, moves: ['tackle', 'growl', 'protect', 'swordsDance'] },
+  { speciesId: 302, level: 26, moves: ['toxic', 'confuseRay', 'protect', 'tackle'] },
 ]
 
 export function buildPokemon(blueprint: PartyBlueprint, index: number): PokemonInstance {
@@ -41,6 +41,7 @@ export function buildPokemon(blueprint: PartyBlueprint, index: number): PokemonI
     pp,
     status: 'none',
     sleepFor: 0,
+    confusedFor: 0,
   }
 }
 

@@ -10,6 +10,8 @@ import { BATTLE_ITEMS, BOSS_LOOT, buildParty, buildWild, combatantFor } from '..
 import { poolFor, speciesById } from '../data/speciesFixtures'
 import { activeAlliesFor, alphaCombatModifiers, alphaModifier, bossScaling, COOP, effectivePowerMultiple } from '../domain/alpha'
 import { actorById, createBattle, prepare } from '../domain/battle'
+import { createBossController } from '../domain/bossFight'
+import { bossKitFor, type BossSkill } from '../domain/bossSkills'
 import { moveById } from '../domain/moves'
 import { hpFor } from '../domain/party'
 import { deliverRewards, participation, personalLoot, resolvePending, type PendingReward } from '../domain/rewards'
@@ -22,6 +24,7 @@ const tier = ref<DungeonTier>('B')
 const players = ref(1)
 const seed = ref(31)
 const freeSlots = ref(1)
+const kit = ref<BossSkill[]>([])
 const pending = ref<readonly PendingReward[]>([])
 const delivered = ref<{ playerId: string; item: string }[]>([])
 
@@ -46,13 +49,17 @@ function begin(): void {
   boss.hp = scaledHp
   Object.assign(boss, { maxHp: scaledHp })
 
-  start(createBattle({
-    allies: party.slice(0, active).map(combatantFor),
+  const state = createBattle({
+    allies: party.slice(0, active).map(pokemon => ({ combatant: combatantFor(pokemon) })),
     enemies: [{ ...combatantFor(boss), modifiers: combat.value.modifiers }],
-    bench: party.slice(active),
+    bench: { p1: party.slice(active) },
     items: BATTLE_ITEMS,
     rng: createRng(seed.value),
-  }))
+  })
+  const kitRng = createRng(seed.value + 1)
+  kit.value = bossKitFor(tier.value, (min, max) => kitRng.int(min, max), items => kitRng.shuffle(items))
+  const controller = createBossController('enemy-0', kit.value)
+  start(state, (live, dt) => controller.update(live, dt))
 }
 
 function chooseMove(actorId: string, moveId: string): void {
@@ -119,9 +126,21 @@ function answer(id: string, decision: 'keep' | 'discardOther' | 'discardReward')
       </p>
 
       <template v-if="battle">
-        <BattleField :allies="allies" :enemies="enemies" :enemy-scale="alpha.size" aura :seconds="seconds" />
+        <BattleField
+          :allies="allies" :enemies="enemies" :enemy-scale="alpha.size" aura
+          :seconds="seconds" :telegraph="battle.telegraph"
+        />
         <p v-if="battle.outcome !== 'ongoing'" class="dp-note"><span class="dp-tag">{{ battle.outcome }}</span></p>
       </template>
+
+      <h3>Boss Skills de este Alpha ({{ kit.length }})</h3>
+      <ul class="dp-log">
+        <li v-for="skill in kit" :key="skill.id">
+          <strong>{{ skill.name }}</strong> · {{ skill.shape }} · aviso {{ skill.telegraphSeconds }} s
+          <template v-if="skill.damage"> · daño ×{{ skill.damage }}</template>
+        </li>
+      </ul>
+      <p class="dp-note">Son movimientos de WildLands: no están en ORAS y ningún Pokémon del jugador puede aprenderlas.</p>
     </section>
 
     <section v-if="battle" class="dp-card">

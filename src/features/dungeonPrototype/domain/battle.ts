@@ -1,26 +1,29 @@
-// The realtime battle engine (D2).
+// The realtime battle engine (D0, rewritten for D1 §17–§35).
 //
 // APPROVED and enforced here:
 //  - no separate battle screen and **no pause**: `tick` is the only clock and
-//    nothing in this module can stop it. Opening the bag is a UI state that the
-//    engine never hears about;
-//  - each combatant owns an Action Bar; the player may change the prepared
-//    move while it fills, and whatever is prepared when the bar completes is
-//    what happens;
-//  - using an item spends an Action Window instead of attacking;
-//  - switching Pokémon also spends an Action Window (PROTOTYPE ASSUMPTION);
-//  - HP, PP, faint and status are the party's own state, so they persist when
-//    the battle ends and the expedition goes on.
+//    takes no pause flag, so the bag cannot stop the enemy's bar;
+//  - each combatant owns an Action Bar; the prepared move can be changed while
+//    it fills, and whatever is prepared when it completes is what happens;
+//  - **auto-repeat**: doing nothing repeats the last selected move, and a
+//    player who never chose uses the first usable one;
+//  - an item or a switch spends an Action Window;
+//  - a switch keeps HP, PP and the major status, resets stages and starts the
+//    bar from zero;
+//  - Protect absorbs the next two offensive actions;
+//  - one major status at a time; confusion sits beside it;
+//  - poison ticks on its own clock, never on the action bar;
+//  - every move is single-target in v1, ally damage is impossible.
 //
-// The engine is pure except for mutating the `PokemonInstance` objects it was
-// given — which is the point: the party wears down.
+// The engine mutates the `PokemonInstance` objects it is given — that is the
+// point: the party wears down and carries the damage to the next floor.
 
 import { attemptCapture, BASIC_BALL, type BallDefinition } from './capture'
 import {
-  applyStage, barSecondsFor, computeDamage, effectiveStat, FIZZLE_CHANCE, RESIDUAL,
-  residualDamage, type Combatant, type DamageRolls,
+  ACTION_BAR, applyStage, computeDamage, confusionSelfDamage, cooldownAfter, cooldownSeconds,
+  effectiveStat, poisonDamage, STATUS, type ActionBarConfig, type Combatant, type DamageRolls,
 } from './damage'
-import { moveById, releaseThreshold, type MoveDefinition } from './moves'
+import { isOffensive, moveById, type MoveDefinition } from './moves'
 import { damage as dealDamage, heal, isFainted, restorePp, revive, spendPp, type PokemonInstance } from './party'
 import type { Rng } from './rng'
 
@@ -38,7 +41,6 @@ export interface BattleItem {
   readonly id: string
   readonly name: string
   readonly kind: ItemKind
-  /** HP healed, PP restored, or the revive fraction. */
   readonly amount: number
   readonly ball?: BallDefinition
 }
@@ -46,77 +48,78 @@ export interface BattleItem {
 export interface BattleActor {
   readonly id: string
   readonly side: BattleSide
+  /** Which simulated player owns this Pokémon; 'p1' when solo. */
+  readonly owner: string
   combatant: Combatant
   /** 0…1. */
   bar: number
   prepared: PreparedAction
-  /** Set by a recharge move: the next completed bar is spent doing nothing. */
-  recharging: boolean
-  /** Battle seconds until which this actor cannot be hit. */
-  protectedUntil: number
-  /** Consecutive protects, for the diminishing returns. */
-  protectStreak: number
-  residualAt: number
+  /** Repeated when nothing new is chosen (APPROVED auto-repeat). */
+  lastMoveId: string | null
+  /** Multiplies the current cooldown: priority ×0.5, recharge and Protect ×2. */
+  cooldownMultiplier: number
+  /** Offensive actions the shield still absorbs. */
+  shield: number
+  poisonAt: number
+  /** Damage this actor dealt, for boss participation. */
+  damageDealt: number
+  actions: number
 }
 
 export interface BattleEvent {
   readonly at: number
   readonly actorId: string
   readonly text: string
-  readonly kind: 'move' | 'item' | 'switch' | 'status' | 'faint' | 'capture' | 'end'
+  readonly kind: 'move' | 'item' | 'switch' | 'status' | 'faint' | 'capture' | 'end' | 'boss'
 }
 
-export type BattleOutcome = 'ongoing' | 'victory' | 'defeat' | 'captured'
+export type BattleOutcome = 'ongoing' | 'victory' | 'defeat' | 'captured' | 'aborted'
 
 export interface BattleState {
   seconds: number
   actors: BattleActor[]
-  /** Bench members, in party order, that may still be switched in. */
-  bench: PokemonInstance[]
+  /** Bench members per owner, in party order. */
+  bench: Record<string, PokemonInstance[]>
   log: BattleEvent[]
   outcome: BattleOutcome
-  /** Set when a capture succeeds, so the expedition can record it. */
   capturedInstanceId: string | null
   readonly items: Readonly<Record<string, BattleItem>>
   readonly rng: Rng
-  /** Total damage each actor dealt, for boss participation. */
-  damageBy: Record<string, number>
+  readonly config: ActionBarConfig
+  /** Set by the boss controller; the engine only renders and applies it. */
+  telegraph: { readonly skillId: string; readonly name: string; readonly endsAt: number } | null
 }
 
 export interface CreateBattleInput {
-  readonly allies: readonly Combatant[]
+  readonly allies: readonly { combatant: Combatant; owner?: string }[]
   readonly enemies: readonly Combatant[]
-  readonly bench?: readonly PokemonInstance[]
+  readonly bench?: Record<string, PokemonInstance[]>
   readonly items?: Readonly<Record<string, BattleItem>>
   readonly rng: Rng
+  readonly config?: ActionBarConfig
 }
 
-const actorFor = (combatant: Combatant, side: BattleSide, index: number): BattleActor => ({
-  id: `${side}-${index}`,
-  side,
-  combatant,
-  bar: 0,
-  prepared: { kind: 'idle' },
-  recharging: false,
-  protectedUntil: -1,
-  protectStreak: 0,
-  residualAt: 0,
+const actorFor = (combatant: Combatant, side: BattleSide, index: number, owner: string): BattleActor => ({
+  id: `${side}-${index}`, side, owner, combatant,
+  bar: 0, prepared: { kind: 'idle' }, lastMoveId: null,
+  cooldownMultiplier: 1, shield: 0, poisonAt: 0, damageDealt: 0, actions: 0,
 })
 
 export function createBattle(input: CreateBattleInput): BattleState {
   return {
     seconds: 0,
     actors: [
-      ...input.allies.map((combatant, i) => actorFor(combatant, 'ally', i)),
-      ...input.enemies.map((combatant, i) => actorFor(combatant, 'enemy', i)),
+      ...input.allies.map((ally, i) => actorFor(ally.combatant, 'ally', i, ally.owner ?? 'p1')),
+      ...input.enemies.map((combatant, i) => actorFor(combatant, 'enemy', i, 'enemy')),
     ],
-    bench: [...(input.bench ?? [])],
+    bench: input.bench ? { ...input.bench } : {},
     log: [],
     outcome: 'ongoing',
     capturedInstanceId: null,
     items: input.items ?? {},
     rng: input.rng,
-    damageBy: {},
+    config: input.config ?? ACTION_BAR,
+    telegraph: null,
   }
 }
 
@@ -126,33 +129,49 @@ export const actorById = (battle: BattleState, id: string): BattleActor | undefi
 export const livingActors = (battle: BattleState, side: BattleSide): BattleActor[] =>
   battle.actors.filter(actor => actor.side === side && !isFainted(actor.combatant.pokemon))
 
+const benchOf = (battle: BattleState, owner: string): PokemonInstance[] => battle.bench[owner] ?? []
+
+export const log = (battle: BattleState, actorId: string, kind: BattleEvent['kind'], text: string): void => {
+  battle.log.push({ at: Math.round(battle.seconds * 100) / 100, actorId, text, kind })
+}
+
 /** What the player taps. It only changes what is prepared; the bar keeps filling. */
 export function prepare(battle: BattleState, actorId: string, action: PreparedAction): boolean {
   const actor = actorById(battle, actorId)
   if (!actor || battle.outcome !== 'ongoing' || isFainted(actor.combatant.pokemon)) return false
   if (action.kind === 'move') {
     const move = moveById(action.moveId)
-    if (!move || (actor.combatant.pokemon.pp[action.moveId] ?? 0) <= 0) return false
+    if (!move || !actor.combatant.pokemon.moves.includes(action.moveId)) return false
+    if ((actor.combatant.pokemon.pp[action.moveId] ?? 0) <= 0) return false
   }
   actor.prepared = action
   return true
-}
-
-const log = (battle: BattleState, actorId: string, kind: BattleEvent['kind'], text: string): void => {
-  battle.log.push({ at: Math.round(battle.seconds * 100) / 100, actorId, text, kind })
 }
 
 const rolls = (rng: Rng): DamageRolls => ({
   accuracy: rng.next(), crit: rng.next(), spread: rng.next(), secondary: rng.next(),
 })
 
-/** The simplest enemy that still exercises the systems: a usable move at random. */
-function enemyChoice(battle: BattleState, actor: BattleActor): PreparedAction {
-  const usable = actor.combatant.pokemon.moves.filter(id => (actor.combatant.pokemon.pp[id] ?? 0) > 0)
-  const moveId = battle.rng.pick(usable)
-  return moveId ? { kind: 'move', moveId } : { kind: 'idle' }
+const usableMoves = (pokemon: PokemonInstance): string[] =>
+  pokemon.moves.filter(id => (pokemon.pp[id] ?? 0) > 0)
+
+/**
+ * APPROVED auto-repeat: nothing prepared means "do what I did last time", and
+ * a player who never chose anything falls back to the first usable move. The
+ * fight never stalls because the player looked away.
+ */
+function resolveChoice(battle: BattleState, actor: BattleActor): PreparedAction {
+  if (actor.prepared.kind !== 'idle') return actor.prepared
+  const usable = usableMoves(actor.combatant.pokemon)
+  if (actor.side === 'enemy') {
+    const moveId = battle.rng.pick(usable)
+    return moveId ? { kind: 'move', moveId } : { kind: 'idle' }
+  }
+  if (actor.lastMoveId && usable.includes(actor.lastMoveId)) return { kind: 'move', moveId: actor.lastMoveId }
+  return usable.length ? { kind: 'move', moveId: usable[0] } : { kind: 'idle' }
 }
 
+/** v1: one target, always the other side. No AoE, no friendly fire (§18, §34). */
 function targetFor(battle: BattleState, actor: BattleActor): BattleActor | undefined {
   const enemies = livingActors(battle, actor.side === 'ally' ? 'enemy' : 'ally')
   return battle.rng.pick(enemies)
@@ -164,26 +183,28 @@ function executeMove(battle: BattleState, actor: BattleActor, move: MoveDefiniti
     log(battle, actor.id, 'move', `${move.name} no tiene PP`)
     return
   }
+  actor.lastMoveId = move.id
+  actor.cooldownMultiplier = cooldownAfter(move, battle.config)
 
   if (move.family === 'protect') {
-    // Diminishing returns: the second consecutive Protect usually fails.
-    const success = actor.protectStreak === 0 || battle.rng.next() < 1 / (actor.protectStreak * 3 + 1)
-    actor.protectStreak = success ? actor.protectStreak + 1 : 0
-    if (success) {
-      actor.protectedUntil = battle.seconds + (move.protectSeconds ?? 1.5)
-      log(battle, actor.id, 'move', `${move.name}: se protege`)
-    } else {
-      log(battle, actor.id, 'move', `${move.name} falló`)
-    }
+    actor.shield = move.protectCharges ?? 2
+    log(battle, actor.id, 'move', `${move.name}: escudo ×${actor.shield}`)
     return
   }
-  actor.protectStreak = 0
 
   if (move.statChanges && move.category === 'status' && !move.inflicts) {
     for (const change of move.statChanges) {
       const receiver = change.on === 'self' ? actor : targetFor(battle, actor)
       if (!receiver) continue
-      receiver.combatant = { ...receiver.combatant, stages: applyStage(receiver.combatant.stages, change.stat, change.stages) }
+      if (change.on === 'target' && receiver.shield > 0) {
+        receiver.shield -= 1
+        log(battle, receiver.id, 'move', `Protección absorbió ${move.name} (${receiver.shield} restantes)`)
+        continue
+      }
+      receiver.combatant = {
+        ...receiver.combatant,
+        stages: applyStage(receiver.combatant.stages, change.stat, change.stages),
+      }
       log(battle, actor.id, 'move', `${move.name}: ${change.stages > 0 ? '+' : ''}${change.stages} ${change.stat}`)
     }
     return
@@ -191,8 +212,9 @@ function executeMove(battle: BattleState, actor: BattleActor, move: MoveDefiniti
 
   const target = targetFor(battle, actor)
   if (!target) return
-  if (battle.seconds < target.protectedUntil) {
-    log(battle, actor.id, 'move', `${move.name} chocó contra Protección`)
+  if (isOffensive(move) && target.shield > 0) {
+    target.shield -= 1
+    log(battle, target.id, 'move', `Protección absorbió ${move.name} (${target.shield} restantes)`)
     return
   }
 
@@ -203,18 +225,20 @@ function executeMove(battle: BattleState, actor: BattleActor, move: MoveDefiniti
   }
   if (result.damage > 0) {
     dealDamage(target.combatant.pokemon, result.damage)
-    battle.damageBy[actor.id] = (battle.damageBy[actor.id] ?? 0) + result.damage
-    const extra = result.critical ? ' ¡Crítico!' : ''
-    log(battle, actor.id, 'move', `${move.name}: ${result.damage} de daño${extra}`)
+    actor.damageDealt += result.damage
+    log(battle, actor.id, 'move', `${move.name}: ${result.damage} de daño${result.critical ? ' ¡Crítico!' : ''}`)
   } else if (result.effectiveness === 0) {
     log(battle, actor.id, 'move', `${move.name} no afecta`)
   }
   if (result.statusApplied) {
     target.combatant.pokemon.status = result.statusApplied
-    if (result.statusApplied === 'sleep') target.combatant.pokemon.sleepFor = 4
+    if (result.statusApplied === 'sleep') target.combatant.pokemon.sleepFor = STATUS.sleepSeconds
     log(battle, target.id, 'status', `Estado: ${result.statusApplied}`)
   }
-  if (move.recharges) actor.recharging = true
+  if (result.confuses && target.combatant.pokemon.confusedFor <= 0) {
+    target.combatant.pokemon.confusedFor = STATUS.confusionSeconds
+    log(battle, target.id, 'status', 'Confusión')
+  }
 }
 
 function executeItem(battle: BattleState, actor: BattleActor, itemId: string, targetId?: string): void {
@@ -236,63 +260,70 @@ function executeItem(battle: BattleState, actor: BattleActor, itemId: string, ta
     }
     return
   }
-  const bench = battle.bench.find(member => member.instanceId === targetId)
+  const bench = benchOf(battle, actor.owner).find(member => member.instanceId === targetId)
   const pokemon = bench ?? actor.combatant.pokemon
   if (item.kind === 'heal') {
-    const healed = heal(pokemon, item.amount)
-    log(battle, actor.id, 'item', `${item.name}: +${healed} HP`)
+    log(battle, actor.id, 'item', `${item.name}: +${heal(pokemon, item.amount)} HP`)
   } else if (item.kind === 'revive') {
-    const revived = revive(pokemon, item.amount)
-    log(battle, actor.id, 'item', revived ? `${item.name}: revivió` : `${item.name} no hizo nada`)
+    log(battle, actor.id, 'item', revive(pokemon, item.amount) ? `${item.name}: revivió` : `${item.name} no hizo nada`)
   } else if (item.kind === 'ether') {
     const moveId = pokemon.moves.find(id => (pokemon.pp[id] ?? 0) === 0) ?? pokemon.moves[0]
     const move = moveById(moveId)
-    const restored = move ? restorePp(pokemon, moveId, item.amount, move.pp) : 0
-    log(battle, actor.id, 'item', `${item.name}: +${restored} PP`)
+    log(battle, actor.id, 'item', `${item.name}: +${move ? restorePp(pokemon, moveId, item.amount, move.pp) : 0} PP`)
   }
 }
 
+/**
+ * APPROVED switch rules (§29): HP, PP and the major status come along; the
+ * temporary stages do not; the new Pokémon starts its bar at zero.
+ */
 function executeSwitch(battle: BattleState, actor: BattleActor, instanceId: string): void {
-  const index = battle.bench.findIndex(member => member.instanceId === instanceId && !isFainted(member))
+  const bench = benchOf(battle, actor.owner)
+  const index = bench.findIndex(member => member.instanceId === instanceId && !isFainted(member))
   if (index < 0) {
     log(battle, actor.id, 'switch', 'Ese Pokémon no puede entrar')
     return
   }
-  const incoming = battle.bench[index]
-  battle.bench[index] = actor.combatant.pokemon
-  // Stat stages are left behind, as in the games.
+  const incoming = bench[index]
+  bench[index] = actor.combatant.pokemon
   actor.combatant = { ...actor.combatant, pokemon: incoming, stages: {} }
-  actor.protectStreak = 0
-  actor.recharging = false
+  actor.bar = 0
+  actor.shield = 0
+  actor.cooldownMultiplier = 1
+  actor.lastMoveId = null
   log(battle, actor.id, 'switch', `Cambio: entra ${incoming.instanceId}`)
 }
 
 /** One completed Action Window. */
 function resolve(battle: BattleState, actor: BattleActor): void {
   const pokemon = actor.combatant.pokemon
-  if (actor.recharging) {
-    actor.recharging = false
-    log(battle, actor.id, 'move', 'Debe recargar')
-    return
-  }
-  if (pokemon.status === 'paralysis' && battle.rng.next() < FIZZLE_CHANCE) {
-    log(battle, actor.id, 'status', 'Parálisis: no pudo moverse')
-    return
-  }
-  const action = actor.side === 'enemy' && actor.prepared.kind === 'idle'
-    ? enemyChoice(battle, actor)
-    : actor.prepared
+  actor.actions += 1
 
+  if (pokemon.confusedFor > 0 && battle.rng.next() < STATUS.confusionSelfHitChance) {
+    const self = confusionSelfDamage(actor.combatant)
+    dealDamage(pokemon, self)
+    log(battle, actor.id, 'status', `Confusión: se golpeó (${self})`)
+    actor.cooldownMultiplier = 1
+    return
+  }
+
+  const action = resolveChoice(battle, actor)
   if (action.kind === 'move') {
     const move = moveById(action.moveId)
     if (move) executeMove(battle, actor, move)
   } else if (action.kind === 'item') {
     executeItem(battle, actor, action.itemId, action.targetId)
+    actor.cooldownMultiplier = 1
   } else if (action.kind === 'switch') {
     executeSwitch(battle, actor, action.instanceId)
+    return
+  } else {
+    actor.cooldownMultiplier = 1
   }
-  // The enemy re-decides every window; the player's choice stays prepared.
-  if (actor.side === 'enemy') actor.prepared = { kind: 'idle' }
+
+  // The enemy re-decides every window; the player's choice stays prepared so
+  // auto-repeat works, and an item or a switch is consumed once.
+  if (actor.side === 'enemy' || action.kind !== 'move') actor.prepared = { kind: 'idle' }
 }
 
 function checkFaints(battle: BattleState): void {
@@ -301,25 +332,28 @@ function checkFaints(battle: BattleState): void {
     if (!isFainted(pokemon) || actor.bar === -1) continue
     actor.bar = -1
     log(battle, actor.id, 'faint', 'Se debilitó')
-    if (actor.side === 'ally') {
-      const replacement = battle.bench.findIndex(member => !isFainted(member))
-      if (replacement >= 0) {
-        const incoming = battle.bench[replacement]
-        battle.bench.splice(replacement, 1)
-        actor.combatant = { ...actor.combatant, pokemon: incoming, stages: {} }
-        actor.bar = 0
-        actor.prepared = { kind: 'idle' }
-        log(battle, actor.id, 'switch', `Entra ${incoming.instanceId}`)
-      }
+    if (actor.side !== 'ally') continue
+    const bench = benchOf(battle, actor.owner)
+    const replacement = bench.findIndex(member => !isFainted(member))
+    if (replacement >= 0) {
+      const incoming = bench[replacement]
+      bench.splice(replacement, 1)
+      actor.combatant = { ...actor.combatant, pokemon: incoming, stages: {} }
+      actor.bar = 0
+      actor.shield = 0
+      actor.cooldownMultiplier = 1
+      actor.prepared = { kind: 'idle' }
+      actor.lastMoveId = null
+      log(battle, actor.id, 'switch', `Entra ${incoming.instanceId}`)
     }
   }
 }
 
 function checkOutcome(battle: BattleState): void {
   if (battle.outcome !== 'ongoing') return
-  const alliesLeft = livingActors(battle, 'ally').length + battle.bench.filter(member => !isFainted(member)).length
-  const enemiesLeft = livingActors(battle, 'enemy').length
-  if (enemiesLeft === 0) {
+  const benchLeft = Object.values(battle.bench).flat().filter(member => !isFainted(member)).length
+  const alliesLeft = livingActors(battle, 'ally').length + benchLeft
+  if (livingActors(battle, 'enemy').length === 0) {
     battle.outcome = 'victory'
     log(battle, 'battle', 'end', 'Victoria')
   } else if (alliesLeft === 0) {
@@ -329,8 +363,8 @@ function checkOutcome(battle: BattleState): void {
 }
 
 /**
- * Advances the battle by `dt` seconds. There is no pause parameter and no
- * pause flag: whatever the UI is doing, the bars keep filling.
+ * Advances the battle by `dt` seconds. There is **no pause parameter and no
+ * pause flag**: whatever the UI is doing, the bars keep filling.
  */
 export function tick(battle: BattleState, dt: number): BattleState {
   if (battle.outcome !== 'ongoing' || dt <= 0) return battle
@@ -340,6 +374,17 @@ export function tick(battle: BattleState, dt: number): BattleState {
     const pokemon = actor.combatant.pokemon
     if (isFainted(pokemon)) continue
 
+    // Poison runs on its own clock, so a fast Pokémon does not take more of it.
+    if (pokemon.status === 'poison' && battle.seconds - actor.poisonAt >= STATUS.poisonTickSeconds) {
+      actor.poisonAt = battle.seconds
+      const tickDamage = poisonDamage(pokemon)
+      dealDamage(pokemon, tickDamage)
+      log(battle, actor.id, 'status', `Veneno: ${tickDamage}`)
+    }
+
+    if (pokemon.confusedFor > 0) pokemon.confusedFor = Math.max(0, pokemon.confusedFor - dt)
+
+    // Sleep eats Action Windows: the bar does not advance at all.
     if (pokemon.status === 'sleep') {
       pokemon.sleepFor = Math.max(0, pokemon.sleepFor - dt)
       if (pokemon.sleepFor === 0) {
@@ -349,21 +394,9 @@ export function tick(battle: BattleState, dt: number): BattleState {
       continue
     }
 
-    if (battle.seconds - actor.residualAt >= RESIDUAL.everySeconds) {
-      actor.residualAt = battle.seconds
-      const residual = residualDamage(pokemon)
-      if (residual > 0) {
-        dealDamage(pokemon, residual)
-        log(battle, actor.id, 'status', `${pokemon.status}: ${residual} de daño`)
-      }
-    }
-
-    const seconds = barSecondsFor(actor.combatant)
+    const seconds = cooldownSeconds(actor.combatant, actor.cooldownMultiplier, battle.config)
     actor.bar = Math.min(1, Math.max(0, actor.bar) + dt / seconds)
-
-    const prepared = actor.prepared.kind === 'move' ? moveById(actor.prepared.moveId) : null
-    const threshold = prepared ? releaseThreshold(prepared) : 1
-    if (actor.bar >= threshold) {
+    if (actor.bar >= 1) {
       actor.bar = 0
       resolve(battle, actor)
     }
@@ -374,8 +407,17 @@ export function tick(battle: BattleState, dt: number): BattleState {
   return battle
 }
 
-/** How full each bar is, for the UI. */
 export const barOf = (actor: BattleActor): number => Math.max(0, Math.min(1, actor.bar))
 
-/** Effective speed, so a lab can show why one bar is faster. */
 export const speedOf = (actor: BattleActor): number => Math.round(effectiveStat(actor.combatant, 'speed'))
+
+/** Seconds this actor's current bar will take, for the HUD and the reports. */
+export const cooldownOf = (battle: BattleState, actor: BattleActor): number =>
+  Math.round(cooldownSeconds(actor.combatant, actor.cooldownMultiplier, battle.config) * 100) / 100
+
+/** Ends the fight without a winner: the dungeon clock ran out. */
+export function abortBattle(battle: BattleState, reason: string): void {
+  if (battle.outcome !== 'ongoing') return
+  battle.outcome = 'aborted'
+  log(battle, 'battle', 'end', reason)
+}

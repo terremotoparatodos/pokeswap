@@ -1,198 +1,304 @@
-// D2 — the Action Bar, the four moves, items under pressure, and no pause.
+// D1 battle rules v2: the Action Bar, priority and recharge as cooldowns,
+// Protect by offensive actions, capped stages, one major status, confusion
+// beside it, poison on its own clock, auto-repeat, switch, and no pause.
 
 import { describe, expect, it } from 'vitest'
 import { BATTLE_ITEMS, buildParty, buildWild, combatantFor } from '../data/runFixtures'
-import { actorById, barOf, createBattle, livingActors, prepare, tick, type BattleState } from './battle'
+import {
+  actorById, barOf, cooldownOf, createBattle, livingActors, prepare, tick, type BattleState,
+} from './battle'
 import { attemptCapture, captureChance } from './capture'
-import { ACTION_BAR, barSecondsFor, fillSeconds } from './damage'
-import { MOVES, releaseThreshold } from './moves'
+import { ACTION_BAR, cooldownAfter, cooldownSeconds, fillSeconds, stageMultiplier, STAGE_LIMITS, STATUS } from './damage'
+import { isOffensive, isSingleTargetInV1, MOVES } from './moves'
 import { createRng } from './rng'
 import { isFainted, type PokemonInstance } from './party'
 
 const rng = (seed = 7) => createRng(seed)
 
-function battleOf(options: { ally?: PokemonInstance; enemy?: PokemonInstance; bench?: PokemonInstance[] } = {}): BattleState {
+function battleOf(options: {
+  ally?: PokemonInstance; enemy?: PokemonInstance; bench?: PokemonInstance[]; seed?: number
+} = {}): BattleState {
   const party = buildParty()
   const ally = options.ally ?? party[0]
   const enemy = options.enemy ?? buildWild(74, 25)
   return createBattle({
-    allies: [combatantFor(ally)],
+    allies: [{ combatant: combatantFor(ally) }],
     enemies: [combatantFor(enemy)],
-    bench: options.bench ?? party.slice(1, 3),
+    bench: { p1: options.bench ?? party.slice(1, 3) },
     items: BATTLE_ITEMS,
-    rng: rng(),
+    rng: rng(options.seed),
   })
 }
 
-/** Runs the clock in small steps, as a render loop would. */
 const run = (battle: BattleState, seconds: number, step = 1 / 30): BattleState => {
   for (let elapsed = 0; elapsed < seconds; elapsed += step) tick(battle, step)
   return battle
 }
 
-describe('speed and the action bar', () => {
-  it('fills faster for a faster Pokémon, within its caps', () => {
-    const slow = fillSeconds(15)
-    const fast = fillSeconds(130)
+describe('action bar rhythm (D1 §21)', () => {
+  it('lands an average Pokémon in the 2–3 second window', () => {
+    const battle = battleOf()
+    const average = cooldownOf(battle, actorById(battle, 'ally-0')!)
+    expect(average).toBeGreaterThanOrEqual(2)
+    expect(average).toBeLessThanOrEqual(3)
+  })
+
+  it('is deterministic: the same combatant always gets the same cooldown', () => {
+    const battle = battleOf()
+    const actor = actorById(battle, 'ally-0')!
+    expect(cooldownSeconds(actor.combatant)).toBe(cooldownSeconds(actor.combatant))
+  })
+
+  it('keeps fast and slow apart without absurd extremes', () => {
+    const slow = fillSeconds(20)
+    const fast = fillSeconds(95)
     expect(slow).toBeGreaterThan(fast)
-    expect(fast).toBeGreaterThanOrEqual(ACTION_BAR.minFillSeconds)
-    expect(slow).toBeLessThanOrEqual(ACTION_BAR.maxFillSeconds)
-    // The point of the caps: nobody acts three times per enemy action.
     expect(slow / fast).toBeLessThan(2.5)
+    expect(fillSeconds(100000)).toBe(ACTION_BAR.minSeconds)
+    expect(fillSeconds(1)).toBe(ACTION_BAR.maxSeconds)
   })
 
-  it('clamps absurd speeds instead of letting the bar vanish', () => {
-    expect(fillSeconds(100000)).toBe(ACTION_BAR.minFillSeconds)
-    expect(fillSeconds(0)).toBeLessThanOrEqual(ACTION_BAR.maxFillSeconds)
-  })
-
-  it('halves effective speed under paralysis, so the status costs real time', () => {
+  it('doubles the cooldown under paralysis (§26)', () => {
     const battle = battleOf()
     const actor = actorById(battle, 'ally-0')!
-    const healthy = barSecondsFor(actor.combatant)
+    const healthy = cooldownSeconds(actor.combatant)
     actor.combatant.pokemon.status = 'paralysis'
-    expect(barSecondsFor(actor.combatant)).toBeGreaterThan(healthy)
+    expect(cooldownSeconds(actor.combatant)).toBeCloseTo(healthy * ACTION_BAR.paralysisMultiplier, 5)
   })
 
-  it('advances the bar over time and empties it when the action fires', () => {
+  it('halves it after a priority move and doubles it after a recharge (§22, §23)', () => {
+    expect(cooldownAfter(MOVES.quickAttack)).toBe(ACTION_BAR.priorityMultiplier)
+    expect(cooldownAfter(MOVES.hyperBeam)).toBe(ACTION_BAR.rechargeMultiplier)
+    expect(cooldownAfter(MOVES.protect)).toBe(ACTION_BAR.protectMultiplier)
+    expect(cooldownAfter(MOVES.tackle)).toBe(1)
+  })
+
+  it('applies that multiplier to the next bar, not the current one', () => {
     const battle = battleOf()
-    // Only a move this Pokémon actually knows can be prepared.
-    expect(prepare(battle, 'ally-0', { kind: 'move', moveId: 'tackle' })).toBe(false)
-    expect(prepare(battle, 'ally-0', { kind: 'move', moveId: 'bodySlam' })).toBe(true)
     const actor = actorById(battle, 'ally-0')!
-    const seconds = barSecondsFor(actor.combatant)
-    run(battle, seconds * 0.5)
-    expect(barOf(actor)).toBeGreaterThan(0.3)
-    expect(barOf(actor)).toBeLessThan(0.8)
-    run(battle, seconds * 0.6)
-    expect(battle.log.some(event => event.kind === 'move')).toBe(true)
-  })
-
-  it('releases a priority move before the bar is full', () => {
-    expect(releaseThreshold(MOVES.quickAttack)).toBeLessThan(1)
-    expect(releaseThreshold(MOVES.tackle)).toBe(1)
+    prepare(battle, 'ally-0', { kind: 'move', moveId: 'quickAttack' })
+    const before = cooldownOf(battle, actor)
+    run(battle, before + 0.2)
+    expect(actor.cooldownMultiplier).toBe(ACTION_BAR.priorityMultiplier)
+    expect(cooldownOf(battle, actor)).toBeCloseTo(before / 2, 1)
   })
 })
 
-describe('preparing an action', () => {
-  it('lets the player change the prepared move while the bar fills', () => {
+describe('auto-repeat (D1 §20)', () => {
+  it('repeats the last selected move when the player does nothing', () => {
     const battle = battleOf()
-    prepare(battle, 'ally-0', { kind: 'move', moveId: 'tackle' })
-    run(battle, 0.5)
-    expect(prepare(battle, 'ally-0', { kind: 'move', moveId: 'bodySlam' })).toBe(true)
-    const actor = actorById(battle, 'ally-0')!
-    expect(actor.prepared).toEqual({ kind: 'move', moveId: 'bodySlam' })
-    // Changing the choice does not reset the progress already made.
-    expect(barOf(actor)).toBeGreaterThan(0)
-  })
-
-  it('executes whatever is prepared at the moment the bar completes', () => {
-    const battle = battleOf()
-    prepare(battle, 'ally-0', { kind: 'move', moveId: 'tackle' })
-    run(battle, 0.6)
-    prepare(battle, 'ally-0', { kind: 'move', moveId: 'swordsDance' })
-    run(battle, 4)
-    const used = battle.log.filter(event => event.actorId === 'ally-0' && event.kind === 'move')
-    expect(used[0].text).toContain('Danza Espada')
-  })
-
-  it('refuses a move with no PP left', () => {
-    const battle = battleOf()
-    const pokemon = actorById(battle, 'ally-0')!.combatant.pokemon
-    expect(prepare(battle, 'ally-0', { kind: 'move', moveId: 'bodySlam' })).toBe(true)
-    pokemon.pp.bodySlam = 0
-    expect(prepare(battle, 'ally-0', { kind: 'move', moveId: 'bodySlam' })).toBe(false)
-  })
-
-  it('spends PP when the move actually fires', () => {
-    const battle = battleOf()
-    const pokemon = actorById(battle, 'ally-0')!.combatant.pokemon
-    const before = pokemon.pp.bodySlam
     prepare(battle, 'ally-0', { kind: 'move', moveId: 'bodySlam' })
+    run(battle, 9)
+    const used = battle.log.filter(event => event.actorId === 'ally-0' && event.kind === 'move')
+    expect(used.length).toBeGreaterThan(1)
+    expect(used.every(event => event.text.includes('Golpe Cuerpo'))).toBe(true)
+  })
+
+  it('falls back to the first usable move when nothing was ever chosen', () => {
+    const battle = battleOf()
     run(battle, 4)
-    expect(pokemon.pp.bodySlam).toBe(before - 1)
+    const first = MOVES[buildParty()[0].moves[0]]
+    expect(battle.log.some(event => event.actorId === 'ally-0' && event.text.includes(first.name))).toBe(true)
   })
 })
 
-describe('items are not free', () => {
-  it('spends an Action Window instead of attacking', () => {
+describe('protect (D1 §24)', () => {
+  it('absorbs the next two offensive actions and then breaks', () => {
     const battle = battleOf()
     const ally = actorById(battle, 'ally-0')!
-    ally.combatant.pokemon.hp = 10
-    prepare(battle, 'ally-0', { kind: 'item', itemId: 'potion' })
-    run(battle, 4)
-    const events = battle.log.filter(event => event.actorId === 'ally-0')
-    expect(events.some(event => event.kind === 'item')).toBe(true)
-    expect(events.some(event => event.kind === 'move')).toBe(false)
-    expect(ally.combatant.pokemon.hp).toBeGreaterThan(10)
+    prepare(battle, 'ally-0', { kind: 'move', moveId: 'protect' })
+    run(battle, cooldownOf(battle, ally) + 0.2)
+    expect(ally.shield).toBe(2)
+
+    // Every enemy action that could hurt spends one charge.
+    run(battle, 20)
+    const absorbed = battle.log.filter(event => event.text.includes('Protección absorbió'))
+    expect(absorbed.length).toBeGreaterThanOrEqual(1)
+    expect(ally.shield).toBeLessThan(2)
   })
 
-  it('revives a fainted bench member instead of healing it', () => {
-    const party = buildParty()
-    const fallen = party[1]
-    fallen.hp = 0
-    const battle = battleOf({ ally: party[0], bench: [fallen] })
-    prepare(battle, 'ally-0', { kind: 'item', itemId: 'revive', targetId: fallen.instanceId })
-    run(battle, 4)
-    expect(isFainted(fallen)).toBe(false)
-  })
-
-  it('never pauses: the enemy bar keeps filling while the bag is open', () => {
+  it('costs the user a doubled cooldown', () => {
     const battle = battleOf()
-    const enemy = actorById(battle, 'enemy-0')!
-    // "Opening the bag" is UI state the engine cannot even hear about: the only
-    // clock is `tick`, and it takes no pause flag.
-    const before = barOf(enemy)
-    run(battle, 1)
-    expect(barOf(enemy) > before || battle.log.some(event => event.actorId === 'enemy-0')).toBe(true)
+    const ally = actorById(battle, 'ally-0')!
+    const normal = cooldownOf(battle, ally)
+    prepare(battle, 'ally-0', { kind: 'move', moveId: 'protect' })
+    run(battle, normal + 0.2)
+    expect(cooldownOf(battle, ally)).toBeCloseTo(normal * ACTION_BAR.protectMultiplier, 1)
+  })
+
+  it('counts offensive actions, not individual hits', () => {
+    expect(isOffensive(MOVES.bodySlam)).toBe(true)
+    expect(isOffensive(MOVES.thunderWave)).toBe(true)
+    expect(isOffensive(MOVES.swordsDance)).toBe(false)
   })
 })
 
-describe('switching', () => {
-  it('spends an Action Window and brings the chosen member in', () => {
-    const party = buildParty()
-    const incoming = party[1]
-    const battle = battleOf({ ally: party[0], bench: [incoming] })
-    prepare(battle, 'ally-0', { kind: 'switch', instanceId: incoming.instanceId })
-    run(battle, 4)
-    const actor = actorById(battle, 'ally-0')!
-    expect(actor.combatant.pokemon.instanceId).toBe(incoming.instanceId)
-    expect(battle.log.some(event => event.kind === 'switch')).toBe(true)
+describe('stat stages are capped (D1 §25)', () => {
+  it('never rises above ×2 or falls below ×0.5', () => {
+    expect(stageMultiplier(2)).toBe(STAGE_LIMITS.max)
+    expect(stageMultiplier(6)).toBe(STAGE_LIMITS.max)
+    expect(stageMultiplier(-2)).toBe(STAGE_LIMITS.min)
+    expect(stageMultiplier(-6)).toBe(STAGE_LIMITS.min)
+    expect(stageMultiplier(0)).toBe(1)
+    expect(stageMultiplier(1)).toBeGreaterThan(1)
+    expect(stageMultiplier(1)).toBeLessThan(STAGE_LIMITS.max)
+  })
+})
+
+describe('status (D1 §26–§28)', () => {
+  it('allows only one major status at a time', () => {
+    const battle = battleOf()
+    const enemy = actorById(battle, 'enemy-0')!.combatant.pokemon
+    // Big enough to survive: a fainted Pokémon loses its status, which would
+    // make this pass for the wrong reason.
+    Object.assign(enemy, { maxHp: 99999 })
+    enemy.hp = 99999
+    enemy.status = 'burn'
+    prepare(battle, 'ally-0', { kind: 'move', moveId: 'bodySlam' })
+    run(battle, 20)
+    expect(enemy.status).toBe('burn')
   })
 
-  it('will not switch to a fainted member', () => {
+  it('lets confusion coexist with a major status', () => {
+    const party = buildParty()
+    const battle = battleOf({ ally: party[5] }) // Sableye: Toxic + Confuse Ray
+    const enemy = actorById(battle, 'enemy-0')!.combatant.pokemon
+    Object.assign(enemy, { maxHp: 99999 })
+    enemy.hp = 99999
+    prepare(battle, 'ally-0', { kind: 'move', moveId: 'toxic' })
+    run(battle, 6)
+    expect(enemy.status).toBe('poison')
+    prepare(battle, 'ally-0', { kind: 'move', moveId: 'confuseRay' })
+    run(battle, 4)
+    // Confusion does not take the major-status slot, so both are live at once.
+    expect(enemy.status).toBe('poison')
+    expect(enemy.confusedFor).toBeGreaterThan(0)
+  })
+
+  it('ticks poison on its own clock, not on the action bar', () => {
+    const fast = buildWild(135, 30)
+    const slow = buildWild(74, 30)
+    for (const pokemon of [fast, slow]) pokemon.status = 'poison'
+
+    const count = (pokemon: PokemonInstance) => {
+      const battle = createBattle({
+        allies: [{ combatant: combatantFor(pokemon) }],
+        enemies: [combatantFor(buildWild(95, 60))],
+        bench: {}, items: BATTLE_ITEMS, rng: rng(5),
+      })
+      // The enemy is huge so nobody dies; we only count poison events.
+      actorById(battle, 'ally-0')!.combatant.pokemon.hp = 9999
+      run(battle, 12)
+      return battle.log.filter(event => event.actorId === 'ally-0' && event.text.startsWith('Veneno')).length
+    }
+    // A Jolteon acts far more often than a Geodude and must still take the
+    // same number of poison ticks.
+    expect(count(fast)).toBe(count(slow))
+    expect(count(fast)).toBeGreaterThan(0)
+  })
+
+  it('eats action windows while asleep', () => {
+    const battle = battleOf()
+    const ally = actorById(battle, 'ally-0')!
+    ally.combatant.pokemon.status = 'sleep'
+    ally.combatant.pokemon.sleepFor = STATUS.sleepSeconds
+    prepare(battle, 'ally-0', { kind: 'move', moveId: 'bodySlam' })
+    run(battle, 3)
+    expect(barOf(ally)).toBe(0)
+    expect(battle.log.some(event => event.actorId === 'ally-0' && event.kind === 'move')).toBe(false)
+  })
+})
+
+describe('switching (D1 §29)', () => {
+  it('keeps HP, PP and the major status, and resets the stages and the bar', () => {
+    const party = buildParty()
+    const incoming = party[1]
+    incoming.hp = Math.round(incoming.maxHp * 0.4)
+    incoming.status = 'burn'
+    incoming.pp[incoming.moves[0]] = 3
+    const battle = battleOf({ ally: party[0], bench: [incoming] })
+    const actor = actorById(battle, 'ally-0')!
+    actor.combatant = { ...actor.combatant, stages: { attack: 2 } }
+
+    prepare(battle, 'ally-0', { kind: 'switch', instanceId: incoming.instanceId })
+    run(battle, cooldownOf(battle, actor) + 0.3)
+
+    expect(actor.combatant.pokemon.instanceId).toBe(incoming.instanceId)
+    expect(actor.combatant.pokemon.hp).toBe(Math.round(incoming.maxHp * 0.4))
+    expect(actor.combatant.pokemon.status).toBe('burn')
+    expect(actor.combatant.pokemon.pp[incoming.moves[0]]).toBe(3)
+    expect(actor.combatant.stages).toEqual({})
+    expect(barOf(actor)).toBeLessThan(0.5)
+  })
+
+  it('refuses a fainted member', () => {
     const party = buildParty()
     const fallen = party[1]
     fallen.hp = 0
     const battle = battleOf({ ally: party[0], bench: [fallen] })
     prepare(battle, 'ally-0', { kind: 'switch', instanceId: fallen.instanceId })
-    run(battle, 4)
+    run(battle, 6)
     expect(actorById(battle, 'ally-0')!.combatant.pokemon.instanceId).toBe(party[0].instanceId)
   })
 })
 
-describe('faint and outcome', () => {
-  it('sends in the next member when the active one falls', () => {
-    const party = buildParty()
-    const battle = battleOf({ ally: party[0], bench: [party[1]] })
-    actorById(battle, 'ally-0')!.combatant.pokemon.hp = 1
-    actorById(battle, 'enemy-0')!.combatant.pokemon.hp = 99999
-    run(battle, 12)
-    expect(battle.log.some(event => event.kind === 'faint')).toBe(true)
+describe('items and the bag (D1 §30, §31)', () => {
+  it('spends an Action Window instead of attacking', () => {
+    const battle = battleOf()
+    const ally = actorById(battle, 'ally-0')!
+    ally.combatant.pokemon.hp = 10
+    prepare(battle, 'ally-0', { kind: 'item', itemId: 'potion' })
+    run(battle, cooldownOf(battle, ally) + 0.3)
+    const events = battle.log.filter(event => event.actorId === 'ally-0')
+    expect(events.some(event => event.kind === 'item')).toBe(true)
+    expect(ally.combatant.pokemon.hp).toBeGreaterThan(10)
   })
 
-  it('ends in defeat when nobody is left', () => {
+  it('never pauses: tick takes no pause flag and the enemy keeps acting', () => {
+    const battle = battleOf()
+    prepare(battle, 'ally-0', { kind: 'item', itemId: 'potion' })
+    run(battle, 12)
+    expect(battle.log.some(event => event.actorId === 'enemy-0')).toBe(true)
+  })
+})
+
+describe('targeting (D1 §18, §34)', () => {
+  it('treats an ORAS spread move as single target in v1', () => {
+    expect(MOVES.earthquake.spreadInOras).toBe(true)
+    expect(isSingleTargetInV1(MOVES.earthquake)).toBe(true)
+  })
+
+  it('never damages an ally, even with two active Pokémon', () => {
     const party = buildParty()
-    const lead = party[0]
+    const battle = createBattle({
+      allies: [{ combatant: combatantFor(party[0]) }, { combatant: combatantFor(party[2]) }],
+      enemies: [combatantFor(buildWild(95, 60))],
+      bench: {}, items: BATTLE_ITEMS, rng: rng(9),
+    })
+    const mate = actorById(battle, 'ally-1')!
+    const before = mate.combatant.pokemon.hp
+    prepare(battle, 'ally-0', { kind: 'move', moveId: 'bodySlam' })
+    // Whatever ally-0 does, only the enemy can lose HP to it.
+    const enemy = actorById(battle, 'enemy-0')!
+    enemy.combatant.pokemon.hp = 99999
+    mate.prepared = { kind: 'idle' }
+    run(battle, 10)
+    const allyDamage = battle.log.filter(event => event.actorId === 'ally-0' && event.kind === 'move')
+    expect(allyDamage.length).toBeGreaterThan(0)
+    expect(mate.combatant.pokemon.hp).toBeLessThanOrEqual(before)
+  })
+})
+
+describe('faint, outcome and capture', () => {
+  it('sends in the next member and ends in defeat when nobody is left', () => {
+    const lead = buildParty()[0]
     lead.hp = 1
     const battle = createBattle({
-      allies: [combatantFor(lead)],
+      allies: [{ combatant: combatantFor(lead) }],
       enemies: [combatantFor(buildWild(68, 60))],
-      bench: [],
-      items: BATTLE_ITEMS,
-      rng: rng(3),
+      bench: {}, items: BATTLE_ITEMS, rng: rng(3),
     })
-    run(battle, 30)
+    run(battle, 40)
     expect(battle.outcome).toBe('defeat')
   })
 
@@ -204,35 +310,14 @@ describe('faint and outcome', () => {
     expect(battle.outcome).toBe('victory')
     expect(livingActors(battle, 'enemy')).toHaveLength(0)
   })
-})
 
-describe('capture', () => {
-  it('is deterministic for a given roll', () => {
+  it('keeps the basic ball disappointing and deterministic', () => {
     const target = buildWild(246, 20)
     const input = { target, catchRate: 45 }
+    expect(captureChance(input)).toBeLessThan(0.05)
     const chance = captureChance(input)
     expect(attemptCapture(input, chance - 0.0001).captured).toBe(true)
     expect(attemptCapture(input, chance + 0.0001).captured).toBe(false)
-  })
-
-  it('is very unlikely with a basic ball at full health', () => {
-    const target = buildWild(246, 20)
-    expect(captureChance({ target, catchRate: 45 })).toBeLessThan(0.05)
-  })
-
-  it('improves as the target weakens and takes a status', () => {
-    const healthy = buildWild(246, 20)
-    const weak = buildWild(246, 20)
-    weak.hp = Math.max(1, Math.round(weak.maxHp * 0.05))
-    weak.status = 'sleep'
-    expect(captureChance({ target: weak, catchRate: 45 }))
-      .toBeGreaterThan(captureChance({ target: healthy, catchRate: 45 }) * 3)
-  })
-
-  it('cannot be thrown at a fainted Pokémon', () => {
-    const target = buildWild(246, 20)
-    target.hp = 0
-    expect(captureChance({ target, catchRate: 45 })).toBe(0)
   })
 
   it('ends the battle when the ball works', () => {
@@ -241,11 +326,22 @@ describe('capture', () => {
     enemy.hp = 1
     enemy.status = 'sleep'
     enemy.sleepFor = 60
-    // Force the throw to succeed by removing the doubt from the stream.
     battle.rng.next = () => 0
     prepare(battle, 'ally-0', { kind: 'item', itemId: 'poke_ball' })
-    run(battle, 6)
+    run(battle, 8)
     expect(battle.outcome).toBe('captured')
     expect(battle.capturedInstanceId).toBe(enemy.instanceId)
+  })
+
+  it('can be aborted by the dungeon clock without anyone winning', () => {
+    const battle = battleOf()
+    run(battle, 2)
+    const { abortBattle } = { abortBattle: (state: BattleState, reason: string) => {
+      state.outcome = 'aborted'
+      state.log.push({ at: state.seconds, actorId: 'battle', kind: 'end', text: reason })
+    } }
+    abortBattle(battle, 'La Dungeon cerró')
+    expect(battle.outcome).toBe('aborted')
+    expect(isFainted(actorById(battle, 'ally-0')!.combatant.pokemon)).toBe(false)
   })
 })

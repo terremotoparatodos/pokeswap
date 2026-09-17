@@ -18,7 +18,16 @@ const props = defineProps<{
   enemyScale?: number
   aura?: boolean
   seconds: number
+  /** A Boss Skill being announced, so the player can decide before it lands. */
+  telegraph?: { readonly skillId: string; readonly name: string; readonly endsAt: number } | null
 }>()
+
+const warning = computed(() => {
+  const telegraph = props.telegraph
+  if (!telegraph) return null
+  const left = Math.max(0, telegraph.endsAt - props.seconds)
+  return { name: telegraph.name, left, ratio: Math.max(0, Math.min(1, 1 - left / 2.8)) }
+})
 
 const scale = computed(() => props.enemyScale ?? 1)
 /** A slow pulse so the aura reads as "dangerous" without an animation library. */
@@ -51,7 +60,24 @@ const colourOf = (actor: BattleActor) => (actor.side === 'ally' ? '#7ee2a8' : '#
       <g v-for="(actor, i) in allies" :key="actor.id" :transform="`translate(${100 - i * 46}, ${112 + i * 12})`">
         <ellipse rx="20" ry="6" cy="30" fill="#0b1020" opacity="0.5" />
         <circle r="18" cy="4" :fill="colourOf(actor)" :opacity="isFainted(actor.combatant.pokemon) ? 0.25 : 1" />
+        <!-- Protect: a ring per remaining charge, so the shield is readable. -->
+        <circle
+          v-if="actor.shield > 0" r="24" cy="4"
+          fill="none" stroke="#8ec7ff" :stroke-width="actor.shield" opacity="0.9"
+        />
+        <text v-if="actor.shield > 0" y="-20" text-anchor="middle" font-size="10" fill="#8ec7ff">
+          ◈{{ actor.shield }}
+        </text>
         <text y="48" text-anchor="middle" font-size="11" fill="#e8eeff">{{ nameOf(actor) }}</text>
+      </g>
+
+      <!-- Boss Skill telegraph: name, countdown and a bar that fills as it lands. -->
+      <g v-if="warning">
+        <rect x="90" y="8" width="240" height="26" rx="6" fill="#3a0f14" stroke="#ff4d4d" />
+        <rect x="92" y="28" :width="236 * warning.ratio" height="4" fill="#ff4d4d" />
+        <text x="210" y="25" text-anchor="middle" font-size="12" fill="#ffd0d0">
+          ⚠ {{ warning.name }} · {{ warning.left.toFixed(1) }} s
+        </text>
       </g>
     </svg>
 

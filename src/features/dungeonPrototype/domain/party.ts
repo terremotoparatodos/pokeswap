@@ -23,7 +23,12 @@ export interface PokemonSpecies {
   readonly catchRate: number
 }
 
-export type StatusCondition = 'none' | 'burn' | 'paralysis' | 'poison' | 'sleep'
+/**
+ * APPROVED (D1 §26): **one major status at a time**. Our realtime reading of
+ * each is in `damage.ts`; notably Freeze halves Sp. Attack instead of freezing
+ * the Pokémon solid, which would be a stun in a game with no turns.
+ */
+export type StatusCondition = 'none' | 'burn' | 'paralysis' | 'poison' | 'freeze' | 'sleep'
 
 /** One individual. `PROTOTYPE`: natures, IVs, EVs and abilities are not modelled yet. */
 export interface PokemonInstance {
@@ -36,8 +41,13 @@ export interface PokemonInstance {
   /** Remaining PP per move id. */
   pp: Record<string, number>
   status: StatusCondition
-  /** Scene seconds left of sleep, or 0. */
+  /** Battle seconds left of sleep, or 0. */
   sleepFor: number
+  /**
+   * Battle seconds left of confusion. APPROVED (D1 §27): confusion does **not**
+   * take the major-status slot, so it can sit on top of a burn or a poison.
+   */
+  confusedFor: number
 }
 
 export const MAX_PARTY = 6
@@ -64,6 +74,7 @@ export function damage(pokemon: PokemonInstance, amount: number): void {
   if (pokemon.hp === 0) {
     pokemon.status = 'none'
     pokemon.sleepFor = 0
+    pokemon.confusedFor = 0
   }
 }
 

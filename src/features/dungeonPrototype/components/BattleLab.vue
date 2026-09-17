@@ -29,9 +29,9 @@ function begin(): void {
   const party = buildParty()
   bag.value = { ...STARTING_INVENTORY }
   start(createBattle({
-    allies: [combatantFor(party[0])],
+    allies: [{ combatant: combatantFor(party[0]) }],
     enemies: [combatantFor(buildWild(enemyId.value, enemyLevel.value))],
-    bench: party.slice(1),
+    bench: { p1: party.slice(1) },
     items: BATTLE_ITEMS,
     rng: createRng(seed.value),
   }))
@@ -42,7 +42,7 @@ const allies = computed(() => (battle.value ? battle.value.actors.filter(actor =
 const enemies = computed(() => (battle.value ? battle.value.actors.filter(actor => actor.side === 'enemy') : []))
 const moves = computed(() => (ally.value ? ally.value.combatant.pokemon.moves.map(id => moveById(id)!) : []))
 const prepared = computed(() => ally.value?.prepared)
-const bench = computed(() => battle.value?.bench ?? [])
+const bench = computed(() => battle.value?.bench.p1 ?? [])
 const log = computed(() => [...(battle.value?.log ?? [])].reverse().slice(0, 12))
 
 const ppOf = (moveId: string) => ally.value?.combatant.pokemon.pp[moveId] ?? 0
