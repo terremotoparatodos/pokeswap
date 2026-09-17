@@ -18,11 +18,13 @@ import { LENSES } from '../../wildlands/engine/projection'
 import { Renderer, type Scene } from '../../wildlands/engine/renderer'
 import type { PlaySession } from '../domain/playSession'
 import { isWalkable } from '../domain/floorTiles'
+import { isBossFloor } from '../domain/bossRoom'
 import { caveLight, DungeonWorld } from '../world/dungeonScene'
 import { tileCentre } from '../world/dungeonArea'
-import { chestSprite, doorSprite, torchSprite } from '../world/dungeonProps'
+import { chestSprite, doorSprite, stairsSprite, torchSprite } from '../world/dungeonProps'
 import {
-  createWorldOverlay, type StatusMark, type WorldBar, type WorldEffect, type WorldProp, type WorldText,
+  burst, createWorldOverlay,
+  type StatusMark, type WorldBar, type WorldEffect, type WorldProp, type WorldText,
 } from '../render/worldOverlay'
 import { speciesFrames } from '../render/dungeonSprites'
 
@@ -48,6 +50,8 @@ const effects: WorldEffect[] = []
 const texts: WorldText[] = []
 
 const BALL_FLIGHT = 0.36
+/** The soft light an unclaimed chest and an open stairway give off (§6, §7). */
+const GLOW = burst('#ffd98a', 10)
 
 // ── What the overlay reads each frame ──────────────────────────────────────
 
@@ -104,12 +108,31 @@ function overlayProps(): WorldProp[] {
   for (const entity of live.entities) {
     if (entity.kind !== 'chest') continue
     const at = tileCentre(entity.at.x, entity.at.y)
+    // D1.2.2 §6: an unopened chest breathes a little light, so it can be found
+    // from across a hall. An opened one goes quiet.
+    if (!entity.taken) {
+      const pulse = 0.35 + Math.sin(clock * 1.6 + entity.at.x * 0.7) * 0.22
+      out.push({ wx: at.x, wy: at.y, sprite: GLOW, lift: 7, scale: 1 + pulse * 0.4, alpha: Math.max(0, pulse), depthBias: -1 })
+    }
     out.push({ wx: at.x, wy: at.y, sprite: chestSprite(entity.taken) })
   }
 
-  // The stairway door: shut until the key drops, open afterwards (§22).
-  const exit = tileCentre(live.tiles.exit.x, live.tiles.exit.y)
-  out.push({ wx: exit.x, wy: exit.y - 6, sprite: doorSprite(live.expedition.key.hasKey), depthBias: -2 })
+  const boss = isBossFloor(live.tiles) ? live.tiles.boss : null
+  if (boss) {
+    // The Boss Room's door: shut while we are still outside, open once we have
+    // committed, shut again behind us when the fight starts (§13, §16).
+    const at = tileCentre(boss.door.x, boss.door.y)
+    out.push({ wx: at.x, wy: at.y, sprite: doorSprite(live.phase === 'antechamber'), depthBias: -2 })
+  } else {
+    // The way down: a landing cut into the floor, sealed until the key drops (§7).
+    const exit = tileCentre(live.tiles.exit.x, live.tiles.exit.y)
+    const unlocked = live.expedition.key.hasKey
+    out.push({ wx: exit.x, wy: exit.y, sprite: stairsSprite(unlocked), depthBias: -4 })
+    if (unlocked) {
+      const pulse = 0.3 + Math.sin(clock * 2.2) * 0.2
+      out.push({ wx: exit.x, wy: exit.y, sprite: GLOW, lift: 3, scale: 1.4, alpha: Math.max(0, pulse * 0.7), depthBias: -3 })
+    }
+  }
 
   // The Alpha is drawn here, at twice the scale, instead of as a plain actor.
   const alpha = scene.alphaActor
@@ -173,6 +196,25 @@ const keys = new KeyboardInput({
 const press = (dir: Dir): void => { keys.virtualDir = dir }
 const release = (): void => { keys.virtualDir = null }
 
+// Sprint on a phone (§3): the least invasive option is one button that behaves
+// like the Shift key — held, not toggled, so it cannot be left on by accident.
+const running = ref(false)
+const holdRun = (on: boolean): void => {
+  running.value = on
+  keys.sprinting = on
+}
+
+/** Click or tap the ground to walk there (§4). */
+function onTap(event: PointerEvent): void {
+  const engine = renderer.value
+  const scene = world.value
+  const element = canvas.value
+  if (!engine || !scene || !element) return
+  if (props.session?.phase !== 'exploring') return
+  const rect = element.getBoundingClientRect()
+  scene.goTo(engine.pick(event.clientX - rect.left, event.clientY - rect.top))
+}
+
 // ── Frame ──────────────────────────────────────────────────────────────────
 
 function syncFloor(live: PlaySession): DungeonWorld | null {
@@ -189,10 +231,18 @@ function syncFloor(live: PlaySession): DungeonWorld | null {
     revealAt.clear()
     clearEffects()
   }
+  // The rules can move the player without the scene having walked there — a DEV
+  // teleport does exactly that. When the session says we are somewhere else and
+  // we are not mid-step, follow it.
+  const scene = world.value
+  const settled = scene.player.progress >= 1 && !scene.locked
+  if (settled && (scene.player.tx !== live.player.x || scene.player.ty !== live.player.y)) {
+    scene.place(live.player)
+  }
   // Never leave the trainer standing inside a Pokémon (the Alpha owns the stairs).
-  const stepped = world.value.stepOffOccupied(live.tiles)
+  const stepped = scene.stepOffOccupied(live.tiles)
   if (stepped) emit('arrive', stepped.x, stepped.y)
-  return world.value
+  return scene
 }
 
 /** Sends our side out by Ball when a fight starts, and recalls it when it ends. */
@@ -248,6 +298,8 @@ function loop(time: number): void {
   scene.locked = live.phase !== 'exploring'
 
   scene.update(dt, live.tiles, keys.direction, (tx, ty) => emit('arrive', tx, ty), keys.sprinting)
+  // A tap route that ended beside something is the same as pressing E there.
+  if (scene.arrivedAtTarget) emit('interact')
   // DEV probe: /dev/dungeon only exists in development, and this is how the
   // scene is inspected from the console during a visual QA pass.
   if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__dungeon = { scene, live }
@@ -276,7 +328,7 @@ function loop(time: number): void {
     showPlayer: true,
     actors,
     showGrid: false,
-    route: { tiles: [], target: null, rejected: null },
+    route: scene.route(),
     overlay,
   }
   engine.render(frameScene, dt)
@@ -309,7 +361,7 @@ const walkable = computed(() => {
 
 <template>
   <div class="ws">
-    <canvas ref="canvas" class="ws-canvas" />
+    <canvas ref="canvas" class="ws-canvas" @pointerdown="onTap" />
     <div v-if="pad" class="ws-pad">
       <button
         type="button" class="ws-key ws-up" :class="{ 'ws-key--off': !walkable.up }"
@@ -328,6 +380,12 @@ const walkable = computed(() => {
         @pointerdown.prevent="press('down')" @pointerup="release" @pointerleave="release"
       >▼</button>
     </div>
+    <!-- Sprint on a phone: held like Shift, never a toggle (§3). -->
+    <button
+      v-if="pad" type="button" class="ws-run" :class="{ 'ws-run--on': running }"
+      @pointerdown.prevent="holdRun(true)" @pointerup="holdRun(false)"
+      @pointerleave="holdRun(false)" @pointercancel="holdRun(false)"
+    >CORRER</button>
     <slot />
   </div>
 </template>
@@ -347,6 +405,15 @@ const walkable = computed(() => {
   touch-action: none; user-select: none;
 }
 .ws-key--off { opacity: 0.35; }
+.ws-run {
+  position: absolute; right: 12px; bottom: 14px;
+  min-width: 64px; min-height: 44px; padding: 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22); border-radius: 12px;
+  background: rgba(10, 16, 30, 0.55); color: #e8eeff;
+  font: inherit; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.08em;
+  cursor: pointer; touch-action: none; user-select: none;
+}
+.ws-run--on { border-color: #ffd27a; background: rgba(60, 44, 10, 0.75); color: #ffd27a; }
 .ws-up { grid-area: 1 / 2; }
 .ws-left { grid-area: 2 / 1; }
 .ws-right { grid-area: 2 / 3; }

@@ -22,7 +22,10 @@ import { TILE } from '../../wildlands/engine/world'
 import { isWalkable, type FloorEntity, type FloorTiles, type TilePoint } from '../domain/floorTiles'
 import { speciesById } from '../data/speciesFixtures'
 import { speciesFrames, preloadSpecies } from '../render/dungeonSprites'
+import { isBossFloor } from '../domain/bossRoom'
 import { DungeonArea, DUNGEON_DARKNESS } from './dungeonArea'
+import { TapNavigator } from '../../wildlands/engine/navigator'
+import type { Pick as ScenePick, RouteMarker } from '../../wildlands/engine/renderer'
 import { facingBetween, openGround, stageCombat } from './combatStaging'
 
 /** Underground light: dim ambient plus the renderer's own lantern on the player. */
@@ -54,6 +57,10 @@ export class DungeonWorld {
   private readonly appearance: PlayerAppearance
   /** The Alpha is drawn at twice the size by the overlay, so it is not a plain actor. */
   private alphaId: string | null = null
+  /** Tap-to-move, the overworld's own navigator (D1.2.2 §4). */
+  private readonly nav: TapNavigator
+  /** True on the frame the tap route finished next to something to interact with. */
+  arrivedAtTarget = false
   /** Set while a fight is on: the trainer keeps their tile and stops walking. */
   locked = false
   camX = 0
@@ -67,6 +74,10 @@ export class DungeonWorld {
     // "the dungeon's version of" anything.
     this.player = createActor({
       id: 'player', kind: 'player', habitat: 'any', tx: at.x, ty: at.y, trainer,
+    })
+    this.nav = new TapNavigator({
+      isSolid: (tx, ty) => this.area.isSolid(tx, ty),
+      occupied: (tx, ty) => this.actorsIncludingAlpha().some(actor => actor.tx === tx && actor.ty === ty),
     })
     this.appearance = new PlayerAppearance(this.player, trainer)
     this.appearance.set(playerCharacter(DEFAULT_PLAYER_CHARACTER_ID))
@@ -149,6 +160,25 @@ export class DungeonWorld {
     }
   }
 
+  /** Everything that occupies a tile, the Alpha included. */
+  private actorsIncludingAlpha(): Actor[] {
+    return [...this.wild.values(), ...this.allies.values()]
+  }
+
+  /**
+   * Tap-to-move (§4). Hands the renderer's pick straight to the overworld's
+   * navigator; it refuses anything unreachable and flashes a cross instead.
+   */
+  goTo(pick: ScenePick): boolean {
+    if (this.locked) return false
+    return this.nav.goTo(this.player, pick)
+  }
+
+  /** The tap marker the renderer draws on the ground. */
+  route(): RouteMarker {
+    return this.nav.route(this.player)
+  }
+
   /** The Alpha actor: it blocks and is targeted, but the overlay draws it. */
   get alphaActor(): Actor | null {
     return this.alphaId ? this.wild.get(this.alphaId) ?? null : null
@@ -179,6 +209,19 @@ export class DungeonWorld {
     const foeAt = foe ? { x: foe.tx, y: foe.ty } : { x: this.player.tx, y: this.player.ty }
     const busy = [...this.wild.values()].filter(a => a !== foe).map(a => ({ x: a.tx, y: a.ty }))
 
+    // D1.2.2 §14: the Boss Room has designed spots. The trainer takes theirs
+    // just inside the door and each Pokémon the one in front of it, so the room
+    // reads Alpha → our side → us without anything having to be computed.
+    if (isBossFloor(tiles) && foe === this.alphaActor && foe) {
+      const slots = tiles.boss
+      this.place(slots.trainers[0])
+      this.locked = true
+      this.player.dir = 'up'
+      foe.dir = 'down'
+      this.spawnAllies(allies, slots.allies.slice(0, allies.length), foeAt)
+      return { spots: slots.allies.slice(0, allies.length), foe }
+    }
+
     // The Alpha stands on the stairs, which is exactly where the player arrives.
     // Step the trainer back so the room reads front to back: the Alpha, then our
     // Pokémon, then us. Placement only — the fight is still on the same tile.
@@ -197,9 +240,19 @@ export class DungeonWorld {
     this.player.progress = 1
     if (foe) foe.dir = staged.foeFacing
 
-    preloadSpecies(allies.map(a => a.speciesId))
+    this.spawnAllies(allies, staged.allies, foeAt)
+    return { spots: staged.allies, foe }
+  }
+
+  /** Puts our Pokémon on the given tiles, facing the foe. */
+  private spawnAllies(
+    allies: readonly { combatantId: string; speciesId: number }[],
+    spots: readonly TilePoint[],
+    foeAt: TilePoint,
+  ): void {
+    preloadSpecies(allies.map(ally => ally.speciesId))
     allies.forEach((ally, index) => {
-      const spot = staged.allies[index]
+      const spot = spots[index] ?? spots[spots.length - 1]
       const species = speciesById(ally.speciesId)
       this.allies.set(ally.combatantId, createActor({
         id: `ally-${ally.combatantId}`,
@@ -211,7 +264,6 @@ export class DungeonWorld {
         pokemon: { id: ally.speciesId, name: species?.name ?? 'Pokémon', shiny: false, frames: speciesFrames(ally.speciesId) },
       }))
     })
-    return { spots: staged.allies, foe }
   }
 
   /** Replaces one ally sprite in place (a switch), keeping its tile. */
@@ -254,14 +306,23 @@ export class DungeonWorld {
     const rules = this.rules(tiles)
     const player = this.player
     if (this.locked) {
+      // A fight owns the trainer: no walking, and any tap route is dropped.
+      this.nav.cancel()
       player.progress = 1
       player.bumping = false
     } else {
+      // Exactly the overworld's order: a key always wins over a tap route.
+      if (want) this.nav.cancel()
+      const navigating = !want && this.nav.active
       player.running = sprinting
       if (!isMoving(player)) {
         player.speed = (sprinting ? RUN_SPEED : WALK_SPEED) * (this.area.isWater(player.tx, player.ty) ? 0.7 : 1)
       }
-      driveWalker(player, want, dt, rules, this.walker, onArrive)
+      driveWalker(player, navigating ? this.nav.next : want, dt, rules, this.walker, (tx, ty) => {
+        if (navigating) this.nav.arrived()
+        onArrive?.(tx, ty)
+      }, navigating)
+      this.arrivedAtTarget = this.nav.update(player, dt)
     }
     for (const actor of this.actors()) advance(actor, dt)
 
