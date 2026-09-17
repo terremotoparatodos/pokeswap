@@ -51,9 +51,8 @@ export interface WorldBar {
 }
 
 export type EffectKind =
-  | 'ball' | 'open' | 'summon' | 'recall' | 'swallow' | 'shake'
-  | 'physical' | 'special' | 'statusHit' | 'shield' | 'heal' | 'aoe'| 'ball' | 'open' | 'summon' | 'recall'
-  | 'physical' | 'special' | 'statusHit' | 'shield' | 'heal' | 'aoe' | 'shake'
+  | 'ball' | 'open' | 'summon' | 'recall' | 'swallow' | 'shake' | 'held' | 'breakout'
+  | 'physical' | 'special' | 'statusHit' | 'shield' | 'heal' | 'aoe'
 
 export interface WorldEffect {
   kind: EffectKind
@@ -207,6 +206,26 @@ export function createWorldOverlay(source: OverlaySource): SceneOverlay {
           }
           case 'open':
             out.push({ wx: effect.wx, wy: effect.wy, sprite: balls[t < 0.5 ? 1 : 2], lift: 6, scale: 1 + t, alpha: 1 - t * 0.5, depthBias: 6 })
+            break
+          case 'held':
+            // The ball sits still with the Pokémon inside it, glowing: the
+            // moment before the click (D1.2.4 §2).
+            out.push({
+              wx: effect.wx, wy: effect.wy, sprite: burst('#ffe08a', 12), lift: 5,
+              scale: 0.8 + Math.sin(t * Math.PI) * 0.5, alpha: 0.55 * Math.sin(t * Math.PI), depthBias: 6,
+            })
+            out.push({ wx: effect.wx, wy: effect.wy, sprite: balls[0], lift: 4, depthBias: 7 })
+            break
+          case 'breakout':
+            // It burst open: the red beam that means the Pokémon got away.
+            out.push({
+              wx: effect.wx, wy: effect.wy, sprite: burst('#ff2f2f', 7), lift: 6 + t * 30,
+              scale: 1.4 - t, alpha: 1 - t, depthBias: 7,
+            })
+            out.push({
+              wx: effect.wx, wy: effect.wy, sprite: burst('#ff6b4a', 11), lift: 8,
+              scale: 0.5 + t * 1.8, alpha: 0.8 * (1 - t), depthBias: 6,
+            })
             break
           case 'swallow':
             // The wild Pokémon is drawn in: a flash that shrinks into the ball.

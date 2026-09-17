@@ -341,3 +341,79 @@ export function statusChip(colour: string, mark: 'burn' | 'paralysis' | 'poison'
   chipCache.set(key, made)
   return made
 }
+
+// ── Obstacles you break through (D1.2.4 §1) ────────────────────────────────
+//
+// Each one has to read, at a glance, as "you are not walking through this" and
+// as "the right tool opens it": a rockfall wedged across the gap, a crystal
+// seam, a knot of roots, a barred timber. Drawn at the same scale as the props
+// beside them.
+
+const ROCKFALL = [
+  '..KKKKKKKKKK..',
+  '.KsssttttsssK.',
+  'KstttSStttSStK',
+  'KsttSSSSttSSsK',
+  'KttSSsSStSSstK',
+  'KtSSssstSSsstK',
+  'KSSsssttSSsttK',
+  'KSssttttSssttK',
+  'KsstttttsstttK',
+  '.KsttttttstttK',
+  '..KKKKKKKKKK..',
+]
+
+const CRYSTAL_SEAM = [
+  '...KKKKKKKK...',
+  '..KIIKKIIKKK..',
+  '.KIIIKIIIKIIK.',
+  'KIIIIKIIIKIIIK',
+  'KsIIIKsIIKsIIK',
+  'KssIIKssIKssIK',
+  'KsssIKsssKsssK',
+  'KtsssKtssKtssK',
+  'KttssKttsKttsK',
+  '.KttsKKttKKtsK',
+  '..KKKKKKKKKK..',
+]
+
+const ROOTS = [
+  '..KKKKKKKKKK..',
+  '.KwwKKddKKwwK.',
+  'KwwWddWwwWddwK',
+  'KWwwWwwddWwwWK',
+  'KwWddwWwwddWwK',
+  'KddwwWddwwWddK',
+  'KwWwwddWWwwdwK',
+  'KWddWwwddWWdwK',
+  'KwwWddWwwWddwK',
+  '.KwwKKddKKwwK.',
+  '..KKKKKKKKKK..',
+]
+
+const TIMBER = [
+  '..KKKKKKKKKK..',
+  '.KWWWWWWWWWWK.',
+  'KWwwwwwwwwwwWK',
+  'KKKKKKKKKKKKKK',
+  'KWWWWWWWWWWWWK',
+  'KwwwwwwwwwwwwK',
+  'KKKKKKKKKKKKKK',
+  'KWWWWWWWWWWWWK',
+  'KWwwwwwwwwwwWK',
+  '.KddddddddddK.',
+  '..KKKKKKKKKK..',
+]
+
+let obstacleCache: Record<string, Sprite> | null = null
+
+/** The art for one obstacle kind. */
+export function obstacleSprite(kind: 'rockfall' | 'crystal' | 'roots' | 'timber'): Sprite {
+  obstacleCache ??= {
+    rockfall: sprite(ROCKFALL),
+    crystal: sprite(CRYSTAL_SEAM),
+    roots: sprite(ROOTS),
+    timber: sprite(TIMBER),
+  }
+  return obstacleCache[kind]
+}
