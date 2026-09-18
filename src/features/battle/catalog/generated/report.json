@@ -1,0 +1,38 @@
+{
+ "catalogVersion": "1.oras.ab69b5804411",
+ "species": 493,
+ "forms": 562,
+ "megaForms": 46,
+ "moves": 621,
+ "supportedMoves": 415,
+ "unsupportedMoves": 206,
+ "abilities": 191,
+ "learnsets": 562,
+ "formsWithoutLearnset": 0,
+ "natures": 25,
+ "types": 18,
+ "genSixCorrections": {
+  "baseStats": 22,
+  "abilities": 7,
+  "types": 0,
+  "examples": {
+   "baseStats": [
+    "arbok",
+    "dugtrio",
+    "farfetchd",
+    "dodrio",
+    "electrode",
+    "exeggutor"
+   ],
+   "abilities": [
+    "gengar",
+    "raikou",
+    "entei",
+    "suicune",
+    "wingull",
+    "pelipper"
+   ]
+  }
+ },
+ "issues": []
+}
