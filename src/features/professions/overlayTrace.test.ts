@@ -337,6 +337,56 @@ describe('overlay trace · logging', () => {
     expect({ actions, trace: trace.trace, session: finalState(session.state.value, [spot.target]) })
       .toMatchSnapshot('logging · common_tree · felled and depleted')
   })
+
+  // Gate finding H-1: the reward window used to draw the whole tree standing
+  // again, between the fall and the stump. This is the invariant, not a
+  // snapshot: once the trunk starts going down it never stands up again.
+  it('common_tree · once the trunk starts falling, the standing tree never comes back', () => {
+    const spot = targetAt('common_tree')
+    const game = stubPort(beside(spot).tx, beside(spot).ty)
+    const logging = useLoggingController(session, () => game)
+    logging.attach()
+    logging.inspect({ area, tx: spot.tx, ty: spot.ty } as never)
+
+    const charges = spot.target.node.personalCharges
+    const trace = new SceneTrace(host('logging · common_tree · fall', logging.overlay, game, () => logging.phase.value,
+      { probes: decorProbe(spot.tx, spot.ty) }))
+    for (let i = 0; i < charges; i++) {
+      expect(logging.chop(), `chop #${i + 1}`).toBe(true)
+      trace.runUntil(() => logging.phase.value !== 'chopping', 15)
+      trace.run(0.4)
+    }
+    trace.run(0.5)
+
+    // Every recorded frame's decor line, with `repeat` runs expanded.
+    const decorFrames: string[] = []
+    for (const entry of trace.trace as readonly TraceEntry[]) {
+      if ('repeat' in entry) {
+        const last = decorFrames[decorFrames.length - 1]
+        if (last) for (let i = 0; i < entry.repeat; i++) decorFrames.push(last)
+        continue
+      }
+      const decor = (entry as TraceFrame).decor
+      if (decor) decorFrames.push(decor)
+    }
+
+    const artOf = (line: string) => /art=(\S+)/.exec(line)?.[1] ?? 'none'
+    const dyOf = (line: string) => Number(/dy=(-?[\d.]+)/.exec(line)?.[1] ?? 0)
+    const standing = artOf(decorFrames[0])
+    // The trunk leans with its own art while it goes down; the stump is the
+    // first frame that stops being the standing tree after the fall began.
+    const fallStarted = decorFrames.findIndex(line => dyOf(line) > 0)
+    const down = decorFrames.findIndex((line, i) => i > fallStarted && artOf(line) !== standing)
+
+    expect(decorFrames.length, 'the probe must have produced decor frames').toBeGreaterThan(10)
+    expect(fallStarted, 'the tree must be seen leaning').toBeGreaterThan(0)
+    expect(down, 'the fall must end on an art that is not the standing tree').toBeGreaterThan(fallStarted)
+
+    const afterFall = decorFrames.slice(down)
+    const standingAgain = afterFall.filter(line => artOf(line) === standing)
+    expect(standingAgain, `the whole tree was drawn again after the trunk went down: ${standingAgain[0]}`).toEqual([])
+    expect(artOf(afterFall[afterFall.length - 1]), 'the scene is left on the stump').not.toBe(standing)
+  })
 })
 
 describe('overlay trace · forage', () => {
