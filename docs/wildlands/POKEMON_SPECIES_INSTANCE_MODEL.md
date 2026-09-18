@@ -156,9 +156,53 @@ Es decir: la fila del slot —la identidad del Pokémon legacy— sobrevive a ca
 
 **Qué queda deliberadamente afuera de la clave:** `user_id` / `owner_id`, xp, level, moves, aura, energía y todo timestamp. Un Pokémon que cambia de manos el día antes de correr la migración tiene que salir de ella siendo **el mismo Pokémon**. La propiedad se preserva como metadata de la instancia migrada (`ownership`), pero no toca el RNG.
 
-Consecuencia que hay que decidir antes de ejecutar (§10.4): como el mundo legacy tiene un solo Pikachu, si la migración corre **por fila de `pokemon_xp`** (una por entrenador que lo entrenó), todas esas filas producen el mismo individuo. Si corre **por slot**, hay exactamente un Pikachu migrado. La clave es la misma en los dos casos; lo que falta decidir es la unidad.
+Esto encaja con la cardinalidad aprobada (§10.2): como la unidad de migración es el slot y hay un solo slot por especie, cada identidad produce como mucho un Pokémon.
 
-### 10.2 Propiedades
+### 10.2 Legacy Migration Cardinality — **una fila de `slots` = un Pokémon**
+
+```
+slot        → 0 o 1 PokemonInstance          (la entidad)
+pokemon_xp  → fuente de progresión           (NO es identidad ni entidad)
+```
+
+El juego legacy nunca tuvo dos individuos de una especie. `slots` guarda exactamente una fila por especie y **esa fila es el Pokémon**. `pokemon_xp` es entrenamiento, con clave `(user, species)`: una fila de un ex-dueño es la historia de ese jugador, no otro Pokémon. Por lo tanto **nunca** se crean N instancias según la cantidad de filas de `pokemon_xp`.
+
+El contrato, tal como lo implementa `migrateLegacySlot`:
+
+1. leer el slot → identidad (`slots.pokemon_id`);
+2. la especie es ese mismo id;
+3. `currentOwnerId = slots.owner_id` — **única fuente de verdad de propiedad**;
+4. si no hay dueño, **no se crea instancia** (§10.2.1);
+5. buscar la progresión `pokemon_xp(user_id = currentOwnerId, pokemon_id = slot)`;
+6. preservar xp y movimientos **de esa fila**, y de ninguna otra.
+
+Las filas de ex-dueños se cuentan en `MigrationReport.ignoredHistoricalProgressions` y no producen nada. **No se borran**: son `historical trainer progression` y qué hacer con ellas (archivar, conservar, borrar tras backup) es de un proceso productivo futuro, fuera de este scope.
+
+`pokemon_xp.user_id` **no** es propiedad: sólo dice de quién es ese entrenamiento. La proyección lo expone como `progressionTrainerId`, y si no coincide con el dueño del slot lo reporta como problema en vez de usarlo.
+
+#### 10.2.1 Slot sin dueño (`owner_id = null`)
+
+**Semántica auditada, no inventada.** `src/features/pokemon/domain/wildPool.ts` arma el pool de disponibles con `pokemon.filter(entry => !slots[entry.id]?.owner_id)`: una especie sin dueño actual **no es el Pokémon de nadie**, es parte del pool que cualquiera puede conseguir. Y la edge function de swap libera un slot poniendo `owner_id = null` sin borrar la fila.
+
+Por lo tanto un slot sin dueño **no genera una PokemonInstance poseída**: `migrateLegacySlot` devuelve `{ kind: 'skipped', reason: 'unowned' }`.
+
+Estados especiales que sí existen y **no** son este caso:
+
+| Estado | Qué pasa con el slot | Qué hace la migración |
+|---|---|---|
+| Publicado en el mercado | `is_locked = true`, **`owner_id` sigue siendo el vendedor** (`20260907_001_publish_market_listing.sql`) | Migra normal, al vendedor |
+| Compra completada | `UPDATE owner_id = comprador` sobre la misma fila | Migra al comprador; la identidad no cambia |
+| Liberado por swap | `owner_id = null` | `skipped: unowned` |
+
+No hay escrow ni pending-ownership con dueño nulo en el repo. Si en los datos reales aparece algún caso que el código no explica, queda para el **migration dry-run** futuro.
+
+#### 10.2.2 Dueño actual sin `pokemon_xp`
+
+**Semántica legacy demostrable:** `useProgression.ts` lee `raw?.xp ?? 0` y `raw?.moves ?? null`, y `grant_pokemon_xp` crea la fila recién al otorgar XP, arrancando en xp 0 / nivel 1. Es decir, para el juego legacy ese Pokémon **ya vale 0 xp, nivel 1 y sin movimientos**; no hay heurística que inventar.
+
+La migración usa exactamente eso, y además **lo marca**: `MigrationReport.missingCurrentOwnerProgression = true` (el `MISSING_CURRENT_OWNER_PROGRESSION` del dry-run), porque un Pokémon sin ningún movimiento no puede actuar y eso es una decisión de producto, no del adaptador. `needsMoveBackfill` queda en `true` y no se aplica nada.
+
+### 10.3 Propiedades
 
 | Propiedad | Cómo se consigue |
 |---|---|
@@ -177,7 +221,7 @@ Cada atributo tiene su **propio** hash en vez de tirar de un stream compartido. 
 
 Versión y sal vigentes: `LEGACY_MIGRATION_VERSION = 1`, `LEGACY_MIGRATION_SALT = "pokeswap-legacy-backfill"`. La sal **no es un secreto**: la migración está pensada para ser reproducible por cualquiera que tenga las mismas filas. Subir la versión produce a propósito Pokémon distintos de las mismas filas, y lo que la fila legacy sí sabía (especie, experiencia, dueño, movimientos, EVs) queda intacto.
 
-### 10.3 Qué se preserva y qué se deriva
+### 10.4 Qué se preserva y qué se deriva
 
 | Campo | Origen |
 |---|---|
@@ -200,11 +244,12 @@ Versión y sal vigentes: `LEGACY_MIGRATION_VERSION = 1`, `LEGACY_MIGRATION_SALT 
 
 **El dueño es `pokemon_xp.user_id`**, el jugador que lo entrenó. `slots.owner_id` es quien tiene la **especie** en el mercado, que es otra cosa, y no debe convertirse en dueño del Pokémon.
 
-### 10.4 Qué falta decidir antes de ejecutarla
+### 10.5 Qué falta decidir antes de ejecutarla
 
-1. Cuándo corre, y si la unidad es el **slot** o la **fila de `pokemon_xp`** (§10.1).
-2. Si se acepta el backfill de movimientos propuesto en §11 para las filas que quedan sin ningún movimiento (categorías C y D).
+1. Cuándo corre, y sobre qué universo de slots (¿todos los que tienen dueño hoy?).
+2. Si se acepta el backfill de movimientos propuesto en §11 para los Pokémon que quedan sin ningún movimiento (categorías C y D, o `MISSING_CURRENT_OWNER_PROGRESSION`).
 3. Si alguna evidencia de shiny se considera inequívoca.
+4. Qué se hace con las filas `pokemon_xp` de ex-dueños: archivar, conservar como historia o borrar tras backup. **No se tocan ahora.**
 
 **Ya no es una pregunta abierta** qué hacer cuando el `level` guardado discrepa de su `xp`: el contrato vigente es `experience = fuente de verdad persistida`, `level = derivado`. La migración **preserva el xp**, deriva el nivel con la curva L³ y reporta la discrepancia en `MigrationReport.ignoredStoredLevel`. El nivel guardado nunca sobrescribe nada. Hay tests.
 
@@ -271,7 +316,7 @@ Regla general: un campo opcional nuevo no sube la versión; un campo cuyo signif
 | `instance.test.ts` | Validación, techo de PP con PP Ups, condición inválida, I-1 completo, party de seis |
 | `condition.test.ts` | HP/PP/major status/faint **sobreviven**; confusión, stages, Protect, action bar y Mega **no**; poda de PP; JSON-safe |
 | `factory.test.ts` | Contra el catálogo real: determinismo, orden de tiradas, rechazo de Megas, habilidades posibles, learnsets, captura pendiente |
-| `migration.test.ts` | **Identidad sin dueño** (cambio de propietario → mismos IV/naturaleza/habilidad), identidades distintas → valores independientes, determinismo, versión/sal, IVs 0–31 y bien repartidos, EV 0, habilidad normal (nunca oculta), shiny, **xp gana al level guardado**, canonicalización (español, `vise-grip`), incompatibles post-Gen VI, desconocidos, JSON-safe |
+| `migration.test.ts` | **Cardinalidad** (un slot con varias progresiones → una sola instancia; la del dueño actual; ex-dueños no crean nada; slot sin dueño no migra; dueño sin progresión usa el default legacy y queda marcado), **identidad sin dueño** (cambio de propietario → mismos IV/naturaleza/habilidad), identidades distintas → valores independientes, determinismo, versión/sal, IVs 0–31 y bien repartidos, EV 0, habilidad normal (nunca oculta), shiny, **xp gana al level guardado**, canonicalización (español, `vise-grip`), incompatibles post-Gen VI, desconocidos, JSON-safe |
 
 ## 17. Muestra humana
 
@@ -287,7 +332,7 @@ Imprime individuos reales construidos por la fábrica desde el catálogo real, u
 |---|---|
 | `npm run typecheck` | limpio |
 | `npm run lint` | 0 errores (9 warnings preexistentes en `AuthModal.vue`) |
-| `npm test` | 114 archivos, 1304 tests, todo verde (104 del modelo) |
+| `npm test` | 114 archivos, 1314 tests, todo verde (114 del modelo) |
 | `npm run build` | OK |
 | `node scripts/legacy-move-audit.mjs` | determinista: mismo md5 del doc y del mapa generado en dos corridas |
 
@@ -295,7 +340,7 @@ El modelo todavía no lo importa ningún código de aplicación, así que no cam
 
 ## 19. Preguntas realmente abiertas
 
-1. **Ejecución de la migración**: cuándo, y si la unidad es el slot o la fila de `pokemon_xp` (§10.1, §10.4).
+1. **Ejecución de la migración**: cuándo y sobre qué universo de slots; y qué se hace con las progresiones históricas (§10.5). La **unidad ya está cerrada**: un slot, un Pokémon.
 2. **Backfill de movimientos** (§11): ¿se aprueba la propuesta del learnset ORAS **sólo** para los que caen en C o D?
 3. **Probabilidad de shiny** para instancias nuevas: OPEN por decisión explícita.
 4. **Hidden Ability**: mecanismo de adquisición futuro; el modelo ya la soporta.

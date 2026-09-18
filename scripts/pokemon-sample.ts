@@ -17,7 +17,7 @@ import type { PokemonInstance } from '../src/features/pokemon/model/instance'
 import { deriveStats, statsFromTuple, totalEvs } from '../src/features/pokemon/model/stats'
 import { projectLegacyPokemon } from '../src/features/pokemon/model/legacy'
 import { isFainted } from '../src/features/pokemon/model/condition'
-import { DEFAULT_MIGRATION, migrateLegacyPokemon } from '../src/features/pokemon/model/migration'
+import { DEFAULT_MIGRATION, migrateLegacySlot } from '../src/features/pokemon/model/migration'
 
 const SEED = Number(readFlag('--seed') ?? 20260318)
 
@@ -71,29 +71,45 @@ async function main(): Promise<void> {
   )
   show('Gengar (dungeon capture, pending)', { ...capture, instanceId: 'sample-capture' })
 
-  // The legacy migration contract, applied in memory to one invented row.
-  const legacyRow = {
-    user_id: 'legacy-trainer',
-    pokemon_id: 25,
-    xp: 41000,
-    level: 34,
-    moves: { 1: 'thunder-shock', 2: 'quick-attack' },
+  // The legacy migration contract, applied in memory to one invented slot:
+  // one slot is one Pokémon, whatever the number of pokemon_xp rows.
+  const legacySlot = { pokemon_id: 25, owner_id: 'legacy-trainer', first_owner_id: 'the-very-first' }
+  const legacyProgressions = [
+    { user_id: 'legacy-trainer', pokemon_id: 25, xp: 41000, level: 34, moves: { 1: 'Impactrueno', 2: 'quick-attack' } },
+    { user_id: 'former-owner', pokemon_id: 25, xp: 900000, level: 99, moves: { 1: 'thunderbolt' } },
+  ]
+  const outcome = migrateLegacySlot(
+    { slot: legacySlot, progressions: legacyProgressions },
+    catalog,
+    { at, catalogVersion: index.catalogVersion },
+  )
+  if (outcome.kind === 'migrated') {
+    show('Pikachu (migración legacy determinista)', { ...outcome.draft, instanceId: 'sample-legacy' })
+    console.log(`  migration v${DEFAULT_MIGRATION.version} salt "${DEFAULT_MIGRATION.salt}"`)
+    console.log(`  preservado: ${outcome.report.preserved.join(', ')}`)
+    console.log(`  derivado por hash: ${outcome.report.derived.join(', ')}`)
+    console.log(`  progresiones de ex-dueños ignoradas: ${outcome.report.ignoredHistoricalProgressions}`)
+    if (outcome.report.ignoredStoredLevel !== null) {
+      console.log(`  level guardado ignorado (gana el xp): ${outcome.report.ignoredStoredLevel}`)
+    }
+    if (outcome.report.needsMoveBackfill) console.log('  necesita backfill de movimientos (no se aplica)')
+    console.log('')
   }
-  const migrated = migrateLegacyPokemon(legacyRow, catalog, {
+
+  // And a slot nobody owns: it is part of the pool, not somebody's Pokémon.
+  const unowned = migrateLegacySlot({ slot: { pokemon_id: 6, owner_id: null } }, catalog, {
     at,
     catalogVersion: index.catalogVersion,
   })
-  show('Pikachu (backfill legacy determinista)', { ...migrated.draft, instanceId: 'sample-legacy' })
-  console.log(`  migration v${DEFAULT_MIGRATION.version} salt "${DEFAULT_MIGRATION.salt}"`)
-  console.log(`  preservado: ${migrated.report.preserved.join(', ')}`)
-  console.log(`  derivado por hash: ${migrated.report.derived.join(', ')}`)
-  if (migrated.report.needsMoveBackfill) console.log('  necesita backfill de movimientos (no se aplica)')
+  console.log(`── slot sin dueño ${'─'.repeat(55)}`)
+  console.log(`  charizard (#6): ${unowned.kind}${unowned.kind === 'skipped' ? ` (${unowned.reason})` : ''} — no genera PokemonInstance`)
   console.log('')
 
   // And what the same model can say about a Pokémon that exists in production.
   const legacy = projectLegacyPokemon(
     { user_id: 'legacy-trainer', pokemon_id: 25, xp: 41000, level: 34, moves: { 1: 'thunder-shock', 2: 'quick-attack' } },
     catalog,
+    { slot: legacySlot },
   )
   console.log('── legacy row (pokemon_xp) ' + '─'.repeat(46))
   console.log(`  species ${legacy.known.speciesId} · ${legacy.known.experience} xp · level ${legacy.known.level}`)
