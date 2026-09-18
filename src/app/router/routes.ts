@@ -34,6 +34,9 @@ const professionPlayground: LazyView | null = import.meta.env.DEV ? () => import
 // route, so the chunk is unreachable and tree-shaken out of the bundle.
 const dungeonPrototype: LazyView | null = import.meta.env.DEV ? () => import('../../features/dungeonPrototype/components/DungeonPrototypeView.vue') : null
 
+// T-S3.1: station art viewer, same rule. Art review only, nothing wired to gameplay.
+const stationVisualLab: LazyView | null = import.meta.env.DEV ? () => import('../../features/professions/components/playground/StationVisualLab.vue') : null
+
 export const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -57,6 +60,9 @@ export const routes: RouteRecordRaw[] = [
     : []),
   ...(dungeonPrototype
     ? [{ path: '/dev/dungeon', name: 'dev-dungeon', component: dungeonPrototype, meta: { standalone: true } }]
+    : []),
+  ...(stationVisualLab
+    ? [{ path: '/dev/estaciones', name: 'dev-estaciones', component: stationVisualLab, meta: { standalone: true } }]
     : []),
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

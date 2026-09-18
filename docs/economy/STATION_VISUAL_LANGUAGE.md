@@ -141,3 +141,45 @@ Dicho sin rodeos, porque es fácil confundir un kit de arte con un sistema:
 | `src/features/professions/art/stationVisuals.test.ts` | 17 tests: cobertura de estados, determinismo, distinción, geometría, formato y dependencias |
 
 Lecturas previas: `CONSTRUCTION_SMELTER_DESIGN_DISCOVERY.md`, `F1_OBSTACLE_PROVIDER_DESIGN.md`, `PRE_R32_DESIGN_DECISIONS.md` (A-8), `art/alchemyStation.ts`, `art/pixelArt.ts`, `art/alchemyPalette.ts` y `art/alchemyArt.test.ts`.
+
+---
+
+# T-S3.1 — Revisión visual (pendiente de HUMAN VISUAL APPROVAL)
+
+> Lab: `/dev/estaciones` (`components/playground/StationVisualLab.vue`), sólo en desarrollo.
+> **No se rediseñó nada.** Lo de abajo es lo observado; qué se cambia lo decide la revisión humana.
+
+El lab tiene tres vistas — las cuatro estaciones sobre el terreno real de Pradera Brisa, una comparación alineada por el anclaje con regla de tiles, y una matriz de 4 estaciones × 4 estados — más botones de estado por estación y la animación de `working`.
+
+## Lo que se ve bien
+
+- **Anclaje.** Las cuatro apoyan en la línea de suelo sin flotar ni hundirse, y la marca de anclaje cae centrada en las cuatro. Nada que corregir.
+- **Estados.** Los cuatro se distinguen en las cuatro estaciones, también a escala de mundo. El Horno es el más legible: boca oscura → brasas → fuego lleno → lingote.
+- **Mesa de Alquimia + Banco de Trabajo.** Son las dos que mejor conversan: misma familia de madera cálida, misma lectura de "mueble de trabajo". El Banco entró en el lenguaje que ya existía.
+- **Animación.** Los cuatro frames de `working` se leen como movimiento en el Horno y la Fogata; en el Banco el serrucho se mueve poco pero se nota.
+
+## Lo que desentona — para decidir
+
+1. **El Horno es el único gris frío.** Mesa, Fogata y Banco tiran a marrón cálido; el Horno queda en una familia de materiales propia y, junto a las otras tres, parece de otro set. Es la observación más fuerte de esta revisión.
+2. **El Horno se lee más como máquina que como obra de sillería.** El cuerpo es muy rectangular y liso: no hay hiladas, juntas ni textura de ladrillo, así que a escala de mundo parece un aparato antes que un horno de piedra.
+3. **La Fogata es notablemente más chica** (28×22 = 1,75 × 1,38 tiles, contra 2,13 del Banco y la Mesa) y **queda plana**: sobre el pasto se lee como un montón de piedras. Es la que más riesgo corre de pasar por decorado, que es justo lo que el lenguaje quiere evitar.
+4. **`ready` y `done` del Horno se parecen** a escala de mundo: los dos muestran naranja en la boca. Es el par más cercano del kit (33 px). Coincide con lo que ya estaba anotado como limitación.
+5. **La olla de la Fogata en `done`** se lee como un bloque gris; no dice "olla" a esta escala.
+6. **El tornillo del Banco** es la pieza menos clara: a tamaño real es una mancha gris azulada en la esquina.
+
+## Escala, medida
+
+| Estación | Ancho | Alto | Tiles ancho | Tiles alto |
+|---|---|---|---|---|
+| Mesa de Alquimia (referencia) | 34 | 30 | 2,13 | 1,88 |
+| Horno | 30 | 34 | 1,88 | 2,13 |
+| Fogata | 28 | 22 | 1,75 | 1,38 |
+| Banco de Trabajo | 34 | 28 | 2,13 | 1,75 |
+
+Las cuatro entran en el rango de la Mesa; la Fogata es la excepción por abajo.
+
+## Límites de esta revisión
+
+- **El lab pinta el mundo, no lo renderiza.** Usa el mundo real como dato — mismo seed, mismo terreno, mismos props sólidos, misma cuadrícula — pero con colores planos propios. R31 sólo permite instanciar el motor a los cuatro field labs existentes, y sumar este lab a esa lista exige tocar un test existente: es una decisión de revisión.
+- Por lo anterior, **no se juzgó** cómo quedan bajo la iluminación, el clima ni la cámara del juego. En una comprobación previa con el motor real (sin dejarla en el árbol) las conclusiones 1, 2 y 3 se sostenían, y el verde saturado de la pradera acentuaba el problema de paleta del Horno.
+- Sin sombra proyectada: el renderer la agrega y puede cambiar cuánto "apoyan".
