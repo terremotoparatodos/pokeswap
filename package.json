@@ -16,7 +16,8 @@
     "sim:economy": "vite-node scripts/simulate-economy.ts --",
     "catalog:fetch": "node scripts/battle-catalog/fetch.mjs",
     "catalog:build": "node scripts/battle-catalog/build.mjs",
-    "catalog:sample": "node scripts/battle-catalog/sample.mjs"
+    "catalog:sample": "node scripts/battle-catalog/sample.mjs",
+    "pokemon:sample": "vite-node scripts/pokemon-sample.ts --"
   },
   "dependencies": {
     "@colyseus/sdk": "^0.18.2",
