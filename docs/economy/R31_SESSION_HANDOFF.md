@@ -2,7 +2,7 @@
 
 > Fecha: 2026-09-16. Escrito por la estación principal.
 > Uso: primer documento que lee una sesión nueva de Claude en la estación principal.
-> Estado: versionado en `integration/r31`. **El PRE-R32 HUMAN PROFESSION GATE se cerró el 2026-09-18 como `FAILED — pending Tala visual lifecycle diagnosis`** (ver [`PRE_R32_HUMAN_GATE.md`](PRE_R32_HUMAN_GATE.md) §1.1). No autoriza fixes.
+> Estado: versionado en `integration/r31`. **`PRE-R32 HUMAN PROFESSION GATE: PASSED`** (2026-09-18, tras R31-H1; ver [`PRE_R32_HUMAN_GATE.md`](PRE_R32_HUMAN_GATE.md) §1.1). Aprueba la equivalencia visual de las profesiones; no cierra ninguna otra deuda ni autoriza empezar R32.
 
 ---
 
@@ -237,7 +237,7 @@ Entorno: `http://localhost:5188/dev/profesiones`, un laboratorio por profesión.
 - **Dungeon legacy descartada** como base (`src/features/dungeon/` queda LEGACY: no se borra, no se reutiliza).
 - **WILDLANDS DUNGEON / PVE — CLEAN-SLATE DESIGN:** reservada a la **estación secundaria**. No iniciada, sin rama; el usuario prepara el brief. La principal audita la integración.
 - **Economía sin balancear** hasta definir el loop PvE/Dungeon.
-- **Resultado del gate (2026-09-18):** Forage, Pesca, Alquimia y 375 px **VISUALMENTE EQUIVALENTES**; Tala con **`DIFERENCIA DETECTADA`** (tras la caída el árbol se dibuja entero otra vez ≈950 ms antes del tocón). **0 regresiones:** el diagnóstico lo ubica antes del refactor, dentro del baseline congelado. Gate `FAILED`, sin fixes autorizados; queda `O-16` por decidir.
+- **Resultado del gate (2026-09-18): `PASSED`.** Las cinco pasadas (Tala, Forage, Pesca, Alquimia y 375 px) quedaron **visualmente equivalentes**, y **0 regresiones** atribuibles al refactor. Tala pasó tras **R31-H1**: la reaparición del árbol entre la caída y el tocón era deuda visual **preexistente**, corregida de forma aislada en `logging/loggingOverlay.ts` con test de invariante y snapshot local nuevo (md5 `a62f2ebb8372073d1d669d4217a84f3e`), integrada por el merge `150ac01`.
 - **UX nueva aprobada (`A-16`):** la recolección debe verse continua, sin cartel que la interrumpa; Alquimia conserva el suyo. Sin implementar.
 
 ---

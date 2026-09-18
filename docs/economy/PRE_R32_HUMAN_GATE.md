@@ -1,7 +1,8 @@
 # PRE-R32 HUMAN PROFESSION GATE — Registro
 
-> **Resultado: `PRE-R32 HUMAN PROFESSION GATE: FAILED — pending Tala visual lifecycle diagnosis.`** (2026-09-18)
-> **Estado: FAILED / PENDING RE-TEST.** H-1 está corregido en una rama candidata (§5.1) y espera el re-test humano de Tala. El gate **no** se declara `PASSED` hasta que el usuario confirme el resultado visual.
+> **Resultado: `PRE-R32 HUMAN PROFESSION GATE: PASSED`** (2026-09-18, tras R31-H1).
+> Historia: se cerró primero como `FAILED — pending Tala visual lifecycle diagnosis` por H-1; corregido y re-testeado manualmente, queda `PASSED` (§1.1).
+> Lo que el gate aprueba es la equivalencia visual de las cuatro profesiones. **No** cierra ninguna otra deuda (§7).
 > Base probada: `integration/r31` @ `b7d4b7d75de3f905539f6dad69fd97d533eed503`. El código de profesiones es idéntico desde `25bcc1f`: lo posterior es documentación y el prototipo de Dungeon. Dev server local `http://localhost:5188/dev/profesiones`, con la caché de Vite limpia.
 > Definición del gate: [`R31Z_CONSOLIDATION_PLAN.md` §12.3](R31Z_CONSOLIDATION_PLAN.md).
 > Decisiones de producto surgidas del gate: [`PRE_R32_DESIGN_DECISIONS.md`](PRE_R32_DESIGN_DECISIONS.md).
@@ -26,7 +27,7 @@ Una observación **no** se considera regresión salvo que difiera del baseline p
 
 | Profesión | Resultado | Observaciones del usuario |
 |---|---|---|
-| **Tala** | **`DIFERENCIA DETECTADA`** | Selección de árbol, worker, acción, hacha, VFX, energía, durabilidad, herramientas rotas, reparación, inventario y reward: correctos, sin anomalías. **«En la última carga el árbol parece caer, reaparece una vez más y recién después desaparece.»** «El popup actual interrumpe la lectura de la secuencia final.» Ver §4 (H-1) y §5 |
+| **Tala** | **VISUALMENTE EQUIVALENTE** tras R31-H1 | Primera pasada: `DIFERENCIA DETECTADA` — «En la última carga el árbol parece caer, reaparece una vez más y recién después desaparece». Corregido en R31-H1 (§5.1) y **re-testeado manualmente**: «En la última carga, el árbol cae y queda como tocón. No reaparece entero. Worker, reward, XP, energía, hacha, hojas y respawn se mantienen correctos». El resto ya era correcto en la primera pasada |
 | **Forage** (incl. `herb_patch`) | **VISUALMENTE EQUIVALENTE** | `berry_bush` sin y con hoz correcto. `herb_patch` aparece, se selecciona y se recolecta correctamente. Worker, gesto, VFX, reward, energía y desgaste correctos. «El popup molesta porque tapa/interrumpe la secuencia final» (H-2). F-3 sigue siendo comportamiento conocido |
 | **Pesca** | **VISUALMENTE EQUIVALENTE** | Spot, posición, cast, espera, pique, worker, caña, reward, depletion y respawn correctos. El usuario **no** considera importante diferenciar visualmente reel temprano de reel válido en este gate (H-6). «El popup también molesta» (H-2) |
 | **Alquimia** | **VISUALMENTE EQUIVALENTE** | Estación, recetas, batch 1/3/Máx, ingredientes suficientes e insuficientes, proceso, worker, rewards, XP, ahorro, cancelación e inventario: correctos. **«El popup/cartel de Alquimia sí aporta valor y debe conservarse como feedback de Processing»** (H-3) |
@@ -36,17 +37,22 @@ Una observación **no** se considera regresión salvo que difiera del baseline p
 
 ### 1.1 Declaración del gate
 
-Regla acordada: si alguna profesión queda en `DIFERENCIA DETECTADA`, el gate no puede declararse `PASSED`.
-
 ```text
-PRE-R32 HUMAN PROFESSION GATE: FAILED — pending Tala visual lifecycle diagnosis.
+PRE-R32 HUMAN PROFESSION GATE: PASSED
 ```
 
-Qué significa y qué no:
+Recorrido hasta acá:
 
-- **No** hay regresión atribuible a R31-Z: la secuencia observada ya está registrada en el baseline congelado en `f2c615e` (§5).
-- **No** autoriza fixes, ni de Tala ni de los popups. Corregir, y con qué alcance, es una tarea posterior.
-- R31-Z sigue consolidado. Lo que queda pendiente es una decisión de producto sobre el final visual de Tala.
+1. **Primera pasada (2026-09-18):** Forage, Pesca, Alquimia y 375 px **visualmente equivalentes**; Tala con `DIFERENCIA DETECTADA` (H-1). Gate cerrado como `FAILED — pending Tala visual lifecycle diagnosis`.
+2. **Diagnóstico (§5):** H-1 resultó ser **deuda visual preexistente**, anterior al Bloque A y registrada dentro del baseline congelado en `f2c615e`. **No hay ninguna regresión atribuible al refactor R31-Z.**
+3. **R31-H1 (§5.1):** corrección aislada en `logging/loggingOverlay.ts`, con test de invariante y actualización local del snapshot bajo autorización explícita.
+4. **Re-test humano de Tala:** «En la última carga, el árbol cae y queda como tocón. No reaparece entero. Worker, reward, XP, energía, hacha, hojas y respawn se mantienen correctos.»
+
+Qué aprueba y qué no:
+
+- **Aprueba** la equivalencia visual de Minería, Tala, Forage, Pesca y Alquimia después de R31-Z, en escritorio y a 375 px.
+- **No** aprueba ni cierra las deudas de §7, que siguen abiertas y separadas.
+- **No** autoriza empezar R32: eso requiere el diseño de R32-0 aprobado y las decisiones que siguen pendientes.
 
 ---
 
@@ -218,7 +224,7 @@ Ninguno de los dos es el core compartido: `overworld/gatheringOverlayCore.ts` so
 - **Qué NO cambió:** timing, VFX, hojas, astillas, worker, input, recompensa, XP, energía, durabilidad, depletion, respawn, dominio, el core compartido ni las otras cuatro profesiones.
 - **Test:** `overlayTrace.test.ts` suma una invariante, no un snapshot: iniciada la caída, ningún cuadro posterior vuelve a dibujar el árbol entero antes de quedar en el tocón. Falla contra el overlay anterior, con los 19 cuadros del defecto.
 - **Snapshot:** md5 `334b1e04eb1e40f528f313573d4ac618` → `a62f2ebb8372073d1d669d4217a84f3e`. El diff son exactamente 19 líneas `decor` del escenario `logging · common_tree`, con el arte del árbol reemplazado por el del tocón; Minería, Forage, Pesca y Alquimia no se movieron.
-- **Pendiente de re-test humano de Tala.** El gate permanece FAILED / PENDING RE-TEST hasta que el usuario confirme el resultado visual.
+- **Re-test humano: hecho y conforme.** Integrada en `integration/r31` por el merge `150ac01`, conservando los tres commits (`c2e3d53`, `8eb30c8`, `9f8f883`). Snapshot md5 `a62f2ebb8372073d1d669d4217a84f3e`. Con esto el gate pasa a `PASSED` (§1.1).
 
 ---
 
@@ -230,4 +236,24 @@ Ninguno de los dos es el core compartido: `overworld/gatheringOverlayCore.ts` so
 - No se regeneró ningún snapshot: `-u` sigue prohibido.
 - No se inició R32, F-1, Horno, Construcción ni los fixes de R30.
 
-El gate queda **cerrado como FAILED y documentado** (§1.1). Los hallazgos y decisiones pasan a la priorización posterior.
+El gate queda **cerrado como `PASSED`** (§1.1). La única corrección que se hizo fue R31-H1, aislada y con su propio re-test. Los demás hallazgos y decisiones siguen abiertos (§7).
+
+---
+
+## 7. Deudas que el gate NO cierra
+
+Siguen abiertas y separadas, cada una con su propio dueño y momento:
+
+| Deuda | Estado |
+|---|---|
+| **`A-16`** — Gathering continuo sin popup intrusivo; Alquimia conserva su cartel de Processing | Aprobada como dirección, **sin implementar**. Tocarla mueve la traza congelada y necesita su propia tarea (`O-17`) |
+| **F-1** — Mesa de Alquimia no sólida / `ObstacleProvider` | Abierta (`O-9`); es dependencia dura de Construcción |
+| **F-2** — Tap sobre props altos selecciona el tile de atrás | Bug de R30, rama prevista sin crear |
+| **F-3** — Hoz opcional que gasta durabilidad | Preexistente; decisión económica (`A-12`) |
+| **G-1** — Auto-pickup del cúmulo cristalino al pasar por encima | Bug preexistente del motor (`O-15`) |
+| **Node index** | Diseñado y no implementado (`R31Z_CONSOLIDATION_PLAN.md` §7) |
+| **Economía y balance** | Sin números hasta definir el loop de PvE (`A-12`) |
+| **Spawn autoritativo de R30** | Pendiente de verificar en producción |
+| **R32-0** — autoridad, persistencia, idempotencia, RNG, catálogo | Sin diseñar |
+| **Horno y Construcción** | Solo diseño (`CONSTRUCTION_SMELTER_DESIGN_DISCOVERY.md`) |
+| **Dungeon / PvE** | Prototipo dev-only; conflicto abierto de «captura» |
