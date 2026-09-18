@@ -5,7 +5,7 @@
 // its own, and removing one leaves no trace.
 
 import { describe, expect, it } from 'vitest'
-import { besidePlaced, placedObject, PlacedObjects, retargetToPlaced } from './placedObjects'
+import { besidePlaced, placedObject, PlacedObjects } from './placedObjects'
 
 const bench = placedObject({ id: 'bench', areaId: 'pradera', anchor: { tx: 4, ty: -7 }, kind: 'alchemyTable' })
 
@@ -17,7 +17,6 @@ describe('an empty registry is neutral', () => {
     expect(placed.isInteractive('pradera', 4, -7)).toBe(false)
     expect(placed.at('pradera', 4, -7)).toBeNull()
     expect(placed.inArea('pradera')).toEqual([])
-    expect(placed.forTap('pradera', { tx: 4, ty: -7 }, 2)).toBeNull()
   })
 })
 
@@ -124,31 +123,6 @@ describe('removal and areas', () => {
   })
 })
 
-describe('a tap on the art above the tile', () => {
-  it('reaches the object from the rows its art covers', () => {
-    const placed = new PlacedObjects()
-    placed.register(bench)
-    expect(placed.forTap('pradera', { tx: 4, ty: -7 }, 2)?.id).toBe('bench')
-    expect(placed.forTap('pradera', { tx: 4, ty: -8 }, 2)?.id).toBe('bench')
-    expect(placed.forTap('pradera', { tx: 4, ty: -9 }, 2)?.id).toBe('bench')
-  })
-
-  it('stops where the art stops, and never reaches sideways or from the front', () => {
-    const placed = new PlacedObjects()
-    placed.register(bench)
-    expect(placed.forTap('pradera', { tx: 4, ty: -10 }, 2)).toBeNull()
-    expect(placed.forTap('pradera', { tx: 5, ty: -8 }, 2)).toBeNull()
-    expect(placed.forTap('pradera', { tx: 4, ty: -6 }, 2)).toBeNull()
-  })
-
-  it('without reach it only answers for its own tiles', () => {
-    const placed = new PlacedObjects()
-    placed.register(bench)
-    expect(placed.forTap('pradera', { tx: 4, ty: -8 })).toBeNull()
-    expect(placed.forTap('pradera', { tx: 4, ty: -7 })?.id).toBe('bench')
-  })
-})
-
 // The first objects are 1×1, but the contract is already tiles, not a point.
 describe('ready for a bigger footprint', () => {
   it('a 2×2 object covers four tiles and is solid on all of them', () => {
@@ -173,43 +147,12 @@ describe('ready for a bigger footprint', () => {
     }
   })
 
-  it('a bigger footprint keeps a tap reachable from above its back row', () => {
-    const placed = new PlacedObjects()
-    placed.register(placedObject({
-      id: 'oven', areaId: 'pradera', anchor: { tx: 0, ty: 0 }, kind: 'smelter', width: 2, depth: 2,
-    }))
-    expect(placed.forTap('pradera', { tx: 1, ty: -2 }, 1)?.id).toBe('oven')
-    expect(placed.forTap('pradera', { tx: 1, ty: -3 }, 1)).toBeNull()
-  })
-})
-
-// The tap correction the game applies before navigating (F-1 · §4 of the design).
-describe('retargeting a tap', () => {
-  const placed = new PlacedObjects()
-  placed.register(bench)
-
-  it('turns a tap on the art above the bench into a tap on the bench', () => {
-    expect(retargetToPlaced(placed, 'pradera', { tile: { tx: 4, ty: -9 }, actor: null }))
-      .toEqual({ tile: { tx: 4, ty: -7 }, actor: null })
-  })
-
-  it('leaves a tap on plain ground exactly as it was', () => {
-    const ground = { tile: { tx: 12, ty: 3 }, actor: null }
-    expect(retargetToPlaced(placed, 'pradera', ground)).toBe(ground)
-  })
-
-  it('never takes a tap away from an actor', () => {
-    const onActor = { tile: { tx: 4, ty: -8 }, actor: 'npc' }
-    expect(retargetToPlaced(placed, 'pradera', onActor)).toBe(onActor)
-  })
-
-  it('does nothing in an area where the object is not placed', () => {
-    const pick = { tile: { tx: 4, ty: -8 }, actor: null }
-    expect(retargetToPlaced(placed, 'ciudad-corazon', pick)).toBe(pick)
-  })
-
-  it('does nothing when the renderer answered no tile at all', () => {
-    const nothing = { tile: null, actor: null }
-    expect(retargetToPlaced(placed, 'pradera', nothing)).toBe(nothing)
+  it('carries the hitbox its art declares, without inventing one', () => {
+    const plain = placedObject({ id: 'plain', areaId: 'pradera', anchor: { tx: 0, ty: 0 }, kind: 'campfire' })
+    expect(plain.hitbox).toBeUndefined()
+    const tall = placedObject({
+      id: 'oven', areaId: 'pradera', anchor: { tx: 0, ty: 0 }, kind: 'smelter', hitbox: { width: 34, height: 30 },
+    })
+    expect(tall.hitbox).toEqual({ width: 34, height: 30 })
   })
 })

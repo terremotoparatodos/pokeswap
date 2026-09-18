@@ -32,9 +32,21 @@ export interface PropHit extends HitRect {
   readonly ty: number
 }
 
+/**
+ * A placed object's screen rect (F-1): the art it declared, projected like any
+ * other sprite. It is the *last* thing a tap is matched against, so it can
+ * never take a tap away from an actor, from a prop the renderer already drew
+ * there, or from open ground outside its own art.
+ */
+export interface PlacedHit extends HitRect {
+  readonly tx: number
+  readonly ty: number
+}
+
 export type HitResult<A> =
   | { readonly kind: 'actor'; readonly actor: A; readonly tx: number; readonly ty: number }
   | { readonly kind: 'prop'; readonly tx: number; readonly ty: number }
+  | { readonly kind: 'placed'; readonly tx: number; readonly ty: number }
   | null
 
 /**
@@ -62,13 +74,14 @@ const inside = (rect: HitRect, sx: number, sy: number): boolean =>
 /**
  * Who owns this point, in device pixels.
  *
- * Actors win over props, exactly as before: a Pokémon standing in front of a
- * tree is still what a tap on it selects. Within each group the frontmost
- * (last drawn) wins. A miss returns null and the caller falls back to the
- * ground, which is what makes a tap on open ground still walk there.
+ * The order is the whole contract: an actor first — a Pokémon in front of a
+ * tree is still what a tap on it selects — then the world's own props, then
+ * anything placed on top of them, and a miss falls through to the ground.
+ * Within each group the frontmost (last drawn) wins.
  */
 export function hitTest<A>(
   actors: readonly ActorHit<A>[], props: readonly PropHit[], sx: number, sy: number,
+  placed: readonly PlacedHit[] = [],
 ): HitResult<A> {
   for (let i = actors.length - 1; i >= 0; i--) {
     if (inside(actors[i], sx, sy)) {
@@ -78,6 +91,9 @@ export function hitTest<A>(
   }
   for (let i = props.length - 1; i >= 0; i--) {
     if (inside(props[i], sx, sy)) return { kind: 'prop', tx: props[i].tx, ty: props[i].ty }
+  }
+  for (let i = placed.length - 1; i >= 0; i--) {
+    if (inside(placed[i], sx, sy)) return { kind: 'placed', tx: placed[i].tx, ty: placed[i].ty }
   }
   return null
 }
@@ -95,9 +111,10 @@ export interface PickTile {
 export function resolvePick<A>(
   actors: readonly ActorHit<A>[], props: readonly PropHit[], sx: number, sy: number,
   ground: (sx: number, sy: number) => PickTile | null,
+  placed: readonly PlacedHit[] = [],
 ): { tile: PickTile | null; actor: A | null } {
-  const hit = hitTest(actors, props, sx, sy)
+  const hit = hitTest(actors, props, sx, sy, placed)
   if (hit?.kind === 'actor') return { tile: { tx: hit.tx, ty: hit.ty }, actor: hit.actor }
-  if (hit?.kind === 'prop') return { tile: { tx: hit.tx, ty: hit.ty }, actor: null }
+  if (hit) return { tile: { tx: hit.tx, ty: hit.ty }, actor: null }
   return { tile: ground(sx, sy), actor: null }
 }

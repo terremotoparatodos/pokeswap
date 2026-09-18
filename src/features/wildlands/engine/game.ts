@@ -27,7 +27,7 @@ import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
 import type { SceneOverlay } from './sceneOverlay'
 import { PlayerAppearance } from './playerAppearance'
-import { PlacedObjects, placedObject, retargetToPlaced, type PlacedObjectSpec } from './placedObjects'
+import { PlacedObjects, placedObject, type PlacedObjectSpec } from './placedObjects'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
 import type { LobbyFeature } from '../lobby/features'
@@ -444,9 +444,9 @@ export class WildlandsGame {
    */
   tap(cssX: number, cssY: number): void {
     if (this.spectator || this.travel.active || this.paused || this.inputLocked) return
-    // A tap on a placed object's art means the object, not the ground behind
-    // it (F-1, the same correction buildings make with `doorForTap`).
-    const pick = retargetToPlaced(this.placedObjects, this.area.id, this.renderer.pick(cssX, cssY))
+    // A tap on a placed object's art resolves to it in the renderer, behind
+    // actors and props (F-1); everything else still answers with the ground.
+    const pick = this.renderer.pick(cssX, cssY)
     const hit = this.onInspect ? plazaHitAt(this.area, pick) ?? wildHitAt(this.area, pick) : null
     if (hit) this.onInspect!(hit)
     else if (!this.worldObjectBeside(pick.tile)) this.nav.goTo(this.player, this.entrances.retarget(this.area, pick))
@@ -687,6 +687,7 @@ export class WildlandsGame {
       // The grid helps read procedural terrain; over town art it is noise.
       showGrid: this.showGrid && this.area.kind === 'wild',
       route: this.nav.route(this.player),
+      placed: this.placedObjects.inArea(this.area.id),
       overlay: this.overlay,
     }
   }

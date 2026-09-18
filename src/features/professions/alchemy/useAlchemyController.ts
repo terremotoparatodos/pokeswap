@@ -13,6 +13,7 @@ import type { ProfessionDemoSession } from '../demo/useProfessionDemo'
 import type { ProcessingResult } from '../domain/types'
 import type { MiningGamePort } from '../mining/useMiningController'
 import { isBeside } from '../overworld/workerPresence'
+import { STATION_H, STATION_W } from '../art/alchemyStation'
 import { alchemyBrowser, ALCHEMY_RECIPES, alchemyRecipeView } from './recipeBrowser'
 import { AlchemyOverlay } from './alchemyOverlay'
 import { brewTimeline } from './brewTimeline'
@@ -30,6 +31,8 @@ export interface AlchemyPlacedObject {
   readonly areaId: string
   readonly anchor: StationTile
   readonly kind: 'alchemyTable'
+  /** The bench's own art, so a tap answers for it and for nothing else. */
+  readonly hitbox: { readonly width: number; readonly height: number }
 }
 
 export type AlchemyGamePort = MiningGamePort
@@ -89,7 +92,10 @@ export function useAlchemyController(session: ProfessionDemoSession, game: () =>
   function placedObjects(area: Area): AlchemyPlacedObject[] {
     const tile = overlay.stationTile(area)
     if (!tile) return []
-    return [{ id: `alchemy-table:${area.id}`, areaId: area.id, anchor: tile, kind: 'alchemyTable' }]
+    return [{
+      id: `alchemy-table:${area.id}`, areaId: area.id, anchor: tile, kind: 'alchemyTable',
+      hitbox: { width: STATION_W, height: STATION_H },
+    }]
   }
 
   function inspect(hit: WorldObjectTarget): boolean {

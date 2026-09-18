@@ -26,6 +26,22 @@ import type { Tile } from './pathfinding'
 /** What kind of thing was placed; the feature that owns it gives it meaning. */
 export type PlacedObjectKind = 'alchemyTable' | 'smelter' | 'campfire' | 'workbench'
 
+/**
+ * Where a tap on this object's art lands, in world pixels around its feet.
+ *
+ * Declared by whoever places the object, because only it knows how tall its
+ * art is: a bench, a smelter and a house each answer for their own silhouette.
+ * Optional — an object without one is only reached through its own tiles, and
+ * never takes a tap away from the ground around it.
+ */
+export interface TapHitbox {
+  /** Width of the art, centred on the feet unless `offsetX` says otherwise. */
+  readonly width: number
+  /** How far the art rises above the feet. */
+  readonly height: number
+  readonly offsetX?: number
+}
+
 export interface PlacedObject {
   readonly id: string
   readonly areaId: string
@@ -41,6 +57,8 @@ export interface PlacedObject {
   /** Can be used from an orthogonally adjacent tile. */
   readonly interactive: boolean
   readonly kind: PlacedObjectKind
+  /** The art's own reach for a tap; absent means "just my tiles". */
+  readonly hitbox?: TapHitbox
 }
 
 export interface PlacedObjectSpec {
@@ -53,6 +71,7 @@ export interface PlacedObjectSpec {
   /** Tiles wide and deep, both 1 today. The anchor is the front-left tile. */
   readonly width?: number
   readonly depth?: number
+  readonly hitbox?: TapHitbox
 }
 
 /** Builds the record, expanding `width`/`depth` into the tiles it covers. */
@@ -73,6 +92,7 @@ export function placedObject(spec: PlacedObjectSpec): PlacedObject {
     solid: spec.solid ?? true,
     interactive: spec.interactive ?? true,
     kind: spec.kind,
+    hitbox: spec.hitbox,
   }
 }
 
@@ -154,51 +174,4 @@ export class PlacedObjects {
     const object = this.at(areaId, tx, ty)
     return object?.interactive ?? false
   }
-
-  /**
-   * The object a tap on this tile means, allowing for the art standing above
-   * its tile: a tap on the top of a bench lands on the ground behind it, the
-   * same way it does on a building (see `doorForTap`). `reachRows` rows north
-   * of the footprint still count as the object.
-   *
-   * This only resolves *what was pointed at*. Whether the player may reach or
-   * use it stays with the world and the feature.
-   */
-  forTap(areaId: string, tile: Tile, reachRows = 0): PlacedObject | null {
-    const direct = this.at(areaId, tile.tx, tile.ty)
-    if (direct || reachRows <= 0) return direct
-    for (const object of this.inArea(areaId)) {
-      for (const cell of object.footprint) {
-        if (cell.tx !== tile.tx) continue
-        if (tile.ty < cell.ty && cell.ty - tile.ty <= reachRows) return object
-      }
-    }
-    return null
-  }
-}
-
-/** How many rows of art above its tile a placed object answers for. */
-export const PLACED_TAP_REACH_ROWS = 2
-
-/** A resolved tap, as the renderer reports it. */
-export interface TapPick<A> {
-  readonly tile: Tile | null
-  readonly actor: A | null
-}
-
-/**
- * Turns a tap that landed on a placed object's art into a tap on the object.
- *
- * A bench is drawn standing over its tile, so pointing at its top resolves to
- * the ground behind it. This is the same correction buildings make with
- * `doorForTap`, and it changes nothing else: an actor keeps the tap, and a tap
- * on plain ground is returned untouched. It answers *what was pointed at*,
- * never whether the player may reach or use it.
- */
-export function retargetToPlaced<A>(
-  placed: PlacedObjects, areaId: string, pick: TapPick<A>, reachRows = PLACED_TAP_REACH_ROWS,
-): TapPick<A> {
-  if (pick.actor || !pick.tile) return pick
-  const object = placed.forTap(areaId, pick.tile, reachRows)
-  return object ? { tile: { tx: object.anchor.tx, ty: object.anchor.ty }, actor: null } : pick
 }
