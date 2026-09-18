@@ -1,0 +1,59 @@
+{
+  "ruleset": "ORAS / Generation VI",
+  "scope": "Species 1–493 (the ones PokeSwap uses today) and every Gen VI form of them.",
+  "note": "Nothing from these repositories is committed to PokeSwap. The fetch step caches the listed files under node_modules/.cache (git-ignored) and the build step emits PokeSwap's own catalog from them. No flavour text, sprites or assets are read or copied.",
+  "sources": [
+    {
+      "id": "veekun",
+      "role": "tabular data (species, stats, types, moves, learnsets, abilities, natures, type chart)",
+      "repo": "https://github.com/veekun/pokedex",
+      "commit": "cc483e1877f22b8c19ac27ec0ff5fafd09c5cd5b",
+      "license": "MIT",
+      "licenseUrl": "https://github.com/veekun/pokedex/blob/master/LICENSE",
+      "rawBase": "https://raw.githubusercontent.com/veekun/pokedex/cc483e1877f22b8c19ac27ec0ff5fafd09c5cd5b/pokedex/data/csv",
+      "files": [
+        "pokemon_species.csv",
+        "pokemon.csv",
+        "pokemon_types.csv",
+        "pokemon_stats.csv",
+        "pokemon_abilities.csv",
+        "pokemon_forms.csv",
+        "pokemon_moves.csv",
+        "moves.csv",
+        "move_changelog.csv",
+        "move_flag_map.csv",
+        "move_flags.csv",
+        "move_meta.csv",
+        "move_meta_ailments.csv",
+        "move_meta_categories.csv",
+        "move_targets.csv",
+        "move_damage_classes.csv",
+        "abilities.csv",
+        "natures.csv",
+        "type_efficacy.csv",
+        "types.csv",
+        "stats.csv",
+        "growth_rates.csv"
+      ]
+    },
+    {
+      "id": "pokemon-showdown",
+      "role": "Generation VI correction layer and semantic reference. The tabular source ships present-day base stats and ability slots; this pinned mod is the recorded diff back to Gen VI, and the build applies its baseStats/abilities overrides. Move behaviour is still only read by humans: no effect code is copied.",
+      "repo": "https://github.com/smogon/pokemon-showdown",
+      "commit": "2ddfa0476f8207e12e204b1c69f7c7683b17633c",
+      "license": "MIT",
+      "reference": "data/mods/gen6/{moves,abilities,typechart,learnsets}.ts (read, not copied)",
+      "rawBase": "https://raw.githubusercontent.com/smogon/pokemon-showdown/2ddfa0476f8207e12e204b1c69f7c7683b17633c/data/mods/gen6",
+      "files": [
+        "pokedex.ts"
+      ]
+    },
+    {
+      "id": "pokeapi",
+      "role": "cross-check only, never at runtime and never in this pipeline.",
+      "repo": "https://github.com/PokeAPI/pokeapi",
+      "license": "BSD-3-Clause"
+    }
+  ],
+  "trademarks": "Pokémon and Pokémon character names are trademarks of Nintendo, Creatures Inc. and GAME FREAK Inc. PokeSwap is a non-commercial fan project and claims no ownership of them."
+}

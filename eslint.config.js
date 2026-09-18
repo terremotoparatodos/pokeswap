@@ -38,4 +38,10 @@ export default tseslint.config(
       'no-console': 'error',
     },
   },
+  {
+    // Build-time tooling (R32.1 battle catalog pipeline) runs in Node, not in a
+    // browser: it may use `process`, `Buffer` and stdout.
+    files: ['scripts/**/*.{mjs,js,ts}'],
+    languageOptions: { globals: { ...globals.node } },
+  },
 )
