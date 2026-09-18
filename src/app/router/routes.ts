@@ -34,6 +34,9 @@ const professionPlayground: LazyView | null = import.meta.env.DEV ? () => import
 // route, so the chunk is unreachable and tree-shaken out of the bundle.
 const dungeonPrototype: LazyView | null = import.meta.env.DEV ? () => import('../../features/dungeonPrototype/components/DungeonPrototypeView.vue') : null
 
+// City Mapping Lab: edits a working copy of Ciudad Corazón and exports a patch. Same DEV-only rule.
+const cityLab: LazyView | null = import.meta.env.DEV ? () => import('../../features/cityLab/components/CityLabView.vue') : null
+
 export const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -57,6 +60,9 @@ export const routes: RouteRecordRaw[] = [
     : []),
   ...(dungeonPrototype
     ? [{ path: '/dev/dungeon', name: 'dev-dungeon', component: dungeonPrototype, meta: { standalone: true } }]
+    : []),
+  ...(cityLab
+    ? [{ path: '/dev/city-lab', name: 'dev-city-lab', component: cityLab, meta: { standalone: true } }]
     : []),
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]

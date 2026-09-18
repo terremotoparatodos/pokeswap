@@ -216,8 +216,7 @@ export function applyPatch(base: LabCity, input: unknown): ApplyResult {
     const mod = modifiedProps.get(x.id)
     let next: LabProp = move ? { ...x, tx: move.to.tx, ty: move.to.ty } : x
     if (mod) {
-      const { text: _t, board: _b, ...rest } = next
-      next = { ...rest, ...(mod.to.text !== undefined ? { text: mod.to.text } : {}), ...(mod.to.board ? { board: true } : {}) }
+      next = { id: next.id, kind: next.kind, tx: next.tx, ty: next.ty, ...(mod.to.text !== undefined ? { text: mod.to.text } : {}), ...(mod.to.board ? { board: true } : {}) }
     }
     return next
   })
@@ -241,8 +240,10 @@ export function applyPatch(base: LabCity, input: unknown): ApplyResult {
     return list.map(x => (byKey.has(x.id) ? apply(x, byKey.get(x.id)!.to) : x))
   }
   const buildings = place(base.buildings, p.buildings.moved, 'Edificio', buildingPlace, (b, to) => {
-    const { door: _d, open: _o, ...rest } = b
-    return { ...rest, x: to.x, y: to.y, ...(to.door ? { door: xy(to.door) } : {}), ...(to.open ? { open: tiles(to.open) } : {}) }
+    const moved: TownBuilding = { ...b, x: to.x, y: to.y, door: to.door ? xy(to.door) : undefined, open: to.open ? tiles(to.open) : undefined }
+    if (!moved.door) delete moved.door
+    if (!moved.open) delete moved.open
+    return moved
   })
   const fountains = place(base.fountains, p.fountains.moved, 'Fuente', fountainPlace, (f, to) => ({ ...f, ...to }))
   const gates = place(base.gates, p.gates.moved, 'Portal', gatePlace, (g, to) => ({ ...g, tiles: tiles(to.tiles), arrival: arrival(to.arrival) }))

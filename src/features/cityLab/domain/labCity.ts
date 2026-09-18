@@ -139,9 +139,9 @@ export function toTownDef(city: LabCity, base: TownDef): TownDef {
     props,
     buildings: city.buildings,
     fountains: city.fountains.map(({ x0, y0, x1, y1 }) => ({ x0, y0, x1, y1 })),
-    gates: city.gates.map(({ id: _id, ...gate }) => gate),
+    gates: city.gates.map((g): TownGate => ({ to: g.to, label: g.label, tiles: g.tiles, arrival: g.arrival, ...(g.pad !== undefined ? { pad: g.pad } : {}) })),
     spawn: city.spawn,
-    residents: city.residents.map(({ id: _id, ...r }): TownResident => r),
+    residents: city.residents.map((r): TownResident => ({ tx: r.tx, ty: r.ty, dir: r.dir, lines: r.lines })),
     wanderers: city.wanderers.map(({ tx, ty }) => ({ tx, ty })),
   }
 }
