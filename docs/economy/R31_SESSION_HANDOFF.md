@@ -2,7 +2,8 @@
 
 > Fecha: 2026-09-16. Escrito por la estación principal.
 > Uso: primer documento que lee una sesión nueva de Claude en la estación principal.
-> Estado: versionado en `integration/r31`. **`PRE-R32 HUMAN PROFESSION GATE: PASSED`** (2026-09-18, tras R31-H1; ver [`PRE_R32_HUMAN_GATE.md`](PRE_R32_HUMAN_GATE.md) §1.1). Aprueba la equivalencia visual de las profesiones; no cierra ninguna otra deuda ni autoriza empezar R32.
+> Estado: versionado en `integration/r31`. **`PRE-R32 HUMAN PROFESSION GATE: PASSED`** (2026-09-18, tras R31-H1; ver [`PRE_R32_HUMAN_GATE.md`](PRE_R32_HUMAN_GATE.md) §1.1).
+> **Para R32 en adelante, el documento contractual es [`../wildlands/R32_INTEGRATION_AUDIT.md`](../wildlands/R32_INTEGRATION_AUDIT.md):** estado real de la rama, clasificación A/B/C/D del prototipo de Dungeon, T-S3 congelado, I-1 cerrado, brechas de catálogo y modelo, authority split, definición de R32 y roadmap R33+.
 
 ---
 
@@ -360,6 +361,7 @@ Entorno: `http://localhost:5188/dev/profesiones`, un laboratorio por profesión.
 4. `docs/economy/R31Z_POST_REFACTOR_QA.md`: T-S2.
 5. `docs/economy/R31Z_OVERLAY_TRACE.md`: qué captura el baseline.
 5b. `docs/economy/PRE_R32_HUMAN_GATE.md` y `docs/economy/PRE_R32_DESIGN_DECISIONS.md`: hallazgos del gate y decisiones de producto (APPROVED / OPEN).
+5c. **`docs/wildlands/R32_INTEGRATION_AUDIT.md`: qué es R32, en qué orden y con qué gates.** Después, `DUNGEON_PROTOTYPE_INTEGRATION.md`, `DUNGEON_D1_QA.md`, `F1_OBSTACLE_PROVIDER_DESIGN.md`, `BATTLE_DATA_GAP_REPORT.md` y `docs/economy/STATION_VISUAL_LANGUAGE.md` (esta última solo en la rama `art/station-visual-language`).
 6. `docs/economy/R31_INTEGRATION_AUDIT.md`: auditoría profunda, trust boundary, propuestas de persistencia y multiplayer.
 7. `docs/wildlands/R30_PRODUCTION_HANDOFF.md`: multiplayer en producción.
 8. Según la tarea:
@@ -380,7 +382,7 @@ Entorno: `http://localhost:5188/dev/profesiones`, un laboratorio por profesión.
    - solo si se confirma, crear `fix/wildlands-authoritative-spawn` y `fix/wildlands-prop-tap-picking` desde `origin/main`, tests primero, PRs separados, sin auto-merge.
 4. **Economía:** no se balancea hasta definir el loop PvE/Dungeon (`PRE_R32_DESIGN_DECISIONS.md` A-12). La Dungeon nueva la diseña la estación secundaria con un brief del usuario (A-14).
 5. **Diseñar R32-0** (§9.4): descomposición según `AGENTS.md` §17 y aprobación, **antes** de escribir código.
-6. **No empezar R32** productivo antes de: gate humano PASSED, decisión sobre los bugs R30 y diseño de R32-0 aprobado.
+6. **R32 = Battle + Authority Foundations**, en cuatro subfases (`R32_INTEGRATION_AUDIT.md` §9). No arranca hasta aprobar la fuente del Battle Catalog (Q-1). Ningún gameplay productivo entra en R32.
 7. Merge de `integration/r31` a `main`: solo cuando el usuario lo ordene explícitamente.
 
 ---

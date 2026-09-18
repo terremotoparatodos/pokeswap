@@ -191,6 +191,22 @@ Conceptos a explorar más adelante: abastecimiento, consumibles, coste de uso, i
 - En el playground dev existe la pestaña **Progresión** (`ProfessionProgress.vue` + `ui/progressionView.ts`). Por cada una de las 4 profesiones muestra nivel/XP, un bloque "Próximo" con los siguientes desbloqueos y "Ya desbloqueado", todo derivado del catálogo. Es la base conceptual más cercana a A-11, pero es dev-only, con estado demo en memoria y sin Construcción.
 - La XP y el nivel viven en la sesión demo (`demo/demoSession.ts`, `state.xp`), sin persistencia.
 
+## A-17 · Captura en Dungeon: botín de expedición hasta extraer
+
+Cierra el conflicto **I-1** (2026-09-18).
+
+- Una captura exitosa crea una `PokemonInstance` real, pero mientras el jugador siga dentro es **expedition loot**: todavía no está asegurada.
+- **Retreat** voluntario: asegurada, pasa a persistencia y propiedad del jugador.
+- **Auto-extract** por expiración: asegurada, mismo resultado que el retreat.
+- **Wipe**: se pierde; no se persiste como propiedad.
+- Los Pokémon **preexistentes** nunca se pierden.
+
+Esa es la tensión central: *capturo algo valioso → sigo arriesgando o me retiro para asegurarlo*. La instancia la crea el **servidor** y solo cruza el borde de persistencia al extraer. Detalle en [`../wildlands/R32_INTEGRATION_AUDIT.md`](../wildlands/R32_INTEGRATION_AUDIT.md) §4. **Sin implementar.**
+
+## A-18 · R32 = Battle + Authority Foundations
+
+R32 no hace productiva la Dungeon. Son cuatro subfases: **R32.1** Battle Catalog, **R32.2** `PokemonSpecies`/`PokemonInstance`, **R32.3** reglas de batalla compartidas, **R32.4** fundaciones de autoridad (idempotencia, reloj, RNG, validación de catálogo, esqueleto de `ExpeditionRoom`). Detalle, riesgos y gates en [`../wildlands/R32_INTEGRATION_AUDIT.md`](../wildlands/R32_INTEGRATION_AUDIT.md) §9 y §10. R32.1 no arranca sin aprobar la fuente del catálogo.
+
 ## A-16 · Recolección continua, procesamiento con cartel
 
 Surgida de la prueba humana del gate (`PRE_R32_HUMAN_GATE.md` §4, H-2 y H-3).

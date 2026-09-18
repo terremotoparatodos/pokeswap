@@ -51,7 +51,7 @@ El **prototipo completo de Dungeon/PvE** (D1 → D1.2.4ter), no solo los dos arc
 
 | # | Observación | Estado |
 |---|---|---|
-| I-1 | **"Captura" y la nueva dirección de Pesca.** El aviso «¡X capturado! Queda en el botín hasta que salgas de la Dungeon» pertenece al loop de Dungeon: es captura real de un Pokémon como botín de expedición, que se pierde en un wipe (`domain/capture.ts`). No es la fantasía de Pesca, que ya **no** captura (`PRE_R32_DESIGN_DECISIONS.md` A-4). No se corrigió nada. Falta decidir: si la captura en Dungeon otorga un Pokémon persistente, y cómo se relaciona con el party de 6 (A-1) | **Conflicto de diseño abierto** |
+| I-1 | **CERRADO (2026-09-18):** la captura crea una `PokemonInstance` real pero es botín de expedición hasta extraer — retreat y auto-extract la aseguran, el wipe la pierde, los preexistentes nunca se pierden (`PRE_R32_DESIGN_DECISIONS.md` A-17). Hallazgo original: **"Captura" y la nueva dirección de Pesca.** El aviso «¡X capturado! Queda en el botín hasta que salgas de la Dungeon» pertenece al loop de Dungeon: es captura real de un Pokémon como botín de expedición, que se pierde en un wipe (`domain/capture.ts`). No es la fantasía de Pesca, que ya **no** captura (`PRE_R32_DESIGN_DECISIONS.md` A-4). No se corrigió nada. Falta decidir: si la captura en Dungeon otorga un Pokémon persistente, y cómo se relaciona con el party de 6 (A-1) | **Cerrado** |
 | I-2 | El barrido versionado cubre 840 pisos, no los 2.520 que informa el commit | Documentado |
 | I-3 | `requirementOf` elige el nodo **más barato** que comparte material. Por eso el piso nunca puede pedir `gold_vein` (30) ni `hardwood_tree` (15): sus anclas también pertenecen a nodos más baratos. Los niveles que el jugador puede llegar a ver son 1, 5, 8, 15 (hielo) y 20 (cristal) | Documentado; decidir si es lo deseado |
 | I-4 | El requisito es **informativo**: nada impide hoy despejar sin el nivel. La semántica real es "esto pide Minería Nv. N", no un bloqueo por nivel | Documentado; falta decidir la semántica final |
@@ -61,7 +61,7 @@ El **prototipo completo de Dungeon/PvE** (D1 → D1.2.4ter), no solo los dos arc
 
 ## 6. Decisiones siguientes
 
-1. Resolver I-1 (semántica de captura) antes de diseñar la persistencia de Dungeon.
+1. ~~Resolver I-1~~ **cerrado**: la captura es botín de expedición hasta extraer (A-17).
 2. Decidir la semántica del requisito de profesión (I-3, I-4): informativo o bloqueante, y si el nivel exigido debe ser el del material o el del nodo más caro.
 3. R32-0 debe cubrir los rewards de Dungeon, además de las acciones de profesión.
 4. El brief definitivo de Dungeon para la estación secundaria lo prepara el usuario.
