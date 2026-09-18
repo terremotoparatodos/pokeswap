@@ -1,0 +1,68 @@
+// City Mapping Lab — what the palette offers (DEV only).
+//
+// Only art WildLands already has: the town's street furniture (with its
+// hand-drawn PNGs) and the procedural world props. Solidity is never restated
+// here — it is asked of the real engine, so the lab can't drift from the game.
+
+import { TownArea } from '../../wildlands/areas/townArea'
+import { isSolidDecor, type DecorKind } from '../../wildlands/engine/world'
+import { isStreetProp, STREET_PROP_KINDS, type LabPropKind, type StreetPropKind, type TerrainKind } from './labCity'
+
+export interface PaletteEntry {
+  readonly kind: LabPropKind
+  readonly label: string
+  readonly group: string
+}
+
+export const PALETTE: readonly PaletteEntry[] = [
+  { kind: 'lamp', label: 'Farol', group: 'Mobiliario urbano' },
+  { kind: 'sign', label: 'Cartel', group: 'Mobiliario urbano' },
+  { kind: 'bench', label: 'Banco', group: 'Mobiliario urbano' },
+  { kind: 'hedge', label: 'Seto', group: 'Setos y vallas' },
+  { kind: 'fenceH', label: 'Valla ─', group: 'Setos y vallas' },
+  { kind: 'fenceV', label: 'Valla │', group: 'Setos y vallas' },
+  { kind: 'tree', label: 'Árbol', group: 'Árboles' },
+  { kind: 'pine', label: 'Pino', group: 'Árboles' },
+  { kind: 'snowpine', label: 'Pino nevado', group: 'Árboles' },
+  { kind: 'palm', label: 'Palmera', group: 'Árboles' },
+  { kind: 'bush', label: 'Arbusto', group: 'Vegetación' },
+  { kind: 'drybush', label: 'Arbusto seco', group: 'Vegetación' },
+  { kind: 'cactus', label: 'Cactus', group: 'Vegetación' },
+  { kind: 'coral', label: 'Coral', group: 'Vegetación' },
+  { kind: 'rock', label: 'Roca', group: 'Rocas' },
+  { kind: 'boulder', label: 'Peñasco', group: 'Rocas' },
+  { kind: 'icerock', label: 'Roca de hielo', group: 'Rocas' },
+  { kind: 'searock', label: 'Roca marina', group: 'Rocas' },
+  { kind: 'crystal', label: 'Cristal', group: 'Cristales' },
+  { kind: 'shell', label: 'Caracola', group: 'Decor' },
+]
+
+export const TERRAIN_LABEL: Record<TerrainKind, string> = {
+  s: 'Calle', g: 'Pasto', p: 'Plaza', t: 'Bosque (sólido)',
+}
+
+export function propLabel(kind: LabPropKind): string {
+  return PALETTE.find(p => p.kind === kind)?.label ?? kind
+}
+
+let streetSolidity: Map<StreetPropKind, boolean> | null = null
+
+/**
+ * Whether a prop blocks movement, answered by the engine itself: a street prop
+ * is dropped on a one-tile town and `TownArea` is asked; a world prop uses the
+ * world's own `isSolidDecor`.
+ */
+export function isSolidKind(kind: LabPropKind): boolean {
+  if (!isStreetProp(kind)) return isSolidDecor(kind as DecorKind)
+  if (!streetSolidity) {
+    streetSolidity = new Map()
+    for (const k of STREET_PROP_KINDS) {
+      const probe = new TownArea({
+        id: 'lab-probe', name: 'probe', terrain: ['ggg', 'ggg', 'ggg'], buildings: [], fountains: [],
+        props: [{ kind: k, tx: 1, ty: 1 }], gates: [], spawn: { tx: 0, ty: 0, dir: 'down' }, residents: [], wanderers: [],
+      })
+      streetSolidity.set(k, probe.isSolid(1, 1))
+    }
+  }
+  return streetSolidity.get(kind) ?? true
+}
