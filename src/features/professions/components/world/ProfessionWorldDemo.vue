@@ -144,6 +144,11 @@ onUnmounted(() => {
   forage.detach()
 })
 
+/** Engine probe: the physical objects this demo places in an area (F-1). */
+function placedObjects(area: Parameters<typeof alchemy.placedObjects>[0]) {
+  return alchemy.placedObjects(area)
+}
+
 /** Engine probe: tiles the navigator should approach and face. */
 function isWorldObject(hit: WorldObjectTarget): boolean {
   return mining.isNode(hit) || fishing.isSpot(hit) || logging.isTree(hit) || forage.isPlant(hit) || alchemy.isStation(hit)
@@ -192,7 +197,7 @@ function closeAll(): void {
   bagOpen.value = false
 }
 
-defineExpose({ inspect, isWorldObject })
+defineExpose({ inspect, isWorldObject, placedObjects })
 </script>
 
 <style scoped>

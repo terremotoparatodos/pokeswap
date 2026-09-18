@@ -181,6 +181,7 @@ function createGame(): void {
     spawn: spawnBeside(new World(PRADERA_SEED), tile),
     onWorldObject: hit => inspect(hit),
     isWorldObject: hit => forage.isPlant(hit) || alchemy.isStation(hit),
+    placedObjectsIn: area => alchemy.placedObjects(area),
   })
   game.value = created
   forage.close()

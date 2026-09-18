@@ -27,7 +27,7 @@ import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
 import type { SceneOverlay } from './sceneOverlay'
 import { PlayerAppearance } from './playerAppearance'
-import { PlacedObjects, retargetToPlaced } from './placedObjects'
+import { PlacedObjects, placedObject, retargetToPlaced, type PlacedObjectSpec } from './placedObjects'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
 import type { LobbyFeature } from '../lobby/features'
@@ -80,6 +80,8 @@ export interface GameOptions {
   onWorldObject?: (target: WorldObjectTarget) => boolean
   /** Side-effect-free probe: walkable tiles to stand beside and face (R31-C1). */
   isWorldObject?: (target: WorldObjectTarget) => boolean
+  /** Physical objects a feature places in an area (F-1); asked on every entry. */
+  placedObjectsIn?: (area: Area) => readonly PlacedObjectSpec[]
   /** Completed safe town tiles, used only for local cosmetic persistence. */
   onTownPosition?: (position: TownPosition) => void
   presence?: LocalPresencePort | null
@@ -124,6 +126,7 @@ export class WildlandsGame {
   private readonly onInspect?: (hit: PlazaHit | WildHit) => void
   private readonly onWorldObject?: (target: WorldObjectTarget) => boolean
   private readonly isWorldObject?: (target: WorldObjectTarget) => boolean
+  private readonly placedObjectsIn?: (area: Area) => readonly PlacedObjectSpec[]
   private readonly onTownPosition?: (position: TownPosition) => void
   private readonly presence?: LocalPresencePort | null
   private remoteActors: Actor[] = []
@@ -167,6 +170,7 @@ export class WildlandsGame {
     this.onInspect = options.onInspect
     this.onWorldObject = options.onWorldObject
     this.isWorldObject = options.isWorldObject
+    this.placedObjectsIn = options.placedObjectsIn
     this.onTownPosition = options.onTownPosition
     this.presence = options.presence
     this.entrances = new Entrances(door => options.onEnterBuilding?.(door.buildingId, door.feature))
@@ -218,6 +222,17 @@ export class WildlandsGame {
     this.lensBlend = 1
     this.weather = { kind: 'clear', intensity: 0, target: 0 }
     this.weatherCheck = 0
+    this.syncPlacedObjects()
+  }
+
+  /**
+   * Asks the owning feature what it has placed in the current area (F-1). The
+   * engine pulls instead of being pushed to, so entering and leaving an area
+   * is the only lifecycle there is and nothing can survive the trip.
+   */
+  syncPlacedObjects(): void {
+    this.placedObjects.clearArea(this.area.id)
+    for (const spec of this.placedObjectsIn?.(this.area) ?? []) this.placedObjects.register(placedObject(spec))
   }
 
   /** Stands the player on `at` and snaps the camera there. */

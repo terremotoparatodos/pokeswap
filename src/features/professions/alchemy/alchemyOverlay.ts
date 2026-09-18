@@ -121,6 +121,14 @@ export class AlchemyOverlay implements SceneOverlay {
     return tile
   }
 
+  /**
+   * Where the bench stands in this area, or null. Read-only: the overlay still
+   * only draws, and F-1 reads this to place the physical object.
+   */
+  stationTile(area: Area): StationTile | null {
+    return this.stationAt(area)
+  }
+
   /** True when this tile is the bench: the engine uses it to walk the player beside it. */
   isStation(area: Area, tx: number, ty: number): boolean {
     const tile = this.stationAt(area)
