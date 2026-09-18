@@ -6,7 +6,8 @@ import { HEARTHOME } from '../../wildlands/areas/atlas'
 import { buildPropSprites } from '../../wildlands/engine/props'
 import { buildTownProps } from '../../wildlands/engine/townProps'
 import { PALETTE, TERRAIN_LABEL, isSolidKind } from '../domain/labCatalog'
-import { isStreetProp, TERRAIN_KINDS, type LabPropKind } from '../domain/labCity'
+import { isStreetProp, isTreeProp, TERRAIN_KINDS, type LabPropKind } from '../domain/labCity'
+import { cityTree } from '../../worldAssets/trees/cityTrees'
 import type { CityLab, PaletteChoice } from '../state/useCityLab'
 
 const props = defineProps<{ lab: CityLab }>()
@@ -25,6 +26,10 @@ onMounted(() => {
   const street = buildTownProps()
   const out: Partial<Record<LabPropKind, string>> = {}
   for (const { kind } of PALETTE) {
+    if (isTreeProp(kind)) {
+      out[kind] = cityTree(kind).src
+      continue
+    }
     const art = isStreetProp(kind) ? HEARTHOME.art?.props?.[kind]?.[0]?.src : undefined
     const sprite = isStreetProp(kind) ? street[kind] : world[kind]
     out[kind] = art ?? sprite.canvas.toDataURL()
@@ -52,8 +57,8 @@ function choose(kind: PaletteChoice): void {
             :title="`${e.kind}${isSolidKind(e.kind) ? ' · sólido' : ' · NO sólido'}${isStreetProp(e.kind) ? '' : ' · objeto del mundo (el patch lo marca)'}`"
             @click="choose(e.kind)"
           >
-            <img v-if="thumbs[e.kind]" :src="thumbs[e.kind]" alt="">
-            <span>{{ e.label }}</span>
+            <img v-if="thumbs[e.kind]" :src="thumbs[e.kind]" alt="" :class="{ tall: isTreeProp(e.kind) }">
+            <span>{{ e.label }}<small v-if="isTreeProp(e.kind)" class="badge">2×2 · tronco 2×1</small></span>
           </button>
         </div>
       </div>
@@ -99,6 +104,8 @@ section + section { margin-top: 16px; border-top: 1px solid #2a3350; padding-top
 }
 .pal-item.on { border-color: #6d8cff; background: #26356e; }
 .pal-item img { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
+.pal-item img.tall { width: 34px; height: 42px; }
+.badge { display: block; color: #8fd8a0; font-size: 10px; }
 .swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid #000; }
 .swatch-s { background: #d6bd8c; }
 .swatch-g { background: #74c24f; }

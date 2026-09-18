@@ -153,9 +153,10 @@ function playHere(): void {
       <label><input v-model="lab.layers.solids" type="checkbox"> Sólidos</label>
       <label><input v-model="lab.layers.walkable" type="checkbox"> Caminable</label>
       <label><input v-model="lab.layers.footprints" type="checkbox"> Footprints / puertas</label>
-      <label><input v-model="lab.layers.bounds" type="checkbox"> Sprite bounds</label>
+      <label><input v-model="lab.layers.bounds" type="checkbox"> Sprite bounds / tap hitbox</label>
       <label><input v-model="lab.layers.accesses" type="checkbox"> <b>Entradas y salidas</b></label>
       <label><input v-model="lab.layers.markers" type="checkbox"> Spawn / NPC</label>
+      <label><input v-model="lab.layers.trees" type="checkbox"> Árboles: F bosque / P placed</label>
       <label><input v-model="lab.layers.clearance" type="checkbox"> Anchos (multijugador)</label>
       <label><input v-model="lab.layers.zones" type="checkbox"> Plazas / manzanas</label>
     </div>

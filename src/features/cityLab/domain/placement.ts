@@ -7,7 +7,7 @@
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import type { CityGrid } from './cityGrid'
 import { isSolidKind } from './labCatalog'
-import { terrainAt, tilesOf, type EntityRef, type LabCity } from './labCity'
+import { collisionTilesOf, isTreeProp, terrainAt, tilesOf, type EntityRef, type LabCity } from './labCity'
 
 export interface PlacementIssues {
   readonly errors: string[]
@@ -26,7 +26,7 @@ export function placementIssues(grid: CityGrid, ref: EntityRef): PlacementIssues
   if (outside) return { errors: [`Fuera de los límites del mapa en ${at(outside)}.`], warnings }
 
   switch (ref.type) {
-    case 'prop': checkProp(grid, city, ref.id, tiles[0], errors, warnings); break
+    case 'prop': checkProp(grid, city, ref.id, collisionTilesOf(city, ref), tiles, errors, warnings); break
     case 'building': checkBuilding(grid, city, ref.id, tiles, errors, warnings); break
     case 'fountain': checkFountain(grid, city, ref.id, tiles, errors); break
     case 'spawn': checkStandingSpot(grid, tiles[0], 'El spawn', errors, warnings, true); break
@@ -38,7 +38,20 @@ export function placementIssues(grid: CityGrid, ref: EntityRef): PlacementIssues
   return { errors, warnings }
 }
 
-function checkProp(grid: CityGrid, city: LabCity, id: string, t: Tile, errors: string[], warnings: string[]): void {
+/**
+ * `base` is where the prop stands (a tree: its trunk row); `cell` is all it
+ * covers (a tree: its 2×2 crown cell). Hard rules apply to the base only:
+ * crowns may overlap each other, buildings and props.
+ */
+function checkProp(grid: CityGrid, city: LabCity, id: string, base: Tile[], cell: Tile[], errors: string[], warnings: string[]): void {
+  const prop = city.props.find(p => p.id === id)!
+  for (const t of base) checkPropTile(grid, city, id, t, errors, warnings)
+  if (isTreeProp(prop.kind) && cell.every(t => terrainAt(city, t.tx, t.ty) === 't')) {
+    warnings.push('El árbol queda entero dentro del bosque: no se distingue de los árboles generados.')
+  }
+}
+
+function checkPropTile(grid: CityGrid, city: LabCity, id: string, t: Tile, errors: string[], warnings: string[]): void {
   const prop = city.props.find(p => p.id === id)!
   const solid = isSolidKind(prop.kind)
   const building = grid.building(t.tx, t.ty)

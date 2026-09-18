@@ -9,7 +9,7 @@ import type { Dir } from '../../wildlands/engine/characters'
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import { CityGrid } from './cityGrid'
 import {
-  anchorOf, inBounds, tilesOf, type EntityRef, type LabCity, type LabGate, type LabProp, type LabPropKind, type TerrainKind,
+  anchorOf, collisionTilesOf, inBounds, isTreeProp, tilesOf, type EntityRef, type LabCity, type LabGate, type LabProp, type LabPropKind, type TerrainKind,
 } from './labCity'
 import { placementIssues } from './placement'
 
@@ -92,8 +92,18 @@ export function nextNewId(city: LabCity, prefix = 'new'): string {
   return `${prefix}-${n}`
 }
 
-export function addProp(base: TownDef, city: LabCity, kind: LabPropKind, at: Tile): EditResult {
-  if (!inBounds(city, at.tx, at.ty)) return refused('Fuera de los límites del mapa.')
+/**
+ * Where a prop added at the cursor tile goes: a tree puts its trunk (left
+ * half) under the cursor, so its 2×2 cell starts one row up.
+ */
+export function addAnchor(kind: LabPropKind, at: Tile): Tile {
+  return isTreeProp(kind) ? { tx: at.tx, ty: at.ty - 1 } : at
+}
+
+/** Adds a prop whose anchor (see `addAnchor`) is the cursor tile. */
+export function addProp(base: TownDef, city: LabCity, kind: LabPropKind, cursor: Tile): EditResult {
+  if (!inBounds(city, cursor.tx, cursor.ty)) return refused('Fuera de los límites del mapa.')
+  const at = addAnchor(kind, cursor)
   const prop: LabProp = { id: nextNewId(city), kind, tx: at.tx, ty: at.ty, ...(kind === 'sign' ? { text: 'Cartel nuevo' } : {}) }
   return settle(base, { ...city, props: [...city.props, prop] }, { type: 'prop', id: prop.id })
 }
@@ -263,4 +273,24 @@ export function previewTiles(city: LabCity, ref: EntityRef, to: Tile): Tile[] {
   const from = anchorOf(city, ref)
   if (!from) return []
   return tilesOf(city, ref).map(t => shift(t, to.tx - from.tx, to.ty - from.ty))
+}
+
+/** The physical part of that preview (a tree's trunk row; everything else: its whole footprint). */
+export function previewSolidTiles(city: LabCity, ref: EntityRef, to: Tile): Tile[] {
+  const from = anchorOf(city, ref)
+  if (!from) return []
+  return collisionTilesOf(city, ref).map(t => shift(t, to.tx - from.tx, to.ty - from.ty))
+}
+
+/** Preview for adding `kind` with the cursor on `cursor`: visual cell, physical tiles and validity. */
+export function previewAdd(base: TownDef, city: LabCity, kind: LabPropKind, cursor: Tile): { tiles: Tile[]; solid: Tile[]; valid: boolean; reason: string } {
+  const result = addProp(base, city, kind, cursor)
+  const probe = result.ok ? result.city : { ...city, props: [...city.props, { id: '__preview__', kind, ...addAnchor(kind, cursor) }] }
+  const ref: EntityRef = { type: 'prop', id: result.ok && result.ref ? result.ref.id : '__preview__' }
+  return {
+    tiles: tilesOf(probe, ref),
+    solid: collisionTilesOf(probe, ref),
+    valid: result.ok,
+    reason: result.ok ? result.warnings.join(' ') : result.errors.join(' '),
+  }
 }

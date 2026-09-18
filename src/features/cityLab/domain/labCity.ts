@@ -15,6 +15,7 @@ import type { Tile } from '../../wildlands/engine/pathfinding'
 import type { TileRect } from '../../wildlands/engine/townGround'
 import type { TownPropKind } from '../../wildlands/engine/townProps'
 import type { DecorKind } from '../../wildlands/engine/world'
+import { isCityTreeId, treeCollisionTiles, treeVisualTiles, type CityTreeId } from '../../worldAssets/trees/cityTrees'
 
 /** Terrain letters a town grid understands (see hearthomeTerrain.ts). */
 export type TerrainKind = 's' | 'g' | 'p' | 't'
@@ -25,11 +26,17 @@ export type StreetPropKind = Exclude<TownPropKind, 'spray'>
 export const STREET_PROP_KINDS: readonly StreetPropKind[] = ['lamp', 'sign', 'bench', 'hedge', 'fenceH', 'fenceV']
 
 /**
- * Anything the palette can place: street furniture, or one of the world's own
- * props (trees, rocks, crystals…). The second family has no slot in `TownDef`
- * today; the lab draws it through `LabTownArea` and the patch flags it.
+ * Anything the palette can place: street furniture, one of the world's own
+ * props (rocks, crystals…), or a city tree (worldAssets/trees). The last two
+ * families have no slot in `TownDef` today; the lab draws them through
+ * `LabTownArea` and the patch flags them.
  */
-export type LabPropKind = StreetPropKind | DecorKind
+export type LabPropKind = StreetPropKind | DecorKind | CityTreeId
+
+/** A placed city tree: its `tx, ty` is the top-left tile of its 2×2 cell. */
+export function isTreeProp(kind: LabPropKind): kind is CityTreeId {
+  return isCityTreeId(kind)
+}
 
 export function isStreetProp(kind: LabPropKind): kind is StreetPropKind {
   return (STREET_PROP_KINDS as readonly string[]).includes(kind)
@@ -42,6 +49,8 @@ export interface LabProp {
   readonly ty: number
   readonly text?: string
   readonly board?: boolean
+  /** Informational in exported patches: the tile cell a tree covers (always 2×2 today). */
+  readonly footprint?: { readonly w: number; readonly d: number }
 }
 
 export interface LabFountain extends TileRect {
@@ -146,9 +155,23 @@ export function toTownDef(city: LabCity, base: TownDef): TownDef {
   }
 }
 
-/** World props placed in the lab (trees, rocks…), which `TownDef` cannot hold yet. */
+/** World props placed in the lab (rocks, crystals…), which `TownDef` cannot hold yet. */
 export function labDecor(city: LabCity): readonly (LabProp & { kind: DecorKind })[] {
-  return city.props.filter((p): p is LabProp & { kind: DecorKind } => !isStreetProp(p.kind))
+  return city.props.filter((p): p is LabProp & { kind: DecorKind } => !isStreetProp(p.kind) && !isTreeProp(p.kind))
+}
+
+/** City trees placed in the lab, which `TownDef` cannot hold yet either. */
+export function labTrees(city: LabCity): readonly (LabProp & { kind: CityTreeId })[] {
+  return city.props.filter((p): p is LabProp & { kind: CityTreeId } => isTreeProp(p.kind))
+}
+
+/** Tiles an entity physically blocks or claims: a tree's trunk row, everything else as `tilesOf`. */
+export function collisionTilesOf(city: LabCity, ref: EntityRef): Tile[] {
+  if (ref.type === 'prop') {
+    const p = city.props.find(x => x.id === ref.id)
+    if (p && isTreeProp(p.kind)) return treeCollisionTiles(p.kind, p.tx, p.ty)
+  }
+  return tilesOf(city, ref)
 }
 
 export function cityWidth(city: LabCity): number {
@@ -218,6 +241,10 @@ export function tilesOf(city: LabCity, ref: EntityRef): Tile[] {
     return f ? rectTiles(f.x0, f.y0, f.x1, f.y1) : []
   }
   if (ref.type === 'gate') return city.gates.find(x => x.id === ref.id)?.tiles.map(t => ({ ...t })) ?? []
+  if (ref.type === 'prop') {
+    const p = city.props.find(x => x.id === ref.id)
+    if (p && isTreeProp(p.kind)) return treeVisualTiles(p.kind, p.tx, p.ty)
+  }
   const at = anchorOf(city, ref)
   return at ? [at] : []
 }

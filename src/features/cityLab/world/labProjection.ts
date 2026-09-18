@@ -79,6 +79,18 @@ export function spriteRect(f: FrameGeometry, sprite: Sprite, x: number, y: numbe
   return { x0: left, x1: left + Math.round(sprite.w * s), y0: top + (sprite.top ?? 0) * s, y1: top + Math.round(sprite.h * s) }
 }
 
+/**
+ * Device-pixel rect of an upright box around feet at world (x, y), given in
+ * world pixels relative to the feet (e.g. a tap hitbox). Scaled like a sprite
+ * standing there — the renderer does the same for placed-object hitboxes.
+ */
+export function uprightRect(f: FrameGeometry, x: number, y: number, box: { x0: number; y0: number; x1: number; y1: number }): HitRect | null {
+  const p = screenAt(f, x, y)
+  if (!p) return null
+  const s = p.scale
+  return { x0: p.x + box.x0 * s, x1: p.x + box.x1 * s, y0: p.y + box.y0 * s, y1: p.y + box.y1 * s }
+}
+
 /** Device-pixel quad of a tile rectangle on the tilted ground (for screen-space outlines). */
 export function groundQuad(f: FrameGeometry, tx0: number, ty0: number, tx1: number, ty1: number): { x: number; y: number }[] | null {
   const corners = [

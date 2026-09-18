@@ -6,7 +6,8 @@
 
 import { TownArea } from '../../wildlands/areas/townArea'
 import { isSolidDecor, type DecorKind } from '../../wildlands/engine/world'
-import { isStreetProp, STREET_PROP_KINDS, type LabPropKind, type StreetPropKind, type TerrainKind } from './labCity'
+import { CITY_TREE_ASSETS } from '../../worldAssets/trees/cityTrees'
+import { isStreetProp, isTreeProp, STREET_PROP_KINDS, type LabPropKind, type StreetPropKind, type TerrainKind } from './labCity'
 
 export interface PaletteEntry {
   readonly kind: LabPropKind
@@ -15,16 +16,18 @@ export interface PaletteEntry {
 }
 
 export const PALETTE: readonly PaletteEntry[] = [
+  // The city forest's own art, placeable one by one (worldAssets/trees).
+  ...CITY_TREE_ASSETS.map(t => ({ kind: t.id, label: t.label, group: 'Árboles' })),
   { kind: 'lamp', label: 'Farol', group: 'Mobiliario urbano' },
   { kind: 'sign', label: 'Cartel', group: 'Mobiliario urbano' },
   { kind: 'bench', label: 'Banco', group: 'Mobiliario urbano' },
   { kind: 'hedge', label: 'Seto', group: 'Setos y vallas' },
   { kind: 'fenceH', label: 'Valla ─', group: 'Setos y vallas' },
   { kind: 'fenceV', label: 'Valla │', group: 'Setos y vallas' },
-  { kind: 'tree', label: 'Árbol', group: 'Árboles' },
-  { kind: 'pine', label: 'Pino', group: 'Árboles' },
-  { kind: 'snowpine', label: 'Pino nevado', group: 'Árboles' },
-  { kind: 'palm', label: 'Palmera', group: 'Árboles' },
+  { kind: 'tree', label: 'Árbol', group: 'Árboles de WildLands (actuales)' },
+  { kind: 'pine', label: 'Pino', group: 'Árboles de WildLands (actuales)' },
+  { kind: 'snowpine', label: 'Pino nevado', group: 'Árboles de WildLands (actuales)' },
+  { kind: 'palm', label: 'Palmera', group: 'Árboles de WildLands (actuales)' },
   { kind: 'bush', label: 'Arbusto', group: 'Vegetación' },
   { kind: 'drybush', label: 'Arbusto seco', group: 'Vegetación' },
   { kind: 'cactus', label: 'Cactus', group: 'Vegetación' },
@@ -53,6 +56,8 @@ let streetSolidity: Map<StreetPropKind, boolean> | null = null
  * world's own `isSolidDecor`.
  */
 export function isSolidKind(kind: LabPropKind): boolean {
+  // A city tree blocks its trunk row (see worldAssets/trees/cityTrees.ts).
+  if (isTreeProp(kind)) return true
   if (!isStreetProp(kind)) return isSolidDecor(kind as DecorKind)
   if (!streetSolidity) {
     streetSolidity = new Map()

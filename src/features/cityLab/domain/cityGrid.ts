@@ -8,7 +8,7 @@
 import type { TownDef } from '../../wildlands/areas/townArea'
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import { labArea, type LabTownArea } from '../world/labTownArea'
-import { cityHeight, cityWidth, inBounds, type LabCity } from './labCity'
+import { cityHeight, cityWidth, collisionTilesOf, inBounds, type LabCity } from './labCity'
 
 export interface DoorInfo {
   readonly buildingId: string
@@ -38,11 +38,14 @@ export class CityGrid {
     for (const f of city.fountains) {
       for (let ty = f.y0; ty <= f.y1; ty++) for (let tx = f.x0; tx <= f.x1; tx++) this.fountainAt.set(key(tx, ty), f.id)
     }
+    // A prop claims the tiles it stands on: a tree only its trunk row, so crowns may overlap.
     for (const p of city.props) {
-      const k = key(p.tx, p.ty)
-      const list = this.propsAt.get(k)
-      if (list) list.push(p.id)
-      else this.propsAt.set(k, [p.id])
+      for (const t of collisionTilesOf(city, { type: 'prop', id: p.id })) {
+        const k = key(t.tx, t.ty)
+        const list = this.propsAt.get(k)
+        if (list) list.push(p.id)
+        else this.propsAt.set(k, [p.id])
+      }
     }
     for (const g of city.gates) for (const t of g.tiles) this.portalAt.set(key(t.tx, t.ty), g.id)
     this.doors = city.buildings.filter(b => b.door).map(b => ({

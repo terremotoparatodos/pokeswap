@@ -11,7 +11,7 @@ import type { Tile } from '../../wildlands/engine/pathfinding'
 import { clearanceMap } from './clearance'
 import { CityGrid } from './cityGrid'
 import { isSolidKind, propLabel } from './labCatalog'
-import { SPAWN_REF, terrainAt, type EntityRef, type LabCity } from './labCity'
+import { isTreeProp, SPAWN_REF, terrainAt, type EntityRef, type LabCity } from './labCity'
 import { placementIssues } from './placement'
 
 export type Severity = 'error' | 'warning' | 'info'
@@ -64,8 +64,11 @@ export function validateMap(city: LabCity, base: TownDef): Finding[] {
   for (const p of city.props) {
     const ref: EntityRef = { type: 'prop', id: p.id }
     const issues = placementIssues(grid, ref)
-    for (const e of issues.errors) addOnce({ severity: 'error', category: 'objetos', code: 'PROP_CONFLICT', message: `${propLabel(p.kind)} ${p.id}: ${e}`, tiles: [p], ref })
-    for (const w of issues.warnings) addOnce({ severity: 'warning', category: 'objetos', code: 'PROP_HIDDEN', message: `${propLabel(p.kind)} ${p.id}: ${w}`, tiles: [p], ref })
+    // Trees are judged by their trunk (placement.ts); crowns overlapping each other are fine.
+    const tree = isTreeProp(p.kind)
+    const where = tree ? [{ tx: p.tx, ty: p.ty + 1 }, { tx: p.tx + 1, ty: p.ty + 1 }] : [p]
+    for (const e of issues.errors) addOnce({ severity: 'error', category: 'objetos', code: tree ? 'TREE_TRUNK_CONFLICT' : 'PROP_CONFLICT', message: `${propLabel(p.kind)} ${p.id}: ${e}`, tiles: where, ref })
+    for (const w of issues.warnings) addOnce({ severity: 'warning', category: 'objetos', code: tree ? 'TREE_HIDDEN' : 'PROP_HIDDEN', message: `${propLabel(p.kind)} ${p.id}: ${w}`, tiles: where, ref })
     if (!isSolidKind(p.kind)) {
       add({ severity: 'info', category: 'hitbox', code: 'PROP_NOT_SOLID', message: `${propLabel(p.kind)} ${p.id} se dibuja pero se puede atravesar (no es sólido en el motor).`, tiles: [p], ref })
     }

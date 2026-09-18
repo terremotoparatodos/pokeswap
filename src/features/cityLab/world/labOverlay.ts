@@ -16,8 +16,8 @@ import { WORLDS } from '../../wildlands/areas/atlas'
 import { isLobbyFeature, LOBBY_FEATURES } from '../../wildlands/lobby/features'
 import type { CityGrid } from '../domain/cityGrid'
 import { isSolidKind } from '../domain/labCatalog'
-import { sameRef, tilesOf, type EntityRef, type LabCity } from '../domain/labCity'
-import { contains, spriteRect, type FrameGeometry } from './labProjection'
+import { collisionTilesOf, isTreeProp, sameRef, terrainAt, tilesOf, type EntityRef, type LabCity } from '../domain/labCity'
+import { contains, spriteRect, uprightRect, type FrameGeometry } from './labProjection'
 import type { DrawnThing } from './labThings'
 
 export interface LayerToggles {
@@ -30,12 +30,14 @@ export interface LayerToggles {
   markers: boolean
   /** Doors to PokeSwap functions and portals to the worlds, labelled on the map. */
   accesses: boolean
+  /** Which trees come from forest terrain and which were placed one by one. */
+  trees: boolean
   clearance: boolean
   zones: boolean
 }
 
 export const DEFAULT_LAYERS: LayerToggles = {
-  grid: true, coords: false, solids: false, walkable: false, footprints: false, bounds: false, markers: true, accesses: true, clearance: false, zones: false,
+  grid: true, coords: false, solids: false, walkable: false, footprints: false, bounds: false, markers: true, accesses: true, trees: false, clearance: false, zones: false,
 }
 
 export interface OverlayInputs {
@@ -45,7 +47,8 @@ export interface OverlayInputs {
   layers: LayerToggles
   hover: Tile | null
   selection: EntityRef | null
-  ghost: { tiles: readonly Tile[]; valid: boolean } | null
+  /** Drag/add preview: the visual cell, and the part that will block (a tree's trunk row). */
+  ghost: { tiles: readonly Tile[]; solid?: readonly Tile[]; valid: boolean } | null
   brush: readonly Tile[] | null
   highlight: readonly Tile[]
   npcLooks: () => readonly TrainerSprites[]
@@ -142,7 +145,16 @@ export class LabGroundOverlay implements SceneOverlay {
         g.strokeRect(f.x0 * TILE + 0.5, f.y0 * TILE + 0.5, (f.x1 - f.x0 + 1) * TILE - 1, (f.y1 - f.y0 + 1) * TILE - 1)
       }
       for (const p of city.props) {
-        if (isSolidKind(p.kind)) outline([p], 'rgba(255, 70, 70, 0.95)')
+        const ref: EntityRef = { type: 'prop', id: p.id }
+        if (isTreeProp(p.kind)) {
+          // Visual 2×2 cell dashed green, physical trunk row solid red.
+          g.setLineDash([3, 2])
+          g.strokeStyle = 'rgba(120, 255, 150, 0.95)'
+          g.lineWidth = 1
+          g.strokeRect(p.tx * TILE + 0.5, p.ty * TILE + 0.5, 2 * TILE - 1, 2 * TILE - 1)
+          g.setLineDash([])
+          for (const t of collisionTilesOf(city, ref)) fill(t, 'rgba(255, 60, 60, 0.45)', 1)
+        } else if (isSolidKind(p.kind)) outline([p], 'rgba(255, 70, 70, 0.95)')
         else {
           g.setLineDash([2, 2])
           outline([p], 'rgba(255, 255, 255, 0.9)')
@@ -186,6 +198,33 @@ export class LabGroundOverlay implements SceneOverlay {
       }
     }
 
+    if (layers.trees) {
+      // FOREST GENERATED: the aligned 2×2 blocks where TownArea draws a tree (≥ 3 forest tiles).
+      g.font = '6px monospace'
+      g.textBaseline = 'top'
+      for (let by = ty0 - (ty0 % 2); by <= ty1; by += 2) {
+        for (let bx = tx0 - (tx0 % 2); bx <= tx1; bx += 2) {
+          const n = [[0, 0], [1, 0], [0, 1], [1, 1]].filter(([dx, dy]) => terrainAt(city, bx + dx, by + dy) === 't').length
+          if (n < 3) continue
+          g.fillStyle = 'rgba(20, 60, 25, 0.45)'
+          g.fillRect(bx * TILE + 1, by * TILE + 1, 2 * TILE - 2, 2 * TILE - 2)
+          g.fillStyle = '#b8ffb0'
+          g.fillText('F', bx * TILE + 3, by * TILE + 2)
+        }
+      }
+      // PLACED TREE: the working copy's own trees.
+      for (const p of city.props) {
+        if (!isTreeProp(p.kind)) continue
+        g.fillStyle = 'rgba(40, 200, 255, 0.4)'
+        g.fillRect(p.tx * TILE + 1, p.ty * TILE + 1, 2 * TILE - 2, 2 * TILE - 2)
+        g.strokeStyle = 'rgba(120, 230, 255, 1)'
+        g.lineWidth = 1.5
+        g.strokeRect(p.tx * TILE + 1, p.ty * TILE + 1, 2 * TILE - 2, 2 * TILE - 2)
+        g.fillStyle = '#e8fbff'
+        g.fillText('P', p.tx * TILE + 3, p.ty * TILE + 2)
+      }
+    }
+
     if (layers.markers) {
       for (const r of city.residents) outline([r], 'rgba(255, 80, 220, 0.95)')
       for (const w of city.wanderers) {
@@ -205,7 +244,11 @@ export class LabGroundOverlay implements SceneOverlay {
     if (s.brush) for (const t of s.brush) outline([t], 'rgba(255, 255, 255, 0.95)', 1.5)
     if (s.selection) outline(tilesOf(city, s.selection), 'rgba(255, 235, 60, 1)', 2)
     if (s.ghost) {
-      for (const t of s.ghost.tiles) fill(t, s.ghost.valid ? 'rgba(60, 230, 110, 0.55)' : 'rgba(240, 50, 50, 0.6)')
+      for (const t of s.ghost.tiles) fill(t, s.ghost.valid ? 'rgba(60, 230, 110, 0.4)' : 'rgba(240, 50, 50, 0.45)')
+      for (const t of s.ghost.solid ?? []) {
+        fill(t, s.ghost.valid ? 'rgba(20, 150, 60, 0.55)' : 'rgba(170, 20, 20, 0.6)', 2)
+        outline([t], '#ffffff', 1)
+      }
     }
     if (s.hover) outline([s.hover], 'rgba(255, 255, 255, 0.9)')
     g.restore()
@@ -268,19 +311,33 @@ export interface ScreenOverlayInputs {
   selection: EntityRef | null
 }
 
-/** Sprite bounds (the art as drawn) on the stacked canvas, in device pixels. */
+/**
+ * Sprite bounds (the art as drawn) on the stacked canvas, in device pixels.
+ * Things with their own tap hitbox (city trees) also get it, dashed magenta:
+ * the part that answers a click, which is not the whole art.
+ */
 export function drawScreenOverlay(ctx: CanvasRenderingContext2D, f: FrameGeometry, input: ScreenOverlayInputs): void {
   ctx.clearRect(0, 0, f.width, f.height)
   if (!input.bounds && !input.selection) return
-  ctx.lineWidth = Math.max(1, f.dpr)
+  const line = Math.max(1, f.dpr)
+  const box = (r: { x0: number; y0: number; x1: number; y1: number }) =>
+    ctx.strokeRect(Math.round(r.x0) + 0.5, Math.round(r.y0) + 0.5, Math.round(r.x1 - r.x0), Math.round(r.y1 - r.y0))
   for (const t of input.things) {
     const selected = sameRef(t.ref, input.selection)
     if (!input.bounds && !selected) continue
     const r = spriteRect(f, t.sprite, t.x, t.y)
     if (!r || r.x1 < 0 || r.y1 < 0 || r.x0 > f.width || r.y0 > f.height) continue
     ctx.strokeStyle = selected ? '#ffeb3c' : t.ref ? 'rgba(80, 230, 255, 0.85)' : 'rgba(170, 255, 120, 0.55)'
-    ctx.lineWidth = (selected ? 2 : 1) * Math.max(1, f.dpr)
-    ctx.strokeRect(Math.round(r.x0) + 0.5, Math.round(r.y0) + 0.5, Math.round(r.x1 - r.x0), Math.round(r.y1 - r.y0))
+    ctx.lineWidth = (selected ? 2 : 1) * line
+    box(r)
+    const tap = t.tap ? uprightRect(f, t.x, t.y, t.tap) : null
+    if (tap && input.bounds) {
+      ctx.setLineDash([4 * line, 3 * line])
+      ctx.strokeStyle = 'rgba(255, 90, 230, 0.95)'
+      ctx.lineWidth = line
+      box(tap)
+      ctx.setLineDash([])
+    }
   }
 }
 
@@ -289,7 +346,7 @@ export function thingAt(f: FrameGeometry, things: readonly DrawnThing[], sx: num
   let best: DrawnThing | null = null
   for (const t of things) {
     if (!t.ref || t.large !== large) continue
-    const r = spriteRect(f, t.sprite, t.x, t.y)
+    const r = t.tap ? uprightRect(f, t.x, t.y, t.tap) : spriteRect(f, t.sprite, t.x, t.y)
     if (!r || !contains(r, sx, sy)) continue
     if (!best || t.y >= best.y) best = t
   }

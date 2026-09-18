@@ -18,13 +18,15 @@ import { buildPropSprites } from '../../wildlands/engine/props'
 import { Renderer, type RouteMarker, type Scene } from '../../wildlands/engine/renderer'
 import { TILE } from '../../wildlands/engine/world'
 import { DEFAULT_PLAYER_CHARACTER_ID, playerCharacter } from '../../wildlands/identity/playerCharacters'
-import { moveEntity, previewTiles, brushTiles } from '../domain/editOps'
+import { brushTiles, moveEntity, previewAdd, previewSolidTiles, previewTiles } from '../domain/editOps'
+import { treeCollisionTiles, treeFeet, treeTapBounds } from '../../worldAssets/trees/cityTrees'
+import type { Pick } from '../../wildlands/engine/renderer'
 import { anchorOf, type EntityRef } from '../domain/labCity'
 import type { CityLab } from '../state/useCityLab'
 import { drawScreenOverlay, LabGroundOverlay, markerThings, type OverlayInputs } from '../world/labOverlay'
 import { pickEntity } from '../world/labPicking'
 import { LabPlay } from '../world/labPlay'
-import { EDIT_LENSES, frameGeometry, tileAt, worldAt, type FrameGeometry } from '../world/labProjection'
+import { contains, EDIT_LENSES, frameGeometry, tileAt, uprightRect, worldAt, type FrameGeometry } from '../world/labProjection'
 import { drawnThings, type DrawnThing } from '../world/labThings'
 
 const props = defineProps<{ lab: CityLab }>()
@@ -55,7 +57,7 @@ let playGrid = false
 let camX = lab.city.value.spawn.tx * TILE + TILE / 2
 let camY = lab.city.value.spawn.ty * TILE + TILE / 2
 const held = new Set<string>()
-const ghost = shallowRef<{ tiles: readonly Tile[]; valid: boolean } | null>(null)
+const ghost = shallowRef<{ tiles: readonly Tile[]; solid?: readonly Tile[]; valid: boolean } | null>(null)
 const stroke = shallowRef<Tile[] | null>(null)
 type Drag =
   | { kind: 'entity'; ref: EntityRef; startX: number; startY: number; offset: Tile; moved: boolean; target: Tile | null }
@@ -188,6 +190,39 @@ function drawOverlay(): void {
 
 // ── EDIT input ─────────────────────────────────────────────────────────────
 
+/** In the Agregar tool, what would be placed under the cursor: visual cell, trunk and validity, before clicking. */
+function previewPlacement(): void {
+  const at = lab.hover.value
+  const kind = lab.palette.value
+  if (lab.mode.value !== 'edit' || lab.tool.value !== 'add' || !at || kind === 'wanderer' || drag) {
+    if (!drag) ghost.value = null
+    return
+  }
+  const p = previewAdd(lab.base, lab.city.value, kind, at)
+  ghost.value = { tiles: p.tiles, solid: p.solid, valid: p.valid }
+}
+watch([lab.tool, lab.palette, lab.city], previewPlacement)
+
+/**
+ * PLAY taps: an actor still wins (renderer.pick), then a placed city tree's
+ * tap hitbox — so touching a crown walks to the tree instead of the tile
+ * behind it — then the ground.
+ */
+function playPick(cssX: number, cssY: number): Pick {
+  const pick = renderer!.pick(cssX, cssY)
+  const f = geometry
+  const p = play.value
+  if (pick.actor || !f || !p) return pick
+  let best: { y: number; tile: Tile } | null = null
+  for (const t of p.area.trees) {
+    const feet = treeFeet(t.tx, t.ty)
+    const r = uprightRect(f, feet.x, feet.y, treeTapBounds(t.kind))
+    if (!r || !contains(r, cssX * f.dpr, cssY * f.dpr)) continue
+    if (!best || feet.y >= best.y) best = { y: feet.y, tile: treeCollisionTiles(t.kind, t.tx, t.ty)[0] }
+  }
+  return best ? { tile: best.tile, actor: null } : pick
+}
+
 function local(e: PointerEvent | WheelEvent): { x: number; y: number } {
   const rect = canvas.value!.getBoundingClientRect()
   return { x: e.clientX - rect.left, y: e.clientY - rect.top }
@@ -198,7 +233,7 @@ function onPointerDown(e: PointerEvent): void {
   const at = local(e)
   canvas.value?.setPointerCapture(e.pointerId)
   if (lab.mode.value === 'play') {
-    if (renderer && play.value) play.value.tap(renderer.pick(at.x, at.y))
+    if (renderer && play.value) play.value.tap(playPick(at.x, at.y))
     return
   }
   const tile = tileAt(geometry, at.x, at.y)
@@ -233,7 +268,10 @@ function onPointerMove(e: PointerEvent): void {
   const at = local(e)
   const tile = tileAt(geometry, at.x, at.y)
   const inside = tile && lab.grid.value.inBounds(tile.tx, tile.ty) ? tile : null
-  if (lab.hover.value?.tx !== inside?.tx || lab.hover.value?.ty !== inside?.ty) lab.hover.value = inside
+  if (lab.hover.value?.tx !== inside?.tx || lab.hover.value?.ty !== inside?.ty) {
+    lab.hover.value = inside
+    previewPlacement()
+  }
   if (!drag) return
   if (drag.kind === 'pan') {
     const now = worldAt(geometry, at.x, at.y)
@@ -253,7 +291,7 @@ function onPointerMove(e: PointerEvent): void {
     if (drag.target?.tx === target.tx && drag.target?.ty === target.ty) return
     drag.target = target
     const check = moveEntity(lab.base, lab.city.value, drag.ref, target)
-    ghost.value = { tiles: previewTiles(lab.city.value, drag.ref, target), valid: check.ok }
+    ghost.value = { tiles: previewTiles(lab.city.value, drag.ref, target), solid: previewSolidTiles(lab.city.value, drag.ref, target), valid: check.ok }
     if (!check.ok) lab.say(`✖ ${check.errors.join(' ')}`, 'error')
     else lab.say(`Soltá para mover a (${target.tx}, ${target.ty})${check.warnings.length ? ` — ⚠ ${check.warnings.join(' ')}` : ''}`, check.warnings.length ? 'warn' : 'info')
   }

@@ -18,7 +18,7 @@ import type { Arrival } from '../../wildlands/engine/area'
 import type { Dir } from '../../wildlands/engine/characters'
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import {
-  isStreetProp, TERRAIN_KINDS, type LabCity, type LabFountain, type LabGate, type LabProp, type LabResident, type LabWanderer, type TerrainKind,
+  isStreetProp, isTreeProp, TERRAIN_KINDS, type LabCity, type LabFountain, type LabGate, type LabProp, type LabResident, type LabWanderer, type TerrainKind,
 } from './labCity'
 
 export const PATCH_FORMAT = 'wildlands-city-patch'
@@ -48,6 +48,12 @@ export interface CityPatch {
   gates: { added: LabGate[]; removed: LabGate[]; moved: Moved<{ tiles: Tile[]; arrival: Arrival }>[] }
   residents: { added: LabResident[]; removed: LabResident[]; moved: Moved<{ tx: number; ty: number; dir: Dir }>[] }
   wanderers: { added: LabWanderer[]; removed: LabWanderer[]; moved: Moved<XY>[] }
+  /**
+   * True when the copy uses something production `TownDef` cannot hold yet
+   * (world props, city trees). The patch still describes it; applying it needs
+   * schema support first, which the main station decides.
+   */
+  requiresProductionSchemaSupport: boolean
   /** Things the production town cannot express yet; the main station decides. */
   notes: string[]
 }
@@ -57,11 +63,13 @@ const xy = (t: Tile): XY => ({ tx: t.tx, ty: t.ty })
 const arrival = (a: Arrival): Arrival => ({ tx: a.tx, ty: a.ty, dir: a.dir })
 const tiles = (list: readonly Tile[]): Tile[] => list.map(xy)
 
+/** A tree references its canonical asset by id (`kind`) and says what cell it covers; never pixels. */
 function canonicalProp(p: LabProp): LabProp {
   return {
     id: p.id, kind: p.kind, tx: p.tx, ty: p.ty,
     ...(p.text !== undefined ? { text: p.text } : {}),
     ...(p.board ? { board: true } : {}),
+    ...(isTreeProp(p.kind) ? { footprint: { w: 2, d: 2 } } : {}),
   }
 }
 
@@ -155,10 +163,14 @@ export function diffCities(base: LabCity, work: LabCity, cityId: string): CityPa
 
   const residents = diffList(base.residents, work.residents, r => ({ tx: r.tx, ty: r.ty, dir: r.dir }))
   const wanderers = diffList(base.wanderers, work.wanderers, xy)
-  const decorAdded = props.added.filter(p => !isStreetProp(p.kind))
+  const decorAdded = props.added.filter(p => !isStreetProp(p.kind) && !isTreeProp(p.kind))
+  const treesAdded = props.added.filter(p => isTreeProp(p.kind))
   const notes: string[] = []
   if (decorAdded.length) {
     notes.push(`${decorAdded.length} objeto(s) del mundo procedural (${[...new Set(decorAdded.map(p => p.kind))].sort().join(', ')}): TownDef todavía no tiene slot para ellos; aplicarlos requiere soporte en el motor.`)
+  }
+  if (treesAdded.length) {
+    notes.push(`${treesAdded.length} árbol(es) de ciudad colocados (${[...new Set(treesAdded.map(p => p.kind))].sort().join(', ')}; worldAssets/trees/cityTrees.ts): celda 2×2 desde (tx, ty), tronco en la fila inferior. TownDef no los representa todavía.`)
   }
   if (residents.added.length) notes.push('Residentes duplicados conservan las líneas del original.')
 
@@ -175,6 +187,7 @@ export function diffCities(base: LabCity, work: LabCity, cityId: string): CityPa
     gates: canonicalDiff(diffList(base.gates, work.gates, gatePlace), canonicalGate),
     residents: { added: residents.added.map(canonicalResident), removed: residents.removed.map(canonicalResident), moved: residents.moved },
     wanderers: { added: wanderers.added.map(canonicalWanderer), removed: wanderers.removed.map(canonicalWanderer), moved: wanderers.moved },
+    requiresProductionSchemaSupport: decorAdded.length + treesAdded.length > 0,
     notes,
   }
 }

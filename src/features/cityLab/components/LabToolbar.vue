@@ -5,7 +5,7 @@ import type { EditLens } from '../world/labProjection'
 import type { CityLab, LabTool } from '../state/useCityLab'
 
 const props = defineProps<{ lab: CityLab }>()
-const emit = defineEmits<{ export: []; import: []; reset: [] }>()
+const emit = defineEmits<{ export: []; import: []; reset: []; compare: [] }>()
 const lab = props.lab
 
 const TOOLS: { id: LabTool; label: string; hint: string }[] = [
@@ -45,6 +45,7 @@ const TIMES: { value: number; label: string }[] = [
       <button type="button" @click="emit('export')">EXPORT PATCH</button>
       <button type="button" @click="emit('import')">IMPORT PATCH</button>
       <button type="button" class="danger" @click="emit('reset')">RESET TO BASELINE</button>
+      <button type="button" @click="emit('compare')">🌳 Comparar árboles</button>
     </div>
 
     <div class="bar-group bar-view">

@@ -12,12 +12,14 @@ import LabPalette from './LabPalette.vue'
 import LabPatchDialog from './LabPatchDialog.vue'
 import LabStage from './LabStage.vue'
 import LabToolbar from './LabToolbar.vue'
+import TreeCompare from './TreeCompare.vue'
 
 const lab = useCityLab()
 // DEV probe for console QA, like the dungeon lab's `window.__dungeon`: /dev/city-lab only exists in development.
 if (import.meta.env.DEV) (window as unknown as Record<string, unknown>).__cityLab = lab
 const stage = ref<InstanceType<typeof LabStage> | null>(null)
 const dialog = ref<'export' | 'import' | null>(null)
+const comparing = ref(false)
 
 function focus(tx: number, ty: number): void {
   stage.value?.focus({ tx, ty })
@@ -33,7 +35,7 @@ onUnmounted(() => lab.dispose())
 
 <template>
   <div class="lab">
-    <LabToolbar :lab="lab" @export="dialog = 'export'" @import="dialog = 'import'" @reset="reset" />
+    <LabToolbar :lab="lab" @export="dialog = 'export'" @import="dialog = 'import'" @reset="reset" @compare="comparing = true" />
 
     <div v-if="lab.pendingDraft.value" class="draft">
       Hay un <strong>LOCAL DRAFT</strong> de este navegador ({{ new Date(lab.pendingDraft.value.savedAt).toLocaleString() }}).
@@ -60,6 +62,7 @@ onUnmounted(() => lab.dispose())
     </footer>
 
     <LabPatchDialog v-if="dialog" :lab="lab" :kind="dialog" @close="dialog = null" />
+    <TreeCompare v-if="comparing" :clock="lab.clock.value" @close="comparing = false" />
   </div>
 </template>
 

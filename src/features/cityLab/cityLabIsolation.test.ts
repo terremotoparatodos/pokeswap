@@ -55,10 +55,18 @@ describe('isolation', () => {
       for (const spec of imports) {
         expect(spec, `${path} → ${spec}`).not.toMatch(/battle|pokemonModel|authority|multiplayer|lobby\/api|shared\/api|professions|dungeon/i)
         if (spec.includes('/wildlands/')) {
-          // Read-only consumer of the engine, the town definition, the player roster and the feature names.
-          expect(spec, `${path} → ${spec}`).toMatch(/\/wildlands\/(engine\/|areas\/(atlas|townArea)$|identity\/playerCharacters$|lobby\/features$)/)
+          // Read-only consumer of the engine, the town definition, the player roster and the feature names;
+          // the tree comparison also builds a real procedural world (wildArea) to draw on, without changing it.
+          expect(spec, `${path} → ${spec}`).toMatch(/\/wildlands\/(engine\/|areas\/(atlas|townArea|wildArea)$|identity\/playerCharacters$|lobby\/features$)/)
         }
       }
+    }
+  })
+
+  it('keeps the city tree assets out of production: only the lab uses them', () => {
+    for (const [path, source] of outside) {
+      if (path.startsWith('../../features/worldAssets/')) continue
+      expect(source, path).not.toMatch(/worldAssets/)
     }
   })
 
