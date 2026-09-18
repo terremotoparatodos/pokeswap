@@ -296,3 +296,61 @@ F-1 entrega **una sola cosa**: que un objeto colocado exista como dato físico c
 | `F1-O5` | Si un objeto colocado puede ser no sólido (marcas de suelo, alfombras) o todos bloquean |
 | `F1-P1` | Umbral de rendimiento para un índice espacial y si se comparte con el node index |
 | `F1-O6` | Qué pasa cuando un objeto aparece sobre un tile donde hay un actor (empujar, rechazar, esperar) |
+
+---
+
+## 11. Lo implementado (F-1, rama `feat/f1-placed-objects`)
+
+`FACT` El diseño de arriba se implementó con las decisiones aprobadas: nombre `PlacedObjects`, registro del lado del mundo, objetos 1×1 con footprint extensible, objetos interactuables que pueden no ser sólidos, y la Mesa de Alquimia migrada conservando su ubicación determinista.
+
+### 11.1 Contrato real adoptado
+
+```ts
+// engine/placedObjects.ts
+interface PlacedObject { id; areaId; anchor; footprint: readonly Tile[]; solid; interactive; kind }
+placedObject(spec)            // arma el footprint desde width/depth (1×1 por defecto)
+besidePlaced(object)          // el anillo ortogonal desde donde se usa
+class PlacedObjects {
+  register / unregister / clearArea / clear / size / inArea
+  at(areaId, tx, ty)          // qué hay en ese tile
+  isSolid(areaId, tx, ty)     // solidez
+  isInteractive(areaId, tx, ty)
+  forTap(areaId, tile, reachRows)  // qué objeto significa un toque sobre su arte
+}
+retargetToPlaced(placed, areaId, pick, reachRows)  // corrección del toque, previa a navegar
+```
+
+### 11.2 Archivos propietarios
+
+| Archivo | Rol |
+|---|---|
+| `engine/placedObjects.ts` | El contrato y el registro. Puro: sin DOM, sin timers, sin callbacks |
+| `engine/game.ts` | Compone `solidAt = área + registro`, alimenta movimiento y navegación, corrige el toque y sincroniza el registro al entrar a un área |
+| `professions/alchemy/useAlchemyController.ts` | Declara la mesa como dato plano (`AlchemyPlacedObject`) |
+| `professions/alchemy/alchemyOverlay.ts` | Suma `stationTile(area)`, un accesor de solo lectura del tile que ya derivaba |
+| `WildlandsView.vue`, `AlchemyFieldLab.vue` | Cablean el puerto `placedObjectsIn`, dev-only como el resto del demo |
+
+`FACT` El motor **pide**, el feature **declara**: `placedObjectsIn(area)` se consulta en cada `enterArea`, después de limpiar lo del área anterior. No hay registro manual ni desregistro disperso, así que no puede quedar un objeto fantasma.
+
+`FACT` **Profesiones no importa el registro.** La mesa se declara estructuralmente (`id`, `areaId`, `anchor`, `kind`), de modo que la regla de aislamiento de R31 queda intacta.
+
+### 11.3 Qué cambió para el jugador
+
+`FACT` La Mesa de Alquimia se ve igual (el snapshot congelado `a62f2ebb8372073d1d669d4217a84f3e` no se movió), está en el mismo tile determinista, y ahora: bloquea el paso, el navegador se detiene a su lado, y un toque sobre su arte la abre en lugar de caminar detrás.
+
+### 11.4 Limitaciones conocidas
+
+- **Solo 1×1 por ahora.** El contrato ya es una lista de tiles y hay tests de 2×2, pero nada coloca todavía un objeto más grande.
+- **Búsqueda lineal**, sin índice espacial: correcto con unidades o decenas de objetos por área (§6).
+- **`forTap` usa 2 filas fijas** de alcance, como los edificios; no mide el sprite real.
+- **El registro vive en memoria del cliente.** No hay persistencia, ownership ni validación de servidor.
+- **La posición sigue derivándose** por anillos desde el spawn del área (`F1-O3` sigue abierto): la mesa es declarada, pero su tile lo sigue calculando el overlay.
+- Los props procedurales **no** se migraron ni se duplicaron: siguen saliendo de la semilla.
+
+### 11.5 Qué queda pendiente
+
+**Para Horno y Construcción:** colocar sus objetos con este mismo contrato (arte primero, `A-8`), decidir footprint multi-tile (`C-7`), y todo lo de `O-10` — progresión, planos, colocación por el jugador, retiro, permisos y mantenimiento. Nada de eso se abrió acá.
+
+**Para servidor y persistencia (R32-0):** que las posiciones sean dato compartible y no "lo que dijo el cliente", que una acción se describa como `(jugador, objetoId, acción, …)`, y las validaciones 1–16 del `CONSTRUCTION_SMELTER_DESIGN_DISCOVERY.md` §7. El registro está preparado para eso —datos planos, sin comportamiento— pero no lo implementa.
+
+**Decisiones abiertas que siguen abiertas:** `F1-O2`, `F1-O3`, `F1-O4`, `F1-O5`, `F1-P1`, `F1-O6`. `F1-N1` quedó resuelta: `PlacedObjects`.
