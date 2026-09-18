@@ -27,6 +27,7 @@ import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
 import type { SceneOverlay } from './sceneOverlay'
 import { PlayerAppearance } from './playerAppearance'
+import { PlacedObjects } from './placedObjects'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
 import type { LobbyFeature } from '../lobby/features'
@@ -104,10 +105,17 @@ export class WildlandsGame {
     interact: () => this.interact(),
   })
   private walker = createWalkerState()
+  /**
+   * Things placed in the world on purpose (F-1). The world derives its own
+   * props from a seed; this is what can be *added* to it, and it answers
+   * solidity, navigation and interaction alongside the area.
+   */
+  readonly placedObjects = new PlacedObjects()
   private readonly nav = new TapNavigator({
-    isSolid: (tx, ty) => this.area.isSolid(tx, ty),
+    isSolid: (tx, ty) => this.solidAt(tx, ty),
     occupied: (tx, ty) => this.populace.actors.some(a => a.tx === tx && a.ty === ty),
-    isInteractive: (tx, ty) => this.isWorldObject?.({ area: this.area, tx, ty }) ?? false,
+    isInteractive: (tx, ty) => this.placedObjects.isInteractive(this.area.id, tx, ty)
+      || (this.isWorldObject?.({ area: this.area, tx, ty }) ?? false),
   })
   private overlay: SceneOverlay | null = null
   private inputLocked = false
@@ -171,10 +179,15 @@ export class WildlandsGame {
     loadNpcTrainerArt(PLAYER_SHEET, this.renderer.npcSprites, () => this.populace.actors)
   }
 
+  /** Terrain, procedural props and anything placed on top of them (F-1). */
+  private solidAt(tx: number, ty: number): boolean {
+    return this.area.isSolid(tx, ty) || this.placedObjects.isSolid(this.area.id, tx, ty)
+  }
+
   private readonly rules: MoveRules = {
     blocked: (actor, tx, ty) => {
       const area = this.area
-      if (area.isSolid(tx, ty)) return true
+      if (this.solidAt(tx, ty)) return true
       // Only the player uses gates and doors; wanderers keep them clear.
       if (actor.kind !== 'player' && (isPortalTile(area, tx, ty) || this.entrances.isDoor(area, tx, ty))) return true
       if (actor.habitat === 'any') return false
@@ -191,6 +204,9 @@ export class WildlandsGame {
   /** Makes `id` the active area and places the player at its arrival point. */
   private enterArea(id: AreaId, from: AreaId | null, spawn: (Tile & { dir?: Dir }) | null): void {
     const area = this.atlas.get(id)
+    // Whatever was placed in the area being left stops existing for the
+    // engine: its owner re-registers it if the player comes back (F-1).
+    if (area.id !== this.area?.id) this.placedObjects.clearArea(this.area?.id ?? '')
     this.area = area
     this.populace = area.createPopulace({ pokedex: this.pokedex, npcSprites: this.renderer.npcSprites })
     this.populace.setOwned?.(this.owned)
