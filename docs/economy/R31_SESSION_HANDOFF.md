@@ -362,7 +362,7 @@ Entorno: `http://localhost:5188/dev/profesiones`, un laboratorio por profesión.
 5. `docs/economy/R31Z_OVERLAY_TRACE.md`: qué captura el baseline.
 5b. `docs/economy/PRE_R32_HUMAN_GATE.md` y `docs/economy/PRE_R32_DESIGN_DECISIONS.md`: hallazgos del gate y decisiones de producto (APPROVED / OPEN).
 5c. **`docs/wildlands/R32_INTEGRATION_AUDIT.md`: qué es R32, en qué orden y con qué gates.** Después, `DUNGEON_PROTOTYPE_INTEGRATION.md`, `DUNGEON_D1_QA.md`, `F1_OBSTACLE_PROVIDER_DESIGN.md`, `BATTLE_DATA_GAP_REPORT.md` y `docs/economy/STATION_VISUAL_LANGUAGE.md` (esta última solo en la rama `art/station-visual-language`).
-5d. R32 en curso: `docs/wildlands/BATTLE_CATALOG.md` (R32.1, HUMAN APPROVED) y `docs/wildlands/POKEMON_SPECIES_INSTANCE_MODEL.md` (R32.2, entregada y pendiente de gate; su §10 propone la migración legacy, que **no se aplica sin aprobación**).
+5d. R32 en curso: `docs/wildlands/BATTLE_CATALOG.md` (R32.1, HUMAN APPROVED), `docs/wildlands/POKEMON_SPECIES_INSTANCE_MODEL.md` (R32.2 + R32.2.1: modelo, corte Identidad/Condition/Runtime y **Legacy Migration Contract** §10, que **no se ejecuta sin aprobación**) y `docs/wildlands/LEGACY_MOVE_AUDIT.md` (generado).
 6. `docs/economy/R31_INTEGRATION_AUDIT.md`: auditoría profunda, trust boundary, propuestas de persistencia y multiplayer.
 7. `docs/wildlands/R30_PRODUCTION_HANDOFF.md`: multiplayer en producción.
 8. Según la tarea:

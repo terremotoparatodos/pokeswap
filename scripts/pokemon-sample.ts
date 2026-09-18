@@ -16,6 +16,8 @@ import { validateInstance } from '../src/features/pokemon/model/instance'
 import type { PokemonInstance } from '../src/features/pokemon/model/instance'
 import { deriveStats, statsFromTuple, totalEvs } from '../src/features/pokemon/model/stats'
 import { projectLegacyPokemon } from '../src/features/pokemon/model/legacy'
+import { isFainted } from '../src/features/pokemon/model/condition'
+import { DEFAULT_MIGRATION, migrateLegacyPokemon } from '../src/features/pokemon/model/migration'
 
 const SEED = Number(readFlag('--seed') ?? 20260318)
 
@@ -69,6 +71,25 @@ async function main(): Promise<void> {
   )
   show('Gengar (dungeon capture, pending)', { ...capture, instanceId: 'sample-capture' })
 
+  // The legacy migration contract, applied in memory to one invented row.
+  const legacyRow = {
+    user_id: 'legacy-trainer',
+    pokemon_id: 25,
+    xp: 41000,
+    level: 34,
+    moves: { 1: 'thunder-shock', 2: 'quick-attack' },
+  }
+  const migrated = migrateLegacyPokemon(legacyRow, catalog, {
+    at,
+    catalogVersion: index.catalogVersion,
+  })
+  show('Pikachu (backfill legacy determinista)', { ...migrated.draft, instanceId: 'sample-legacy' })
+  console.log(`  migration v${DEFAULT_MIGRATION.version} salt "${DEFAULT_MIGRATION.salt}"`)
+  console.log(`  preservado: ${migrated.report.preserved.join(', ')}`)
+  console.log(`  derivado por hash: ${migrated.report.derived.join(', ')}`)
+  if (migrated.report.needsMoveBackfill) console.log('  necesita backfill de movimientos (no se aplica)')
+  console.log('')
+
   // And what the same model can say about a Pokémon that exists in production.
   const legacy = projectLegacyPokemon(
     { user_id: 'legacy-trainer', pokemon_id: 25, xp: 41000, level: 34, moves: { 1: 'thunder-shock', 2: 'quick-attack' } },
@@ -103,8 +124,12 @@ async function main(): Promise<void> {
     console.log(`  stats  ${[stats.hp, stats.atk, stats.def, stats.spa, stats.spd, stats.spe].map(value => pad(value, 4)).join(' ')}`)
     for (const slot of instance.moves) {
       const move = index.move(slot.moveId)!
-      console.log(`  · ${move.name.padEnd(16)} ${move.type.padEnd(9)} ${move.category.padEnd(9)} ${pad(move.power ?? '—', 3)} pow  ${slot.currentPP}/${slot.currentPP} PP${move.supported ? '' : `  (R32.3: ${move.unsupportedReason})`}`)
+      const max = move.pp + Math.floor((move.pp * slot.ppUps) / 5)
+      const left = instance.condition.pp[slot.moveId] ?? max
+      console.log(`  · ${move.name.padEnd(16)} ${move.type.padEnd(9)} ${move.category.padEnd(9)} ${pad(move.power ?? '—', 3)} pow  ${left}/${max} PP${move.supported ? '' : `  (R32.3: ${move.unsupportedReason})`}`)
     }
+    const { currentHp, majorStatus } = instance.condition
+    console.log(`  condición: ${currentHp === null ? 'sin daño' : `${currentHp} HP`} · ${majorStatus}${isFainted(instance.condition) ? ' · DEBILITADO' : ''}`)
     console.log(`  owner ${instance.ownership.ownerId ?? '(nobody yet)'} · from ${instance.acquisition.source}${instance.acquisition.ref ? ` ${instance.acquisition.ref}` : ''}`)
     console.log(`  validation: ${issues.length === 0 ? 'OK' : issues.join('; ')}`)
     console.log('')
