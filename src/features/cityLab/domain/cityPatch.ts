@@ -22,7 +22,9 @@ import {
 } from './labCity'
 
 export const PATCH_FORMAT = 'wildlands-city-patch'
-export const PATCH_VERSION = 1
+export const PATCH_VERSION = 2
+/** v1 had no added/removed lists for buildings, fountains and gates; it still imports. */
+const OLDEST_VERSION = 1
 
 interface Moved<T> { id: string; from: T; to: T }
 type XY = { tx: number; ty: number }
@@ -41,9 +43,9 @@ export interface CityPatch {
   }
   terrain: { tx: number; ty: number; from: TerrainKind; to: TerrainKind }[]
   spawn: { from: Arrival; to: Arrival } | null
-  buildings: { moved: Moved<{ x: number; y: number; door?: Tile; open?: Tile[] }>[] }
-  fountains: { moved: Moved<{ x0: number; y0: number; x1: number; y1: number }>[] }
-  gates: { moved: Moved<{ tiles: Tile[]; arrival: Arrival }>[] }
+  buildings: { added: TownBuilding[]; removed: TownBuilding[]; moved: Moved<{ x: number; y: number; door?: Tile; open?: Tile[] }>[] }
+  fountains: { added: LabFountain[]; removed: LabFountain[]; moved: Moved<{ x0: number; y0: number; x1: number; y1: number }>[] }
+  gates: { added: LabGate[]; removed: LabGate[]; moved: Moved<{ tiles: Tile[]; arrival: Arrival }>[] }
   residents: { added: LabResident[]; removed: LabResident[]; moved: Moved<{ tx: number; ty: number; dir: Dir }>[] }
   wanderers: { added: LabWanderer[]; removed: LabWanderer[]; moved: Moved<XY>[] }
   /** Things the production town cannot express yet; the main station decides. */
@@ -68,6 +70,24 @@ const canonicalWanderer = (w: LabWanderer): LabWanderer => ({ id: w.id, tx: w.tx
 
 function buildingPlace(b: TownBuilding) {
   return { x: b.x, y: b.y, ...(b.door ? { door: xy(b.door) } : {}), ...(b.open ? { open: tiles(b.open) } : {}) }
+}
+
+/** Full record in a fixed key order (added/removed entries must be reviewable on their own). */
+function canonicalBuilding(b: TownBuilding): TownBuilding {
+  return {
+    id: b.id, name: b.name, style: b.style, x: b.x, y: b.y, w: b.w, d: b.d,
+    ...(b.door ? { door: xy(b.door) } : {}),
+    ...(b.open ? { open: tiles(b.open) } : {}),
+    ...(b.feature ? { feature: b.feature } : {}),
+    ...(b.blurb !== undefined ? { blurb: b.blurb } : {}),
+    ...(b.image ? { image: { src: b.image.src, ...(b.image.flatTop !== undefined ? { flatTop: b.image.flatTop } : {}) } } : {}),
+  }
+}
+
+const canonicalFountain = (f: LabFountain): LabFountain => ({ id: f.id, x0: f.x0, y0: f.y0, x1: f.x1, y1: f.y1 })
+
+function canonicalGate(g: LabGate): LabGate {
+  return { id: g.id, to: g.to, label: g.label, tiles: tiles(g.tiles), arrival: arrival(g.arrival), ...(g.pad !== undefined ? { pad: g.pad } : {}) }
 }
 
 const fountainPlace = (f: LabFountain) => ({ x0: f.x0, y0: f.y0, x1: f.x1, y1: f.y1 })
@@ -105,6 +125,10 @@ function diffList<T extends { id: string }, P>(base: readonly T[], work: readonl
     if (old && !same(place(old), place(x))) moved.push({ id: x.id, from: place(old), to: place(x) })
   }
   return { added, removed, moved }
+}
+
+function canonicalDiff<T extends { id: string }, P>(d: { added: T[]; removed: T[]; moved: Moved<P>[] }, canon: (x: T) => T) {
+  return { added: d.added.map(canon), removed: d.removed.map(canon), moved: d.moved }
 }
 
 /** The working copy as a difference from the baseline. */
@@ -146,9 +170,9 @@ export function diffCities(base: LabCity, work: LabCity, cityId: string): CityPa
     props: { added: props.added.map(canonicalProp), removed: props.removed.map(canonicalProp), moved: props.moved, modified },
     terrain,
     spawn: same(arrival(base.spawn), arrival(work.spawn)) ? null : { from: arrival(base.spawn), to: arrival(work.spawn) },
-    buildings: { moved: diffList(base.buildings, work.buildings, buildingPlace).moved },
-    fountains: { moved: diffList(base.fountains, work.fountains, fountainPlace).moved },
-    gates: { moved: diffList(base.gates, work.gates, gatePlace).moved },
+    buildings: canonicalDiff(diffList(base.buildings, work.buildings, buildingPlace), canonicalBuilding),
+    fountains: canonicalDiff(diffList(base.fountains, work.fountains, fountainPlace), canonicalFountain),
+    gates: canonicalDiff(diffList(base.gates, work.gates, gatePlace), canonicalGate),
     residents: { added: residents.added.map(canonicalResident), removed: residents.removed.map(canonicalResident), moved: residents.moved },
     wanderers: { added: wanderers.added.map(canonicalWanderer), removed: wanderers.removed.map(canonicalWanderer), moved: wanderers.moved },
     notes,
@@ -161,7 +185,10 @@ export function serializePatch(patch: CityPatch): string {
 
 export function patchIsEmpty(p: CityPatch): boolean {
   return !p.props.added.length && !p.props.removed.length && !p.props.moved.length && !p.props.modified.length
-    && !p.terrain.length && !p.spawn && !p.buildings.moved.length && !p.fountains.moved.length && !p.gates.moved.length
+    && !p.terrain.length && !p.spawn
+    && !p.buildings.added.length && !p.buildings.removed.length && !p.buildings.moved.length
+    && !p.fountains.added.length && !p.fountains.removed.length && !p.fountains.moved.length
+    && !p.gates.added.length && !p.gates.removed.length && !p.gates.moved.length
     && !p.residents.added.length && !p.residents.removed.length && !p.residents.moved.length
     && !p.wanderers.added.length && !p.wanderers.removed.length && !p.wanderers.moved.length
 }
@@ -170,7 +197,9 @@ export function patchSummary(p: CityPatch): string {
   const parts: [string, number][] = [
     ['props +', p.props.added.length], ['props −', p.props.removed.length], ['props movidos', p.props.moved.length],
     ['props editados', p.props.modified.length], ['tiles de terreno', p.terrain.length], ['spawn', p.spawn ? 1 : 0],
-    ['edificios', p.buildings.moved.length], ['fuentes', p.fountains.moved.length], ['portales', p.gates.moved.length],
+    ['edificios +', p.buildings.added.length], ['edificios −', p.buildings.removed.length], ['edificios movidos', p.buildings.moved.length],
+    ['fuentes', p.fountains.added.length + p.fountains.removed.length + p.fountains.moved.length],
+    ['portales +', p.gates.added.length], ['portales −', p.gates.removed.length], ['portales movidos', p.gates.moved.length],
     ['residentes', p.residents.added.length + p.residents.removed.length + p.residents.moved.length],
     ['wanderers', p.wanderers.added.length + p.wanderers.removed.length + p.wanderers.moved.length],
   ]
@@ -190,7 +219,7 @@ export type ApplyResult =
 export function applyPatch(base: LabCity, input: unknown): ApplyResult {
   const errors = checkShape(input)
   if (errors.length) return { ok: false, errors }
-  const p = input as CityPatch
+  const p = upgrade(input as CityPatch)
   const conflicts: string[] = []
   if (p.baseline !== fingerprint(base)) conflicts.push(`El patch se hizo sobre otra baseline (${p.baseline} ≠ ${fingerprint(base)}).`)
   const note = (what: string, from: unknown, now: unknown) => {
@@ -239,24 +268,27 @@ export function applyPatch(base: LabCity, input: unknown): ApplyResult {
     for (const m of moves) { const x = need(list, m.id, what); if (x) note(m.id, m.from, current(x)) }
     return list.map(x => (byKey.has(x.id) ? apply(x, byKey.get(x.id)!.to) : x))
   }
-  const buildings = place(base.buildings, p.buildings.moved, 'Edificio', buildingPlace, (b, to) => {
+  // Collections: removed, then moved, then added (with their full records).
+  const collection = <T extends { id: string }, P>(
+    list: readonly T[], diff: { added: T[]; removed: T[]; moved: Moved<P>[] }, what: string,
+    current: (x: T) => P, move: (x: T, to: P) => T, canon: (x: T) => T,
+  ): T[] => {
+    const gone = new Set(diff.removed.map(x => x.id))
+    for (const id of gone) need(list, id, what)
+    const kept = place(list.filter(x => !gone.has(x.id)), diff.moved, what, current, move)
+    for (const a of diff.added) if (list.some(x => x.id === a.id)) missing.push(`${what} agregado "${a.id}" choca con un id de la baseline.`)
+    return [...kept, ...diff.added.map(canon)]
+  }
+  const buildings = collection(base.buildings, p.buildings, 'Edificio', buildingPlace, (b, to) => {
     const moved: TownBuilding = { ...b, x: to.x, y: to.y, door: to.door ? xy(to.door) : undefined, open: to.open ? tiles(to.open) : undefined }
     if (!moved.door) delete moved.door
     if (!moved.open) delete moved.open
     return moved
-  })
-  const fountains = place(base.fountains, p.fountains.moved, 'Fuente', fountainPlace, (f, to) => ({ ...f, ...to }))
-  const gates = place(base.gates, p.gates.moved, 'Portal', gatePlace, (g, to) => ({ ...g, tiles: tiles(to.tiles), arrival: arrival(to.arrival) }))
-
-  const people = <T extends { id: string }, P>(list: readonly T[], diff: { added: T[]; removed: T[]; moved: Moved<P>[] }, what: string, current: (x: T) => P, canon: (x: T) => T): T[] => {
-    const gone = new Set(diff.removed.map(x => x.id))
-    for (const id of gone) need(list, id, what)
-    const kept = place(list.filter(x => !gone.has(x.id)), diff.moved, what, current, (x, to) => ({ ...x, ...to }))
-    for (const a of diff.added) if (list.some(x => x.id === a.id)) missing.push(`${what} agregado "${a.id}" choca con un id de la baseline.`)
-    return [...kept, ...diff.added.map(canon)]
-  }
-  const residents = people(base.residents, p.residents, 'Residente', r => ({ tx: r.tx, ty: r.ty, dir: r.dir }), canonicalResident)
-  const wanderers = people(base.wanderers, p.wanderers, 'Wanderer', xy, canonicalWanderer)
+  }, canonicalBuilding)
+  const fountains = collection(base.fountains, p.fountains, 'Fuente', fountainPlace, (f, to) => ({ ...f, ...to }), canonicalFountain)
+  const gates = collection(base.gates, p.gates, 'Portal', gatePlace, (g, to) => ({ ...g, tiles: tiles(to.tiles), arrival: arrival(to.arrival) }), canonicalGate)
+  const residents = collection(base.residents, p.residents, 'Residente', r => ({ tx: r.tx, ty: r.ty, dir: r.dir }), (x, to) => ({ ...x, ...to }), canonicalResident)
+  const wanderers = collection(base.wanderers, p.wanderers, 'Wanderer', xy, (x, to) => ({ ...x, ...to }), canonicalWanderer)
 
   if (p.spawn) note('Spawn', p.spawn.from, arrival(base.spawn))
   if (missing.length) return { ok: false, errors: missing }
@@ -284,15 +316,29 @@ export function parsePatch(text: string): { ok: true; value: unknown } | { ok: f
   }
 }
 
+/** Fills the lists a v1 patch did not have, so the rest of the code sees one shape. */
+function upgrade(p: CityPatch): CityPatch {
+  const fill = <G extends object>(g: G | undefined) => ({ added: [], removed: [], moved: [], ...(g ?? {}) })
+  return { ...p, buildings: fill(p.buildings), fountains: fill(p.fountains), gates: fill(p.gates) }
+}
+
 function checkShape(input: unknown): string[] {
   const p = input as Partial<CityPatch> | null
   if (!p || typeof p !== 'object') return ['El patch no es un objeto JSON.']
   if (p.format !== PATCH_FORMAT) return [`Formato desconocido: se esperaba "${PATCH_FORMAT}".`]
-  if (p.version !== PATCH_VERSION) return [`Versión ${String(p.version)} no soportada (se esperaba ${PATCH_VERSION}).`]
+  if (typeof p.version !== 'number' || p.version < OLDEST_VERSION || p.version > PATCH_VERSION) {
+    return [`Versión ${String(p.version)} no soportada (se esperaba ${OLDEST_VERSION}–${PATCH_VERSION}).`]
+  }
+  const v2 = p.version >= 2
   const errors: string[] = []
   const lists: [unknown, string][] = [
     [p.props?.added, 'props.added'], [p.props?.removed, 'props.removed'], [p.props?.moved, 'props.moved'], [p.props?.modified, 'props.modified'],
     [p.terrain, 'terrain'], [p.buildings?.moved, 'buildings.moved'], [p.fountains?.moved, 'fountains.moved'], [p.gates?.moved, 'gates.moved'],
+    ...(v2 ? [
+      [p.buildings?.added, 'buildings.added'], [p.buildings?.removed, 'buildings.removed'],
+      [p.fountains?.added, 'fountains.added'], [p.fountains?.removed, 'fountains.removed'],
+      [p.gates?.added, 'gates.added'], [p.gates?.removed, 'gates.removed'],
+    ] as [unknown, string][] : []),
     [p.residents?.added, 'residents.added'], [p.residents?.removed, 'residents.removed'], [p.residents?.moved, 'residents.moved'],
     [p.wanderers?.added, 'wanderers.added'], [p.wanderers?.removed, 'wanderers.removed'], [p.wanderers?.moved, 'wanderers.moved'],
   ]

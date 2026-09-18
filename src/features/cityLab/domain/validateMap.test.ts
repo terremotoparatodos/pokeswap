@@ -66,6 +66,33 @@ describe('Validate Map on broken copies', () => {
   })
 })
 
+describe('entrances and exits', () => {
+  it('reports a PokeSwap function left without an entrance', () => {
+    const base = baseline()
+    const city: LabCity = { ...base, buildings: base.buildings.filter(b => b.id !== 'mart') }
+    const f = validateMap(city, HEARTHOME).find(x => x.code === 'ENTRANCE_MISSING')
+    expect(f?.severity).toBe('error')
+    expect(f?.message).toMatch(/Mercado/)
+  })
+
+  it('reports a world left without an exit, and duplicated exits', () => {
+    const base = baseline()
+    expect(codes({ ...base, gates: base.gates.filter(g => g.to !== 'bosque') })).toContain('EXIT_MISSING')
+    const twice = base.gates.find(g => g.to === 'bosque')!
+    expect(codes({ ...base, gates: [...base.gates, { ...twice, id: 'gate-new-1' }] })).toContain('EXIT_DUPLICATED')
+  })
+
+  it('reports duplicated entrances', () => {
+    const base = baseline()
+    const mart = base.buildings.find(b => b.id === 'mart')!
+    expect(codes({ ...base, buildings: [...base.buildings, { ...mart, id: 'building-new-1', x: 40, y: 36, door: { tx: 42, ty: 39 } }] })).toContain('ENTRANCE_DUPLICATED')
+  })
+
+  it('finds every entrance and exit in the baseline', () => {
+    expect(codes(baseline()).filter(c => /^(ENTRANCE|EXIT)_(MISSING|DUPLICATED)/.test(c))).toEqual([])
+  })
+})
+
 describe('multiplayer clearance', () => {
   it('scores corridors by how many fit side by side', () => {
     const grid = new CityGrid(baseline(), HEARTHOME)

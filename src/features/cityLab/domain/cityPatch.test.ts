@@ -61,6 +61,41 @@ describe('export', () => {
   })
 })
 
+describe('buildings, fountains and exits', () => {
+  it('round-trips deleted and duplicated buildings, fountains and exits', () => {
+    const base = baseline()
+    let city = ok(deleteEntity(base, { type: 'building', id: 'house1' }))
+    city = ok(duplicateEntity(HEARTHOME, city, { type: 'building', id: 'mart' }))
+    city = ok(deleteEntity(city, { type: 'gate', id: 'gate-costa' }))
+    city = ok(duplicateEntity(HEARTHOME, city, { type: 'gate', id: 'gate-pradera' }))
+    city = ok(deleteEntity(city, { type: 'fountain', id: 'fountain-2' }))
+    const patch = diffCities(base, city, LOBBY_ID)
+    expect(patch.buildings.removed.map(b => b.id)).toEqual(['house1'])
+    expect(patch.buildings.added.map(b => b.id)).toEqual(['building-new-1'])
+    expect(patch.gates.removed.map(g => g.id)).toEqual(['gate-costa'])
+    expect(patch.gates.added.map(g => g.to)).toEqual(['pradera'])
+    expect(patch.fountains.removed.map(f => f.id)).toEqual(['fountain-2'])
+    const text = serializePatch(patch)
+    const parsed = parsePatch(text)
+    const applied = applyPatch(base, parsed.ok ? parsed.value : null)
+    expect(applied.ok).toBe(true)
+    if (!applied.ok) return
+    sameCity(applied.city, city)
+    expect(serializePatch(diffCities(base, applied.city, LOBBY_ID))).toBe(text)
+  })
+
+  it('still imports a version 1 patch', () => {
+    const base = baseline()
+    const v2 = diffCities(base, proposal(base), LOBBY_ID)
+    const v1 = JSON.parse(serializePatch(v2))
+    v1.version = 1
+    for (const k of ['buildings', 'fountains', 'gates']) { delete v1[k].added; delete v1[k].removed }
+    const applied = applyPatch(base, v1)
+    expect(applied.ok).toBe(true)
+    if (applied.ok) sameCity(applied.city, proposal(base))
+  })
+})
+
 describe('import', () => {
   it('baseline + patch → the same working copy (round trip through JSON)', () => {
     const base = baseline()

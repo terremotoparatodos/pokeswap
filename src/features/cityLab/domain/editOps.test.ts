@@ -127,12 +127,55 @@ describe('add, delete, duplicate', () => {
     expect(addProp(HEARTHOME, baseline(), 'rock', { tx: 28, ty: 18 }).ok).toBe(false)
   })
 
-  it('deletes props and NPCs, but not buildings or the spawn', () => {
+  it('deletes everything but the spawn', () => {
     const city = ok(deleteEntity(baseline(), lamp))
     expect(city.props.some(p => p.id === lamp.id)).toBe(false)
-    expect(deleteEntity(baseline(), { type: 'building', id: 'gym' }).ok).toBe(false)
     expect(deleteEntity(baseline(), SPAWN_REF).ok).toBe(false)
     expect(ok(deleteEntity(baseline(), { type: 'wanderer', id: 'wanderer-0' })).wanderers).toHaveLength(4)
+    expect(ok(deleteEntity(baseline(), { type: 'fountain', id: 'fountain-0' })).fountains).toHaveLength(2)
+  })
+
+  it('deletes a feature building, warning that its entrance is gone', () => {
+    const result = deleteEntity(baseline(), { type: 'building', id: 'pokecenter' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.city.buildings.some(b => b.id === 'pokecenter')).toBe(false)
+    expect(result.warnings.join()).toMatch(/ENTRADA a "caja"/)
+    // Its footprint is walkable ground now.
+    expect(new CityGrid(result.city, HEARTHOME).solid(17, 16)).toBe(false)
+  })
+
+  it('deletes a gate building, warning that its portal is left without art', () => {
+    const result = deleteEntity(baseline(), { type: 'building', id: 'amityL' })
+    expect(result.ok && result.warnings.join()).toMatch(/Tundra/)
+  })
+
+  it('deletes an exit (from the portal or from its arrival), warning about the world', () => {
+    for (const type of ['gate', 'arrival'] as const) {
+      const result = deleteEntity(baseline(), { type, id: 'gate-costa' })
+      expect(result.ok).toBe(true)
+      if (!result.ok) continue
+      expect(result.city.gates.some(g => g.id === 'gate-costa')).toBe(false)
+      expect(result.warnings.join()).toMatch(/SALIDA/)
+    }
+  })
+
+  it('duplicates a building with its door, warning about the second entrance', () => {
+    const result = duplicateEntity(HEARTHOME, baseline(), { type: 'building', id: 'mart' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    const copy = result.city.buildings.find(b => b.id === 'building-new-1')!
+    const mart = result.city.buildings.find(b => b.id === 'mart')!
+    expect(copy.feature).toBe('mercado')
+    expect(copy.door).toEqual({ tx: mart.door!.tx + copy.x - mart.x, ty: mart.door!.ty + copy.y - mart.y })
+    expect(result.warnings.join()).toMatch(/dos puertas/)
+  })
+
+  it('duplicates an exit and a fountain', () => {
+    const gate = duplicateEntity(HEARTHOME, baseline(), { type: 'gate', id: 'gate-pradera' })
+    expect(gate.ok && gate.city.gates.find(g => g.id === 'gate-new-1')?.to).toBe('pradera')
+    const fountain = duplicateEntity(HEARTHOME, baseline(), { type: 'fountain', id: 'fountain-1' })
+    expect(fountain.ok && fountain.city.fountains).toHaveLength(4)
   })
 
   it('duplicates onto the nearest valid tile with a fresh id', () => {

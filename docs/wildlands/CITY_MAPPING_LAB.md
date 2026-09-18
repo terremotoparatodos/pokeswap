@@ -52,12 +52,12 @@ human review.
 - buildings: their `id`; fountains `fountain-i`; gates `gate-<to>`;
   residents `resident-i`, wanderers `wanderer-i`; new ones `…-new-N`.
 
-## Patch (`wildlands-city-patch` v1)
+## Patch (`wildlands-city-patch` v2, imports v1)
 
 Deterministic JSON (lists sorted, fixed key order). It includes
 `baseline` (FNV-1a fingerprint of the baseline) and only the differences:
 `props.added/removed/moved/modified`, `terrain[] {tx,ty,from,to}`, `spawn`,
-`buildings.moved`, `fountains.moved`, `gates.moved`, `residents.*`,
+`buildings|fountains|gates.added/removed/moved`, `residents.*`,
 `wanderers.*`, `notes`. Moves carry `from`: if the baseline changed,
 import reports conflicts instead of overwriting silently.
 **It never applies itself to production.**
@@ -73,6 +73,14 @@ requires engine support (main station's decision).
   (Recuperar/Descartar). It's not persistence and nobody else reads it.
 - EXPORT PATCH: copy or download `.json`. It's the only output.
 
+## Entradas y salidas
+
+The "Entradas y salidas" layer (on by default, in EDIT and PLAY) marks on the map:
+- **ENTRADA · <function>** (orange): the door tile of each building that opens a
+  PokeSwap panel, plus the tile where the player comes out.
+- **SALIDA → <world>** (blue): the portal tiles, a dashed line and the
+  **llegada ← <world>** point where you appear when coming back.
+
 ## Shortcuts (EDIT)
 
 Click: select · drag: move with snap and live validation (green/red ghost) ·
@@ -83,8 +91,10 @@ PLAY: arrows/WASD, Shift runs, E talks, click walks, V lens, N time, Esc returns
 
 ## Known limits
 
-- Buildings, gates, fountains and the spawn are moved, not deleted or duplicated.
-  No new buildings are added (each one is a feature with its own art).
+- Everything can be deleted and duplicated (buildings, exits, fountains, props, NPCs),
+  except the PLAYER SPAWN, which is only moved. What breaks gets a warning when you do it,
+  and Validate Map reports it: a function without an ENTRADA, a world without a SALIDA, duplicated entrances or exits,
+  a portal with no building.
 - The engine's `cenital` lens (distance 4200) draws no ground: it sits past
   the renderer's `MAX_DEPTH` (1500). The lab uses its own "Planta" lens (distance 1300).
   The production bug is recorded. It isn't fixed here.

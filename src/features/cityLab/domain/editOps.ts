@@ -82,9 +82,11 @@ export function moveEntity(base: TownDef, city: LabCity, ref: EntityRef, to: Til
   return settle(base, next, ref)
 }
 
-/** The lowest `new-N` id not yet used, so ids stay short and deterministic. */
+/** The lowest `<prefix>-N` id not used by any entity, so ids stay short and deterministic. */
 export function nextNewId(city: LabCity, prefix = 'new'): string {
-  const used = new Set([...city.props, ...city.wanderers, ...city.residents].map(x => x.id))
+  const used = new Set<string>([
+    ...city.props, ...city.wanderers, ...city.residents, ...city.buildings, ...city.fountains, ...city.gates,
+  ].map(x => x.id))
   let n = 1
   while (used.has(`${prefix}-${n}`)) n++
   return `${prefix}-${n}`
@@ -101,50 +103,118 @@ export function addWanderer(base: TownDef, city: LabCity, at: Tile): EditResult 
   return settle(base, { ...city, wanderers: [...city.wanderers, { id, tx: at.tx, ty: at.ty }] }, { type: 'wanderer', id })
 }
 
+/** Everything but the spawn: a town always has exactly one. */
 export function canDelete(ref: EntityRef): boolean {
-  return ref.type === 'prop' || ref.type === 'resident' || ref.type === 'wanderer'
+  return ref.type !== 'spawn'
+}
+
+const inside = (t: Tile, b: { x: number; y: number; w: number; d: number }, margin = 0) =>
+  t.tx >= b.x - margin && t.tx < b.x + b.w + margin && t.ty >= b.y - margin && t.ty < b.y + b.d + margin
+
+/** What stops working in the game when `ref` disappears (the edit still goes through). */
+export function deletionWarnings(city: LabCity, ref: EntityRef): string[] {
+  const out: string[] = []
+  if (ref.type === 'building') {
+    const b = city.buildings.find(x => x.id === ref.id)
+    if (!b) return out
+    if (b.feature) out.push(`${b.name} era la ENTRADA a "${b.feature}": esa función queda sin puerta en la ciudad.`)
+    for (const g of city.gates) {
+      if (g.tiles.some(t => inside(t, b, 1))) out.push(`El portal "${g.label}" queda sin edificio: sigue funcionando, pero sin arte que lo marque.`)
+    }
+  }
+  if (ref.type === 'gate' || ref.type === 'arrival') {
+    const g = city.gates.find(x => x.id === ref.id)
+    if (g) out.push(`Se borra la SALIDA "${g.label}" y su llegada: ese mundo queda sin acceso desde la ciudad y quien vuelva de él aparece en el spawn.`)
+  }
+  return out
 }
 
 export function deleteEntity(city: LabCity, ref: EntityRef): EditResult {
-  if (!canDelete(ref)) return refused('Sólo se pueden borrar objetos, residentes y wanderers (los edificios, portales y el spawn se mueven).')
-  const before = city.props.length + city.residents.length + city.wanderers.length
+  if (!canDelete(ref)) return refused('El PLAYER SPAWN no se borra: la ciudad necesita uno. Movelo.')
+  const warnings = deletionWarnings(city, ref)
+  const gateId = ref.type === 'arrival' ? ref.id : ref.type === 'gate' ? ref.id : null
   const next: LabCity = {
     ...city,
     props: ref.type === 'prop' ? city.props.filter(p => p.id !== ref.id) : city.props,
     residents: ref.type === 'resident' ? city.residents.filter(r => r.id !== ref.id) : city.residents,
     wanderers: ref.type === 'wanderer' ? city.wanderers.filter(w => w.id !== ref.id) : city.wanderers,
+    buildings: ref.type === 'building' ? city.buildings.filter(b => b.id !== ref.id) : city.buildings,
+    fountains: ref.type === 'fountain' ? city.fountains.filter(f => f.id !== ref.id) : city.fountains,
+    gates: gateId ? city.gates.filter(g => g.id !== gateId) : city.gates,
   }
-  if (next.props.length + next.residents.length + next.wanderers.length === before) return refused('La entidad no existe.')
-  return { ok: true, city: next, ref: null, warnings: [] }
+  const count = (c: LabCity) => c.props.length + c.residents.length + c.wanderers.length + c.buildings.length + c.fountains.length + c.gates.length
+  if (count(next) === count(city)) return refused('La entidad no existe.')
+  return { ok: true, city: next, ref: null, warnings }
 }
 
 export const canDuplicate = canDelete
 
-/** Copies an entity onto the nearest tile (ring by ring) where the copy is valid. */
+const ID_PREFIX: Record<EntityRef['type'], string> = {
+  prop: 'new', resident: 'resident-new', wanderer: 'wanderer-new', building: 'building-new',
+  fountain: 'fountain-new', gate: 'gate-new', arrival: 'gate-new', spawn: 'spawn',
+}
+
+/** The copy of `ref` with id `id`, moved by (dx, dy). */
+function copyOf(city: LabCity, ref: EntityRef, id: string, dx: number, dy: number): LabCity {
+  switch (ref.type) {
+    case 'prop': {
+      const p = city.props.find(x => x.id === ref.id)!
+      // The activity board stays unique: a copied board is a plain sign.
+      const copy: LabProp = { id, kind: p.kind, tx: p.tx + dx, ty: p.ty + dy, ...(p.text !== undefined ? { text: p.text } : {}) }
+      return { ...city, props: [...city.props, copy] }
+    }
+    case 'resident': {
+      const r = city.residents.find(x => x.id === ref.id)!
+      return { ...city, residents: [...city.residents, { ...r, id, tx: r.tx + dx, ty: r.ty + dy }] }
+    }
+    case 'wanderer': {
+      const w = city.wanderers.find(x => x.id === ref.id)!
+      return { ...city, wanderers: [...city.wanderers, { id, tx: w.tx + dx, ty: w.ty + dy }] }
+    }
+    case 'building': {
+      const b = city.buildings.find(x => x.id === ref.id)!
+      return {
+        ...city,
+        buildings: [...city.buildings, {
+          ...b, id, x: b.x + dx, y: b.y + dy,
+          ...(b.door ? { door: shift(b.door, dx, dy) } : {}),
+          ...(b.open ? { open: b.open.map(t => shift(t, dx, dy)) } : {}),
+        }],
+      }
+    }
+    case 'fountain': {
+      const f = city.fountains.find(x => x.id === ref.id)!
+      return { ...city, fountains: [...city.fountains, { id, x0: f.x0 + dx, y0: f.y0 + dy, x1: f.x1 + dx, y1: f.y1 + dy }] }
+    }
+    case 'gate':
+    case 'arrival': {
+      const g = city.gates.find(x => x.id === ref.id)!
+      return { ...city, gates: [...city.gates, { ...g, id, tiles: g.tiles.map(t => shift(t, dx, dy)), arrival: { ...g.arrival, ...shift(g.arrival, dx, dy) } }] }
+    }
+    case 'spawn': return city
+  }
+}
+
+/** Copies an entity onto the nearest spot (ring by ring) where the copy is valid. */
 export function duplicateEntity(base: TownDef, city: LabCity, ref: EntityRef): EditResult {
-  if (!canDuplicate(ref)) return refused('Sólo se pueden duplicar objetos, residentes y wanderers.')
+  if (!canDuplicate(ref)) return refused('El PLAYER SPAWN no se duplica: la ciudad tiene uno solo.')
   const from = anchorOf(city, ref)
   if (!from) return refused('La entidad no existe.')
-  const id = nextNewId(city, ref.type === 'prop' ? 'new' : `${ref.type}-new`)
-  const copyAt = (t: Tile): LabCity => {
-    if (ref.type === 'prop') {
-      const p = city.props.find(x => x.id === ref.id)!
-      return { ...city, props: [...city.props, { ...p, id, tx: t.tx, ty: t.ty, ...(p.board ? { board: false } : {}) }] }
-    }
-    if (ref.type === 'resident') {
-      const r = city.residents.find(x => x.id === ref.id)!
-      return { ...city, residents: [...city.residents, { ...r, id, tx: t.tx, ty: t.ty }] }
-    }
-    return { ...city, wanderers: [...city.wanderers, { id, tx: t.tx, ty: t.ty }] }
-  }
-  for (let r = 1; r <= 6; r++) {
+  const type = ref.type === 'arrival' ? 'gate' : ref.type
+  const id = nextNewId(city, ID_PREFIX[ref.type])
+  const warnings: string[] = []
+  const b = ref.type === 'building' ? city.buildings.find(x => x.id === ref.id) : null
+  if (b?.feature) warnings.push(`La copia también es ENTRADA a "${b.feature}": hay dos puertas; al cerrar el panel el juego te deja en la primera.`)
+  if (type === 'gate') warnings.push('La copia es otra SALIDA al mismo mundo: al volver, el juego usa la llegada del primer portal.')
+  // Big things need room: search further away for them.
+  const reach = ref.type === 'building' || ref.type === 'fountain' ? 16 : 6
+  for (let r = 1; r <= reach; r++) {
     for (const t of ring(from, r)) {
-      if (!inBounds(city, t.tx, t.ty)) continue
-      const result = settle(base, copyAt(t), { type: ref.type, id })
-      if (result.ok) return result
+      const result = settle(base, copyOf(city, ref, id, t.tx - from.tx, t.ty - from.ty), { type, id })
+      if (result.ok) return { ...result, warnings: [...warnings, ...result.warnings] }
     }
   }
-  return refused('No hay ningún tile libre cerca para la copia.')
+  return refused('No hay lugar libre cerca para la copia.')
 }
 
 /** Tiles at Chebyshev distance `r`, starting to the right and going clockwise. */

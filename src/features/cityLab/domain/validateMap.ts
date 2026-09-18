@@ -4,7 +4,9 @@
 // each pointing at the tiles to look at. Collision is the real engine's
 // (`CityGrid` → `TownArea`), so "blocked" here means blocked in the game.
 
+import { WORLDS } from '../../wildlands/areas/atlas'
 import type { TownDef } from '../../wildlands/areas/townArea'
+import { LOBBY_FEATURE_IDS, LOBBY_FEATURES } from '../../wildlands/lobby/features'
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import { clearanceMap } from './clearance'
 import { CityGrid } from './cityGrid'
@@ -77,6 +79,7 @@ export function validateMap(city: LabCity, base: TownDef): Finding[] {
     for (const e of placementIssues(grid, ref).errors) addOnce({ severity: 'error', category: 'objetos', code: 'FOUNTAIN_CONFLICT', message: `${f.id}: ${e}`, tiles: [{ tx: f.x0, ty: f.y0 }], ref })
   }
 
+  accesses(city, add)
   connectivity(grid, city, add)
   canopies(city, add)
   crowding(grid, city, add)
@@ -182,6 +185,37 @@ function crowding(grid: CityGrid, city: LabCity, add: (f: Finding) => void): voi
     const here = clearance[s.tile.ty * grid.width + s.tile.tx]
     if (here <= 1) add({ severity: 'warning', category: 'multijugador', code: 'HOTSPOT_NARROW', message: `${s.name} ${fmt(s.tile)}: paso de 1 tile; varios jugadores se van a trabar.`, tiles: [s.tile] })
     else if (here === 2) add({ severity: 'info', category: 'multijugador', code: 'HOTSPOT_TIGHT', message: `${s.name} ${fmt(s.tile)}: sólo entran 2 lado a lado.`, tiles: [s.tile] })
+  }
+}
+
+/**
+ * Entrances (doors to PokeSwap functions) and exits (portals to worlds): what
+ * the city is for. Deleting or duplicating them is allowed; this says what broke.
+ */
+function accesses(city: LabCity, add: (f: Finding) => void): void {
+  for (const feature of LOBBY_FEATURE_IDS) {
+    const doors = city.buildings.filter(b => b.feature === feature && b.door)
+    const title = LOBBY_FEATURES[feature].title
+    if (!doors.length) {
+      add({ severity: 'error', category: 'edificios', code: 'ENTRANCE_MISSING', message: `"${title}" no tiene ENTRADA en la ciudad: no se puede abrir caminando.`, tiles: [] })
+    } else if (doors.length > 1) {
+      add({ severity: 'warning', category: 'edificios', code: 'ENTRANCE_DUPLICATED', message: `"${title}" tiene ${doors.length} entradas (${doors.map(b => b.id).join(', ')}): al cerrar el panel el juego te deja en la primera.`, tiles: doors.map(b => b.door!), ref: { type: 'building', id: doors[1].id } })
+    }
+  }
+  for (const b of city.buildings) {
+    if (b.feature && !b.door) add({ severity: 'error', category: 'edificios', code: 'ENTRANCE_WITHOUT_DOOR', message: `${b.name} (${b.id}) tiene la función "${b.feature}" pero no tiene puerta.`, tiles: [{ tx: b.x, ty: b.y }], ref: { type: 'building', id: b.id } })
+  }
+  for (const w of WORLDS) {
+    const gates = city.gates.filter(g => g.to === w.id)
+    if (!gates.length) {
+      add({ severity: 'error', category: 'portales', code: 'EXIT_MISSING', message: `No hay SALIDA a ${w.name}: ese mundo queda inaccesible desde la ciudad.`, tiles: [] })
+    } else if (gates.length > 1) {
+      add({ severity: 'warning', category: 'portales', code: 'EXIT_DUPLICATED', message: `${gates.length} salidas a ${w.name}: al volver, el jugador aparece en la llegada de la primera.`, tiles: gates.flatMap(g => g.tiles), ref: { type: 'gate', id: gates[1].id } })
+    }
+  }
+  for (const g of city.gates) {
+    const housed = city.buildings.some(b => g.tiles.every(t => t.tx >= b.x - 1 && t.tx <= b.x + b.w && t.ty >= b.y - 1 && t.ty <= b.y + b.d))
+    if (!housed) add({ severity: 'info', category: 'portales', code: 'EXIT_WITHOUT_BUILDING', message: `La salida "${g.label}" no está en ningún edificio: funciona, pero no hay arte que la marque.`, tiles: g.tiles, ref: { type: 'gate', id: g.id } })
   }
 }
 

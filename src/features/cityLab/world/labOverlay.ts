@@ -12,6 +12,8 @@ import type { TrainerSprites } from '../../wildlands/engine/characters'
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import type { OverlayLabel, OverlaySprite, SceneOverlay } from '../../wildlands/engine/sceneOverlay'
 import { TILE } from '../../wildlands/engine/world'
+import { WORLDS } from '../../wildlands/areas/atlas'
+import { isLobbyFeature, LOBBY_FEATURES } from '../../wildlands/lobby/features'
 import type { CityGrid } from '../domain/cityGrid'
 import { isSolidKind } from '../domain/labCatalog'
 import { sameRef, tilesOf, type EntityRef, type LabCity } from '../domain/labCity'
@@ -26,12 +28,14 @@ export interface LayerToggles {
   footprints: boolean
   bounds: boolean
   markers: boolean
+  /** Doors to PokeSwap functions and portals to the worlds, labelled on the map. */
+  accesses: boolean
   clearance: boolean
   zones: boolean
 }
 
 export const DEFAULT_LAYERS: LayerToggles = {
-  grid: true, coords: false, solids: false, walkable: false, footprints: false, bounds: false, markers: true, clearance: false, zones: false,
+  grid: true, coords: false, solids: false, walkable: false, footprints: false, bounds: false, markers: true, accesses: true, clearance: false, zones: false,
 }
 
 export interface OverlayInputs {
@@ -147,15 +151,42 @@ export class LabGroundOverlay implements SceneOverlay {
       }
     }
 
-    if (layers.markers) {
+    if (layers.accesses) {
+      const pulse = 0.55 + Math.sin(seconds * 3) * 0.2
+      const centre = (t: Tile) => [t.tx * TILE + TILE / 2, t.ty * TILE + TILE / 2] as const
+      // EXITS: portal tiles, a dashed line to where the player comes back, and the arrival.
       for (const gate of city.gates) {
-        for (const t of gate.tiles) fill(t, 'rgba(60, 120, 255, 0.55)', 1)
-        const a = gate.arrival
-        g.fillStyle = 'rgba(60, 120, 255, 0.9)'
+        for (const t of gate.tiles) {
+          fill(t, `rgba(40, 110, 255, ${pulse})`, 1)
+          outline([t], 'rgba(200, 225, 255, 1)', 1.5)
+        }
+        const [ax, ay] = centre(gate.arrival)
+        const [px, py] = centre(gate.tiles[0])
+        g.setLineDash([3, 3])
+        g.strokeStyle = 'rgba(120, 170, 255, 0.9)'
+        g.lineWidth = 1
         g.beginPath()
-        g.arc(a.tx * TILE + TILE / 2, a.ty * TILE + TILE / 2, 4, 0, Math.PI * 2)
+        g.moveTo(px, py)
+        g.lineTo(ax, ay)
+        g.stroke()
+        g.setLineDash([])
+        g.fillStyle = 'rgba(120, 200, 255, 0.95)'
+        g.beginPath()
+        g.arc(ax, ay, 4.5, 0, Math.PI * 2)
         g.fill()
       }
+      // ENTRANCES: the door tile of each building, and where the player stands when leaving.
+      for (const b of city.buildings) {
+        if (!b.door) continue
+        fill(b.door, `rgba(255, 150, 20, ${pulse + 0.1})`, 1)
+        outline([b.door], 'rgba(255, 235, 180, 1)', 1.5)
+        g.setLineDash([2, 2])
+        outline([{ tx: b.door.tx, ty: b.door.ty + 1 }], 'rgba(255, 190, 90, 0.95)')
+        g.setLineDash([])
+      }
+    }
+
+    if (layers.markers) {
       for (const r of city.residents) outline([r], 'rgba(255, 80, 220, 0.95)')
       for (const w of city.wanderers) {
         g.strokeStyle = 'rgba(255, 150, 230, 0.95)'
@@ -186,11 +217,21 @@ export class LabGroundOverlay implements SceneOverlay {
 
   labels(): readonly OverlayLabel[] {
     const s = this.input()
-    if (!s.layers.markers) return []
-    const out: OverlayLabel[] = [{ wx: s.city.spawn.tx * TILE + TILE / 2, wy: s.city.spawn.ty * TILE + TILE, lift: 30, text: 'PLAYER SPAWN', color: '#ffd84a' }]
-    for (const gate of s.city.gates) {
-      const t = gate.tiles[0]
-      out.push({ wx: t.tx * TILE + TILE, wy: t.ty * TILE + TILE, lift: 6, text: `→ ${gate.to}`, color: '#9cc0ff' })
+    const out: OverlayLabel[] = []
+    if (s.layers.markers) out.push({ wx: s.city.spawn.tx * TILE + TILE / 2, wy: s.city.spawn.ty * TILE + TILE, lift: 30, text: 'PLAYER SPAWN', color: '#ffd84a' })
+    if (s.layers.accesses) {
+      for (const gate of s.city.gates) {
+        const world = WORLDS.find(w => w.id === gate.to)?.name ?? gate.to
+        const xs = gate.tiles.map(t => t.tx)
+        const cx = ((Math.min(...xs) + Math.max(...xs) + 1) / 2) * TILE
+        out.push({ wx: cx, wy: gate.tiles[0].ty * TILE + TILE, lift: 18, text: `SALIDA → ${world}`, color: '#8fc2ff' })
+        out.push({ wx: gate.arrival.tx * TILE + TILE / 2, wy: gate.arrival.ty * TILE + TILE, lift: 4, text: `llegada ← ${world}`, color: '#b9dcff' })
+      }
+      for (const b of s.city.buildings) {
+        if (!b.door) continue
+        const what = b.feature && isLobbyFeature(b.feature) ? LOBBY_FEATURES[b.feature].title : 'sin función'
+        out.push({ wx: b.door.tx * TILE + TILE / 2, wy: b.door.ty * TILE + TILE, lift: 18, text: `ENTRADA · ${what}`, color: '#ffc46b' })
+      }
     }
     return out
   }

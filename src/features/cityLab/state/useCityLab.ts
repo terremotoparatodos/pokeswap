@@ -115,7 +115,7 @@ export function useCityLab() {
     const ref = selection.value
     if (!ref) return
     if (!canDelete(ref)) {
-      say('✖ Este tipo de entidad no se borra: movelo.', 'error')
+      say('✖ El PLAYER SPAWN no se borra: la ciudad necesita uno. Movelo.', 'error')
       return
     }
     apply(deleteEntity(city.value, ref), `${ref.id} borrado`)

@@ -94,7 +94,7 @@ const overlayInputs = (): OverlayInputs => ({
   spawnLook: () => spawnActor.trainer,
 })
 const editOverlay = new LabGroundOverlay(overlayInputs)
-// PLAY keeps the physical layers (solids, clearance…) but looks like the game otherwise: no grid, no markers.
+// PLAY keeps the physical layers (solids, clearance, entrances and exits…) but otherwise looks like the game: no grid, no markers.
 const playOverlay = new LabGroundOverlay(() => ({ ...overlayInputs(), layers: { ...lab.layers, grid: false, markers: false, coords: false }, ghost: null, brush: null }))
 
 const keys = new KeyboardInput({

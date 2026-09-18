@@ -140,7 +140,7 @@ function playHere(): void {
       <div class="actions">
         <button type="button" @click="info.anchor && emit('focus', info.anchor.tx, info.anchor.ty)">Centrar</button>
         <button type="button" :disabled="!canDuplicate(info.ref)" title="Ctrl+D" @click="lab.duplicateSelected()">Duplicar</button>
-        <button type="button" :disabled="!canDelete(info.ref)" title="Supr" @click="lab.deleteSelected()">Borrar</button>
+        <button type="button" :disabled="!canDelete(info.ref)" title="Supr" @click="lab.deleteSelected()">{{ info.ref.type === 'arrival' ? 'Borrar portal' : 'Borrar' }}</button>
         <button type="button" @click="playHere()">▶ Jugar desde acá</button>
       </div>
       <p class="muted">Flechas: mover 1 tile. Arrastrar: mover con snap.</p>
@@ -154,7 +154,8 @@ function playHere(): void {
       <label><input v-model="lab.layers.walkable" type="checkbox"> Caminable</label>
       <label><input v-model="lab.layers.footprints" type="checkbox"> Footprints / puertas</label>
       <label><input v-model="lab.layers.bounds" type="checkbox"> Sprite bounds</label>
-      <label><input v-model="lab.layers.markers" type="checkbox"> Spawn / NPC / portales</label>
+      <label><input v-model="lab.layers.accesses" type="checkbox"> <b>Entradas y salidas</b></label>
+      <label><input v-model="lab.layers.markers" type="checkbox"> Spawn / NPC</label>
       <label><input v-model="lab.layers.clearance" type="checkbox"> Anchos (multijugador)</label>
       <label><input v-model="lab.layers.zones" type="checkbox"> Plazas / manzanas</label>
     </div>
