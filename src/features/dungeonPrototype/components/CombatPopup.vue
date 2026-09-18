@@ -71,6 +71,13 @@ const STATUS_LOOK: Record<Exclude<StatusCondition, 'none'>, { icon: IconName; co
   sleep: { icon: 'sleep', colour: '#a3b2d8' },
 }
 
+/** Stat names, for the log. */
+const STAT: Record<string, string> = {
+  attack: 'el ataque', defense: 'la defensa', spAttack: 'el ataque especial',
+  spDefense: 'la defensa especial', speed: 'la velocidad', accuracy: 'la puntería',
+  evasion: 'la evasión',
+}
+
 const TYPE_NAME: Record<string, string> = {
   normal: 'Normal', fire: 'Fuego', water: 'Agua', electric: 'Eléctrico', grass: 'Planta',
   ice: 'Hielo', fighting: 'Lucha', poison: 'Veneno', ground: 'Tierra', flying: 'Volador',
@@ -128,6 +135,13 @@ const story = computed(() => {
   const hurt = /^(.+?): (\d+) de daño/.exec(text)
   if (hurt) return `${who} usó ${hurt[1]} e hizo ${hurt[2]} de daño.`
   if (text.includes('Protección absorbió')) return `${who} bloqueó el ataque con Protección.`
+  // A stat change comes through as "Gruñido: -1 attack".
+  const stage = /^(.+?): ([+-]\d+) (attack|defense|spAttack|spDefense|speed|accuracy|evasion)/.exec(text)
+  if (stage) {
+    const target = last.actorId.startsWith('ally') ? 'al rival' : 'a tu Pokémon'
+    const direction = stage[2].startsWith('-') ? 'bajó' : 'subió'
+    return `${who} usó ${stage[1]} y le ${direction} ${STAT[stage[3]] ?? stage[3]} ${target}.`
+  }
   if (text.includes('escudo')) return `${who} se protegió.`
   if (text.startsWith('Estado: ')) {
     const mark = LONG[text.replace('Estado: ', '') as StatusCondition]

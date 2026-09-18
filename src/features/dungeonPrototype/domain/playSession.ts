@@ -12,6 +12,7 @@ import {
   abortBattle, createBattle, prepare, type BattleState, type PreparedAction,
 } from './battle'
 import { createBossController, type BossController } from './bossFight'
+import { isBossFloor } from './bossRoom'
 import { bossKitFor, type BossSkill } from './bossSkills'
 import { advanceSpawn, crossedWarning, expirationNotice, hasExpired, minutesLeft, type DungeonDefinition, type DungeonSpawn } from './dungeonSpawn'
 import {
@@ -239,14 +240,22 @@ export function settleCombat(session: PlaySession, lootFor: () => { itemId: stri
   } else if (battle.outcome === 'aborted') {
     // D1.2.4 §5: running away costs the fight, not the run. The Pokémon stays
     // on the floor and can be fought again.
-    say(session, session.phase === 'boss' ? 'El combate se interrumpió.' : 'Huiste del combate.')
+    say(session, session.phase === 'boss'
+      ? 'Te saliste de la sala del Alpha. La puerta sigue abierta.'
+      : 'Huiste del combate.')
   } else {
     say(session, 'Derrota.')
   }
 
+  // D1.2.4ter §3: there is a way out of the Boss Room. Walking out of the
+  // Alpha fight puts us back at the door, still inside the run, so the party
+  // can be looked at and the fight taken again. Beating it still ends the run.
+  const leftTheBoss = session.phase === 'boss' && battle.outcome === 'aborted'
+  if (leftTheBoss && isBossFloor(session.tiles)) session.player = session.tiles.boss.approach
+
   session.battle = null
   session.engagedId = null
-  session.phase = session.phase === 'boss' ? 'ended' : 'exploring'
+  session.phase = session.phase === 'boss' && !leftTheBoss ? 'ended' : 'exploring'
   if (shouldWipe(session.expedition)) endRun(session, 'wipe')
 }
 
@@ -255,7 +264,7 @@ export function settleCombat(session: PlaySession, lootFor: () => { itemId: stri
  * several tiles wide, so standing next to any of them is standing next to it.
  */
 const withinReach = (session: PlaySession, obstacle: FloorObstacle): boolean =>
-  obstacle.tiles.some(at => isAdjacent(session.player, at))
+  isAdjacent(session.player, obstacle.at)
 
 export const obstaclesInReach = (session: PlaySession): FloorObstacle[] =>
   session.obstacles.filter(obstacle => !obstacle.cleared && withinReach(session, obstacle))

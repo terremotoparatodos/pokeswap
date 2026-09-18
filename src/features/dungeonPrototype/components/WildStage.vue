@@ -127,11 +127,9 @@ function overlayProps(): WorldProp[] {
   // Rockfalls and barricades: solid until somebody breaks them (D1.2.4 §1).
   for (const obstacle of live.obstacles) {
     if (obstacle.cleared) continue
-    // A barrier is drawn tile by tile: it has to read as a wall, not a pebble.
-    for (const tile of obstacle.tiles) {
-      const at = tileCentre(tile.x, tile.y)
-      out.push({ wx: at.x, wy: at.y, sprite: obstacleSprite(obstacle.kind) })
-    }
+    // One block, one tile (D1.2.4ter §4).
+    const at = tileCentre(obstacle.at.x, obstacle.at.y)
+    out.push({ wx: at.x, wy: at.y, sprite: obstacleSprite(obstacle.kind) })
   }
 
   const boss = isBossFloor(live.tiles) ? live.tiles.boss : null

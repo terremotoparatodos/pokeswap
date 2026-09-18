@@ -211,3 +211,91 @@ A 375 px los chips de tipo se ocultan y el resto se mantiene legible.
 - 1108 tests en 104 archivos, verdes.
 - Typecheck limpio, `eslint .` sin errores (9 warnings preexistentes).
 - `vite build` OK; el prototipo sigue fuera de `dist`.
+
+---
+
+# D1.2.4ter — Niveles, caminos opcionales, salida del boss y avisos
+
+## 1 · Qué nivel de profesión pide cada cosa
+
+Cada cosa que bloquea dice qué profesión y qué nivel pide, y el HUD del piso
+resume lo más exigente que hay en él (`⛏ Minería Nv. 20`).
+
+Los números **no son inventados**: son los del catálogo de recolección de
+producción, material por material — roca Nv. 1, carbón Nv. 5, hierro Nv. 15,
+cristal Nv. 20, oro Nv. 30; árbol común Nv. 1, pino Nv. 8, madera dura Nv. 15.
+
+El prototipo **no importa** ese catálogo: R31 mantiene profesiones aislado y hay
+un test que lo verifica, así que los valores están copiados en `QUOTED_NODES` con
+su `nodeId`. Lo que evita que la copia se pudra es un test —los tests sí pueden
+leer el catálogo real— que compara nivel, tier de herramienta, profesión y
+anclajes de cada entrada y falla el día que difieran.
+
+## 2 · Caminos opcionales, y siempre poder retirarte
+
+El generador ahora cava **recovecos**: una boca de **un solo tile** en la pared
+junto a una sala, una garganta corta y una cámara pequeña detrás. Se cavan al
+final, sobre roca maciza y con un borde de roca alrededor, así que nunca forman
+parte del camino a la escalera: son un desvío, no la ruta.
+
+Cada boca lleva un bloque. Caminás, llegás, no pasás — y volvés cuando tengas la
+herramienta. Cobertura: **630 pisos generados, todos con 2 o 3 recovecos**, y
+cero fugas (sellar la boca aísla exactamente lo de atrás y deja la escalera
+alcanzable).
+
+Retirada: el botón **Retirarse** ya estaba en exploración; ahora también hay
+salida en la sala del Alpha (§3). Y al medir esto apareció un bug anterior: en
+**6 de 2520 pisos la escalera no era alcanzable** desde la entrada — un piso sin
+salida salvo abandonar la expedición. La causa era que los puntos de entrada y
+escalera se eligen después de la reparación de conectividad. `reachStairs` es la
+última palabra: si la escalera no se alcanza, cava una galería hasta ella, con
+puente si hay un lago en el medio. Ahora son **0 de 2520**, con test de barrido.
+
+## 3 · Cómo se sale de la sala del boss
+
+Antes no se salía: entrar al Alpha era terminal, y huir del combate daba la
+expedición por terminada. Ahora la sala tiene puerta:
+
+- **↩ Salir de la sala** (o *Huir* en el panel) devuelve a la antecámara, frente
+  a la puerta, **sin terminar la expedición**. Se puede revisar el equipo y
+  volver a entrar por el CTA `⇩ Antecámara del Alpha`.
+- **⇤ Abandonar la Dungeon** cierra la expedición asegurando botín y capturas.
+- Ganarle al Alpha sigue terminando la run, como estaba.
+
+## 4 · Las barreras, fuera
+
+Las barreras de pared a pared de D1.2.4 se eliminaron. Lo que bloquea ahora es
+siempre **un box**: el bloque en la boca de un recoveco, o el peñasco, cristal,
+árbol o roca que ya estaba en el suelo. Sin muros que se evaporan de un golpe.
+
+## 5 · Avisos de captura y de fin de combate
+
+Un cartel breve sobre la escena dice qué pasó, con su ícono, y se va solo a los
+2,6 s:
+
+| Resultado | Cartel |
+| --- | --- |
+| Captura | **¡{Pokémon} capturado!** · Queda en el botín hasta que salgas. |
+| Victoria | **Combate ganado** · {Pokémon} ya no puede seguir. |
+| Victoria del Alpha | **¡Alpha derrotado!** · La expedición termina acá. |
+| Huida | **Te escapaste** · {Pokémon} sigue en el piso. |
+| Salir del boss | **Saliste de la sala** · La puerta del Alpha sigue abierta. |
+| Derrota | **Combate perdido** · Tu equipo no pudo con esto. |
+
+De paso, el log traduce los cambios de estadística, que salían crudos
+(«Gruñido: -1 attack» → «El rival usó Gruñido y le bajó el ataque a tu Pokémon»).
+
+## Estado
+
+- 1122 tests en 104 archivos, verdes.
+- Typecheck limpio, `eslint .` sin errores (9 warnings preexistentes).
+- `vite build` OK; el prototipo sigue fuera de `dist`.
+
+## Verificado en vivo
+
+Bloque de un tile con su CTA `⛏ Derrumbe · Minería Nv. 1` y el HUD marcando
+`Minería Nv. 5`; al romperlo el recoveco quedó abierto. Entrada al Alpha, salida
+con **Salir de la sala** de vuelta al corredor con la puerta abierta, y el cartel
+correspondiente. Cartel de victoria tras un combate normal. El cartel de captura
+usa el mismo camino y está cubierto por código y tests, pero no llegué a verlo en
+pantalla en esta pasada.

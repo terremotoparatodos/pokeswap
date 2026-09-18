@@ -50,6 +50,19 @@ export interface FloorTiles {
   /** Tile centre of each room, for placing things. */
   readonly roomCentres: Readonly<Record<number, TilePoint>>
   readonly theme: DungeonTheme
+  /**
+   * Optional side rooms (D1.2.4ter §2): a one-tile mouth, a short throat and a
+   * small chamber behind it. They are never on the way to the stairs, which is
+   * what makes them optional, and a single block in the mouth closes one.
+   */
+  readonly alcoves?: readonly Alcove[]
+}
+
+export interface Alcove {
+  /** The one tile that closes it: where a block stands. */
+  readonly mouth: TilePoint
+  /** Everything behind the mouth, the throat included. */
+  readonly tiles: readonly TilePoint[]
 }
 
 const index = (tiles: FloorTiles, x: number, y: number): number => y * tiles.width + x

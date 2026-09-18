@@ -22,8 +22,9 @@ import {
 } from '../data/runFixtures'
 import { DUNGEON_DEFINITIONS, poolOf } from '../data/dungeonCatalog'
 import { speciesById } from '../data/speciesFixtures'
+import CombatIcon, { type IconName } from './CombatIcon.vue'
 import { isWalkable } from '../domain/floorTiles'
-import { OBSTACLES } from '../domain/obstacles'
+import { floorRequirements, OBSTACLES, requirementForObstacle } from '../domain/obstacles'
 import { BALL_TIMING, flee, tick, type BattleActor, type BattleEvent, type PreparedAction } from '../domain/battle'
 import { createSpawn, formatCountdown, type DungeonDefinition } from '../domain/dungeonSpawn'
 import { MOVES } from '../domain/moves'
@@ -59,6 +60,19 @@ const devRev = computed(() => Math.floor(clock.value * 4) + devPulse.value)
 const hudRev = computed(() => Math.floor(clock.value * 12))
 const confirmRetreat = ref(false)
 const toast = ref<{ title: string; body: string; tone: 'good' | 'bad' } | null>(null)
+
+/**
+ * D1.2.4ter §5: a fight used to end with the panel simply disappearing. This
+ * is the line that says what happened — a catch, a win, a loss, a getaway —
+ * shown over the scene for a couple of seconds and then gone.
+ */
+const flash = ref<{ icon: IconName; title: string; body: string; tone: 'good' | 'bad' } | null>(null)
+let flashUntil = 0
+
+function announce(icon: IconName, title: string, body: string, tone: 'good' | 'bad' = 'good'): void {
+  flash.value = { icon, title, body, tone }
+  flashUntil = performance.now() + 2600
+}
 
 let frame = 0
 let last = 0
@@ -216,6 +230,10 @@ function loop(now: number): void {
     if (live.battle && live.battle.outcome !== 'ongoing') {
       drainLog(live)
       const before = live.expedition.key.hasKey
+      const outcome = live.battle.outcome
+      const wasBoss = live.phase === 'boss'
+      const foe = live.battle.actors.find(actor => actor.side === 'enemy')
+      const foeName = foe ? speciesById(foe.combatant.pokemon.speciesId)?.name ?? 'El rival' : 'El rival'
       settleCombat(live, () => {
         const rng = streamFor(live.expedition.seed, 'drop', live.expedition.floor, live.log.length)
         const entry = FLOOR_LOOT.entries[rng.int(0, FLOOR_LOOT.entries.length - 1)]
@@ -223,7 +241,19 @@ function loop(now: number): void {
       })
       logCursor = 0
       announceRewards(live, before)
+      if (outcome === 'captured') {
+        announce('ball', `¡${foeName} capturado!`, 'Queda en el botín hasta que salgas de la Dungeon.')
+      } else if (outcome === 'victory') {
+        announce('physical', wasBoss ? '¡Alpha derrotado!' : 'Combate ganado',
+          wasBoss ? 'La expedición termina acá.' : `${foeName} ya no puede seguir.`)
+      } else if (outcome === 'aborted') {
+        announce('flee', wasBoss ? 'Saliste de la sala' : 'Te escapaste',
+          wasBoss ? 'La puerta del Alpha sigue abierta.' : `${foeName} sigue en el piso.`, 'bad')
+      } else if (outcome === 'defeat') {
+        announce('skull', 'Combate perdido', 'Tu equipo no pudo con esto.', 'bad')
+      }
     }
+    if (flash.value && performance.now() > flashUntil) flash.value = null
     clock.value += dt
     advanceClock(live, dt * 1000 * clockSpeed.value)
     if (live.phase === 'ended' && !toast.value) announceEnding(live)
@@ -381,6 +411,15 @@ const nearby = computed(() => (session.value ? reachable(session.value) : []))
 const blockers = computed(() => (session.value ? obstaclesInReach(session.value) : []))
 /** Rocks, crystal and trees in the way: scenery you can also work through. */
 const scenery = computed(() => (session.value ? minableInReach(session.value) : []))
+
+/**
+ * D1.2.4ter §1: what this floor asks of your professions, quoted from the
+ * production catalog rather than invented here. Shown in the HUD so you know
+ * before you walk up to something whether you can open it.
+ */
+const needs = computed(() => (session.value
+  ? floorRequirements(session.value.obstacles, session.value.minable)
+  : []))
 
 /** Breaking one open: the tool is the point, not the loot (§4). */
 function breakObstacle(id: string): void {
@@ -600,6 +639,11 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
       <span class="pd-key" :class="{ 'pd-key--on': doorOpen }">🔑 {{ doorOpen ? 'CONSEGUIDA' : '—' }}</span>
       <span class="pd-loot">◈ {{ lootCount }}</span>
       <span class="pd-party">{{ healthy }}/{{ party.length }}</span>
+      <!-- §1: the professions this floor asks for, and at what level. -->
+      <span v-for="need in needs" :key="need.skill" class="pd-need" :title="`Nodo del catálogo: ${need.nodeId}`">
+        <CombatIcon :name="need.skill === 'mine' ? 'physical' : 'special'" />
+        {{ need.profession }} Nv. {{ need.level }}
+      </span>
     </div>
 
     <div class="pd-world">
@@ -640,6 +684,8 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
           >
             {{ OBSTACLES[obstacle.kind].skill === 'mine' ? '⛏' : '🪓' }}
             {{ OBSTACLES[obstacle.kind].label }}
+            <em>{{ requirementForObstacle(obstacle.kind).profession }} Nv.
+              {{ requirementForObstacle(obstacle.kind).level }}</em>
           </button>
           <!-- The scenery that blocks: the same tools, the same nothing in return. -->
           <button
@@ -647,6 +693,7 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
             @click="breakScenery(prop.id)"
           >
             {{ prop.skill === 'mine' ? '⛏' : '🪓' }} {{ prop.label }}
+            <em>{{ prop.requirement.profession }} Nv. {{ prop.requirement.level }}</em>
           </button>
           <button
             v-if="onStairs" type="button" class="pd-cta"
@@ -683,6 +730,14 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
           </div>
         </div>
 
+        <!-- D1.2.4ter §5: what the fight ended as. -->
+        <transition name="pd-flash">
+          <div v-if="flash" class="pd-flash" :class="`pd-flash--${flash.tone}`">
+            <CombatIcon :name="flash.icon" :size="18" />
+            <span><b>{{ flash.title }}</b><em>{{ flash.body }}</em></span>
+          </div>
+        </transition>
+
         <div v-if="toast" class="pd-overlay">
           <div class="pd-sheet" :class="`pd-sheet--${toast.tone}`">
             <h2>{{ toast.title }}</h2>
@@ -710,6 +765,11 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
       :battle="battle" :bag="bag" :bench="bench" :items="BATTLE_ITEMS" :rev="hudRev"
       @choose="choose"
     />
+    <div v-else-if="session.phase === 'boss'" class="pd-bar">
+      <!-- §3: the Boss Room has a door, and it works while the fight is on. -->
+      <button type="button" class="pd-tool" @click="runAway">↩ Salir de la sala</button>
+      <button type="button" class="pd-tool" @click="confirmRetreat = true">⇤ Abandonar la Dungeon</button>
+    </div>
     <div v-else-if="session.phase === 'exploring'" class="pd-bar">
       <button type="button" class="pd-tool" :disabled="(bag.potion ?? 0) <= 0" @click="quickItem('potion')">
         <span class="pd-dot pd-dot--potion" /> Poción <em>×{{ bag.potion ?? 0 }}</em>
@@ -792,6 +852,28 @@ const restart = (): void => { stop(); session.value = null; toast.value = null }
 }
 
 .pd-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+.pd-need {
+  display: inline-flex; gap: 3px; align-items: center; padding: 0 6px;
+  border-radius: 999px; background: #1b2540; color: #b9c8ee; font-size: 0.66rem; font-weight: 700;
+}
+.pd-cta--work em { margin-left: 4px; font-size: 0.62rem; font-style: normal; opacity: 0.75; }
+
+.pd-flash {
+  position: absolute; top: 10px; left: 50%; z-index: 4; display: flex; gap: 8px;
+  align-items: center; padding: 8px 14px; transform: translateX(-50%);
+  border: 1px solid #2e3a5e; border-radius: 999px;
+  background: rgba(10, 15, 28, 0.94); color: #e8eeff;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+}
+.pd-flash span { display: grid; }
+.pd-flash b { font-size: 0.8rem; }
+.pd-flash em { font-size: 0.68rem; font-style: normal; color: #a8b8dd; }
+.pd-flash--good { border-color: #2f6b45; color: #b9ffd0; }
+.pd-flash--good em { color: #86c9a2; }
+.pd-flash--bad { border-color: #7a4a3a; color: #ffc0a8; }
+.pd-flash--bad em { color: #d3a08e; }
+.pd-flash-enter-active, .pd-flash-leave-active { transition: opacity 0.25s ease, transform 0.25s ease; }
+.pd-flash-enter-from, .pd-flash-leave-to { opacity: 0; transform: translate(-50%, -8px); }
 .pd-tool {
   display: flex; gap: 6px; align-items: center; min-height: 44px; padding: 6px 12px;
   border: 1px solid #2b3a5e; border-radius: 10px; background: #1f2b49; color: #e8eeff;

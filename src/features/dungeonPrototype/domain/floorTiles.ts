@@ -22,7 +22,7 @@ import type { FloorPlan, FloorRoom } from './floorPlan'
 import type { DungeonTheme } from './tiers'
 import {
   CELL_TILES, isWalkable, MIN_CHAMBER, openWidth, PATH_WIDTH, tileAt, WALKABLE,
-  type FloorTiles, type TileKind, type TilePoint,
+  type Alcove, type FloorTiles, type TileKind, type TilePoint,
 } from './tileKinds'
 
 // The vocabulary itself moved to tileKinds.ts in D1.2.2 so the Boss Room can
@@ -30,7 +30,7 @@ import {
 // module the rest of the prototype asks for a floor.
 export {
   CELL_TILES, isWalkable, MIN_CHAMBER, openWidth, PATH_WIDTH, tileAt, WALKABLE,
-  type FloorTiles, type TileKind, type TilePoint,
+  type Alcove, type FloorTiles, type TileKind, type TilePoint,
 } from './tileKinds'
 
 /** The decoration each biome paints over the same cave. */
@@ -216,18 +216,169 @@ export function buildFloorTiles(plan: FloorPlan, theme: DungeonTheme, seed: numb
   //     so the fix is invisible.
   connect(canvas, plan, centres, rng)
 
+  // 6.6 Optional side rooms, carved last so they hang off a floor that is
+  //     already whole and can never be part of the way to the stairs (§2).
+  const alcoves = carveAlcoves(canvas, plan, centres, rng)
+
   // 7. Where the player arrives and where the way down is. Both want room around
   //    them (§13), so each takes the most open tile its chamber has.
   const draft: FloorTiles = {
-    width, height, tiles: canvas.tiles, roomCentres: centres, theme,
+    width, height, tiles: canvas.tiles, roomCentres: centres, theme, alcoves,
     entrance: centres[plan.entranceRoomId] ?? { x: 1, y: 1 },
     exit: centres[plan.exitRoomId] ?? { x: 1, y: 1 },
   }
   const entrance = openSpot(draft, draft.entrance)
   const exit = openSpot(draft, draft.exit)
+  // `connect` repairs the chambers, but the spots chosen here are not the
+  // chamber centres it worked with, and on a few floors in a thousand the
+  // stairs ended up on ground the entrance could not reach — an unfinishable
+  // floor (D1.2.4ter §2). This is the last word on it.
+  reachStairs(canvas, entrance, exit, rng)
   put(canvas, exit.x, exit.y, 'stairs')
 
   return { ...draft, entrance, exit }
+}
+
+/**
+ * Optional side rooms (D1.2.4ter §2).
+ *
+ * A route you can lose is more interesting than a route you cannot, but the
+ * floor still has to be finishable, so these hang **off** the way through: a
+ * one-tile mouth in a wall, a short throat, and a small chamber at the end.
+ * Because the mouth is exactly one tile wide, one block closes it — which is
+ * the whole point: you walk up to it, and that is as far as you get without
+ * the tool.
+ *
+ * Nothing here ever touches the spine: the mouth is carved out of solid rock
+ * beside a route, and what it opens into was solid rock too.
+ */
+function carveAlcoves(canvas: Canvas, plan: FloorPlan, centres: Record<number, TilePoint>, rng: Rng): Alcove[] {
+  const out: Alcove[] = []
+  const wanted = 2 + rng.int(0, 1)
+  const dirs = [{ x: 1, y: 0 }, { x: -1, y: 0 }, { x: 0, y: 1 }, { x: 0, y: -1 }]
+  const around = [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]]
+  // Alcoves never touch each other: two that share a wall would open into one
+  // room, and blocking either mouth would no longer close anything (§2).
+  const claimed = new Set<string>()
+
+  /** Tries to dig one room leaving `from` in `dir`. Null when it does not fit. */
+  const dig = (from: TilePoint, dir: TilePoint, throat: number, chamber: number): Alcove | null => {
+    // Walk out of the chamber until we leave the ground: that tile is the mouth.
+    let step = 0
+    while (step < 16 && WALKABLE.has(read(canvas, from.x + dir.x * step, from.y + dir.y * step))) step++
+    if (step === 0 || step >= 16) return null
+
+    const mouth = { x: from.x + dir.x * step, y: from.y + dir.y * step }
+    const back = { x: mouth.x + dir.x * throat, y: mouth.y + dir.y * throat }
+    const want: TilePoint[] = []
+    for (let i = 0; i <= throat; i++) want.push({ x: mouth.x + dir.x * i, y: mouth.y + dir.y * i })
+    for (let dy = -chamber; dy <= chamber; dy++) {
+      for (let dx = -chamber; dx <= chamber; dx++) want.push({ x: back.x + dx, y: back.y + dy })
+    }
+
+    const inside = new Set(want.map(at => `${at.x}:${at.y}`))
+    const wellInside = (at: TilePoint): boolean => at.x > 1 && at.y > 1
+      && at.x < canvas.width - 2 && at.y < canvas.height - 2
+    if (!want.every(at => wellInside(at) && read(canvas, at.x, at.y) === 'rock')) return null
+    const nearAnother = want.some(at => around.concat([[0, 0]])
+      .some(([dx, dy]) => claimed.has(`${at.x + dx}:${at.y + dy}`)))
+    if (nearAnother) return null
+
+    // The rim is what makes the room optional: every neighbour of what we dig is
+    // either part of it or solid rock, except the one tile behind the mouth (§2).
+    // Anything behind the mouth is the chamber we are leaving, so it is not
+    // part of the rim: the test starts at the mouth and only looks forward.
+    const ahead = (at: TilePoint): number => at.x * dir.x + at.y * dir.y
+    const front = ahead(mouth)
+    const sealed = want.every(at => around.every(([dx, dy]) => {
+      const side = { x: at.x + dx, y: at.y + dy }
+      if (inside.has(`${side.x}:${side.y}`)) return true
+      // Only the mouth is allowed to have ground behind it: that is the way in.
+      if (at.x === mouth.x && at.y === mouth.y && ahead(side) < front) return true
+      return !WALKABLE.has(read(canvas, side.x, side.y))
+    }))
+    if (!sealed) return null
+
+    for (const at of want) {
+      put(canvas, at.x, at.y, 'floor')
+      claimed.add(`${at.x}:${at.y}`)
+    }
+    return { mouth, tiles: want.filter(at => at.x !== mouth.x || at.y !== mouth.y) }
+  }
+
+  for (const room of rng.shuffle([...plan.rooms])) {
+    if (out.length >= wanted) break
+    const centre = centres[room.id]
+    if (!centre) continue
+    let dug: Alcove | null = null
+    for (const dir of rng.shuffle([...dirs])) {
+      // Leave from a few points along that wall, not only from dead centre.
+      const across = dir.x === 0 ? { x: 1, y: 0 } : { x: 0, y: 1 }
+      for (const offset of rng.shuffle([0, -3, 3, -6, 6])) {
+        const from = { x: centre.x + across.x * offset, y: centre.y + across.y * offset }
+        if (!WALKABLE.has(read(canvas, from.x, from.y))) continue
+        const chamber = 1 + rng.int(0, 1)
+        dug = dig(from, dir, chamber + 1 + rng.int(0, 1), chamber)
+        if (dug) break
+      }
+      if (dug) break
+    }
+    if (dug) out.push(dug)
+  }
+  return out
+}
+
+/**
+ * Carves whatever gallery it takes for `exit` to be walkable to from
+ * `entrance`. Does nothing when there is already a way, which is almost
+ * always, so the shape of a floor is untouched except when it has to be.
+ */
+function reachStairs(canvas: Canvas, entrance: TilePoint, exit: TilePoint, rng: Rng): void {
+  const key = (at: TilePoint): string => `${at.x}:${at.y}`
+  const seen = new Set<string>([key(entrance)])
+  const queue: TilePoint[] = [entrance]
+  const reached: TilePoint[] = [entrance]
+  while (queue.length) {
+    const at = queue.shift()!
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+      const next = { x: at.x + dx, y: at.y + dy }
+      if (seen.has(key(next)) || !WALKABLE.has(read(canvas, next.x, next.y))) continue
+      seen.add(key(next))
+      reached.push(next)
+      queue.push(next)
+    }
+  }
+  if (seen.has(key(exit))) return
+
+  // Dig from the reachable tile closest to the stairs, with the same tool and
+  // the same width as any other side gallery, so the fix is invisible.
+  let best = reached[0]
+  let bestGap = Infinity
+  for (const at of reached) {
+    const gap = Math.hypot(at.x - exit.x, at.y - exit.y)
+    if (gap < bestGap) { bestGap = gap; best = at }
+  }
+  route(canvas, best, exit, PATH_WIDTH.side, rng)
+
+  // A routed gallery is a curve and can miss its end by a tile. This does not:
+  // an L of plain floor, dug straight, so the stairs are always walkable to.
+  const half = Math.floor(PATH_WIDTH.pinch / 2)
+  const dig = (x: number, y: number): void => {
+    for (let dy = -half; dy <= half; dy++) {
+      for (let dx = -half; dx <= half; dx++) {
+        const kind = read(canvas, x + dx, y + dy)
+        // Rock becomes floor; a lake in the way gets a bridge, the same answer
+        // the generator gives when it puts a lake on a route in the first place.
+        if (kind === 'rock') put(canvas, x + dx, y + dy, 'floor')
+        else if (kind === 'water') put(canvas, x + dx, y + dy, 'bridge')
+      }
+    }
+  }
+  const stepX = Math.sign(exit.x - best.x)
+  for (let x = best.x; x !== exit.x; x += stepX) dig(x, best.y)
+  const stepY = Math.sign(exit.y - best.y)
+  for (let y = best.y; y !== exit.y; y += stepY) dig(exit.x, y)
+  dig(exit.x, exit.y)
 }
 
 /** The nearest tile to `centre` a party could actually stand on. */

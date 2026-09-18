@@ -146,8 +146,8 @@ describe('obstacles the scene is told about', () => {
     const sealed = blockedByObstacles(obstacles)
     scene.setSealed(sealed)
 
-    for (const tile of obstacles[0].tiles) {
-      scene.goTo({ tile: { tx: tile.x, ty: tile.y }, actor: null })
+    for (const obstacle of obstacles) {
+      scene.goTo({ tile: { tx: obstacle.at.x, ty: obstacle.at.y }, actor: null })
       settle(scene, tiles)
       expect(sealed.has(at(scene.player.tx, scene.player.ty))).toBe(false)
     }

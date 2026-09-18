@@ -1,15 +1,19 @@
-// D1.2.4 §1, §4 — the walls you break instead of walk around.
+// D1.2.4 §1, §4 · D1.2.4ter §1, §2, §4 — what blocks, and what opens it.
 //
-// The promise: an obstacle is a detour worth a tool, never the reason a floor
-// cannot be finished. And clearing one gives nothing but the tile.
+// The promise: a block is one tile, it only ever closes an **optional** side
+// room, the floor can always be finished without touching it, and clearing one
+// gives nothing but the ground. The levels it quotes are the production
+// catalog's, not numbers invented here.
 
 import { describe, expect, it } from 'vitest'
+import { GATHERING_NODES } from '../../professions/domain/catalog/nodes'
+import { planDecor } from './decorPlan'
 import { generateFloor } from './floorPlan'
 import { buildFloorTiles, isWalkable, type FloorTiles } from './floorTiles'
-import { planDecor } from './decorPlan'
 import {
-  blockedByObstacles, blockedByProps, exitReachableWithout, isObstacleTile, MAX_BARRIER, minableProps,
-  OBSTACLES, placeObstacles, reachableFrom, skillForProp,
+  blockedByObstacles, blockedByProps, exitReachableWithout, floorRequirements, isObstacleTile,
+  minableProps, OBSTACLES, placeObstacles, QUOTED_NODES, reachableFrom, requirementForObstacle,
+  requirementForProp, skillForProp,
 } from './obstacles'
 import { dungeonProfile, DUNGEON_THEMES, type DungeonTheme } from './tiers'
 
@@ -19,32 +23,37 @@ const SEEDS = [11, 909, 2024, 55501, 31337]
 const floor = (seed: number, theme: DungeonTheme = 'cave'): FloorTiles =>
   buildFloorTiles(generateFloor(dungeonProfile(seed, 'B', theme), 3, POOL), theme, seed)
 
-describe('an obstacle never closes a floor (§1)', () => {
-  it.each(SEEDS)('seed %i: the exit is reachable with every obstacle still in place', seed => {
+describe('a block never closes a floor (§2)', () => {
+  it.each(SEEDS)('seed %i: the exit is reachable with every block still in place', seed => {
     const tiles = floor(seed)
-    const obstacles = placeObstacles(tiles, seed, 3)
-    expect(exitReachableWithout(tiles, obstacles)).toBe(true)
+    expect(exitReachableWithout(tiles, placeObstacles(tiles, seed, 3))).toBe(true)
   })
 
-  it.each(SEEDS)('seed %i: an obstacle never sits on the spawn or the way out', seed => {
+  it.each(SEEDS)('seed %i: a block is one tile, and never the spawn or the stairs', seed => {
     const tiles = floor(seed)
     for (const obstacle of placeObstacles(tiles, seed, 3)) {
-      for (const at of obstacle.tiles) {
-        expect(at).not.toEqual(tiles.entrance)
-        expect(at).not.toEqual(tiles.exit)
-        expect(isWalkable(tiles, at.x, at.y)).toBe(true)
-      }
-      expect(obstacle.tiles).toContainEqual(obstacle.at)
+      expect(obstacle.at).not.toEqual(tiles.entrance)
+      expect(obstacle.at).not.toEqual(tiles.exit)
+      expect(isWalkable(tiles, obstacle.at.x, obstacle.at.y)).toBe(true)
     }
   })
 
-  it.each(SEEDS)('seed %i: it seals a pocket, not the map', seed => {
+  it.each(SEEDS)('seed %i: it stands in the mouth of an optional room', seed => {
+    const tiles = floor(seed)
+    const mouths = new Set((tiles.alcoves ?? []).map(alcove => `${alcove.mouth.x}:${alcove.mouth.y}`))
+    for (const obstacle of placeObstacles(tiles, seed, 3)) {
+      expect(mouths.has(`${obstacle.at.x}:${obstacle.at.y}`)).toBe(true)
+      // And there is something worth coming back for behind it.
+      expect(obstacle.opens).toBeGreaterThan(0)
+    }
+  })
+
+  it.each(SEEDS)('seed %i: what it seals is a pocket, never the map', seed => {
     const tiles = floor(seed)
     const obstacles = placeObstacles(tiles, seed, 3)
     const open = reachableFrom(tiles, tiles.entrance, new Set())
     const sealed = reachableFrom(tiles, tiles.entrance, blockedByObstacles(obstacles))
-    // Whatever they lock away is a minority of the floor.
-    expect(sealed.size).toBeGreaterThan(open.size * 0.6)
+    expect(sealed.size).toBeGreaterThan(open.size * 0.8)
   })
 
   it.each(SEEDS)('seed %i: clearing them all gives the whole floor back', seed => {
@@ -57,77 +66,55 @@ describe('an obstacle never closes a floor (§1)', () => {
   })
 })
 
+describe('optional side rooms (§2)', () => {
+  it.each(SEEDS)('seed %i: the floor carries at least one, with a one-tile mouth', seed => {
+    const tiles = floor(seed)
+    const alcoves = tiles.alcoves ?? []
+    expect(alcoves.length).toBeGreaterThan(0)
+    for (const alcove of alcoves) {
+      expect(isWalkable(tiles, alcove.mouth.x, alcove.mouth.y)).toBe(true)
+      expect(alcove.tiles.length).toBeGreaterThan(0)
+    }
+  })
+
+  it.each(SEEDS)('seed %i: sealing the mouth cuts the room off, and only it', seed => {
+    const tiles = floor(seed)
+    for (const alcove of tiles.alcoves ?? []) {
+      const sealed = reachableFrom(tiles, tiles.entrance, new Set([`${alcove.mouth.x}:${alcove.mouth.y}`]))
+      // Nothing behind the mouth is reachable any more...
+      const behind = alcove.tiles.filter(at => sealed.has(`${at.x}:${at.y}`))
+      expect(behind).toHaveLength(0)
+      // ...and the stairs still are.
+      expect(sealed.has(`${tiles.exit.x}:${tiles.exit.y}`)).toBe(true)
+    }
+  })
+})
+
 describe('what they are made of', () => {
-  it.each(DUNGEON_THEMES)('%s: uses obstacles that belong to its biome', theme => {
+  it.each(DUNGEON_THEMES)('%s: uses blocks that belong to its biome', theme => {
     const tiles = floor(4242, theme)
     for (const obstacle of placeObstacles(tiles, 4242, 3)) {
       const definition = OBSTACLES[obstacle.kind]
       expect(['mine', 'chop']).toContain(definition.skill)
       expect(definition.seconds).toBeGreaterThan(0)
-      // A glacier has no roots to chop and a forest no seam to mine into.
       if (theme === 'glacier') expect(obstacle.kind).not.toBe('roots')
       if (theme === 'forest') expect(obstacle.kind).not.toBe('crystal')
     }
   })
 
-  it('blocks every tile of the barrier until it is cleared, then none', () => {
+  it('blocks its tile until it is cleared, then stops', () => {
     const tiles = floor(909)
     const obstacles = placeObstacles(tiles, 909, 3)
     expect(obstacles.length).toBeGreaterThan(0)
     const first = obstacles[0]
-    for (const at of first.tiles) expect(isObstacleTile(obstacles, at.x, at.y)).toBe(true)
+    expect(isObstacleTile(obstacles, first.at.x, first.at.y)).toBe(true)
     first.cleared = true
-    for (const at of first.tiles) expect(isObstacleTile(obstacles, at.x, at.y)).toBe(false)
+    expect(isObstacleTile(obstacles, first.at.x, first.at.y)).toBe(false)
   })
 
-  it.each(SEEDS)('seed %i: the same seed places the same obstacles', seed => {
+  it.each(SEEDS)('seed %i: the same seed places the same blocks', seed => {
     const tiles = floor(seed)
     expect(placeObstacles(tiles, seed, 3)).toEqual(placeObstacles(tiles, seed, 3))
-  })
-})
-
-// D1.2.4 §1 — a pebble in a five-tile gallery is not an obstacle: you walk past
-// it. These are the properties that make one worth a tool.
-describe('a barrier, not a pebble', () => {
-  it.each(SEEDS)('seed %i: it spans the throat from wall to wall', seed => {
-    const tiles = floor(seed)
-    for (const obstacle of placeObstacles(tiles, seed, 3)) {
-      const acrossX = obstacle.axis === 'x'
-      const line = [...obstacle.tiles].sort((a, b) => (a.x - b.x) || (a.y - b.y))
-      const first = line[0]
-      const last = line[line.length - 1]
-      const before = acrossX ? { x: first.x - 1, y: first.y } : { x: first.x, y: first.y - 1 }
-      const after = acrossX ? { x: last.x + 1, y: last.y } : { x: last.x, y: last.y + 1 }
-      expect(isWalkable(tiles, before.x, before.y)).toBe(false)
-      expect(isWalkable(tiles, after.x, after.y)).toBe(false)
-      expect(obstacle.tiles.length).toBeLessThanOrEqual(MAX_BARRIER)
-    }
-  })
-
-  it.each(SEEDS)('seed %i: each one really closes a way, not just its own tiles', seed => {
-    const tiles = floor(seed)
-    const obstacles = placeObstacles(tiles, seed, 3)
-    const open = reachableFrom(tiles, tiles.entrance, new Set())
-    for (const obstacle of obstacles) {
-      const alone = obstacles.map(other => ({ ...other, cleared: other !== obstacle }))
-      const sealed = reachableFrom(tiles, tiles.entrance, blockedByObstacles(alone))
-      // More ground is lost than the barrier itself covers: there is something
-      // behind it, which is the whole point of carrying a tool.
-      expect(open.size - sealed.size).toBeGreaterThan(obstacle.tiles.length)
-    }
-  })
-
-  it('puts them on nearly every floor, so they are actually met', () => {
-    let floors = 0
-    let empty = 0
-    for (const seed of [11, 909, 2024, 55501, 31337, 4242, 77, 5150]) {
-      for (let level = 1; level <= 3; level++) {
-        const tiles = floor(seed)
-        floors++
-        if (!placeObstacles(tiles, seed, level).length) empty++
-      }
-    }
-    expect(empty / floors).toBeLessThan(0.1)
   })
 })
 
@@ -144,8 +131,6 @@ describe('the rocks and trees already lying around', () => {
 
   it.each(SEEDS)('seed %i: never offers one that is part of a wall', seed => {
     const tiles = floor(seed)
-    // Breaking a boulder drawn against the rock would open nothing: the tile
-    // under it is wall, and it would stay wall.
     for (const prop of minableProps(tiles, seed, 3)) {
       expect(isWalkable(tiles, prop.at.x, prop.at.y)).toBe(true)
     }
@@ -168,5 +153,62 @@ describe('the rocks and trees already lying around', () => {
     expect(blockedByProps(props).has(`${first.at.x}:${first.at.y}`)).toBe(true)
     first.cleared = true
     expect(blockedByProps(props).has(`${first.at.x}:${first.at.y}`)).toBe(false)
+  })
+})
+
+// D1.2.4ter §1 — the level the dungeon quotes has to be the real one.
+describe('the profession level it asks for', () => {
+  const nodeOf = (id: string) => GATHERING_NODES.find(node => node.id === id)!
+
+  it('quotes the production catalog exactly', () => {
+    // R31 keeps professions isolated, so the prototype copies these numbers
+    // instead of importing them. This is the test that keeps the copy honest:
+    // it reads the real catalog and fails the day the two drift apart.
+    for (const quoted of QUOTED_NODES) {
+      const node = nodeOf(quoted.id)
+      expect(node, quoted.id).toBeDefined()
+      expect(node.requiredLevel, quoted.id).toBe(quoted.requiredLevel)
+      expect(node.minToolTier, quoted.id).toBe(quoted.minToolTier)
+      expect(node.profession).toBe(quoted.profession === 'mine' ? 'mining' : 'woodcutting')
+      for (const anchor of quoted.anchors) expect(node.anchors).toContain(anchor)
+    }
+  })
+
+  it('lands on a real node for everything it can block with', () => {
+    for (const kind of ['rockfall', 'crystal', 'roots', 'timber'] as const) {
+      const requirement = requirementForObstacle(kind)
+      const node = nodeOf(requirement.nodeId)
+      expect(node, kind).toBeDefined()
+      expect(requirement.level).toBe(node.requiredLevel)
+      expect(requirement.toolTier).toBe(node.minToolTier)
+    }
+  })
+
+  it('names the profession behind the tool', () => {
+    expect(requirementForObstacle('rockfall').profession).toBe('Minería')
+    expect(requirementForObstacle('timber').profession).toBe('Tala')
+    expect(requirementForProp('crystal')?.profession).toBe('Minería')
+    expect(requirementForProp('torch')).toBeNull()
+  })
+
+  it('asks more for crystal than for plain rock', () => {
+    expect(requirementForProp('crystal')!.level).toBeGreaterThan(requirementForProp('rock')!.level)
+  })
+
+  it.each(SEEDS)('seed %i: a floor quotes the hardest thing on it, per skill', seed => {
+    const tiles = floor(seed)
+    const obstacles = placeObstacles(tiles, seed, 3)
+    const props = minableProps(tiles, seed, 3)
+    const quoted = floorRequirements(obstacles, props)
+    expect(quoted.length).toBeGreaterThan(0)
+    for (const requirement of quoted) {
+      const everything = [
+        ...obstacles.map(obstacle => requirementForObstacle(obstacle.kind)),
+        ...props.map(prop => prop.requirement),
+      ].filter(candidate => candidate.skill === requirement.skill)
+      expect(requirement.level).toBe(Math.max(...everything.map(candidate => candidate.level)))
+    }
+    // Sorted hardest first: that is the order it reads in.
+    expect([...quoted].sort((a, b) => b.level - a.level)).toEqual(quoted)
   })
 })

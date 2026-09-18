@@ -1,31 +1,38 @@
-// Obstacles you have to break to get past (D1.2.4 §1, §4).
+// What stands in your way, and what it takes to move it (D1.2.4 §1, §4 ·
+// D1.2.4ter §1, §2, §4).
 //
-// A cave should have places you cannot simply walk into. These are them: a
-// rockfall you mine through, a crystal seam you break, a barricade of roots you
-// chop. They are **not** a resource: clearing one gives nothing but the way
-// through, and the tools exist here only for that. Professions are untouched.
+// Two kinds of thing block a dungeon, and both are **one tile**:
 //
-// An obstacle is a **barrier**, not a pebble. The routes of this dungeon are
-// four and five tiles wide (D1.2.1 §6), so a single blocked tile is something
-// you walk around without noticing. A barrier spans the whole throat of a
-// gallery, wall to wall, and the tiles of one clear together.
+//   - a **block** in the mouth of an optional side room: a fallen trunk, a
+//     rockfall, a crystal. One box, one swing, and the alcove behind it opens.
+//   - the **scenery already lying around**: every solid prop standing on the
+//     ground. If it shuts a way, it can be broken.
 //
-// The contract that keeps a floor playable: a barrier never sits on the only
-// way to the exit. They seal side pockets and second routes — the places worth
-// a detour — so a player without the right tool loses a shortcut and a
-// treasure, never the floor.
+// D1.2.4ter §4 replaced the wall-to-wall barriers of D1.2.4 with these. A
+// barrier that spans a gallery and then vanishes in one hit reads as a cheat;
+// a single block you walk up to, cannot pass, and come back for reads as a
+// door you have not earned yet.
 //
-// Pure: tiles in, obstacles out, deterministic from the seed.
+// None of it is a resource. Clearing one gives nothing but the ground it was
+// standing on. The tools exist here only to open ways, and professions are
+// untouched — the levels below are *read* from the production catalog so the
+// numbers the dungeon quotes are the numbers the profession actually asks for.
 
 import { isSolidProp, planDecor, type CaveStyle, type PropKind } from './decorPlan'
 import { streamFor } from './rng'
-import { isWalkable, tileAt, WALKABLE, type FloorTiles, type TilePoint } from './tileKinds'
+import { isWalkable, WALKABLE, type Alcove, type FloorTiles, type TilePoint } from './tileKinds'
 import type { DungeonTheme } from './tiers'
 
 /** What it takes to clear one. */
 export type ObstacleSkill = 'mine' | 'chop'
 
 export type ObstacleKind = 'rockfall' | 'crystal' | 'roots' | 'timber'
+
+/** The profession behind each skill, named the way the game names it. */
+export const SKILL_PROFESSION: Readonly<Record<ObstacleSkill, string>> = {
+  mine: 'Minería',
+  chop: 'Tala',
+}
 
 export interface ObstacleDefinition {
   readonly kind: ObstacleKind
@@ -35,13 +42,15 @@ export interface ObstacleDefinition {
   readonly seconds: number
   /** What the prompt says you need. */
   readonly tool: string
+  /** The decor anchors this block is made of, for reading its level. */
+  readonly anchors: readonly PropKind[]
 }
 
 export const OBSTACLES: Readonly<Record<ObstacleKind, ObstacleDefinition>> = {
-  rockfall: { kind: 'rockfall', skill: 'mine', label: 'Derrumbe', seconds: 2.2, tool: 'Pico' },
-  crystal: { kind: 'crystal', skill: 'mine', label: 'Veta de cristal', seconds: 2.8, tool: 'Pico' },
-  roots: { kind: 'roots', skill: 'chop', label: 'Raíces', seconds: 2, tool: 'Hacha' },
-  timber: { kind: 'timber', skill: 'chop', label: 'Tranca de madera', seconds: 2.4, tool: 'Hacha' },
+  rockfall: { kind: 'rockfall', skill: 'mine', label: 'Derrumbe', seconds: 2.2, tool: 'Pico', anchors: ['rock'] },
+  crystal: { kind: 'crystal', skill: 'mine', label: 'Cristal', seconds: 2.8, tool: 'Pico', anchors: ['crystal'] },
+  roots: { kind: 'roots', skill: 'chop', label: 'Raíces', seconds: 2, tool: 'Hacha', anchors: ['tree'] },
+  timber: { kind: 'timber', skill: 'chop', label: 'Tronco', seconds: 2.4, tool: 'Hacha', anchors: ['pine'] },
 }
 
 /** Which two a biome uses, so a glacier is not full of roots. */
@@ -55,19 +64,95 @@ const THEME_OBSTACLES: Readonly<Record<DungeonTheme, readonly ObstacleKind[]>> =
   tower: ['crystal', 'rockfall'],
 }
 
-/** The widest throat a barrier is allowed to close: wider than this is a hall. */
-export const MAX_BARRIER = 6
+const CHOPPABLE: ReadonlySet<PropKind> = new Set<PropKind>(['tree', 'pine', 'bush'])
+
+// ── What the profession asks for (D1.2.4ter §1) ─────────────────────────────
+
+export interface SkillRequirement {
+  readonly skill: ObstacleSkill
+  /** 'Minería' / 'Tala'. */
+  readonly profession: string
+  /** The level the production catalog asks for on this kind of material. */
+  readonly level: number
+  /** The catalog node the number comes from, so it can be checked. */
+  readonly nodeId: string
+  /** Tool tier the catalog asks for, 0 being bare hands. */
+  readonly toolTier: number
+}
+
+/**
+ * The gathering nodes these materials belong to, copied from the production
+ * gathering catalog rather than imported: R31 keeps that feature isolated and
+ * the prototype does not get to be the exception. `obstacles.test.ts` is a
+ * test, so it may read the real catalog — and it does, failing the day these
+ * numbers drift from it.
+ */
+interface CatalogNode {
+  readonly id: string
+  readonly profession: ObstacleSkill
+  readonly anchors: readonly PropKind[]
+  readonly requiredLevel: number
+  readonly minToolTier: number
+}
+
+export const QUOTED_NODES: readonly CatalogNode[] = [
+  { id: 'stone_outcrop', profession: 'mine', anchors: ['rock'], requiredLevel: 1, minToolTier: 0 },
+  { id: 'coal_seam', profession: 'mine', anchors: ['rock', 'boulder'], requiredLevel: 5, minToolTier: 1 },
+  { id: 'iron_vein', profession: 'mine', anchors: ['boulder', 'icerock'], requiredLevel: 15, minToolTier: 1 },
+  { id: 'crystal_cluster', profession: 'mine', anchors: ['crystal'], requiredLevel: 20, minToolTier: 1 },
+  { id: 'gold_vein', profession: 'mine', anchors: ['boulder', 'icerock'], requiredLevel: 30, minToolTier: 2 },
+  { id: 'common_tree', profession: 'chop', anchors: ['tree'], requiredLevel: 1, minToolTier: 0 },
+  { id: 'pine_tree', profession: 'chop', anchors: ['pine'], requiredLevel: 8, minToolTier: 1 },
+  { id: 'hardwood_tree', profession: 'chop', anchors: ['tree'], requiredLevel: 15, minToolTier: 1 },
+]
+
+/** Materials the catalog has no node of its own for, read as the nearest one. */
+const ANCHOR_ALIAS: Partial<Record<PropKind, PropKind>> = { bush: 'tree' }
+
+/**
+ * The cheapest catalog node anchored to this material: the lowest level that
+ * lets you work it at all. Read-only — nothing here writes to professions.
+ */
+function requirementOf(skill: ObstacleSkill, kinds: readonly PropKind[]): SkillRequirement {
+  const anchors = kinds.map(kind => ANCHOR_ALIAS[kind] ?? kind)
+  const node = QUOTED_NODES
+    .filter(candidate => candidate.profession === skill
+      && candidate.anchors.some(anchor => anchors.includes(anchor)))
+    .sort((a, b) => a.requiredLevel - b.requiredLevel)[0]
+  return {
+    skill,
+    profession: SKILL_PROFESSION[skill],
+    level: node?.requiredLevel ?? 1,
+    nodeId: node?.id ?? 'unknown',
+    toolTier: node?.minToolTier ?? 0,
+  }
+}
+
+/** What a given block asks for. */
+export const requirementForObstacle = (kind: ObstacleKind): SkillRequirement =>
+  requirementOf(OBSTACLES[kind].skill, OBSTACLES[kind].anchors)
+
+/** Which tool a solid prop asks for, or null when it is pure decoration. */
+export function skillForProp(kind: PropKind): ObstacleSkill | null {
+  if (!isSolidProp(kind)) return null
+  return CHOPPABLE.has(kind) ? 'chop' : 'mine'
+}
+
+/** What a given piece of scenery asks for, or null when it is decoration. */
+export function requirementForProp(kind: PropKind): SkillRequirement | null {
+  const skill = skillForProp(kind)
+  return skill ? requirementOf(skill, [kind]) : null
+}
+
+// ── Blocks in the mouth of an optional room (§2, §4) ────────────────────────
 
 export interface FloorObstacle {
   readonly id: string
   readonly kind: ObstacleKind
-  /** The middle of the barrier: what the prompt and the effects point at. */
+  /** The one tile it stands on. */
   readonly at: TilePoint
-  /** Every tile it blocks, wall to wall. They clear together. */
-  readonly tiles: readonly TilePoint[]
-  /** Which way it runs: across x is a wall you meet walking up or down. */
-  readonly axis: 'x' | 'y'
-  /** Cleared: the tiles are open from here on. */
+  /** How much ground opens up behind it, so the prompt can be honest. */
+  readonly opens: number
   cleared: boolean
 }
 
@@ -91,87 +176,29 @@ export function reachableFrom(tiles: FloorTiles, start: TilePoint, blocked: Read
 }
 
 /**
- * The barrier through `x,y` across `axis`: every walkable tile from wall to
- * wall. Null when the throat is wider than a barrier may close, which is the
- * open middle of a chamber rather than the neck of a gallery.
- */
-export function barrierAcross(
-  tiles: FloorTiles, x: number, y: number, axis: 'x' | 'y',
-): TilePoint[] | null {
-  if (!isWalkable(tiles, x, y)) return null
-  const step = axis === 'x' ? { dx: 1, dy: 0 } : { dx: 0, dy: 1 }
-  const line: TilePoint[] = [{ x, y }]
-  for (const sign of [1, -1]) {
-    for (let i = 1; i <= MAX_BARRIER; i++) {
-      const at = { x: x + step.dx * i * sign, y: y + step.dy * i * sign }
-      if (!isWalkable(tiles, at.x, at.y)) break
-      line.push(at)
-      if (line.length > MAX_BARRIER) return null
-    }
-  }
-  return line.sort((a, b) => (a.x - b.x) || (a.y - b.y))
-}
-
-const centreOf = (line: readonly TilePoint[]): TilePoint => line[Math.floor(line.length / 2)]
-
-/**
- * Places up to `wanted` barriers, each one verified to actually block something
- * and never to cut the exit — or most of the floor — off from the entrance.
+ * One block per alcove mouth. Nothing is placed anywhere else: a block only
+ * ever closes an optional room, never the way to the stairs (§2).
  */
 export function placeObstacles(tiles: FloorTiles, seed: number, floor: number, wanted = 4): FloorObstacle[] {
   const rng = streamFor(seed, 'obstacles', tiles.theme, floor)
   const kinds = THEME_OBSTACLES[tiles.theme]
   const out: FloorObstacle[] = []
-  const blocked = new Set<string>()
 
-  // Every throat on the floor, once: two tiles of the same gallery describe the
-  // same barrier, so they collapse into the line they produce.
-  const candidates = new Map<string, { line: TilePoint[]; axis: 'x' | 'y' }>()
-  for (let y = 1; y < tiles.height - 1; y++) {
-    for (let x = 1; x < tiles.width - 1; x++) {
-      if (tileAt(tiles, x, y) !== 'floor') continue
-      for (const axis of ['x', 'y'] as const) {
-        const line = barrierAcross(tiles, x, y, axis)
-        if (!line) continue
-        const touchesWay = line.some(at => (at.x === tiles.entrance.x && at.y === tiles.entrance.y)
-          || (at.x === tiles.exit.x && at.y === tiles.exit.y))
-        if (touchesWay) continue
-        candidates.set(line.map(key).join(','), { line, axis })
-      }
-    }
-  }
-
-  const everywhere = reachableFrom(tiles, tiles.entrance, blocked)
-  const taken: TilePoint[] = []
-  for (const { line, axis } of rng.shuffle([...candidates.values()])) {
+  for (const alcove of (tiles.alcoves ?? []) as readonly Alcove[]) {
     if (out.length >= wanted) break
-    // Barriers stand apart: two in the same gallery read as one long wall.
-    const centre = centreOf(line)
-    if (taken.some(other => Math.hypot(other.x - centre.x, other.y - centre.y) < 6)) continue
-    if (line.some(at => blocked.has(key(at)))) continue
+    if (!isWalkable(tiles, alcove.mouth.x, alcove.mouth.y)) continue
+    // Never on the spawn or the stairs, however the floor came out.
+    if (key(alcove.mouth) === key(tiles.entrance) || key(alcove.mouth) === key(tiles.exit)) continue
+    // Sealing the mouth must leave the exit reachable. It always does — the
+    // alcove was carved off the side — but this is the promise, so it is checked.
+    const sealed = reachableFrom(tiles, tiles.entrance, new Set([key(alcove.mouth)]))
+    if (!sealed.has(key(tiles.exit))) continue
 
-    // On its own it has to close a way: a barrier the others make redundant is
-    // scenery you walk around, which is exactly what §1 is not asking for.
-    const alone = reachableFrom(tiles, tiles.entrance, new Set(line.map(key)))
-    if (everywhere.size - alone.size <= line.length) continue
-
-    for (const at of line) blocked.add(key(at))
-    const still = reachableFrom(tiles, tiles.entrance, blocked)
-    const strandsExit = !still.has(key(tiles.exit))
-    const lost = everywhere.size - still.size
-    // And together they have to leave the floor finishable: the exit reachable
-    // and most of the ground still open.
-    if (strandsExit || lost > everywhere.size * 0.3) {
-      for (const at of line) blocked.delete(key(at))
-      continue
-    }
-    taken.push(centre)
     out.push({
       id: `f${floor}-obs${out.length}`,
       kind: kinds[rng.int(0, kinds.length - 1)],
-      at: centre,
-      tiles: line,
-      axis,
+      at: alcove.mouth,
+      opens: alcove.tiles.length,
       cleared: false,
     })
   }
@@ -180,35 +207,18 @@ export function placeObstacles(tiles: FloorTiles, seed: number, floor: number, w
 
 /** The tiles still sealed, for collision and for pathfinding. */
 export const blockedByObstacles = (obstacles: readonly FloorObstacle[]): Set<string> =>
-  new Set(obstacles.filter(obstacle => !obstacle.cleared).flatMap(obstacle => obstacle.tiles.map(key)))
+  new Set(obstacles.filter(obstacle => !obstacle.cleared).map(obstacle => key(obstacle.at)))
 
-/** True when the exit can still be walked to with every obstacle left in place. */
+/** True when the exit can still be walked to with every block left in place. */
 export function exitReachableWithout(tiles: FloorTiles, obstacles: readonly FloorObstacle[]): boolean {
   const reached = reachableFrom(tiles, tiles.entrance, blockedByObstacles(obstacles))
   return reached.has(key(tiles.exit))
 }
 
 export const isObstacleTile = (obstacles: readonly FloorObstacle[], x: number, y: number): boolean =>
-  obstacles.some(obstacle => !obstacle.cleared && obstacle.tiles.some(at => at.x === x && at.y === y))
-
-export { WALKABLE }
+  obstacles.some(obstacle => !obstacle.cleared && obstacle.at.x === x && obstacle.at.y === y)
 
 // ── The scenery you can also clear (D1.2.4bis §1) ───────────────────────────
-//
-// The playtest found the real problem: it is not only the placed barriers that
-// shut a way. A boulder, a crystal formation or a tree standing in a gallery
-// blocks just as hard, and being told "you cannot pass" by a rock you can see
-// is only fair if you can also break that rock. So every solid prop is
-// clearable with the tool it deserves — and, exactly like a barrier, it gives
-// nothing but the ground it was on.
-
-/** Which tool a solid prop asks for, or null when it is pure decoration. */
-export function skillForProp(kind: PropKind): ObstacleSkill | null {
-  if (!isSolidProp(kind)) return null
-  return CHOPPABLE.has(kind) ? 'chop' : 'mine'
-}
-
-const CHOPPABLE: ReadonlySet<PropKind> = new Set<PropKind>(['tree', 'pine', 'bush'])
 
 /** What the prompt calls it. */
 const PROP_LABELS: Partial<Record<PropKind, string>> = {
@@ -227,13 +237,14 @@ export interface MinableProp {
   readonly kind: PropKind
   readonly skill: ObstacleSkill
   readonly label: string
+  readonly requirement: SkillRequirement
   cleared: boolean
 }
 
 /**
- * Every solid prop on this floor, as something you can work through. The plan
- * is the same deterministic one the renderer draws from, so what blocks on
- * screen is what the prompt offers to clear.
+ * Every solid prop standing on the ground, as something you can work through.
+ * The plan is the same deterministic one the renderer draws from, so what
+ * blocks on screen is what the prompt offers to clear.
  */
 export function minableProps(tiles: FloorTiles, seed: number, floor: number, style: CaveStyle = 'A'): MinableProp[] {
   return planDecor(tiles, seed + floor * 97, style)
@@ -248,6 +259,7 @@ export function minableProps(tiles: FloorTiles, seed: number, floor: number, sty
         kind: prop.kind,
         skill,
         label: PROP_LABELS[prop.kind] ?? (skill === 'chop' ? 'Maleza' : 'Roca'),
+        requirement: requirementForProp(prop.kind) ?? requirementOf(skill, [prop.kind]),
         cleared: false,
       }
     })
@@ -256,3 +268,22 @@ export function minableProps(tiles: FloorTiles, seed: number, floor: number, sty
 /** The prop tiles still standing: what collision and pathfinding must refuse. */
 export const blockedByProps = (props: readonly MinableProp[]): Set<string> =>
   new Set(props.filter(prop => !prop.cleared).map(prop => key(prop.at)))
+
+/**
+ * What this floor asks of your professions (§1): the highest level anything on
+ * it needs, per skill. This is what the dungeon quotes before you go in.
+ */
+export function floorRequirements(
+  obstacles: readonly FloorObstacle[], props: readonly MinableProp[],
+): SkillRequirement[] {
+  const best = new Map<ObstacleSkill, SkillRequirement>()
+  const consider = (requirement: SkillRequirement): void => {
+    const current = best.get(requirement.skill)
+    if (!current || requirement.level > current.level) best.set(requirement.skill, requirement)
+  }
+  for (const obstacle of obstacles) consider(requirementForObstacle(obstacle.kind))
+  for (const prop of props) consider(prop.requirement)
+  return [...best.values()].sort((a, b) => b.level - a.level)
+}
+
+export { WALKABLE }

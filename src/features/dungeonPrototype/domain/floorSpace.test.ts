@@ -154,3 +154,35 @@ describe('still deterministic (§14)', () => {
     expect(a.exit).toEqual(b.exit)
   })
 })
+
+// D1.2.4ter §2 — you can always finish a floor, or walk back out of it.
+describe('the stairs are always walkable to', () => {
+  const reach = (tiles: ReturnType<typeof buildFloorTiles>): Set<string> => {
+    const key = (x: number, y: number): string => `${x}:${y}`
+    const seen = new Set([key(tiles.entrance.x, tiles.entrance.y)])
+    const queue = [tiles.entrance]
+    while (queue.length) {
+      const at = queue.shift()!
+      for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) {
+        const next = { x: at.x + dx, y: at.y + dy }
+        if (seen.has(key(next.x, next.y)) || !isWalkable(tiles, next.x, next.y)) continue
+        seen.add(key(next.x, next.y))
+        queue.push(next)
+      }
+    }
+    return seen
+  }
+
+  it('on every theme, every seed and every floor of a sweep', () => {
+    const broken: string[] = []
+    for (let seed = 1; seed <= 40; seed++) {
+      for (const theme of DUNGEON_THEMES) {
+        for (const level of [1, 2, 3]) {
+          const tiles = buildFloorTiles(generateFloor(dungeonProfile(seed, 'B', theme), level, POOL), theme, seed)
+          if (!reach(tiles).has(`${tiles.exit.x}:${tiles.exit.y}`)) broken.push(`${seed}/${theme}/f${level}`)
+        }
+      }
+    }
+    expect(broken).toEqual([])
+  })
+})
