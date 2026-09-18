@@ -227,10 +227,10 @@ Resueltas y cerradas: **I-1** (captura, §4) y la definición de R32 (§9).
 |---|---|---|
 | **R32.1 — Battle Catalog** | `feat/r32-1-battle-catalog` @ `a8984a7` | **HUMAN APPROVED**. Fuente aprobada: veekun tabular + overrides Gen VI de Pokémon Showdown. Catálogo `1.oras.ab69b5804411`. Doc: `BATTLE_CATALOG.md` |
 | **R32.2 — Species / Instance** | `feat/r32-2-pokemon-model` @ `7bf9af9` | Arquitectura **HUMAN APPROVED**. Modelo, fábrica pura, adaptador legacy, muestra `npm run pokemon:sample` |
-| **R32.2.1 — Model decisions + legacy migration contract** | `feat/r32-2-1-model-decisions` | Entregada, **pendiente de gate humano**. Corte Identidad/Condition/Runtime, contrato de migración M-1 determinista, auditoría de movimientos legacy, 93 tests. Docs: `POKEMON_SPECIES_INSTANCE_MODEL.md` y `LEGACY_MOVE_AUDIT.md` |
+| **R32.2.1 — Model decisions + legacy migration contract** | `feat/r32-2-1-model-decisions` | Entregada, **pendiente de gate humano**. Corte Identidad/Condition/Runtime, contrato de migración M-1 sobre identidad inmutable, canonicalización de movimientos legacy (A/B/C/D), 104 tests. Docs: `POKEMON_SPECIES_INSTANCE_MODEL.md` y `LEGACY_MOVE_AUDIT.md` |
 | **R32.3 — Shared Battle Rules** | `feat/r32-3-battle-rules` | No arrancada |
 | **R32.4 — Persistencia / autoridad** | — | No arrancada |
 
-Decisiones cerradas en R32.2.1 (detalle en el doc del modelo): migración legacy **M-1 hash determinista**, IVs derivados 0–31, **EV 0** legacy, naturaleza derivada, habilidad **normal** únicamente, shiny sólo con evidencia inequívoca, `experience` persistida con curva L³, major status **persiste** entre combates y pisos, confusion no, Mega sólo en runtime.
+Decisiones cerradas en R32.2.1 (detalle en el doc del modelo): migración legacy **M-1 hash determinista** sobre una **identidad inmutable que no incluye al dueño** (`slots.pokemon_id`), IVs derivados 0–31, **EV 0** legacy, naturaleza derivada, habilidad **normal** únicamente, shiny sólo con evidencia inequívoca, `experience` persistida con curva L³ que **gana al `level` guardado**, movimientos legacy **canonicalizados** (español y alias históricos) en vez de reemplazados, major status **persiste** entre combates y pisos, confusion no, Mega sólo en runtime.
 
 Q-1, Q-2 y Q-3 quedaron **cerradas** por el usuario al arrancar R32.1. Lo que R32.2 deja abierto para decisión humana está listado en `POKEMON_SPECIES_INSTANCE_MODEL.md` §18, y la estrategia de migración (§10 de ese doc) **no se aplica sin aprobación**.

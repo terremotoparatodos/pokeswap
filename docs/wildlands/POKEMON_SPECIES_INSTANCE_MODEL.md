@@ -1,7 +1,7 @@
 # R32.2 / R32.2.1 — PokemonSpecies / PokemonInstance
 
 > Rama `feat/r32-2-1-model-decisions`, desde `feat/r32-2-pokemon-model` @ `7bf9af9ef520882824a81eb7d2e82de6ef8c51b9`.
-> R32.2 (base) introdujo el modelo. **R32.2.1** cierra las decisiones de producto, corrige el corte de estado y formaliza el contrato de migración legacy.
+> R32.2 (base) introdujo el modelo. **R32.2.1** cierra las decisiones de producto, corrige el corte de estado, formaliza el contrato de migración legacy sobre una identidad inmutable y separa canonicalización de incompatibilidad en los movimientos.
 > **Solo modelo, validación, fábrica, adaptadores, tests y documentación.** No hay combate (R32.3), ni UI, ni autoridad de servidor, ni migración ejecutada.
 > Catálogo de referencia: `1.oras.ab69b5804411` (ORAS / Generación VI, 493 especies).
 
@@ -58,7 +58,7 @@ El `BattleRuntimeState` no se pasa a `leaveBattle` a propósito: no tiene nada q
 `PokemonInstance.experience` es la única fuente de verdad; el nivel se **deriva** (`levelForExperience`) y nunca se guarda al lado.
 
 1. Es lo que producción ya hace: `grant_pokemon_xp` otorga XP y recalcula el nivel; el cliente lee la misma fórmula en `progression/utils/xpLevel.ts`.
-2. Dos campos que describen lo mismo se pueden desincronizar. La proyección legacy detecta y reporta ese caso (`levelDisagrees`).
+2. Dos campos que describen lo mismo se pueden desincronizar. La proyección legacy detecta y reporta ese caso (`levelDisagrees`), y la regla está cerrada: **si el `level` legacy discrepa de su `xp`, gana el xp** — se preserva la experiencia, el nivel se deriva y el guardado sólo se audita (`MigrationReport.ignoredStoredLevel`).
 3. Un cambio de curva futuro se aplica en un solo lugar.
 
 La curva sigue siendo la histórica de PokeSwap (XP de L a L+1 = L³, tope 100). **No se migra** a las seis growth curves canónicas: el catálogo guarda `growthRate` para el futuro, y cambiar la curva revaluaría niveles existentes, así que es una decisión separada (§19).
@@ -137,7 +137,28 @@ Nada en el modelo cura nada hoy. El Centro Pokémon no se implementa en esta fas
 
 Implementado en `migration.ts`. **No ejecutado**: no escribe, no lee Supabase y no migra a nadie. Convierte una fila en un draft, en memoria, para que la decisión pueda revisarse antes de aplicarse.
 
-### 10.1 Propiedades
+### 10.1 La identidad legacy (`LegacyPokemonIdentityKey`) — **el dueño no participa**
+
+```
+LegacyPokemonIdentityKey = { slotPokemonId }   // slots.pokemon_id
+```
+
+Evidencia de que es inmutable, leída del propio repo:
+
+| Hecho | Dónde se ve |
+|---|---|
+| `slots` tiene **exactamente una fila por especie**: toda escritura es un upsert `ON CONFLICT (pokemon_id)` → `pokemon_id` es su primary key | `supabase/migrations/20260907_003_buy_market_listing.sql`, `supabase/functions/pokeswap-swap/index.ts` |
+| Un cambio de dueño es un `UPDATE` de `owner_id` sobre **esa misma fila** | ídem |
+| Soltar un Pokémon pone `owner_id = null`; **no borra la fila** | `pokeswap-swap/index.ts` (“Liberar el slot dado”) |
+| Ningún camino del repo hace `DELETE FROM slots` | búsqueda en `supabase/` y `src/` |
+
+Es decir: la fila del slot —la identidad del Pokémon legacy— sobrevive a cada swap, a cada venta de mercado y a cada liberación. Por eso es la clave, y por eso satisface las tres preferencias a la vez: **es la primary key del slot**, y esa primary key resulta ser el id de especie porque el modelo legacy garantiza un único Pokémon global permanente por especie.
+
+**Qué queda deliberadamente afuera de la clave:** `user_id` / `owner_id`, xp, level, moves, aura, energía y todo timestamp. Un Pokémon que cambia de manos el día antes de correr la migración tiene que salir de ella siendo **el mismo Pokémon**. La propiedad se preserva como metadata de la instancia migrada (`ownership`), pero no toca el RNG.
+
+Consecuencia que hay que decidir antes de ejecutar (§10.4): como el mundo legacy tiene un solo Pikachu, si la migración corre **por fila de `pokemon_xp`** (una por entrenador que lo entrenó), todas esas filas producen el mismo individuo. Si corre **por slot**, hay exactamente un Pikachu migrado. La clave es la misma en los dos casos; lo que falta decidir es la unidad.
+
+### 10.2 Propiedades
 
 | Propiedad | Cómo se consigue |
 |---|---|
@@ -147,14 +168,16 @@ Implementado en `migration.ts`. **No ejecutado**: no escribe, no lee Supabase y 
 | No rerrolleable | No se lee reloj, contador ni fuente aleatoria |
 
 ```
-hash(campo) = FNV1a(`${salt}|v${version}|${userId}|${speciesId}|${campo}`)
+hash(campo) = mix32(FNV1a(`${salt}|v${version}|slot:${slotPokemonId}|${campo}`))
 ```
+
+`mix32` es el finalizador de Murmur3. Hace falta: las cadenas que se hashean difieren en uno o dos caracteres cerca del final (`slot:25` vs `slot:26`) y los bits bajos de FNV-1a casi no se mueven entre ellas, así que tomar `% 32` directamente repetía spreads de IVs entre especies consecutivas. Con el avalanche, 120 especies dan 120 spreads distintos (hay test).
 
 Cada atributo tiene su **propio** hash en vez de tirar de un stream compartido. Consecuencia deliberada: agregar un atributo mañana **no** mueve los ya asignados, así que el contrato es extensible sin rerrollear Pokémon de nadie.
 
 Versión y sal vigentes: `LEGACY_MIGRATION_VERSION = 1`, `LEGACY_MIGRATION_SALT = "pokeswap-legacy-backfill"`. La sal **no es un secreto**: la migración está pensada para ser reproducible por cualquiera que tenga las mismas filas. Subir la versión produce a propósito Pokémon distintos de las mismas filas, y lo que la fila legacy sí sabía (especie, experiencia, dueño, movimientos, EVs) queda intacto.
 
-### 10.2 Qué se preserva y qué se deriva
+### 10.3 Qué se preserva y qué se deriva
 
 | Campo | Origen |
 |---|---|
@@ -177,28 +200,41 @@ Versión y sal vigentes: `LEGACY_MIGRATION_VERSION = 1`, `LEGACY_MIGRATION_SALT 
 
 **El dueño es `pokemon_xp.user_id`**, el jugador que lo entrenó. `slots.owner_id` es quien tiene la **especie** en el mercado, que es otra cosa, y no debe convertirse en dueño del Pokémon.
 
-### 10.3 Qué falta decidir antes de ejecutarla
+### 10.4 Qué falta decidir antes de ejecutarla
 
-1. Cuándo corre y sobre qué universo de filas.
-2. Qué hacer con las filas cuyo `level` guardado discrepa de su `xp` (el contrato usa `xp`; el nivel se deriva).
-3. Si se acepta el backfill de movimientos propuesto en §11 para las filas que llegan sin ningún movimiento resoluble.
-4. Si alguna evidencia de shiny se considera inequívoca.
+1. Cuándo corre, y si la unidad es el **slot** o la **fila de `pokemon_xp`** (§10.1).
+2. Si se acepta el backfill de movimientos propuesto en §11 para las filas que quedan sin ningún movimiento (categorías C y D).
+3. Si alguna evidencia de shiny se considera inequívoca.
+
+**Ya no es una pregunta abierta** qué hacer cuando el `level` guardado discrepa de su `xp`: el contrato vigente es `experience = fuente de verdad persistida`, `level = derivado`. La migración **preserva el xp**, deriva el nivel con la curva L³ y reporta la discrepancia en `MigrationReport.ignoredStoredLevel`. El nivel guardado nunca sobrescribe nada. Hay tests.
 
 **Nada de esto se aplica sin aprobación humana.**
 
-## 11. Movimientos legacy — auditoría y propuesta
+## 11. Movimientos legacy — canonicalización vs. incompatibilidad
 
 Auditoría completa y reproducible: [`LEGACY_MOVE_AUDIT.md`](LEGACY_MOVE_AUDIT.md), generada por `node scripts/legacy-move-audit.mjs` sobre el tag `v0-legacy-baseline`.
 
-Resumen: de los **965 slugs distintos** que los dos caminos de escritura del monolito podían producir, **561 resuelven** contra el catálogo y **404 no**, por tres causas:
+Los slugs que no resuelven **no son una sola categoría**:
 
-1. **Nombre visible en español** (374 slugs) — el catálogo indexa identificadores de veekun, que son ingleses. Reparable: la propia tabla legacy trae el nombre inglés al lado.
-2. **Movimiento posterior a Gen VI** (34 identificadores) — no existe en ORAS; no hay equivalente.
-3. **Renombre entre generaciones** (`vise-grip` → en Gen VI es `vice-grip`).
+| | Categoría | Slugs | Qué hace la migración |
+|---|---|---:|---|
+| **A** | Exacto: ya es un identificador del catálogo | 561 | Lo usa tal cual |
+| **B** | **Canonicalizable**: el mismo movimiento con otro nombre (español, alias histórico) | 370 | Lo **preserva**, traduciéndolo a su `moveId` |
+| **C** | Incompatible real con ORAS / Gen VI | 19 | Incompatibilidad real, reportada |
+| **D** | Desconocido / no identificable | 15 | Separado; nadie adivina |
+| | **Universo** | **965** | |
 
-Reglas ya vigentes en el código: un movimiento legacy que resuelve **se preserva**; uno que no resuelve **no se reemplaza en silencio** — se reporta en `MigrationReport.unresolvedMoves`, y si no queda ninguno, `needsMoveBackfill = true`.
+**Después de canonicalizar A + B quedan 34 slugs sin identidad: 19 incompatibilidades reales y 15 desconocidos.**
 
-**Propuesta de backfill (NO implementada, requiere aprobación):** para una fila sin ningún movimiento resoluble, tomar los últimos cuatro movimientos de nivel del learnset ORAS de su especie/forma al nivel derivado de su experiencia — la misma regla que usa la fábrica para un encuentro salvaje. Es determinista, no necesita hash y no inventa nada que el juego no le daría igual a ese Pokémon.
+**B no es backfill.** Un movimiento escrito en español no se reemplaza por otro: se **reconoce**. El diccionario es la propia tabla legacy —`LEVEL_MOVES` y `STATUS_MOVES` guardan el nombre español y el inglés en la misma fila—, así que no hay ninguna traducción escrita a mano. El script genera `src/features/pokemon/model/generated/legacyMoves.json` (370 entradas) y `legacy.ts` lo consume: `canonicalMoveId(slug)` resuelve exacto → mapa canónico, y nada más (sin fuzzy matching, sin “el más parecido”).
+
+**Alias históricos explícitos: exactamente uno.** `vise-grip` → `vice-grip`: Gen VIII renombró el identificador, en Gen VI es el segundo. El `learnset.js` legacy se generó desde una PokéAPI moderna, de ahí el spelling nuevo.
+
+**C se prueba, no se afirma.** Cada uno de los 19 tiene `generation_id > 6` en el `moves.csv` de veekun, la misma fuente fijada de R32.1: `aurora-veil`, `body-press`, `burn-up`, `dual-wingbeat`, `liquidation`, `throat-chop`, … Ningún renombre los arregla porque el movimiento no existía.
+
+**D es honestidad, no pereza.** Los 15 restantes (`aqua-cutter`, `snowscape`, `rage-fist`, …) no aparecen en veekun, que cubre hasta la generación 8. Casi con seguridad son de Gen IX, pero **ninguna fuente fijada lo prueba**, así que no se los mezcla con C.
+
+**Propuesta de backfill (NO implementada, requiere aprobación):** sólo para un Pokémon que quede sin ningún movimiento porque los suyos cayeron en C o D — tomar los últimos cuatro movimientos de nivel de su learnset ORAS al nivel derivado de su experiencia. **Nunca** para un movimiento que se puede canonicalizar.
 
 ## 12. Party activa (A-1)
 
@@ -235,7 +271,7 @@ Regla general: un campo opcional nuevo no sube la versión; un campo cuyo signif
 | `instance.test.ts` | Validación, techo de PP con PP Ups, condición inválida, I-1 completo, party de seis |
 | `condition.test.ts` | HP/PP/major status/faint **sobreviven**; confusión, stages, Protect, action bar y Mega **no**; poda de PP; JSON-safe |
 | `factory.test.ts` | Contra el catálogo real: determinismo, orden de tiradas, rechazo de Megas, habilidades posibles, learnsets, captura pendiente |
-| `migration.test.ts` | Determinismo, versión/sal, IVs derivados 0–31, EV 0, naturaleza, habilidad normal (nunca oculta), shiny, movimientos preservados, JSON-safe |
+| `migration.test.ts` | **Identidad sin dueño** (cambio de propietario → mismos IV/naturaleza/habilidad), identidades distintas → valores independientes, determinismo, versión/sal, IVs 0–31 y bien repartidos, EV 0, habilidad normal (nunca oculta), shiny, **xp gana al level guardado**, canonicalización (español, `vise-grip`), incompatibles post-Gen VI, desconocidos, JSON-safe |
 
 ## 17. Muestra humana
 
@@ -251,16 +287,16 @@ Imprime individuos reales construidos por la fábrica desde el catálogo real, u
 |---|---|
 | `npm run typecheck` | limpio |
 | `npm run lint` | 0 errores (9 warnings preexistentes en `AuthModal.vue`) |
-| `npm test` | 114 archivos, 1293 tests, todo verde |
+| `npm test` | 114 archivos, 1304 tests, todo verde (104 del modelo) |
 | `npm run build` | OK |
-| `node scripts/legacy-move-audit.mjs` | determinista: md5 `5cd1078064db5b756a28534f31b95c89` en dos corridas |
+| `node scripts/legacy-move-audit.mjs` | determinista: mismo md5 del doc y del mapa generado en dos corridas |
 
 El modelo todavía no lo importa ningún código de aplicación, así que no cambia ningún bundle.
 
 ## 19. Preguntas realmente abiertas
 
-1. **Ejecución de la migración**: cuándo, sobre qué universo, y las cuatro decisiones de §10.3.
-2. **Backfill de movimientos** (§11): ¿se aprueba la propuesta del learnset ORAS?
+1. **Ejecución de la migración**: cuándo, y si la unidad es el slot o la fila de `pokemon_xp` (§10.1, §10.4).
+2. **Backfill de movimientos** (§11): ¿se aprueba la propuesta del learnset ORAS **sólo** para los que caen en C o D?
 3. **Probabilidad de shiny** para instancias nuevas: OPEN por decisión explícita.
 4. **Hidden Ability**: mecanismo de adquisición futuro; el modelo ya la soporta.
 5. **Curva de experiencia**: seguir con L³ o adoptar las seis canónicas (revaluaría niveles existentes).
