@@ -120,12 +120,20 @@ export class LoggingOverlay extends GatheringOverlayCore<StartLogging, ActiveAct
       const pose = choppingPose(action.timeline, (this.seconds - action.startedAt) * 1000)
       dx = pose.trunkShake
       if (pose.phase === 'bite') art = this.flashOf(art, 0.18)
-      if (pose.fall > 0 && pose.phase === 'fell') {
-        // The tree leans away from the player, then drops out of sight.
-        const away = this.deps.player() ? Math.sign(decor.tx - this.deps.player()!.tx) || 1 : 1
-        dx += away * pose.fall * 4
-        dy += pose.fall * 3
-        if (pose.fall > 0.7) art = loggingTreeArt(target.node.id, decor.kind, 'stump')
+      if (pose.fall > 0) {
+        if (pose.phase === 'fell') {
+          // The tree leans away from the player, then drops out of sight.
+          const away = this.deps.player() ? Math.sign(decor.tx - this.deps.player()!.tx) || 1 : 1
+          dx += away * pose.fall * 4
+          dy += pose.fall * 3
+          if (pose.fall > 0.7) art = loggingTreeArt(target.node.id, decor.kind, 'stump')
+        } else {
+          // Once the trunk is down it stays down. The reward phase kept `fall`
+          // at 1 but left this branch, so the whole tree was drawn standing
+          // again until the action was cleared (gate finding H-1); the stump
+          // now rests on its tile, which is where the depleted node leaves it.
+          art = loggingTreeArt(target.node.id, decor.kind, 'stump')
+        }
       }
     }
     this.visible.set(target.nodeId, { target, tx: decor.tx, ty: decor.ty, x: decor.x, y: decor.y, height: art.h, view })

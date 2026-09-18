@@ -1,7 +1,7 @@
 # PRE-R32 HUMAN PROFESSION GATE — Registro
 
 > **Resultado: `PRE-R32 HUMAN PROFESSION GATE: FAILED — pending Tala visual lifecycle diagnosis.`** (2026-09-18)
-> Cerrado como fallido y documentado. **No autoriza ningún fix:** la corrección se decide aparte.
+> **Estado: FAILED / PENDING RE-TEST.** H-1 está corregido en una rama candidata (§5.1) y espera el re-test humano de Tala. El gate **no** se declara `PASSED` hasta que el usuario confirme el resultado visual.
 > Base probada: `integration/r31` @ `b7d4b7d75de3f905539f6dad69fd97d533eed503`. El código de profesiones es idéntico desde `25bcc1f`: lo posterior es documentación y el prototipo de Dungeon. Dev server local `http://localhost:5188/dev/profesiones`, con la caché de Vite limpia.
 > Definición del gate: [`R31Z_CONSOLIDATION_PLAN.md` §12.3](R31Z_CONSOLIDATION_PLAN.md).
 > Decisiones de producto surgidas del gate: [`PRE_R32_DESIGN_DECISIONS.md`](PRE_R32_DESIGN_DECISIONS.md).
@@ -207,7 +207,18 @@ Ninguno de los dos es el core compartido: `overworld/gatheringOverlayCore.ts` so
 
 **Por qué los tests no lo detectan.** El baseline **fija** el comportamiento, no lo juzga: los 19 cuadros del árbol derecho están dentro del md5 aprobado. No existe ninguna aserción que diga «después de la caída, el árbol no vuelve a dibujarse entero». `logging/logging.test.ts` cubre timeline y estado visual por separado, y `treeVisual` con `chopping: true` devuelve `art: 'ready'` por diseño, así que también pasa. Cualquier fix **cambiará el snapshot a propósito** y necesitará aprobación explícita para regenerarlo.
 
-**`OPEN`:** cuál es el final deseado. Que el tocón quede desde el primer cuadro después de la caída, que haya una transición propia, o que el árbol caído se vea un momento en el suelo antes del tocón. Es decisión de producto, no técnica.
+**`OPEN`:** si en el futuro se quiere algo más que el tocón en reposo — una transición propia, o el tronco caído visible un momento en el suelo — sigue siendo decisión de producto (`O-16`).
+
+### 5.1 R31-H1 — candidata de corrección (2026-09-18)
+
+**H-1 corregido en rama candidata.** Rama `fix/r31z-logging-fall-lifecycle`, desde `0c2ec2e9003d2d49f6203f556cae23d14b0a74b9`. **No mergeada**, sin PR.
+
+- **Qué cambió:** en `logging/loggingOverlay.ts` → `decor()`, mientras `pose.fall > 0` y la fase ya no es `fell`, el árbol se dibuja como tocón en reposo en vez de volver a dibujarse entero. Un solo archivo de producción.
+- **Alternativa elegida:** la mínima. Se conserva intacta la caída existente — inclinación, desplazamiento y cambio a tocón en `fall > 0.7` — y solo se reemplaza el arte de la ventana de reward. La otra opción (sostener el tronco inclinado durante el reward) habría inventado una animación nueva y dejado un salto al soltar la acción.
+- **Qué NO cambió:** timing, VFX, hojas, astillas, worker, input, recompensa, XP, energía, durabilidad, depletion, respawn, dominio, el core compartido ni las otras cuatro profesiones.
+- **Test:** `overlayTrace.test.ts` suma una invariante, no un snapshot: iniciada la caída, ningún cuadro posterior vuelve a dibujar el árbol entero antes de quedar en el tocón. Falla contra el overlay anterior, con los 19 cuadros del defecto.
+- **Snapshot:** md5 `334b1e04eb1e40f528f313573d4ac618` → `a62f2ebb8372073d1d669d4217a84f3e`. El diff son exactamente 19 líneas `decor` del escenario `logging · common_tree`, con el arte del árbol reemplazado por el del tocón; Minería, Forage, Pesca y Alquimia no se movieron.
+- **Pendiente de re-test humano de Tala.** El gate permanece FAILED / PENDING RE-TEST hasta que el usuario confirme el resultado visual.
 
 ---
 
