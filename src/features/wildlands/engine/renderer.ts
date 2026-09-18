@@ -17,7 +17,8 @@ import { buildTrainer, NPC_PALETTES, PLAYER_PALETTE, type TrainerSprites } from 
 import { drawGrid, drawPads, drawRoute } from './groundMarks'
 import { drawSparkle, SceneLighting, type LightSource } from './lighting'
 import { drawOwnerMarker } from './ownerMarker'
-import { resolvePick, spriteRect, type ActorHit, type PropHit } from './picking'
+import { resolvePick, spriteRect, type ActorHit, type PlacedHit, type PropHit } from './picking'
+import type { PlacedObject } from './placedObjects'
 import type { Tile } from './pathfinding'
 import { pixelsToCanvas } from './pixels'
 import { drawPlayerNameplate } from './playerNameplate'
@@ -50,6 +51,8 @@ export interface Scene {
   route: RouteMarker
   /** Optional prototype effects (see sceneOverlay.ts). */
   overlay?: SceneOverlay | null
+  /** Objects placed in this area (F-1); only their declared art answers taps. */
+  placed?: readonly PlacedObject[]
 }
 
 /** Tap-to-move feedback drawn on the ground. */
@@ -101,6 +104,8 @@ interface FrameInfo {
   hits: ActorHit<Actor>[]
   /** Screen rects of wild props, back to front (R30 · F-2). */
   propHits: PropHit[]
+  /** Screen rects of the art placed objects declared (F-1). */
+  placedHits: PlacedHit[]
   /** Screen positions of light sources (street lamp globes) drawn this frame. */
   lights: LightSource[]
 }
@@ -140,7 +145,8 @@ export class Renderer {
     const fit = Math.min(1, Math.max(0.55, Math.min(this.canvas.clientWidth, this.canvas.clientHeight) / 640))
     const lens = { ...scene.lens, zoom: scene.lens.zoom * dpr * fit }
     const proj = createProjector(lens, { width: W, height: H, focusY: H * 0.56 })
-    this.frame = { proj, dpr, camX: scene.camX, camY: scene.camY, hits: [], propHits: [], lights: [] }
+    this.frame = { proj, dpr, camX: scene.camX, camY: scene.camY, hits: [], propHits: [], placedHits: [], lights: [] }
+    this.collectPlacedHits(scene, proj)
 
     const farY = proj.project(0, lens.distance - MAX_DEPTH)?.y ?? 0
     const top = Math.max(0, Math.min(H - 1, Math.ceil(farY)))
@@ -215,7 +221,30 @@ export class Renderer {
         tx: Math.floor((frame.camX + ground.wx) / TILE),
         ty: Math.floor((frame.camY + ground.wy) / TILE),
       }
-    })
+    }, frame.placedHits)
+  }
+
+  /**
+   * Screen rects for the art placed objects declared (F-1). Projected with the
+   * frame's own camera, so they live in the same space as everything drawn.
+   * An object without a hitbox contributes nothing and only its tiles speak.
+   */
+  private collectPlacedHits(scene: Scene, proj: Projector): void {
+    const frame = this.frame
+    if (!frame) return
+    for (const object of scene.placed ?? []) {
+      const box = object.hitbox
+      if (!box) continue
+      const feetX = object.anchor.tx * TILE + TILE / 2
+      const feetY = object.anchor.ty * TILE + TILE - 2
+      const p = proj.project(feetX - scene.camX, feetY - scene.camY)
+      if (!p) continue
+      const left = p.x - (box.width / 2 - (box.offsetX ?? 0)) * p.scale
+      frame.placedHits.push({
+        ...spriteRect(left, p.y - box.height * p.scale, p.y, box.width, 0, p.scale),
+        tx: object.anchor.tx, ty: object.anchor.ty,
+      })
+    }
   }
 
   private projectGround(scene: Scene, proj: Projector, top: number, W: number, H: number, b: { x0: number; y0: number }): void {

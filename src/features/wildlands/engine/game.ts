@@ -27,6 +27,7 @@ import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
 import type { SceneOverlay } from './sceneOverlay'
 import { PlayerAppearance } from './playerAppearance'
+import { PlacedObjects, placedObject, type PlacedObjectSpec } from './placedObjects'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
 import type { LobbyFeature } from '../lobby/features'
@@ -79,6 +80,8 @@ export interface GameOptions {
   onWorldObject?: (target: WorldObjectTarget) => boolean
   /** Side-effect-free probe: walkable tiles to stand beside and face (R31-C1). */
   isWorldObject?: (target: WorldObjectTarget) => boolean
+  /** Physical objects a feature places in an area (F-1); asked on every entry. */
+  placedObjectsIn?: (area: Area) => readonly PlacedObjectSpec[]
   /** Completed safe town tiles, used only for local cosmetic persistence. */
   onTownPosition?: (position: TownPosition) => void
   presence?: LocalPresencePort | null
@@ -104,10 +107,17 @@ export class WildlandsGame {
     interact: () => this.interact(),
   })
   private walker = createWalkerState()
+  /**
+   * Things placed in the world on purpose (F-1). The world derives its own
+   * props from a seed; this is what can be *added* to it, and it answers
+   * solidity, navigation and interaction alongside the area.
+   */
+  readonly placedObjects = new PlacedObjects()
   private readonly nav = new TapNavigator({
-    isSolid: (tx, ty) => this.area.isSolid(tx, ty),
+    isSolid: (tx, ty) => this.solidAt(tx, ty),
     occupied: (tx, ty) => this.populace.actors.some(a => a.tx === tx && a.ty === ty),
-    isInteractive: (tx, ty) => this.isWorldObject?.({ area: this.area, tx, ty }) ?? false,
+    isInteractive: (tx, ty) => this.placedObjects.isInteractive(this.area.id, tx, ty)
+      || (this.isWorldObject?.({ area: this.area, tx, ty }) ?? false),
   })
   private overlay: SceneOverlay | null = null
   private inputLocked = false
@@ -116,6 +126,7 @@ export class WildlandsGame {
   private readonly onInspect?: (hit: PlazaHit | WildHit) => void
   private readonly onWorldObject?: (target: WorldObjectTarget) => boolean
   private readonly isWorldObject?: (target: WorldObjectTarget) => boolean
+  private readonly placedObjectsIn?: (area: Area) => readonly PlacedObjectSpec[]
   private readonly onTownPosition?: (position: TownPosition) => void
   private readonly presence?: LocalPresencePort | null
   private remoteActors: Actor[] = []
@@ -159,6 +170,7 @@ export class WildlandsGame {
     this.onInspect = options.onInspect
     this.onWorldObject = options.onWorldObject
     this.isWorldObject = options.isWorldObject
+    this.placedObjectsIn = options.placedObjectsIn
     this.onTownPosition = options.onTownPosition
     this.presence = options.presence
     this.entrances = new Entrances(door => options.onEnterBuilding?.(door.buildingId, door.feature))
@@ -171,10 +183,15 @@ export class WildlandsGame {
     loadNpcTrainerArt(PLAYER_SHEET, this.renderer.npcSprites, () => this.populace.actors)
   }
 
+  /** Terrain, procedural props and anything placed on top of them (F-1). */
+  private solidAt(tx: number, ty: number): boolean {
+    return this.area.isSolid(tx, ty) || this.placedObjects.isSolid(this.area.id, tx, ty)
+  }
+
   private readonly rules: MoveRules = {
     blocked: (actor, tx, ty) => {
       const area = this.area
-      if (area.isSolid(tx, ty)) return true
+      if (this.solidAt(tx, ty)) return true
       // Only the player uses gates and doors; wanderers keep them clear.
       if (actor.kind !== 'player' && (isPortalTile(area, tx, ty) || this.entrances.isDoor(area, tx, ty))) return true
       if (actor.habitat === 'any') return false
@@ -191,6 +208,9 @@ export class WildlandsGame {
   /** Makes `id` the active area and places the player at its arrival point. */
   private enterArea(id: AreaId, from: AreaId | null, spawn: (Tile & { dir?: Dir }) | null): void {
     const area = this.atlas.get(id)
+    // Whatever was placed in the area being left stops existing for the
+    // engine: its owner re-registers it if the player comes back (F-1).
+    if (area.id !== this.area?.id) this.placedObjects.clearArea(this.area?.id ?? '')
     this.area = area
     this.populace = area.createPopulace({ pokedex: this.pokedex, npcSprites: this.renderer.npcSprites })
     this.populace.setOwned?.(this.owned)
@@ -202,6 +222,17 @@ export class WildlandsGame {
     this.lensBlend = 1
     this.weather = { kind: 'clear', intensity: 0, target: 0 }
     this.weatherCheck = 0
+    this.syncPlacedObjects()
+  }
+
+  /**
+   * Asks the owning feature what it has placed in the current area (F-1). The
+   * engine pulls instead of being pushed to, so entering and leaving an area
+   * is the only lifecycle there is and nothing can survive the trip.
+   */
+  syncPlacedObjects(): void {
+    this.placedObjects.clearArea(this.area.id)
+    for (const spec of this.placedObjectsIn?.(this.area) ?? []) this.placedObjects.register(placedObject(spec))
   }
 
   /** Stands the player on `at` and snaps the camera there. */
@@ -413,6 +444,8 @@ export class WildlandsGame {
    */
   tap(cssX: number, cssY: number): void {
     if (this.spectator || this.travel.active || this.paused || this.inputLocked) return
+    // A tap on a placed object's art resolves to it in the renderer, behind
+    // actors and props (F-1); everything else still answers with the ground.
     const pick = this.renderer.pick(cssX, cssY)
     const hit = this.onInspect ? plazaHitAt(this.area, pick) ?? wildHitAt(this.area, pick) : null
     if (hit) this.onInspect!(hit)
@@ -654,6 +687,7 @@ export class WildlandsGame {
       // The grid helps read procedural terrain; over town art it is noise.
       showGrid: this.showGrid && this.area.kind === 'wild',
       route: this.nav.route(this.player),
+      placed: this.placedObjects.inArea(this.area.id),
       overlay: this.overlay,
     }
   }

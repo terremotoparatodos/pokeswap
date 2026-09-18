@@ -7,17 +7,33 @@
 
 import { computed, ref, shallowRef, watch } from 'vue'
 import type { WorldObjectTarget } from '../../wildlands/engine/game'
+import type { Area } from '../../wildlands/engine/area'
 import { demoCounts, demoLevel, demoWorker } from '../demo/demoSession'
 import type { ProfessionDemoSession } from '../demo/useProfessionDemo'
 import type { ProcessingResult } from '../domain/types'
 import type { MiningGamePort } from '../mining/useMiningController'
 import { isBeside } from '../overworld/workerPresence'
+import { STATION_H, STATION_W } from '../art/alchemyStation'
 import { alchemyBrowser, ALCHEMY_RECIPES, alchemyRecipeView } from './recipeBrowser'
 import { AlchemyOverlay } from './alchemyOverlay'
 import { brewTimeline } from './brewTimeline'
 import type { StationTile } from './stationPlacement'
 
 export type AlchemyPhase = 'idle' | 'brewing' | 'result'
+
+/**
+ * The bench as plain physical data for the engine (F-1). Declared structurally
+ * on purpose: professions describe what they place, and the engine's registry
+ * owns solidity — the feature never imports it.
+ */
+export interface AlchemyPlacedObject {
+  readonly id: string
+  readonly areaId: string
+  readonly anchor: StationTile
+  readonly kind: 'alchemyTable'
+  /** The bench's own art, so a tap answers for it and for nothing else. */
+  readonly hitbox: { readonly width: number; readonly height: number }
+}
 
 export type AlchemyGamePort = MiningGamePort
 
@@ -66,6 +82,21 @@ export function useAlchemyController(session: ProfessionDemoSession, game: () =>
   }
 
   const isStation = (hit: WorldObjectTarget) => overlay.isStation(hit.area, hit.tx, hit.ty)
+
+  /**
+   * The bench as a physical object of the world (F-1): same deterministic tile
+   * the overlay draws, declared so the engine can make it solid, walk the
+   * player beside it and resolve a tap on it. The controller declares; it does
+   * not answer `isSolid` itself.
+   */
+  function placedObjects(area: Area): AlchemyPlacedObject[] {
+    const tile = overlay.stationTile(area)
+    if (!tile) return []
+    return [{
+      id: `alchemy-table:${area.id}`, areaId: area.id, anchor: tile, kind: 'alchemyTable',
+      hitbox: { width: STATION_W, height: STATION_H },
+    }]
+  }
 
   function inspect(hit: WorldObjectTarget): boolean {
     if (!overlay.isStation(hit.area, hit.tx, hit.ty)) return false
@@ -165,7 +196,7 @@ export function useAlchemyController(session: ProfessionDemoSession, game: () =>
 
   return {
     open, phase, outcome, overlay, recipes, recipe, view, quantity, maxQuantity, level, progress,
-    attach, detach, isStation, inspect, close, select, setQuantity, brew, setStation, currentStation,
+    attach, detach, isStation, placedObjects, inspect, close, select, setQuantity, brew, setStation, currentStation,
   }
 }
 

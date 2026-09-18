@@ -84,6 +84,8 @@ import { listPokemon } from '../../pokemon/api/pokemonApi'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { Dir } from '../engine/characters'
 import { WildlandsGame, type HudState, type WorldObjectTarget } from '../engine/game'
+import type { Area } from '../engine/area'
+import type { PlacedObjectSpec } from '../engine/placedObjects'
 import type { PokedexEntry } from '../engine/population'
 import { LOBBY_ID } from '../areas/atlas'
 import { useLobbyPanel } from '../lobby/useLobbyPanel'
@@ -155,7 +157,11 @@ function onAuthClose(): void {
 const pokedex = shallowRef<readonly PokedexEntry[]>([])
 const plazaRef = ref<InstanceType<typeof LobbyPlaza> | null>(null)
 const plazaOpen = ref(false)
-const professionRef = ref<{ inspect: (target: WorldObjectTarget) => boolean; isWorldObject: (target: WorldObjectTarget) => boolean } | null>(null)
+const professionRef = ref<{
+  inspect: (target: WorldObjectTarget) => boolean
+  isWorldObject: (target: WorldObjectTarget) => boolean
+  placedObjects: (area: Area) => readonly PlacedObjectSpec[]
+} | null>(null)
 const professionOpen = ref(false)
 const covered = computed(() => panel.feature.value !== null || menuOpen.value || authOpen.value)
 const motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -232,6 +238,7 @@ onMounted(async () => {
     onInspect: hit => plazaRef.value?.inspect(hit),
     onWorldObject: ProfessionWorldDemo ? target => professionRef.value?.inspect(target) ?? false : undefined,
     isWorldObject: ProfessionWorldDemo ? target => professionRef.value?.isWorldObject(target) ?? false : undefined,
+    placedObjectsIn: ProfessionWorldDemo ? area => professionRef.value?.placedObjects(area) ?? [] : undefined,
     onTownPosition: identity.recordTownPosition,
     presence: presencePort,
   })
