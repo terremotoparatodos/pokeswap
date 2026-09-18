@@ -17,6 +17,7 @@ import { buildTrainer, NPC_PALETTES, PLAYER_PALETTE, type TrainerSprites } from 
 import { drawGrid, drawPads, drawRoute } from './groundMarks'
 import { drawSparkle, SceneLighting, type LightSource } from './lighting'
 import { drawOwnerMarker } from './ownerMarker'
+import { resolvePick, spriteRect, type ActorHit, type PropHit } from './picking'
 import type { Tile } from './pathfinding'
 import { pixelsToCanvas } from './pixels'
 import { drawPlayerNameplate } from './playerNameplate'
@@ -81,6 +82,8 @@ interface Drawable {
   light: boolean
   /** The viewer's own Pokémon: drawn with the owner marker. */
   mine?: boolean
+  /** Wild prop: the tile a tap on its art answers with (R30 · F-2). */
+  prop?: { tx: number; ty: number }
   username?: string
   actor?: Actor
 }
@@ -91,7 +94,9 @@ interface FrameInfo {
   camX: number
   camY: number
   /** Screen rects of actor sprites, back to front. */
-  hits: { actor: Actor; x0: number; y0: number; x1: number; y1: number }[]
+  hits: ActorHit<Actor>[]
+  /** Screen rects of wild props, back to front (R30 · F-2). */
+  propHits: PropHit[]
   /** Screen positions of light sources (street lamp globes) drawn this frame. */
   lights: LightSource[]
 }
@@ -131,7 +136,7 @@ export class Renderer {
     const fit = Math.min(1, Math.max(0.55, Math.min(this.canvas.clientWidth, this.canvas.clientHeight) / 640))
     const lens = { ...scene.lens, zoom: scene.lens.zoom * dpr * fit }
     const proj = createProjector(lens, { width: W, height: H, focusY: H * 0.56 })
-    this.frame = { proj, dpr, camX: scene.camX, camY: scene.camY, hits: [], lights: [] }
+    this.frame = { proj, dpr, camX: scene.camX, camY: scene.camY, hits: [], propHits: [], lights: [] }
 
     const farY = proj.project(0, lens.distance - MAX_DEPTH)?.y ?? 0
     const top = Math.max(0, Math.min(H - 1, Math.ceil(farY)))
@@ -198,20 +203,14 @@ export class Renderer {
   pick(cssX: number, cssY: number): Pick {
     const frame = this.frame
     if (!frame) return { tile: null, actor: null }
-    const sx = cssX * frame.dpr
-    const sy = cssY * frame.dpr
-    for (let i = frame.hits.length - 1; i >= 0; i--) {
-      const hit = frame.hits[i]
-      if (sx >= hit.x0 && sx <= hit.x1 && sy >= hit.y0 && sy <= hit.y1) {
-        return { tile: { tx: hit.actor.tx, ty: hit.actor.ty }, actor: hit.actor }
+    return resolvePick(frame.hits, frame.propHits, cssX * frame.dpr, cssY * frame.dpr, (sx, sy) => {
+      const ground = frame.proj.unproject(sx, sy)
+      if (!ground) return null
+      return {
+        tx: Math.floor((frame.camX + ground.wx) / TILE),
+        ty: Math.floor((frame.camY + ground.wy) / TILE),
       }
-    }
-    const ground = frame.proj.unproject(sx, sy)
-    if (!ground) return { tile: null, actor: null }
-    return {
-      tile: { tx: Math.floor((frame.camX + ground.wx) / TILE), ty: Math.floor((frame.camY + ground.wy) / TILE) },
-      actor: null,
-    }
+    })
   }
 
   private projectGround(scene: Scene, proj: Projector, top: number, W: number, H: number, b: { x0: number; y0: number }): void {
@@ -244,6 +243,9 @@ export class Renderer {
         submerged: d.kind === 'searock',
         glow: d.kind === 'crystal',
         light: d.light ?? false,
+        // Only wild props: town buildings bring their own sprite and already
+        // resolve a tap through their footprint (`doorForTap`).
+        prop: d.kind ? { tx: d.tx, ty: d.ty } : undefined,
       })
     }
 
@@ -310,9 +312,15 @@ export class Renderer {
         // Visible art plus a finger-sized margin.
         const pad = 8 * this.frame.dpr
         this.frame.hits.push({
-          actor: d.actor,
-          x0: x - pad, x1: x + sprite.w * s + pad,
-          y0: y + (sprite.top ?? 0) * s - pad, y1: d.y + pad,
+          actor: d.actor, tx: d.actor.tx, ty: d.actor.ty,
+          ...spriteRect(x, y, d.y, sprite.w, sprite.top ?? 0, s, pad),
+        })
+      } else if (d.prop && this.frame) {
+        // The art as drawn, with no margin: a tall prop must answer for the
+        // ground it hides (F-2), without stealing the taps around it.
+        this.frame.propHits.push({
+          ...d.prop,
+          ...spriteRect(x, y, d.y, sprite.w, sprite.top ?? 0, s),
         })
       }
       if (d.submerged) {
