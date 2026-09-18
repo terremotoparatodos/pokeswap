@@ -83,7 +83,51 @@ La profundidad, bioma, herramienta, worker, nivel y afinidad podrán modificar l
 
 ---
 
-## 4. Poké Balls
+## 4. Artesanía y Construcción como skills futuras
+
+### APPROVED · dos profesiones distintas
+
+La demo mostrará **Artesanía** y **Construcción** como skills futuras bloqueadas. Son conceptos distintos:
+
+| Skill | Produce | Estación/identidad natural |
+|---|---|---|
+| **Artesanía** | Objetos portátiles: Poké Balls, herramientas, componentes y mejoras | Banco de trabajo; precisión y manufactura |
+| **Construcción** | Objetos que existen en el mundo: estaciones, cofres, casas y servicios | Planos, martillo y estructuras |
+
+Alquimia conserva su identidad: consumibles, ingredientes y procesamiento químico. No debe absorber la manufactura general ni el placement de estructuras.
+
+### APPROVED · presentación de demo
+
+La pantalla de Skills puede inspirarse en la claridad de los MMORPGs clásicos, incluida la lectura rápida asociada a RuneScape, pero debe usar una UI e identidad visual propias de PokeSwap.
+
+Las skills activas muestran su información real. Las bloqueadas muestran sólo:
+
+- icono y nombre;
+- estado `Próximamente`;
+- una frase de intención;
+- siluetas o previews de resultados futuros.
+
+No muestran XP, niveles inventados, botones activos ni una promesa de disponibilidad inmediata.
+
+Copy inicial aprobado para la demo:
+
+```text
+Artesanía · Fabricá herramientas, componentes y Poké Balls.
+Construcción · Levantá estaciones, casas y servicios para WildLands.
+```
+
+Dirección visual inicial, no arte final:
+
+```text
+⛏ Minería      🪓 Tala       🎣 Pesca
+⚗ Alquimia     🔨 Artesanía  🏗 Construcción
+```
+
+Artesanía debe comunicar banco, engranaje, material trabajado o Poké Ball incompleta. Construcción debe comunicar plano, martillo, casa o estructura.
+
+---
+
+## 5. Poké Balls
 
 ### PROPOSAL · Banco de trabajo / crafting horizontal
 
@@ -109,7 +153,7 @@ No implementar Poké Balls ni sus recetas dentro de Horno/F-1.
 
 ---
 
-## 5. Orden de trabajo propuesto
+## 6. Orden de trabajo propuesto
 
 1. F-1: datos físicos de mundo y migración de la Mesa de Alquimia, en una rama candidata y con pruebas.
 2. Si F-1 pasa su gate: arte/UI aislado de Horno, Fogata y Banco de trabajo a cargo de la estación secundaria.
@@ -117,9 +161,8 @@ No implementar Poké Balls ni sus recetas dentro de Horno/F-1.
 4. Definir superficie de demo local u hospedada y congelar alcance.
 5. Construcción/placement sólo después de evaluar el prototipo de Horno y de diseñar R32-0.
 
-## 6. Coordinación entre estaciones
+## 7. Coordinación entre estaciones
 
 - **Estación principal:** F-1, motor, interacción, integración, autoridad futura, persistencia y CI.
 - **Estación secundaria:** vuelve después del contrato F-1 implementado o estabilizado; puede trabajar arte/UI de estaciones, QA visual, mobile o un playground aislado.
 - **GitHub:** única frontera entre PCs. Toda tarea secundaria debe salir de un hash contractual, con archivos permitidos/prohibidos y sin merge.
-
