@@ -176,3 +176,29 @@ export class PlacedObjects {
     return null
   }
 }
+
+/** How many rows of art above its tile a placed object answers for. */
+export const PLACED_TAP_REACH_ROWS = 2
+
+/** A resolved tap, as the renderer reports it. */
+export interface TapPick<A> {
+  readonly tile: Tile | null
+  readonly actor: A | null
+}
+
+/**
+ * Turns a tap that landed on a placed object's art into a tap on the object.
+ *
+ * A bench is drawn standing over its tile, so pointing at its top resolves to
+ * the ground behind it. This is the same correction buildings make with
+ * `doorForTap`, and it changes nothing else: an actor keeps the tap, and a tap
+ * on plain ground is returned untouched. It answers *what was pointed at*,
+ * never whether the player may reach or use it.
+ */
+export function retargetToPlaced<A>(
+  placed: PlacedObjects, areaId: string, pick: TapPick<A>, reachRows = PLACED_TAP_REACH_ROWS,
+): TapPick<A> {
+  if (pick.actor || !pick.tile) return pick
+  const object = placed.forTap(areaId, pick.tile, reachRows)
+  return object ? { tile: { tx: object.anchor.tx, ty: object.anchor.ty }, actor: null } : pick
+}

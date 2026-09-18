@@ -5,7 +5,7 @@
 // its own, and removing one leaves no trace.
 
 import { describe, expect, it } from 'vitest'
-import { besidePlaced, placedObject, PlacedObjects } from './placedObjects'
+import { besidePlaced, placedObject, PlacedObjects, retargetToPlaced } from './placedObjects'
 
 const bench = placedObject({ id: 'bench', areaId: 'pradera', anchor: { tx: 4, ty: -7 }, kind: 'alchemyTable' })
 
@@ -180,5 +180,36 @@ describe('ready for a bigger footprint', () => {
     }))
     expect(placed.forTap('pradera', { tx: 1, ty: -2 }, 1)?.id).toBe('oven')
     expect(placed.forTap('pradera', { tx: 1, ty: -3 }, 1)).toBeNull()
+  })
+})
+
+// The tap correction the game applies before navigating (F-1 · §4 of the design).
+describe('retargeting a tap', () => {
+  const placed = new PlacedObjects()
+  placed.register(bench)
+
+  it('turns a tap on the art above the bench into a tap on the bench', () => {
+    expect(retargetToPlaced(placed, 'pradera', { tile: { tx: 4, ty: -9 }, actor: null }))
+      .toEqual({ tile: { tx: 4, ty: -7 }, actor: null })
+  })
+
+  it('leaves a tap on plain ground exactly as it was', () => {
+    const ground = { tile: { tx: 12, ty: 3 }, actor: null }
+    expect(retargetToPlaced(placed, 'pradera', ground)).toBe(ground)
+  })
+
+  it('never takes a tap away from an actor', () => {
+    const onActor = { tile: { tx: 4, ty: -8 }, actor: 'npc' }
+    expect(retargetToPlaced(placed, 'pradera', onActor)).toBe(onActor)
+  })
+
+  it('does nothing in an area where the object is not placed', () => {
+    const pick = { tile: { tx: 4, ty: -8 }, actor: null }
+    expect(retargetToPlaced(placed, 'ciudad-corazon', pick)).toBe(pick)
+  })
+
+  it('does nothing when the renderer answered no tile at all', () => {
+    const nothing = { tile: null, actor: null }
+    expect(retargetToPlaced(placed, 'pradera', nothing)).toBe(nothing)
   })
 })
