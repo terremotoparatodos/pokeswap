@@ -2,7 +2,7 @@
 
 > Fecha: 2026-09-16. Escrito por la estación principal.
 > Uso: primer documento que lee una sesión nueva de Claude en la estación principal.
-> Estado: versionado en `integration/r31`. **El PRE-R32 HUMAN PROFESSION GATE sigue ABIERTO: falta la prueba manual del usuario.**
+> Estado: versionado en `integration/r31`. **El PRE-R32 HUMAN PROFESSION GATE se cerró el 2026-09-18 como `FAILED — pending Tala visual lifecycle diagnosis`** (ver [`PRE_R32_HUMAN_GATE.md`](PRE_R32_HUMAN_GATE.md) §1.1). No autoriza fixes.
 
 ---
 
@@ -237,7 +237,8 @@ Entorno: `http://localhost:5188/dev/profesiones`, un laboratorio por profesión.
 - **Dungeon legacy descartada** como base (`src/features/dungeon/` queda LEGACY: no se borra, no se reutiliza).
 - **WILDLANDS DUNGEON / PVE — CLEAN-SLATE DESIGN:** reservada a la **estación secundaria**. No iniciada, sin rama; el usuario prepara el brief. La principal audita la integración.
 - **Economía sin balancear** hasta definir el loop PvE/Dungeon.
-- **El gate sigue ABIERTO.**
+- **Resultado del gate (2026-09-18):** Forage, Pesca, Alquimia y 375 px **VISUALMENTE EQUIVALENTES**; Tala con **`DIFERENCIA DETECTADA`** (tras la caída el árbol se dibuja entero otra vez ≈950 ms antes del tocón). **0 regresiones:** el diagnóstico lo ubica antes del refactor, dentro del baseline congelado. Gate `FAILED`, sin fixes autorizados; queda `O-16` por decidir.
+- **UX nueva aprobada (`A-16`):** la recolección debe verse continua, sin cartel que la interrumpa; Alquimia conserva el suyo. Sin implementar.
 
 ---
 

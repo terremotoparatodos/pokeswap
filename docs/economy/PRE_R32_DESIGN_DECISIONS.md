@@ -117,6 +117,7 @@ Reemplazan a los ocho conceptos visibles actuales: Extracción, Prospección, Co
 | Shellder | 1 % |
 
 - A futuro podrán modificar la distribución: profundidad (A-5), bioma, nivel de Pesca, herramienta, worker, afinidades y eventos.
+- **Precisión del gate (2026-09-18):** los tres Pokémon son **guiños visuales** del encuentro, no capturas ni Pokémon obtenidos.
 
 ## A-5 · Fishing spots por profundidad
 
@@ -190,6 +191,16 @@ Conceptos a explorar más adelante: abastecimiento, consumibles, coste de uso, i
 - En el playground dev existe la pestaña **Progresión** (`ProfessionProgress.vue` + `ui/progressionView.ts`). Por cada una de las 4 profesiones muestra nivel/XP, un bloque "Próximo" con los siguientes desbloqueos y "Ya desbloqueado", todo derivado del catálogo. Es la base conceptual más cercana a A-11, pero es dev-only, con estado demo en memoria y sin Construcción.
 - La XP y el nivel viven en la sesión demo (`demo/demoSession.ts`, `state.xp`), sin persistencia.
 
+## A-16 · Recolección continua, procesamiento con cartel
+
+Surgida de la prueba humana del gate (`PRE_R32_HUMAN_GATE.md` §4, H-2 y H-3).
+
+- **Gathering (Minería, Tala, Forage, Pesca): la acción debe verse continua.** El cartel que hoy interrumpe el final de la acción se retira; lo que pasó se comunica con la **comunicación normal del mundo**: reward pops sobre el nodo con item, cantidad y XP.
+- **Processing (Alquimia): el cartel se conserva.** Ahí aporta valor como feedback de finalización, y es parte de lo que hace que Alquimia se sienta distinta de la recolección.
+- El **descubrimiento inicial de un item** sigue siendo un flujo excepcional y aparte (`A-6`): interrumpe una sola vez, la primera.
+
+**No se implementa todavía.** Tocarlo cambia la traza congelada de las overlays, así que necesita su propia tarea y aprobación explícita para regenerar el snapshot.
+
 ## A-12 · Economía: no balancear todavía
 
 - No se cierran números de: energía, yields, XP, niveles, durabilidad, respawns, stacks, pending cap, herramientas, reparación, combustible, lingotes, crafting, Centro Pokémon y consumibles.
@@ -247,6 +258,8 @@ Decisiones pendientes de diseño. Ninguna bloquea el cierre del gate; todas bloq
 | O-13 | Balance económico completo, después del loop PvE | A-12, A-15 |
 | O-14 | Diseño completo de Dungeon/PvE (estación secundaria) y su auditoría de integración (principal) | A-14, A-15 |
 | O-15 | Cúmulo cristalino: separar el pickup demo de R24 del nodo de profesión, y si la demo de cristales sigue existiendo | G-1 |
+| O-16 | **Final visual de Tala:** hoy, tras la caída, el árbol se dibuja entero otra vez durante la fase de reward (≈950 ms) y recién después queda el tocón. Es preexistente y está dentro del baseline congelado (`PRE_R32_HUMAN_GATE.md` §5). Falta decidir el final deseado: tocón inmediato, transición propia, o árbol caído visible en el suelo antes del tocón | H-1 |
+| O-17 | Cómo se retira el cartel de gathering sin perder información (qué se muestra, dónde y por cuánto), y cómo convive con el descubrimiento inicial | A-16, A-6 |
 
 ---
 
