@@ -218,3 +218,16 @@ Uno al cierre de cada subfase y de cada release, con la regla del PRE-R32: una p
 | Q-3 | ¿La Dungeon consume durabilidad de herramientas, o las herramientas quedan fuera del PvE? | R38, y antes el diseño de R35 |
 
 Resueltas y cerradas: **I-1** (captura, §4) y la definición de R32 (§9).
+
+---
+
+## 14. Estado de R32
+
+| Subfase | Rama | Estado |
+|---|---|---|
+| **R32.1 — Battle Catalog** | `feat/r32-1-battle-catalog` @ `a8984a7` | **HUMAN APPROVED**. Fuente aprobada: veekun tabular + overrides Gen VI de Pokémon Showdown. Catálogo `1.oras.ab69b5804411`. Doc: `BATTLE_CATALOG.md` |
+| **R32.2 — Species / Instance** | `feat/r32-2-pokemon-model` | Entregada, **pendiente de gate humano**. Modelo, fábrica pura, adaptador legacy, 52 tests, muestra `npm run pokemon:sample`. Doc: `POKEMON_SPECIES_INSTANCE_MODEL.md` |
+| **R32.3 — Shared Battle Rules** | `feat/r32-3-battle-rules` | No arrancada |
+| **R32.4 — Persistencia / autoridad** | — | No arrancada |
+
+Q-1, Q-2 y Q-3 quedaron **cerradas** por el usuario al arrancar R32.1. Lo que R32.2 deja abierto para decisión humana está listado en `POKEMON_SPECIES_INSTANCE_MODEL.md` §18, y la estrategia de migración (§10 de ese doc) **no se aplica sin aprobación**.
