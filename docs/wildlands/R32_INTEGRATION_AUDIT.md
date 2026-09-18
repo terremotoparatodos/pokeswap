@@ -2,8 +2,8 @@
 
 > Fecha: 2026-09-18. Estación **principal**.
 > Estado auditado: `integration/r31` @ `bfc08365ceeaaf8e8c23317a1765eeb67cdcd6ae`.
-> **Solo documentación.** Nada de R32 está implementado.
 > Este documento es la base contractual de R32. Una sesión nueva lee esto y `R31_SESSION_HANDOFF.md`, y no necesita reconstruir la historia.
+> **Estado al 2026-09-18:** las §§1–13 son el análisis original y se conservan como estaban salvo donde diga `Actualización`. El estado real de cada subfase vive en **§14**, y a esta fecha R32.1, R32.2, R32.2.1 y R32.3 están entregadas —sólo dominio, catálogo, modelo y reglas— sin nada de autoridad, red, persistencia ni gameplay nuevo.
 
 ---
 
@@ -49,6 +49,8 @@
 | Labs `/dev/dungeon` | `GeneratorLab`, `BattleLab`, `CaptureLab`, `ExpeditionLab`, `AlphaBossLab`, `WorldCompare`, `DevTools` | **C** | Herramienta, no producto |
 | Tests de dominio | `generation`, `battle`, `boss`, `bossRoom`, `expedition`, `obstacles`, `floorSpace`, `navigation`, `playSession`, `ballAndSwitch`, `decorPlan`, `dungeonScene`, `combatStaging` | **A** | Se conservan casi tal cual: son la red del port |
 | Dungeon legacy | `src/features/dungeon/` | **D** | Descartado como base. Consumidores vivos: `app/router/routes.ts` y `progression/api/progressionApi` |
+
+`FACT` **Actualización R32.3 sobre la fila "Combate".** El port ya está hecho, en `src/features/battle/rules/`, y la clasificación fina —qué se reusó, qué se adaptó y qué se descartó, archivo por archivo— está en [`SHARED_BATTLE_RULES.md`](SHARED_BATTLE_RULES.md) §23. En resumen: se conservan las reglas aprobadas (Action Bar, prioridad, recarga, Protect, reloj propio del veneno, cambio, auto-repeat) y los límites de stage; se descartan la tabla de tipos escrita a mano y los 12 movimientos del prototipo, que reemplaza el Battle Catalog; y se descarta la **forma** de `battle.ts`, que muta lo que recibe y loguea strings, a favor de un reducer puro con eventos tipados. **El prototipo no se tocó y sigue funcionando igual**: la dependencia es `Dungeon → Shared Battle Rules` y nunca al revés.
 
 ---
 
@@ -153,7 +155,7 @@ Sin balancear nada todavía: consumibles (Poción, Revivir, Éter) como sink rea
 |---|---|---|---|---|---|
 | **R32.1 — Battle Catalog** | Fuente y licencia aprobadas, schema, pipeline build-time, catálogo de las especies que usamos | `feat/r32-1-battle-catalog` | Aprobación de fuente | Licencia y tamaño del dato | Formas exóticas, competitivo, efectos ejecutables |
 | **R32.2 — Species / Instance** | Modelo definitivo compartido, con nature/IV/EV/ability/ownership | `feat/r32-2-pokemon-model` | R32.1 | Toca todo el combate | Persistencia real, UI |
-| **R32.3 — Shared Battle Rules** | Portar el dominio puro del prototipo al catálogo y al modelo nuevos, como paquete compartido cliente/servidor | `feat/r32-3-battle-rules` | R32.2 | Regresión de combate | Red, UI productiva, coop |
+| **R32.3 — Shared Battle Rules** | Portar el dominio puro del prototipo al catálogo y al modelo nuevos, como paquete compartido cliente/servidor | `feat/r32-3-shared-battle-rules` | R32.2 | Regresión de combate | Red, UI productiva, coop |
 | **R32.4 — Authority Foundations** | `actionId`/idempotencia, reloj de servidor, RNG autoritativo, validación contra catálogo, esqueleto de `ExpeditionRoom` | `feat/r32-4-authority` | R32.3 | Alto: toca `services/realtime` | Gameplay productivo, loot, captura, persistencia |
 
 **Revisión del orden propuesto: es correcto, con dos precisiones.**
@@ -188,7 +190,7 @@ Uno al cierre de cada subfase y de cada release, con la regla del PRE-R32: una p
 |---|---|
 | R32.1 | Los datos del catálogo son correctos para las especies que usamos, y la licencia está registrada |
 | R32.2 | Una instancia real se describe completa y el combate del lab sigue igual |
-| R32.3 | Un combate completo da el mismo resultado que antes del port |
+| R32.3 | Un combate completo corre de punta a punta con el catálogo y el modelo nuevos, el replay determinista pasa y los huecos de movimientos son explícitos. **Precisión:** no se puede firmar "el mismo resultado que antes del port" — el prototipo peleaba con 12 movimientos a mano, una tabla de tipos propia y sin IV/EV/naturaleza, así que sus números no son comparables. Lo que se firma es que las **reglas aprobadas** siguen siendo las mismas (`SHARED_BATTLE_RULES.md` §23) |
 | R32.4 | Ninguna de las validaciones depende del cliente; reenviar una acción no la cobra dos veces |
 | R33 | `mineral → horno → lingote` recorrible sin atajos de playground |
 | R34 | Un piso recorrible y un combate resuelto por el servidor |
@@ -216,8 +218,9 @@ Uno al cierre de cada subfase y de cada release, con la regla del PRE-R32: una p
 | Q-1 | ¿Se aprueba la fuente recomendada (veekun tabular + Showdown gen6 como referencia semántica, ambas MIT, vendorizadas en build) y su atribución? | R32.1 |
 | Q-2 | ¿Qué especies entran en el catálogo v1: solo las que usa el juego hoy, las 493 con base stats, o Gen I–VI completa? | R32.1 |
 | Q-3 | ¿La Dungeon consume durabilidad de herramientas, o las herramientas quedan fuera del PvE? | R38, y antes el diseño de R35 |
+| **Q-4** | **¿Se aprueba una sub-tarea de R32.1 para emitir `move_meta_stat_changes` en el catálogo?** Sin esa tabla, un movimiento `statChange` dice *que* cambia stats y nunca *cuál* ni *cuánto*: **118 movimientos** de los 621 —Danza Espada, Gruñido, Psíquico, Bola Sombra— no se pueden ejecutar, y es la brecha más grande de R32.3. Produce un `catalogVersion` nuevo | R32.3 completa; no bloquea R32.4 |
 
-Resueltas y cerradas: **I-1** (captura, §4) y la definición de R32 (§9).
+Resueltas y cerradas: **I-1** (captura, §4) y la definición de R32 (§9). Las preguntas de reglas que abrió R32.3 (Protect, Struggle, flinch, envenenamiento grave, IA) están en `SHARED_BATTLE_RULES.md` §26.
 
 ---
 
@@ -227,8 +230,8 @@ Resueltas y cerradas: **I-1** (captura, §4) y la definición de R32 (§9).
 |---|---|---|
 | **R32.1 — Battle Catalog** | `feat/r32-1-battle-catalog` @ `a8984a7` | **HUMAN APPROVED**. Fuente aprobada: veekun tabular + overrides Gen VI de Pokémon Showdown. Catálogo `1.oras.ab69b5804411`. Doc: `BATTLE_CATALOG.md` |
 | **R32.2 — Species / Instance** | `feat/r32-2-pokemon-model` @ `7bf9af9` | Arquitectura **HUMAN APPROVED**. Modelo, fábrica pura, adaptador legacy, muestra `npm run pokemon:sample` |
-| **R32.2.1 — Model decisions + legacy migration contract** | `feat/r32-2-1-model-decisions` | Entregada, **pendiente de gate humano**. Corte Identidad/Condition/Runtime, contrato de migración M-1 sobre identidad inmutable, canonicalización de movimientos legacy (A/B/C/D), 104 tests. Docs: `POKEMON_SPECIES_INSTANCE_MODEL.md` y `LEGACY_MOVE_AUDIT.md` |
-| **R32.3 — Shared Battle Rules** | `feat/r32-3-battle-rules` | No arrancada |
+| **R32.2.1 — Model decisions + legacy migration contract** | `feat/r32-2-1-model-decisions` @ `2738e43` | **HUMAN APPROVED**. Corte Identidad/Condition/Runtime, contrato de migración M-1 sobre identidad inmutable, canonicalización de movimientos legacy (A/B/C/D). Docs: `POKEMON_SPECIES_INSTANCE_MODEL.md` y `LEGACY_MOVE_AUDIT.md` |
+| **R32.3 — Shared Battle Rules** | `feat/r32-3-shared-battle-rules`, desde `2738e43` | Entregada, **pendiente de gate humano**. Motor puro y determinista en `src/features/battle/rules/`, compartible cliente/servidor: `reduceBattle(state, command, context)`, RNG como dato, Action Bar en ms, daño Gen VI, registry por `effectId`, 282/621 movimientos ejecutables con los 339 diferidos explicados, 72 tests. Doc: `SHARED_BATTLE_RULES.md`. Muestra: `npm run battle:sample` |
 | **R32.4 — Persistencia / autoridad** | — | No arrancada |
 
 Decisiones cerradas en R32.2.1 (detalle en el doc del modelo): migración legacy **M-1 hash determinista** sobre una **identidad inmutable que no incluye al dueño** (`slots.pokemon_id`), cardinalidad **un slot = un Pokémon** (`pokemon_xp` es progresión, no entidad) con propiedad tomada de `slots.owner_id`, IVs derivados 0–31, **EV 0** legacy, naturaleza derivada, habilidad **normal** únicamente, shiny sólo con evidencia inequívoca, `experience` persistida con curva L³ que **gana al `level` guardado**, movimientos legacy **canonicalizados** (español y alias históricos) en vez de reemplazados, major status **persiste** entre combates y pisos, confusion no, Mega sólo en runtime.
