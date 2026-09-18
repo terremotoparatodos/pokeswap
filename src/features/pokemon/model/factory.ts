@@ -18,7 +18,8 @@
 import type { CatalogLearnset } from '../../battle/catalog'
 import type { PokemonCatalogView } from './catalogView'
 import { experienceForLevel } from './experience'
-import { INSTANCE_SCHEMA_VERSION, MAX_MOVE_SLOTS, maxPPOf } from './instance'
+import { HEALTHY } from './condition'
+import { INSTANCE_SCHEMA_VERSION, MAX_MOVE_SLOTS } from './instance'
 import type {
   Acquisition, FormId, Gender, InstanceState, MoveSlot, PokemonInstance, PokemonInstanceDraft,
   SpeciesId,
@@ -102,9 +103,8 @@ export function createPokemonInstanceDraft(
 
   const moveIds = spec.moveIds ?? defaultMoveIds(catalog.learnset(form.id), spec.level)
   const moves: MoveSlot[] = moveIds.map(moveId => {
-    const pp = catalog.movePP(moveId)
-    if (pp === null) throw new PokemonFactoryError(`move ${moveId} is not in the catalog`)
-    return { moveId, ppUps: 0, currentPP: maxPPOf(pp, 0) }
+    if (catalog.movePP(moveId) === null) throw new PokemonFactoryError(`move ${moveId} is not in the catalog`)
+    return { moveId, ppUps: 0 }
   })
 
   const state: InstanceState = spec.state ?? 'owned'
@@ -125,7 +125,8 @@ export function createPokemonInstanceDraft(
     ivs,
     evs: spec.evs ?? ZERO_STATS,
     moves,
-    currentHp: null,
+    // A new Pokémon has no wear: full HP, full PP, no status (R32.2.1).
+    condition: HEALTHY,
     state,
     ownership: {
       ownerId: spec.ownerId ?? null,

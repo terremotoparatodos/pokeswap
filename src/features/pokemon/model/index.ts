@@ -11,9 +11,11 @@
 export * from './stats'
 // `MAX_LEVEL` comes from `stats`; the two agree and one of them has to win.
 export { experienceForLevel, experienceToNextLevel, levelForExperience, xpToLevel } from './experience'
+export * from './condition'
 export * from './instance'
 export * from './runtime'
 export * from './party'
 export * from './catalogView'
 export * from './factory'
 export * from './legacy'
+export * from './migration'

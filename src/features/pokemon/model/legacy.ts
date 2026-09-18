@@ -23,7 +23,6 @@
 
 import type { PokemonCatalogView } from './catalogView'
 import { levelForExperience } from './experience'
-import { maxPPOf } from './instance'
 import type { MoveSlot, PokemonInstanceDraft, SpeciesId } from './instance'
 import { INSTANCE_SCHEMA_VERSION } from './instance'
 import { ZERO_STATS } from './stats'
@@ -65,7 +64,7 @@ export interface LegacyProjection {
 
 export type LegacyKnown = Pick<
   PokemonInstanceDraft,
-  'schemaVersion' | 'speciesId' | 'experience' | 'ownership' | 'state' | 'currentHp' | 'nickname'
+  'schemaVersion' | 'speciesId' | 'experience' | 'ownership' | 'state' | 'nickname'
 > & {
   /** Derived from `experience`, exposed because the legacy row also stores it. */
   readonly level: number
@@ -132,7 +131,6 @@ export function projectLegacyPokemon(
       originalTrainerId: options.slot?.first_owner_id ?? null,
     },
     state: 'owned',
-    currentHp: null,
     nickname: null,
     levelDisagrees,
   }
@@ -159,8 +157,7 @@ export function readLegacyMoves(
     const id = resolveMoveId(entry, catalog)
     if (id === null) { unresolved.push(String(describe(entry))); continue }
     if (moves.some(slot => slot.moveId === id)) continue
-    const pp = catalog.movePP(id) ?? 0
-    moves.push({ moveId: id, ppUps: 0, currentPP: maxPPOf(pp, 0) })
+    moves.push({ moveId: id, ppUps: 0 })
   }
   return { moves: moves.slice(0, 4), unresolved }
 }

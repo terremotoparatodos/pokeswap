@@ -91,10 +91,10 @@ describe('createPokemonInstance', () => {
     expect(instance.experience).toBe(experienceForLevel(50))
   })
 
-  it('starts with no EVs and no damage', () => {
+  it('starts with no EVs and no wear', () => {
     const instance = draft({ speciesId: SHUCKLE, level: 20, acquisition })
     expect(instance.evs).toEqual({ hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 })
-    expect(instance.currentHp).toBeNull()
+    expect(instance.condition).toEqual({ currentHp: null, pp: {}, majorStatus: 'none' })
   })
 
   it('refuses a Mega: that is a form a Pokémon becomes, not one it is', () => {
@@ -187,11 +187,11 @@ describe('moves from the ORAS learnset', () => {
     expect(defaultMoveIds(learnset, 12)).toEqual([1, 2])
   })
 
-  it('starts every slot at full PP', () => {
+  it('starts every slot at full PP, which is what an empty condition means', () => {
     const instance = draft({ speciesId: CHARIZARD, level: 40, acquisition })
     for (const slot of instance.moves) {
       expect(slot.ppUps).toBe(0)
-      expect(slot.currentPP).toBe(catalog.movePP(slot.moveId))
+      expect(instance.condition.pp[slot.moveId]).toBeUndefined()
     }
   })
 })

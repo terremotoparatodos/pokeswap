@@ -1,0 +1,268 @@
+// The legacy migration contract (R32.2.1).
+//
+// Production never stored a nature, IVs, EVs, a gender, an ability or a form.
+// Those attributes cannot be recovered, so a migration has to *decide* them —
+// and the approved way to decide them (M-1) is a **deterministic hash
+// backfill**:
+//
+//   - deterministic — the same legacy row always produces the same Pokémon;
+//   - reproducible  — client, server and a script all compute the same thing;
+//   - versioned     — `(salt, version)` is recorded inside the record;
+//   - not rerollable — nothing here reads a clock, a counter or a random source,
+//                      so a player cannot ask for a second roll.
+//
+// What this file does **not** do: it does not write, does not read Supabase and
+// does not migrate anybody. It turns one legacy row into a draft, in memory, so
+// the decision can be reviewed before it is ever applied.
+//
+// The rules it implements, all approved:
+//   IVs      derived per stat, 0…31 — never a flat neutral value.
+//   EVs      zero on all six: the old game never recorded EV training.
+//   Nature   one of the 25, derived.
+//   Ability  derived among the form's **normal** abilities; never hidden.
+//   Shiny    only when unambiguous evidence is handed in; never inferred.
+//   Moves    preserved when they resolve against R32.1; never replaced silently.
+
+import type { PokemonCatalogView } from './catalogView'
+import { HEALTHY } from './condition'
+import { levelForExperience } from './experience'
+import type {
+  Acquisition, Gender, MoveSlot, PokemonInstanceDraft, SpeciesId,
+} from './instance'
+import { INSTANCE_SCHEMA_VERSION } from './instance'
+import { projectLegacyPokemon } from './legacy'
+import type { LegacyGap, LegacySlotRow, LegacyXpRow } from './legacy'
+import { MAX_IV, ZERO_STATS } from './stats'
+import type { StatValues } from './stats'
+
+/**
+ * The run of the backfill. Bump it only to deliberately produce **different**
+ * Pokémon from the same rows: every attribute below changes when it changes.
+ */
+export const LEGACY_MIGRATION_VERSION = 1
+
+/**
+ * The public label mixed into every hash. Not a secret — the backfill is meant
+ * to be reproducible by anyone holding the same rows.
+ */
+export const LEGACY_MIGRATION_SALT = 'pokeswap-legacy-backfill'
+
+export interface MigrationRuleset {
+  readonly version: number
+  readonly salt: string
+}
+
+export const DEFAULT_MIGRATION: MigrationRuleset = {
+  version: LEGACY_MIGRATION_VERSION,
+  salt: LEGACY_MIGRATION_SALT,
+}
+
+// ── The hash ────────────────────────────────────────────────────────────────
+
+/**
+ * FNV-1a, 32 bits.
+ *
+ * Chosen because it is tiny, has no dependencies and is trivially portable to
+ * SQL or to another language the day the backfill runs server-side. It is not
+ * cryptographic and does not need to be: nothing here is a secret, and the
+ * worst an attacker can do with it is predict a Pokémon they already own.
+ */
+export function hash32(text: string): number {
+  let hash = 0x811c9dc5
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i)
+    hash = Math.imul(hash, 0x01000193) >>> 0
+  }
+  return hash >>> 0
+}
+
+/**
+ * The hash of one **field** of one Pokémon.
+ *
+ * Every attribute gets its own independent hash rather than consecutive draws
+ * from one stream, so adding an attribute later cannot shift the ones already
+ * assigned. That is what makes this contract extensible without re-rolling
+ * anybody's Pokémon.
+ */
+export const migrationHash = (
+  rules: MigrationRuleset,
+  key: LegacyIdentity,
+  field: string,
+): number => hash32(`${rules.salt}|v${rules.version}|${key.userId}|${key.speciesId}|${field}`)
+
+/** What identifies a legacy Pokémon: the pair the old tables are keyed by. */
+export interface LegacyIdentity {
+  readonly userId: string
+  readonly speciesId: SpeciesId
+}
+
+// ── The derivations ─────────────────────────────────────────────────────────
+
+/** Six IVs, each derived on its own, spread over the full 0…31 range. */
+export function migrationIvs(rules: MigrationRuleset, key: LegacyIdentity): StatValues {
+  const of = (stat: string): number => migrationHash(rules, key, `iv:${stat}`) % (MAX_IV + 1)
+  return { hp: of('hp'), atk: of('atk'), def: of('def'), spa: of('spa'), spd: of('spd'), spe: of('spe') }
+}
+
+/** One of the catalog's 25 natures. */
+export function migrationNature(
+  rules: MigrationRuleset,
+  key: LegacyIdentity,
+  natureIds: readonly number[],
+): number {
+  if (natureIds.length === 0) throw new LegacyMigrationError('the catalog has no natures')
+  return natureIds[migrationHash(rules, key, 'nature') % natureIds.length]
+}
+
+/**
+ * One of the form's **normal** abilities.
+ *
+ * The hidden ability is deliberately unreachable here: how a Pokémon gets one
+ * is an open acquisition mechanic, and a migration must not hand out something
+ * the game has not decided how to give.
+ */
+export function migrationAbility(
+  rules: MigrationRuleset,
+  key: LegacyIdentity,
+  abilities: { slot1: number | null; slot2: number | null; hidden: number | null },
+): number {
+  const pool = [abilities.slot1, abilities.slot2].filter((id): id is number => id !== null)
+  if (pool.length === 0) throw new LegacyMigrationError(`species ${key.speciesId} has no normal ability`)
+  return pool[migrationHash(rules, key, 'ability') % pool.length]
+}
+
+/** Gender, following the species' own ratio; genderless species stay genderless. */
+export function migrationGender(
+  rules: MigrationRuleset,
+  key: LegacyIdentity,
+  genderRate: number,
+): Gender {
+  if (genderRate < 0) return 'genderless'
+  if (genderRate === 0) return 'male'
+  if (genderRate >= 8) return 'female'
+  return migrationHash(rules, key, 'gender') % 8 < genderRate ? 'female' : 'male'
+}
+
+export class LegacyMigrationError extends Error {}
+
+// ── One row → one draft ─────────────────────────────────────────────────────
+
+export interface MigrateLegacyOptions {
+  readonly rules?: MigrationRuleset
+  readonly slot?: LegacySlotRow | null
+  /**
+   * Shiny **only** when the caller has unambiguous persisted evidence for this
+   * exact Pokémon. There is none in `pokemon_xp`: `swap_history.was_shiny`
+   * describes a swap event, not a Pokémon, so by default this stays false and
+   * the loss is documented rather than guessed at.
+   */
+  readonly shiny?: boolean
+  /** ISO-8601 UTC stamp of the migration run. No clock is read here. */
+  readonly at: string
+  readonly catalogVersion: string
+}
+
+export interface MigrationReport {
+  readonly identity: LegacyIdentity
+  readonly rules: MigrationRuleset
+  /** Fields that came from the legacy row itself. */
+  readonly preserved: readonly string[]
+  /** Fields the hash decided, because production could not answer them. */
+  readonly derived: readonly string[]
+  /** What the legacy row could not answer at all, from `legacy.ts`. */
+  readonly gaps: readonly LegacyGap[]
+  /** Rows that do not line up with the catalog, verbatim from the projection. */
+  readonly problems: readonly string[]
+  /**
+   * True when no legacy move resolved. The Pokémon would arrive unable to act,
+   * so the migration **stops** at reporting it: the proposed repair (species +
+   * form + level + ORAS learnset) is written down in the model doc and is not
+   * implemented here.
+   */
+  readonly needsMoveBackfill: boolean
+  /** Legacy move slugs that did not resolve against the catalog. */
+  readonly unresolvedMoves: readonly string[]
+}
+
+export interface MigrationResult {
+  /** Still a draft: assigning `instanceId` belongs to whoever persists it. */
+  readonly draft: PokemonInstanceDraft
+  readonly report: MigrationReport
+}
+
+/**
+ * Turns one `pokemon_xp` row into the Pokémon it would become.
+ *
+ * Nothing is written, nothing is applied and no row is read from a database:
+ * the caller hands in the row. Running it twice on the same row gives the same
+ * Pokémon, byte for byte.
+ */
+export function migrateLegacyPokemon(
+  row: LegacyXpRow,
+  catalog: PokemonCatalogView,
+  options: MigrateLegacyOptions,
+): MigrationResult {
+  const rules = options.rules ?? DEFAULT_MIGRATION
+  const key: LegacyIdentity = { userId: row.user_id, speciesId: row.pokemon_id }
+
+  const projection = projectLegacyPokemon(row, catalog, { slot: options.slot })
+  const species = catalog.speciesOf(row.pokemon_id)
+  if (!species) throw new LegacyMigrationError(`species ${row.pokemon_id} is not in the Battle Catalog`)
+  const form = catalog.defaultForm(row.pokemon_id)
+  if (!form) throw new LegacyMigrationError(`species ${row.pokemon_id} has no default form`)
+
+  const moves: readonly MoveSlot[] = projection.known.moves
+  const acquisition: Acquisition = {
+    source: 'legacy_migration',
+    at: options.at,
+    catalogVersion: options.catalogVersion,
+    migration: { version: rules.version, salt: rules.salt },
+  }
+
+  const experience = projection.known.experience
+  const draft: PokemonInstanceDraft = {
+    schemaVersion: INSTANCE_SCHEMA_VERSION,
+    speciesId: species.id,
+    // The default form: production never stored one, and the alternate forms of
+    // Gen VI are all either battle-only or earned in ways the old game had not.
+    formId: form.id,
+    experience,
+    natureId: migrationNature(rules, key, catalog.natureIds()),
+    abilityId: migrationAbility(rules, key, form.abilities),
+    ivs: migrationIvs(rules, key),
+    // Approved: the old game never recorded EV training, so nobody starts with
+    // an advantage they never earned.
+    evs: ZERO_STATS,
+    moves,
+    // A migrated Pokémon arrives rested. Condition is wear, and the old game
+    // had none to carry over.
+    condition: HEALTHY,
+    state: 'owned',
+    ownership: projection.known.ownership,
+    acquisition,
+    shiny: options.shiny === true,
+    gender: migrationGender(rules, key, species.genderRate),
+    nickname: null,
+  }
+
+  const report: MigrationReport = {
+    identity: key,
+    rules,
+    preserved: ['speciesId', 'experience', 'ownership', ...(moves.length > 0 ? ['moves'] : [])],
+    derived: ['natureId', 'abilityId', 'ivs', 'gender'],
+    gaps: projection.gaps,
+    problems: projection.problems,
+    needsMoveBackfill: moves.length === 0,
+    unresolvedMoves: projection.problems
+      .filter(problem => problem.startsWith('move '))
+      .map(problem => problem.slice('move '.length, problem.indexOf(' does not resolve'))),
+  }
+
+  // A sanity check on our own arithmetic: the level the draft derives from the
+  // preserved experience must be the level the projection read.
+  if (levelForExperience(draft.experience) !== projection.known.level) {
+    throw new LegacyMigrationError('experience and level disagree after migration')
+  }
+
+  return { draft, report }
+}
