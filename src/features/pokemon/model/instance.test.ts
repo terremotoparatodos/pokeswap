@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest'
 
+import { HEALTHY } from './condition'
 import {
-  MAX_PP_UPS, isLostOnWipe, isValidInstance, maxPPOf, secureCapture, validateInstance,
+  MAX_PP_UPS, isLostOnWipe, isValidInstance, maxPPOf, maxPPOfInstance, secureCapture,
+  validateInstance, withCondition,
 } from './instance'
 import type { InstanceCatalogView, PokemonInstance } from './instance'
 import { MAX_PARTY_SIZE, addToParty, canWork, removeFromParty, validateParty } from './party'
 import type { ActiveParty, PartyMemberView } from './party'
-import { enterBattle, isFainted, leaveBattle } from './runtime'
 import { PERFECT_IVS, ZERO_STATS } from './stats'
 
 /** A catalog with one species, one form and two moves — enough to validate against. */
@@ -19,7 +20,7 @@ const catalog: InstanceCatalogView = {
 }
 
 const sound: PokemonInstance = {
-  schemaVersion: 1,
+  schemaVersion: 2,
   instanceId: 'inst-1',
   speciesId: 1,
   formId: 10,
@@ -28,8 +29,8 @@ const sound: PokemonInstance = {
   abilityId: 100,
   ivs: PERFECT_IVS,
   evs: ZERO_STATS,
-  moves: [{ moveId: 200, ppUps: 0, currentPP: 35 }],
-  currentHp: null,
+  moves: [{ moveId: 200, ppUps: 0 }],
+  condition: HEALTHY,
   state: 'owned',
   ownership: { ownerId: 'player-1', originalTrainerId: 'player-1' },
   acquisition: { source: 'starter', at: '2026-01-01T00:00:00.000Z', catalogVersion: '1.oras.test' },
@@ -42,6 +43,11 @@ describe('validateInstance', () => {
   it('accepts a sound record', () => {
     expect(validateInstance(sound, catalog)).toEqual([])
     expect(isValidInstance(sound, catalog)).toBe(true)
+  })
+
+  it('refuses a record from another schema version', () => {
+    expect(validateInstance({ ...sound, schemaVersion: 1 }, catalog))
+      .toContain('schema version 1, expected 2')
   })
 
   it('reports every problem at once, not just the first', () => {
@@ -68,22 +74,29 @@ describe('validateInstance', () => {
       .toContain('form 11 is not in the catalog')
   })
 
-  it('checks PP against the move plus its PP Ups', () => {
+  it('refuses the same move in two slots', () => {
+    const twice = { ...sound, moves: [{ moveId: 200, ppUps: 0 }, { moveId: 200, ppUps: 0 }] }
+    expect(validateInstance(twice, catalog)).toContain('move 200 is in two slots')
+  })
+
+  it('computes a move’s PP ceiling from the catalog plus its PP Ups', () => {
     expect(maxPPOf(35, 0)).toBe(35)
     expect(maxPPOf(35, MAX_PP_UPS)).toBe(56)
     expect(maxPPOf(10, 3)).toBe(16)
-    const over = { ...sound, moves: [{ moveId: 200, ppUps: 0, currentPP: 36 }] }
-    expect(validateInstance(over, catalog)).toContain('PP of move 200 must be between 0 and 35')
-    const upped = { ...sound, moves: [{ moveId: 200, ppUps: 3, currentPP: 56 }] }
-    expect(validateInstance(upped, catalog)).toEqual([])
+    expect(maxPPOfInstance(sound, 200, catalog)).toBe(35)
+    expect(maxPPOfInstance({ ...sound, moves: [{ moveId: 200, ppUps: 3 }] }, 200, catalog)).toBe(56)
+    // A move this Pokémon does not know has no ceiling at all.
+    expect(maxPPOfInstance(sound, 201, catalog)).toBeNull()
   })
 
-  it('refuses the same move in two slots', () => {
-    const twice = { ...sound, moves: [
-      { moveId: 200, ppUps: 0, currentPP: 35 },
-      { moveId: 200, ppUps: 0, currentPP: 35 },
-    ] }
-    expect(validateInstance(twice, catalog)).toContain('move 200 is in two slots')
+  it('checks the condition against those ceilings', () => {
+    const spent = withCondition(sound, { currentHp: 12, pp: { 200: 10 }, majorStatus: 'burn' })
+    expect(validateInstance(spent, catalog)).toEqual([])
+    const over = withCondition(sound, { currentHp: null, pp: { 200: 36 }, majorStatus: 'none' })
+    expect(validateInstance(over, catalog)).toContain('PP of move 200 must be between 0 and 35')
+    const stale = withCondition(sound, { currentHp: null, pp: { 201: 3 }, majorStatus: 'none' })
+    expect(validateInstance(stale, catalog))
+      .toContain('PP recorded for move 201, which this Pokémon does not know')
   })
 })
 
@@ -110,53 +123,17 @@ describe('a dungeon capture (I-1)', () => {
     expect(validateInstance(secured, catalog)).toEqual([])
   })
 
+  it('keeps the wear it took inside the dungeon when it is secured', () => {
+    const hurt = withCondition(pending, { currentHp: 3, pp: { 200: 1 }, majorStatus: 'poison' })
+    const secured = secureCapture(hurt, 'player-1', '2026-02-01T10:30:00.000Z')
+    expect(secured.condition).toEqual({ currentHp: 3, pp: { 200: 1 }, majorStatus: 'poison' })
+  })
+
   it('is lost on a wipe, and an owned Pokémon never is', () => {
     expect(isLostOnWipe(pending)).toBe(true)
     expect(isLostOnWipe(sound)).toBe(false)
     // Securing something already owned is a no-op, not a second acquisition.
     expect(secureCapture(sound, 'someone-else', '2026-03-01T00:00:00.000Z')).toBe(sound)
-  })
-})
-
-describe('runtime state', () => {
-  const battle = enterBattle({ instance: sound, maxHp: 120, maxPP: { 200: 35 } })
-
-  it('starts from the instance, full health when it carries no damage', () => {
-    expect(battle.currentHp).toBe(120)
-    expect(battle.pp).toEqual({ 200: 35 })
-    expect(battle.status).toBe('none')
-    expect(battle.stages).toEqual({})
-    expect(battle.activeFormId).toBe(sound.formId)
-  })
-
-  it('carries damage and spent PP into the next fight', () => {
-    const hurt = { ...sound, currentHp: 40, moves: [{ moveId: 200, ppUps: 0, currentPP: 12 }] }
-    const state = enterBattle({ instance: hurt, maxHp: 120, maxPP: { 200: 35 } })
-    expect(state.currentHp).toBe(40)
-    expect(state.pp[200]).toBe(12)
-  })
-
-  it('brings only HP and PP back out, never a Mega or a stat stage', () => {
-    const after = leaveBattle(sound, {
-      ...battle,
-      activeFormId: 999,
-      currentHp: 31,
-      pp: { 200: 4 },
-      status: 'burn',
-      stages: { atk: -2 },
-    })
-    expect(after.currentHp).toBe(31)
-    expect(after.moves[0].currentPP).toBe(4)
-    expect(after.formId).toBe(sound.formId)
-    expect(after).not.toHaveProperty('status')
-    expect(after).not.toHaveProperty('stages')
-  })
-
-  it('clamps what comes back and knows a faint', () => {
-    expect(leaveBattle(sound, { ...battle, currentHp: -20 }).currentHp).toBe(0)
-    expect(leaveBattle(sound, { ...battle, currentHp: 999 }).currentHp).toBe(120)
-    expect(isFainted({ ...battle, currentHp: 0 })).toBe(true)
-    expect(isFainted(battle)).toBe(false)
   })
 })
 

@@ -16,11 +16,20 @@
 // objects, no functions. The same record travels from a server to a client and
 // back without translation, which is what R32.4 will need.
 
+import { HEALTHY, validateCondition } from './condition'
+import type { PokemonConditionState } from './condition'
 import { isWholeInRange, validateEvs, validateIvs } from './stats'
 import type { StatValues } from './stats'
 
-/** Bumped when this record's shape changes in a way a reader must know about. */
-export const INSTANCE_SCHEMA_VERSION = 1
+/**
+ * Bumped when this record's shape changes in a way a reader must know about.
+ *
+ * 2 (R32.2.1) — the wear of a Pokémon moved into `condition`: `currentHp` and
+ * the slots' `currentPP` became `condition.currentHp` and `condition.pp`, and
+ * the major status joined them. A version 1 record read as a version 2 one
+ * would lose its damage and its PP, so the reader refuses it instead.
+ */
+export const INSTANCE_SCHEMA_VERSION = 2
 
 /** A species of the National Dex; the catalog's `species.id`. */
 export type SpeciesId = number
@@ -42,7 +51,7 @@ export type AcquisitionSource =
   | 'swap'
   | 'dungeon_capture'
   | 'event'
-  | 'migration'
+  | 'legacy_migration'
 
 export interface Acquisition {
   readonly source: AcquisitionSource
@@ -52,22 +61,34 @@ export interface Acquisition {
   readonly catalogVersion: string
   /** Free-form pointer to the event that produced it: an expedition id, a listing id. */
   readonly ref?: string
+  /**
+   * Present only on `legacy_migration`: which run of the backfill produced the
+   * attributes production never stored. Two Pokémon built by different runs are
+   * different Pokémon, and this is what says so (`migration.ts`).
+   */
+  readonly migration?: {
+    readonly version: number
+    /** The public salt label, not a secret: the backfill is meant to be reproducible. */
+    readonly salt: string
+  }
 }
 
 /**
- * One of the four move slots.
+ * One of the four move slots: **which** move, not how worn it is.
  *
- * `maxPP` is **not** stored: it is the catalog's PP for that move plus the PP
- * Ups applied to it. Storing it would let the two disagree the day a move's PP
+ * `maxPP` is not stored: it is the catalog's PP for that move plus the PP Ups
+ * applied to it. Storing it would let the two disagree the day a move's PP
  * changes. `ppUps` is stored from the start so adding PP Ups later is a
  * feature, not a migration.
+ *
+ * Spent PP is **not** here either: it is wear, so it lives in `condition.pp`
+ * (R32.2.1). It does survive a battle — it is restored at a Pokémon Center or
+ * by an Ether, never by the clock.
  */
 export interface MoveSlot {
   readonly moveId: MoveId
   /** 0–3, each adding 20 % of the move's base PP. */
   readonly ppUps: number
-  /** Spent PP survives a battle; it is restored at a Pokémon Center, not by the clock. */
-  readonly currentPP: number
 }
 
 export const MAX_MOVE_SLOTS = 4
@@ -118,8 +139,12 @@ export interface PokemonInstance {
   readonly ivs: StatValues
   readonly evs: StatValues
   readonly moves: readonly MoveSlot[]
-  /** Damage carried between battles; null means "as healthy as it can be". */
-  readonly currentHp: number | null
+  /**
+   * Everything a fight wore down and left behind: HP, PP, major status. It is
+   * part of the record because it survives the battle, and separate from the
+   * rest of the record because it is the only part a battle may write.
+   */
+  readonly condition: PokemonConditionState
   readonly state: InstanceState
   readonly ownership: Ownership
   readonly acquisition: Acquisition
@@ -192,21 +217,31 @@ export function validateInstance(instance: PokemonInstance, catalog: InstanceCat
     if (seen.has(slot.moveId)) issues.push(`move ${slot.moveId} is in two slots`)
     seen.add(slot.moveId)
     if (!isWholeInRange(slot.ppUps, 0, MAX_PP_UPS)) issues.push(`PP Ups of move ${slot.moveId} must be 0–${MAX_PP_UPS}`)
-    const max = maxPPOf(move.pp, slot.ppUps)
-    if (!isWholeInRange(slot.currentPP, 0, max)) {
-      issues.push(`PP of move ${slot.moveId} must be between 0 and ${max}`)
-    }
   }
 
-  if (instance.currentHp !== null && (!Number.isInteger(instance.currentHp) || instance.currentHp < 0)) {
-    issues.push('currentHp must be null or a whole number of zero or more')
-  }
+  issues.push(...validateCondition(instance.condition, moveId => maxPPOfInstance(instance, moveId, catalog)))
   if (instance.state === 'expeditionPending' && instance.ownership.ownerId !== null) {
     issues.push('a pending capture cannot have an owner yet (I-1)')
   }
   if (instance.nickname !== null && instance.nickname.trim() === '') issues.push('nickname is empty')
 
   return issues
+}
+
+/**
+ * The real PP ceiling of one of this Pokémon's moves: the catalog's base PP
+ * plus its PP Ups. `null` when the Pokémon does not know that move at all,
+ * which is how a stale `condition.pp` entry is caught.
+ */
+export function maxPPOfInstance(
+  instance: PokemonInstance,
+  moveId: MoveId,
+  catalog: InstanceCatalogView,
+): number | null {
+  const slot = instance.moves.find(entry => entry.moveId === moveId)
+  if (!slot) return null
+  const move = catalog.move(moveId)
+  return move ? maxPPOf(move.pp, slot.ppUps) : null
 }
 
 /** True when nothing is wrong with the record. */
@@ -237,3 +272,14 @@ export function secureCapture(instance: PokemonInstance, ownerId: string, at: st
  * that has it in memory.
  */
 export const isLostOnWipe = (instance: PokemonInstance): boolean => instance.state === 'expeditionPending'
+
+// ── Condition, applied to one Pokémon ───────────────────────────────────────
+
+/** The same Pokémon with different wear. The only way a battle writes a record. */
+export const withCondition = (
+  instance: PokemonInstance,
+  condition: PokemonConditionState,
+): PokemonInstance => ({ ...instance, condition })
+
+/** A fresh Pokémon's wear: none. Exported so a factory and a test agree on it. */
+export const healthyCondition = (): PokemonConditionState => HEALTHY
