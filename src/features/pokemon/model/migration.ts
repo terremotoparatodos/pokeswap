@@ -195,6 +195,7 @@ export class LegacyMigrationError extends Error {}
 
 export interface MigrateLegacyOptions {
   readonly rules?: MigrationRuleset
+  /** The slot being migrated: the identity, and the only source of ownership. */
   readonly slot?: LegacySlotRow | null
   /**
    * Shiny **only** when the caller has unambiguous persisted evidence for this
@@ -206,6 +207,9 @@ export interface MigrateLegacyOptions {
   /** ISO-8601 UTC stamp of the migration run. No clock is read here. */
   readonly at: string
   readonly catalogVersion: string
+  /** Set by `migrateLegacySlot`; see the report's fields of the same names. */
+  readonly ignoredHistoricalProgressions?: number
+  readonly missingCurrentOwnerProgression?: boolean
 }
 
 export interface MigrationReport {
@@ -240,6 +244,21 @@ export interface MigrationReport {
    * reported for the audit and nothing else.
    */
   readonly ignoredStoredLevel: number | null
+  /**
+   * `pokemon_xp` rows for this species that belong to somebody who no longer
+   * owns the slot. They are **historical trainer progression**, not Pokémon:
+   * they are counted here and produce nothing.
+   */
+  readonly ignoredHistoricalProgressions: number
+  /**
+   * The slot has an owner but that owner has no `pokemon_xp` row.
+   *
+   * Legacy already answers what that is worth — `useProgression` reads
+   * `raw?.xp ?? 0` and `raw?.moves ?? null`, and `grant_pokemon_xp` starts a
+   * row at xp 0 / level 1 — so the Pokémon is migrated at 0 xp with no move.
+   * Flagged all the same, for the dry-run: a Pokémon with no move cannot act.
+   */
+  readonly missingCurrentOwnerProgression: boolean
 }
 
 export interface MigrationResult {
@@ -317,6 +336,8 @@ export function migrateLegacyPokemon(
     needsMoveBackfill: moves.length === 0,
     unresolvedMoves: projection.unresolvedMoves,
     ignoredStoredLevel: projection.known.levelDisagrees ? row.level : null,
+    ignoredHistoricalProgressions: options.ignoredHistoricalProgressions ?? 0,
+    missingCurrentOwnerProgression: options.missingCurrentOwnerProgression === true,
   }
 
   // A sanity check on our own arithmetic: the level the draft derives from the
@@ -326,4 +347,83 @@ export function migrateLegacyPokemon(
   }
 
   return { draft, report }
+}
+
+// ── The migration unit: one slot ────────────────────────────────────────────
+
+/**
+ * **One `slots` row is one legacy Pokémon.** Not one per `pokemon_xp` row.
+ *
+ * The legacy game never had two individuals of a species: `slots` holds exactly
+ * one row per species and it is the Pokémon. `pokemon_xp` is *training*, keyed
+ * by (user, species), and a row of a former owner is that player's history, not
+ * another Pokémon.
+ *
+ * So the cardinality is **0 or 1 instance per slot**, whatever the number of
+ * progression rows that mention the species.
+ */
+export interface LegacySlotMigrationInput {
+  readonly slot: LegacySlotRow
+  /**
+   * Every `pokemon_xp` row for this species, from any user. The one belonging
+   * to the slot's current owner is used; the rest are counted and ignored.
+   */
+  readonly progressions?: readonly LegacyXpRow[]
+}
+
+export type LegacySlotOutcome =
+  | { readonly kind: 'migrated'; readonly draft: PokemonInstanceDraft; readonly report: MigrationReport }
+  /**
+   * No instance. `reason` is `unowned` when the slot has no current owner:
+   * in the legacy game that species is not somebody's Pokémon but part of the
+   * pool anybody can get (`wildPool.ts` treats a slot without `owner_id` as
+   * available), so migrating it would hand out a Pokémon nobody had.
+   */
+  | { readonly kind: 'skipped'; readonly reason: 'unowned'; readonly identity: LegacyPokemonIdentityKey }
+
+/**
+ * Migrates one slot, in memory.
+ *
+ *   1. the slot is the identity (`slots.pokemon_id`);
+ *   2. the species is that same id;
+ *   3. the owner is `slots.owner_id` — the only source of truth for ownership;
+ *   4. no owner, no instance;
+ *   5. the progression is the current owner's `pokemon_xp` row, if any;
+ *   6. that row's xp and moves are preserved, and nobody else's are.
+ *
+ * A slot listed on the market keeps its `owner_id` (publishing only sets
+ * `is_locked`), so it migrates to its seller like any other.
+ */
+export function migrateLegacySlot(
+  input: LegacySlotMigrationInput,
+  catalog: PokemonCatalogView,
+  options: MigrateLegacyOptions,
+): LegacySlotOutcome {
+  const { slot, progressions = [] } = input
+  const identity = legacyIdentityOf(slot)
+  const ownerId = slot.owner_id
+  if (ownerId === null) return { kind: 'skipped', reason: 'unowned', identity }
+
+  const forThisSpecies = progressions.filter(row => row.pokemon_id === slot.pokemon_id)
+  const current = forThisSpecies.find(row => row.user_id === ownerId) ?? null
+  const ignoredHistoricalProgressions = forThisSpecies.length - (current ? 1 : 0)
+
+  // Legacy's own default for an owner who never trained this Pokémon: 0 xp
+  // (level 1) and no moves. Taken from the code, not invented — but flagged,
+  // because a Pokémon with no move cannot act.
+  const row: LegacyXpRow = current ?? {
+    user_id: ownerId,
+    pokemon_id: slot.pokemon_id,
+    xp: 0,
+    level: 1,
+    moves: null,
+  }
+
+  const { draft, report } = migrateLegacyPokemon(row, catalog, {
+    ...options,
+    slot,
+    ignoredHistoricalProgressions,
+    missingCurrentOwnerProgression: current === null,
+  })
+  return { kind: 'migrated', draft, report }
 }

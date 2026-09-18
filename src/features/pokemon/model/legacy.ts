@@ -94,6 +94,8 @@ export type LegacyKnown = Pick<
   readonly moves: readonly MoveSlot[]
   /** True when the row's stored level disagrees with its own xp. */
   readonly levelDisagrees: boolean
+  /** The `pokemon_xp` row's user: whose training this is, not who owns it. */
+  readonly progressionTrainerId: string
 }
 
 const ALWAYS_MISSING: readonly LegacyGap[] = [
@@ -106,7 +108,13 @@ const ALWAYS_MISSING: readonly LegacyGap[] = [
 ]
 
 /**
- * Projects one `pokemon_xp` row (plus the species' slot, when it is at hand).
+ * Projects the progression of one Pokémon: a `pokemon_xp` row, read as the
+ * training the **slot's current owner** did on it.
+ *
+ * Ownership comes from `options.slot.owner_id` and from nowhere else. A
+ * `pokemon_xp` row identifies whose training it is, not who owns the Pokémon:
+ * rows of former owners describe history, and passing one here without its slot
+ * yields a projection with no owner rather than a second Pokémon.
  *
  * It never guesses. Where the legacy data is silent the field is absent from
  * `known` and named in `gaps`, so a caller cannot accidentally persist a
@@ -142,20 +150,23 @@ export function projectLegacyPokemon(
     gaps.push({ field: 'moves', reason: 'the row carries no move this catalog recognises' })
   }
 
-  const ownerId = xp.user_id
+  // slots.owner_id is the only source of truth for ownership (R32.2.1).
+  const ownerId = options.slot?.owner_id ?? null
+  if (options.slot && options.slot.owner_id !== null && options.slot.owner_id !== xp.user_id) {
+    problems.push(`progression belongs to ${xp.user_id}, who no longer owns this slot`)
+  }
   const known: LegacyKnown = {
     schemaVersion: INSTANCE_SCHEMA_VERSION,
     speciesId,
     experience: Math.max(0, Math.floor(xp.xp)),
     level,
     moves,
-    // The legacy owner is the `pokemon_xp` row's user: the player who trained
-    // it. `slots.owner_id` is who holds the *species* in the market, which is a
-    // different thing and must not become the Pokémon's owner.
     ownership: {
       ownerId,
       originalTrainerId: options.slot?.first_owner_id ?? null,
     },
+    /** Whose training this is. Metadata for the audit; never ownership. */
+    progressionTrainerId: xp.user_id,
     state: 'owned',
     nickname: null,
     levelDisagrees,

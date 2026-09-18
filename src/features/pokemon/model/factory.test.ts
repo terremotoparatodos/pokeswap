@@ -218,7 +218,9 @@ describe('the legacy projection', () => {
   const row = { user_id: 'p1', pokemon_id: PIKACHU, xp: 8000, level: 20, moves: null }
 
   it('keeps what production knows and never invents the rest', () => {
-    const { known, gaps } = projectLegacyPokemon(row, catalog)
+    const { known, gaps } = projectLegacyPokemon(row, catalog, {
+      slot: { pokemon_id: PIKACHU, owner_id: 'p1' },
+    })
     expect(known.speciesId).toBe(PIKACHU)
     expect(known.experience).toBe(8000)
     expect(known.level).toBe(levelForExperience(8000))
@@ -240,12 +242,18 @@ describe('the legacy projection', () => {
     expect(problems.join(' ')).toContain('905')
   })
 
-  it('does not let the market owner become the Pokémon’s owner', () => {
-    const { known } = projectLegacyPokemon(row, catalog, {
-      slot: { pokemon_id: PIKACHU, owner_id: 'market-holder', first_owner_id: 'p0' },
+  it('takes ownership from the slot, and the trainer of the row only as metadata', () => {
+    const { known, problems } = projectLegacyPokemon(row, catalog, {
+      slot: { pokemon_id: PIKACHU, owner_id: 'current-owner', first_owner_id: 'p0' },
     })
-    expect(known.ownership.ownerId).toBe('p1')
+    expect(known.ownership.ownerId).toBe('current-owner')
     expect(known.ownership.originalTrainerId).toBe('p0')
+    expect(known.progressionTrainerId).toBe('p1')
+    expect(problems.join(' ')).toContain('no longer owns this slot')
+  })
+
+  it('leaves a projection without a slot ownerless rather than guessing', () => {
+    expect(projectLegacyPokemon(row, catalog).known.ownership.ownerId).toBeNull()
   })
 
   it('resolves the moves blob by name or id, and says what it could not read', () => {

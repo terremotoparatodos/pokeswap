@@ -12,11 +12,11 @@ import { HEALTHY } from './condition'
 import { experienceForLevel, levelForExperience } from './experience'
 import { validateInstance } from './instance'
 import { LEGACY_MOVE_TABLES, canonicalMoveId, readLegacyMoves } from './legacy'
-import type { LegacyXpRow } from './legacy'
+import type { LegacySlotRow, LegacyXpRow } from './legacy'
 import {
   DEFAULT_MIGRATION, LEGACY_MIGRATION_SALT, LEGACY_MIGRATION_VERSION, LegacyMigrationError,
-  hash32, legacyIdentityOf, mix32, migrateLegacyPokemon, migrationAbility, migrationGender, migrationIvs,
-  migrationNature,
+  hash32, legacyIdentityOf, migrateLegacySlot, migrateLegacyPokemon, migrationAbility, migrationGender,
+  migrationIvs, migrationNature, mix32,
 } from './migration'
 import { MAX_EV_TOTAL, STAT_KEYS } from './stats'
 
@@ -42,8 +42,20 @@ const row = (over: Partial<LegacyXpRow> = {}): LegacyXpRow => ({
   ...over,
 })
 
-const migrate = (r = row(), extra = {}): ReturnType<typeof migrateLegacyPokemon> =>
-  migrateLegacyPokemon(r, catalog, { ...options, ...extra })
+/** The slot is the identity and the owner; by default it belongs to the row's trainer. */
+const slot = (over: Partial<LegacySlotRow> = {}): LegacySlotRow => ({
+  pokemon_id: PIKACHU,
+  owner_id: 'trainer-a',
+  first_owner_id: null,
+  ...over,
+})
+
+const migrate = (r = row(), extra: Record<string, unknown> = {}): ReturnType<typeof migrateLegacyPokemon> =>
+  migrateLegacyPokemon(r, catalog, {
+    ...options,
+    slot: slot({ pokemon_id: r.pokemon_id, owner_id: r.user_id }),
+    ...extra,
+  })
 
 const identity = (speciesId: number): { slotPokemonId: number } => ({ slotPokemonId: speciesId })
 
@@ -333,5 +345,103 @@ describe('what the legacy row itself knew', () => {
   it('stays JSON-safe', () => {
     const { draft } = migrate()
     expect(JSON.parse(JSON.stringify(draft))).toEqual(draft)
+  })
+})
+
+describe('migration cardinality: one slot, one Pokémon', () => {
+  const owner = 'owner-now'
+  const former = 'owner-before'
+
+  const progressions = [
+    { user_id: former, pokemon_id: PIKACHU, xp: 900000, level: 99, moves: { 1: 'thunderbolt' } },
+    { user_id: owner, pokemon_id: PIKACHU, xp: 8000, level: 20, moves: { 1: 'thunder-shock' } },
+    { user_id: 'someone-else', pokemon_id: PIKACHU, xp: 500, level: 8, moves: null },
+    // Another species entirely: it must not be read for this slot.
+    { user_id: owner, pokemon_id: BULBASAUR, xp: 12345, level: 22, moves: { 1: 'tackle' } },
+  ]
+
+  const migrateSlot = (
+    over: Partial<LegacySlotRow> = {},
+    rows: readonly LegacyXpRow[] = progressions,
+  ): ReturnType<typeof migrateLegacySlot> =>
+    migrateLegacySlot({ slot: slot({ owner_id: owner, ...over }), progressions: rows }, catalog, options)
+
+  it('migrates exactly one instance however many progression rows mention the species', () => {
+    const outcome = migrateSlot()
+    expect(outcome.kind).toBe('migrated')
+    if (outcome.kind !== 'migrated') return
+    expect(outcome.report.ignoredHistoricalProgressions).toBe(2)
+    expect(outcome.report.identity).toEqual({ slotPokemonId: PIKACHU })
+  })
+
+  it('takes the progression of the current owner, and only that one', () => {
+    const outcome = migrateSlot()
+    if (outcome.kind !== 'migrated') throw new Error('expected a migrated slot')
+    expect(outcome.draft.experience).toBe(8000)
+    expect(outcome.draft.moves.map(slot => catalog.move(slot.moveId)?.pp)).toHaveLength(1)
+    expect(outcome.draft.moves[0].moveId).toBe(catalog.moveNamed('thunder-shock')!.id)
+  })
+
+  it('never lets a former owner’s progression create a Pokémon or change one', () => {
+    const outcome = migrateSlot()
+    if (outcome.kind !== 'migrated') throw new Error('expected a migrated slot')
+    // The former owner had 900000 xp and Thunderbolt; neither reaches the record.
+    expect(outcome.draft.experience).not.toBe(900000)
+    expect(outcome.draft.moves.map(move => move.moveId))
+      .not.toContain(catalog.moveNamed('thunderbolt')!.id)
+    expect(outcome.draft.ownership.ownerId).toBe(owner)
+  })
+
+  it('takes ownership from slots.owner_id, not from pokemon_xp.user_id', () => {
+    const outcome = migrateSlot({}, [
+      { user_id: former, pokemon_id: PIKACHU, xp: 900000, level: 99, moves: null },
+    ])
+    if (outcome.kind !== 'migrated') throw new Error('expected a migrated slot')
+    expect(outcome.draft.ownership.ownerId).toBe(owner)
+    // No row of the current owner: legacy's own default, and a flag for the dry-run.
+    expect(outcome.draft.experience).toBe(0)
+    expect(levelForExperience(outcome.draft.experience)).toBe(1)
+    expect(outcome.draft.moves).toEqual([])
+    expect(outcome.report.missingCurrentOwnerProgression).toBe(true)
+    expect(outcome.report.needsMoveBackfill).toBe(true)
+  })
+
+  it('does not reroll anything when the slot changes hands', () => {
+    const before = migrateSlot({ owner_id: former }, [])
+    const after = migrateSlot({ owner_id: owner }, [])
+    if (before.kind !== 'migrated' || after.kind !== 'migrated') throw new Error('expected migrated slots')
+    expect(after.draft.ivs).toEqual(before.draft.ivs)
+    expect(after.draft.natureId).toBe(before.draft.natureId)
+    expect(after.draft.abilityId).toBe(before.draft.abilityId)
+    expect(after.draft.gender).toBe(before.draft.gender)
+    expect(before.draft.ownership.ownerId).toBe(former)
+    expect(after.draft.ownership.ownerId).toBe(owner)
+  })
+
+  it('makes no Pokémon out of a slot nobody owns', () => {
+    const outcome = migrateSlot({ owner_id: null })
+    expect(outcome).toEqual({ kind: 'skipped', reason: 'unowned', identity: { slotPokemonId: PIKACHU } })
+  })
+
+  it('migrates a slot listed on the market to its seller: listing only locks it', () => {
+    const outcome = migrateSlot({ owner_id: owner })
+    if (outcome.kind !== 'migrated') throw new Error('expected a migrated slot')
+    expect(outcome.draft.ownership.ownerId).toBe(owner)
+  })
+
+  it('keeps the first owner as the original trainer', () => {
+    const outcome = migrateSlot({ first_owner_id: 'the-very-first' })
+    if (outcome.kind !== 'migrated') throw new Error('expected a migrated slot')
+    expect(outcome.draft.ownership.originalTrainerId).toBe('the-very-first')
+  })
+
+  it('still reports C and D moves instead of replacing them', () => {
+    const outcome = migrateSlot({}, [
+      { user_id: owner, pokemon_id: PIKACHU, xp: 8000, level: 20, moves: { 1: 'body-press', 2: 'nonsense' } },
+    ])
+    if (outcome.kind !== 'migrated') throw new Error('expected a migrated slot')
+    expect(outcome.draft.moves).toEqual([])
+    expect(outcome.report.unresolvedMoves.map(problem => problem.kind)).toEqual(['incompatible', 'unknown'])
+    expect(outcome.report.needsMoveBackfill).toBe(true)
   })
 })
