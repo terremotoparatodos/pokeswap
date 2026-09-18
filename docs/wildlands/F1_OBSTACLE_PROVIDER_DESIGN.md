@@ -307,7 +307,8 @@ F-1 entrega **una sola cosa**: que un objeto colocado exista como dato físico c
 
 ```ts
 // engine/placedObjects.ts
-interface PlacedObject { id; areaId; anchor; footprint: readonly Tile[]; solid; interactive; kind }
+interface TapHitbox { width; height; offsetX? }   // el arte propio, en píxeles de mundo
+interface PlacedObject { id; areaId; anchor; footprint: readonly Tile[]; solid; interactive; kind; hitbox? }
 placedObject(spec)            // arma el footprint desde width/depth (1×1 por defecto)
 besidePlaced(object)          // el anillo ortogonal desde donde se usa
 class PlacedObjects {
@@ -315,17 +316,32 @@ class PlacedObjects {
   at(areaId, tx, ty)          // qué hay en ese tile
   isSolid(areaId, tx, ty)     // solidez
   isInteractive(areaId, tx, ty)
-  forTap(areaId, tile, reachRows)  // qué objeto significa un toque sobre su arte
 }
-retargetToPlaced(placed, areaId, pick, reachRows)  // corrección del toque, previa a navegar
+
+// engine/picking.ts — el toque se resuelve en pantalla, con orden explícito
+hitTest(actores, props, sx, sy, colocados)   // actor → prop → objeto colocado → null
+resolvePick(actores, props, sx, sy, suelo, colocados)
 ```
+
+`FACT` **El alcance del toque es dato del objeto, no una constante del motor.** Cada objeto declara su `hitbox` —el ancho y el alto de su arte alrededor de los pies— y el renderer la proyecta con la cámara del cuadro, junto a los rects que ya guardaba para actores y props. Un horno más alto o una casa más ancha declaran el suyo sin tocar el motor. Un objeto sin `hitbox` no captura ningún toque: solo habla por sus tiles.
+
+`FACT` **Prioridad de picking, explícita y testeada:**
+
+```text
+actor  →  prop procedural (F-2)  →  objeto colocado dentro de su arte  →  suelo
+```
+
+Una estación no puede quitarle el toque a un actor, ni a un prop que el renderer ya dibujó ahí, ni al suelo que su arte no cubre. Lo que su arte **sí** tapa le pertenece, igual que a un árbol después de F-2. `pick()` sigue siendo la señal de qué se tocó: la accesibilidad la deciden el mundo y el feature.
+
+> La primera versión de F-1 aplicaba una corrección de dos filas por tile (`PLACED_TAP_REACH_ROWS`) a todos los objetos por igual, antes de navegar. La auditoría la rechazó con razón: secuestraba tiles de suelo libres y podía sobrescribir un prop ya resuelto por F-2. Esa regla global se eliminó.
 
 ### 11.2 Archivos propietarios
 
 | Archivo | Rol |
 |---|---|
 | `engine/placedObjects.ts` | El contrato y el registro. Puro: sin DOM, sin timers, sin callbacks |
-| `engine/game.ts` | Compone `solidAt = área + registro`, alimenta movimiento y navegación, corrige el toque y sincroniza el registro al entrar a un área |
+| `engine/game.ts` | Compone `solidAt = área + registro`, alimenta movimiento y navegación, y sincroniza el registro al entrar a un área |
+| `engine/picking.ts`, `engine/renderer.ts` | Proyectan el hitbox declarado y resuelven el toque con la prioridad de §11.1 |
 | `professions/alchemy/useAlchemyController.ts` | Declara la mesa como dato plano (`AlchemyPlacedObject`) |
 | `professions/alchemy/alchemyOverlay.ts` | Suma `stationTile(area)`, un accesor de solo lectura del tile que ya derivaba |
 | `WildlandsView.vue`, `AlchemyFieldLab.vue` | Cablean el puerto `placedObjectsIn`, dev-only como el resto del demo |
@@ -342,7 +358,9 @@ retargetToPlaced(placed, areaId, pick, reachRows)  // corrección del toque, pre
 
 - **Solo 1×1 por ahora.** El contrato ya es una lista de tiles y hay tests de 2×2, pero nada coloca todavía un objeto más grande.
 - **Búsqueda lineal**, sin índice espacial: correcto con unidades o decenas de objetos por área (§6).
-- **`forTap` usa 2 filas fijas** de alcance, como los edificios; no mide el sprite real.
+- **El hitbox es un rectángulo**, no la silueta del arte: una esquina transparente responde por el objeto, igual que en actores y props (F-2).
+- **Lo que el arte tapa, le pertenece.** El arte de la Mesa es más ancho que un tile, así que cubre por completo las dos tiles detrás suyo en su columna: un toque ahí abre la Mesa. Es el mismo criterio que un árbol; lo que ya no ocurre es que se lleve tiles fuera de su arte.
+- **El hitbox lo declara quien coloca el objeto** y nadie verifica que coincida con el sprite dibujado: si el arte cambia de tamaño, hay que actualizar la declaración.
 - **El registro vive en memoria del cliente.** No hay persistencia, ownership ni validación de servidor.
 - **La posición sigue derivándose** por anillos desde el spawn del área (`F1-O3` sigue abierto): la mesa es declarada, pero su tile lo sigue calculando el overlay.
 - Los props procedurales **no** se migraron ni se duplicaron: siguen saliendo de la semilla.
