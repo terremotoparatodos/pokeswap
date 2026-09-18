@@ -3,6 +3,7 @@
 > GENERADO por `node scripts/legacy-move-audit.mjs`. No editar a mano.
 > Fuente legacy: tag `v0-legacy-baseline` (`fd8dd1108631fbd937efe77c92f03ad9b4dab300`), `data/learnset.js` y `data/moves-data.js`.
 > Catálogo: `1.oras.ab69b5804411` (621 movimientos).
+> Generación de cada movimiento: `moves.csv` de veekun, la misma fuente fijada de R32.1.
 
 ## Qué se audita
 
@@ -14,62 +15,101 @@ retirado lo escribieron alguna vez:
 2. La primera escritura de la fila siembra el array con
    `getMoves(p, level).map(m => m.slug || m.name.toLowerCase().replace(/ /g,'-'))`.
    `getMoves` sólo trae `slug` en su rama de `LEARNSET`; su rama de respaldo
-   sobre `LEVEL_MOVES`, la de `STATUS_MOVES` y sus cuatro rellenos fijos traen
+   sobre `LEVEL_MOVES`, la de `STATUS_MOVES` y sus cinco rellenos fijos traen
    **nombres visibles**, en español o inglés según el idioma de la interfaz.
 
 Esta auditoría recorre **todo el universo de slugs que esos caminos pueden
 producir**. No cuenta filas de producción: este repo no tiene acceso a esos
 datos, y lo que hace falta saber es qué formas tiene que contemplar una
-migración, no cuántas filas tiene hoy cada forma.
+migración.
+
+## Las cuatro categorías
+
+| | Categoría | Qué significa | Qué hace la migración |
+|---|---|---|---|
+| **A** | Exacto | El slug ya es un identificador del catálogo | Lo usa tal cual |
+| **B** | Canonicalizable | Es **el mismo movimiento** con otro nombre: español, alias histórico, spelling viejo | Lo **preserva**, traduciéndolo a su `moveId` canónico |
+| **C** | Incompatible con el ruleset | El movimiento realmente no existe en ORAS / Gen VI | Lo marca como incompatibilidad real |
+| **D** | Desconocido / corrupto | No se puede identificar sin ambigüedad | Lo separa; nadie adivina |
+
+**B no es backfill.** Un movimiento escrito en español no se reemplaza por otro
+movimiento: se **reconoce**. El backfill por learnset queda sólo para C y D, y
+no se aplica sin aprobación humana.
 
 ## Resultado
 
-| Origen del slug | Slugs distintos | Resuelven | No resuelven |
-|---|---:|---:|---:|
-| learnset identifier | 595 | 561 | 34 |
-| level-up move, Spanish name | 212 | 0 | 212 |
-| level-up move, English name | 212 | 211 | 1 |
-| status move, Spanish name | 158 | 1 | 157 |
-| status move, English name | 158 | 158 | 0 |
-| hard-coded filler | 5 | 0 | 5 |
-| **Universo unido** | **965** | **561** | **404** |
+| Origen del slug | Slugs | A exactos | B canonicalizables | C incompatibles | D desconocidos |
+|---|---:|---:|---:|---:|---:|
+| learnset identifier | 595 | 561 | 0 | 19 | 15 |
+| level-up move, Spanish name | 212 | 0 | 212 | 0 | 0 |
+| level-up move, English name | 212 | 211 | 1 | 0 | 0 |
+| status move, Spanish name | 158 | 1 | 157 | 0 | 0 |
+| status move, English name | 158 | 158 | 0 | 0 | 0 |
+| hard-coded filler | 5 | 0 | 5 | 0 | 0 |
+| **Universo unido** | **965** | **561** | **370** | **19** | **15** |
 
-## No resuelven, por origen
+Después de canonicalizar A + B quedan **34 slugs** sin identidad en el catálogo:
+**19 incompatibilidades reales de ruleset** y **15 desconocidos**.
 
-- **learnset identifier** (34): `aqua-cutter`, `aurora-veil`, `axe-kick`, `body-press`, `burn-up`, `comeuppance`, `dragon-hammer`, `dual-wingbeat`, `headlong-rush`, `high-horsepower`, `hyper-drill`, `laser-focus`, … (+22)
-- **level-up move, Spanish name** (212): `a-bocajarro`, `absorber`, `acua-cola`, `acua-jet`, `agarre`, `agua-lodosa`, `aire-afilado`, `alboroto`, `alud`, `amago`, `antojo`, `arañazo`, … (+200)
-- **level-up move, English name** (1): `vise-grip`
-- **status move, Spanish name** (157): `abatidoras`, `acua-aro`, `acupresión`, `afilar`, `agilidad`, `agitacola`, `aguante`, `alivio`, `anulación`, `armadura-ácida`, `aromaterapia`, `arraigo`, … (+145)
-- **status move, English name** (0): — (todos resuelven)
-- **hard-coded filler** (5): `danza-espada`, `fortaleza`, `gruñido`, `impresionar`, `placaje`
+## B — cómo se canonicaliza (370)
 
-## Las tres causas de un slug que no resuelve
+El diccionario es **la propia tabla legacy**: `LEVEL_MOVES` y `STATUS_MOVES`
+guardan el nombre español y el inglés en la misma fila, así que el español se
+resuelve por su par inglés y de ahí al identificador del catálogo. No hay
+ninguna traducción escrita a mano.
 
-**1. Nombre visible en español.** El catálogo indexa identificadores de veekun,
-que son ingleses, así que un nombre español **nunca** resuelve. Es la causa más
-grande en número (374 slugs distintos), y también la más fácil de reparar: cada
-uno de esos slugs viene de una fila de `LEVEL_MOVES`/`STATUS_MOVES` que trae
-el nombre inglés al lado, así que la tabla legacy misma es el diccionario.
+| Slug legacy | Se reconoce por | moveId |
+|---|---|---:|
+| `a-bocajarro` | nombre inglés `close-combat` | 370 |
+| `abatidoras` | nombre inglés `worry-seed` | 388 |
+| `absorber` | nombre inglés `absorb` | 71 |
+| `acua-aro` | nombre inglés `aqua-ring` | 392 |
+| `acua-cola` | nombre inglés `aqua-tail` | 401 |
+| `acua-jet` | nombre inglés `aqua-jet` | 453 |
 
-**2. Movimiento posterior a la Generación VI.** `learnset.js` se generó desde
-PokéAPI moderna, así que su pool incluye movimientos que en ORAS no existen. Son
-34 identificadores, y esta es la lista completa:
+Sólo los renombres históricos necesitan un alias explícito, y hay exactamente 1:
 
-`aqua-cutter`, `aurora-veil`, `axe-kick`, `body-press`, `burn-up`, `comeuppance`, `dragon-hammer`, `dual-wingbeat`, `headlong-rush`, `high-horsepower`, `hyper-drill`, `laser-focus`, `leafage`, `life-dew`, `liquidation`, `lunar-blessing`, `lunge`, `mystical-power`, `power-trip`, `psyshield-bash`, `rage-fist`, `raging-bull`, `raging-fury`, `smart-strike`, `snowscape`, `spotlight`, `stomping-tantrum`, `strength-sap`, `take-heart`, `tearful-look`, `throat-chop`, `toxic-thread`, `twin-beam`, `wave-crash`
+- `vise-grip` → `vice-grip`: Gen VIII renombró el identificador; en Gen VI es el segundo.
 
-No hay equivalente en el catálogo porque el movimiento no existía: para estos,
-reparar el nombre no alcanza.
+El mapa generado vive en `src/features/pokemon/model/generated/legacyMoves.json`
+(370 entradas) y lo consume `legacy.ts`. Se regenera con este mismo script.
 
-**3. Renombre entre generaciones.** `vise-grip` es
-el único caso por nombre inglés: en Gen VI el identificador es `vice-grip`, y
-recién Gen VIII lo escribe `vise-grip`. El movimiento existe; cambió el nombre.
+## C — incompatibilidades reales de ruleset (19)
+
+Probadas con el `generation_id` de veekun, no afirmadas: cada uno de estos
+movimientos se introdujo después de la Generación VI, así que no existe en ORAS
+y ningún renombre lo arregla.
+
+`aurora-veil` (gen 7), `body-press` (gen 8), `burn-up` (gen 7), `dragon-hammer` (gen 7), `dual-wingbeat` (gen 8), `high-horsepower` (gen 7), `laser-focus` (gen 7), `leafage` (gen 7), `life-dew` (gen 8), `liquidation` (gen 7), `lunge` (gen 7), `power-trip` (gen 7), `smart-strike` (gen 7), `spotlight` (gen 7), `stomping-tantrum` (gen 7), `strength-sap` (gen 7), `tearful-look` (gen 7), `throat-chop` (gen 7), `toxic-thread` (gen 7)
+
+## D — desconocidos / corruptos (15)
+
+No se puede decidir qué son con las fuentes fijadas de R32.1: la instantánea de veekun cubre hasta la generación 8 y ninguno aparece ahí. Casi con seguridad son posteriores —el `learnset.js` legacy se generó desde una PokéAPI moderna—, pero eso es inferencia y no prueba, así que quedan separados de C.
+
+- `aqua-cutter`
+- `axe-kick`
+- `comeuppance`
+- `headlong-rush`
+- `hyper-drill`
+- `lunar-blessing`
+- `mystical-power`
+- `psyshield-bash`
+- `rage-fist`
+- `raging-bull`
+- `raging-fury`
+- `snowscape`
+- `take-heart`
+- `twin-beam`
+- `wave-crash`
+
+## A — exactos (561)
+
+`absorb`, `acid`, `acid-armor`, `acid-spray`, `acrobatics`, `acupressure`, `aerial-ace`, `aeroblast`, `after-you`, `agility`, … (+551)
 
 ## Lectura
 
-- El camino de compra de movimientos es el único que produce identificadores
-  canónicos, y el 94 % de su pool resuelve; lo que falla es posterior a ORAS.
+- El camino de compra de movimientos produce identificadores canónicos; lo que
+  falla ahí es exclusivamente posterior a ORAS.
 - Los nombres en inglés resuelven casi siempre por coincidencia — `Take Down`
   slugifica a `take-down`, que es el identificador real.
-- Un slug que no resuelve **no se reemplaza en silencio**: la estrategia de
-  backfill está en `POKEMON_SPECIES_INSTANCE_MODEL.md` §11 y no se aplica sin
-  aprobación humana.
+- Un slug que no resuelve **no se reemplaza en silencio** en ningún caso.

@@ -1,5 +1,5 @@
-// R32.2.1 — Audits every move slug production can hold against the Battle
-// Catalog (R32.1).
+// R32.2.1 — Classifies every move slug production can hold against the Battle
+// Catalog (R32.1), and generates the canonicalization layer the migration uses.
 //
 // `pokemon_xp.moves` is a JSON array of slugs. Only two code paths ever wrote
 // it, both in the retired monolith (git tag v0-legacy-baseline, index.html):
@@ -9,47 +9,87 @@
 //   2. The first write of a row, which seeds the array from
 //      `getMoves(p, level).map(m => m.slug || m.name.toLowerCase().replace(/ /g,'-'))`.
 //      `getMoves` only carries a `slug` on its LEARNSET branch; its LEVEL_MOVES
-//      fallback, its STATUS_MOVES fallback and its four hard-coded filler moves
+//      fallback, its STATUS_MOVES fallback and its five hard-coded filler moves
 //      carry **display names**, in Spanish or English depending on the UI
 //      language. Those slugify into things like `latigo-cepa` or `double-edge`.
 //
-// So the audit is over the whole universe of slugs those paths can produce, not
-// over production rows: this repo has no access to production data, and the
-// point is to know which shapes a migration must handle, not how many rows
-// happen to hold each one today.
+// A slug that does not resolve is **not** one problem but four, and they need
+// different answers:
 //
-// Usage: node scripts/legacy-move-audit.mjs
-// Output: docs/wildlands/LEGACY_MOVE_AUDIT.md (generated; commit it)
+//   A EXACT            resolves directly against the catalog.
+//   B CANONICALIZABLE  the same move under another name — Spanish display name,
+//                      historical spelling, old alias. It is preserved, never
+//                      replaced: this script emits the map that repairs it.
+//   C INCOMPATIBLE     the move genuinely does not exist in ORAS / Gen VI.
+//                      Proven with veekun's own `generation_id`, not asserted.
+//   D UNKNOWN          cannot be identified unambiguously. Never guessed at.
+//
+// The dictionary for B is the legacy data itself: LEVEL_MOVES and STATUS_MOVES
+// carry the Spanish and the English name of each move side by side, so nothing
+// here is a hand-written translation table. Only genuine historical renames
+// need an explicit alias, and there is exactly one.
+//
+// Usage: node scripts/legacy-move-audit.mjs   (needs npm run catalog:fetch)
+// Output: docs/wildlands/LEGACY_MOVE_AUDIT.md                     (generated)
+//         src/features/pokemon/model/generated/legacyMoves.json   (generated)
 
 import { execFileSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { createContext, runInContext } from 'node:vm'
+
+import { readTable } from './battle-catalog/lib/csv.mjs'
 
 const TAG = 'v0-legacy-baseline'
 const CATALOG = 'src/features/battle/catalog/generated/moves.json'
-const OUT = 'docs/wildlands/LEGACY_MOVE_AUDIT.md'
+const VEEKUN_MOVES = 'node_modules/.cache/battle-catalog/moves.csv'
+const OUT_DOC = 'docs/wildlands/LEGACY_MOVE_AUDIT.md'
+const OUT_MAP = 'src/features/pokemon/model/generated/legacyMoves.json'
+
+/**
+ * Historical renames: the same move, spelled differently in another generation.
+ * Deliberately tiny and verifiable — every entry is a documented rename, not a
+ * translation and not a guess. Anything needing more belongs in category D
+ * until a human looks at it.
+ */
+const HISTORICAL_ALIASES = {
+  // Gen I–VII `vice-grip`; Gen VIII renamed it `vise-grip`. The legacy learnset
+  // was generated from a modern PokéAPI, so it carries the newer spelling.
+  'vise-grip': 'vice-grip',
+}
+
+/** Five moves hard-coded as filler when nothing else filled a slot. */
+const HARD_CODED = ['Placaje', 'Gruñido', 'Impresionar', 'Fortaleza', 'Danza Espada']
 
 const legacy = file =>
   execFileSync('git', ['show', `${TAG}:data/${file}`], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 })
 
-// The two tables are plain `const` declarations; running them in an empty
-// context is enough to read them and cannot touch anything of ours.
-// They are `const` declarations, so they live in the script's own scope: the
-// three are handed back by the last expression rather than read off the global.
-const context = createContext({})
+// The tables are plain `const` declarations, so running them in an empty
+// context cannot touch anything of ours; the last expression hands them back.
 const { LEARNSET, LEVEL_MOVES, STATUS_MOVES } = runInContext(
   `${legacy('learnset.js')}\n${legacy('moves-data.js')}\n;({ LEARNSET, LEVEL_MOVES, STATUS_MOVES })`,
-  context,
+  createContext({}),
 )
 
 const catalog = JSON.parse(readFileSync(CATALOG, 'utf8'))
-const known = new Set(catalog.moves.map(move => move.name))
+const catalogId = new Map(catalog.moves.map(move => [move.name, move.id]))
+
+if (!existsSync(VEEKUN_MOVES)) {
+  console.error(`Falta ${VEEKUN_MOVES}. Corré: npm run catalog:fetch`)
+  process.exit(1)
+}
+// veekun's own generation for every move that has ever existed: this is what
+// turns "we cannot resolve it" into "it did not exist in Gen VI".
+const veekunGeneration = new Map(
+  readTable(readFileSync(VEEKUN_MOVES, 'utf8')).map(row => [row.identifier, Number(row.generation_id)]),
+)
+
+/** The last generation the pinned veekun snapshot knows about. */
+const VEEKUN_COVERS = Math.max(...veekunGeneration.values())
 
 /** The monolith's own slugification, character for character (index.html:2176). */
 const slugify = name => String(name).toLowerCase().replace(/ /g, '-')
 
-/** Four moves hard-coded as filler when nothing else filled a slot. */
-const HARD_CODED = ['Placaje', 'Gruñido', 'Impresionar', 'Fortaleza', 'Danza Espada']
+// ── The universe of slugs, by the path that can write it ────────────────────
 
 const sources = {
   'learnset identifier': new Set(),
@@ -60,6 +100,24 @@ const sources = {
   'hard-coded filler': new Set(),
 }
 
+/** legacy slug → the English display name the legacy tables pair it with. */
+const englishOf = new Map()
+/** Slugs whose legacy tables disagree about which move they are. */
+const ambiguous = new Map()
+
+const pair = (spanish, english) => {
+  const from = slugify(spanish)
+  const to = slugify(english)
+  const seen = englishOf.get(from)
+  if (seen && seen !== to) {
+    const list = ambiguous.get(from) ?? new Set([seen])
+    list.add(to)
+    ambiguous.set(from, list)
+    return
+  }
+  englishOf.set(from, to)
+}
+
 for (const entries of Object.values(LEARNSET)) {
   for (const entry of entries) sources['learnset identifier'].add(entry[1])
 }
@@ -67,48 +125,129 @@ for (const entries of Object.values(LEVEL_MOVES)) {
   for (const entry of entries) {
     sources['level-up move, Spanish name'].add(slugify(entry[1]))
     sources['level-up move, English name'].add(slugify(entry[2]))
+    pair(entry[1], entry[2])
   }
 }
 for (const entries of Object.values(STATUS_MOVES)) {
   for (const entry of entries) {
     sources['status move, Spanish name'].add(slugify(entry[0]))
     sources['status move, English name'].add(slugify(entry[1]))
+    pair(entry[0], entry[1])
   }
 }
 for (const name of HARD_CODED) sources['hard-coded filler'].add(slugify(name))
 
-const rows = []
-const unresolvedBySource = new Map()
-for (const [source, slugs] of Object.entries(sources)) {
-  const sorted = [...slugs].sort()
-  const unresolved = sorted.filter(slug => !known.has(slug))
-  rows.push({ source, total: sorted.length, resolved: sorted.length - unresolved.length, unresolved: unresolved.length })
-  unresolvedBySource.set(source, unresolved)
+// ── Classification ──────────────────────────────────────────────────────────
+
+/**
+ * Resolves one legacy slug to a catalog move id, and says how.
+ *
+ * The order matters: an exact hit always wins, then the legacy table's own
+ * English name, then a documented historical rename. Nothing else is tried —
+ * no fuzzy matching, no edit distance, no "closest" move.
+ */
+function classify(slug) {
+  if (catalogId.has(slug)) return { kind: 'exact', moveId: catalogId.get(slug) }
+
+  if (ambiguous.has(slug)) {
+    return { kind: 'unknown', why: `legacy lo empareja con ${[...ambiguous.get(slug)].map(name => `\`${name}\``).join(' y ')}` }
+  }
+
+  const english = englishOf.get(slug)
+  if (english) {
+    if (catalogId.has(english)) {
+      return { kind: 'canonical', moveId: catalogId.get(english), via: `nombre inglés \`${english}\`` }
+    }
+    const renamed = HISTORICAL_ALIASES[english]
+    if (renamed && catalogId.has(renamed)) {
+      return { kind: 'canonical', moveId: catalogId.get(renamed), via: `nombre inglés \`${english}\` → alias \`${renamed}\`` }
+    }
+  }
+
+  const renamed = HISTORICAL_ALIASES[slug]
+  if (renamed && catalogId.has(renamed)) {
+    return { kind: 'canonical', moveId: catalogId.get(renamed), via: `alias histórico \`${renamed}\`` }
+  }
+
+  const generation = veekunGeneration.get(slug) ?? (english ? veekunGeneration.get(english) : undefined)
+  if (generation !== undefined && generation > 6) {
+    return { kind: 'incompatible', generation, why: `introducido en la generación ${generation}` }
+  }
+  if (generation !== undefined) {
+    return { kind: 'unknown', why: `existe en veekun (gen ${generation}) pero no está en el catálogo ORAS` }
+  }
+  return {
+    kind: 'unknown',
+    why: `ausente de veekun, que cubre hasta la generación ${VEEKUN_COVERS}`,
+  }
 }
 
-const everySlug = new Set(Object.values(sources).flatMap(set => [...set]))
-const everyUnresolved = [...everySlug].filter(slug => !known.has(slug)).sort()
+const everySlug = [...new Set(Object.values(sources).flatMap(set => [...set]))].sort()
+const verdict = new Map(everySlug.map(slug => [slug, classify(slug)]))
+
+const of = kind => everySlug.filter(slug => verdict.get(slug).kind === kind)
+const exact = of('exact')
+const canonical = of('canonical')
+const incompatible = of('incompatible')
+const unknown = of('unknown')
+
+// ── The generated canonicalization map ──────────────────────────────────────
+
+const aliases = {}
+for (const slug of canonical) aliases[slug] = verdict.get(slug).moveId
+
+const legacyHead = execFileSync('git', ['rev-parse', TAG], { encoding: 'utf8' }).trim()
+
+mkdirSync('src/features/pokemon/model/generated', { recursive: true })
+writeFileSync(OUT_MAP, `${JSON.stringify({
+  note: 'GENERATED by scripts/legacy-move-audit.mjs — do not edit by hand.',
+  catalogVersion: catalog.catalogVersion,
+  legacyTag: TAG,
+  legacyCommit: legacyHead,
+  historicalAliases: HISTORICAL_ALIASES,
+  aliases,
+  incompatible: Object.fromEntries(incompatible.map(slug => [slug, verdict.get(slug).generation])),
+}, null, 2)}\n`)
+
+// ── The document ────────────────────────────────────────────────────────────
+
+const bySource = Object.entries(sources).map(([source, slugs]) => {
+  const list = [...slugs]
+  const count = kind => list.filter(slug => verdict.get(slug).kind === kind).length
+  return {
+    source,
+    total: list.length,
+    exact: count('exact'),
+    canonical: count('canonical'),
+    incompatible: count('incompatible'),
+    unknown: count('unknown'),
+  }
+})
 
 const table = [
-  '| Origen del slug | Slugs distintos | Resuelven | No resuelven |',
-  '|---|---:|---:|---:|',
-  ...rows.map(r => `| ${r.source} | ${r.total} | ${r.resolved} | ${r.unresolved} |`),
-  `| **Universo unido** | **${everySlug.size}** | **${everySlug.size - everyUnresolved.length}** | **${everyUnresolved.length}** |`,
+  '| Origen del slug | Slugs | A exactos | B canonicalizables | C incompatibles | D desconocidos |',
+  '|---|---:|---:|---:|---:|---:|',
+  ...bySource.map(r => `| ${r.source} | ${r.total} | ${r.exact} | ${r.canonical} | ${r.incompatible} | ${r.unknown} |`),
+  `| **Universo unido** | **${everySlug.length}** | **${exact.length}** | **${canonical.length}** | **${incompatible.length}** | **${unknown.length}** |`,
 ].join('\n')
 
-const sample = (source, n = 12) => {
-  const list = unresolvedBySource.get(source)
-  if (list.length === 0) return '— (todos resuelven)'
-  return list.slice(0, n).map(slug => `\`${slug}\``).join(', ') + (list.length > n ? `, … (+${list.length - n})` : '')
-}
+const list = (slugs, n = 14) =>
+  slugs.length === 0
+    ? '—'
+    : slugs.slice(0, n).map(slug => `\`${slug}\``).join(', ') + (slugs.length > n ? `, … (+${slugs.length - n})` : '')
 
-const head = execFileSync('git', ['rev-parse', TAG], { encoding: 'utf8' }).trim()
+const exampleCanonical = canonical
+  .filter(slug => verdict.get(slug).via.startsWith('nombre inglés'))
+  .slice(0, 6)
+  .map(slug => `| \`${slug}\` | ${verdict.get(slug).via} | ${verdict.get(slug).moveId} |`)
+  .join('\n')
 
-writeFileSync(OUT, `# R32.2.1 — Auditoría de movimientos legacy
+writeFileSync(OUT_DOC, `# R32.2.1 — Auditoría de movimientos legacy
 
 > GENERADO por \`node scripts/legacy-move-audit.mjs\`. No editar a mano.
-> Fuente legacy: tag \`${TAG}\` (\`${head}\`), \`data/learnset.js\` y \`data/moves-data.js\`.
+> Fuente legacy: tag \`${TAG}\` (\`${legacyHead}\`), \`data/learnset.js\` y \`data/moves-data.js\`.
 > Catálogo: \`${catalog.catalogVersion}\` (${catalog.moves.length} movimientos).
+> Generación de cada movimiento: \`moves.csv\` de veekun, la misma fuente fijada de R32.1.
 
 ## Qué se audita
 
@@ -120,54 +259,79 @@ retirado lo escribieron alguna vez:
 2. La primera escritura de la fila siembra el array con
    \`getMoves(p, level).map(m => m.slug || m.name.toLowerCase().replace(/ /g,'-'))\`.
    \`getMoves\` sólo trae \`slug\` en su rama de \`LEARNSET\`; su rama de respaldo
-   sobre \`LEVEL_MOVES\`, la de \`STATUS_MOVES\` y sus cuatro rellenos fijos traen
+   sobre \`LEVEL_MOVES\`, la de \`STATUS_MOVES\` y sus cinco rellenos fijos traen
    **nombres visibles**, en español o inglés según el idioma de la interfaz.
 
 Esta auditoría recorre **todo el universo de slugs que esos caminos pueden
 producir**. No cuenta filas de producción: este repo no tiene acceso a esos
 datos, y lo que hace falta saber es qué formas tiene que contemplar una
-migración, no cuántas filas tiene hoy cada forma.
+migración.
+
+## Las cuatro categorías
+
+| | Categoría | Qué significa | Qué hace la migración |
+|---|---|---|---|
+| **A** | Exacto | El slug ya es un identificador del catálogo | Lo usa tal cual |
+| **B** | Canonicalizable | Es **el mismo movimiento** con otro nombre: español, alias histórico, spelling viejo | Lo **preserva**, traduciéndolo a su \`moveId\` canónico |
+| **C** | Incompatible con el ruleset | El movimiento realmente no existe en ORAS / Gen VI | Lo marca como incompatibilidad real |
+| **D** | Desconocido / corrupto | No se puede identificar sin ambigüedad | Lo separa; nadie adivina |
+
+**B no es backfill.** Un movimiento escrito en español no se reemplaza por otro
+movimiento: se **reconoce**. El backfill por learnset queda sólo para C y D, y
+no se aplica sin aprobación humana.
 
 ## Resultado
 
 ${table}
 
-## No resuelven, por origen
+Después de canonicalizar A + B quedan **${incompatible.length + unknown.length} slugs** sin identidad en el catálogo:
+**${incompatible.length} incompatibilidades reales de ruleset** y **${unknown.length} desconocidos**.
 
-${rows.map(r => `- **${r.source}** (${r.unresolved}): ${sample(r.source)}`).join('\n')}
+## B — cómo se canonicaliza (${canonical.length})
 
-## Las tres causas de un slug que no resuelve
+El diccionario es **la propia tabla legacy**: \`LEVEL_MOVES\` y \`STATUS_MOVES\`
+guardan el nombre español y el inglés en la misma fila, así que el español se
+resuelve por su par inglés y de ahí al identificador del catálogo. No hay
+ninguna traducción escrita a mano.
 
-**1. Nombre visible en español.** El catálogo indexa identificadores de veekun,
-que son ingleses, así que un nombre español **nunca** resuelve. Es la causa más
-grande en número (${unresolvedBySource.get('level-up move, Spanish name').length + unresolvedBySource.get('status move, Spanish name').length + unresolvedBySource.get('hard-coded filler').length} slugs distintos), y también la más fácil de reparar: cada
-uno de esos slugs viene de una fila de \`LEVEL_MOVES\`/\`STATUS_MOVES\` que trae
-el nombre inglés al lado, así que la tabla legacy misma es el diccionario.
+| Slug legacy | Se reconoce por | moveId |
+|---|---|---:|
+${exampleCanonical || '| — | — | — |'}
 
-**2. Movimiento posterior a la Generación VI.** \`learnset.js\` se generó desde
-PokéAPI moderna, así que su pool incluye movimientos que en ORAS no existen. Son
-${unresolvedBySource.get('learnset identifier').length} identificadores, y esta es la lista completa:
+Sólo los renombres históricos necesitan un alias explícito, y hay exactamente ${Object.keys(HISTORICAL_ALIASES).length}:
 
-${unresolvedBySource.get('learnset identifier').map(slug => `\`${slug}\``).join(', ')}
+${Object.entries(HISTORICAL_ALIASES).map(([from, to]) => `- \`${from}\` → \`${to}\`: Gen VIII renombró el identificador; en Gen VI es el segundo.`).join('\n')}
 
-No hay equivalente en el catálogo porque el movimiento no existía: para estos,
-reparar el nombre no alcanza.
+El mapa generado vive en \`src/features/pokemon/model/generated/legacyMoves.json\`
+(${Object.keys(aliases).length} entradas) y lo consume \`legacy.ts\`. Se regenera con este mismo script.
 
-**3. Renombre entre generaciones.** ${sample('level-up move, English name', 4)} es
-el único caso por nombre inglés: en Gen VI el identificador es \`vice-grip\`, y
-recién Gen VIII lo escribe \`vise-grip\`. El movimiento existe; cambió el nombre.
+## C — incompatibilidades reales de ruleset (${incompatible.length})
+
+Probadas con el \`generation_id\` de veekun, no afirmadas: cada uno de estos
+movimientos se introdujo después de la Generación VI, así que no existe en ORAS
+y ningún renombre lo arregla.
+
+${incompatible.length === 0 ? '—' : incompatible.map(slug => `\`${slug}\` (gen ${verdict.get(slug).generation})`).join(', ')}
+
+## D — desconocidos / corruptos (${unknown.length})
+
+${unknown.length === 0 ? 'Ninguno: todo slug del universo queda identificado o probado incompatible.' : `No se puede decidir qué son con las fuentes fijadas de R32.1: la instantánea de veekun cubre hasta la generación ${VEEKUN_COVERS} y ninguno aparece ahí. Casi con seguridad son posteriores —el \`learnset.js\` legacy se generó desde una PokéAPI moderna—, pero eso es inferencia y no prueba, así que quedan separados de C.
+
+${unknown.map(slug => `- \`${slug}\``).join('\n')}`}
+
+## A — exactos (${exact.length})
+
+${list(exact, 10)}
 
 ## Lectura
 
-- El camino de compra de movimientos es el único que produce identificadores
-  canónicos, y el 94 % de su pool resuelve; lo que falla es posterior a ORAS.
+- El camino de compra de movimientos produce identificadores canónicos; lo que
+  falla ahí es exclusivamente posterior a ORAS.
 - Los nombres en inglés resuelven casi siempre por coincidencia — \`Take Down\`
   slugifica a \`take-down\`, que es el identificador real.
-- Un slug que no resuelve **no se reemplaza en silencio**: la estrategia de
-  backfill está en \`POKEMON_SPECIES_INSTANCE_MODEL.md\` §11 y no se aplica sin
-  aprobación humana.
+- Un slug que no resuelve **no se reemplaza en silencio** en ningún caso.
 `)
 
 console.log(table)
-console.log(`\nUniverso unido: ${everySlug.size} slugs, ${everyUnresolved.length} sin resolver`)
-console.log(`Escrito ${OUT}`)
+console.log(`\nA ${exact.length} · B ${canonical.length} · C ${incompatible.length} · D ${unknown.length}`)
+console.log(`Escrito ${OUT_DOC} y ${OUT_MAP}`)

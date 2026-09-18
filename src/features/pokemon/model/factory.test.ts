@@ -254,7 +254,7 @@ describe('the legacy projection', () => {
     expect(byName.unresolved).toEqual([])
     const broken = readLegacyMoves({ a: 'not-a-move', b: { id: 85 } }, catalog)
     expect(broken.moves).toHaveLength(1)
-    expect(broken.unresolved).toEqual(['not-a-move'])
+    expect(broken.unresolved).toEqual([{ slug: 'not-a-move', kind: 'unknown' }])
     expect(readLegacyMoves(null, catalog).moves).toEqual([])
   })
 
