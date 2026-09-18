@@ -9,16 +9,19 @@ import { loadBattleCatalog } from '../../battle/catalog'
 import { createPokemonCatalogView } from './catalogView'
 import type { PokemonCatalogView } from './catalogView'
 import { HEALTHY } from './condition'
-import { levelForExperience } from './experience'
+import { experienceForLevel, levelForExperience } from './experience'
 import { validateInstance } from './instance'
+import { LEGACY_MOVE_TABLES, canonicalMoveId, readLegacyMoves } from './legacy'
 import type { LegacyXpRow } from './legacy'
 import {
   DEFAULT_MIGRATION, LEGACY_MIGRATION_SALT, LEGACY_MIGRATION_VERSION, LegacyMigrationError,
-  hash32, migrateLegacyPokemon, migrationAbility, migrationGender, migrationIvs, migrationNature,
+  hash32, legacyIdentityOf, mix32, migrateLegacyPokemon, migrationAbility, migrationGender, migrationIvs,
+  migrationNature,
 } from './migration'
 import { MAX_EV_TOTAL, STAT_KEYS } from './stats'
 
 const PIKACHU = 25
+const BULBASAUR = 1
 const MAGNEMITE = 81
 
 let catalog: PokemonCatalogView
@@ -42,27 +45,68 @@ const row = (over: Partial<LegacyXpRow> = {}): LegacyXpRow => ({
 const migrate = (r = row(), extra = {}): ReturnType<typeof migrateLegacyPokemon> =>
   migrateLegacyPokemon(r, catalog, { ...options, ...extra })
 
+const identity = (speciesId: number): { slotPokemonId: number } => ({ slotPokemonId: speciesId })
+
+describe('identity: the owner is not part of it', () => {
+  it('gives the same Pokémon after a change of owner', () => {
+    // The same slot, migrated before and after it changed hands.
+    const before = migrate(row({ user_id: 'trainer-a' })).draft
+    const after = migrate(row({ user_id: 'trainer-b' })).draft
+    expect(after.ivs).toEqual(before.ivs)
+    expect(after.natureId).toBe(before.natureId)
+    expect(after.abilityId).toBe(before.abilityId)
+    expect(after.gender).toBe(before.gender)
+    expect(after.shiny).toBe(before.shiny)
+    // Ownership is metadata of the migrated instance, and only that.
+    expect(before.ownership.ownerId).toBe('trainer-a')
+    expect(after.ownership.ownerId).toBe('trainer-b')
+  })
+
+  it('takes its key from the slot’s primary key and nothing else', () => {
+    expect(legacyIdentityOf({ pokemon_id: PIKACHU })).toEqual({ slotPokemonId: PIKACHU })
+    expect(Object.keys(legacyIdentityOf({ pokemon_id: PIKACHU }))).toEqual(['slotPokemonId'])
+  })
+
+  it('does not move when xp, level, moves or the run stamp change', () => {
+    const base = migrate().draft
+    const variants = [
+      migrate(row({ xp: 100, level: 1 })).draft,
+      migrate(row({ xp: 900000, level: 99 })).draft,
+      migrate(row({ moves: null })).draft,
+      migrate(row(), { at: '2031-12-31T23:59:59.000Z' }).draft,
+    ]
+    for (const variant of variants) {
+      expect(variant.ivs).toEqual(base.ivs)
+      expect(variant.natureId).toBe(base.natureId)
+      expect(variant.abilityId).toBe(base.abilityId)
+      expect(variant.gender).toBe(base.gender)
+    }
+  })
+
+  it('derives different values for different legacy identities', () => {
+    const pikachu = migrate(row({ pokemon_id: PIKACHU })).draft
+    const bulbasaur = migrate(row({ pokemon_id: BULBASAUR })).draft
+    expect(bulbasaur.ivs).not.toEqual(pikachu.ivs)
+  })
+
+  it('spreads those values across the dex instead of repeating one', () => {
+    const natures = new Set<number>()
+    const spreads = new Set<string>()
+    for (let speciesId = 1; speciesId <= 120; speciesId++) {
+      natures.add(migrationNature(DEFAULT_MIGRATION, identity(speciesId), catalog.natureIds()))
+      spreads.add(JSON.stringify(migrationIvs(DEFAULT_MIGRATION, identity(speciesId))))
+    }
+    expect(natures.size).toBeGreaterThan(10)
+    expect(spreads.size).toBe(120)
+  })
+})
+
 describe('determinism', () => {
   it('gives the same legacy row the same Pokémon, every time', () => {
     expect(migrate().draft).toEqual(migrate().draft)
   })
 
-  it('gives two different trainers different Pokémon from the same species', () => {
-    const a = migrate(row({ user_id: 'trainer-a' })).draft
-    const b = migrate(row({ user_id: 'trainer-b' })).draft
-    expect(a).not.toEqual(b)
-  })
-
-  it('does not depend on the row’s xp, only on who owns what species', () => {
-    const young = migrate(row({ xp: 100, level: levelForExperience(100) })).draft
-    const old = migrate(row({ xp: 900000, level: levelForExperience(900000) })).draft
-    expect(young.ivs).toEqual(old.ivs)
-    expect(young.natureId).toBe(old.natureId)
-    expect(young.abilityId).toBe(old.abilityId)
-    expect(young.gender).toBe(old.gender)
-  })
-
-  it('reads no clock and no random source: the run stamp is the only input that moves', () => {
+  it('reads no clock and no random source', () => {
     const first = migrate(row(), { at: '2026-04-01T00:00:00.000Z' }).draft
     const later = migrate(row(), { at: '2030-01-01T00:00:00.000Z' }).draft
     expect({ ...first, acquisition: null }).toEqual({ ...later, acquisition: null })
@@ -97,9 +141,7 @@ describe('version and salt', () => {
   })
 
   it('keeps each attribute on its own hash, so a new one cannot shift the old ones', () => {
-    // The hash of a field depends on the field's name; nothing is drawn from a
-    // shared stream, so adding `iv:foo` tomorrow leaves `nature` where it is.
-    const key = { userId: 'trainer-a', speciesId: PIKACHU }
+    const key = identity(PIKACHU)
     const before = migrationNature(DEFAULT_MIGRATION, key, catalog.natureIds())
     void migrationIvs(DEFAULT_MIGRATION, key)
     expect(migrationNature(DEFAULT_MIGRATION, key, catalog.natureIds())).toBe(before)
@@ -108,8 +150,8 @@ describe('version and salt', () => {
   it('hashes deterministically and stays inside 32 bits', () => {
     expect(hash32('pokeswap')).toBe(hash32('pokeswap'))
     expect(hash32('pokeswap')).not.toBe(hash32('pokeswap '))
-    expect(hash32('')).toBe(0x811c9dc5)
-    for (const text of ['a', 'trainer-a|25', 'ñ', '']) {
+    expect(hash32('')).toBe(mix32(0x811c9dc5))
+    for (const text of ['a', 'slot:25', 'ñ', '']) {
       const value = hash32(text)
       expect(Number.isInteger(value)).toBe(true)
       expect(value).toBeGreaterThanOrEqual(0)
@@ -120,8 +162,8 @@ describe('version and salt', () => {
 
 describe('IVs', () => {
   it('derives one per stat, inside 0…31', () => {
-    for (const user of ['a', 'b', 'c', 'd', 'e', 'f']) {
-      const ivs = migrationIvs(DEFAULT_MIGRATION, { userId: user, speciesId: PIKACHU })
+    for (let speciesId = 1; speciesId <= 60; speciesId++) {
+      const ivs = migrationIvs(DEFAULT_MIGRATION, identity(speciesId))
       for (const key of STAT_KEYS) {
         expect(Number.isInteger(ivs[key])).toBe(true)
         expect(ivs[key]).toBeGreaterThanOrEqual(0)
@@ -130,13 +172,12 @@ describe('IVs', () => {
     }
   })
 
-  it('is not a flat neutral spread: the six stats differ across a population', () => {
+  it('is not a flat neutral spread', () => {
     const seen = new Set<number>()
-    for (let i = 0; i < 60; i++) {
-      const ivs = migrationIvs(DEFAULT_MIGRATION, { userId: `user-${i}`, speciesId: PIKACHU })
+    for (let speciesId = 1; speciesId <= 60; speciesId++) {
+      const ivs = migrationIvs(DEFAULT_MIGRATION, identity(speciesId))
       for (const key of STAT_KEYS) seen.add(ivs[key])
     }
-    // A flat rule would put one value in this set; a real spread fills it.
     expect(seen.size).toBeGreaterThan(20)
   })
 })
@@ -150,40 +191,32 @@ describe('EVs', () => {
   })
 })
 
-describe('nature', () => {
-  it('always picks one the catalog has', () => {
+describe('nature and ability', () => {
+  it('always picks a nature the catalog has', () => {
     const ids = catalog.natureIds()
     expect(ids).toHaveLength(25)
-    for (let i = 0; i < 40; i++) {
-      expect(ids).toContain(migrationNature(DEFAULT_MIGRATION, { userId: `u${i}`, speciesId: PIKACHU }, ids))
+    for (let speciesId = 1; speciesId <= 60; speciesId++) {
+      expect(ids).toContain(migrationNature(DEFAULT_MIGRATION, identity(speciesId), ids))
     }
   })
 
-  it('does not hand everybody the same one', () => {
-    const picked = new Set(
-      [...Array(40).keys()].map(i =>
-        migrationNature(DEFAULT_MIGRATION, { userId: `u${i}`, speciesId: PIKACHU }, catalog.natureIds())),
-    )
-    expect(picked.size).toBeGreaterThan(5)
-  })
-})
-
-describe('ability', () => {
   it('only ever picks a normal ability, never the hidden one', () => {
-    const form = catalog.defaultForm(PIKACHU)!
-    expect(form.abilities.hidden).not.toBeNull()
-    const normal = [form.abilities.slot1, form.abilities.slot2].filter(id => id !== null)
-    for (let i = 0; i < 60; i++) {
-      const id = migrationAbility(DEFAULT_MIGRATION, { userId: `u${i}`, speciesId: PIKACHU }, form.abilities)
+    for (let speciesId = 1; speciesId <= 120; speciesId++) {
+      const form = catalog.defaultForm(speciesId)
+      if (!form || form.abilities.slot1 === null) continue
+      const normal = [form.abilities.slot1, form.abilities.slot2].filter(id => id !== null)
+      const id = migrationAbility(DEFAULT_MIGRATION, identity(speciesId), form.abilities)
       expect(normal).toContain(id)
-      expect(id).not.toBe(form.abilities.hidden)
+      if (form.abilities.hidden !== null && !normal.includes(form.abilities.hidden)) {
+        expect(id).not.toBe(form.abilities.hidden)
+      }
     }
   })
 
   it('refuses a form with no normal ability rather than reaching for the hidden one', () => {
     expect(() => migrationAbility(
       DEFAULT_MIGRATION,
-      { userId: 'u', speciesId: 1 },
+      identity(1),
       { slot1: null, slot2: null, hidden: 42 },
     )).toThrow(LegacyMigrationError)
   })
@@ -193,8 +226,8 @@ describe('gender and shiny', () => {
   it('follows the species ratio and keeps genderless species genderless', () => {
     expect(migrate(row({ pokemon_id: MAGNEMITE })).draft.gender).toBe('genderless')
     expect(['male', 'female']).toContain(migrate().draft.gender)
-    expect(migrationGender(DEFAULT_MIGRATION, { userId: 'u', speciesId: 1 }, 0)).toBe('male')
-    expect(migrationGender(DEFAULT_MIGRATION, { userId: 'u', speciesId: 1 }, 8)).toBe('female')
+    expect(migrationGender(DEFAULT_MIGRATION, identity(1), 0)).toBe('male')
+    expect(migrationGender(DEFAULT_MIGRATION, identity(1), 8)).toBe('female')
   })
 
   it('is never shiny unless the caller brings unambiguous evidence', () => {
@@ -203,23 +236,85 @@ describe('gender and shiny', () => {
   })
 })
 
+describe('experience wins over the stored level', () => {
+  it('migrates on xp and derives the level from it', () => {
+    const xp = experienceForLevel(20) + 10
+    const { draft, report } = migrate(row({ xp, level: 57 }))
+    expect(draft.experience).toBe(xp)
+    expect(levelForExperience(draft.experience)).toBe(20)
+    expect(report.ignoredStoredLevel).toBe(57)
+  })
+
+  it('does not report a disagreement when there is none', () => {
+    const xp = experienceForLevel(30)
+    expect(migrate(row({ xp, level: 30 })).report.ignoredStoredLevel).toBeNull()
+  })
+
+  it('never lets the stored level change the experience', () => {
+    const xp = experienceForLevel(12)
+    for (const stored of [1, 12, 50, 100]) {
+      expect(migrate(row({ xp, level: stored })).draft.experience).toBe(xp)
+    }
+  })
+})
+
+describe('moves: canonicalization is not backfill', () => {
+  it('preserves a move written with its Spanish display name', () => {
+    const vineWhip = catalog.moveNamed('vine-whip')!.id
+    expect(canonicalMoveId('látigo-cepa', catalog)).toBe(vineWhip)
+    const { draft, report } = migrate(row({ pokemon_id: BULBASAUR, moves: { 1: 'Látigo Cepa' } }))
+    expect(draft.moves.map(slot => slot.moveId)).toEqual([vineWhip])
+    expect(report.unresolvedMoves).toEqual([])
+    expect(report.needsMoveBackfill).toBe(false)
+  })
+
+  it('preserves the historical rename vise-grip → vice-grip', () => {
+    const viceGrip = catalog.moveNamed('vice-grip')!.id
+    expect(canonicalMoveId('vise-grip', catalog)).toBe(viceGrip)
+    expect(readLegacyMoves({ 1: 'vise-grip' }, catalog).moves.map(slot => slot.moveId)).toEqual([viceGrip])
+  })
+
+  it('leaves an exact identifier exactly as it is', () => {
+    const thunderbolt = catalog.moveNamed('thunderbolt')!.id
+    expect(canonicalMoveId('thunderbolt', catalog)).toBe(thunderbolt)
+  })
+
+  it('keeps a real post-Gen VI move as an explicit incompatibility', () => {
+    expect(canonicalMoveId('body-press', catalog)).toBeNull()
+    const { report } = migrate(row({ moves: { 1: 'body-press' } }))
+    expect(report.unresolvedMoves).toEqual([{ slug: 'body-press', kind: 'incompatible', generation: 8 }])
+    expect(report.needsMoveBackfill).toBe(true)
+  })
+
+  it('separates a slug nobody can identify from a real incompatibility', () => {
+    const { report } = migrate(row({ moves: { 1: 'not-a-move-at-all' } }))
+    expect(report.unresolvedMoves).toEqual([{ slug: 'not-a-move-at-all', kind: 'unknown' }])
+  })
+
+  it('never invents a replacement for what it could not read', () => {
+    const { draft, report } = migrate(row({ moves: { 1: 'body-press', 2: 'nonsense' } }))
+    expect(draft.moves).toEqual([])
+    expect(report.needsMoveBackfill).toBe(true)
+    expect(report.unresolvedMoves.map(problem => problem.kind)).toEqual(['incompatible', 'unknown'])
+  })
+
+  it('reads the canonicalization tables from the generated audit', () => {
+    expect(LEGACY_MOVE_TABLES.legacyTag).toBe('v0-legacy-baseline')
+    expect(LEGACY_MOVE_TABLES.canonicalCount).toBeGreaterThan(300)
+    expect(LEGACY_MOVE_TABLES.incompatibleCount).toBeGreaterThan(0)
+    expect(LEGACY_MOVE_TABLES.catalogVersion).toBe(options.catalogVersion)
+  })
+})
+
 describe('what the legacy row itself knew', () => {
   it('preserves species, experience, owner and the moves that resolve', () => {
     const { draft, report } = migrate()
     expect(draft.speciesId).toBe(PIKACHU)
     expect(draft.experience).toBe(8000)
-    expect(levelForExperience(draft.experience)).toBe(levelForExperience(8000))
     expect(draft.ownership.ownerId).toBe('trainer-a')
     expect(draft.moves).toHaveLength(2)
     expect(report.preserved).toContain('moves')
     expect(report.derived).toEqual(['natureId', 'abilityId', 'ivs', 'gender'])
-  })
-
-  it('never replaces a move it could not read: it reports the repair instead', () => {
-    const { draft, report } = migrate(row({ moves: { 1: 'latigo-cepa', 2: 'no-such-move' } }))
-    expect(draft.moves).toEqual([])
-    expect(report.needsMoveBackfill).toBe(true)
-    expect(report.unresolvedMoves).toEqual(['latigo-cepa', 'no-such-move'])
   })
 
   it('arrives rested: a migrated Pokémon has no wear to carry over', () => {

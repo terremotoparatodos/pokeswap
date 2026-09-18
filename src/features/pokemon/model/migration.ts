@@ -31,7 +31,7 @@ import type {
 } from './instance'
 import { INSTANCE_SCHEMA_VERSION } from './instance'
 import { projectLegacyPokemon } from './legacy'
-import type { LegacyGap, LegacySlotRow, LegacyXpRow } from './legacy'
+import type { LegacyGap, LegacyMoveProblem, LegacySlotRow, LegacyXpRow } from './legacy'
 import { MAX_IV, ZERO_STATS } from './stats'
 import type { StatValues } from './stats'
 
@@ -62,6 +62,8 @@ export const DEFAULT_MIGRATION: MigrationRuleset = {
 /**
  * FNV-1a, 32 bits.
  *
+ * FNV-1a over the bytes, then Murmur3's finalizer to avalanche the result.
+ *
  * Chosen because it is tiny, has no dependencies and is trivially portable to
  * SQL or to another language the day the backfill runs server-side. It is not
  * cryptographic and does not need to be: nothing here is a secret, and the
@@ -73,8 +75,58 @@ export function hash32(text: string): number {
     hash ^= text.charCodeAt(i)
     hash = Math.imul(hash, 0x01000193) >>> 0
   }
+  return mix32(hash)
+}
+
+/**
+ * Murmur3's finalizer.
+ *
+ * FNV-1a alone is not enough here: the strings it hashes differ in one or two
+ * characters near their end (`slot:25` vs `slot:26`), and its low bits barely
+ * move between them — taking `% 32` off that gives visibly repeated IV spreads
+ * across consecutive species. This mixes every bit into every other before
+ * anything takes a remainder.
+ */
+export function mix32(value: number): number {
+  let hash = value >>> 0
+  hash ^= hash >>> 16
+  hash = Math.imul(hash, 0x85ebca6b) >>> 0
+  hash ^= hash >>> 13
+  hash = Math.imul(hash, 0xc2b2ae35) >>> 0
+  hash ^= hash >>> 16
   return hash >>> 0
 }
+
+/**
+ * What identifies a legacy Pokémon — and **nothing about who owns it**.
+ *
+ * The key is the primary key of its `slots` row, `slots.pokemon_id`. Evidence
+ * that it is immutable, from the migrations and the edge function in this repo:
+ *
+ *   - `slots` holds exactly one row per species: every write is an upsert
+ *     `ON CONFLICT (pokemon_id)` (`20260907_003_buy_market_listing.sql`,
+ *     `supabase/functions/pokeswap-swap/index.ts`), so `pokemon_id` is its
+ *     primary key.
+ *   - A change of owner is an `UPDATE` of `owner_id` on that same row. Releasing
+ *     a Pokémon sets `owner_id = null`; it never deletes the row. No code path
+ *     in the repo deletes from `slots`.
+ *   - Therefore the row — the legacy Pokémon's identity — outlives every swap,
+ *     every market sale and every release.
+ *
+ * What is deliberately **not** in the key: `user_id` / `owner_id` (ownership
+ * changes), xp, level, moves, aura, energy and every timestamp. A Pokémon that
+ * changes hands the day before the migration runs must come out of it as the
+ * same Pokémon, so ownership cannot touch the RNG. It is preserved as metadata
+ * of the migrated instance instead.
+ */
+export interface LegacyPokemonIdentityKey {
+  /** `slots.pokemon_id` — the slot's primary key, stable for the life of the game. */
+  readonly slotPokemonId: SpeciesId
+}
+
+/** The identity of the Pokémon a `pokemon_xp` row is about: its slot, not its trainer. */
+export const legacyIdentityOf = (row: { readonly pokemon_id: number }): LegacyPokemonIdentityKey =>
+  ({ slotPokemonId: row.pokemon_id })
 
 /**
  * The hash of one **field** of one Pokémon.
@@ -86,20 +138,14 @@ export function hash32(text: string): number {
  */
 export const migrationHash = (
   rules: MigrationRuleset,
-  key: LegacyIdentity,
+  key: LegacyPokemonIdentityKey,
   field: string,
-): number => hash32(`${rules.salt}|v${rules.version}|${key.userId}|${key.speciesId}|${field}`)
-
-/** What identifies a legacy Pokémon: the pair the old tables are keyed by. */
-export interface LegacyIdentity {
-  readonly userId: string
-  readonly speciesId: SpeciesId
-}
+): number => hash32(`${rules.salt}|v${rules.version}|slot:${key.slotPokemonId}|${field}`)
 
 // ── The derivations ─────────────────────────────────────────────────────────
 
 /** Six IVs, each derived on its own, spread over the full 0…31 range. */
-export function migrationIvs(rules: MigrationRuleset, key: LegacyIdentity): StatValues {
+export function migrationIvs(rules: MigrationRuleset, key: LegacyPokemonIdentityKey): StatValues {
   const of = (stat: string): number => migrationHash(rules, key, `iv:${stat}`) % (MAX_IV + 1)
   return { hp: of('hp'), atk: of('atk'), def: of('def'), spa: of('spa'), spd: of('spd'), spe: of('spe') }
 }
@@ -107,7 +153,7 @@ export function migrationIvs(rules: MigrationRuleset, key: LegacyIdentity): Stat
 /** One of the catalog's 25 natures. */
 export function migrationNature(
   rules: MigrationRuleset,
-  key: LegacyIdentity,
+  key: LegacyPokemonIdentityKey,
   natureIds: readonly number[],
 ): number {
   if (natureIds.length === 0) throw new LegacyMigrationError('the catalog has no natures')
@@ -123,18 +169,18 @@ export function migrationNature(
  */
 export function migrationAbility(
   rules: MigrationRuleset,
-  key: LegacyIdentity,
+  key: LegacyPokemonIdentityKey,
   abilities: { slot1: number | null; slot2: number | null; hidden: number | null },
 ): number {
   const pool = [abilities.slot1, abilities.slot2].filter((id): id is number => id !== null)
-  if (pool.length === 0) throw new LegacyMigrationError(`species ${key.speciesId} has no normal ability`)
+  if (pool.length === 0) throw new LegacyMigrationError(`slot ${key.slotPokemonId} has no normal ability`)
   return pool[migrationHash(rules, key, 'ability') % pool.length]
 }
 
 /** Gender, following the species' own ratio; genderless species stay genderless. */
 export function migrationGender(
   rules: MigrationRuleset,
-  key: LegacyIdentity,
+  key: LegacyPokemonIdentityKey,
   genderRate: number,
 ): Gender {
   if (genderRate < 0) return 'genderless'
@@ -163,7 +209,7 @@ export interface MigrateLegacyOptions {
 }
 
 export interface MigrationReport {
-  readonly identity: LegacyIdentity
+  readonly identity: LegacyPokemonIdentityKey
   readonly rules: MigrationRuleset
   /** Fields that came from the legacy row itself. */
   readonly preserved: readonly string[]
@@ -180,8 +226,20 @@ export interface MigrationReport {
    * implemented here.
    */
   readonly needsMoveBackfill: boolean
-  /** Legacy move slugs that did not resolve against the catalog. */
-  readonly unresolvedMoves: readonly string[]
+  /**
+   * Legacy move slugs that did not become a move, each with its reason: a real
+   * ruleset incompatibility, or a slug nobody can identify. A move written in
+   * Spanish is **not** here — it is canonicalized and preserved.
+   */
+  readonly unresolvedMoves: readonly LegacyMoveProblem[]
+  /**
+   * The level the legacy row stored, when it disagrees with its own xp.
+   *
+   * The contract is settled: experience is the source of truth and the level is
+   * derived from it, so the stored level never overwrites anything. It is
+   * reported for the audit and nothing else.
+   */
+  readonly ignoredStoredLevel: number | null
 }
 
 export interface MigrationResult {
@@ -203,7 +261,8 @@ export function migrateLegacyPokemon(
   options: MigrateLegacyOptions,
 ): MigrationResult {
   const rules = options.rules ?? DEFAULT_MIGRATION
-  const key: LegacyIdentity = { userId: row.user_id, speciesId: row.pokemon_id }
+  // Identity, deliberately without the owner: see `LegacyPokemonIdentityKey`.
+  const key = legacyIdentityOf(row)
 
   const projection = projectLegacyPokemon(row, catalog, { slot: options.slot })
   const species = catalog.speciesOf(row.pokemon_id)
@@ -219,6 +278,9 @@ export function migrateLegacyPokemon(
     migration: { version: rules.version, salt: rules.salt },
   }
 
+  // XP wins over the stored level, always: experience is the source of truth
+  // and the level is derived from it (§ del doc). A row whose stored level
+  // disagrees is migrated on its xp and the disagreement is reported.
   const experience = projection.known.experience
   const draft: PokemonInstanceDraft = {
     schemaVersion: INSTANCE_SCHEMA_VERSION,
@@ -253,9 +315,8 @@ export function migrateLegacyPokemon(
     gaps: projection.gaps,
     problems: projection.problems,
     needsMoveBackfill: moves.length === 0,
-    unresolvedMoves: projection.problems
-      .filter(problem => problem.startsWith('move '))
-      .map(problem => problem.slice('move '.length, problem.indexOf(' does not resolve'))),
+    unresolvedMoves: projection.unresolvedMoves,
+    ignoredStoredLevel: projection.known.levelDisagrees ? row.level : null,
   }
 
   // A sanity check on our own arithmetic: the level the draft derives from the
