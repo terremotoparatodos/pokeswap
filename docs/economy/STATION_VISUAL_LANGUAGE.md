@@ -25,7 +25,8 @@ Una familia de materiales estrecha a propósito, para que las tres parezcan cons
 
 | Familia | Uso |
 |---|---|
-| `MASONRY_TONES` | Piedra cortada: cuerpo del Horno, anillo de la Fogata, zapatas del Banco |
+| `FIREBRICK_TONES` | Ladrillo cocido: el cuerpo del Horno (T-S3.2) |
+| `MASONRY_TONES` | Piedra cortada: base del Horno, anillo de la Fogata, zapatas del Banco |
 | `TIMBER_TONES` | Madera aserrada: tablero, vigas, leña partida |
 | `IRON_TONES` | Hierro: zunchos, herramientas, olla, lingote |
 | `FIRE_TONES` | Fuego, de oscuro a blanco: **un solo color para "esto está funcionando"** |
@@ -36,9 +37,9 @@ Una familia de materiales estrecha a propósito, para que las tres parezcan cons
 
 | Estación | Módulo | Silueta | Rasgo activo |
 |---|---|---|---|
-| **Horno** | `art/furnaceStation.ts` | Chimenea baja de sillería con zunchos de hierro y boca arqueada | El fuego en la boca, el humo y el lingote en la repisa |
-| **Fogata** | `art/campfireStation.ts` | Anillo de ocho piedras iguales alrededor de una marca de quemado, con leña partida | La llama, las brasas y la olla |
-| **Banco de trabajo** | `art/workbenchStation.ts` | Tablero ancho sobre patas con zapatas de piedra, panel trasero con herramientas y tornillo de banco | La pieza sobre el tablero y si el serrucho está colgado o en el corte |
+| **Horno** | `art/furnaceStation.ts` | Chimenea baja de ladrillo cocido con hiladas, flejes de hierro y boca arqueada | El fuego en la boca, el humo y el lingote en la repisa |
+| **Fogata** | `art/campfireStation.ts` | Trípode de tres palos atados sobre un anillo de ocho piedras iguales y una marca de quemado | La llama, las brasas y la olla colgada |
+| **Banco de trabajo** | `art/workbenchStation.ts` | Tablero ancho sobre patas con zapatas de piedra, panel trasero con herramientas y cajón con tiradores | La pieza sobre el tablero y si el serrucho está colgado o en el corte |
 
 La **Mesa de Alquimia** no forma parte del kit: ya existe, es la referencia de calidad y **no se tocó**.
 
@@ -46,10 +47,10 @@ La **Mesa de Alquimia** no forma parte del kit: ya existe, es la referencia de c
 
 | Estado | Significado | Horno | Fogata | Banco |
 |---|---|---|---|---|
-| `idle` | Frío, vacío. Sigue leyéndose como estación | Boca oscura, parrilla vacía | Anillo frío, leña apilada | Tablero despejado, serrucho colgado |
-| `ready` | Tiene lo que necesita; se puede empezar | Mineral en la repisa, brasas asentadas, resplandor tenue | Yesca y ramitas puestas, pedernal en la piedra | Material y plano sobre el tablero |
+| `idle` | Frío, vacío. Sigue leyéndose como estación | Boca oscura, parrilla vacía | Anillo frío, leña apilada, trípode desnudo | Tablero despejado, serrucho colgado, cajón cerrado |
+| `ready` | Tiene lo que necesita; se puede empezar | **Cargado y sin encender**: mineral dentro de la boca y en la repisa, compuerta abierta, sin brasas ni resplandor | Yesca y ramitas puestas, pedernal en la piedra | Material y plano sobre el tablero |
 | `working` | Está corriendo. **El único estado animado** | Tres lenguas de fuego, resplandor pleno, humo | Llama alta y chispas | Serrucho en el corte, con aserrín |
-| `done` | Terminó; hay algo para retirar | Brasas, lingote caliente en la repisa | Brasas y olla en el anillo | Pieza terminada sobre el tablero |
+| `done` | Terminó; hay algo para retirar | **Boca apagada** y lingote brillante en la repisa, con el calor saliendo | Brasas y la olla bajada del gancho, humeando | Pieza terminada sobre el tablero |
 
 Dos marcas son idénticas en las tres, para que el jugador las aprenda una vez: el **pip ámbar** de `ready` y el **destello** de `done`.
 
@@ -59,11 +60,11 @@ La Mesa de Alquimia llama `brewing` a su estado en marcha: es el mismo `working`
 
 `working` anima en **4 frames** y vuelve a empezar; los otros tres estados ignoran el frame, así que se cachean una sola vez. Píxeles que cambian entre pares de estados (medido con `pixelDifference`):
 
-| Estación | Par más parecido | Par más distinto |
-|---|---|---|
-| Horno | `ready` vs `done` — 33 px | `working` vs `done` — 108 px |
-| Fogata | `idle` vs `ready` — 26 px | `ready` vs `done` — 112 px |
-| Banco | `ready` vs `working` — 34 px | `ready` vs `done` — 71 px |
+| Estación | Par más parecido | Par más distinto | `ready` vs `done` |
+|---|---|---|---|
+| Horno | `idle` vs `done` — 26 px | `ready` vs `working` — 122 px | **67 px** (era 33) |
+| Fogata | `idle` vs `ready` — 26 px | `working` vs `done` — 108 px | 105 px |
+| Banco | `ready` vs `working` — 34 px | `idle` vs `done` — 70 px | 70 px |
 
 El test exige **≥ 20 px** entre cualquier par. El número no es arbitrario: la primera versión de la Fogata cambiaba 8 px entre `idle` y `ready` y no se distinguía; por eso `ready` ahora pone yesca, ramitas y pedernal en vez de sólo encender el pip. El Horno tuvo el mismo problema (11–31 px entre estados) y por eso su boca es más grande y el fuego arroja luz sobre la piedra.
 
@@ -74,7 +75,7 @@ Todas en píxeles de arte. El anclaje es siempre la fila inferior (`anchorY = he
 | Estación | Ancho | Alto | Anchor X | Anchor Y | Constante |
 |---|---|---|---|---|---|
 | Horno | 30 | 34 | 15 | 33 | `FURNACE_BOUNDS` |
-| Fogata | 28 | 22 | 14 | 21 | `CAMPFIRE_BOUNDS` |
+| Fogata | 32 | 26 | 16 | 25 | `CAMPFIRE_BOUNDS` |
 | Banco | 34 | 28 | 17 | 27 | `WORKBENCH_BOUNDS` |
 | *(referencia)* Mesa de Alquimia | 34 | 30 | 17 | 29 | `STATION_W/H` en su módulo |
 
@@ -183,3 +184,72 @@ Las cuatro entran en el rango de la Mesa; la Fogata es la excepción por abajo.
 - **El lab pinta el mundo, no lo renderiza.** Usa el mundo real como dato — mismo seed, mismo terreno, mismos props sólidos, misma cuadrícula — pero con colores planos propios. R31 sólo permite instanciar el motor a los cuatro field labs existentes, y sumar este lab a esa lista exige tocar un test existente: es una decisión de revisión.
 - Por lo anterior, **no se juzgó** cómo quedan bajo la iluminación, el clima ni la cámara del juego. En una comprobación previa con el motor real (sin dejarla en el árbol) las conclusiones 1, 2 y 3 se sostenían, y el verde saturado de la pradera acentuaba el problema de paleta del Horno.
 - Sin sombra proyectada: el renderer la agrega y puede cambiar cuánto "apoyan".
+
+---
+
+# T-S3.2 — Polish final (congelado para HUMAN FINAL REVIEW)
+
+Se corrigieron **sólo** las seis observaciones de T-S3.1. No se agregó gameplay, integración ni nada nuevo al lenguaje: las mismas cuatro estaciones, los mismos cuatro estados, la misma idea de familia.
+
+## Horno
+
+**Era:** el único gris frío del set, y a escala de mundo parecía una máquina.
+
+- El cuerpo y la chimenea pasaron a **ladrillo cocido** (`FIREBRICK_TONES`, cálido), con **hiladas de mortero** dibujadas encima — junta horizontal cada cuatro filas y verticales alternadas. Eso es lo que lo hace leer como obra hecha por hiladas y no como una pieza moldeada.
+- La **base y la repisa siguen en piedra gris**, que es lo que lo mantiene emparentado con el anillo de la Fogata y las zapatas del Banco.
+- Los **flejes de hierro** eran dos bandas anchas y claras que se comían la silueta: ahora son dos flejes finos y oscuros con remaches en los extremos. El hierro sujeta el ladrillo en vez de reemplazarlo.
+
+Sigue sin tener una sola fibra de madera y sigue siendo el único de sillería: no se confunde con la Mesa ni con el Banco.
+
+## Horno · `ready` vs `done`
+
+**Era:** los dos con naranja en la boca; a escala de mundo se confundían (33 px de diferencia).
+
+Ahora son situaciones distintas y se ven distintas:
+
+- **`ready` = cargado y sin encender.** Mineral amontonado **dentro** de la boca, más lumbre en la repisa, la compuerta del tiro abierta y el pip ámbar. **Nada de fuego**: ni brasas ni resplandor.
+- **`done` = proceso terminado.** La boca apagada y oscura, y lo único brillante es el **lingote** sobre la repisa — trapecio de metal con la cara superior clara, un destello, y el calor saliendo hacia la piedra.
+
+Medido: **67 px de diferencia, el doble que antes**. Uno tiene la boca llena de piedra mate; el otro, metal claro afuera. No hace falta texto.
+
+## Fogata
+
+**Era:** la más chica y la más plana; sobre pasto se leía como un montón de piedras.
+
+- Gana un **trípode**: tres palos apoyados en un vértice, atados arriba, con un **gancho de hierro** colgando. Nada en la naturaleza hace esa forma, así que la silueta dice "acá acampa alguien" antes de mirar el detalle, y le da la verticalidad que a las otras se la da su cuerpo.
+- El arte creció de 28×22 a **32×26** para alojarlo: sigue siendo la más chica de las cuatro y sigue dentro de la escala del set (2,00 × 1,63 tiles).
+- El anillo de ocho piedras y la marca de quemado siguen igual.
+
+## Fogata · la olla
+
+**Era:** un rectángulo gris que no se entendía.
+
+Se rehízo con las tres cosas que dicen "olla" a cualquier tamaño: **panza más ancha que alta y recogida en la base**, **borde que sobresale** un píxel a cada lado, y **asa en arco** por encima. Baja del gancho y se apoya sobre las piedras en `done`, con el contenido asomando y vapor saliendo.
+
+## Banco de trabajo
+
+**Era:** el tornillo era una mancha gris azulada que nadie podía leer.
+
+Se **eliminó** y en su lugar hay un **cajón bajo el tablero** con dos tiradores de hierro: una forma inequívoca a cualquier tamaño, que además dice "mueble donde se guardan herramientas" sin competir con la pieza de arriba, que es la que lleva el estado. El cajón va metido respecto de los extremos del tablero, con una línea de sombra debajo, para que el tablero vuelva a sobresalir y el banco no se lea como tres tablas apiladas.
+
+## Qué NO se tocó
+
+- **Los cuatro estados**: `idle / ready / working / done`, con el mismo significado.
+- **El lenguaje compartido**: las cinco reglas, el pip de `ready`, el destello de `done`, el color único del fuego.
+- **Los anclajes**: siguen en la fila inferior y centrados. El de la Fogata pasó de (14, 21) a (16, 25) sólo porque el arte cambió de tamaño; la regla es la misma.
+- **La escala del set**: sólo cambió la Fogata, y hacia arriba, para acercarse al resto.
+- **La Mesa de Alquimia**: intacta, como referencia.
+- Nada de gameplay, placement, colisión, recetas ni persistencia.
+
+## Escala final
+
+| Estación | Ancho | Alto | Tiles ancho | Tiles alto |
+|---|---|---|---|---|
+| Mesa de Alquimia (referencia) | 34 | 30 | 2,13 | 1,88 |
+| Horno | 30 | 34 | 1,88 | 2,13 |
+| Fogata | 32 | 26 | 2,00 | 1,63 |
+| Banco de Trabajo | 34 | 28 | 2,13 | 1,75 |
+
+## Validación
+
+Revisado en `/dev/estaciones` en las tres vistas (terreno, comparación alineada, matriz de estados), en desktop y a 375 px. Sobre el verde de la pradera las cuatro comparten ahora la misma temperatura de color y ninguna desaparece contra el fondo.

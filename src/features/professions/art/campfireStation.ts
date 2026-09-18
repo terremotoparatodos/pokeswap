@@ -1,16 +1,22 @@
 // The campfire (T-S3) — art only.
 //
-// The smallest and lowest of the three, and the one that has to work hardest to
-// not read as scenery: a ring of stones is very close to "some rocks". What
-// makes it a station is that the stones are *placed* — an even ring, all of a
-// size, around a scorch mark — and that the wood is split and stacked rather
-// than fallen.
+// The smallest of the three, and the one that has to work hardest not to read
+// as scenery: a ring of stones is very close to "some rocks". T-S3.2 rebuilt it
+// after the visual review said exactly that — it was flat, it was the smallest
+// thing in the set, and on grass it disappeared.
 //
-//   idle    — cold ring, logs stacked, no ash.
-//   ready   — kindling laid and coals banked; the pip lit.
-//   working — the fire is up, with a spark or two.
-//   done    — the fire has burned down to bright embers and a cooking pot sits
-//             on the ring with something finished in it.
+// What answers that now is a **tripod**: three lashed poles over the fire, with
+// a hook hanging from the apex. Nothing in nature makes that shape, so the
+// silhouette says "somebody camps here" before any detail is read, and it gives
+// the station the vertical presence the others get from their bodies. The art
+// grew from 28×22 to 32×26 to hold it — still the smallest of the four, and
+// still well inside the scale of the set.
+//
+//   idle    — cold ring, logs stacked, tripod bare.
+//   ready   — kindling laid, tinder tucked in, flint on the stones; the pip lit.
+//   working — the fire is up through the tripod, with sparks.
+//   done    — burned down to embers, and the pot is down off the hook, full and
+//             steaming, sitting on the stones where you can reach it.
 //
 // It knows nothing about what it cooks, how long it takes or what it burns.
 
@@ -21,10 +27,10 @@ import {
 } from './stationVisuals'
 import { color, type PixelArt } from './pixelArt'
 
-export const CAMPFIRE_W = 28
-export const CAMPFIRE_H = 22
-export const CAMPFIRE_AX = 14
-export const CAMPFIRE_AY = 21
+export const CAMPFIRE_W = 32
+export const CAMPFIRE_H = 26
+export const CAMPFIRE_AX = 16
+export const CAMPFIRE_AY = 25
 
 const W = CAMPFIRE_W
 const H = CAMPFIRE_H
@@ -38,28 +44,52 @@ const memo = (key: string, build: () => PixelArt): PixelArt => {
 
 /** Eight stones of the same size, evenly spaced: placed, not fallen. */
 const RING: readonly (readonly [number, number])[] = [
-  [7, 16], [11, 18], [16, 18], [20, 16], [22, 13], [19, 11], [8, 11], [5, 13],
+  [8, 19], [13, 21], [18, 21], [23, 19], [25, 16], [22, 14], [9, 14], [6, 16],
 ]
 
 function ring(): Uint32Array {
   const stones = RING.map(([x, y]) => block(W, H, x, y, x + 2, y + 2, MASONRY_TONES, MASONRY_OUTLINE, 0.9, 0.55))
   return compose(W, H, [
-    groundPad(W, H, 14, 16, 12, 4.2),
+    groundPad(W, H, 16, 19, 13, 4.4),
     // The scorch mark inside the ring: this spot has been used.
-    groundPad(W, H, 14, 15, 6, 2.4),
+    groundPad(W, H, 16, 18, 6, 2.6),
     ...stones,
   ])
+}
+
+/**
+ * The tripod: three poles leaning into an apex, lashed at the top, with an iron
+ * hook hanging from it. This is the silhouette that makes the campfire a
+ * station instead of a pile — and the only tall thing it has.
+ */
+function tripod(pixels: Uint32Array): void {
+  const wood = color(TIMBER_TONES[1])
+  const lit = color(TIMBER_TONES[3])
+  // Left, right and back poles, drawn as one-pixel diagonals to the apex (16, 2).
+  for (let i = 0; i <= 14; i++) {
+    const t = i / 14
+    dots(pixels, W, H, i < 3 ? lit : wood, [
+      [Math.round(16 - 9 * t), 2 + i],
+      [Math.round(16 + 9 * t), 2 + i],
+      [Math.round(16 + 3 * t), 2 + i],
+    ])
+  }
+  // The lashing at the apex.
+  dots(pixels, W, H, color(TIMBER_TONES[0]), [[15, 3], [16, 3], [17, 3], [16, 4]])
+  // The hook, hanging where a pot would go.
+  dots(pixels, W, H, color(IRON_TONES[2]), [[16, 5], [16, 6], [16, 7]])
+  dots(pixels, W, H, color(IRON_TONES[3]), [[15, 8], [16, 8]])
 }
 
 /** Split logs stacked across the middle: sawn ends, not branches. */
 function logs(pixels: Uint32Array): void {
   const stack = compose(W, H, [
-    block(W, H, 9, 14, 18, 15, TIMBER_TONES, TIMBER_OUTLINE, 0.9, 0.6),
-    block(W, H, 11, 12, 17, 13, TIMBER_TONES, TIMBER_OUTLINE, 0.8, 0.55),
+    block(W, H, 11, 17, 20, 18, TIMBER_TONES, TIMBER_OUTLINE, 0.9, 0.6),
+    block(W, H, 13, 15, 19, 16, TIMBER_TONES, TIMBER_OUTLINE, 0.8, 0.55),
   ])
   for (let i = 0; i < pixels.length; i++) if (stack[i]) pixels[i] = stack[i]
   // Cut ends, lighter, so the wood reads as split rather than picked up.
-  dots(pixels, W, H, color(TIMBER_TONES[3]), [[9, 14], [18, 15], [11, 12], [17, 13]])
+  dots(pixels, W, H, color(TIMBER_TONES[3]), [[11, 17], [20, 18], [13, 15], [19, 16]])
 }
 
 /**
@@ -69,37 +99,58 @@ function logs(pixels: Uint32Array): void {
  */
 function kindling(pixels: Uint32Array): void {
   const twigs: [number, number][] = [
-    [10, 16], [12, 16], [14, 16], [16, 16],
-    [11, 17], [13, 17], [15, 17],
+    [12, 19], [14, 19], [16, 19], [18, 19],
+    [13, 20], [15, 20], [17, 20],
   ]
   dots(pixels, W, H, color(TIMBER_TONES[3]), twigs)
   // Tinder tucked between the logs.
-  dots(pixels, W, H, color(TIMBER_TONES[2]), [[12, 11], [13, 11], [14, 11], [15, 11]])
+  dots(pixels, W, H, color(TIMBER_TONES[2]), [[14, 14], [15, 14], [16, 14], [17, 14]])
   // The flint, set on a ring stone: the thing you are about to use.
-  dots(pixels, W, H, color(IRON_TONES[3]), [[21, 15], [22, 15]])
-  dots(pixels, W, H, color(IRON_TONES[1]), [[22, 16]])
+  dots(pixels, W, H, color(IRON_TONES[3]), [[24, 18], [25, 18]])
+  dots(pixels, W, H, color(IRON_TONES[1]), [[25, 19]])
 }
 
-/** The pot on the ring: only when there is something to take. */
+/**
+ * The pot, down off the hook and sitting on the stones (T-S3.2).
+ *
+ * The first one was a rectangle and the review could not tell what it was. This
+ * one is built out of the three things that say "pot" at any size: a body that
+ * is wider than it is tall and rounded at the bottom, a rim that overhangs it,
+ * and a handle arcing above. Steam rises off it, which is also the only thing
+ * moving in `done`.
+ */
 function pot(pixels: Uint32Array): void {
-  const body = block(W, H, 10, 8, 17, 12, IRON_TONES, IRON_OUTLINE, 0.75, 0.45)
-  for (let i = 0; i < pixels.length; i++) if (body[i]) pixels[i] = body[i]
-  // Rim and handle.
-  dots(pixels, W, H, color(IRON_TONES[3]), [[10, 8], [11, 8], [16, 8], [17, 8]])
-  dots(pixels, W, H, color(IRON_TONES[1]), [[9, 9], [18, 9]])
+  const body = color(IRON_TONES[1])
+  const dark = color(IRON_TONES[0])
+  const edge = color(IRON_OUTLINE)
+  // Belly: widest in the middle, tucked in at the base.
+  const rows: readonly (readonly number[])[] = [[13, 12, 19], [14, 11, 20], [15, 11, 20], [16, 12, 19], [17, 13, 18]]
+  for (const [y, x0, x1] of rows) {
+    for (let x = x0; x <= x1; x++) pixels[y * W + x] = x === x0 || x === x1 ? dark : body
+  }
+  // Rim: one row wider than the belly, in a lighter tone, so it overhangs.
+  dots(pixels, W, H, color(IRON_TONES[3]), [[11, 12], [12, 12], [13, 12], [14, 12], [15, 12], [16, 12], [17, 12], [18, 12], [19, 12], [20, 12]])
+  dots(pixels, W, H, edge, [[10, 12], [21, 12]])
+  // Handle: an arc over the rim, clear of the body.
+  dots(pixels, W, H, color(IRON_TONES[2]), [[11, 11], [12, 10], [15, 9], [16, 9], [19, 10], [20, 11]])
+  // What is inside, catching the light.
+  dots(pixels, W, H, color('#e2a35c'), [[14, 13], [15, 13], [16, 13], [17, 13]])
+  // Steam.
+  dots(pixels, W, H, color('#c3d6e4'), [[14, 7], [17, 6], [15, 5]])
 }
 
 export function campfireStationArt(state: StationState, frame = 0): PixelArt {
   const step = frameOf(state, frame)
   return memo(`${state}|${step}`, () => {
     const pixels = ring()
+    tripod(pixels)
 
     if (state === 'done') {
-      // Burned down: embers under the pot, no standing logs.
-      emberBed(pixels, W, H, 15, 10, 17, true)
-      emberBed(pixels, W, H, 14, 11, 16, false)
+      // Burned down: embers under the pot, no standing logs, pot off the hook.
+      emberBed(pixels, W, H, 18, 12, 19, true)
+      emberBed(pixels, W, H, 17, 13, 18, false)
       pot(pixels)
-      doneSparkle(pixels, W, H, 20, 6)
+      doneSparkle(pixels, W, H, 24, 9)
       return stationArtOf(W, H, pixels, CAMPFIRE_AX, CAMPFIRE_AY)
     }
 
@@ -107,17 +158,17 @@ export function campfireStationArt(state: StationState, frame = 0): PixelArt {
 
     if (state === 'ready') {
       kindling(pixels)
-      emberBed(pixels, W, H, 16, 10, 17, false)
-      emberBed(pixels, W, H, 15, 11, 16, false)
-      readyPip(pixels, W, H, 13, 7)
+      emberBed(pixels, W, H, 19, 12, 19, false)
+      emberBed(pixels, W, H, 18, 13, 18, false)
+      readyPip(pixels, W, H, 24, 12)
     }
 
     if (state === 'working') {
-      emberBed(pixels, W, H, 16, 10, 17, true)
-      const fire = fireTongue(W, H, 14, 12, 8, step)
+      emberBed(pixels, W, H, 19, 12, 19, true)
+      const fire = fireTongue(W, H, 16, 15, 9, step)
       for (let i = 0; i < pixels.length; i++) if (fire[i]) pixels[i] = fire[i]
-      // Sparks lifting off the flame, offset per frame so they never pair up.
-      const sparks: [number, number][] = [[12 - (step % 2), 3], [16 + (step % 2), 2]]
+      // Sparks lifting past the tripod, offset per frame so they never pair up.
+      const sparks: [number, number][] = [[13 - (step % 2), 6], [19 + (step % 2), 5]]
       dots(pixels, W, H, color(FIRE_TONES[4]), sparks)
     }
 

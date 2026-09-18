@@ -82,7 +82,18 @@ export const stationBounds = (art: PixelArt): StationBounds =>
 // Cut stone, sawn wood, iron and fire. Deliberately narrow: three stations that
 // share a material family read as three things built by the same hands.
 
-/** Dressed stone: the furnace body, the campfire ring, the workbench footing. */
+/**
+ * Fired brick and warm sandstone: the furnace body (T-S3.2).
+ *
+ * The first furnace was built out of `MASONRY_TONES` alone and the review
+ * found it: cold grey next to three warm-brown neighbours reads as a machine
+ * from another set. This is still stone — nobody wants a wooden furnace — but
+ * stone that has been fired and has sat in this world a while.
+ */
+export const FIREBRICK_TONES = ['#5a3a2c', '#7d5140', '#9d6a52', '#bb8a6c'] as const
+export const FIREBRICK_OUTLINE = '#341d15'
+
+/** Dressed stone: the campfire ring, the workbench footing, the furnace base. */
 export const MASONRY_TONES = ['#4a4741', '#6b675e', '#8d887c', '#aca596'] as const
 export const MASONRY_OUTLINE = '#2b2925'
 
@@ -137,6 +148,35 @@ export function block(
     ? top - (y - y0) / span * (top - bottom)
     : null)
   return shade(w, h, face, { tones, outline, dither: 0.3 })
+}
+
+/**
+ * Mortar courses over a block (T-S3.2): a horizontal joint every `spacing`
+ * rows and a stagger of verticals between them. Without these a wall is a
+ * painted rectangle; with them it is masonry, which is what tells the furnace
+ * apart from a machine.
+ */
+export function courses(
+  pixels: Uint32Array, w: number, h: number, x0: number, y0: number, x1: number, y1: number,
+  joint: number, spacing = 4,
+): void {
+  for (let y = y0 + spacing - 1; y < y1; y += spacing) {
+    for (let x = x0; x <= x1; x++) {
+      if (x < 0 || y < 0 || x >= w || y >= h) continue
+      if (pixels[y * w + x] === TRANSPARENT) continue
+      pixels[y * w + x] = joint
+    }
+    // Verticals, offset row by row so the bond reads as brick.
+    const shift = ((y - y0) / spacing) % 2 === 0 ? 0 : 3
+    for (let x = x0 + 2 + shift; x <= x1; x += 6) {
+      for (let dy = 1; dy < spacing && y + dy <= y1; dy++) {
+        const py = y + dy
+        if (x < 0 || py < 0 || x >= w || py >= h) continue
+        if (pixels[py * w + x] === TRANSPARENT) continue
+        pixels[py * w + x] = joint
+      }
+    }
+  }
 }
 
 /** Paints `value` at a list of art coordinates. Bounds-checked, so art edits are safe. */

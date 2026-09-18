@@ -130,7 +130,7 @@ describe('size and anchor', () => {
 
   it('freezes the declared sizes, so a placement built on them cannot drift silently', () => {
     expect(FURNACE_BOUNDS).toEqual({ width: 30, height: 34, anchorX: 15, anchorY: 33 })
-    expect(CAMPFIRE_BOUNDS).toEqual({ width: 28, height: 22, anchorX: 14, anchorY: 21 })
+    expect(CAMPFIRE_BOUNDS).toEqual({ width: 32, height: 26, anchorX: 16, anchorY: 25 })
     expect(WORKBENCH_BOUNDS).toEqual({ width: 34, height: 28, anchorX: 17, anchorY: 27 })
   })
 

@@ -4,7 +4,7 @@
 // state has to be carried by the work itself: what is on the top, and whether
 // the tool is in hand or hung up.
 //
-//   idle    — bare top, tools on the rack, vice closed.
+//   idle    — bare top, tools on the rack, drawer shut.
 //   ready   — stock and a plan laid out; the pip lit.
 //   working — the saw is on the piece, with sawdust coming off it.
 //   done    — the finished piece sits on the top and the saw is back on the rack.
@@ -13,6 +13,13 @@
 // with things stored underneath — because they are the same kind of furniture.
 // What separates them is the material and the tools: this one is carpentry and
 // iron, not glass.
+//
+// T-S3.2 removed the vice. It sat at the near corner as a grey-blue smudge and
+// the review could not tell what it was; at this size an iron vice is three
+// ambiguous pixels. What replaced it is a drawer under the worktop with two
+// iron pulls: a shape that is unmistakable at any size, and that says "this is
+// furniture you keep tools in" without competing with the piece on top, which
+// is what actually carries the state.
 //
 // It knows nothing about recipes, tool tiers or what a "piece" is worth.
 
@@ -48,8 +55,8 @@ function bench(): Uint32Array {
     // Legs.
     block(W, H, 5, 15, 7, 24, TIMBER_TONES, TIMBER_OUTLINE, 0.65, 0.4),
     block(W, H, 26, 15, 28, 24, TIMBER_TONES, TIMBER_OUTLINE, 0.65, 0.4),
-    // Lower shelf with stock on it.
-    block(W, H, 7, 19, 26, 20, TIMBER_TONES, TIMBER_OUTLINE, 0.6, 0.45),
+    // Lower stretcher between the legs: what the drawer hangs over.
+    block(W, H, 7, 21, 26, 22, TIMBER_TONES, TIMBER_OUTLINE, 0.5, 0.38),
     // The worktop: the widest, flattest, most obviously cut thing in the art.
     block(W, H, 2, 13, 31, 16, TIMBER_TONES, TIMBER_OUTLINE, 0.95, 0.6),
     // Back panel with the tool rack.
@@ -57,14 +64,23 @@ function bench(): Uint32Array {
   ])
 }
 
-/** The vice at the near corner: iron, and unmistakably a tool. */
-function vice(pixels: Uint32Array): void {
-  const jaw = compose(W, H, [
-    block(W, H, 3, 11, 8, 13, IRON_TONES, IRON_OUTLINE, 0.85, 0.6),
-    block(W, H, 4, 16, 6, 18, IRON_TONES, IRON_OUTLINE, 0.7, 0.5),
-  ])
-  for (let i = 0; i < pixels.length; i++) if (jaw[i]) pixels[i] = jaw[i]
-  dots(pixels, W, H, color(IRON_TONES[3]), [[3, 11], [8, 11]])
+/**
+ * A drawer under the worktop, with two iron pulls (T-S3.2).
+ *
+ * It replaces the vice nobody could read. A rectangle with a lighter face and
+ * two dark handles is legible at any size, and it keeps the bench looking like
+ * something built to store tools rather than a plank on legs.
+ */
+function drawer(pixels: Uint32Array): void {
+  // Set in from the ends of the worktop, so the top overhangs it on both
+  // sides: that overhang is what keeps the bench from reading as flat boards.
+  const front = block(W, H, 9, 17, 24, 19, TIMBER_TONES, TIMBER_OUTLINE, 0.78, 0.58)
+  for (let i = 0; i < pixels.length; i++) if (front[i]) pixels[i] = front[i]
+  // Shadow under the worktop, across the full width.
+  for (let x = 3; x <= 30; x++) dots(pixels, W, H, color(TIMBER_OUTLINE), [[x, 16]])
+  // Two pulls: the detail that makes it a drawer and not a panel.
+  dots(pixels, W, H, color(IRON_OUTLINE), [[12, 18], [13, 18], [20, 18], [21, 18]])
+  dots(pixels, W, H, color(IRON_TONES[3]), [[12, 19], [13, 19], [20, 19], [21, 19]])
 }
 
 /** Tools hanging on the rack: a saw and a mallet, the carpentry pair. */
@@ -116,7 +132,7 @@ export function workbenchStationArt(state: StationState, frame = 0): PixelArt {
   const step = frameOf(state, frame)
   return memo(`${state}|${step}`, () => {
     const pixels = bench()
-    vice(pixels)
+    drawer(pixels)
     // The saw hangs on the rack unless it is in the cut.
     rack(pixels, state !== 'working')
 
