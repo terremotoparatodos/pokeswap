@@ -211,7 +211,7 @@ Conceptos a explorar más adelante: abastecimiento, consumibles, coste de uso, i
 - El diseño y prototipo inicial se **delegará a la ESTACIÓN SECUNDARIA** (otra PC; GitHub es la única frontera). Alcance: dungeon loop, expediciones, encuentros, desgaste, minibosses, bosses, combate PvE, presión de consumibles, rewards y posible simulación.
 - La secundaria **no modifica ramas productivas ni integra**.
 - La **estación principal** conserva: arquitectura, integración, server/authority, networking, persistencia, Supabase, trust boundary, CI y revisión final. Cuando llegue la propuesta, audita compatibilidad, arquitectura, server authority, persistencia, anti-cheat e integración.
-- **No iniciado.** El usuario prepara aparte el brief definitivo. No existe rama de Dungeon.
+- **Estado (2026-09-17):** la estación secundaria entregó el prototipo D1 → D1.2.4ter (`feat/d1-2-4-obstacles-combat` @ `ef4ff85`), integrado en `integration/r31` como `src/features/dungeonPrototype/` (dev-only, sin autoridad ni persistencia). Ver [`../wildlands/DUNGEON_PROTOTYPE_INTEGRATION.md`](../wildlands/DUNGEON_PROTOTYPE_INTEGRATION.md), que incluye el conflicto abierto sobre la semántica de "captura" (I-1). El usuario prepara aparte el brief definitivo.
 
 ## A-15 · Principios conocidos de combate / dungeon
 
