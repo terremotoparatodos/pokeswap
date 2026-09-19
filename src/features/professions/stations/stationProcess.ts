@@ -23,13 +23,25 @@
 // They are world state, not hover state: nothing here reads the player's
 // current inventory to decide what a station looks like.
 //
-// ── Time ────────────────────────────────────────────────────────────────────
+// ── Time, and whose clock it is ─────────────────────────────────────────────
 //
 // There is no `Date.now()` and no `setTimeout` in this module. A caller passes
 // `nowMs`, and a process stores when it started and how long it takes, so the
 // remaining time is *derived* — which is what makes a reload mid-process
-// correct rather than lucky (§37). The clock is a parameter today and becomes
-// the server's `AuthorityClock` later without changing this file (§16).
+// correct rather than lucky.
+//
+// **A client's `Date.now()` is not authoritative station time.** Today the
+// prototype's harness supplies it, because the whole thing is local and
+// nothing is at stake. When stations meet the server, the reading comes from
+// R32.4's `AuthorityClock` and this file does not change.
+//
+// What this module does guarantee, now and then, is that there is **no API
+// that means "the caller says the process is finished"**. Nothing here takes a
+// `complete()` or a `done: true`; the only way to reach DONE is to hand in a
+// reading and have it compared against `startedAtMs + durationMs`. A reading
+// that is not a finite number is refused rather than believed, so the two
+// values a caller would reach for to force a finish — `Infinity` and `NaN` —
+// leave the work running.
 //
 // ── Ownership of the inputs ─────────────────────────────────────────────────
 //
@@ -101,6 +113,8 @@ export interface StationProcessState {
 export type StationProcessErrorCode =
   | 'unknown_recipe'
   | 'recipe_not_supported'
+  /** The station type exists and is drawn, but R33 has not made it run. */
+  | 'station_not_productive'
   | 'station_busy'
   | 'level_too_low'
   | 'missing_inputs'
@@ -111,6 +125,9 @@ export type StationProcessErrorCode =
   | 'not_working'
   | 'not_done'
   | 'already_started'
+  /** DONE, but the output does not fit. Nothing is lost; the station stays DONE. */
+  | 'output_capacity_exceeded'
+  | 'untrusted_clock'
 
 export interface StationProcessError {
   readonly code: StationProcessErrorCode
@@ -137,9 +154,21 @@ export function remainingMs(process: StationProcessState | null, nowMs: number):
   if (!process) return 0
   if (process.phase === 'done') return 0
   if (process.phase === 'ready' || process.startedAtMs === null) return process.durationMs
-  if (!Number.isFinite(nowMs)) return process.durationMs
+  // An unusable reading answers "the whole duration", never "finished".
+  if (!isTrustedReading(nowMs)) return process.durationMs
   return Math.max(0, process.startedAtMs + process.durationMs - nowMs)
 }
+
+/**
+ * A clock reading this module is willing to act on.
+ *
+ * The point is the direction of the failure. `NaN` and `Infinity` are the two
+ * shapes a caller reaches for when it wants a process finished *now* —
+ * `advanceProcess(p, Infinity)` would otherwise be "the client says it is
+ * done", which is exactly the sentence the trust boundary forbids. A reading
+ * that is not a finite number is refused, and the work keeps running.
+ */
+export const isTrustedReading = (nowMs: number): boolean => typeof nowMs === 'number' && Number.isFinite(nowMs)
 
 /** 0..1 of the way through a WORKING process; 0 while READY, 1 once DONE. */
 export function processProgress(process: StationProcessState | null, nowMs: number): number {
@@ -189,6 +218,11 @@ export type PrepareResult =
 export function prepareProcess(input: PrepareInput): PrepareResult {
   if (input.process) return fail('station_busy', input.process.phase)
   if (typeof input.processId !== 'string' || input.processId.length === 0) return fail('invalid_process_id')
+
+  // A station can be in the catalog — drawn, sized, with its four states — and
+  // still have no gameplay. R33 only runs the furnace, and being listed must
+  // never be enough to start work on a campfire or a workbench (§10).
+  if (!input.definition.productive) return fail('station_not_productive')
 
   const recipe = RECIPE_BY_ID.get(input.recipeId)
   if (!recipe) return fail('unknown_recipe')
@@ -243,7 +277,9 @@ export function startProcess(process: StationProcessState | null, nowMs: number)
   if (!process) return fail('no_process', 'idle')
   if (process.phase === 'working') return fail('already_started', 'working')
   if (process.phase !== 'ready') return fail('not_ready', process.phase)
-  if (!Number.isFinite(nowMs)) return fail('not_ready', process.phase)
+  // Starting stamps the record with a reading everything else is measured
+  // against, so an unusable one must not get in.
+  if (!isTrustedReading(nowMs)) return fail('untrusted_clock', process.phase)
   return { ok: true, process: { ...process, phase: 'working', startedAtMs: nowMs } }
 }
 
@@ -256,8 +292,24 @@ export function startProcess(process: StationProcessState | null, nowMs: number)
  */
 export function advanceProcess(process: StationProcessState | null, nowMs: number): StationProcessState | null {
   if (!process || process.phase !== 'working') return process
+  if (!isTrustedReading(nowMs)) return process
   if (remainingMs(process, nowMs) > 0) return process
   return { ...process, phase: 'done' }
+}
+
+/**
+ * The same answer as `advanceProcess`, but it says *why* it refused.
+ *
+ * `advanceProcess` is the shape a per-frame poll wants — hand it anything, get
+ * a process back. A caller that is making a decision (a server tick, a test)
+ * should know the difference between "not finished yet" and "that reading was
+ * not usable", and this is how it asks.
+ */
+export function advanceProcessChecked(
+  process: StationProcessState | null, nowMs: number,
+): { readonly ok: true; readonly process: StationProcessState | null } | { readonly ok: false; readonly error: StationProcessError } {
+  if (!isTrustedReading(nowMs)) return fail('untrusted_clock', stationPhase(process))
+  return { ok: true, process: advanceProcess(process, nowMs) }
 }
 
 export type CollectResult =

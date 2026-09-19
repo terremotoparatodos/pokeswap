@@ -29,7 +29,7 @@ import { RewardPops } from '../overworld/rewardPops'
 import { resourceIconArt } from '../art/miningItems'
 import { STATION_BY_ID } from './stationDefinition'
 import { footprintFeet, footprintTiles, type FootprintTile } from './stationFootprint'
-import { findStationSpot } from './stationPlacement'
+import { devFindStationSpot } from './devStationPlacement'
 
 /** Four frames a second: the same cadence the campfire and the bench animate at. */
 export const FURNACE_FRAME_HZ = 6
@@ -52,13 +52,17 @@ export class FurnaceOverlay implements SceneOverlay {
   constructor(private readonly deps: FurnaceOverlayDeps) {}
 
   /**
-   * The anchor tile of the furnace in this area, derived once and cached.
+   * The anchor tile of the furnace in this area, **as a DEV placement**.
    *
    * Same idea as the bench: a deterministic spiral out from the world's own
-   * spawn, so everyone's furnace is on the same tile and a future server can
-   * check a position instead of trusting one. It starts further out than the
-   * bench and refuses tiles the bench already claimed, so the two stations
-   * share a clearing without standing on each other.
+   * spawn, starting further out than the bench and refusing the tiles the bench
+   * already claimed, so the two share a clearing without standing on each
+   * other. Deterministic, which is what makes the harness reproducible.
+   *
+   * It is **not** the placement contract. A productive or persisted furnace is
+   * placed by an explicit `StationPlacement` record (`stationPlacement.ts`);
+   * this search only *produces* one for a procedural world that nobody has
+   * written placement data for. Nothing productive depends on where this lands.
    */
   stationAt(area: Area): FootprintTile | null {
     if (area.kind !== 'wild') return null
@@ -74,7 +78,7 @@ export class FurnaceOverlay implements SceneOverlay {
       const anchor = definition ? world.findSpawn(definition.prefer) : null
       if (anchor) {
         const taken = new Set((this.deps.avoid?.(area) ?? []).map(entry => `${entry.tx}:${entry.ty}`))
-        tile = findStationSpot({
+        tile = devFindStationSpot({
           isSolid: (tx, ty) => area.isSolid(tx, ty),
           isWater: (tx, ty) => area.isWater(tx, ty),
           hasNode: (tx, ty) => nodeAt(nodePort, tx, ty) !== null,

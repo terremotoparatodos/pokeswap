@@ -27,7 +27,8 @@ import {
 } from './stationProcess'
 import { parseStation, stationRoundTrip } from './stationSerialization'
 import { stationVisualState } from './stationVisualState'
-import { findStationSpot, stationPlacedObject, validatePlacement, type StationWorldPort } from './stationPlacement'
+import { stationPlacedObject, validatePlacement, type StationWorldPort } from './stationPlacement'
+import { devFindStationSpot } from './devStationPlacement'
 
 const FURNACE = STATION_BY_ID.get('smelter')!
 const AREA = 'pradera'
@@ -202,16 +203,16 @@ describe('placement', () => {
     }
   })
 
-  it('finds a deterministic spot, the same one every time', () => {
+  it('the DEV helper finds a deterministic spot, the same one every time', () => {
     const port = openWorld()
-    const a = findStationSpot(port, FURNACE.footprint, { tx: 0, ty: 0 })
-    const b = findStationSpot(port, FURNACE.footprint, { tx: 0, ty: 0 })
+    const a = devFindStationSpot(port, FURNACE.footprint, { tx: 0, ty: 0 })
+    const b = devFindStationSpot(port, FURNACE.footprint, { tx: 0, ty: 0 })
     expect(a).not.toBeNull()
     expect(a).toEqual(b)
   })
 
-  it('and returns null rather than forcing a station into a crowded area', () => {
-    expect(findStationSpot(openWorld({ isSolid: () => true }), FURNACE.footprint, { tx: 0, ty: 0 })).toBeNull()
+  it('and the DEV helper returns null rather than forcing a station into a crowded area', () => {
+    expect(devFindStationSpot(openWorld({ isSolid: () => true }), FURNACE.footprint, { tx: 0, ty: 0 })).toBeNull()
   })
 
   it('declares itself to F-1 with its own cells and its art size as the hitbox', () => {

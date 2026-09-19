@@ -29,7 +29,7 @@ export interface StationActionFailure {
   readonly ok: false
   readonly state: DemoState
   readonly station: PlacedStation
-  readonly error: StationProcessError | { readonly code: 'inventory_full' | 'unknown_station' }
+  readonly error: StationProcessError | { readonly code: 'unknown_station'; readonly phase?: undefined }
 }
 
 export interface PrepareOutcome {
@@ -112,15 +112,22 @@ export const tickStation = (station: PlacedStation, nowMs: number): PlacedStatio
 /**
  * DONE → IDLE. The output is credited once and the XP with it.
  *
- * A full bag refuses the collect and leaves the station DONE, so the output is
- * never lost — the same posture as the gathering pending list.
+ * **A full bag does not lose the output.** The collect is refused with
+ * `output_capacity_exceeded`, the station is returned exactly as it was — still
+ * DONE, still holding the same output — and the session is returned untouched:
+ * no inputs are re-spent, no output is re-generated, and the same collect works
+ * once space is made. Escrow, a mailbox and dropping it on the ground are all
+ * later designs; R33 keeps the result where it already is (§6 of the microphase
+ * brief).
  */
 export function collectStation(state: DemoState, station: PlacedStation): CollectOutcome | StationActionFailure {
   const result = collectProcess(station.process, demoCounts(state))
   if (!result.ok) return fail(state, station, result.error)
 
   const added = addStacks(state.bag, result.credited, demoRules(state))
-  if (added.overflow.length) return fail(state, station, { code: 'inventory_full' })
+  // `state` and `station`, not the halves of `result`: nothing that just
+  // happened is kept, so the station is still DONE with its output intact.
+  if (added.overflow.length) return fail(state, station, { code: 'output_capacity_exceeded', phase: 'done' })
 
   const xp = state.xp[result.profession] + result.xp
   const next: DemoState = { ...state, bag: added.container, xp: { ...state.xp, [result.profession]: xp } }
@@ -140,7 +147,9 @@ export function cancelStation(state: DemoState, station: PlacedStation): CancelO
   if (!result.ok) return fail(state, station, result.error)
 
   const added = addStacks(state.bag, result.refunded, demoRules(state))
-  if (added.overflow.length) return fail(state, station, { code: 'inventory_full' })
+  // Same posture as a collect that does not fit: the inputs stay with the
+  // process, and the station stays READY.
+  if (added.overflow.length) return fail(state, station, { code: 'output_capacity_exceeded', phase: 'ready' })
 
   return { ok: true, state: { ...state, bag: added.container }, station: withProcess(station, null), refunded: result.refunded }
 }

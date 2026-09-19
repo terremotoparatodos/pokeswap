@@ -1,27 +1,77 @@
-// Where a station may stand, and how it is declared to the world (R33).
+// Where a station stands, as data (R33).
 //
-// Two jobs, both pure:
+// Three jobs, all pure:
 //
-//   1. **Validation.** Can this station stand here? Bounds, solid terrain,
-//      water, tiles a gathering node already owns, and overlap with anything
-//      already placed. The whole footprint is checked, not the anchor — which
-//      is the part a 1×1 world never had to answer.
-//   2. **Declaration.** Turn the station into the flat record F-1 registers
-//      (`PlacedObject`), so collision, navigation and picking all read one
-//      source.
+//   1. **The record.** `StationPlacement` is the explicit placement data a
+//      productive or persisted station needs: which area, which tile, which
+//      shape, and which station instance. It is a *declaration*, never a
+//      derivation.
+//   2. **Validation.** May a station stand here? Bounds, solid terrain, water,
+//      tiles a gathering node already owns, doors and portals, and overlap with
+//      anything already placed. The whole footprint is checked, not the anchor
+//      -- which is the part a 1x1 world never had to answer.
+//   3. **Declaration to the engine.** Turn it into the flat record F-1
+//      registers (`PlacedObject`), so collision, navigation and picking all
+//      read one source.
 //
-// It does not build, it does not charge materials and it does not let a player
-// place anything: player construction is `O-10` and stays closed (§26 of the
-// R33 brief). What exists here is the validation a builder would call, and the
-// deterministic spot the demo furnace stands on.
+// **A canonical station is never positioned by a runtime search.** A spiral out
+// from a world's spawn is fine for a fixture or a demo harness, and that is
+// where it lives -- `devStationPlacement.ts`, which nothing in this module
+// imports. `O-9` is decided: explicit placement data is the contract, and a
+// search is a way of *producing* one for DEV, not a way of *being* one.
 //
-// The engine is not imported. Like the Alchemy bench before it (F-1 §11.2), a
+// It does not build and it does not let a player place anything: player
+// construction is `O-10` and stays closed. What exists here is the validation a
+// builder would call.
+//
+// The engine is not imported. Like the Alchemy bench before it (F-1 11.2), a
 // station declares itself **structurally** and the wiring hands the record to
 // `placedObject()`, which keeps the R31 isolation rule intact.
 
-import { footprintTiles, type FootprintTile, type StationFootprint } from './stationFootprint'
-import { definitionOf, type PlacedStation } from './stationInstance'
-import type { StationDefinition } from './stationDefinition'
+import { footprintTiles, type FootprintCell, type FootprintTile, type StationFootprint } from './stationFootprint'
+import { definitionOf, placeStation, type PlacedStation } from './stationInstance'
+import { stationDefinition, type StationDefinition, type StationTypeId } from './stationDefinition'
+
+// -- The productive placement record ----------------------------------------
+
+/**
+ * Explicit placement data: everything needed to stand a station somewhere,
+ * with nothing to recompute.
+ *
+ * `cells` is carried rather than read back from the definition on purpose. A
+ * stored structure has to say what it actually occupies: if a later version
+ * makes the furnace 3x2, every furnace already standing must keep its own
+ * footprint until something migrates it, and a server has to be able to check
+ * a position against the shape that was agreed when it was placed.
+ */
+export interface StationPlacement {
+  /** Identity of this station instance, distinct from its type. */
+  readonly stationId: string
+  readonly stationType: StationTypeId
+  /** Which area or world it stands in. */
+  readonly areaId: string
+  /** Its front-left tile. */
+  readonly anchor: FootprintTile
+  /** The shape it occupies, as agreed when it was placed. */
+  readonly cells: readonly FootprintCell[]
+  readonly ownerId: string | null
+}
+
+/** Writes a placement record. Throws on a station type nothing defines. */
+export function stationPlacement(
+  stationId: string, stationType: StationTypeId, areaId: string, anchor: FootprintTile, ownerId: string | null = null,
+): StationPlacement {
+  const definition = stationDefinition(stationType)
+  if (!definition) throw new RangeError(`unknown station type: ${stationType}`)
+  return {
+    stationId, stationType, areaId, anchor, ownerId,
+    cells: definition.footprint.cells.map(cell => ({ dx: cell.dx, dy: cell.dy })),
+  }
+}
+
+/** Stands a station up from its placement record: the only productive way in. */
+export const stationFromPlacement = (placement: StationPlacement): PlacedStation =>
+  placeStation(placement.stationId, placement.stationType, placement.areaId, placement.anchor, placement.ownerId)
 
 /** What the world has to be able to answer before a station may stand somewhere. */
 export interface StationWorldPort {
@@ -60,7 +110,7 @@ export function validatePlacement(port: StationWorldPort, footprint: StationFoot
   return { ok: true, tiles }
 }
 
-function rejectionFor(port: StationWorldPort, tile: FootprintTile): PlacementRejection | null {
+export function rejectionFor(port: StationWorldPort, tile: FootprintTile): PlacementRejection | null {
   if (port.outOfBounds?.(tile.tx, tile.ty)) return 'out_of_bounds'
   if (port.isTransition?.(tile.tx, tile.ty)) return 'transition'
   if (port.isSolid(tile.tx, tile.ty)) return 'solid_tile'
@@ -68,52 +118,6 @@ function rejectionFor(port: StationWorldPort, tile: FootprintTile): PlacementRej
   if (port.hasNode(tile.tx, tile.ty)) return 'node_tile'
   if (port.isOccupied?.(tile.tx, tile.ty)) return 'occupied'
   return null
-}
-
-/**
- * A place for a station, searched ring by ring outwards from an anchor.
- *
- * The same idea as the Alchemy bench's spiral (`alchemy/stationPlacement.ts`),
- * generalised to a footprint and to a free ring around it, so the result is
- * deterministic — everyone puts the furnace on the same tile, which is what a
- * server would need to validate it. The bench's own function is untouched: its
- * tile is part of the frozen overlay baseline and must not move.
- *
- * Returns null when the area is too crowded, and then the station simply does
- * not appear.
- */
-export function findStationSpot(
-  port: StationWorldPort, footprint: StationFootprint, anchor: FootprintTile,
-  options: { readonly minRing?: number; readonly maxRing?: number; readonly clearRing?: boolean } = {},
-): FootprintTile | null {
-  const minRing = options.minRing ?? 4
-  const maxRing = options.maxRing ?? 14
-  for (let ring = minRing; ring <= maxRing; ring++) {
-    for (let dy = -ring; dy <= ring; dy++) {
-      for (let dx = -ring; dx <= ring; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue
-        const candidate = { tx: anchor.tx + dx, ty: anchor.ty + dy }
-        if (!validatePlacement(port, footprint, candidate).ok) continue
-        // A station nobody can walk up to is worse than no station: ask for a
-        // clear tile all the way round unless the caller says otherwise.
-        if (options.clearRing !== false && !ringIsClear(port, footprint, candidate)) continue
-        return candidate
-      }
-    }
-  }
-  return null
-}
-
-function ringIsClear(port: StationWorldPort, footprint: StationFootprint, anchor: FootprintTile): boolean {
-  const inside = new Set(footprintTiles(footprint, anchor).map(tile => `${tile.tx}:${tile.ty}`))
-  for (const tile of footprintTiles(footprint, anchor)) {
-    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]] as const) {
-      const next = { tx: tile.tx + dx, ty: tile.ty + dy }
-      if (inside.has(`${next.tx}:${next.ty}`)) continue
-      if (rejectionFor(port, next)) return false
-    }
-  }
-  return true
 }
 
 // ── Declaring the station to the world ──────────────────────────────────────

@@ -21,8 +21,10 @@ import type { MiningGamePort } from '../mining/useMiningController'
 import { FurnaceOverlay } from './furnaceOverlay'
 import { recipesForStation, STATION_BY_ID } from './stationDefinition'
 import type { FootprintTile } from './stationFootprint'
-import { placeStation, stationState, type PlacedStation } from './stationInstance'
-import { placedObjectFor, type StationPlacedObject } from './stationPlacement'
+import { stationState, type PlacedStation } from './stationInstance'
+import {
+  placedObjectFor, stationFromPlacement, stationPlacement, type StationPlacedObject,
+} from './stationPlacement'
 import { processProgress, remainingMs } from './stationProcess'
 import {
   cancelStation, collectStation, prepareStation, startStation, tickStation, type StationActionFailure,
@@ -55,7 +57,15 @@ export function useFurnaceController(
   const quantity = ref(1)
   const failure = shallowRef<StationActionFailure['error'] | null>(null)
 
-  /** One furnace per area, created the first time that area is seen. */
+  /**
+   * One furnace per area, created the first time that area is seen.
+   *
+   * The anchor comes from the DEV search (`devStationPlacement.ts`), because
+   * these are procedural worlds with no placement data written for them. It is
+   * then turned into an explicit `StationPlacement` record and stood up from
+   * that — so the harness goes through the same door a productive or persisted
+   * station will, and swapping the search for stored data changes one line.
+   */
   const stations = new Map<string, PlacedStation>()
   const station = shallowRef<PlacedStation | null>(null)
   /** The area the open furnace is in; the overlay needs it to place a reward pop. */
@@ -96,7 +106,7 @@ export function useFurnaceController(
     if (!anchor) return null
     const existing = stations.get(area.id)
     if (existing && sameAnchor(existing.anchor, anchor)) return existing
-    const placed = placeStation(`furnace:${area.id}`, 'smelter', area.id, anchor)
+    const placed = stationFromPlacement(stationPlacement(`furnace:${area.id}`, 'smelter', area.id, anchor))
     stations.set(area.id, placed)
     return placed
   }
