@@ -2,7 +2,8 @@
 
 > Rama `feat/r32-3-shared-battle-rules`, desde `feat/r32-2-1-model-decisions` @ `2738e43adf1ac01c53888d2c9e04d733d26a3ea8`.
 > **Solo dominio puro, tests, muestra y documentación.** No hay servidor, ni red, ni Supabase, ni persistencia, ni UI, ni integración con la Dungeon, ni co-op, ni Alpha, ni Boss Skills, ni economía.
-> Ruleset base: **ORAS / Generación VI**, adaptado a tiempo real. Catálogo: `1.oras.ab69b5804411`. Reglas: `pokeswap-battle-v1`.
+> Ruleset base: **ORAS / Generación VI**, adaptado a tiempo real. Catálogo: `1.oras.db4ae081bb58`. Reglas: `pokeswap-battle-v1`.
+> **Microfase de correcciones (2026-09-18):** Q-4 cerrada extendiendo el pipeline de R32.1 (§14), etapas de stats a **−2…+2** con clamp en la etapa (§12), y Protect que ya no se repone solo (§11).
 > Código: `src/features/battle/rules/`. Muestra: `npm run battle:sample`.
 
 ---
@@ -112,7 +113,7 @@ Los cuatro comandos de acción **no ejecutan al llegar**: fijan qué va a hacer 
 
 Salida estructurada y JSON-safe, con `seq` y `atMs` en cada uno. **Nadie parsea un string**: las palabras son de la UI, que R32.3 no tiene.
 
-`ACTION_READY` · `ACTION_STARTED` · `MOVE_USED` · `MOVE_MISSED` · `MOVE_REFUSED` · `DAMAGE` · `HEAL` · `PP_CHANGED` · `STATUS_APPLIED` · `STATUS_FAILED` · `STATUS_TICK` · `STATUS_ENDED` · `CONFUSION_APPLIED` · `CONFUSION_SELF_HIT` · `CONFUSION_ENDED` · `PROTECT_GAINED` · `PROTECT_BLOCKED` · `PROTECT_EXPIRED` · `STAT_STAGE_CHANGED` · `SWITCHED` · `ITEM_USED` · `CAPTURE_ATTEMPT` · `CAPTURE_SUCCESS` · `CAPTURE_FAILED` · `FAINTED` · `BATTLE_ENDED` · `COMMAND_REJECTED`
+`ACTION_READY` · `ACTION_STARTED` · `MOVE_USED` · `MOVE_MISSED` · `MOVE_REFUSED` · `DAMAGE` · `HEAL` · `PP_CHANGED` · `STATUS_APPLIED` · `STATUS_FAILED` · `STATUS_TICK` · `STATUS_ENDED` · `CONFUSION_APPLIED` · `CONFUSION_SELF_HIT` · `CONFUSION_ENDED` · `PROTECT_GAINED` · `PROTECT_BLOCKED` · `PROTECT_EXPIRED` · `PROTECT_FAILED` · `STAT_STAGE_CHANGED` · `STAT_STAGE_UNCHANGED` · `SWITCHED` · `ITEM_USED` · `CAPTURE_ATTEMPT` · `CAPTURE_SUCCESS` · `CAPTURE_FAILED` · `FAINTED` · `BATTLE_ENDED` · `COMMAND_REJECTED`
 
 El replay determinista se verifica **también sobre los eventos**: dos corridas que terminan igual habiendo contado historias distintas no son la misma batalla.
 
@@ -195,7 +196,7 @@ La identidad del movimiento vive en la Instance (`moveId` + `ppUps`); el PP gast
 
 **Struggle** (§22): 50 de potencia, no gasta PP, **ignora el tipeo por completo** (Gen VI: sin STAB y sin tabla, le pega a un Fantasma) y le cuesta a su usuario **un cuarto de su HP máximo** — del máximo, no del daño hecho. Emite `ACTION_STARTED: 'struggle'`: **no hay respaldo silencioso**.
 
-> Desviación PokeSwap registrada: en los juegos Struggle es para "sin PP". Acá también se llega a Struggle cuando el Pokémon tiene PP pero **ningún** movimiento ejecutable. Es explícito en los eventos y evita un cuelgue; queda como pregunta abierta si se prefiere otra salida.
+> **Compatibility fallback de v1, decisión temporal registrada.** En los juegos Struggle es para "sin PP". Acá también se llega a Struggle cuando el Pokémon tiene PP pero **ningún movimiento ejecutable** — su moveset entero cayó en los diferidos. Es explícito en los eventos (`ACTION_STARTED: struggle`) y evita que la batalla se cuelgue con la barra llena. **No es necesariamente la regla productiva final**, y a medida que bajen los movimientos diferidos el caso se vuelve más raro solo. No bloquea R32.3.
 
 ## 11. Protect
 
@@ -204,23 +205,42 @@ Contrato de playtest implementado:
 - escudo de **2 cargas**;
 - bloquea las próximas 2 **acciones ofensivas** (cualquier movimiento apuntado a otro);
 - un movimiento **multigolpe gasta UNA carga**, no una por golpe: el escudo para la acción, no la animación;
-- al **agotarse** la última carga, el próximo cooldown del dueño del escudo es **×2**;
+- al **agotarse** la última carga, el próximo cooldown del dueño del escudo es **×2** — al agotarse, no al lanzar: **decisión cerrada**, y la diferencia con el prototipo (que lo cobra al lanzar) es deliberada;
 - responde antes que todo: el movimiento se gasta y la tirada de acierto no llega a pasar;
 - eventos explícitos: `PROTECT_GAINED`, `PROTECT_BLOCKED` (con cargas restantes), `PROTECT_EXPIRED`.
 
-Runtime puro: un cambio lo borra y `leaveBattle` ni lo ve.
+### 11.1 No se repone solo (corregido en la microfase)
 
-> **Diferencia con el prototipo y pregunta abierta:** el prototipo duplica el cooldown **al lanzar** Protect; el contrato de R32.3 dice "al agotarse" y eso es lo implementado. También: como no hay penalización por usos consecutivos (los juegos bajan la probabilidad de éxito), con auto-repeat el escudo se puede renovar todas las ventanas. Ver §18.
+Con auto-repeat la selección de movimiento persiste, así que un Pokémon que eligió Protect una vez volvía a levantar el escudo **cada ventana** y no se lo podía tocar nunca más. Contrato v1:
+
+**Usar Protect mientras el escudo todavía tiene cargas:**
+
+- **consume** la Action Window;
+- **consume** PP como cualquier movimiento ejecutado;
+- **no** repone cargas y **no** extiende el escudo;
+- emite `PROTECT_FAILED` con las cargas que seguían en pie.
+
+Cuando el escudo anterior se termina, un Protect posterior crea uno nuevo con normalidad. **No** se implementa la probabilidad decreciente de los juegos para usos consecutivos: eso es balance y es una decisión posterior.
+
+Runtime puro: un cambio lo borra y `leaveBattle` ni lo ve.
 
 ## 12. Modificadores de stat
 
-Representación elegida: **el stage honesto −6…+6 por dentro, el multiplicador clamado por fuera**.
+**Rango: −2 … +2, y el clamp es sobre la ETAPA**, no sobre el multiplicador.
 
-- `+1 → ×1.5`, `+2 → ×2` (techo), `−2 → ×0.5` (piso).
-- Así un movimiento que dice +2 sigue diciendo +2 y el dato del catálogo no miente; lo simplificado es el efecto, que es lo que aprobó el producto.
-- Runtime, se resetea en el cambio, determinista.
+| Etapa | −2 | −1 | 0 | +1 | +2 |
+|---|---|---|---|---|---|
+| Multiplicador | ×0.5 | ×2/3 | ×1 | ×1.5 | ×2 |
 
-**Hoy ningún movimiento del catálogo los puede mover**, y es una brecha de datos, no de trabajo: ver §14.
+**Qué se corrigió y por qué.** La primera versión clampeaba sólo el multiplicador y mantenía una escalera −6…+6 por debajo. Eso esconde acumulación: cuatro Danzas Espada leen ×2 igual que dos, y después un Gruñido lleva el +6 oculto a +5 y **el número en pantalla no se mueve**. Un jugador no puede aprender una regla que no ve. Con el clamp en la etapa, en el techo otro buff no hace absolutamente nada —y se dice, con `STAT_STAGE_UNCHANGED`— y un solo debuff baja un escalón que se siente en la acción siguiente.
+
+Aplica a **Ataque, Defensa, Ataque Especial, Defensa Especial y Velocidad**.
+
+**Acierto y evasión usan la misma escalera −2…+2**, a propósito: un solo vocabulario para todo el runtime de combate. Los juegos les dan su propia tabla 3/9…9/3, pero una segunda escalera serían dos reglas que leer en pantalla y dos que explicar, y nada en PokeSwap necesita esa precisión todavía. Ya es código vivo, no teoría: Sand Attack y Double Team son ejecutables.
+
+El dato del catálogo no se toca: Danza Espada sigue diciendo +2. Lo que cambia el clamp es cuánto vale una **segunda** Danza Espada, que es una pregunta de runtime y no de datos.
+
+Runtime puro, se resetea en el cambio, determinista. El único camino para mover una etapa es `modifyStat(combatiente, stat, delta)` — toma un stat y un número, nunca un movimiento.
 
 ## 13. Estados
 
@@ -233,55 +253,76 @@ Representación elegida: **el stage honesto −6…+6 por dentro, el multiplicad
 | Congelación | Ataque Especial ×0.5. **No inmoviliza**: un stun en un juego sin turnos no es lo aprobado | APPROVED |
 | Parálisis | Cooldown ×2. Sin recorte de Velocidad y sin fallo aleatorio | APPROVED / PLAYTEST |
 | Sueño | Pierde Action Windows: la barra **no avanza**, durante `sleepMs` (6 s) | PLAYTEST |
-| Envenenamiento grave | Tiquea como veneno; **ningún movimiento lo aplica** en R32.3 (el catálogo no lo produce). La escalada queda diferida | — |
+| Envenenamiento grave | Representable en la Condition y tiquea como veneno, pero **ningún efecto lo aplica**: el catálogo no lo produce, así que no se finge soporte completo. La escalada estilo Gen VI queda futura | — |
 
 Un estado mayor también responde a la tabla de tipos: Onda Trueno no paraliza a un tipo Tierra.
 
 **Confusión** (§26): volátil, convive con un estado mayor, **runtime puro**, 8 s, 33 % de que la ventana se gaste en un autogolpe de 40 de potencia sin tipo. No sobrevive a `leaveBattle`.
 
-## 14. Registry de efectos, y la brecha del catálogo
+## 14. Registry de efectos, y la brecha del catálogo (Q-4, cerrada)
 
 No hay ni un `if (moveId === …)`. El comportamiento se resuelve por el **`effectId`** de R32.1 más su `meta`. Agregar un movimiento al catálogo lo agrega al juego; no agrega una rama acá.
 
-Efectos ejecutables: `damage`, `damage.multiHit`, `damage.drain`, `damage.recoil`, `damage.recharge`, `damage.ailment`, `ailment`, `heal`, `protect`.
+Efectos ejecutables: `damage`, `damage.multiHit`, `damage.drain`, `damage.recoil`, `damage.recharge`, `damage.ailment`, `damage.statChange`, `ailment`, `statChange`, `heal`, `protect`.
 
 - **Multigolpe:** 2–5 con la distribución real (3/8, 3/8, 1/8, 1/8); un evento `DAMAGE` por golpe, con su número de golpe.
 - **Retroceso:** después del daño, porcentaje del daño hecho, y **puede debilitar al atacante** (hay test).
 - **Drenaje:** cura en función del daño hecho, clamado al HP máximo.
 - **Recarga:** próximo cooldown ×2.
+- **Cambios de stats:** `meta.statChanges` dice destinatario, stat, etapas y probabilidad; el motor los aplica con `modifyStat` y **no sabe qué movimiento los pidió**. Danza Espada, Gruñido y el secundario de Bola Sombra pasan todos por el mismo camino.
+
+### 14.1 Cómo se cerró Q-4
+
+La brecha era un dato que faltaba, así que se arregló **en el pipeline, no en el motor**. Nada de tablas a mano y nada de resolver por nombre de movimiento.
+
+1. Se agregó `move_meta_stat_changes.csv` de veekun a las fuentes fijadas: dice **stat y delta**.
+2. Esa tabla **nunca dice a quién**, así que se agregaron `data/moves.ts` y `data/mods/gen6/moves.ts` de Showdown —la misma fuente MIT ya aprobada en R32.1, el mismo commit fijado— leídos **como datos** para el **destinatario y la probabilidad**.
+3. Las dos **se cruzan**: si el set de stats/deltas no coincide exactamente, el movimiento queda diferido.
+4. Un movimiento cuya entrada en Showdown lleva código en vez de datos es **condicional** (Growth sube uno y dos con sol) y queda diferido: no se aproxima la mitad incondicional.
+
+Dos hallazgos del build, en `BATTLE_CATALOG.md` §6.1 con detalle: `move_meta_stat_changes.csv` trae valores **actuales** y `move_changelog.csv` no los revierte (Diamond Storm es +2 ahí y +1 en Gen VI), y para eso está el diff de Gen VI, que **gana** cuando declara él mismo el cambio.
 
 ### Cobertura — el número honesto
 
-| | |
-|---|---|
-| Movimientos en el catálogo | **621** |
-| Ejecutables por R32.3 | **282** |
-| Diferidos | **339** |
+| | Antes de Q-4 | **Ahora** |
+|---|---:|---:|
+| Movimientos en el catálogo | 621 | **621** |
+| Ejecutables por R32.3 | 282 | **390** |
+| Diferidos | 339 | **231** |
 
-R32.1 había pronosticado 415 soportados. Las dos listas **difieren en los dos sentidos**: retroceso y recarga estaban pronosticados como huecos y acá están implementados, y en cambio apareció una brecha que el pronóstico no conocía.
+De los **122** movimientos de la familia `statChange` / `damage.statChange`:
+
+| | Movimientos |
+|---|---:|
+| **Ejecutables** | **108** |
+| — directos (Danza Espada, Gruñido, Cola Látigo, Agilidad, Chirrido) | 57 |
+| — secundarios (Rayo Carga, Bola Sombra, Poder Pasado, Sofoco) | 51 |
+| Diferidos | 14 |
+
+El bucket de **118 sin metadata desapareció**. Lo que queda, con su razón:
 
 | Movimientos | Motivo |
 |---:|---|
-| **118** | **`stat change payload missing from catalog`** |
 | 78 | `effect unique` (Rest, Substitute, Transform…) |
 | 31 | `variable power` (Seismic Toss, Low Kick, Return, Gyro Ball) |
 | 22 | `flinch has no realtime meaning yet` |
 | 16 | `target entire-field` |
 | 14 | `charge turn` (Fly, Dig, Solar Beam) |
 | 11 | `target users-field` (pantallas) |
+| **10** | **`stat change not stated by the pinned sources`** — condicionales: Growth, Minimize, Defense Curl, Rapid Spin, Charge, Captivate, Autotomize, Parting Shot, Venom Drench, Hyperspace Fury |
 | 8 | `ailment trap` |
 | 4+4+4 | `effect ohko`, `target opponents-field`, `target specific-move` |
 | 3+3+3+3 | `ailment no-type-immunity`, `target all-pokemon`, `target ally`, `target user-and-allies` |
 | 2+2 | `effect forceSwitch`, `effect damage.selfKo` |
-| 11 | volátiles sueltos (leech-seed, nightmare, yawn, torment, ingrain, embargo, heal-block, infatuation, unknown…) y 3 casos de objetivo raro |
+| 11 | volátiles sueltos (leech-seed, nightmare, yawn, torment, ingrain, embargo, heal-block, infatuation, unknown…) y 2 objetivos raros |
 
-**La brecha más grande es un dato que falta, no trabajo pendiente.** El catálogo generado no incluye `move_meta_stat_changes`, así que un movimiento `statChange` dice **que** cambia stats y nunca **cuál** ni **cuánto**: Danza Espada y Gruñido son indistinguibles desde acá. La maquinaria de stages existe y está testeada (§12), pero ningún movimiento del catálogo la puede manejar hasta que R32.1 emita esa tabla — y eso es un `catalogVersion` nuevo, así que **no es de R32.3**. Es la pregunta abierta número uno.
+Otros cuatro de la familia caen por un motivo que no es el stat change: Rototiller (`target all-pokemon`), Aromatic Mist (`target ally`), Geomancy (`charge turn`) y Magnetic Flux (`target user-and-allies`).
 
 **Un movimiento diferido se rechaza con su motivo, nunca se corre como un golpe común.** Y se rechaza en el momento de seleccionarlo, no tres segundos después.
 
 ### Diferido a propósito
 
-Clima, terreno, pantallas, cambio forzado, OHKO, turnos de carga, autodestrucción, efectos de campo únicos y los volátiles complejos. `damage.flinch` también: "perdés el turno" no tiene equivalente sin turnos, y resetear la barra del rival sería una decisión de producto que nadie tomó.
+Clima, terreno, pantallas, cambio forzado, OHKO, turnos de carga, autodestrucción, efectos de campo únicos y los volátiles complejos. `damage.flinch` también, y sigue así **por decisión**: "perdés el turno" no tiene equivalente sin turnos, y si resetea la barra del rival, la retrasa o le come una ventana es una decisión de producto que no hace falta para foundations.
 
 ## 15. Cambio
 
@@ -337,17 +378,44 @@ La salida pasa **siempre** por el `leaveBattle` del modelo (R32.2.1), que ni siq
 
 ## 21. Determinismo e invariantes
 
-`npx vitest run src/features/battle/rules` — **72 tests** en 3 archivos.
+`npx vitest run src/features/battle/rules` — **88 tests** en 3 archivos.
 
 | Archivo | Qué cubre |
 |---|---|
-| `rules.core.test.ts` (26) | RNG (pureza, no-mutación, una tirada por certeza, rangos), tabla de tipos con los cuatro fixtures y todos los multiplicadores, Gen VI (Acero perdió sus resistencias, Hada existe), Action Bar (fórmula exacta, monotonía, prioridad/recarga/parálisis), stages, daño (banda 85–100, inmunidad, mínimo 1, STAB, Struggle sin tipeo, tabla de críticos, acierto nulo), distribución 2–5 golpes, registry por `effectId`, cobertura 282/621, contrato de captura |
-| `rules.engine.test.ts` (38) | Comandos como intención, rechazo sin mutar (`===`), versión de catálogo y de reglas, PP y auto-repeat, Struggle (recoil de 1/4, le pega a un Fantasma), prioridad y recarga medidas sobre los eventos, Protect (2 cargas, multigolpe = 1 carga, expiración), multigolpe/retroceso/drenaje, estados (uno solo, tabla de tipos, veneno a 3/6/9 s, sueño que come ventanas, quemadura y congelación), confusión, cambio, debilitado, objetos, captura, objetivo, salida por `leaveBattle` |
+| `rules.core.test.ts` (32) | RNG (pureza, no-mutación, una tirada por certeza, rangos), tabla de tipos con los cuatro fixtures y todos los multiplicadores, Gen VI (Acero perdió sus resistencias, Hada existe), Action Bar (fórmula exacta, monotonía, prioridad/recarga/parálisis), **etapas −2…+2 con los cuatro tests de clamp (§21.1)**, daño (banda 85–100, inmunidad, mínimo 1, STAB, Struggle sin tipeo, tabla de críticos, acierto nulo), distribución 2–5 golpes, registry por `effectId`, **cobertura 390/621**, **metadata de stat changes completa, destinatarios y el caso Diamond Storm**, contrato de captura |
+| `rules.engine.test.ts` (48) | Comandos como intención, rechazo sin mutar (`===`), versión de catálogo y de reglas, PP y auto-repeat, Struggle (recoil de 1/4, le pega a un Fantasma), prioridad y recarga medidas sobre los eventos, Protect (2 cargas, multigolpe = 1 carga, expiración, **no-refresh**), **stat changes con fixtures reales (§21.2)**, multigolpe/retroceso/drenaje, estados (uno solo, tabla de tipos, veneno a 3/6/9 s, sueño que come ventanas, quemadura y congelación), confusión, cambio, debilitado, objetos, captura, objetivo, salida por `leaveBattle` |
 | `rules.determinism.test.ts` (8) | **Replay determinista** ×5 sobre estado **y** eventos; la semilla importa; independencia de la granularidad del reloj (1, 17, 250, 1000, 10000 ms); ida y vuelta por JSON a mitad de batalla; `Math.random` y `Date.now` reemplazados por funciones que tiran error; invariantes en batallas largas; un comando rechazado no deja rastro |
 
 Invariantes verificadas sobre batallas de hasta 200 pasos: `0 ≤ HP ≤ maxHp` y entero, `fainted ⟺ HP = 0`, `0 ≤ PP ≤ maxPP` y sólo de movimientos que el Pokémon conoce, un solo estado mayor (y `confusion` nunca es uno), `seq` estrictamente creciente, `timeMs` monótono, contadores de runtime no negativos.
 
+Los efectos nuevos entran en las tres pruebas de determinismo: el replay ×5, el round-trip por JSON y la independencia de la granularidad del reloj corren sobre batallas que incluyen cambios de stats, y su probabilidad sale del `RngState` del estado como cualquier otra tirada.
+
 No se agregó ninguna dependencia: no hay librería de property testing y no hacía falta traer una.
+
+### 21.1 El test de clamp de etapas
+
+Cuatro afirmaciones, porque esto es exactamente lo que estaba mal antes:
+
+1. el Ataque llega a **+2**;
+2. otro **+2 no cambia nada** — y se emite `STAT_STAGE_UNCHANGED` con `atCeiling`;
+3. un **−1 lo deja en +1 inmediatamente**, sin excedente oculto que comer;
+4. el multiplicador pasa de **×2 a ×1.5** en el acto.
+
+Y el espejo negativo: −2, otro debuff no acumula, y un +1 lo deja en −1 al instante.
+
+### 21.2 Los fixtures de stat changes
+
+| Fixture | Qué prueba |
+|---|---|
+| **Danza Espada** | Ataque propio **+2**; un segundo uso deja +2 y emite `STAT_STAGE_UNCHANGED` |
+| **Gruñido** | Ataque del rival **−1** |
+| **Cola Látigo** | Defensa del rival **−1** |
+| **Agilidad** | Velocidad propia **+2**, y el **Action Bar se acorta** — mientras la Velocidad persistida no se mueve |
+| **Chirrido** | Defensa del rival **−2** |
+| **Rayo Carga** | Secundario soportado: 70 % de Ataque Especial propio +1, **después** del daño |
+| **Sofoco** | Bajada propia garantizada: Ataque Especial **−2** |
+| **Growth** | Sigue **diferido**: la cadena de respaldo lo saltea y no cambia ninguna etapa |
+| Cambio | Las etapas se borran al cambiar y **nunca** llegan a la instancia |
 
 ## 22. Muestra
 
@@ -356,7 +424,7 @@ npm run battle:sample              # las dos peleas y los fixtures de reglas
 npm run battle:sample -- --coverage   # sólo el informe de cobertura
 ```
 
-Imprime `Pikachu vs Gengar` y `Charizard vs Azumarill` completas —stats derivadas, cooldowns, clasificación de cada movimiento, selección, daño, tipo, PP, estado, eventos y resultado— y después los fixtures de Protect, Struggle, replay determinista y granularidad del reloj. Las fixtures son **las mismas** que asserta la suite (`sampleBattles.ts`), así que lo que lee una persona y lo que verifica CI son la misma batalla. No escribe nada y no toca la red.
+Imprime `Pikachu vs Gengar` y `Charizard vs Azumarill` completas —stats derivadas, cooldowns, clasificación de cada movimiento, selección, daño, tipo, PP, estado, eventos y resultado— y después los fixtures de Protect (con su no-refresh), los cambios de stats con su destinatario y su fuente, el clamp de etapas, Struggle, el replay determinista y la granularidad del reloj. Las fixtures son **las mismas** que asserta la suite (`sampleBattles.ts`), así que lo que lee una persona y lo que verifica CI son la misma batalla. No escribe nada y no toca la red.
 
 ## 23. Comparación con el prototipo de Dungeon (§45)
 
@@ -367,7 +435,7 @@ Auditado: `src/features/dungeonPrototype/domain/{battle,damage,moves,typeChart,c
 | `rng.ts` | **Adaptada** | Misma idea (inyectada, por semilla, streams por concern). R32.3 necesita que el estado del RNG sea **dato adentro del BattleState**, así que mulberry32 con estado escondido pasó a ser `{ seed, cursor }` |
 | `damage.ts` — fórmula | **Adaptada** | La cadena Gen VI se conserva; el orden de redondeos quedó explícito y las stats ahora salen del modelo R32.2 (IV/EV/naturaleza) en vez de un escalado por nivel |
 | `damage.ts` — Action Bar | **Reusada** (forma) | Misma fórmula y mismos multiplicadores. Los números son los del contrato R32.3 (2.6/1.4/4.0), no los de D1.2.4 (3.9/2.1/6.0), y se trabaja en ms |
-| `damage.ts` — clamp de stages ×2/×0.5 | **Reusada** | Decisión de producto aprobada, tal cual |
+| `damage.ts` — clamp de stages | **Adaptada** | El prototipo clampea el **multiplicador** sobre una escalera −6…+6; R32.3 clampea la **etapa** en −2…+2 por la acumulación oculta que eso causaba (§12). El techo y el piso efectivos (×2 / ×0.5) son los mismos |
 | `damage.ts` — constantes `STATUS` | **Reusadas** como config | Veneno 1/16 cada 3 s, sueño 6 s, confusión 8 s / 33 % / 40 de potencia |
 | `typeChart.ts` | **Descartada** | Era una tabla escrita a mano marcada PROTOTYPE. La reemplaza la generada de R32.1 |
 | `moves.ts` (12 movimientos a mano) | **Descartada** | La reemplazan los 621 del catálogo más el registry por `effectId` |
@@ -400,24 +468,40 @@ Autoridad de servidor · Colyseus · red · Supabase · persistencia · integrac
 
 ## 26. Preguntas realmente abiertas
 
-1. **`move_meta_stat_changes` en el catálogo.** Es el bloqueo más grande y concreto: 118 movimientos —incluidos Danza Espada, Gruñido, Psíquico, Bola Sombra— no se pueden ejecutar porque el catálogo no dice qué stat tocan ni cuánto. Agregarlo es trabajo de R32.1 y produce un `catalogVersion` nuevo. ¿Se aprueba abrir esa sub-tarea?
-2. **Protect: ¿"al agotarse" o "al lanzar"?** El contrato de R32.3 dice al agotarse y eso está implementado; el prototipo lo cobra al lanzar. Son dos sensaciones distintas.
-3. **Protect en cadena.** Con auto-repeat el escudo se renueva cada ventana sin más costo que la ventana. Los juegos bajan la probabilidad en usos consecutivos. ¿Se agrega esa penalización?
-4. **Struggle sin movimientos ejecutables.** Hoy un Pokémon con PP pero sin ningún movimiento que R32.3 pueda correr llega a Struggle. Es explícito y evita el cuelgue, pero no es la regla de los juegos.
-5. **`damage.flinch` (22 movimientos).** ¿La lectura realtime de flinch es "se le resetea la barra al objetivo", o queda diferido?
-6. **Envenenamiento grave.** Tiquea como veneno y ningún movimiento lo aplica. ¿Escalada al estilo Gen VI, o se queda plano?
-7. **Números de playtest.** Nada de `config.ts` marcado `PLAYTEST` está balanceado: cooldowns, veneno, sueño, confusión, captura. Eso es R38.
-8. **IA.** El motor no tiene ninguna, a propósito: un salvaje sin comandos usa la cadena de respaldo. Quién decide qué hace un Pokémon salvaje es una pregunta abierta de producto (y en R32.4, de autoridad).
+Las de la primera entrega que quedaron **cerradas** en la microfase: Q-4 (metadata de stat changes, §14.1), Protect al agotarse (§11, decisión cerrada), Protect en cadena (§11.1, no se repone; la probabilidad decreciente queda para balance) y el rango de etapas (§12).
+
+1. **Struggle sin movimientos ejecutables.** Un Pokémon con PP pero sin ningún movimiento que estas reglas puedan correr llega a Struggle. Queda registrado como **compatibility fallback de v1**: es explícito en los eventos y evita el cuelgue, pero no es la regla de los juegos y no es necesariamente la regla productiva final.
+2. **`damage.flinch` (22 movimientos).** Sigue diferido a propósito. ¿Resetea la barra del objetivo, la retrasa, o le come una ventana? No hace falta resolverlo para foundations.
+3. **Envenenamiento grave.** `badlyPoisoned` es representable en la Condition y tiquea como veneno, pero **ningún efecto lo aplica** y no se finge soporte completo. La escalada estilo Gen VI queda futura.
+4. **Los 10 stat changes condicionales.** Growth y compañía necesitan clima, volátiles o condiciones que R32.3 no modela. Se destraban solos cuando eso exista.
+5. **Números de playtest.** Nada de `config.ts` marcado `PLAYTEST` está balanceado: cooldowns, veneno, sueño, confusión, captura, y ahora también el hecho de que dos etapas sean el techo. Eso es R38.
+6. **IA.** El motor no tiene ninguna, a propósito: un salvaje sin comandos usa la cadena de respaldo. Quién decide qué hace un Pokémon salvaje es una pregunta abierta de producto (y en R32.4, de autoridad).
+7. **Acierto y evasión en −2…+2.** Se eligió un solo vocabulario para todo el runtime (§12) en vez de la tabla 3/9…9/3 de los juegos. Es una desviación consciente y reversible.
 
 ## 27. Verificación
 
 | Comando | Resultado |
 |---|---|
-| `npx vitest run src/features/battle/rules` | 3 archivos, **72 tests**, verde |
-| `npm test` | **117 archivos, 1386 tests**, verde (1314 antes + 72) |
+| `npx vitest run src/features/battle/rules` | 3 archivos, **88 tests**, verde |
+| `npx vitest run src/features/battle` | 4 archivos, **108 tests**, verde (con los 20 del catálogo) |
+| `npm test` | **117 archivos, 1402 tests**, verde |
 | `npm run typecheck` | limpio |
-| `npm run lint` | `npx eslint src/features/battle scripts/battle-sample.ts` → 0 errores, 0 warnings |
+| `npm run lint` | `npx eslint src/features/battle scripts/battle-catalog scripts/battle-sample.ts` → 0 errores, 0 warnings |
 | `npm run build` | OK |
+| `npm run catalog:build` | determinista: dos corridas, mismo md5 en los cuatro archivos |
 | `npm run battle:sample` | corre las dos peleas y los fixtures |
 
-> **PREEXISTENTE, no es de R32.3:** `npm run lint` sobre el repo entero reporta 14 errores y 19 warnings. Los 14 errores salen de `.worktrees/demo-scope/`, un worktree sin trackear de otra rama que quedó adentro del repo y que ESLint ahora escanea; los 19 warnings son los de `AuthModal.vue` de siempre. Nada de eso es código de esta entrega y no se tocó.
+> **PREEXISTENTE, no es de R32.3:** `npm run lint` sobre el repo entero reporta 14 errores y 19 warnings. Los 14 errores salen de `.worktrees/demo-scope/`, un worktree sin trackear de otra rama que quedó adentro del repo y que ESLint escanea; los 19 warnings son los de `AuthModal.vue` de siempre. Nada de eso es código de esta entrega, no se tocó y **no bloquea el gate**: el lint del código de R32.3 está limpio.
+
+## 28. Efecto del cambio de `catalogVersion`
+
+Pasar de `1.oras.ab69b5804411` a `1.oras.db4ae081bb58` toca todo lo que lleva la versión adentro:
+
+| Qué | Efecto |
+|---|---|
+| `generated/{version.ts,core.json,moves.json,learnsets.json,report.json}` | Regenerados por el pipeline |
+| `LEGACY_MOVE_AUDIT.md` y `generated/legacyMoves.json` | Regenerados con `node scripts/legacy-move-audit.mjs`. **La clasificación no se movió**: A 561 · B 370 · C 19 · D 15, igual que antes; lo único que cambió es la versión registrada |
+| Fixtures y muestra de R32.3 | Leen la versión del catálogo cargado, así que no había nada que fijar a mano |
+| Un `BattleState` guardado con la versión vieja | **Se rechaza**, que es exactamente para lo que está el campo |
+
+Especies, formas, tipos, learnsets y valores de movimientos **no cambiaron**: lo único que se agregó es `meta.statChanges`.

@@ -242,7 +242,9 @@ Versión y sal vigentes: `LEGACY_MIGRATION_VERSION = 1`, `LEGACY_MIGRATION_SALT 
 
 **Shiny:** `swap_history.was_shiny` describe un **evento de swap**, no un Pokémon, así que no alcanza como evidencia. Información histórica imposible de reconstruir, documentada acá y no inferida.
 
-**El dueño es `pokemon_xp.user_id`**, el jugador que lo entrenó. `slots.owner_id` es quien tiene la **especie** en el mercado, que es otra cosa, y no debe convertirse en dueño del Pokémon.
+**El dueño es `slots.owner_id`**, y sólo eso. `pokemon_xp` es **fuente de progresión**, no de propiedad: su `user_id` dice de quién es ese entrenamiento, y si no coincide con el dueño del slot se reporta como problema en vez de usarse (§10.2). Es lo que implementa `migrateLegacySlot` y lo que verifican sus tests.
+
+> **Corregido en R32.3.** Hasta acá este párrafo decía lo contrario —«el dueño es `pokemon_xp.user_id`»— y era una línea sobreviviente de la primera versión del documento, anterior a la decisión de cardinalidad de §10.2. Nunca describió el código. Se corrige en la rama descendiente sin reabrir R32.2.1.
 
 ### 10.5 Qué falta decidir antes de ejecutarla
 
