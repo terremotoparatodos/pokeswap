@@ -10,7 +10,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { hitTest, resolvePick, spriteRect, type ActorHit, type PlacedHit, type PropHit } from './picking'
-import { placedObject, type PlacedObject } from './placedObjects'
+import { placedFeet, placedObject, type PlacedObject } from './placedObjects'
 import { createProjector } from './projection'
 
 const TILE = 16
@@ -31,9 +31,8 @@ const BENCH_HITBOX = { width: 34, height: 30 }
 /** Exactly what `Renderer.collectPlacedHits` builds for one object. */
 function placedHit(object: PlacedObject): { hit: PlacedHit; feet: { x: number; y: number; scale: number } } {
   const box = object.hitbox!
-  const feetX = object.anchor.tx * TILE + TILE / 2
-  const feetY = object.anchor.ty * TILE + TILE - 2
-  const p = proj.project(feetX - CAM.x, feetY - CAM.y)!
+  const feet = placedFeet(object, TILE)
+  const p = proj.project(feet.x - CAM.x, feet.y - CAM.y)!
   const left = p.x - (box.width / 2 - (box.offsetX ?? 0)) * p.scale
   return {
     hit: {

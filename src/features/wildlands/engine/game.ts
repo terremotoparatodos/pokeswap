@@ -27,7 +27,7 @@ import { lerpLens, LENSES, type CameraLens, type LensName } from './projection'
 import { Renderer, type Scene } from './renderer'
 import type { SceneOverlay } from './sceneOverlay'
 import { PlayerAppearance } from './playerAppearance'
-import { PlacedObjects, placedObject, type PlacedObjectSpec } from './placedObjects'
+import { PlacedObjects, nearestTile, placedObject, type PlacedObjectSpec } from './placedObjects'
 import { AreaTravel } from './travel'
 import { TILE } from './world'
 import type { LobbyFeature } from '../lobby/features'
@@ -449,7 +449,20 @@ export class WildlandsGame {
     const pick = this.renderer.pick(cssX, cssY)
     const hit = this.onInspect ? plazaHitAt(this.area, pick) ?? wildHitAt(this.area, pick) : null
     if (hit) this.onInspect!(hit)
-    else if (!this.worldObjectBeside(pick.tile)) this.nav.goTo(this.player, this.entrances.retarget(this.area, pick))
+    else if (!this.worldObjectBeside(this.placedRetarget(pick.tile))) this.nav.goTo(this.player, this.entrances.retarget(this.area, pick))
+  }
+
+  /**
+   * A tap on a placed object answers with its anchor, which on a multi-tile
+   * object can be several tiles from the side the player is standing on. The
+   * tile that matters is the nearest one *of the same object*, so adjacency
+   * and walking both work for any footprint without anyone knowing its size
+   * (R33). A tap on anything else is returned untouched.
+   */
+  private placedRetarget(tile: Tile | null): Tile | null {
+    if (!tile) return null
+    const object = this.placedObjects.at(this.area.id, tile.tx, tile.ty)
+    return object ? nearestTile(object, this.player.tx, this.player.ty) : tile
   }
 
   /** A tile next to the player may host a prototype interaction; farther tiles walk there first. */

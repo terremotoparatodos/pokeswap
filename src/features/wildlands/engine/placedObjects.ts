@@ -48,8 +48,8 @@ export interface PlacedObject {
   /** The tile the object is anchored to: its front-bottom tile. */
   readonly anchor: Tile
   /**
-   * Every tile it occupies. One today; the shape is already a list so a 2×2
-   * smelter or a 4×3 house needs no change here, only a wider footprint.
+   * Every tile it occupies. A list rather than a size, so a 2×2 smelter, a 4×3
+   * house or an irregular shape are all the same kind of thing here (R33).
    */
   readonly footprint: readonly Tile[]
   /** Blocks movement, navigation and placement. */
@@ -61,6 +61,16 @@ export interface PlacedObject {
   readonly hitbox?: TapHitbox
 }
 
+/**
+ * A footprint cell, as an offset from the anchor: east and **north**, matching
+ * the `ty - dy` rule below. A shape given as cells needs no engine change per
+ * object, so an L-shaped forge is a different list, not a different type.
+ */
+export interface FootprintCell {
+  readonly dx: number
+  readonly dy: number
+}
+
 export interface PlacedObjectSpec {
   readonly id: string
   readonly areaId: string
@@ -68,22 +78,17 @@ export interface PlacedObjectSpec {
   readonly kind: PlacedObjectKind
   readonly solid?: boolean
   readonly interactive?: boolean
-  /** Tiles wide and deep, both 1 today. The anchor is the front-left tile. */
+  /** Tiles wide and deep. The anchor is the front-left tile. Ignored when `cells` is given. */
   readonly width?: number
   readonly depth?: number
+  /** An arbitrary shape, when a rectangle is not one. Must include its own anchor cell. */
+  readonly cells?: readonly FootprintCell[]
   readonly hitbox?: TapHitbox
 }
 
-/** Builds the record, expanding `width`/`depth` into the tiles it covers. */
+/** Builds the record, expanding `cells` — or `width`/`depth` — into the tiles it covers. */
 export function placedObject(spec: PlacedObjectSpec): PlacedObject {
-  const width = Math.max(1, Math.trunc(spec.width ?? 1))
-  const depth = Math.max(1, Math.trunc(spec.depth ?? 1))
-  const footprint: Tile[] = []
-  // The anchor is the front row, so a deeper object grows northwards (-ty),
-  // the same direction its art grows on screen.
-  for (let dy = 0; dy < depth; dy++) {
-    for (let dx = 0; dx < width; dx++) footprint.push({ tx: spec.anchor.tx + dx, ty: spec.anchor.ty - dy })
-  }
+  const footprint = spec.cells?.length ? cellFootprint(spec) : rectangleFootprint(spec)
   return {
     id: spec.id,
     areaId: spec.areaId,
@@ -94,6 +99,81 @@ export function placedObject(spec: PlacedObjectSpec): PlacedObject {
     kind: spec.kind,
     hitbox: spec.hitbox,
   }
+}
+
+// The anchor is the front row, so a deeper object grows northwards (-ty), the
+// same direction its art grows on screen.
+function rectangleFootprint(spec: PlacedObjectSpec): Tile[] {
+  const width = Math.max(1, Math.trunc(spec.width ?? 1))
+  const depth = Math.max(1, Math.trunc(spec.depth ?? 1))
+  const tiles: Tile[] = []
+  for (let dy = 0; dy < depth; dy++) {
+    for (let dx = 0; dx < width; dx++) tiles.push({ tx: spec.anchor.tx + dx, ty: spec.anchor.ty - dy })
+  }
+  return tiles
+}
+
+/**
+ * An explicit shape. Duplicates are dropped and the anchor is always included,
+ * so a malformed list can never produce an object that stands on nothing.
+ */
+function cellFootprint(spec: PlacedObjectSpec): Tile[] {
+  const seen = new Set<string>()
+  const tiles: Tile[] = []
+  for (const cell of [{ dx: 0, dy: 0 }, ...(spec.cells ?? [])]) {
+    const dx = Math.trunc(cell.dx)
+    const dy = Math.trunc(cell.dy)
+    const key = `${dx}:${dy}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    tiles.push({ tx: spec.anchor.tx + dx, ty: spec.anchor.ty - dy })
+  }
+  return tiles
+}
+
+/**
+ * The **front-centre** of a footprint in world pixels: where the art's feet
+ * go, and where a tap hitbox is projected from.
+ *
+ * A one-tile object answers the middle of its own tile, exactly what the
+ * renderer computed before, so nothing already placed moves. A 2×2 object
+ * answers the middle of its two front tiles, which is where its sprite is
+ * actually standing — the correction multi-tile art needs.
+ */
+export function placedFeet(object: PlacedObject, tile: number): { readonly x: number; readonly y: number } {
+  const frontTy = Math.max(...object.footprint.map(cell => cell.ty))
+  const front = object.footprint.filter(cell => cell.ty === frontTy)
+  const minTx = Math.min(...front.map(cell => cell.tx))
+  const maxTx = Math.max(...front.map(cell => cell.tx))
+  return { x: (minTx + maxTx + 1) / 2 * tile, y: frontTy * tile + tile - 2 }
+}
+
+/**
+ * The footprint tile nearest a point, in **Manhattan** distance.
+ *
+ * A tap on a wide object answers with its anchor, which for a 2×2 furnace can
+ * be three steps from the player standing at its other corner — far enough
+ * that an adjacency check would refuse an interaction that is plainly
+ * adjacent. Retargeting to the nearest tile of the same object fixes that for
+ * every shape at once, without anyone hardcoding a size.
+ *
+ * Manhattan and not Chebyshev, because that is the metric every rule
+ * downstream uses: walking, `besidePlaced` and the one-step interaction check
+ * are all orthogonal. Under Chebyshev a diagonal tile ties with an orthogonal
+ * one and can win, and the caller is then one *diagonal* step away — which
+ * reads as adjacent and is refused.
+ */
+export function nearestTile(object: PlacedObject, tx: number, ty: number): Tile {
+  let best = object.footprint[0]
+  let bestDistance = Infinity
+  for (const tile of object.footprint) {
+    const distance = Math.abs(tile.tx - tx) + Math.abs(tile.ty - ty)
+    if (distance < bestDistance) {
+      bestDistance = distance
+      best = tile
+    }
+  }
+  return best
 }
 
 /** The four orthogonal tiles around a footprint, where a player can stand. */

@@ -18,7 +18,7 @@ import { drawGrid, drawPads, drawRoute } from './groundMarks'
 import { drawSparkle, SceneLighting, type LightSource } from './lighting'
 import { drawOwnerMarker } from './ownerMarker'
 import { resolvePick, spriteRect, type ActorHit, type PlacedHit, type PropHit } from './picking'
-import type { PlacedObject } from './placedObjects'
+import { placedFeet, type PlacedObject } from './placedObjects'
 import type { Tile } from './pathfinding'
 import { pixelsToCanvas } from './pixels'
 import { drawPlayerNameplate } from './playerNameplate'
@@ -235,9 +235,12 @@ export class Renderer {
     for (const object of scene.placed ?? []) {
       const box = object.hitbox
       if (!box) continue
-      const feetX = object.anchor.tx * TILE + TILE / 2
-      const feetY = object.anchor.ty * TILE + TILE - 2
-      const p = proj.project(feetX - scene.camX, feetY - scene.camY)
+      // Projected from the footprint's front-centre, not from the anchor: a
+      // 2×2 station's art stands in the middle of its two front tiles, and
+      // reading the anchor alone would offset its hitbox by half its width.
+      // For a 1×1 object this is the same point it always was (R33).
+      const feet = placedFeet(object, TILE)
+      const p = proj.project(feet.x - scene.camX, feet.y - scene.camY)
       if (!p) continue
       const left = p.x - (box.width / 2 - (box.offsetX ?? 0)) * p.scale
       frame.placedHits.push({
