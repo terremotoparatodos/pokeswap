@@ -7,7 +7,6 @@ interface ImportMetaEnv {
   /** `on` builds Community Playtest 0.1; anything else builds the normal product. */
   readonly VITE_PLAYTEST?: string
   /** Build-time fallback access code, used until the remote gate answers. */
-  readonly VITE_PLAYTEST_CODE?: string
 }
 
 interface ImportMeta {

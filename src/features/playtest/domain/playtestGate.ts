@@ -10,8 +10,9 @@
 //      redeploy, to close the playtest the moment the stream ends.
 //
 // The remote gate can only *narrow*. It can close a build that shipped open;
-// it can never open a build that did not ship as a playtest build. So the worst
-// case of the network layer failing is the build-time default, never more.
+// it can never open a build that did not ship as a playtest build. And an
+// unreadable gate never opens anything: the client keeps the last state it read,
+// or stays on the gate screen if it has read none (see api/gateApi.ts).
 //
 // PLAYTEST ONLY. Nothing here is a security boundary — see §Honestidad in
 // docs/playtest/COMMUNITY_PLAYTEST_0_1.md. The access code lives in a public
@@ -45,7 +46,7 @@ export type PlaytestAccess =
 export const DEFAULT_CLOSED_MESSAGE =
   'El Community Playtest 0.1 está cerrado. ¡Gracias por jugar! Volvé a probar en la próxima ventana.'
 
-/** The build-time default, used until (and if) the remote gate answers. */
+/** Shape of an open gate with no code; `parseGateConfig`'s fallback for fields it cannot read. */
 export const BUILD_DEFAULT_GATE: PlaytestGateConfig = {
   state: 'open',
   message: null,

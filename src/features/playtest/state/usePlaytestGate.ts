@@ -41,6 +41,9 @@ function storeCode(code: string | null): void {
 
 async function refresh(): Promise<void> {
   const next = await fetchGateConfig()
+  // No answer is not an answer: keep the last state read. A known CLOSED stays
+  // closed, and before any answer the gate screen stays up ("checking").
+  if (!next) return
   config.value = next
   // A code that stops matching (rotated mid-stream) sends the player back to
   // the form instead of leaving them in a state the gate no longer allows.

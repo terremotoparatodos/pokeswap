@@ -6,6 +6,9 @@
       <template v-if="access.status === 'checking'">
         <h1 class="pt-gate-title">Un segundo…</h1>
         <p class="pt-gate-body">Estamos viendo si el playtest está abierto.</p>
+        <button type="button" class="pt-gate-btn pt-gate-btn--ghost" @click="emit('recheck')">
+          Volver a chequear
+        </button>
       </template>
 
       <template v-else-if="access.status === 'closed'">

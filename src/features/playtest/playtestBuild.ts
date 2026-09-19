@@ -4,7 +4,7 @@
 // so the rules can be tested without a bundler.
 
 import { createBuildIdentity, type BuildIdentity } from './domain/buildIdentity'
-import { BUILD_DEFAULT_GATE, type PlaytestGateConfig, type PlaytestMode } from './domain/playtestGate'
+import type { PlaytestMode } from './domain/playtestGate'
 
 /** `on` is the only value that builds a playtest. Anything else is the normal product. */
 export const PLAYTEST_MODE: PlaytestMode = import.meta.env.VITE_PLAYTEST === 'on' ? 'on' : 'off'
@@ -17,9 +17,3 @@ export const PLAYTEST_MODE: PlaytestMode = import.meta.env.VITE_PLAYTEST === 'on
 export const isPlaytest: boolean = PLAYTEST_MODE === 'on'
 
 export const BUILD: BuildIdentity = createBuildIdentity(__PLAYTEST_COMMIT__, __PLAYTEST_BUILT_AT__)
-
-/** What the gate is until (and unless) the remote row answers. */
-export const buildDefaultGate = (): PlaytestGateConfig => ({
-  ...BUILD_DEFAULT_GATE,
-  accessCode: import.meta.env.VITE_PLAYTEST_CODE?.trim() || null,
-})

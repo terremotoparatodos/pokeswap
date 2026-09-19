@@ -108,9 +108,15 @@ la sesión de Auth y la fila del gate.
 2. **Gate remoto** (`playtest_gate`) — cierra en segundos, sin redeploy.
 
 El gate remoto **sólo puede restringir**. Puede cerrar una build que salió
-abierta; nunca puede abrir una que no se construyó como playtest. Por eso todos
-los modos de falla de la red (tabla inexistente, RLS, offline, fila mal escrita)
-caen en el default de build en lugar de tumbar el playtest a mitad del stream.
+abierta; nunca puede abrir una que no se construyó como playtest.
+
+**Falla de red = sin respuesta, nunca `OPEN`.** Si la lectura falla (tabla
+inexistente, RLS, offline, fila ausente o `state` inválido) el cliente conserva
+el último estado que leyó: un `CLOSED` conocido sigue cerrado, un `OPEN` conocido
+sigue abierto hasta el próximo poll que responda. Una pestaña que todavía no leyó
+nada se queda en la pantalla del gate ("Un segundo…", con *Volver a chequear*) y
+el poll sigue reintentando. No hay default de build abierto ni
+`VITE_PLAYTEST_CODE`: el código vive sólo en la fila.
 
 El cliente relee el gate cada **45 s**, así que `CLOSED` llega en menos de un
 minuto a todas las pestañas abiertas.
@@ -178,7 +184,9 @@ inmediato, no un código más largo.
 
 Los edificios siguen en pie. Cerrado significa **no cargado**: el playtest nunca
 empuja la ruta del panel, así que Mercado, Swap y Perfil no están ocultos, están
-ausentes. Cada puerta cerrada dice qué era y adónde ir en su lugar.
+ausentes. Tampoco hay entrada por URL: en la build de playtest `/mercado`,
+`/swap`, `/dungeon`, `/pokedex`, `/perfil`, `/caja` (y `/market`, `/profile`)
+redirigen a `/`, sus rutas no se registran y sus chunks no se emiten. Cada puerta cerrada dice qué era y adónde ir en su lugar.
 
 ### WildLands
 
@@ -405,8 +413,9 @@ Nada de esto es urgente ni destructivo: el playtest no dejó datos.
    ```sql
    DROP TABLE IF EXISTS playtest_gate;
    ```
-   Con la tabla ausente el cliente cae en su default de build, así que **hay que
-   dropearla después de desplegar la build normal, no antes.**
+   Con la tabla ausente una build de playtest ya no abre (se queda en la
+   pantalla del gate), pero igual **conviene dropearla después de desplegar la
+   build normal, no antes.**
 7. **Verificar la web cerrada:** abrir en incógnito y confirmar que no se puede
    entrar.
 

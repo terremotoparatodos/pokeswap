@@ -9,10 +9,13 @@ import PlaytestGateScreen from './PlaytestGateScreen.vue'
 import { DEFAULT_CLOSED_MESSAGE } from '../domain/playtestGate'
 
 describe('the gate screen', () => {
-  it('says it is still checking before the remote gate answers', () => {
+  it('says it is still checking before the remote gate answers, and offers to re-check', async () => {
     const wrapper = mount(PlaytestGateScreen, { props: { access: { status: 'checking' } } })
     expect(wrapper.text()).toContain('Un segundo')
     expect(wrapper.find('input').exists()).toBe(false)
+    // No network at all keeps a tab here (never open): the player can retry.
+    await wrapper.find('.pt-gate-btn').trigger('click')
+    expect(wrapper.emitted('recheck')).toHaveLength(1)
   })
 
   it('shows the operator message when closed, and offers to re-check', async () => {

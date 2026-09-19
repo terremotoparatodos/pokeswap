@@ -6,6 +6,7 @@
 
 import type { RouteComponent, RouteRecordRaw } from 'vue-router'
 import { LOBBY_FEATURE_IDS, LOBBY_FEATURES, type LobbyFeature } from '../../features/wildlands/lobby/features'
+import { isPlaytest } from '../../features/playtest/playtestBuild'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -17,8 +18,13 @@ declare module 'vue-router' {
 }
 
 type LazyView =() => Promise<RouteComponent>
+export type PanelViews = Record<LobbyFeature, LazyView>
 
-const PANEL_VIEWS: Record<LobbyFeature, LazyView> = {
+// Community Playtest 0.1: null. The playtest opens its own surfaces from the
+// doors (WildlandsView.openFeature), and a direct URL must not be a way around
+// that — these views reach market, swap, dungeon rewards and tokens. With the
+// flag folded to `true` the imports are dead code and the chunks never ship.
+const PANEL_VIEWS: PanelViews | null = isPlaytest ? null : {
   mercado: () => import('../../features/market/components/MarketView.vue'),
   swap: () => import('../../features/swap/components/SwapView.vue'),
   dungeon: () => import('../../features/dungeon/components/DungeonView.vue'),
@@ -37,21 +43,24 @@ const dungeonPrototype: LazyView | null = import.meta.env.DEV ? () => import('..
 // City Mapping Lab: edits a working copy of Ciudad Corazón and exports a patch. Same DEV-only rule.
 const cityLab: LazyView | null = import.meta.env.DEV ? () => import('../../features/cityLab/components/CityLabView.vue') : null
 
-export const routes: RouteRecordRaw[] = [
+/** Null panels is the playtest table: every feature URL lands in the town, no view loads. */
+export const buildRoutes = (panels: PanelViews | null): RouteRecordRaw[] => [
   {
     path: '/',
     name: 'lobby',
     component: () => import('../../features/wildlands/components/WildlandsView.vue'),
-    children: LOBBY_FEATURE_IDS.map(id => ({
-      path: id,
-      name: id,
-      component: PANEL_VIEWS[id],
-      meta: { panelTitle: LOBBY_FEATURES[id].title },
-    })),
+    children: panels
+      ? LOBBY_FEATURE_IDS.map(id => ({
+        path: id,
+        name: id,
+        component: panels[id],
+        meta: { panelTitle: LOBBY_FEATURES[id].title },
+      }))
+      : LOBBY_FEATURE_IDS.map(id => ({ path: id, redirect: '/' })),
   },
   // Pre-R25 links.
-  { path: '/market', redirect: to => ({ name: 'mercado', query: to.query }) },
-  { path: '/profile', redirect: to => ({ name: 'perfil', query: to.query }) },
+  { path: '/market', redirect: to => (panels ? { name: 'mercado', query: to.query } : { path: '/' }) },
+  { path: '/profile', redirect: to => (panels ? { name: 'perfil', query: to.query } : { path: '/' }) },
   { path: '/wildlands', redirect: to => ({ path: '/', query: to.query }) },
   // Legacy map links now enter Ciudad Corazón.
   { path: '/map', redirect: to => ({ path: '/', query: to.query }) },
@@ -66,3 +75,5 @@ export const routes: RouteRecordRaw[] = [
     : []),
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
+
+export const routes: RouteRecordRaw[] = buildRoutes(PANEL_VIEWS)
