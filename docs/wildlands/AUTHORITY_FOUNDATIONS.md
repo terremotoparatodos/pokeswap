@@ -3,7 +3,8 @@
 > Rama `feat/r32-4-authority-foundations`, desde `feat/r32-3-shared-battle-rules` @ `9ba9641bf0e921b8507e0d96f05fee7efeee352b`.
 > **Solo primitivas de autoridad, tests y documentación.** No hay Supabase, ni persistencia, ni inventario, ni ownership, ni Dungeon, ni encuentros, ni loot, ni llaves, ni captura persistida, ni retreat, ni wipe, ni Alpha, ni Boss, ni co-op, ni matchmaking, ni IA, ni predicción de cliente, ni reconciliación, ni balance.
 > Catálogo: `1.oras.db4ae081bb58`. Reglas: `pokeswap-battle-v1`. Ninguno de los dos cambia acá.
-> Código: `src/features/battle/authority/`. Tests: 55, en cinco archivos de esa misma carpeta.
+> Código: `src/features/battle/authority/`. Tests: 71, en seis archivos de esa misma carpeta.
+> **Microfase de decisiones de protocolo (2026-09-19):** A-1 (handshake de reconexión), A-3 (`targetId` obligatorio) y A-4 (rechazo público vs diagnóstico interno) quedaron **cerradas**. A-2 queda abierta a propósito (§5). Checkpoint previo a la microfase: `840bab0`.
 
 ---
 
@@ -41,7 +42,7 @@ El cliente puede proponer **intención**. No puede afirmar **hechos**: no hay ni
 Sí:
 
 ```
-USE_MOVE(combatantId, moveSlotId, targetId?)
+USE_MOVE(combatantId, moveSlotId, targetId)
 ```
 
 No:
@@ -69,7 +70,7 @@ Por eso la sala vive donde viven las reglas, sin ninguna dependencia de transpor
 | `idempotency.ts` | Ledger acotado + piso de secuencia por controlador |
 | `itemCatalog.ts` | Qué hace un objeto y cuánto bonifica una ball, del lado del servidor |
 | `authority.ts` | `BattleAuthority`: estado canónico, reloj, control, revisión |
-| `expeditionRoom.ts` | Esqueleto de sala: join/leave/message/update |
+| `expeditionRoomCore.ts` | Esqueleto de sala: join/leave/message/update |
 | `harness.ts` | Andamio de test y dev (no está en el barrel) |
 
 R34 conecta esto a Colyseus dándole un paso de build al servicio. **Nada de este código tiene que cambiar cuando pase**: una subclase de `Room` llama `join`, `message`, `update` y `leave`, en ese orden, y reenvía lo que devuelven.
@@ -115,6 +116,8 @@ Nada se duplica: ni daño, ni PP, ni captura, ni cambio, ni objeto, ni ningún e
 
 `createIdempotencyLedger({ maxEntries = 256 })`, FIFO, en memoria y por batalla. Sin Redis y sin base: R32.4 es el piso sobre el que eso se elegiría, y elegirlo ahora sería elegirlo sin un perfil de carga.
 
+**A-2 — el 256 es `FOUNDATION DEFAULT / NOT BALANCE-CONTRACTUAL`.** No se toca en esta microfase y no hay que tratarlo como un número acordado: es una pelea larga a ojo. La **corrección no depende de él** —la garantiza el piso de secuencia incluso después del desalojo—, así que moverlo cambia cuánto se recuerda, nunca si una acción se ejecuta dos veces. El valor final se decide con telemetría real.
+
 Una cache acotada sola olvidaría una acción vieja y la volvería a correr. Por eso hay una segunda estructura: el **piso** por controlador, la secuencia más alta jamás aceptada, que solo crece y cuesta un número. Un id lo bastante viejo como para haber sido desalojado está, por construcción, en el piso o por debajo, y vuelve como `STALE_ACTION`. **El límite cuesta memoria de consulta, nunca corrección.**
 
 ---
@@ -131,9 +134,29 @@ No se asume entrega exactamente-una-vez ni orden. Tres casos, y nada más que tr
 
 Una acción atrasada que nunca se ejecutó se rechaza igual: obedecerla desharía una decisión que el propio cliente ya superó. No hay huecos que llenar —no se exige contigüidad— porque un hueco puede ser una acción rechazada, y rechazar no mueve el piso.
 
-### Reconexión
+### Reconexión — A-1, CERRADA
 
-Un cliente que se reconecta —recarga, segunda pestaña, socket caído— vuelve a contar desde 1, y ese `controller:1` caería debajo del piso. Resetear el piso sería tirar la ventana de dedupe, que es justo lo que una reconexión **no** puede hacer. Así que la autoridad expone `acceptedFloor(controllerId)` y el handshake de join le dice al cliente desde dónde seguir: el contador es una **continuación**, no un conteo nuevo.
+Un cliente que se reconecta —recarga, segunda pestaña, socket caído— vuelve a contar desde 1, y ese `controller:1` caería debajo del piso. **No se resetea el piso**: sería tirar la ventana de dedupe, y las acciones en vuelo cuando se cayó el socket son justamente las que más probablemente lleguen dos veces.
+
+En cambio, el servidor le dice al cliente desde dónde seguir. El contador es una **continuación**, no un conteo nuevo.
+
+```ts
+interface JoinAck {
+  battleId
+  controllerId
+  currentRevision
+  nextActionSequence   // acceptedFloor + 1
+  catalogVersion
+  battleRulesVersion
+  controlledCombatantIds
+}
+```
+
+`room.join(participant)` lo devuelve (o `null` si todavía no hay batalla). Es JSON-safe y **no** forma parte de `ClientBattleSnapshot`: un snapshot describe la batalla y va para todos, mientras que esto describe la posición de **un** controlador en su propia secuencia. Meterlo en el snapshot obligaría a mandarle a cada cliente el contador de todos, o a hacer un snapshot distinto según quién pregunta — y un snapshot que cambia según el espectador no es un snapshot.
+
+Además, un rechazo `STALE_ACTION` lleva públicamente `nextActionSequence`: es la única rejection de la que un cliente no puede salir solo, porque no conoce el piso. No es un secreto — es su propio contador, dicho al controlador al que pertenece.
+
+R32.4 **no implementa networking**: fija la forma del handshake y prueba que un cliente que lo sigue se recupera. Entregarlo es de R34.
 
 Un rechazo **no** entra al ledger: no mutó nada, así que repetirlo es inofensivo, y corregir el payload y reintentar con otro `actionId` funciona.
 
@@ -229,6 +252,63 @@ Los ids son strings opacos de hasta 128 caracteres. Los ids de catálogo son ent
 
 ---
 
+## 11.1. `targetId` obligatorio — A-3, CERRADA
+
+`USE_MOVE.targetId` es **obligatorio** en el protocolo autoritativo, aunque el baseline de hoy sea 1 vs 1 y las reglas sepan derivar al único oponente.
+
+**Razón:** un comando cuya forma depende de cuántos combatientes hay en el campo es un comando que hay que cambiar cuando lleguen Alpha, co-op o varios slots — y con él, todos sus llamadores. Hacerlo obligatorio ahora cuesta un campo y deja el contrato de wire estable.
+
+No es una formalidad. Un cliente que nombra su objetivo es un cliente al que el servidor puede **agarrar en desacuerdo**: apuntándole a un Pokémon que ya se debilitó, o a uno que se cambió. Sin el campo, el ataque aterriza en silencio sobre quien esté parado ahí.
+
+Reglas, validadas del lado del servidor:
+
+| Caso | Resultado |
+|---|---|
+| Falta `targetId`, o está vacío, o no es string | `INVALID_SCHEMA` |
+| El `targetId` no es un combatiente **de esta batalla** | `INVALID_TARGET` (`target.exists`) |
+| Movimiento `target: user` y `targetId === combatantId` | Aceptado |
+| Movimiento `target: user` apuntado a otro | `INVALID_TARGET` (`target.self`) |
+| Movimiento ofensivo apuntado a sí mismo | `INVALID_TARGET` (`target.notSelf`) |
+| Movimiento ofensivo apuntado a quien las reglas golpearían | Aceptado |
+| Movimiento ofensivo apuntado a cualquier otro | `INVALID_TARGET` (`target.mismatch`) |
+
+La clasificación sale de la columna `target` del catálogo —`user` para Protect, Swords Dance o Recover; un oponente seleccionado para todo lo demás que R32.3 corre—. Es **dato, no inferencia**: la autoridad nunca decide para qué sirve un movimiento.
+
+**Nunca se infiere "el único enemigo".** Aunque Shared Battle Rules admitan esa comodidad 1 vs 1 internamente, la frontera de autoridad exige el target explícito igual.
+
+No entró AoE ni ally targeting.
+
+---
+
+## 11.2. Rechazo público vs diagnóstico interno — A-4, CERRADA
+
+El envelope de rechazo que viaja al cliente es **delgado a propósito**:
+
+```ts
+{ kind: 'rejected', reason, actionId, revision, nextActionSequence? }
+```
+
+La versión anterior llevaba un `detail` salido directo del validator, que son dos errores en un campo: le dice a quien está sondeando la frontera exactamente qué chequeo pisó, e invita al cliente a matchear contra prosa que nunca fue protocolo.
+
+La oración sigue existiendo, del otro lado:
+
+```ts
+interface AuthorityDiagnostic {
+  serverTimeMs
+  controllerId   // el que autenticó el transporte, cuando llegó tan lejos
+  actionId
+  reason
+  check          // qué chequeo lo rehusó, como slug corto y estable
+  detail         // la oración. Diagnóstico, nunca protocolo
+}
+```
+
+`authority.diagnostics()` es **server-side only**, acotado a 64 entradas —un log que un atacante puede hacer crecer es un bug de memoria con buenas intenciones— y **nunca** se manda a un cliente. Lo leen los tests y lo va a drenar una capa de observabilidad. Sin `console.*` (AGENTS, R21): no se construyó observabilidad, sólo el lugar donde va a engancharse.
+
+Los rechazos de la propia sala (sesión desconocida, mensaje desconocido) no generan diagnóstico: no llegan a la autoridad y no hay nada que diagnosticar salvo el transporte.
+
+---
+
 ## 12. Control y propiedad
 
 La autoridad deriva el mapa de las sides al crear la batalla:
@@ -287,15 +367,27 @@ Códigos, no oraciones ni excepciones. Un rechazo es un resultado ordinario de u
 
 `DUPLICATE` no es un rechazo: es una de las tres formas del resultado.
 
+El código es estable y es **todo** lo que el cliente recibe (§11.2). Cuál de la docena de chequeos lo agarró es un mapa de la frontera dibujado para quien la está sondeando, y queda del lado del servidor.
+
 ---
 
-## 16. `ExpeditionRoom` — esqueleto y nada más
+## 16. `ExpeditionRoomCore` — esqueleto y nada más
 
 Hace exactamente esto: entra y sale gente, rutea **un** tipo de mensaje a la autoridad, corre un paso de loop y devuelve qué difundir. Una sola batalla, que nadie elige con un encuentro.
 
 No hay piso de Dungeon, ni encuentros, ni spawn, ni loot, ni llave, ni boss, ni co-op, ni persistencia, ni Supabase. Agregar cualquiera de esas cosas acá es trabajo de R34/R35 disfrazado de R32.4.
 
-Una reconexión reemplaza el socket viejo del mismo controlador, igual que `PresenceRoom`: dos sockets vivos para un controlador creerían cada uno que comandan al mismo Pokémon. Una sesión desconocida recibe el mismo código que un controlador equivocado, y no aprende nada sobre quién está en la sala.
+Una reconexión reemplaza el socket viejo del mismo controlador, igual que `PresenceRoom`: dos sockets vivos para un controlador creerían cada uno que comandan al mismo Pokémon. `join` devuelve el `JoinAck` (§5). Una sesión desconocida recibe el mismo código que un controlador equivocado, y no aprende nada sobre quién está en la sala.
+
+**Por qué `Core` (auditoría de naming).** R34 casi con seguridad va a declarar `class ExpeditionRoom extends Room` en `services/realtime`, y dos cosas distintas llamadas `ExpeditionRoom` en el mismo repo es una colisión que vale una palabra evitar. Ésta es el **núcleo**: la parte que no posee ningún socket y se puede testear sin uno. La sala de Colyseus la va a envolver:
+
+```ts
+class ExpeditionRoom extends Room {
+  onCreate() { this.core = createExpeditionRoomCore({ … }) }
+}
+```
+
+llamando `join`, `message`, `update` y `leave`, y reenviando lo que devuelven. Nada de este archivo tiene que cambiar cuando pase.
 
 **No se importa nada del prototipo de Dungeon.** La autoridad importa Shared Battle Rules y nada de `dungeonPrototype/battle.ts` ni de su estado mutable. La dirección futura es `ExpeditionRoom → battle authority → shared rules`, nunca al revés.
 
@@ -310,7 +402,7 @@ Ninguno. `console.*` está prohibido en `src/` por ESLint (AGENTS, R21) y no hac
 ## 18. Verificación
 
 ```bash
-npm run test        # 1457 tests, 122 archivos (55 nuevos en authority/)
+npm run test        # 1473 tests, 123 archivos (71 en authority/)
 npm run typecheck   # 0 errores
 npm run lint        # 0 errores en src/
 npm run build       # OK
@@ -327,6 +419,7 @@ Los cinco archivos de test:
 | `authority.clock.test.ts` | Tiempo de servidor, tiempo de batalla, slicing, status sobre reloj de servidor, relojes que no retroceden |
 | `authority.rng.test.ts` | Misma semilla, semilla distinta, cliente sin acceso, y las tres pruebas de no filtración |
 | `authority.units.test.ts` | `actionId`, whitelist, desalojo del ledger, catálogo de objetos, sala, versiones al crear |
+| `authority.protocol.test.ts` | Las tres decisiones congeladas: handshake de reconexión (A-1), `targetId` obligatorio (A-3), público vs interno (A-4) |
 
 ---
 
@@ -364,9 +457,10 @@ Los cinco archivos de test:
 
 ## 21. Preguntas realmente abiertas
 
+**Cerradas en la microfase del 2026-09-19:** A-1 (§5, forma del `JoinAck` congelada y probada; entregarla por red es de R34), A-3 (§11.1, `targetId` obligatorio) y A-4 (§11.2, público vs interno).
+
 | # | Pregunta | Bloquea |
 |---|---|---|
-| A-1 | La primitiva de reconexión existe (`acceptedFloor`, §5), pero **el handshake que la usa es de R34**: falta decidir si el piso viaja en el join, en el snapshot, o en la respuesta del propio rechazo | R34, cuando exista un cliente real |
-| A-2 | ¿Qué tamaño de ledger corresponde? 256 es una pelea larga a ojo, no una medición | R34, con telemetría |
-| A-3 | ¿Un `USE_MOVE` con `targetId` debería ser obligatorio en vez de opcional? Hoy es opcional porque R32.3 es 1 vs 1 y deriva el objetivo; con más slots tiene que ser obligatorio | R37 |
-| A-4 | ¿El cliente recibe el `detail` de un rechazo, o solo el código? Hoy viaja; es diagnóstico y no protocolo, pero le cuenta al atacante en qué chequeo cayó | R34 |
+| A-2 | ¿Qué tamaño de ledger corresponde? 256 es `FOUNDATION DEFAULT / NOT BALANCE-CONTRACTUAL` (§5). **Abierta a propósito**: la corrección no depende del número, así que se decide con telemetría real y no antes | Nada hoy; R34 con telemetría |
+| A-5 | ¿Por dónde viaja el `JoinAck`: mensaje propio de join, o junto al primer snapshot? La forma está cerrada; el canal no | R34 |
+| A-6 | Con varios slots, ¿`targetId` sigue siendo uno solo, o pasa a ser una lista? R32.4 lo dejó como uno, que es lo que el baseline necesita y lo que AoE cambiaría | R37 |
