@@ -76,6 +76,10 @@ const MAX_DEPTH = 1500
 const FRONT_SPRITE_SCALE = 0.5
 const SKY_TOP = '#8fc4f0'
 const SKY_HAZE = '#d8ecfb'
+// The perspective floor is projected one canvas row at a time. A 2× DPR makes
+// that nearly four times as much work on phones; pixel art gains no useful
+// detail from it during the playtest, so render that build at CSS resolution.
+const MAX_RENDER_DPR = import.meta.env.VITE_PLAYTEST === 'on' ? 1 : 2
 
 interface Drawable {
   depth: number
@@ -135,7 +139,7 @@ export class Renderer {
   }
 
   render(scene: Scene, dt: number): void {
-    const dpr = Math.min(2, window.devicePixelRatio || 1)
+    const dpr = Math.min(MAX_RENDER_DPR, window.devicePixelRatio || 1)
     const W = Math.max(1, Math.round(this.canvas.clientWidth * dpr))
     const H = Math.max(1, Math.round(this.canvas.clientHeight * dpr))
     if (this.canvas.width !== W || this.canvas.height !== H) {
