@@ -16,10 +16,11 @@ const art = (name: string) => `/assets/town/${name}.png`
 
 const HEARTHOME_ART: TownArtSet = {
   trees: [art('tree-a'), art('tree-b'), art('tree-c')],
+  // HeartGold's fountain model (scripts/build_town_models.py); the PNGs stay as loading fallback.
   fountains: [
-    { src: art('fountain-a'), flatTop: 40 },
-    { src: art('fountain-b'), flatTop: 40 },
-    { src: art('fountain-c'), flatTop: 40 },
+    { src: art('fountain-a'), flatTop: 40, model: '/assets/town/models/fountain.json' },
+    { src: art('fountain-b'), flatTop: 40, model: '/assets/town/models/fountain.json' },
+    { src: art('fountain-c'), flatTop: 40, model: '/assets/town/models/fountain.json' },
   ],
   props: {
     hedge: [{ src: art('hedge') }],

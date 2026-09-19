@@ -31,7 +31,8 @@ OUT = ROOT / 'public/assets/town/models'
 # id: (source OBJ relative to the input folder, {material: (wrap u, wrap v)}[, options])
 # options: 'center' / 'front' — the x that stands on the footprint's centre and the z on its
 # front edge, when the model reaches past its body (the Poké Mart's sign post, a lamp's
-# painted shadow); 'skip' — materials not drawn (a lamp's glow: the game lights lamps itself).
+# painted shadow); 'skip' — materials not drawn (a lamp's glow: the game lights lamps itself);
+# 'scale' — for a model exported in other units (the fountain), world px per model unit.
 MODELS = {
     # HeartGold/SoulSilver's Pokémon Center (closer to Platinum than Diamond/Pearl's).
     'pokecenter': ('Pokemon Center HG/Pokémon Center.obj', {'gs_pc_a': ('repeat', 'repeat'), 'gs_pc_b': ('repeat', 'repeat')}),
@@ -48,6 +49,8 @@ MODELS = {
     # HeartGold/SoulSilver's Silph Co.: stands where the Contest Hall was (the Swap building).
     # Its 10-tile footprint is centred half a tile left of the door: the model moves right to meet it.
     'silph': ('silph co/Silph Co..obj', {}, {'center': -8}),
+    # HeartGold/SoulSilver's fountain, exported at 1/8 scale: 8 px per unit makes it Platinum's 60 px.
+    'fountain': ('fuente de agua/Fountain.obj', {}, {'scale': 8}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }
@@ -108,7 +111,7 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict, options: dict | 
         if not p:
             continue
         if p[0] == 'v':
-            V.append([float(x) for x in p[1:4]])
+            V.append([float(x) * options.get('scale', 1) for x in p[1:4]])
         elif p[0] == 'vt':
             T.append([float(x) for x in p[1:3]])
         elif p[0] == 'usemtl':

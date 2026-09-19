@@ -243,6 +243,13 @@ export class TownArea implements Area {
       const image = art.fountains?.[i % art.fountains.length]
       if (image) addWithArt({ kind: null, sprite: town.spray, ...at, y: (f.y1 + 1) * TILE - 1 }, image, false)
       else add({ kind: null, sprite: town.spray, ...at, y: ((f.y0 + f.y1 + 1) / 2) * TILE + 2 })
+      const modelSrc = image?.model
+      if (modelSrc) {
+        const entry = decor[decor.length - 1]
+        loadTownModel(modelSrc)
+          .then(model => { entry.model = { model, at: placeOnFootprint(model.data, at.x, (f.y1 + 1) * TILE) } })
+          .catch(error => devWarn(`[wildlands] model ${modelSrc} unavailable`, error))
+      }
     })
     const buildingEntries: { entry: DecorInstance; depth: number }[] = []
     const buildingArt = def.buildings.map(b => {

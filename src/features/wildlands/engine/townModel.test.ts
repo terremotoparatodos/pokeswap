@@ -35,6 +35,9 @@ describe('converted town models', () => {
     expect(solidWidth(model('pokecenter'))).toBeLessThanOrEqual(84)
     // A bench sits inside one 16 px tile across.
     for (const id of ['bench-1', 'bench-2']) expect(solidWidth(model(id))).toBeLessThanOrEqual(16)
+    // The fountain came at 1/8 scale: scaled up, it is Platinum's 60 px basin, inside its 4-tile rect.
+    expect(solidWidth(model('fountain'))).toBeGreaterThan(56)
+    expect(solidWidth(model('fountain'))).toBeLessThanOrEqual(64)
     // The Poké Mart's building stands on its 4-tile footprint (its sign post reaches past it).
     const mart = model('mart')
     expect(mart.center).toBe(0)
@@ -46,6 +49,7 @@ describe('converted town models', () => {
     expect(HEARTHOME.buildings.find(b => b.id === 'pokecenter')?.image?.model).toBe('/assets/town/models/pokecenter.json')
     expect(HEARTHOME.buildings.find(b => b.id === 'mart')?.image?.model).toBe('/assets/town/models/mart.json')
     expect(HEARTHOME.buildings.find(b => b.id === 'gym')?.image?.model).toBe('/assets/town/models/gym.json')
+    for (const f of HEARTHOME.art?.fountains ?? []) expect(f.model).toBe('/assets/town/models/fountain.json')
     // Silph Co. replaces the Contest Hall: same id, door and Swap entrance, a wider footprint.
     expect(HEARTHOME.buildings.find(b => b.id === 'contest')).toMatchObject({
       name: 'Silph Co.', x: 26, w: 10, door: { tx: 31, ty: 14 }, feature: 'swap', image: { model: '/assets/town/models/silph.json' },
