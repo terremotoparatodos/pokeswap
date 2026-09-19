@@ -71,6 +71,10 @@ describe('converted town models', () => {
     expect(HEARTHOME.art?.models).toEqual({
       lamp: '/assets/town/models/lamp.json', bench: '/assets/town/models/bench-1.json', benchLeft: '/assets/town/models/bench-2.json',
     })
+    expect(HEARTHOME.art?.props).toMatchObject({
+      bench: [{ src: '/assets/town/models/bench-1-sprite.png' }],
+      benchLeft: [{ src: '/assets/town/models/bench-2-sprite.png' }],
+    })
   })
 })
 

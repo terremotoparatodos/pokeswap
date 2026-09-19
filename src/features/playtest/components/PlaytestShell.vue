@@ -8,13 +8,11 @@
   <template v-else>
     <slot />
     <PlaytestBanner />
-    <BugReportButton />
   </template>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted } from 'vue'
-import BugReportButton from './BugReportButton.vue'
 import PlaytestBanner from './PlaytestBanner.vue'
 import PlaytestGateScreen from './PlaytestGateScreen.vue'
 import { usePlaytestGate } from '../state/usePlaytestGate'

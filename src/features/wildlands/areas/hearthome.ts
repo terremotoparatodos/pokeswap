@@ -6,13 +6,17 @@
 // scripts/extract_town_sprites.py. Footprints are sized to each sprite.
 
 import { HEARTHOME_TERRAIN } from './hearthomeTerrain'
-import type { TownArtSet, TownDef, TownProp } from './townArea'
+import type { ArtImage, TownArtSet, TownDef, TownProp } from './townArea'
 import type { WorldDef } from './wildArea'
 
 type Run = [x: number, y0: number, y1: number]
 type Line = [y: number, x0: number, x1: number]
 
 const art = (name: string) => `/assets/town/${name}.png`
+const modelSprite = (name: string) => `/assets/town/models/${name}-sprite.png`
+const gateImage = (fallback: string, model: string, flatTop: ArtImage['flatTop']): ArtImage => import.meta.env.VITE_PLAYTEST === 'on'
+  ? { src: modelSprite(model), model: `/assets/town/models/${model}.json` }
+  : { src: art(fallback), flatTop, model: `/assets/town/models/${model}.json` }
 
 const HEARTHOME_ART: TownArtSet = {
   trees: [art('tree-a'), art('tree-b'), art('tree-c')],
@@ -27,6 +31,10 @@ const HEARTHOME_ART: TownArtSet = {
     lamp: [{ src: art('lamp') }],
     sign: [{ src: art('sign') }],
     fenceH: [{ src: art('fence-h') }],
+    // Pre-rendered façades keep the plaza furniture visible when the
+    // playtest disables the CPU model rasterizer.
+    bench: [{ src: modelSprite('bench-1') }],
+    benchLeft: [{ src: modelSprite('bench-2') }],
   },
   // Autotiled fences (scripts/build_town_street_art.py): straight runs, corner pickets where a
   // row meets a column, and vertical runs as upright posts every 8 px.
@@ -93,11 +101,11 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
     buildings: [
       // Silph Co. (HeartGold's model) stands where the Contest Hall was: 10 tiles wide for its 160 px, same door.
       { id: 'contest', name: 'Silph Co.', blurb: 'Adentro se hacen los Swaps.', style: 'contest', x: 26, y: 7, w: 10, d: 8, door: { tx: 31, ty: 14 }, feature: 'swap', image: { src: '/assets/town/models/silph-sprite.png', model: '/assets/town/models/silph.json' } },
-      { id: 'amityL', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Tundra Helada.', style: 'amityGate', x: 8, y: 1, w: 6, d: 9, open: [{ tx: 10, ty: 9 }, { tx: 11, ty: 9 }], image: { src: art('amity-gate'), flatTop: 'all', model: '/assets/town/models/gate-north.json' } },
-      { id: 'amityR', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Costa Coral.', style: 'amityGate', x: 50, y: 1, w: 6, d: 9, open: [{ tx: 52, ty: 9 }, { tx: 53, ty: 9 }], image: { src: art('amity-gate'), flatTop: 'all', model: '/assets/town/models/gate-north.json' } },
-      { id: 'gateW', name: 'Puerta oeste', blurb: 'Entrá por el costado para ir a la Pradera Brisa.', style: 'routeGate', x: 0, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-west.json' } },
-      { id: 'gateE', name: 'Puerta este', blurb: 'Entrá por el costado para ir al Bosque Umbrío.', style: 'routeGate', x: 58, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-east.json' } },
-      { id: 'gateS', name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', x: 9, y: 44, w: 5, d: 7, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-south.json' } },
+      { id: 'amityL', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Tundra Helada.', style: 'amityGate', x: 8, y: 1, w: 6, d: 9, open: [{ tx: 10, ty: 9 }, { tx: 11, ty: 9 }], image: gateImage('amity-gate', 'gate-north', 'all') },
+      { id: 'amityR', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Costa Coral.', style: 'amityGate', x: 50, y: 1, w: 6, d: 9, open: [{ tx: 52, ty: 9 }, { tx: 53, ty: 9 }], image: gateImage('amity-gate', 'gate-north', 'all') },
+      { id: 'gateW', name: 'Puerta oeste', blurb: 'Entrá por el costado para ir a la Pradera Brisa.', style: 'routeGate', x: 0, y: 38, w: 6, d: 6, image: gateImage('route-gate', 'gate-west', 52) },
+      { id: 'gateE', name: 'Puerta este', blurb: 'Entrá por el costado para ir al Bosque Umbrío.', style: 'routeGate', x: 58, y: 38, w: 6, d: 6, image: gateImage('route-gate', 'gate-east', 52) },
+      { id: 'gateS', name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', x: 9, y: 44, w: 5, d: 7, image: gateImage('route-gate', 'gate-south', 52) },
       { id: 'pokecenter', name: 'Centro Pokémon', blurb: 'Acá te guardan la caja con tus Pokémon.', style: 'pokecenter', x: 15, y: 15, w: 5, d: 5, door: { tx: 17, ty: 19 }, feature: 'caja', image: { src: art('pokecenter'), flatTop: 54, model: '/assets/town/models/pokecenter.json' } },
       { id: 'house1', name: 'Casa', blurb: 'No hay nadie. Se escucha una radio adentro.', style: 'house', x: 21, y: 15, w: 4, d: 5, image: { src: art('house-green'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
       { id: 'apt1', name: 'Departamentos', blurb: 'Las jardineras están recién regadas.', style: 'apartment', x: 36, y: 13, w: 5, d: 7, image: { src: art('apartment-a'), flatTop: 70, model: '/assets/town/models/celadon-tall.json' } },
