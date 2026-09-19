@@ -25,6 +25,15 @@ function focus(tx: number, ty: number): void {
   stage.value?.focus({ tx, ty })
 }
 
+function onZoom(action: 'in' | 'out' | 'reset' | 'fit'): void {
+  const s = stage.value
+  if (!s) return
+  if (action === 'in') s.zoomIn()
+  else if (action === 'out') s.zoomOut()
+  else if (action === 'reset') s.zoomReset()
+  else s.fitCity()
+}
+
 function reset(): void {
   const what = lab.dirty.value ? `Se pierden todos los cambios (${lab.summary.value}) y el LOCAL DRAFT.` : 'No hay cambios.'
   if (window.confirm(`RESET TO BASELINE\n\n${what}\nLa ciudad del repo no se toca. ¿Continuar?`)) lab.resetToBaseline()
@@ -35,7 +44,7 @@ onUnmounted(() => lab.dispose())
 
 <template>
   <div class="lab">
-    <LabToolbar :lab="lab" @export="dialog = 'export'" @import="dialog = 'import'" @reset="reset" @compare="comparing = true" />
+    <LabToolbar :lab="lab" @export="dialog = 'export'" @import="dialog = 'import'" @reset="reset" @compare="comparing = true" @zoom="onZoom" />
 
     <div v-if="lab.pendingDraft.value" class="draft">
       Hay un <strong>LOCAL DRAFT</strong> de este navegador ({{ new Date(lab.pendingDraft.value.savedAt).toLocaleString() }}).

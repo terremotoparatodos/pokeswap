@@ -38,19 +38,43 @@ export interface FrameGeometry {
   readonly height: number
 }
 
-export function frameGeometry(canvas: HTMLCanvasElement, lens: CameraLens, camX: number, camY: number): FrameGeometry {
+/** The canvas as the renderer sees it: device-pixel size, dpr and small-screen fit. */
+export interface ViewSize {
+  readonly width: number
+  readonly height: number
+  readonly dpr: number
+  readonly fit: number
+}
+
+export function viewOf(canvas: HTMLCanvasElement): ViewSize {
   const dpr = Math.min(2, window.devicePixelRatio || 1)
-  const width = Math.max(1, Math.round(canvas.clientWidth * dpr))
-  const height = Math.max(1, Math.round(canvas.clientHeight * dpr))
-  const fit = Math.min(1, Math.max(0.55, Math.min(canvas.clientWidth, canvas.clientHeight) / 640))
-  const proj = createProjector({ ...lens, zoom: lens.zoom * dpr * fit }, { width, height, focusY: height * 0.56 })
-  return { proj, dpr, camX, camY, squash: lens.squash, width, height }
+  return {
+    width: Math.max(1, Math.round(canvas.clientWidth * dpr)),
+    height: Math.max(1, Math.round(canvas.clientHeight * dpr)),
+    dpr,
+    fit: Math.min(1, Math.max(0.55, Math.min(canvas.clientWidth, canvas.clientHeight) / 640)),
+  }
+}
+
+/** Pure: the projector `Renderer.render()` builds for this view, lens and camera. */
+export function geometryFor(view: ViewSize, lens: CameraLens, camX: number, camY: number): FrameGeometry {
+  const proj = createProjector({ ...lens, zoom: lens.zoom * view.dpr * view.fit }, { width: view.width, height: view.height, focusY: view.height * 0.56 })
+  return { proj, dpr: view.dpr, camX, camY, squash: lens.squash, width: view.width, height: view.height }
+}
+
+export function frameGeometry(canvas: HTMLCanvasElement, lens: CameraLens, camX: number, camY: number): FrameGeometry {
+  return geometryFor(viewOf(canvas), lens, camX, camY)
+}
+
+/** World pixel under a device-pixel point, or null above the horizon. */
+export function worldAtDevice(f: FrameGeometry, sx: number, sy: number): { x: number; y: number } | null {
+  const ground = f.proj.unproject(sx, sy)
+  return ground ? { x: f.camX + ground.wx, y: f.camY + ground.wy } : null
 }
 
 /** World pixel under a CSS point, or null above the horizon. */
 export function worldAt(f: FrameGeometry, cssX: number, cssY: number): { x: number; y: number } | null {
-  const ground = f.proj.unproject(cssX * f.dpr, cssY * f.dpr)
-  return ground ? { x: f.camX + ground.wx, y: f.camY + ground.wy } : null
+  return worldAtDevice(f, cssX * f.dpr, cssY * f.dpr)
 }
 
 export function tileAt(f: FrameGeometry, cssX: number, cssY: number): Tile | null {

@@ -15,22 +15,29 @@ import { lighting } from '../../wildlands/engine/atmosphere'
 import { Renderer, type Scene } from '../../wildlands/engine/renderer'
 import type { OverlayLabel, OverlaySprite, SceneOverlay } from '../../wildlands/engine/sceneOverlay'
 import { TILE } from '../../wildlands/engine/world'
-import { cityTreeSprite } from '../../worldAssets/trees/cityTreeSprites'
+import { treeFeet } from '../../worldAssets/trees/cityTrees'
+import { cityTreeSprite, paintTreeGroundBase } from '../../worldAssets/trees/cityTreeSprites'
+import { groundBaseStyle, wildGround } from '../../worldAssets/trees/treeGroundBase'
 import { EDIT_LENSES, type EditLens } from '../world/labProjection'
 import { LabTownArea } from '../world/labTownArea'
-import { showcaseTown, wildShowcaseTrees } from '../world/treeShowcase'
+import { showcaseGroups, showcaseTown, wildShowcaseTrees, type ShowcaseTown } from '../world/treeShowcase'
 
 const props = defineProps<{ clock: number }>()
 const emit = defineEmits<{ close: [] }>()
 
-type Tab = 'city' | 'wild'
-const tab = ref<Tab>('city')
+type Tab = 'terrains' | 'groups' | 'wild'
+const tab = ref<Tab>('terrains')
 const lens = ref<EditLens>('handheld')
 const zoom = ref(1)
 const canvas = ref<HTMLCanvasElement | null>(null)
 
-const town = showcaseTown()
-const cityArea = new LabTownArea(town.def, [], town.trees)
+const scenes: Record<'terrains' | 'groups', { town: ShowcaseTown; area: LabTownArea }> = {
+  terrains: scene(showcaseTown()),
+  groups: scene(showcaseGroups()),
+}
+function scene(town: ShowcaseTown) {
+  return { town, area: new LabTownArea(town.def, [], town.trees) }
+}
 const pradera = WORLDS.find(w => w.id === 'pradera') ?? WORLDS[0]
 let wildArea: WildArea | null = null
 const player = createActor({ id: 'compare-camera', kind: 'player', habitat: 'any', tx: 0, ty: 0 })
@@ -39,8 +46,8 @@ let renderer: Renderer | null = null
 let frame = 0
 let last = 0
 let seconds = 0
-let camX = town.centre.x
-let camY = town.centre.y
+let camX = scenes.terrains.town.centre.x
+let camY = scenes.terrains.town.centre.y
 let grab: { x: number; y: number; camX: number; camY: number } | null = null
 
 function wild(): WildArea {
@@ -48,18 +55,33 @@ function wild(): WildArea {
   return wildArea
 }
 
-const cityOverlay: SceneOverlay = { labels: () => town.labels }
+const cityOverlays = {
+  terrains: { labels: () => scenes.terrains.town.labels } satisfies SceneOverlay,
+  groups: { labels: () => scenes.groups.town.labels } satisfies SceneOverlay,
+}
+// WildLands: the world stays untouched; the trees and their ground bases are drawn over it.
 const wildOverlay: SceneOverlay = {
+  ground(g, _area, x0, y0) {
+    const world = wild().world
+    for (const t of wildShowcaseTrees(wild().arrival())) {
+      const style = groundBaseStyle(wildGround(world.tileTerrain(t.tx, t.ty + 1)), t.kind)
+      paintTreeGroundBase(g, x0, y0, t.kind, t.tx, t.ty, style)
+    }
+  },
   sprites(): readonly OverlaySprite[] {
     const out: OverlaySprite[] = []
     for (const t of wildShowcaseTrees(wild().arrival())) {
       const sprite = cityTreeSprite(t.kind)
-      if (sprite) out.push({ wx: t.x, wy: t.y, sprite })
+      const feet = treeFeet(t.tx, t.ty)
+      if (sprite) out.push({ wx: feet.x, wy: feet.y, sprite })
     }
     return out
   },
   labels(): readonly OverlayLabel[] {
-    return wildShowcaseTrees(wild().arrival()).map(t => ({ wx: t.x, wy: t.y + 2, lift: -10, text: t.kind.replace('city-tree-', ''), color: '#9fe8ff' }))
+    return wildShowcaseTrees(wild().arrival()).slice(0, 8).map(t => {
+      const feet = treeFeet(t.tx, t.ty)
+      return { wx: feet.x, wy: feet.y + 2, lift: -10, text: t.kind.replace('city-tree-', ''), color: '#9fe8ff' }
+    })
   },
 }
 
@@ -69,8 +91,8 @@ watch(tab, next => {
     camX = a.tx * TILE
     camY = (a.ty - 2) * TILE
   } else {
-    camX = town.centre.x
-    camY = town.centre.y
+    camX = scenes[next].town.centre.x
+    camY = scenes[next].town.centre.y
   }
 })
 
@@ -79,12 +101,13 @@ function loop(now: number): void {
   last = now
   seconds += dt
   if (renderer) {
-    const area: Area = tab.value === 'city' ? cityArea : wild()
+    const t = tab.value
+    const area: Area = t === 'wild' ? wild() : scenes[t].area
     const base = EDIT_LENSES[lens.value]
     const scene: Scene = {
       area, fade: 0, camX, camY, lens: { ...base, zoom: base.zoom * zoom.value }, seconds, light: lighting(props.clock),
       weather: { kind: 'clear', intensity: 0 }, player, companion: null, username: null, showPlayer: false, actors: [],
-      showGrid: false, route: { tiles: [], target: null, rejected: null }, overlay: tab.value === 'city' ? cityOverlay : wildOverlay,
+      showGrid: false, route: { tiles: [], target: null, rejected: null }, overlay: t === 'wild' ? wildOverlay : cityOverlays[t],
     }
     renderer.render(scene, dt)
     area.tick()
@@ -106,6 +129,9 @@ function move(e: PointerEvent): void {
 function up(): void {
   grab = null
 }
+function onWheel(e: WheelEvent): void {
+  zoom.value = Math.min(2.5, Math.max(0.5, zoom.value * Math.pow(1.0015, -e.deltaY)))
+}
 
 onMounted(() => {
   if (!canvas.value) return
@@ -121,7 +147,8 @@ onUnmounted(() => cancelAnimationFrame(frame))
     <div class="cmp" role="dialog" aria-modal="true">
       <header>
         <strong>Comparar árboles</strong>
-        <button type="button" :class="{ on: tab === 'city' }" @click="tab = 'city'">Ciudad: bosque vs placed</button>
+        <button type="button" :class="{ on: tab === 'terrains' }" @click="tab = 'terrains'">Terrenos: bosque vs placed</button>
+        <button type="button" :class="{ on: tab === 'groups' }" @click="tab = 'groups'">Grupos</button>
         <button type="button" :class="{ on: tab === 'wild' }" @click="tab = 'wild'">WildLands DEV (Pradera)</button>
         <label>Lente
           <select v-model="lens">
@@ -134,16 +161,19 @@ onUnmounted(() => cancelAnimationFrame(frame))
         <button type="button" class="close" @click="emit('close')">✕</button>
       </header>
       <p class="note">
-        <template v-if="tab === 'city'">
-          <b>F·</b> = árbol generado por el terreno bosque (TownArea). <b>P·</b> = el mismo asset colocado a mano.
-          Bandas: pasto, plaza, borde de calle, bosque. Arrastrá para mover la cámara.
+        <template v-if="tab === 'terrains'">
+          <b>F·</b> = árbol generado por el terreno bosque (TownArea, PNG original con sombra horneada). En celeste, las 8 variantes
+          colocables con su base de suelo. Bandas: pasto, plaza, borde de calle, bosque. Arrastrá para mover la cámara.
+        </template>
+        <template v-else-if="tab === 'groups'">
+          Patrones de ciudad con variantes elegidas como "Árbol aleatorio": lineal, jardín, bosque pequeño, plaza y borde de bosque.
         </template>
         <template v-else>
           Los mismos assets de ciudad sobre el mundo procedural real de {{ pradera.name }}, junto a sus árboles actuales.
           Sólo se dibujan: no se agregan al mundo ni cambian el generador.
         </template>
       </p>
-      <canvas ref="canvas" class="cmp-canvas" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" />
+      <canvas ref="canvas" class="cmp-canvas" @pointerdown="down" @pointermove="move" @pointerup="up" @pointercancel="up" @wheel.prevent="onWheel" />
     </div>
   </div>
 </template>

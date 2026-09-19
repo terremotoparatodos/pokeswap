@@ -5,7 +5,7 @@ import type { EditLens } from '../world/labProjection'
 import type { CityLab, LabTool } from '../state/useCityLab'
 
 const props = defineProps<{ lab: CityLab }>()
-const emit = defineEmits<{ export: []; import: []; reset: []; compare: [] }>()
+const emit = defineEmits<{ export: []; import: []; reset: []; compare: []; zoom: [action: 'in' | 'out' | 'reset' | 'fit'] }>()
 const lab = props.lab
 
 const TOOLS: { id: LabTool; label: string; hint: string }[] = [
@@ -54,9 +54,13 @@ const TIMES: { value: number; label: string }[] = [
           <option v-for="l in LENSES" :key="l.id" :value="l.id">{{ l.label }}</option>
         </select>
       </label>
-      <label>Zoom
-        <input v-model.number="lab.zoom.value" type="range" min="0.3" max="3" step="0.05" :disabled="lab.mode.value === 'play'">
-      </label>
+      <span v-if="lab.mode.value === 'edit'" class="zoom" title="Rueda del mouse: zoom al cursor · + / − / 0">
+        <button type="button" title="Alejar (−)" @click="emit('zoom', 'out')">−</button>
+        <b>{{ Math.round(lab.zoom.value * 100) }}%</b>
+        <button type="button" title="Acercar (+)" @click="emit('zoom', 'in')">+</button>
+        <button type="button" title="100 % (0)" @click="emit('zoom', 'reset')">Reset</button>
+        <button type="button" title="Encuadrar toda la ciudad" @click="emit('zoom', 'fit')">Encuadrar ciudad</button>
+      </span>
       <label>Hora
         <select v-model.number="lab.clock.value">
           <option v-for="t in TIMES" :key="t.value" :value="t.value">{{ t.label }}</option>
@@ -80,5 +84,6 @@ button:disabled { opacity: 0.4; cursor: default; }
 button.on { background: #3c5bd6; border-color: #6d8cff; color: #fff; }
 button.accent { background: #2e6b3e; border-color: #4ea566; }
 button.danger { background: #5a2330; border-color: #a2465a; }
-input[type='range'] { width: 90px; }
+.zoom { display: flex; align-items: center; gap: 4px; }
+.zoom b { min-width: 42px; text-align: center; color: #dfe7ff; font: 600 12px system-ui, sans-serif; }
 </style>

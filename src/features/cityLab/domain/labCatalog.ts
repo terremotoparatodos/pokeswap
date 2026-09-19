@@ -9,6 +9,15 @@ import { isSolidDecor, type DecorKind } from '../../wildlands/engine/world'
 import { CITY_TREE_ASSETS } from '../../worldAssets/trees/cityTrees'
 import { isStreetProp, isTreeProp, STREET_PROP_KINDS, type LabPropKind, type StreetPropKind, type TerrainKind } from './labCity'
 
+const TREE_GROUP = {
+  forest: 'Árboles · los del bosque',
+  sheet: 'Árboles · mismo tileset',
+  derived: 'Árboles · siluetas nuevas',
+} as const
+
+/** Palette groups that hold city trees (the palette shows them together, with "Árbol aleatorio"). */
+export const TREE_GROUPS: readonly string[] = Object.values(TREE_GROUP)
+
 export interface PaletteEntry {
   readonly kind: LabPropKind
   readonly label: string
@@ -16,8 +25,8 @@ export interface PaletteEntry {
 }
 
 export const PALETTE: readonly PaletteEntry[] = [
-  // The city forest's own art, placeable one by one (worldAssets/trees).
-  ...CITY_TREE_ASSETS.map(t => ({ kind: t.id, label: t.label, group: 'Árboles' })),
+  // The city tree family (worldAssets/trees), grouped by where the art comes from.
+  ...CITY_TREE_ASSETS.map(t => ({ kind: t.id, label: t.short, group: TREE_GROUP[t.origin] })),
   { kind: 'lamp', label: 'Farol', group: 'Mobiliario urbano' },
   { kind: 'sign', label: 'Cartel', group: 'Mobiliario urbano' },
   { kind: 'bench', label: 'Banco', group: 'Mobiliario urbano' },

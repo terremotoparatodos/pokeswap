@@ -1,14 +1,21 @@
 // City tree family — reusable tree assets (DEV contract, not yet production).
 //
-// The art reference is Ciudad Corazón's forest: three hand-drawn PNGs that
-// `TownArea` already stamps on forest terrain, one per aligned 2×2 block
-// (areas/townArea.ts → ensureArt). This module turns those exact images into
-// individually placeable trees, so a placed tree and a forest tree are the
-// same picture, anchored the same way.
+// The art reference is Ciudad Corazón's forest: the hand-drawn trees of the
+// city tileset (public/assets/tilesets/buildings.png) that `TownArea` stamps on
+// forest terrain, one per aligned 2×2 block (areas/townArea.ts → ensureArt).
 //
-// Pure data: no DOM, no Vue, no editor. The sprite loader lives next door
-// (cityTreeSprites.ts). Nothing in production imports this yet: WildLands'
-// procedural trees and TownDef are untouched.
+// Placed trees use *derived* PNGs (./art, built by
+// scripts/build_city_tree_assets.py): the same pixels with the baked ground
+// shadow removed, so the ground under them can be drawn per terrain
+// (treeGroundBase.ts). The forest keeps its original PNGs, untouched.
+// The PNGs are imported, not served from public/: they only reach a build if
+// something in it imports this module (today only the DEV lab does).
+//
+// The family: the three forest trees, two more trees of the same sheet the city
+// never used (golden, teal), and three silhouettes spliced from real pixel bands
+// of those (tall, slim, wide) — no scaling, hue shifting or mirroring.
+//
+// Pure data: no DOM, no Vue, no editor. Nothing in production imports this yet.
 //
 // Geometry, in the renderer's own terms (TILE = 16):
 //
@@ -16,19 +23,40 @@
 //   feet                   ((tx + 1)·16, (ty + 2)·16 − 2): the seam between the
 //                          two columns, 2 px above the block's bottom — exactly
 //                          where TownArea puts a forest tree (minus its jitter)
-//   sprite anchor          (w/2, h−1): the loader's default (engine/sprite.ts)
+//   sprite anchor          (w/2, h−1): the loader's default (engine/sprite.ts).
+//                          Each PNG keeps its source's rows under the roots, so
+//                          roots stand exactly as high above the feet as in the forest
 //   VISUAL footprint       the 2×2 cell the tree owns on the ground
-//   COLLISION footprint    the cell's bottom row: roots and trunk sit 4–10 px
-//                          above the feet, centred on the seam, so both lower
-//                          tiles are blocked and the canopy row stays walkable
+//   COLLISION footprint    the cell's bottom row (2×1): trunk and roots
 //   TAP hitbox             the crown and trunk above the cell columns (32 px
 //                          wide), not the flared leaves over neighbour tiles
 
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import type { TapHitbox } from '../../wildlands/engine/placedObjects'
 import { TILE } from '../../wildlands/engine/world'
+import golden from './art/golden.png'
+import pointedLit from './art/pointed-lit.png'
+import pointedSlim from './art/pointed-slim.png'
+import pointedTall from './art/pointed-tall.png'
+import pointed from './art/pointed.png'
+import roundWide from './art/round-wide.png'
+import round from './art/round.png'
+import teal from './art/teal.png'
 
-export type CityTreeId = 'city-tree-pointed' | 'city-tree-pointed-lit' | 'city-tree-round'
+const ART: Record<string, string> = {
+  pointed, 'pointed-lit': pointedLit, round, golden, teal, 'pointed-tall': pointedTall, 'pointed-slim': pointedSlim, 'round-wide': roundWide,
+}
+
+export type CityTreeId =
+  | 'city-tree-pointed' | 'city-tree-pointed-lit' | 'city-tree-round'
+  | 'city-tree-golden' | 'city-tree-teal'
+  | 'city-tree-pointed-tall' | 'city-tree-pointed-slim' | 'city-tree-round-wide'
+
+/** Where the tree comes from, for review: forest art, same-sheet art, or a splice of those. */
+export type CityTreeOrigin = 'forest' | 'sheet' | 'derived'
+
+/** What a tree prefers on grassy ground (treeGroundBase.ts picks the final style per terrain). */
+export type GrassBase = 'tufts' | 'roots'
 
 export interface PixelRect {
   readonly x0: number
@@ -40,8 +68,15 @@ export interface PixelRect {
 export interface CityTreeAssetDefinition {
   readonly id: CityTreeId
   readonly label: string
-  /** The very PNG the city forest uses (HEARTHOME art.trees). */
+  /** Short name for palettes. */
+  readonly short: string
+  readonly origin: CityTreeOrigin
+  /** The placeable PNG (URL): source pixels without the baked ground shadow. */
   readonly src: string
+  /** Its file name in ./art (what the build script writes). */
+  readonly file: string
+  /** The forest's own PNG this tree matches (forest variants only). */
+  readonly forestSrc?: string
   /** Sprite size in pixels, as the PNG is drawn. */
   readonly width: number
   readonly height: number
@@ -52,8 +87,9 @@ export interface CityTreeAssetDefinition {
   readonly collisionFootprint: readonly Tile[]
   /** Around the feet, in world pixels (same shape the engine's placed objects use). */
   readonly tapHitbox: TapHitbox
-  /** Parts of the art, in sprite pixels (from the PNG, frozen in tests). */
-  readonly parts: { readonly trunk: PixelRect; readonly bakedShadow: PixelRect; readonly crown: PixelRect }
+  /** Trunk and roots, in sprite pixels (from the PNG, frozen in tests). */
+  readonly trunk: PixelRect
+  readonly grassBase: GrassBase
   readonly tags: readonly string[]
 }
 
@@ -61,38 +97,51 @@ const CELL: readonly Tile[] = [{ tx: 0, ty: 0 }, { tx: 1, ty: 0 }, { tx: 0, ty: 
 const BASE: readonly Tile[] = [{ tx: 0, ty: 1 }, { tx: 1, ty: 1 }]
 
 function tree(
-  id: CityTreeId, label: string, file: string, width: number, height: number,
-  parts: CityTreeAssetDefinition['parts'], tags: readonly string[],
+  id: CityTreeId, label: string, short: string, origin: CityTreeOrigin, file: string,
+  size: readonly [number, number], trunk: readonly [number, number, number, number],
+  grassBase: GrassBase, tags: readonly string[], forestFile?: string,
 ): CityTreeAssetDefinition {
+  const [width, height] = size
   return {
-    id, label, src: `/assets/town/${file}.png`, width, height,
+    id, label, short, origin,
+    src: ART[file],
+    file: `${file}.png`,
+    ...(forestFile ? { forestSrc: `/assets/town/${forestFile}.png` } : {}),
+    width, height,
     anchor: { ax: width / 2, ay: height - 1 },
     visualFootprint: CELL,
     collisionFootprint: BASE,
-    // Two cell columns wide; from the feet (row h−1) up to the crown's first row.
-    tapHitbox: { width: 2 * TILE, height: height - 1 - parts.crown.y0, offsetX: 0 },
-    parts,
+    // Two cell columns wide; from the feet (row h−1) up to the top row (the PNGs are cropped to the crown).
+    tapHitbox: { width: 2 * TILE, height: height - 1, offsetX: 0 },
+    trunk: { x0: trunk[0], y0: trunk[1], x1: trunk[2], y1: trunk[3] },
+    grassBase,
     tags,
   }
 }
 
-/** The city forest's own variants, in the order HEARTHOME lists them (forest variant index). */
+/**
+ * The family. The first three are the forest's own variants, in the order
+ * HEARTHOME lists them (the forest variant index); sizes and trunk boxes come
+ * from scripts/build_city_tree_assets.py and are checked against the PNGs.
+ */
 export const CITY_TREE_ASSETS: readonly CityTreeAssetDefinition[] = [
-  tree('city-tree-pointed', 'Árbol copa en punta', 'tree-a', 41, 51, {
-    trunk: { x0: 10, y0: 40, x1: 30, y1: 46 }, bakedShadow: { x0: 5, y0: 37, x1: 35, y1: 50 }, crown: { x0: 0, y0: 0, x1: 40, y1: 48 },
-  }, ['city', 'forest-family', 'crown:pointed']),
-  tree('city-tree-pointed-lit', 'Árbol copa en punta · brillos', 'tree-b', 41, 51, {
-    trunk: { x0: 10, y0: 40, x1: 30, y1: 46 }, bakedShadow: { x0: 5, y0: 37, x1: 35, y1: 50 }, crown: { x0: 0, y0: 0, x1: 40, y1: 48 },
-  }, ['city', 'forest-family', 'crown:pointed', 'highlights']),
-  tree('city-tree-round', 'Árbol copa redonda', 'tree-c', 43, 48, {
-    trunk: { x0: 12, y0: 38, x1: 30, y1: 42 }, bakedShadow: { x0: 7, y0: 36, x1: 35, y1: 47 }, crown: { x0: 0, y0: 0, x1: 42, y1: 44 },
-  }, ['city', 'forest-family', 'crown:round']),
+  tree('city-tree-pointed', 'Árbol copa en punta', 'Punta', 'forest', 'pointed', [41, 51], [10, 40, 30, 46], 'tufts', ['crown:pointed'], 'tree-a'),
+  tree('city-tree-pointed-lit', 'Árbol copa en punta · brillos', 'Punta brillos', 'forest', 'pointed-lit', [41, 51], [10, 40, 30, 46], 'tufts', ['crown:pointed', 'highlights'], 'tree-b'),
+  tree('city-tree-round', 'Árbol copa redonda', 'Redondo', 'forest', 'round', [43, 48], [12, 38, 30, 42], 'roots', ['crown:round'], 'tree-c'),
+  tree('city-tree-golden', 'Árbol dorado (otoño)', 'Dorado', 'sheet', 'golden', [33, 48], [8, 38, 24, 43], 'roots', ['crown:egg', 'autumn']),
+  tree('city-tree-teal', 'Árbol verde azulado', 'Azulado', 'sheet', 'teal', [39, 47], [10, 33, 28, 39], 'roots', ['crown:lobed']),
+  tree('city-tree-pointed-tall', 'Árbol copa en punta · alto', 'Punta alto', 'derived', 'pointed-tall', [41, 57], [10, 46, 30, 52], 'tufts', ['crown:pointed', 'tall']),
+  tree('city-tree-pointed-slim', 'Árbol copa en punta · angosto', 'Punta angosto', 'derived', 'pointed-slim', [36, 51], [10, 40, 25, 46], 'tufts', ['crown:pointed', 'slim']),
+  tree('city-tree-round-wide', 'Árbol copa redonda · ancho', 'Redondo ancho', 'derived', 'round-wide', [49, 48], [12, 38, 36, 42], 'roots', ['crown:round', 'wide']),
 ]
 
 /** Not in the city art: a palm needs its own drawing before it can join the family. */
 export const FUTURE_CITY_TREES = ['PALM TREE — FUTURE ASSET'] as const
 
 export const CITY_TREE_IDS: readonly CityTreeId[] = CITY_TREE_ASSETS.map(t => t.id)
+
+/** The forest's own variants, in forest order (what `forestVariantAt` picks from). */
+export const FOREST_TREE_IDS: readonly CityTreeId[] = CITY_TREE_ASSETS.filter(t => t.origin === 'forest').map(t => t.id)
 
 export function isCityTreeId(value: unknown): value is CityTreeId {
   return typeof value === 'string' && (CITY_TREE_IDS as readonly string[]).includes(value)
@@ -105,6 +154,12 @@ export function cityTree(id: CityTreeId): CityTreeAssetDefinition {
 /** World-pixel feet of a tree whose cell starts at (tx, ty): where TownArea puts a forest tree. */
 export function treeFeet(tx: number, ty: number): { x: number; y: number } {
   return { x: (tx + 1) * TILE, y: (ty + 2) * TILE - 2 }
+}
+
+/** How far above the feet a tree's roots end, in pixels (its ground base centres there). */
+export function rootLift(id: CityTreeId): number {
+  const t = cityTree(id)
+  return t.anchor.ay - t.trunk.y1
 }
 
 const offset = (list: readonly Tile[], tx: number, ty: number): Tile[] => list.map(t => ({ tx: tx + t.tx, ty: ty + t.ty }))
@@ -135,5 +190,15 @@ export function treeTapBounds(id: CityTreeId): PixelRect {
  * generated forest tree is.
  */
 export function forestVariantAt(bx: number, by: number): CityTreeId {
-  return CITY_TREE_ASSETS[Math.abs(bx * 7 + by * 13) % CITY_TREE_ASSETS.length].id
+  return FOREST_TREE_IDS[Math.abs(bx * 7 + by * 13) % FOREST_TREE_IDS.length]
+}
+
+/**
+ * "Árbol aleatorio": a variant picked from the tile, so the same spot always
+ * gives the same tree (editor convenience; the placed tree stores the result).
+ */
+export function treeVariantForTile(tx: number, ty: number): CityTreeId {
+  let h = (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663)) >>> 0
+  h = Math.imul(h ^ (h >>> 13), 0x5bd1e995) >>> 0
+  return CITY_TREE_IDS[((h ^ (h >>> 15)) >>> 0) % CITY_TREE_IDS.length]
 }

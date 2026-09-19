@@ -4,8 +4,8 @@
 
 import { describe, expect, it } from 'vitest'
 import { HEARTHOME, LOBBY_ID } from '../../wildlands/areas/atlas'
-import { CITY_TREE_ASSETS, treeCollisionTiles, treeFeet } from '../../worldAssets/trees/cityTrees'
-import { showcaseTown, wildShowcaseTrees } from '../world/treeShowcase'
+import { CITY_TREE_ASSETS, treeCollisionTiles, treeFeet, treeVariantForTile } from '../../worldAssets/trees/cityTrees'
+import { showcaseGroups, showcaseTown, wildShowcaseTrees } from '../world/treeShowcase'
 import { applyPatch, diffCities, parsePatch, serializePatch } from './cityPatch'
 import { CityGrid } from './cityGrid'
 import { clearanceMap } from './clearance'
@@ -145,6 +145,31 @@ describe('patch', () => {
   })
 })
 
+describe('the whole family in a patch', () => {
+  it('exports every variant by asset id and brings each back exactly', () => {
+    const base = baseline()
+    let city = base
+    CITY_TREE_ASSETS.forEach((asset, i) => {
+      city = ok(addProp(HEARTHOME, city, asset.id, { tx: 10 + i * 3, ty: 22 })) // a row along the street south of the Pokémon Center
+    })
+    const patch = diffCities(base, city, LOBBY_ID)
+    expect(patch.props.added.map(p => p.kind).sort()).toEqual(CITY_TREE_ASSETS.map(a => a.id).sort())
+    // Only what identifies and places the tree: never art, ground base or camera.
+    for (const p of patch.props.added) expect(Object.keys(p).sort()).toEqual(['footprint', 'id', 'kind', 'tx', 'ty'])
+    const text = serializePatch(patch)
+    expect(text).not.toMatch(/png|groundBase|zoom|camX/)
+    const applied = applyPatch(base, JSON.parse(text))
+    expect(applied.ok && serializePatch(diffCities(base, applied.city, LOBBY_ID))).toBe(text)
+  })
+
+  it('"Árbol aleatorio" stores the variant it picked, so a re-import never re-rolls', () => {
+    const cell = addAnchor('city-tree-pointed', PLOT)
+    const kind = treeVariantForTile(cell.tx, cell.ty)
+    const city = ok(addProp(HEARTHOME, baseline(), kind, PLOT))
+    expect(diffCities(baseline(), city, LOBBY_ID).props.added[0].kind).toBe(kind)
+  })
+})
+
 describe('history', () => {
   it('undoes and redoes add, move, duplicate and delete of trees', () => {
     const base = baseline()
@@ -168,15 +193,23 @@ describe('comparison scenes', () => {
     for (const asset of CITY_TREE_ASSETS) expect(scene.trees.some(t => t.kind === asset.id)).toBe(true)
     const forestLabels = scene.labels.filter(l => l.text.startsWith('F·')).map(l => l.text)
     expect(new Set(forestLabels).size).toBe(3)
+    expect(scene.trees.length).toBe(4 * CITY_TREE_ASSETS.length)
     // Forest blocks sit on even rows, like the city grid TownArea walks.
     for (const t of scene.trees) expect(t.ty % 2).toBe(0)
   })
 
-  it('stand the very same assets in WildLands with the city’s own feet formula', () => {
+  it('stand the very same assets in WildLands, in 2×2 cells like the city', () => {
     const trees = wildShowcaseTrees({ tx: 100, ty: 80 })
-    expect(new Set(trees.map(t => t.kind))).toEqual(new Set(CITY_TREE_ASSETS.map(a => a.id)))
-    const first = trees[0]
-    const feet = treeFeet(93, 75)
-    expect({ x: first.x, y: first.y }).toEqual(feet)
+    for (const asset of CITY_TREE_ASSETS) expect(trees.some(t => t.kind === asset.id)).toBe(true)
+    expect(trees[0]).toEqual({ kind: CITY_TREE_ASSETS[0].id, tx: 88, ty: 74 })
+    expect(treeFeet(trees[0].tx, trees[0].ty)).toEqual({ x: 89 * 16, y: 76 * 16 - 2 })
+  })
+
+  it('lay out the group patterns without trunks ever touching', () => {
+    const scene = showcaseGroups()
+    const trunks = scene.trees.flatMap(t => treeCollisionTiles(t.kind, t.tx, t.ty)).map(t => `${t.tx},${t.ty}`)
+    expect(new Set(trunks).size).toBe(trunks.length)
+    expect(scene.trees.length).toBeGreaterThanOrEqual(12 + 4 + 1)
+    expect(new Set(scene.trees.map(t => t.kind)).size).toBeGreaterThanOrEqual(6)
   })
 })

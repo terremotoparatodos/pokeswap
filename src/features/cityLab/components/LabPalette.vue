@@ -5,9 +5,11 @@ import { computed, onMounted, ref } from 'vue'
 import { HEARTHOME } from '../../wildlands/areas/atlas'
 import { buildPropSprites } from '../../wildlands/engine/props'
 import { buildTownProps } from '../../wildlands/engine/townProps'
-import { PALETTE, TERRAIN_LABEL, isSolidKind } from '../domain/labCatalog'
+import { PALETTE, TERRAIN_LABEL, TREE_GROUPS, isSolidKind } from '../domain/labCatalog'
 import { isStreetProp, isTreeProp, TERRAIN_KINDS, type LabPropKind } from '../domain/labCity'
 import { cityTree } from '../../worldAssets/trees/cityTrees'
+
+const BASE_NOTE = { tufts: 'pasto: matas', roots: 'pasto: raíces' } as const
 import type { CityLab, PaletteChoice } from '../state/useCityLab'
 
 const props = defineProps<{ lab: CityLab }>()
@@ -18,6 +20,8 @@ const groups = computed(() => {
   for (const entry of PALETTE) out.set(entry.group, [...(out.get(entry.group) ?? []), entry])
   return [...out.entries()]
 })
+const treeGroups = computed(() => groups.value.filter(([g]) => TREE_GROUPS.includes(g)))
+const otherGroups = computed(() => groups.value.filter(([g]) => !TREE_GROUPS.includes(g)))
 
 /** Thumbnails: the town's hand-drawn PNG when it has one, else the sprite the engine paints. */
 const thumbs = ref<Partial<Record<LabPropKind, string>>>({})
@@ -46,9 +50,29 @@ function choose(kind: PaletteChoice): void {
 <template>
   <aside class="pal">
     <section>
+      <h3>Árboles</h3>
+      <p class="hint">Celda 2×2 · tronco 2×1 sólido · base según el terreno (plaza/calle: sombra; bosque: sombra densa).</p>
+      <button type="button" class="pal-item pal-random" :class="{ on: lab.tool.value === 'add' && lab.palette.value === 'random-tree' }" @click="choose('random-tree')">
+        🎲 <span>Árbol aleatorio<small class="badge">misma posición → mismo árbol</small></span>
+      </button>
+      <div v-for="[group, entries] in treeGroups" :key="group" class="pal-group">
+        <h4>{{ group.replace('Árboles · ', '') }}</h4>
+        <div class="pal-grid pal-trees">
+          <button
+            v-for="e in entries" :key="e.kind" type="button" class="pal-item pal-tree"
+            :class="{ on: lab.tool.value === 'add' && lab.palette.value === e.kind }"
+            :title="cityTree(e.kind as never).label"
+            @click="choose(e.kind)"
+          >
+            <img v-if="thumbs[e.kind]" :src="thumbs[e.kind]" alt="">
+            <span>{{ e.label }}<small class="badge">2×2 · {{ BASE_NOTE[cityTree(e.kind as never).grassBase] }}</small></span>
+          </button>
+        </div>
+      </div>
+
       <h3>Agregar</h3>
       <p class="hint">Elegí y hacé click en el mapa. Esc vuelve a seleccionar.</p>
-      <div v-for="[group, entries] in groups" :key="group" class="pal-group">
+      <div v-for="[group, entries] in otherGroups" :key="group" class="pal-group">
         <h4>{{ group }}</h4>
         <div class="pal-grid">
           <button
@@ -105,6 +129,10 @@ section + section { margin-top: 16px; border-top: 1px solid #2a3350; padding-top
 .pal-item.on { border-color: #6d8cff; background: #26356e; }
 .pal-item img { width: 24px; height: 24px; object-fit: contain; image-rendering: pixelated; }
 .pal-item img.tall { width: 34px; height: 42px; }
+.pal-trees { grid-template-columns: repeat(2, 1fr); }
+.pal-tree { flex-direction: column; align-items: center; text-align: center; padding: 4px 2px; }
+.pal-tree img { width: 40px; height: 48px; }
+.pal-random { width: 100%; margin-bottom: 4px; }
 .badge { display: block; color: #8fd8a0; font-size: 10px; }
 .swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid #000; }
 .swatch-s { background: #d6bd8c; }

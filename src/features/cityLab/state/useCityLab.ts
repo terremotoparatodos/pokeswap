@@ -5,10 +5,10 @@
 // Components only render this and call its actions; the rules live in the
 // pure domain modules.
 
-import { computed, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, markRaw, reactive, ref, shallowRef, watch } from 'vue'
 import { HEARTHOME, LOBBY_ID } from '../../wildlands/areas/atlas'
 import type { Dir } from '../../wildlands/engine/characters'
-import type { EditLens } from '../world/labProjection'
+import { EDIT_LENSES, type EditLens } from '../world/labProjection'
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import { applyPatch, diffCities, parsePatch, patchIsEmpty, patchSummary, serializePatch } from '../domain/cityPatch'
 import { CityGrid } from '../domain/cityGrid'
@@ -18,13 +18,19 @@ import {
 } from '../domain/editOps'
 import { deepFreeze, entityExists, fromTownDef, type EntityRef, type LabCity, type LabPropKind, type TerrainKind } from '../domain/labCity'
 import { clearDraft, loadDraft, saveDraft, type DraftStore, type LabDraft } from '../domain/labDraft'
+import { loadPrefs, savePrefs } from '../domain/labPrefs'
+import { addAnchor } from '../domain/editOps'
+import { isCityTreeId, treeVariantForTile } from '../../worldAssets/trees/cityTrees'
+import { clampZoom } from '../world/editorCamera'
 import { LabHistory } from '../domain/labHistory'
 import { countBySeverity, validateMap, type Finding } from '../domain/validateMap'
+import { PALETTE } from '../domain/labCatalog'
 import { DEFAULT_LAYERS, type LayerToggles } from '../world/labOverlay'
 
 export type LabMode = 'edit' | 'play'
 export type LabTool = 'select' | 'add' | 'terrain'
-export type PaletteChoice = LabPropKind | 'wanderer'
+/** `random-tree`: a city tree variant picked from the tile (same tile → same tree). */
+export type PaletteChoice = LabPropKind | 'wanderer' | 'random-tree'
 export type StatusTone = 'ok' | 'warn' | 'error' | 'info'
 
 const DRAFT_DELAY_MS = 700
@@ -37,6 +43,10 @@ function browserStore(): DraftStore | null {
   }
 }
 
+function isPaletteChoice(value: unknown): value is PaletteChoice {
+  return value === 'random-tree' || value === 'wanderer' || isCityTreeId(value) || (typeof value === 'string' && PALETTE.some(p => p.kind === value))
+}
+
 export function useCityLab() {
   const base = HEARTHOME
   const baseline: LabCity = deepFreeze(fromTownDef(base))
@@ -45,7 +55,9 @@ export function useCityLab() {
   const revision = ref(0)
   const mode = ref<LabMode>('edit')
   const tool = ref<LabTool>('select')
-  const palette = ref<PaletteChoice>('tree')
+  const store = browserStore()
+  const prefs = loadPrefs(store)
+  const palette = ref<PaletteChoice>(isPaletteChoice(prefs.palette) ? prefs.palette : 'city-tree-pointed')
   const terrainKind = ref<TerrainKind>('g')
   const brushSize = ref<1 | 3>(1)
   const layers = reactive<LayerToggles>({ ...DEFAULT_LAYERS })
@@ -58,13 +70,20 @@ export function useCityLab() {
   /** Time of day for both modes (atmosphere.ts clock: 0.5 noon, 0.75 sunset, 0 midnight). */
   const clock = ref(0.4)
   /** EDIT camera: a near top-down lens by default; PLAY always uses the town's own lens. */
-  const editLens = ref<EditLens>('plan')
-  const zoom = ref(1)
+  const editLens = ref<EditLens>(prefs.lens && prefs.lens in EDIT_LENSES ? (prefs.lens as EditLens) : 'plan')
+  const zoom = ref(clampZoom(prefs.zoom ?? 1))
+  /**
+   * EDIT camera focus in world pixels. Moved every frame while panning, so it
+   * is a plain object (no reactivity); the stage reads and writes it.
+   */
+  const editCamera = markRaw({
+    x: prefs.camX ?? baseline.spawn.tx * 16 + 8,
+    y: prefs.camY ?? baseline.spawn.ty * 16 + 8,
+  })
   /** Where PLAY starts: the working copy's spawn unless a tile was chosen. */
   const playFrom = shallowRef<Tile | null>(null)
   const pendingDraft = shallowRef<LabDraft | null>(null)
   const draftSavedAt = ref<string | null>(null)
-  const store = browserStore()
 
   // Derived views of the current copy, rebuilt only when it changes.
   const grid = computed(() => new CityGrid(city.value, base))
@@ -105,11 +124,31 @@ export function useCityLab() {
     return apply(moveEntity(base, city.value, ref, to), `Movido a (${to.tx}, ${to.ty})`)
   }
 
-  function addAt(at: Tile): boolean {
+  /** The prop kind the palette would place at the cursor tile (resolves "Árbol aleatorio"). */
+  function paletteKind(at: Tile): LabPropKind | null {
     const choice = palette.value
-    if (choice === 'wanderer') return apply(addWanderer(base, city.value, at), `Wanderer agregado en (${at.tx}, ${at.ty})`)
-    return apply(addProp(base, city.value, choice, at), `${choice} agregado en (${at.tx}, ${at.ty})`)
+    if (choice === 'wanderer') return null
+    if (choice !== 'random-tree') return choice
+    const cell = addAnchor('city-tree-pointed', at)
+    return treeVariantForTile(cell.tx, cell.ty)
   }
+
+  function addAt(at: Tile): boolean {
+    if (palette.value === 'wanderer') return apply(addWanderer(base, city.value, at), `Wanderer agregado en (${at.tx}, ${at.ty})`)
+    const kind = paletteKind(at)!
+    return apply(addProp(base, city.value, kind, at), `${kind} agregado en (${at.tx}, ${at.ty})`)
+  }
+
+  let prefsTimer: ReturnType<typeof setTimeout> | null = null
+  /** Remembers the editor view and palette choice (browser-local, never in a patch). */
+  function rememberView(): void {
+    if (prefsTimer) clearTimeout(prefsTimer)
+    prefsTimer = setTimeout(() => {
+      prefsTimer = null
+      savePrefs(store, { camX: Math.round(editCamera.x), camY: Math.round(editCamera.y), zoom: zoom.value, lens: editLens.value, palette: palette.value })
+    }, 400)
+  }
+  watch([zoom, editLens, palette], rememberView)
 
   function deleteSelected(): void {
     const ref = selection.value
@@ -225,12 +264,13 @@ export function useCityLab() {
 
   function dispose(): void {
     if (draftTimer) clearTimeout(draftTimer)
+    if (prefsTimer) clearTimeout(prefsTimer)
   }
 
   return {
     base, baseline, city, revision, grid, clearance, patch, summary, dirty,
     mode, tool, palette, terrainKind, brushSize, layers, selection, status, findings, findingsStale, highlight,
-    hover, clock, editLens, zoom, playFrom,
+    hover, clock, editLens, zoom, editCamera, playFrom, paletteKind, rememberView,
     pendingDraft, draftSavedAt,
     canUndo: computed(() => revision.value >= 0 && history.canUndo),
     canRedo: computed(() => revision.value >= 0 && history.canRedo),

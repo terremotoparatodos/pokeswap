@@ -1,6 +1,7 @@
 # City tree family — reusable assets (DEV contract)
 
-Branch `tool/city-tree-assets` (base `tool/city-mapping-lab @ 9c468b2`).
+Branches: `tool/city-tree-assets` (base `tool/city-mapping-lab @ 9c468b2`), polish in
+`tool/city-tree-assets-polish` (base `tool/city-tree-assets @ cbb03bd`).
 Code: `src/features/worldAssets/trees/` (no Vue, no editor; only imports `wildlands/engine`).
 Consumed only by the City Mapping Lab (`/dev/city-lab`, DEV). **Production does not import it**:
 not WildLands, not the generator, not TownDef.
@@ -20,18 +21,51 @@ not WildLands, not the generator, not TownDef.
 | `tree-b` | 41×51 | same as a + pale highlights (`#afd8bb`) | same | same | same + highlights |
 | `tree-c` | 43×48 | round, olive | x 12–30, y 38–42 | ellipse x 7–35, y 36–47 (muted green) | olives `#39452c…#7bbe2e` |
 
-There are no smaller, darker or conifer variants in the art. **None were invented.**
-`PALM TREE — FUTURE ASSET` (the city has no palm).
+The city PNGs don't include smaller, darker or conifer variants. In the second pass the
+original tileset (`buildings.png`) turned out to hold two more trees of the same set, and the variety comes from there
+plus bands of real pixels (see below). `PALM TREE — FUTURE ASSET` (the city has no palm).
 
-## Taxonomy (`CityTreeId`)
+## Taxonomy (`CityTreeId`) — 8 variants
 
-| id | PNG | label |
-|---|---|---|
-| `city-tree-pointed` | tree-a | Pointed crown |
-| `city-tree-pointed-lit` | tree-b | Pointed crown · highlights |
-| `city-tree-round` | tree-c | Round crown |
+| id | origin | size | trunk (px) | base on grass |
+|---|---|---|---|---|
+| `city-tree-pointed` | forest (`tree-a`) | 41×51 | 10–30 × 40–46 | tufts |
+| `city-tree-pointed-lit` | forest (`tree-b`) | 41×51 | 10–30 × 40–46 | tufts |
+| `city-tree-round` | forest (`tree-c`) | 43×48 | 12–30 × 38–42 | roots |
+| `city-tree-golden` | same tileset, unused by the city (autumn) | 33×48 | 8–24 × 38–43 | roots |
+| `city-tree-teal` | same tileset, unused (lobed crown) | 39×47 | 10–28 × 33–39 | roots |
+| `city-tree-pointed-tall` | derived: +1 tier of scales (rows 10–16 repeated) | 41×57 | 10–30 × 46–52 | tufts |
+| `city-tree-pointed-slim` | derived: central columns 18–23 removed | 36×51 | 10–25 × 40–46 | tufts |
+| `city-tree-round-wide` | derived: central columns 18–24 repeated | 49×48 | 12–36 × 38–42 | roots |
 
-The order is the forest's order: `forestVariantAt(bx, by)` says which asset a generated block shows.
+- The first three are the forest's order: `forestVariantAt(bx, by)` says which one a generated block shows.
+- Left out on purpose: the sheet has a *dark teal* tree with exactly the same silhouette as `teal`
+  (a pure hue shift).
+- The derived variants splice **bands of real pixels** at the point where the edges match best
+  (fewest differing pixels), so the scale/leaf pattern continues. No scaling, hue shift or mirroring.
+- `treeVariantForTile(tx, ty)` ("Árbol aleatorio") hashes the tile: same position → same variant. The placed
+  tree stores the variant it got; re-importing never re-rolls it.
+
+## Placeable PNGs and ground base (polish)
+
+- `scripts/build_city_tree_assets.py` (pure Pillow, reproducible) writes
+  `src/features/worldAssets/trees/art/*.png`:
+  - It removes the baked shadow: the ring colours (`#0e8951`, `#53754c`, `#4b7144`, the teal's greens)
+    and the core under the roots. Crown, trunk, roots and their outline stay.
+  - It pads with transparent rows so each tree keeps its source's root height above the feet.
+    The loader's default anchor `(w/2, h−1)` then stands it exactly like the forest.
+- The PNGs are **imported** from the module, not served from `public/`. They only ship if production code
+  imports the module (today only the DEV lab). `dist` has none of them.
+- **The forest keeps `public/assets/town/tree-{a,b,c}.png` untouched** (FNV-pinned in tests).
+- Ground base (`treeGroundBase.ts`): painted on the ground (under every sprite, projected with the
+  terrain). It's a translucent near-black (`#141c10`, alpha 46/78/104) dithered at the edge, so it darkens
+  whatever terrain is there without tinting it. 4 styles, chosen **automatically** from the terrain under
+  the trunk and the tree:
+  - `grass-tufts` (city grass / WildLands grass, pointed trees): shadow + two clumps of grass.
+  - `grass-roots` (grass, round/golden/teal trees): shadow + root nubs in the trunk's own palette.
+  - `paved` (plaza, street, sand): a slightly smaller, lighter shadow only.
+  - `forest`: a denser shadow only.
+- The base is **not** in the patch (it's derived); neither is pan, zoom or lens.
 
 ## Contract (`CityTreeAssetDefinition`)
 
@@ -70,9 +104,9 @@ The order is the forest's order: `forestVariantAt(bx, by)` says which asset a ge
 
 1. Give the chunk decor (`chunks.ts` / `world.decorAt`) or a new `DecorKind` a way to represent a 2×2 tree
    (today every world prop is 1 tile, anchored at `tile·16 + (8, 13)`).
-2. Decide the baked shadow: the PNG's ellipse (`#0e8951`) is tuned for the city grass. On
-   WildLands grass it reads as a greenish ring (visible in the DEV preview). Options: a variant without a baked shadow,
-   or recolouring per biome.
+2. Shadow: **solved in the lab** with the shadow-free PNGs + a ground base per terrain. For WildLands, the
+   chunk renderer would need to paint the base (today only the town/overlay can). `wildGround()` already
+   maps GRASS/TALL → grass and the rest → plain shadow.
 3. Collision in worlds: a 2×1 trunk vs today's 1 tile; check against water/beach/tall grass.
 4. Density/seed: replacing `tree` in the generator changes every forest's layout. Needs a separate
    migration and visual review per biome.

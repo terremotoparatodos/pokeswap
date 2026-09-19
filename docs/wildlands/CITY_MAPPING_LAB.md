@@ -83,10 +83,23 @@ The "Entradas y salidas" layer (on by default, in EDIT and PLAY) marks on the ma
 
 ## Shortcuts (EDIT)
 
+**Camera (EDIT)** — `world/editorCamera.ts`, `world/editorGestures.ts`:
+- Drag on empty ground → **pan** (the map follows the cursor 1:1; cursor `grab/grabbing`).
+- Drag that starts on an object → **move** that object (as before).
+- **Space + drag**, middle or right button → pan from anywhere, even over objects.
+- With **Agregar**: a click places, a drag only pans (it never places by accident).
+- 5 px threshold before a press counts as a drag.
+- **Wheel** → zoom centred on the cursor. `− 100% +`, Reset and "Encuadrar ciudad" buttons.
+  Keys `+`, `-`, `0`. Range 35 %–250 %.
+- The hovered tile and the placement preview are recomputed every frame from the last cursor position,
+  so zooming with the buttons or panning with WASD never leaves them stale.
+- EDIT → PLAY → EDIT restores the editor's pan and zoom. PLAY uses the game's camera.
+- Pan, zoom, lens and the last palette choice are DEV preferences (`pokeswap.dev.cityLab.prefs.v1`),
+  separate from the LOCAL DRAFT and never in the patch.
+
 Click: select · drag: move with snap and live validation (green/red ghost) ·
-arrows: move the selection 1 tile · WASD / right-click drag / Alt+drag: camera ·
-wheel: zoom · Supr: delete · Ctrl+D: duplicate · Ctrl+Z / Ctrl+Y: undo/redo ·
-G: grid · P: PLAY · Esc: deselect / back to Seleccionar.
+arrows: move the selection 1 tile · WASD: camera · Supr: delete · Ctrl+D: duplicate ·
+Ctrl+Z / Ctrl+Y: undo/redo · G: grid · P: PLAY · Esc: deselect / back to Seleccionar.
 PLAY: arrows/WASD, Shift runs, E talks, click walks, V lens, N time, Esc returns.
 
 ## Known limits

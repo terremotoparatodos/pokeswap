@@ -26,7 +26,9 @@ import type { CityLab } from '../state/useCityLab'
 import { drawScreenOverlay, LabGroundOverlay, markerThings, type OverlayInputs } from '../world/labOverlay'
 import { pickEntity } from '../world/labPicking'
 import { LabPlay } from '../world/labPlay'
-import { contains, EDIT_LENSES, frameGeometry, tileAt, uprightRect, worldAt, type FrameGeometry } from '../world/labProjection'
+import { contains, EDIT_LENSES, frameGeometry, tileAt, uprightRect, viewOf, worldAt, type FrameGeometry } from '../world/labProjection'
+import { clampZoom, fitZoom, stepZoom, wheelZoom, withZoom, zoomAt } from '../world/editorCamera'
+import { isDrag, pressGesture, type Gesture } from '../world/editorGestures'
 import { drawnThings, type DrawnThing } from '../world/labThings'
 
 const props = defineProps<{ lab: CityLab }>()
@@ -36,6 +38,7 @@ const lab = props.lab
 const NPC_SHEET = '/assets/trainers/protahombre.png'
 const LENS_ORDER: LensName[] = ['handheld', 'dramatic', 'cenital']
 const NO_ROUTE: RouteMarker = { tiles: [], target: null, rejected: null }
+/** Keyboard pan (WASD), world px per second at 100 %. */
 const PAN_SPEED = 260
 
 const canvas = ref<HTMLCanvasElement | null>(null)
@@ -53,17 +56,39 @@ const play = shallowRef<LabPlay | null>(null)
 let playLens: LensName = 'handheld'
 let playGrid = false
 
-// EDIT camera and pointer state.
-let camX = lab.city.value.spawn.tx * TILE + TILE / 2
-let camY = lab.city.value.spawn.ty * TILE + TILE / 2
+// EDIT camera (lab.editCamera, world px + lab.zoom) and pointer state.
+const cam = lab.editCamera
 const held = new Set<string>()
 const ghost = shallowRef<{ tiles: readonly Tile[]; solid?: readonly Tile[]; valid: boolean } | null>(null)
 const stroke = shallowRef<Tile[] | null>(null)
-type Drag =
-  | { kind: 'entity'; ref: EntityRef; startX: number; startY: number; offset: Tile; moved: boolean; target: Tile | null }
-  | { kind: 'pan'; grab: { x: number; y: number } }
-  | { kind: 'paint' }
-let drag: Drag | null = null
+/** Space held: the next left press pans from anywhere (cursor shows the hand). */
+const spaceHeld = ref(false)
+const panning = ref(false)
+/**
+ * A press in progress. It only becomes a drag past DRAG_THRESHOLD; until then
+ * a release is a click (select / place / deselect) — see editorGestures.ts.
+ */
+interface Press {
+  gesture: Gesture
+  start: { x: number; y: number }
+  dragging: boolean
+  /** World point grabbed, for panning (the map follows the cursor 1:1). */
+  grab: { x: number; y: number } | null
+  /** Object drag: the entity, grab offset and current target tile. */
+  ref: EntityRef | null
+  offset: Tile
+  target: Tile | null
+  tile: Tile | null
+}
+let current: Press | null = null
+/** Where the editor camera was before PLAY, restored on the way back. */
+let beforePlay: { x: number; y: number } | null = null
+/**
+ * Last cursor position over the canvas (CSS px). Zoom buttons, keys and WASD
+ * move the map under a still cursor: the hovered tile and the placement
+ * preview are recomputed from here every frame, not only on mouse moves.
+ */
+let pointer: { x: number; y: number } | null = null
 
 const propSprites = buildPropSprites()
 const dummy = createActor({ id: 'lab-camera', kind: 'player', habitat: 'any', tx: 0, ty: 0 })
@@ -107,8 +132,7 @@ const keys = new KeyboardInput({
 })
 
 function editLens(): CameraLens {
-  const lens = EDIT_LENSES[lab.editLens.value]
-  return { ...lens, zoom: lens.zoom * lab.zoom.value }
+  return withZoom(EDIT_LENSES[lab.editLens.value], lab.zoom.value)
 }
 
 function things(): DrawnThing[] {
@@ -126,6 +150,7 @@ function loop(now: number): void {
     const scene = lab.mode.value === 'play' && play.value ? playScene(dt) : editScene(dt)
     r.render(scene, dt)
     geometry = frameGeometry(c, scene.lens, scene.camX, scene.camY)
+    if (lab.mode.value === 'edit') refreshHover()
     drawOverlay()
   }
   frameId = requestAnimationFrame(loop)
@@ -141,12 +166,15 @@ function editScene(dt: number): Scene {
   if (held.has('KeyW') || (arrows && held.has('ArrowUp'))) dy--
   if (held.has('KeyS') || (arrows && held.has('ArrowDown'))) dy++
   const speed = PAN_SPEED * (held.has('ShiftLeft') || held.has('ShiftRight') ? 2.5 : 1) / lab.zoom.value
-  camX += dx * speed * dt
-  camY += dy * speed * dt
-  dummy.tx = dummy.fromTx = Math.floor(camX / TILE)
-  dummy.ty = dummy.fromTy = Math.floor(camY / TILE)
+  if (dx || dy) {
+    cam.x += dx * speed * dt
+    cam.y += dy * speed * dt
+    lab.rememberView()
+  }
+  dummy.tx = dummy.fromTx = Math.floor(cam.x / TILE)
+  dummy.ty = dummy.fromTy = Math.floor(cam.y / TILE)
   return {
-    area: shown.value, fade: 0, camX, camY, lens: editLens(), seconds, light: lighting(lab.clock.value),
+    area: shown.value, fade: 0, camX: cam.x, camY: cam.y, lens: editLens(), seconds, light: lighting(lab.clock.value),
     weather: { kind: 'clear', intensity: 0 }, player: dummy, companion: null, username: null, showPlayer: false,
     actors: [], showGrid: false, route: NO_ROUTE, overlay: editOverlay,
   }
@@ -193,9 +221,10 @@ function drawOverlay(): void {
 /** In the Agregar tool, what would be placed under the cursor: visual cell, trunk and validity, before clicking. */
 function previewPlacement(): void {
   const at = lab.hover.value
-  const kind = lab.palette.value
-  if (lab.mode.value !== 'edit' || lab.tool.value !== 'add' || !at || kind === 'wanderer' || drag) {
-    if (!drag) ghost.value = null
+  const kind = at ? lab.paletteKind(at) : null
+  const busy = current?.dragging ?? false
+  if (lab.mode.value !== 'edit' || lab.tool.value !== 'add' || !at || !kind || busy) {
+    if (!busy) ghost.value = null
     return
   }
   const p = previewAdd(lab.base, lab.city.value, kind, at)
@@ -231,92 +260,144 @@ function local(e: PointerEvent | WheelEvent): { x: number; y: number } {
 function onPointerDown(e: PointerEvent): void {
   if (!geometry) return
   const at = local(e)
-  canvas.value?.setPointerCapture(e.pointerId)
   if (lab.mode.value === 'play') {
     if (renderer && play.value) play.value.tap(playPick(at.x, at.y))
     return
   }
+  e.preventDefault()
+  pointer = at
+  canvas.value?.setPointerCapture(e.pointerId)
   const tile = tileAt(geometry, at.x, at.y)
-  if (e.button !== 0 || e.altKey) {
-    const grab = worldAt(geometry, at.x, at.y)
-    if (grab) drag = { kind: 'pan', grab }
-    return
+  const hit = lab.tool.value === 'select' && e.button === 0 && !spaceHeld.value && !e.altKey
+    ? pickEntity(geometry, lab.city.value, lab.grid.value, things(), at.x, at.y)
+    : null
+  const gesture = pressGesture({ button: e.button, spaceHeld: spaceHeld.value, altKey: e.altKey, tool: lab.tool.value, onEntity: !!hit?.ref })
+  const anchor = hit?.ref ? anchorOf(lab.city.value, hit.ref) : null
+  current = {
+    gesture, start: at, dragging: false, grab: worldAt(geometry, at.x, at.y),
+    ref: hit?.ref ?? null,
+    offset: anchor && hit?.tile ? { tx: anchor.tx - hit.tile.tx, ty: anchor.ty - hit.tile.ty } : { tx: 0, ty: 0 },
+    target: null, tile,
   }
-  if (lab.tool.value === 'add') {
-    if (tile) lab.addAt(tile)
-    return
-  }
-  if (lab.tool.value === 'terrain') {
-    if (!tile) return
-    drag = { kind: 'paint' }
-    stroke.value = brushTiles(tile, lab.brushSize.value)
-    return
-  }
-  const hit = pickEntity(geometry, lab.city.value, lab.grid.value, things(), at.x, at.y)
-  lab.select(hit.ref)
-  if (hit.ref && hit.tile) {
-    const anchor = anchorOf(lab.city.value, hit.ref)!
-    drag = { kind: 'entity', ref: hit.ref, startX: at.x, startY: at.y, offset: { tx: anchor.tx - hit.tile.tx, ty: anchor.ty - hit.tile.ty }, moved: false, target: null }
-  } else {
-    const grab = worldAt(geometry, at.x, at.y)
-    if (grab) drag = { kind: 'pan', grab }
+  // Selecting and painting answer at once; everything else waits to know if it is a click or a drag.
+  if (gesture.click === 'select') lab.select(hit!.ref)
+  if (gesture.drag === 'paint' && tile) stroke.value = brushTiles(tile, lab.brushSize.value)
+  if (gesture.drag === 'pan' && gesture.click === 'none') startPan()
+}
+
+function startPan(): void {
+  if (!current) return
+  current.dragging = true
+  panning.value = true
+  ghost.value = null
+}
+
+/** The tile under the last known cursor position, as the current frame projects it. */
+function refreshHover(): void {
+  if (!geometry || !pointer) return
+  const tile = tileAt(geometry, pointer.x, pointer.y)
+  const inside = tile && lab.grid.value.inBounds(tile.tx, tile.ty) ? tile : null
+  if (lab.hover.value?.tx !== inside?.tx || lab.hover.value?.ty !== inside?.ty) {
+    lab.hover.value = inside
+    previewPlacement()
   }
 }
 
 function onPointerMove(e: PointerEvent): void {
   if (!geometry || lab.mode.value === 'play') return
   const at = local(e)
+  pointer = at
   const tile = tileAt(geometry, at.x, at.y)
-  const inside = tile && lab.grid.value.inBounds(tile.tx, tile.ty) ? tile : null
-  if (lab.hover.value?.tx !== inside?.tx || lab.hover.value?.ty !== inside?.ty) {
-    lab.hover.value = inside
-    previewPlacement()
+  refreshHover()
+  const p = current
+  if (!p) return
+  if (!p.dragging) {
+    if (!isDrag(p.start, at)) return
+    if (p.gesture.drag === 'pan') startPan()
+    else p.dragging = true
   }
-  if (!drag) return
-  if (drag.kind === 'pan') {
+  if (p.gesture.drag === 'pan') {
+    // The grabbed world point stays under the cursor: the map follows the mouse 1:1.
     const now = worldAt(geometry, at.x, at.y)
-    if (now) {
-      camX += drag.grab.x - now.x
-      camY += drag.grab.y - now.y
+    if (now && p.grab) {
+      cam.x += p.grab.x - now.x
+      cam.y += p.grab.y - now.y
     }
-  } else if (drag.kind === 'paint') {
+  } else if (p.gesture.drag === 'paint') {
     if (!tile) return
     const seen = new Set(stroke.value!.map(t => `${t.tx},${t.ty}`))
     const add = brushTiles(tile, lab.brushSize.value).filter(t => !seen.has(`${t.tx},${t.ty}`))
     if (add.length) stroke.value = [...stroke.value!, ...add]
-  } else if (tile) {
-    if (!drag.moved && Math.hypot(at.x - drag.startX, at.y - drag.startY) < 5) return
-    drag.moved = true
-    const target = { tx: tile.tx + drag.offset.tx, ty: tile.ty + drag.offset.ty }
-    if (drag.target?.tx === target.tx && drag.target?.ty === target.ty) return
-    drag.target = target
-    const check = moveEntity(lab.base, lab.city.value, drag.ref, target)
-    ghost.value = { tiles: previewTiles(lab.city.value, drag.ref, target), solid: previewSolidTiles(lab.city.value, drag.ref, target), valid: check.ok }
+  } else if (tile && p.ref) {
+    const target = { tx: tile.tx + p.offset.tx, ty: tile.ty + p.offset.ty }
+    if (p.target?.tx === target.tx && p.target?.ty === target.ty) return
+    p.target = target
+    const check = moveEntity(lab.base, lab.city.value, p.ref, target)
+    ghost.value = { tiles: previewTiles(lab.city.value, p.ref, target), solid: previewSolidTiles(lab.city.value, p.ref, target), valid: check.ok }
     if (!check.ok) lab.say(`✖ ${check.errors.join(' ')}`, 'error')
     else lab.say(`Soltá para mover a (${target.tx}, ${target.ty})${check.warnings.length ? ` — ⚠ ${check.warnings.join(' ')}` : ''}`, check.warnings.length ? 'warn' : 'info')
   }
 }
 
 function onPointerUp(): void {
-  const d = drag
-  drag = null
-  if (!d) return
-  if (d.kind === 'paint' && stroke.value) {
-    lab.paint(stroke.value)
+  const p = current
+  current = null
+  if (!p) return
+  const wasPan = panning.value
+  panning.value = false
+  if (p.gesture.drag === 'paint') {
+    if (stroke.value) lab.paint(stroke.value)
     stroke.value = null
-  } else if (d.kind === 'entity' && d.moved && d.target) {
-    lab.moveTo(d.ref, d.target)
+  } else if (p.dragging) {
+    // A drag never places or deselects: it panned or moved an object.
+    if (p.gesture.drag === 'object' && p.ref && p.target) lab.moveTo(p.ref, p.target)
+    if (wasPan) lab.rememberView()
+  } else if (p.gesture.click === 'place' && p.tile) {
+    lab.addAt(p.tile)
+  } else if (p.gesture.click === 'deselect') {
+    lab.select(null)
   }
   ghost.value = null
+  previewPlacement()
+}
+
+/** Zoom keeping the world point under `cursor` (CSS px) where it is; the view centre when absent. */
+function zoomTo(next: number, cursor?: { x: number; y: number }): void {
+  const c = canvas.value
+  if (!c || lab.mode.value !== 'edit') return
+  const view = viewOf(c)
+  const point = cursor ? { sx: cursor.x * view.dpr, sy: cursor.y * view.dpr } : { sx: view.width / 2, sy: view.height * 0.56 }
+  const moved = zoomAt({ x: cam.x, y: cam.y, zoom: lab.zoom.value }, next, point, view, EDIT_LENSES[lab.editLens.value])
+  cam.x = moved.x
+  cam.y = moved.y
+  lab.zoom.value = moved.zoom
+  lab.rememberView()
 }
 
 function onWheel(e: WheelEvent): void {
   if (lab.mode.value !== 'edit') return
   e.preventDefault()
-  lab.zoom.value = Math.min(3, Math.max(0.3, lab.zoom.value * Math.pow(1.1, -e.deltaY / 100)))
+  zoomTo(wheelZoom(lab.zoom.value, e.deltaY), local(e))
+}
+
+function zoomIn(): void { zoomTo(stepZoom(lab.zoom.value, 1)) }
+function zoomOut(): void { zoomTo(stepZoom(lab.zoom.value, -1)) }
+function zoomReset(): void { zoomTo(1) }
+
+/** Frames the whole city (as far as the zoom range allows). */
+function fitCity(): void {
+  const c = canvas.value
+  if (!c) return
+  const view = viewOf(c)
+  const fit = fitZoom(lab.grid.value.width * TILE, lab.grid.value.height * TILE, view, EDIT_LENSES[lab.editLens.value])
+  cam.x = fit.x
+  cam.y = fit.y
+  lab.zoom.value = clampZoom(fit.zoom)
+  lab.rememberView()
 }
 
 function onLeave(): void {
+  pointer = null
   lab.hover.value = null
 }
 
@@ -334,10 +415,14 @@ function onKeyDown(e: KeyboardEvent): void {
     if (e.code === 'Escape' || e.code === 'KeyP') setMode('edit')
     return
   }
+  if (e.code === 'Space') { e.preventDefault(); spaceHeld.value = true; return }
   if (mod && e.code === 'KeyZ') { e.preventDefault(); if (e.shiftKey) lab.redo(); else lab.undo(); return }
   if (mod && e.code === 'KeyY') { e.preventDefault(); lab.redo(); return }
   if (mod && e.code === 'KeyD') { e.preventDefault(); lab.duplicateSelected(); return }
   if (mod) return
+  if (e.key === '+' || e.code === 'NumpadAdd' || e.code === 'Equal') { e.preventDefault(); zoomIn(); return }
+  if (e.key === '-' || e.code === 'NumpadSubtract' || e.code === 'Minus') { e.preventDefault(); zoomOut(); return }
+  if (e.key === '0' || e.code === 'Numpad0') { e.preventDefault(); zoomReset(); return }
   if (e.code === 'Delete' || e.code === 'Backspace') { e.preventDefault(); lab.deleteSelected(); return }
   if (e.code === 'Escape') { lab.select(null); lab.tool.value = 'select'; return }
   if (e.code === 'KeyP') { setMode('play'); return }
@@ -356,10 +441,12 @@ function onKeyDown(e: KeyboardEvent): void {
 
 function onKeyUp(e: KeyboardEvent): void {
   held.delete(e.code)
+  if (e.code === 'Space') spaceHeld.value = false
 }
 
 function onBlur(): void {
   held.clear()
+  spaceHeld.value = false
 }
 
 // ── Modes ──────────────────────────────────────────────────────────────────
@@ -369,7 +456,8 @@ function setMode(mode: 'edit' | 'play'): void {
 }
 
 watch(lab.mode, mode => {
-  drag = null
+  current = null
+  panning.value = false
   ghost.value = null
   stroke.value = null
   if (mode === 'play' && renderer) {
@@ -381,13 +469,15 @@ watch(lab.mode, mode => {
     loadNpcTrainerArt(NPC_SHEET, renderer.npcSprites, () => p.populace.actors)
     play.value = p
     playLens = area.value.lens
+    beforePlay = { x: cam.x, y: cam.y }
     keys.attach()
   } else {
     keys.detach()
-    if (play.value) {
-      // Come back to EDIT looking at where the walk ended.
-      camX = play.value.camX
-      camY = play.value.camY
+    // Back to EDIT: the editor's own pan and zoom, as they were before PLAY.
+    if (beforePlay) {
+      cam.x = beforePlay.x
+      cam.y = beforePlay.y
+      beforePlay = null
     }
     play.value = null
     toast.value = null
@@ -397,11 +487,12 @@ watch(lab.mode, mode => {
 
 /** Frames the camera on a tile (findings, selection). */
 function focus(tile: Tile): void {
-  camX = tile.tx * TILE + TILE / 2
-  camY = tile.ty * TILE + TILE / 2
+  cam.x = tile.tx * TILE + TILE / 2
+  cam.y = tile.ty * TILE + TILE / 2
+  lab.rememberView()
 }
 
-defineExpose({ focus })
+defineExpose({ focus, zoomIn, zoomOut, zoomReset, fitCity })
 
 function press(dir: Dir | null): void {
   keys.virtualDir = dir
@@ -434,7 +525,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="stage" :class="{ 'stage--play': lab.mode.value === 'play' }">
+  <div class="stage" :class="{ 'stage--play': lab.mode.value === 'play', 'stage--grab': spaceHeld && !panning, 'stage--panning': panning }">
     <canvas
       ref="canvas" class="stage-canvas"
       @pointerdown="onPointerDown" @pointermove="onPointerMove" @pointerup="onPointerUp" @pointercancel="onPointerUp"
@@ -456,7 +547,9 @@ v-for="d in (['up', 'left', 'right', 'down'] as Dir[])" :key="d" type="button" :
 </template>
 
 <style scoped>
-.stage { position: relative; overflow: hidden; background: #0b0f1a; min-height: 0; }
+.stage { position: relative; overflow: hidden; background: #0b0f1a; min-height: 0; user-select: none; -webkit-user-select: none; }
+.stage--grab .stage-canvas { cursor: grab; }
+.stage--panning .stage-canvas { cursor: grabbing; }
 .stage-canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; cursor: crosshair; touch-action: none; }
 .stage--play .stage-canvas { cursor: pointer; }
 .stage-overlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
