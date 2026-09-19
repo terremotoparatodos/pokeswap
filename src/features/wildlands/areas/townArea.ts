@@ -49,6 +49,8 @@ export interface TownBuilding extends BuildingSpec {
 export interface ArtImage {
   src: string
   flatTop?: number | 'all'
+  /** False for art that lies on the ground and brings its own soft shadow (benches). */
+  castShadow?: boolean
 }
 
 /**
@@ -164,7 +166,7 @@ export class TownArea implements Area {
       add(d)
       if (!image) return Promise.resolve()
       const entry = decor[decor.length - 1]
-      return loadImageSprite(image.src, { flatTop: image.flatTop, castShadow })
+      return loadImageSprite(image.src, { flatTop: image.flatTop, castShadow: castShadow ?? image.castShadow })
         .then(sprite => { entry.sprite = sprite })
         .catch(error => devWarn(`[wildlands] art ${image.src} unavailable`, error))
     }

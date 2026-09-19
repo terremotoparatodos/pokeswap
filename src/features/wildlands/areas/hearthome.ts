@@ -25,18 +25,22 @@ const HEARTHOME_ART: TownArtSet = {
     hedge: [{ src: art('hedge') }],
     lamp: [{ src: art('lamp') }],
     sign: [{ src: art('sign') }],
-    bench: [{ src: art('bench-long'), flatTop: 'all' }],
-    benchLeft: [{ src: art('bench-long-left'), flatTop: 'all' }],
-    benchShort: [{ src: art('bench-short'), flatTop: 'all' }],
-    benchAcross: [{ src: art('bench-across'), flatTop: 'all' }],
+    // Benches are drawn from above: the seat lies on the ground (squashed with it by the
+    // camera) and only the iron legs stand up; their soft shadow is in the PNG.
+    bench: [{ src: art('bench-long'), flatTop: 52, castShadow: false }],
+    benchLeft: [{ src: art('bench-long-left'), flatTop: 52, castShadow: false }],
+    benchShort: [{ src: art('bench-short'), flatTop: 26, castShadow: false }],
+    benchAcross: [{ src: art('bench-across'), flatTop: 15, castShadow: false }],
     fenceH: [{ src: art('fence-h') }],
-    fenceV: [{ src: art('fence-v') }],
+    fenceV: [{ src: art('fence-v'), flatTop: 'all' }],
   },
   // Autotiled fences (scripts/build_town_street_art.py): corners where a row meets a column.
+  // A vertical run is a top view of posts along the ground, so it lies flat like the ground:
+  // with any camera tilt consecutive tiles then meet exactly, as in the top-down sketch.
   fences: {
     h: { src: art('fence-h') },
-    v: { src: art('fence-v') },
-    vRight: { src: art('fence-v-right') },
+    v: { src: art('fence-v'), flatTop: 'all' },
+    vRight: { src: art('fence-v-right'), flatTop: 'all' },
     nw: { src: art('fence-nw') },
     ne: { src: art('fence-ne') },
     sw: { src: art('fence-sw') },

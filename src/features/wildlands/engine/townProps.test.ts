@@ -118,6 +118,22 @@ describe('street art', () => {
     expect(size('bench-across')).toEqual([30, 19])
   })
 
+  it('lays vertical fence runs flat, so tilted cameras keep them continuous', () => {
+    const f = HEARTHOME.art?.fences
+    expect([f?.v?.flatTop, f?.vRight?.flatTop]).toEqual(['all', 'all'])
+    expect(HEARTHOME.art?.props?.fenceV?.[0].flatTop).toBe('all')
+    // Straight runs and corners keep their upright pickets.
+    expect(f?.h?.flatTop).toBeUndefined()
+  })
+
+  it('draws benches on the ground with their own soft shadow and upright legs', () => {
+    for (const kind of ['bench', 'benchLeft', 'benchShort', 'benchAcross'] as const) {
+      const art = HEARTHOME.art?.props?.[kind]?.[0]
+      expect(art?.castShadow, kind).toBe(false)
+      expect(typeof art?.flatTop, kind).toBe('number')
+    }
+  })
+
   it('no longer uses the dirt ramps as benches', () => {
     const srcs = Object.values(HEARTHOME.art?.props ?? {}).flat().map(i => i!.src)
     expect(srcs.some(s => /bench-[ab]\.png$/.test(s))).toBe(false)
