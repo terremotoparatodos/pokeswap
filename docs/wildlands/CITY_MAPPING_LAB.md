@@ -75,6 +75,9 @@ requires engine support (main station's decision).
 - Benches are Platinum-style plaza benches and cover several tiles from their `(tx, ty)`:
   `bench` (long 1×3, backrest right), `benchLeft` (long 1×3, backrest left),
   `benchShort` (1×2) and `benchAcross` (2×1, facing down). All their tiles are solid.
+- Benches and vertical fence runs are top views of low things along the ground, so they are
+  painted into the baked ground (`ArtImage.ground`): with the tilted player camera they stay
+  locked to it instead of sliding. Straight runs and corners keep upright pickets.
 - Art: `scripts/build_town_street_art.py` (fence pieces cut from the city tileset; benches
   drawn, since the sheet has none; the old "bench" PNGs were dirt ramps).
 

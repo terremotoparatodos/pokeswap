@@ -25,22 +25,21 @@ const HEARTHOME_ART: TownArtSet = {
     hedge: [{ src: art('hedge') }],
     lamp: [{ src: art('lamp') }],
     sign: [{ src: art('sign') }],
-    // Benches are drawn from above: the seat lies on the ground (squashed with it by the
-    // camera) and only the iron legs stand up; their soft shadow is in the PNG.
-    bench: [{ src: art('bench-long'), flatTop: 52, castShadow: false }],
-    benchLeft: [{ src: art('bench-long-left'), flatTop: 52, castShadow: false }],
-    benchShort: [{ src: art('bench-short'), flatTop: 26, castShadow: false }],
-    benchAcross: [{ src: art('bench-across'), flatTop: 15, castShadow: false }],
+    // Benches and vertical fence runs are top views of low things along the ground (as in
+    // Platinum): they are painted into the ground, so they never slide against it when the
+    // camera moves. Straight runs and corners keep their upright pickets.
+    bench: [{ src: art('bench-long'), ground: true }],
+    benchLeft: [{ src: art('bench-long-left'), ground: true }],
+    benchShort: [{ src: art('bench-short'), ground: true }],
+    benchAcross: [{ src: art('bench-across'), ground: true }],
     fenceH: [{ src: art('fence-h') }],
-    fenceV: [{ src: art('fence-v'), flatTop: 'all' }],
+    fenceV: [{ src: art('fence-v'), ground: true }],
   },
   // Autotiled fences (scripts/build_town_street_art.py): corners where a row meets a column.
-  // A vertical run is a top view of posts along the ground, so it lies flat like the ground:
-  // with any camera tilt consecutive tiles then meet exactly, as in the top-down sketch.
   fences: {
     h: { src: art('fence-h') },
-    v: { src: art('fence-v'), flatTop: 'all' },
-    vRight: { src: art('fence-v-right'), flatTop: 'all' },
+    v: { src: art('fence-v'), ground: true },
+    vRight: { src: art('fence-v-right'), ground: true },
     nw: { src: art('fence-nw') },
     ne: { src: art('fence-ne') },
     sw: { src: art('fence-sw') },

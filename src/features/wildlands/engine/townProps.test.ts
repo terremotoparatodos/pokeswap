@@ -118,20 +118,12 @@ describe('street art', () => {
     expect(size('bench-across')).toEqual([30, 19])
   })
 
-  it('lays vertical fence runs flat, so tilted cameras keep them continuous', () => {
+  it('paints benches and vertical fence runs into the ground, so moving never slides them', () => {
     const f = HEARTHOME.art?.fences
-    expect([f?.v?.flatTop, f?.vRight?.flatTop]).toEqual(['all', 'all'])
-    expect(HEARTHOME.art?.props?.fenceV?.[0].flatTop).toBe('all')
+    expect([f?.v?.ground, f?.vRight?.ground, HEARTHOME.art?.props?.fenceV?.[0].ground]).toEqual([true, true, true])
+    for (const kind of ['bench', 'benchLeft', 'benchShort', 'benchAcross'] as const) expect(HEARTHOME.art?.props?.[kind]?.[0].ground, kind).toBe(true)
     // Straight runs and corners keep their upright pickets.
-    expect(f?.h?.flatTop).toBeUndefined()
-  })
-
-  it('draws benches on the ground with their own soft shadow and upright legs', () => {
-    for (const kind of ['bench', 'benchLeft', 'benchShort', 'benchAcross'] as const) {
-      const art = HEARTHOME.art?.props?.[kind]?.[0]
-      expect(art?.castShadow, kind).toBe(false)
-      expect(typeof art?.flatTop, kind).toBe('number')
-    }
+    for (const piece of ['h', 'nw', 'ne', 'sw', 'se'] as const) expect(f?.[piece]?.ground, piece).toBeUndefined()
   })
 
   it('no longer uses the dirt ramps as benches', () => {
