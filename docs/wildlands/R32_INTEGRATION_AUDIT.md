@@ -175,7 +175,7 @@ Sin balancear nada todavía: consumibles (Poción, Revivir, Éter) como sink rea
 
 | Fase | Contenido | Depende de |
 |---|---|---|
-| **R33 — Estaciones productivas** | **Entregada** (2026-09-19, `feat/r33-stations-product`, pendiente de gate humano). T-S3 art + `PlacedObject` multi-tile + estado de proceso; `mineral → Horno → lingote` recorrible. Fogata y Banco quedan declarados, no jugables. Doc: [`../economy/R33_STATIONS_PRODUCT.md`](../economy/R33_STATIONS_PRODUCT.md) | F-1, T-S3 |
+| **R33 — Estaciones productivas** | **Entregada + microfase de cierre** (2026-09-19, `feat/r33-stations-product`, pendiente de gate humano). T-S3 art + `PlacedObject` multi-tile + estado de proceso; `mineral → Horno → lingote` recorrible. La microfase separó la **infraestructura production-ready** del **vertical slice DEV**, cerró `O-9` con placement explícito, congeló la frontera de reloj (`untrusted_clock`, sin API de "el cliente dice terminado"), nombró `output_capacity_exceeded` y fijó v1: un proceso por estación y cancel sólo en READY. Fogata y Banco quedan declarados y **rechazados** si se los intenta usar. Doc: [`../economy/R33_STATIONS_PRODUCT.md`](../economy/R33_STATIONS_PRODUCT.md) | F-1, T-S3 |
 | **R34 — Dungeon world + combate autoritativo** | Generación, área y props a producción; combate validado por servidor | R32.4, R33 opcional |
 | **R35 — Expedition authority** | Loot, llave, captura (§4), retreat, wipe, expiración | R34 |
 | **R36 — Persistencia** | Estructuras colocadas, inventario, progreso de profesión, instancias capturadas | R35 |
