@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { HEARTHOME } from '../areas/atlas'
 import { createProjector, LENSES } from './projection'
-import { facing, placeOnFootprint, projectVertices, rasterFrame, rasterize, visibleTriangles, type Texels, type TownModelData } from './townModel'
+import { facing, MODEL_REDRAW_STEP, placeOnFootprint, projectVertices, rasterFrame, rasterize, rasterKey, visibleTriangles, type Texels, type TownModelData } from './townModel'
 
 const MODELS = import.meta.glob<TownModelData>('../../../../public/assets/town/models/*.json', { eager: true, import: 'default' })
 const TEXTURES = import.meta.glob('../../../../public/assets/town/models/*.png', { eager: true, query: '?url', import: 'default' })
@@ -112,6 +112,17 @@ describe('drawing a model', () => {
     expect(at(4, 4, 4)).toEqual([0, 0, 200, 255]) // near square wins though drawn first
     expect(at(1, 7, 0)).toEqual([200, 0, 0, 255]) // far square where the near one is not
     expect(at(-3, 0, 6)[3]).toBe(128) // shadow alone: translucent
+  })
+})
+
+describe('redrawing a model', () => {
+  it('reuses its image while the camera moves less than a step, and redraws past it or on a zoom change', () => {
+    const at = { x: 100, y: 200 }
+    const key = rasterKey(at, 0, 0, 3)
+    expect(rasterKey(at, 0.4, -0.4, 3)).toBe(key)
+    expect(rasterKey(at, MODEL_REDRAW_STEP, 0, 3)).not.toBe(key)
+    expect(rasterKey(at, 0, MODEL_REDRAW_STEP, 3)).not.toBe(key)
+    expect(rasterKey(at, 0, 0, 6)).not.toBe(key)
   })
 })
 

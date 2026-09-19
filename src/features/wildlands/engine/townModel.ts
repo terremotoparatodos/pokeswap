@@ -8,9 +8,10 @@
 //
 // Like the DS, a model is rasterized with a depth buffer (sorting triangles
 // is not enough for pieces set into each other) and faces turned away from the
-// camera are skipped. It is rasterized at its native resolution — one texel
-// per world px, as the handheld draws it — into a small buffer, which is then
-// scaled onto the screen like every other sprite: crisp pixel art, and cheap.
+// camera are skipped. It is rasterized into a small buffer at about the
+// screen's resolution (MODEL_DETAIL buffer px per world px), so edges and
+// perspective are as fine as the rest of the frame while texels stay crisp,
+// then copied onto the screen.
 //
 // Model space: x right, y up, z toward the viewer; one unit is one world px.
 
@@ -192,36 +193,66 @@ export function rasterize(
 interface Surface {
   canvas: HTMLCanvasElement
   image: ImageData | null
+  /** What the buffer was rasterized for, and where it sits relative to the model's front point. */
+  key: string
+  dx: number
+  dy: number
+  width: number
+  height: number
 }
 
 const surfaces = new WeakMap<ModelPlacement, Surface>()
 
-/** Draws a placed model: rasterized at native resolution (one texel per world px at its front), then scaled. */
+/**
+ * Buffer px per world px. 1 is the handheld's own resolution (blocky once
+ * scaled up); 3 matches the town's default zoom on a 1× screen, so the buffer
+ * lands on the screen almost pixel for pixel.
+ */
+export const MODEL_DETAIL = 3
+
+/**
+ * World px the camera may move before a model is rasterized again: in between,
+ * its last image only slides with the ground (perspective barely changes).
+ */
+export const MODEL_REDRAW_STEP = 2
+
+/** When a model must be rasterized again: the camera moved a step relative to it, or the zoom changed. */
+export function rasterKey(at: ModelPlacement, camX: number, camY: number, scale: number): string {
+  const q = (v: number) => Math.round(v / MODEL_REDRAW_STEP)
+  return `${q(camX - at.x)}|${q(camY - at.y)}|${scale.toFixed(2)}`
+}
+
+/** Draws a placed model: rasterized at about screen resolution (see MODEL_DETAIL), then copied onto the screen. */
 export function drawTownModel(
   ctx: CanvasRenderingContext2D, model: TownModel, at: ModelPlacement, proj: Projector, camX: number, camY: number, eye: Eye,
 ): boolean {
-  const screen = projectVertices(model.data, at, proj, camX, camY)
   const front = proj.project(at.x + model.data.center - camX, at.y + model.data.front - camY)
-  if (!screen || !front) return false
-  const frame = rasterFrame(screen, front.scale)
-  if (frame.width <= 0 || frame.height <= 0 || frame.width > 1024 || frame.height > 1024) return false
+  if (!front) return false
   let surface = surfaces.get(at)
-  if (!surface) {
-    surface = { canvas: document.createElement('canvas'), image: null }
-    surfaces.set(at, surface)
+  const key = rasterKey(at, camX, camY, front.scale)
+  if (!surface || surface.key !== key) {
+    const screen = projectVertices(model.data, at, proj, camX, camY)
+    if (!screen) return false
+    const frame = rasterFrame(screen, Math.max(1, front.scale / MODEL_DETAIL))
+    if (frame.width <= 0 || frame.height <= 0 || frame.width > 2048 || frame.height > 2048) return false
+    if (!surface) {
+      surface = { canvas: document.createElement('canvas'), image: null, key: '', dx: 0, dy: 0, width: 0, height: 0 }
+      surfaces.set(at, surface)
+    }
+    const g = surface.canvas.getContext('2d')
+    if (!g) return false
+    if (!surface.image || surface.image.width !== frame.width || surface.image.height !== frame.height) {
+      surface.canvas.width = frame.width
+      surface.canvas.height = frame.height
+      surface.image = g.createImageData(frame.width, frame.height)
+    }
+    rasterize(model, screen, visibleTriangles(model.data, at, camX, camY, eye), frame, surface.image.data)
+    g.putImageData(surface.image, 0, 0)
+    Object.assign(surface, { key, dx: frame.x - front.x, dy: frame.y - front.y, width: frame.width * frame.k, height: frame.height * frame.k })
   }
-  const g = surface.canvas.getContext('2d')
-  if (!g) return false
-  if (!surface.image || surface.image.width !== frame.width || surface.image.height !== frame.height) {
-    surface.canvas.width = frame.width
-    surface.canvas.height = frame.height
-    surface.image = g.createImageData(frame.width, frame.height)
-  }
-  rasterize(model, screen, visibleTriangles(model.data, at, camX, camY, eye), frame, surface.image.data)
-  g.putImageData(surface.image, 0, 0)
   const smoothing = ctx.imageSmoothingEnabled
   ctx.imageSmoothingEnabled = false
-  ctx.drawImage(surface.canvas, Math.round(frame.x), Math.round(frame.y), Math.round(frame.width * frame.k), Math.round(frame.height * frame.k))
+  ctx.drawImage(surface.canvas, Math.round(front.x + surface.dx), Math.round(front.y + surface.dy), Math.round(surface.width), Math.round(surface.height))
   ctx.imageSmoothingEnabled = smoothing
   return true
 }

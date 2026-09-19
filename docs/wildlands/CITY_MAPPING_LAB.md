@@ -86,8 +86,10 @@ requires engine support (main station's decision).
   expanded textures, so the game never wraps.
 - `engine/townModel.ts` draws a model with the scene projector (same perspective as the
   ground). Like the DS it skips back faces and uses a depth buffer (sorting triangles fails on
-  pieces set into each other), rasterizing at native resolution (one texel per world px) and
-  scaling the result like a sprite. A building to one side of the screen shows its real side wall.
+  pieces set into each other), rasterizing at about screen resolution (`MODEL_DETAIL`), so
+  edges are as fine as the rest of the frame. The image is reused while the camera moves less
+  than `MODEL_REDRAW_STEP` world px relative to it. A building to one side of the screen shows
+  its real side wall.
 - `scripts/preview_town_model.py <model.json> <out.png> [sprite.png]` renders a converted
   model left of, at and right of the screen centre, to check textures and walls before use.
 - The Pokémon Center is HeartGold/SoulSilver's model (closer to Platinum than Diamond/Pearl's).
