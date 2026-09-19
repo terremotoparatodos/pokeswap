@@ -2,4 +2,4 @@
 //
 // Client and server both import this: an action carrying a different
 // version is refused rather than resolved against a different catalog.
-export const CATALOG_VERSION = '1.oras.ab69b5804411'
+export const CATALOG_VERSION = '1.oras.db4ae081bb58'

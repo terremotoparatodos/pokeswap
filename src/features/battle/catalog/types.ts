@@ -80,6 +80,27 @@ export interface CatalogNature {
 /** Only the departures from 1× are stored; everything absent is neutral. */
 export type TypeChart = Readonly<Record<TypeName, Readonly<Partial<Record<TypeName, number>>>>>
 
+/**
+ * A stat change a move makes, stated fully enough to be executed.
+ *
+ * The tabular source says which stat and by how much but never who receives
+ * it; the pinned Gen VI reference says who and how often. This is only present
+ * when the two settle it — a move whose stat change is conditional, or whose
+ * sources disagree, carries `statChanges: null` and is `supported: false` with
+ * the reason. See `scripts/battle-catalog/statChanges.mjs`.
+ */
+export interface CatalogStatChanges {
+  /** Who the stages land on. `user` covers both a buff and a self-inflicted drop. */
+  readonly recipient: 'user' | 'target'
+  /** 1–100. A direct stat move is 100: it is what the move *is*, not a chance. */
+  readonly chance: number
+  /** `direct` — the move's whole point. `secondary` — it also deals damage. */
+  readonly kind: 'direct' | 'secondary'
+  readonly changes: readonly { readonly stat: string; readonly stages: number }[]
+  /** Which pinned source settled it, so any number can be traced back. */
+  readonly source: 'both-sources-agree' | 'gen6-diff'
+}
+
 export interface CatalogMoveMeta {
   readonly ailment: AilmentName | null
   readonly ailmentChance: number | null
@@ -92,6 +113,8 @@ export interface CatalogMoveMeta {
   readonly healing: number | null
   readonly minHits: number | null
   readonly maxHits: number | null
+  /** Null when the pinned sources do not state the stat change unambiguously. */
+  readonly statChanges: CatalogStatChanges | null
 }
 
 export interface CatalogMove {

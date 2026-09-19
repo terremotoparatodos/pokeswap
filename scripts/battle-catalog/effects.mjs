@@ -50,6 +50,9 @@ export const SUPPORTED_EFFECTS = new Set([
   'protect',
 ])
 
+/** Effects that additionally need resolved stat metadata to be runnable. */
+const NEEDS_STAT_CHANGES = new Set(['statChange', 'damage.statChange'])
+
 /** Major statuses our rules model; the rest are volatiles we do not run yet. */
 export const SUPPORTED_AILMENTS = new Set(['paralysis', 'sleep', 'freeze', 'burn', 'poison', 'confusion'])
 
@@ -81,7 +84,7 @@ const BY_CATEGORY = {
 export function describeEffect(input) {
   const {
     category, ailment, minHits, maxHits, flinchChance, drain, sourceEffectId, flags, identifier,
-    damageClass, power,
+    damageClass, power, statChanges, statChangeReason,
   } = input
 
   // Protect and its family block instead of acting; the source tables file them
@@ -108,8 +111,14 @@ export function describeEffect(input) {
   // the catalog says so instead of letting a rule read `null` as zero.
   const variablePower = damageClass !== 'status' && power === null
 
+  // A stat-changing move is only runnable once the two pinned sources agree on
+  // stat, amount, recipient and probability. Saying "supported" without that
+  // would mean a rule reading a number nobody wrote down.
+  const statChangesMissing = NEEDS_STAT_CHANGES.has(effectId) && !statChanges
+
   const ailmentSupported = ailment === 'none' || SUPPORTED_AILMENTS.has(ailment)
   const supported = SUPPORTED_EFFECTS.has(effectId)
+    && !statChangesMissing
     && ailmentSupported
     && ailment !== 'unknown'
     // A charging or recharging move spends a turn we do not model yet; in a
@@ -125,9 +134,10 @@ export function describeEffect(input) {
     unsupportedReason: supported
       ? undefined
       : !SUPPORTED_EFFECTS.has(effectId) ? `effect ${effectId}`
-        : variablePower ? 'variable power'
-          : flags.includes('charge') ? 'charge turn'
-            : flags.includes('recharge') ? 'recharge turn'
-              : `ailment ${ailment}`,
+        : statChangesMissing ? `stat changes: ${statChangeReason ?? 'not stated'}`
+          : variablePower ? 'variable power'
+            : flags.includes('charge') ? 'charge turn'
+              : flags.includes('recharge') ? 'recharge turn'
+                : `ailment ${ailment}`,
   }
 }

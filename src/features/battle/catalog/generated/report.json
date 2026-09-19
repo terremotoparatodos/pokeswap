@@ -1,11 +1,84 @@
 {
- "catalogVersion": "1.oras.ab69b5804411",
+ "catalogVersion": "1.oras.db4ae081bb58",
  "species": 493,
  "forms": 562,
  "megaForms": 46,
  "moves": 621,
- "supportedMoves": 415,
- "unsupportedMoves": 206,
+ "supportedMoves": 403,
+ "unsupportedMoves": 218,
+ "statChanges": {
+  "movesWithRows": 125,
+  "resolved": 109,
+  "direct": 58,
+  "secondary": 51,
+  "settledByGenSixDiff": 1,
+  "deferred": [
+   {
+    "move": "autotomize",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "captivate",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "charge",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "defense-curl",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "flatter",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "flower-shield",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "geomancy",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "growth",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "hyperspace-fury",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "magnetic-flux",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "minimize",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "parting-shot",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "rapid-spin",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "rototiller",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "swagger",
+    "reason": "the stat change is conditional"
+   },
+   {
+    "move": "venom-drench",
+    "reason": "the stat change is conditional"
+   }
+  ]
+ },
  "abilities": 191,
  "learnsets": 562,
  "formsWithoutLearnset": 0,

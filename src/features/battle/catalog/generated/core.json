@@ -1,5 +1,5 @@
 {
- "catalogVersion": "1.oras.ab69b5804411",
+ "catalogVersion": "1.oras.db4ae081bb58",
  "provenance": {
   "ruleset": "ORAS / Generation VI",
   "scope": "Species 1–493 (the ones PokeSwap uses today) and every Gen VI form of them.",
@@ -13,7 +13,7 @@
    },
    {
     "id": "pokemon-showdown",
-    "role": "Generation VI correction layer and semantic reference. The tabular source ships present-day base stats and ability slots; this pinned mod is the recorded diff back to Gen VI, and the build applies its baseStats/abilities overrides. Move behaviour is still only read by humans: no effect code is copied.",
+    "role": "Generation VI correction layer and semantic reference. The tabular source ships present-day base stats and ability slots; this pinned mod is the recorded diff back to Gen VI, and the build applies its baseStats/abilities overrides. Its move data answers the one question the tabular tables cannot: who receives a stat change and with what probability. It is read as data and cross-checked against the tabular rows; no effect code is copied.",
     "repo": "https://github.com/smogon/pokemon-showdown",
     "commit": "2ddfa0476f8207e12e204b1c69f7c7683b17633c",
     "license": "MIT"
@@ -83,6 +83,10 @@
     "bytes": 199,
     "sha256": "fa323bf9f1c9aa030b5029002a0347a97b1bf8abfcca60349c94c6e34312c4c7"
    },
+   "move_meta_stat_changes.csv": {
+    "bytes": 1818,
+    "sha256": "685dbb502dd08ab5d81f056e985c2b2e9e5e83256892bf2004fa64de140a1e5f"
+   },
    "move_targets.csv": {
     "bytes": 244,
     "sha256": "ec79b8d533631d63cdc72fb17953df4fd8918b000e9261a0aeeb32d6f1349b56"
@@ -115,9 +119,17 @@
     "bytes": 879,
     "sha256": "2691fea161441ce97085d70c0f466c0329a9a5a587a9797bb3b757da0e8090d0"
    },
-   "pokedex.ts": {
+   "data__mods__gen6__pokedex.ts": {
     "bytes": 9626,
     "sha256": "cf692e61ba60a9affd69e97f12b04b8b6a2d74103bd0ef0df6194bf2c0a19ce5"
+   },
+   "data__moves.ts": {
+    "bytes": 484707,
+    "sha256": "cd14e386b4c105a30c09dd0866d1378619f493984d68a782472672cefbcfe186"
+   },
+   "data__mods__gen6__moves.ts": {
+    "bytes": 4196,
+    "sha256": "2253b9dd1ed8cde982cb5e4c5057a75f6fdebba2053af27c7fe61769979b8adb"
    }
   }
  },

@@ -26,6 +26,7 @@
         "move_meta.csv",
         "move_meta_ailments.csv",
         "move_meta_categories.csv",
+        "move_meta_stat_changes.csv",
         "move_targets.csv",
         "move_damage_classes.csv",
         "abilities.csv",
@@ -38,14 +39,16 @@
     },
     {
       "id": "pokemon-showdown",
-      "role": "Generation VI correction layer and semantic reference. The tabular source ships present-day base stats and ability slots; this pinned mod is the recorded diff back to Gen VI, and the build applies its baseStats/abilities overrides. Move behaviour is still only read by humans: no effect code is copied.",
+      "role": "Generation VI correction layer and semantic reference. The tabular source ships present-day base stats and ability slots; this pinned mod is the recorded diff back to Gen VI, and the build applies its baseStats/abilities overrides. Its move data answers the one question the tabular tables cannot: who receives a stat change and with what probability. It is read as data and cross-checked against the tabular rows; no effect code is copied.",
       "repo": "https://github.com/smogon/pokemon-showdown",
       "commit": "2ddfa0476f8207e12e204b1c69f7c7683b17633c",
       "license": "MIT",
-      "reference": "data/mods/gen6/{moves,abilities,typechart,learnsets}.ts (read, not copied)",
-      "rawBase": "https://raw.githubusercontent.com/smogon/pokemon-showdown/2ddfa0476f8207e12e204b1c69f7c7683b17633c/data/mods/gen6",
+      "reference": "data/mods/gen6/{abilities,typechart,learnsets}.ts (read, not copied)",
+      "rawBase": "https://raw.githubusercontent.com/smogon/pokemon-showdown/2ddfa0476f8207e12e204b1c69f7c7683b17633c",
       "files": [
-        "pokedex.ts"
+        "data/mods/gen6/pokedex.ts",
+        "data/moves.ts",
+        "data/mods/gen6/moves.ts"
       ]
     },
     {

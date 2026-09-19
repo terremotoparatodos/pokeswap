@@ -24,6 +24,9 @@ import { fileURLToPath } from 'node:url'
 import { groupBy, num, readTable } from './lib/csv.mjs'
 import { describeEffect } from './effects.mjs'
 import { parseGenSixDiff, showdownKey } from './genSix.mjs'
+import {
+  mergeGenSixMoves, parseShowdownMoves, resolveStatChanges, showdownMoveKey, STAT_BY_ID,
+} from './statChanges.mjs'
 import { CACHE_DIR, loadSources, readManifest } from './fetch.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -59,10 +62,11 @@ async function main() {
     table('abilities.csv'), table('natures.csv'), table('type_efficacy.csv'), table('types.csv'),
     table('stats.csv'), table('growth_rates.csv'),
   ])
+  const statChangeRows = await table('move_meta_stat_changes.csv')
 
   const issues = []
   // What the tabular source records at today's values, rolled back to Gen VI.
-  const genSix = parseGenSixDiff(await readFile(join(CACHE_DIR, 'pokedex.ts'), 'utf8'))
+  const genSix = parseGenSixDiff(await readFile(join(CACHE_DIR, 'data__mods__gen6__pokedex.ts'), 'utf8'))
   const corrections = { baseStats: [], abilities: [], types: [] }
   const name = (rows, id) => rows.find(row => Number(row.id) === Number(id))?.identifier ?? null
 
@@ -218,6 +222,17 @@ async function main() {
   const ailmentName = new Map(ailmentRows.map(row => [Number(row.id), row.identifier]))
   const categoryName = new Map(categoryRows.map(row => [Number(row.id), row.identifier]))
 
+  // Stat changes need two sources to be stated without guessing: the tabular
+  // rows say which stat and by how much, the pinned Gen VI reference says who
+  // receives it and how often, and `resolveStatChanges` only answers when the
+  // two agree. See `statChanges.mjs`.
+  const statChangesByMove = groupBy(statChangeRows, row => Number(row.move_id))
+  const showdownMoves = mergeGenSixMoves(
+    parseShowdownMoves(await readFile(join(CACHE_DIR, 'data__moves.ts'), 'utf8')),
+    parseShowdownMoves(await readFile(join(CACHE_DIR, 'data__mods__gen6__moves.ts'), 'utf8')),
+  )
+  const statChangeReasons = new Map()
+
   /**
    * The value a column had in ORAS: the earliest change recorded *after* it
    * carries the value as it was before that change.
@@ -246,9 +261,24 @@ async function main() {
     const damageClass = name(damageClassRows, row.damage_class_id)
     const typeId = asOfOras(moveId, 'type_id', Number(row.type_id))
 
+    const tabularChanges = (statChangesByMove.get(moveId) ?? [])
+      .map(entry => ({ stat: STAT_BY_ID[Number(entry.stat_id)] ?? null, delta: Number(entry.change) }))
+      .filter(entry => entry.stat !== null)
+      .sort((a, b) => a.stat.localeCompare(b.stat))
+    const resolved = tabularChanges.length
+      ? resolveStatChanges({
+          tabular: tabularChanges,
+          showdown: showdownMoves.get(showdownMoveKey(row.identifier)),
+          statChance: Number(meta?.stat_chance ?? 0),
+        })
+      : { reason: 'no stat change rows' }
+    if (tabularChanges.length && resolved.reason) statChangeReasons.set(row.identifier, resolved.reason)
+
     const effect = describeEffect({
       category,
       ailment,
+      statChanges: resolved.statChanges ?? null,
+      statChangeReason: resolved.reason ?? null,
       minHits: num(meta?.min_hits),
       maxHits: num(meta?.max_hits),
       flinchChance: Number(meta?.flinch_chance ?? 0),
@@ -283,6 +313,12 @@ async function main() {
         healing: Number(meta?.healing ?? 0) || null,
         minHits: num(meta?.min_hits),
         maxHits: num(meta?.max_hits),
+        /**
+         * Who gets which stage, and how often. `null` when the two pinned
+         * sources do not state it unambiguously — and then the move is
+         * unsupported with the reason, never run as a plain hit.
+         */
+        statChanges: resolved.statChanges ?? null,
       },
       /** Where this row came from, so a later phase can always check it. */
       source: { effectId: Number(row.effect_id), category },
@@ -353,6 +389,16 @@ async function main() {
     moves: moves.length,
     supportedMoves: moves.filter(move => move.supported).length,
     unsupportedMoves: moves.filter(move => !move.supported).length,
+    statChanges: {
+      movesWithRows: moves.filter(move => move.meta.statChanges).length + statChangeReasons.size,
+      resolved: moves.filter(move => move.meta.statChanges).length,
+      direct: moves.filter(move => move.meta.statChanges?.kind === 'direct').length,
+      secondary: moves.filter(move => move.meta.statChanges?.kind === 'secondary').length,
+      settledByGenSixDiff: moves.filter(move => move.meta.statChanges?.source === 'gen6-diff').length,
+      deferred: [...statChangeReasons.entries()]
+        .map(([move, reason]) => ({ move, reason }))
+        .sort((a, b) => a.move.localeCompare(b.move)),
+    },
     abilities: abilities.length,
     learnsets: Object.keys(learnsets).length,
     formsWithoutLearnset: withoutLearnset.length,

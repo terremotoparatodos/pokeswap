@@ -1,5 +1,5 @@
 {
- "catalogVersion": "1.oras.ab69b5804411",
+ "catalogVersion": "1.oras.db4ae081bb58",
  "moves": [
   {
    "id": 1,
@@ -27,7 +27,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -60,7 +61,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -93,7 +95,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -127,7 +130,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -161,7 +165,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -193,7 +198,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 35,
@@ -227,7 +233,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -261,7 +268,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 6,
@@ -295,7 +303,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -328,7 +337,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -361,7 +371,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -394,7 +405,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 39,
@@ -428,7 +440,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 40,
@@ -461,7 +474,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 51,
@@ -494,7 +519,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -527,7 +553,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 150,
@@ -561,7 +588,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -594,7 +622,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 29,
@@ -631,7 +660,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 156,
@@ -665,7 +695,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 43,
@@ -700,7 +731,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -733,7 +765,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -767,7 +800,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 151,
@@ -800,7 +834,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 2
+    "maxHits": 2,
+    "statChanges": null
    },
    "source": {
     "effectId": 45,
@@ -833,7 +868,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -867,7 +903,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 46,
@@ -900,7 +937,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -933,7 +971,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 24,
@@ -966,7 +1016,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -999,7 +1050,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -1032,7 +1084,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -1065,7 +1118,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 39,
@@ -1099,7 +1153,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -1133,7 +1188,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -1166,7 +1222,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 43,
@@ -1200,7 +1257,8 @@
     "drain": -25,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 49,
@@ -1234,7 +1292,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 28,
@@ -1267,7 +1326,8 @@
     "drain": -33,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 199,
@@ -1301,7 +1361,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 20,
@@ -1333,7 +1405,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 3,
@@ -1365,7 +1438,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 2
+    "maxHits": 2,
+    "statChanges": null
    },
    "source": {
     "effectId": 78,
@@ -1397,7 +1471,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -1430,7 +1505,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 20,
@@ -1464,7 +1551,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -1499,7 +1587,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 19,
@@ -1533,7 +1633,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 29,
@@ -1569,7 +1670,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 2,
@@ -1604,7 +1706,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 50,
@@ -1636,7 +1739,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 131,
@@ -1672,7 +1776,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 87,
@@ -1705,7 +1810,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -1737,7 +1854,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -1769,7 +1887,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -1800,7 +1919,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 47,
@@ -1833,7 +1953,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -1865,7 +1986,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -1898,7 +2020,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 258,
@@ -1930,7 +2053,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 6,
@@ -1962,7 +2086,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 261,
@@ -1994,7 +2119,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 77,
@@ -2026,7 +2152,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 71,
@@ -2058,7 +2196,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 69,
@@ -2091,7 +2241,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 81,
@@ -2126,7 +2277,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -2160,7 +2312,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -2193,7 +2346,8 @@
     "drain": -25,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 49,
@@ -2227,7 +2381,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 197,
@@ -2260,7 +2415,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 90,
@@ -2295,7 +2451,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 88,
@@ -2329,7 +2486,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -2362,7 +2520,8 @@
     "drain": 50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 4,
@@ -2395,7 +2554,8 @@
     "drain": 50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 4,
@@ -2428,7 +2588,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 85,
@@ -2450,7 +2611,7 @@
     "snatch"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -2460,12 +2621,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 317,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 75,
@@ -2492,7 +2655,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -2525,7 +2689,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 152,
@@ -2560,7 +2725,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 67,
@@ -2594,7 +2760,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 68,
@@ -2628,7 +2795,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 2,
@@ -2662,7 +2830,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 28,
@@ -2695,7 +2864,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 61,
@@ -2727,7 +2908,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 42,
@@ -2760,7 +2942,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 43,
@@ -2793,7 +2976,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -2825,7 +3009,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -2858,7 +3043,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 68,
@@ -2890,7 +3076,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 153,
@@ -2922,7 +3109,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -2955,7 +3143,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 148,
@@ -2988,7 +3177,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 39,
@@ -3024,7 +3214,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 257,
@@ -3058,7 +3249,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 34,
@@ -3090,7 +3282,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 77,
@@ -3122,7 +3315,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -3155,7 +3360,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 2,
@@ -3186,7 +3392,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 11,
@@ -3217,7 +3435,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 53,
@@ -3250,7 +3480,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 104,
@@ -3283,7 +3514,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 82,
@@ -3312,7 +3544,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 154,
@@ -3345,7 +3578,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 88,
@@ -3378,7 +3612,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 83,
@@ -3414,7 +3649,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 60,
@@ -3445,7 +3692,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "evasion",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 17,
@@ -3477,7 +3736,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 33,
@@ -3508,7 +3768,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 12,
@@ -3529,7 +3801,7 @@
     "snatch"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -3539,12 +3811,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 109,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 108,
@@ -3572,7 +3846,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 24,
@@ -3605,7 +3891,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 50,
@@ -3636,7 +3923,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 12,
@@ -3657,7 +3956,7 @@
     "snatch"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -3667,12 +3966,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 157,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 112,
@@ -3698,7 +3999,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 52,
@@ -3729,7 +4042,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 36,
@@ -3761,7 +4075,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 26,
@@ -3793,7 +4108,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 66,
@@ -3825,7 +4141,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 48,
@@ -3858,7 +4175,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 27,
@@ -3888,7 +4206,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 84,
@@ -3918,7 +4237,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 10,
@@ -3951,7 +4271,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 8,
@@ -3985,7 +4306,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -4018,7 +4340,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -4050,7 +4373,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 3,
@@ -4082,7 +4406,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 3,
@@ -4114,7 +4439,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -4146,7 +4472,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -4179,7 +4506,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -4212,7 +4540,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 43,
@@ -4245,7 +4574,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 18,
@@ -4279,7 +4609,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 146,
@@ -4312,7 +4643,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -4345,7 +4677,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 71,
@@ -4376,7 +4720,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 55,
@@ -4409,7 +4765,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 24,
@@ -4441,7 +4809,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 33,
@@ -4475,7 +4844,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 46,
@@ -4508,7 +4878,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 68,
@@ -4541,7 +4912,8 @@
     "drain": 50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 9,
@@ -4574,7 +4946,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 67,
@@ -4607,7 +4980,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -4641,7 +5015,8 @@
     "drain": 50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 4,
@@ -4674,7 +5049,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 2,
@@ -4708,7 +5084,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 76,
@@ -4738,7 +5115,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 58,
@@ -4771,7 +5149,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 71,
@@ -4805,7 +5195,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 77,
@@ -4839,7 +5230,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 2,
@@ -4872,7 +5264,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 24,
@@ -4904,7 +5308,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 89,
@@ -4936,7 +5341,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 86,
@@ -4968,7 +5374,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 52,
@@ -5001,7 +5419,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -5033,7 +5452,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 8,
@@ -5067,7 +5487,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -5099,7 +5520,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 2
+    "maxHits": 2,
+    "statChanges": null
    },
    "source": {
     "effectId": 45,
@@ -5131,7 +5553,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 38,
@@ -5164,7 +5587,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -5198,7 +5622,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -5229,7 +5654,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 11,
@@ -5260,7 +5697,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 31,
@@ -5293,7 +5731,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 37,
@@ -5327,7 +5766,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 41,
@@ -5361,7 +5801,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -5393,7 +5834,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 80,
@@ -5426,7 +5868,8 @@
     "drain": null,
     "healing": -25,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 255,
@@ -5457,7 +5900,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 96,
@@ -5491,7 +5935,8 @@
     "drain": null,
     "healing": null,
     "minHits": 3,
-    "maxHits": 3
+    "maxHits": 3,
+    "statChanges": null
    },
    "source": {
     "effectId": 105,
@@ -5524,7 +5969,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 106,
@@ -5557,7 +6003,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 107,
@@ -5590,7 +6037,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 95,
@@ -5623,7 +6071,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 108,
@@ -5658,7 +6107,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 126,
@@ -5692,7 +6142,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 93,
@@ -5723,7 +6174,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 110,
@@ -5757,7 +6209,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 100,
@@ -5789,7 +6242,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 94,
@@ -5823,7 +6277,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -5857,7 +6312,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 61,
@@ -5890,7 +6357,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 100,
@@ -5925,7 +6393,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 101,
@@ -5958,7 +6427,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 6,
@@ -5987,7 +6457,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 112,
@@ -6021,7 +6492,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 104,
@@ -6054,7 +6526,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 61,
@@ -6087,7 +6571,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 18,
@@ -6120,7 +6605,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 50,
@@ -6151,7 +6637,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 143,
@@ -6185,7 +6672,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 3,
@@ -6217,7 +6705,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 74,
@@ -6250,7 +6750,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 74,
@@ -6282,7 +6794,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 113,
@@ -6316,7 +6829,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -6350,7 +6864,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 114,
@@ -6382,7 +6897,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 99,
@@ -6416,7 +6932,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 115,
@@ -6449,7 +6966,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 71,
@@ -6478,7 +7007,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 112,
@@ -6510,7 +7040,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -6542,7 +7073,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 95,
@@ -6576,7 +7108,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 28,
@@ -6605,7 +7138,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 116,
@@ -6639,7 +7173,8 @@
     "drain": 50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 4,
@@ -6668,7 +7203,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 117,
@@ -6702,7 +7238,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 59,
@@ -6735,7 +7283,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 118,
@@ -6768,7 +7317,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 102,
@@ -6801,7 +7351,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 119,
@@ -6833,7 +7384,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 33,
@@ -6866,7 +7418,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -6899,7 +7452,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 120,
@@ -6932,7 +7486,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 139,
@@ -6964,7 +7530,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 107,
@@ -7000,7 +7567,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 121,
@@ -7030,7 +7598,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 98,
@@ -7065,7 +7634,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 103,
@@ -7099,7 +7669,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 122,
@@ -7132,7 +7703,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 123,
@@ -7166,7 +7738,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 124,
@@ -7198,7 +7771,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 125,
@@ -7231,7 +7805,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 92,
@@ -7265,7 +7840,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 126,
@@ -7298,7 +7874,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 127,
@@ -7333,7 +7910,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 77,
@@ -7366,7 +7944,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -7398,7 +7977,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -7427,7 +8007,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 128,
@@ -7463,7 +8044,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 91,
@@ -7497,7 +8079,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 129,
@@ -7520,7 +8103,7 @@
     "protect"
    ],
    "effectId": "damage.statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -7530,12 +8113,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 130,
     "category": "damage+raise"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 230,
@@ -7563,7 +8148,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "evasion",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 25,
@@ -7596,7 +8193,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 30,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 70,
@@ -7629,7 +8238,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 140,
@@ -7662,7 +8283,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 79,
@@ -7694,7 +8316,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 133,
@@ -7726,7 +8349,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 133,
@@ -7758,7 +8382,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 133,
@@ -7790,7 +8415,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 136,
@@ -7823,7 +8449,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -7855,7 +8482,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 147,
@@ -7884,7 +8512,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 137,
@@ -7914,7 +8543,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 138,
@@ -7949,7 +8579,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 20,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 70,
@@ -7980,7 +8622,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 145,
@@ -8012,7 +8655,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 144,
@@ -8046,7 +8690,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 104,
@@ -8078,7 +8723,35 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      },
+      {
+       "stat": "def",
+       "stages": 1
+      },
+      {
+       "stat": "spa",
+       "stages": 1
+      },
+      {
+       "stat": "spd",
+       "stages": 1
+      },
+      {
+       "stat": "spe",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 141,
@@ -8111,7 +8784,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 20,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -8140,7 +8825,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 149,
@@ -8174,7 +8860,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 70,
@@ -8206,7 +8904,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 262,
@@ -8239,7 +8938,8 @@
     "drain": null,
     "healing": null,
     "minHits": 6,
-    "maxHits": 6
+    "maxHits": 6,
+    "statChanges": null
    },
    "source": {
     "effectId": 155,
@@ -8273,7 +8973,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 159,
@@ -8307,7 +9008,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 160,
@@ -8338,7 +9040,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 161,
@@ -8370,7 +9073,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 162,
@@ -8403,7 +9107,8 @@
     "drain": null,
     "healing": 25,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 163,
@@ -8435,7 +9140,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -8464,7 +9170,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 165,
@@ -8500,7 +9207,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 166,
@@ -8534,7 +9242,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 167,
@@ -8567,7 +9276,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 168,
@@ -8599,7 +9309,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 169,
@@ -8633,7 +9344,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 170,
@@ -8666,7 +9378,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 171,
@@ -8699,7 +9412,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 172,
@@ -8728,7 +9442,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 173,
@@ -8758,7 +9473,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 174,
@@ -8780,7 +9496,7 @@
     "snatch"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -8790,12 +9506,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 175,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 269,
@@ -8825,7 +9543,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 176,
@@ -8857,7 +9576,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 177,
@@ -8890,7 +9610,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 178,
@@ -8922,7 +9643,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 179,
@@ -8955,7 +9677,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 180,
@@ -8985,7 +9708,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 181,
@@ -9018,7 +9742,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 182,
@@ -9052,7 +9777,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -1
+      },
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 183,
@@ -9081,7 +9822,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 184,
@@ -9113,7 +9855,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 185,
@@ -9147,7 +9890,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 186,
@@ -9180,7 +9924,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 187,
@@ -9213,7 +9958,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 188,
@@ -9247,7 +9993,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 189,
@@ -9280,7 +10027,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 190,
@@ -9313,7 +10061,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 191,
@@ -9346,7 +10095,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 192,
@@ -9379,7 +10129,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 193,
@@ -9411,7 +10162,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 194,
@@ -9443,7 +10195,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 195,
@@ -9475,7 +10228,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 196,
@@ -9508,7 +10262,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 198,
@@ -9543,7 +10298,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 256,
@@ -9577,7 +10333,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -9608,7 +10365,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 214,
@@ -9640,7 +10398,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": 3
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 322,
@@ -9672,7 +10442,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -9705,7 +10487,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 72,
@@ -9739,7 +10533,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 59,
@@ -9772,7 +10578,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 200,
@@ -9805,7 +10612,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 201,
@@ -9836,7 +10644,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 202,
@@ -9871,7 +10680,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 118,
@@ -9904,7 +10714,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -9936,7 +10747,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 33,
@@ -9970,7 +10782,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -10004,7 +10817,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 203,
@@ -10037,7 +10851,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 70,
@@ -10070,7 +10896,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 81,
@@ -10104,7 +10931,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 81,
@@ -10139,7 +10967,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 20,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 140,
@@ -10172,7 +11012,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -10205,7 +11046,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 204,
@@ -10237,7 +11079,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 103,
@@ -10271,7 +11114,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 63,
@@ -10303,7 +11158,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -10335,7 +11191,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 205,
@@ -10369,7 +11237,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 114,
@@ -10402,7 +11271,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 71,
@@ -10434,7 +11315,35 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      },
+      {
+       "stat": "def",
+       "stages": 1
+      },
+      {
+       "stat": "spa",
+       "stages": 1
+      },
+      {
+       "stat": "spd",
+       "stages": 1
+      },
+      {
+       "stat": "spe",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 141,
@@ -10469,7 +11378,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 63,
@@ -10504,7 +11425,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 2,
@@ -10537,7 +11459,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -1
+      },
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 206,
@@ -10568,7 +11506,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 1
+      },
+      {
+       "stat": "spd",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 207,
@@ -10600,7 +11554,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 191,
@@ -10632,7 +11587,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 77,
@@ -10666,7 +11622,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 18,
@@ -10698,7 +11655,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -10732,7 +11690,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 208,
@@ -10764,7 +11723,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 43,
@@ -10797,7 +11757,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 39,
@@ -10831,7 +11792,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 30,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 74,
@@ -10864,7 +11837,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -10898,7 +11872,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 18,
@@ -10930,7 +11905,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -10961,7 +11937,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 52,
@@ -10993,7 +11981,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 107,
@@ -11026,7 +12015,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 11,
@@ -11059,7 +12060,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -11093,7 +12095,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 81,
@@ -11125,7 +12128,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      },
+      {
+       "stat": "def",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 209,
@@ -11161,7 +12180,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 264,
@@ -11194,7 +12214,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 71,
@@ -11227,7 +12259,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 210,
@@ -11260,7 +12293,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 106,
@@ -11293,7 +12327,8 @@
     "drain": -33,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 263,
@@ -11325,7 +12360,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 18,
@@ -11356,7 +12392,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 211,
@@ -11388,7 +12425,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": 1
+      },
+      {
+       "stat": "spd",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 212,
@@ -11421,7 +12474,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -11453,7 +12507,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      },
+      {
+       "stat": "spe",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 213,
@@ -11486,7 +12556,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -11518,7 +12589,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 18,
@@ -11552,7 +12624,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 77,
@@ -11581,7 +12654,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 149,
@@ -11614,7 +12688,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 205,
@@ -11646,7 +12732,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 215,
@@ -11677,7 +12764,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 216,
@@ -11712,7 +12800,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 217,
@@ -11746,7 +12835,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 218,
@@ -11780,7 +12870,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 219,
@@ -11814,7 +12916,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 220,
@@ -11847,7 +12950,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 221,
@@ -11880,7 +12984,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 222,
@@ -11912,7 +13017,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 223,
@@ -11944,7 +13050,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 224,
@@ -11978,7 +13085,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 225,
@@ -12009,7 +13117,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 226,
@@ -12039,7 +13148,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 227,
@@ -12072,7 +13182,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 228,
@@ -12106,7 +13217,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 229,
@@ -12139,7 +13251,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      },
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 230,
@@ -12172,7 +13300,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 231,
@@ -12205,7 +13334,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 232,
@@ -12238,7 +13368,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 233,
@@ -12271,7 +13402,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 234,
@@ -12304,7 +13436,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 235,
@@ -12338,7 +13471,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 236,
@@ -12373,7 +13507,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 237,
@@ -12407,7 +13542,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 238,
@@ -12439,7 +13575,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 239,
@@ -12473,7 +13610,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 240,
@@ -12505,7 +13643,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 241,
@@ -12538,7 +13677,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 242,
@@ -12567,7 +13707,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 243,
@@ -12601,7 +13742,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 244,
@@ -12635,7 +13777,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 245,
@@ -12669,7 +13812,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 246,
@@ -12703,7 +13847,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 247,
@@ -12736,7 +13881,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 248,
@@ -12770,7 +13916,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 249,
@@ -12802,7 +13949,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 250,
@@ -12836,7 +13984,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 251,
@@ -12868,7 +14017,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 252,
@@ -12901,7 +14051,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 253,
@@ -12936,7 +14087,8 @@
     "drain": -33,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 254,
@@ -12969,7 +14121,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -13004,7 +14157,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 18,
@@ -13035,7 +14189,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 53,
@@ -13068,7 +14234,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 3,
@@ -13102,7 +14269,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -13135,7 +14303,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -13168,7 +14337,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -13201,7 +14371,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -13234,7 +14405,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -13267,7 +14439,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -13301,7 +14474,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -13335,7 +14520,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -13368,7 +14554,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -13400,7 +14587,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -13435,7 +14623,8 @@
     "drain": 50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 4,
@@ -13467,7 +14656,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 104,
@@ -13500,7 +14690,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -13533,7 +14735,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -13567,7 +14781,8 @@
     "drain": -33,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 199,
@@ -13601,7 +14816,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -13633,7 +14860,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 178,
@@ -13668,7 +14896,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 81,
@@ -13700,7 +14929,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 54,
@@ -13734,7 +14975,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 104,
@@ -13767,7 +15009,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 186,
@@ -13799,7 +15042,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 104,
@@ -13832,7 +15076,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -13866,7 +15111,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 276,
@@ -13900,7 +15146,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 275,
@@ -13934,7 +15181,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 274,
@@ -13967,7 +15215,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 104,
@@ -14000,7 +15249,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 30,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 74,
@@ -14032,7 +15293,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -14065,7 +15327,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -14097,7 +15360,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 30,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 74,
@@ -14129,7 +15404,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 73,
@@ -14162,7 +15449,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 77,
@@ -14196,7 +15484,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 259,
@@ -14228,7 +15517,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 260,
@@ -14261,7 +15551,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 205,
@@ -14293,7 +15595,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -14325,7 +15628,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -14357,7 +15661,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 205,
@@ -14390,7 +15706,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -14424,7 +15741,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 81,
@@ -14458,7 +15776,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 210,
@@ -14490,7 +15809,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 3,
@@ -14523,7 +15843,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -14556,7 +15877,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 18,
@@ -14588,7 +15910,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -14611,7 +15934,7 @@
     "reflectable"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -14621,12 +15944,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 266,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 446,
@@ -14652,7 +15977,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 267,
@@ -14687,7 +16013,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 197,
@@ -14723,7 +16050,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 268,
@@ -14755,7 +16083,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 269,
@@ -14788,7 +16117,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 225,
@@ -14820,7 +16150,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 70,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 277,
@@ -14853,7 +16195,8 @@
     "drain": -33,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 199,
@@ -14887,7 +16230,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 104,
@@ -14919,7 +16263,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -14950,7 +16295,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 1
+      },
+      {
+       "stat": "spd",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 207,
@@ -14982,7 +16343,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 33,
@@ -15015,7 +16377,8 @@
     "drain": -50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 270,
@@ -15049,7 +16412,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 2
+    "maxHits": 2,
+    "statChanges": null
    },
    "source": {
     "effectId": 45,
@@ -15082,7 +16446,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 81,
@@ -15115,7 +16480,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -15148,7 +16514,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 271,
@@ -15182,7 +16549,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 238,
@@ -15215,7 +16583,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 43,
@@ -15249,7 +16618,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 2,
@@ -15281,7 +16651,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 40,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 272,
@@ -15313,7 +16695,35 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      },
+      {
+       "stat": "def",
+       "stages": 1
+      },
+      {
+       "stat": "spa",
+       "stages": 1
+      },
+      {
+       "stat": "spd",
+       "stages": 1
+      },
+      {
+       "stat": "spe",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 141,
@@ -15346,7 +16756,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 273,
@@ -15378,7 +16789,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": 1
+      },
+      {
+       "stat": "atk",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 278,
@@ -15409,7 +16836,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 279,
@@ -15440,7 +16868,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 280,
@@ -15472,7 +16901,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 281,
@@ -15504,7 +16934,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 282,
@@ -15537,7 +16968,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 283,
@@ -15569,7 +17001,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 284,
@@ -15590,7 +17023,7 @@
     "snatch"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -15600,12 +17033,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 285,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 476,
@@ -15631,7 +17066,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 173,
@@ -15666,7 +17102,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 286,
@@ -15698,7 +17135,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 287,
@@ -15732,7 +17170,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 288,
@@ -15766,7 +17205,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 289,
@@ -15798,7 +17238,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 290,
@@ -15830,7 +17271,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 3,
@@ -15862,7 +17304,27 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": 1
+      },
+      {
+       "stat": "spd",
+       "stages": 1
+      },
+      {
+       "stat": "spe",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 291,
@@ -15896,7 +17358,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 292,
@@ -15929,7 +17392,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 293,
@@ -15962,7 +17426,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 294,
@@ -15996,7 +17461,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 295,
@@ -16030,7 +17496,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 296,
@@ -16061,7 +17539,27 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": 1
+      },
+      {
+       "stat": "atk",
+       "stages": 1
+      },
+      {
+       "stat": "def",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 323,
@@ -16094,7 +17592,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 21,
@@ -16127,7 +17637,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 297,
@@ -16160,7 +17682,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 298,
@@ -16193,7 +17716,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 299,
@@ -16227,7 +17751,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 300,
@@ -16259,7 +17784,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 301,
@@ -16294,7 +17820,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 302,
@@ -16328,7 +17855,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 303,
@@ -16361,7 +17889,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 304,
@@ -16393,7 +17922,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 305,
@@ -16425,7 +17955,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 306,
@@ -16456,7 +17987,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 307,
@@ -16485,7 +18017,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 308,
@@ -16519,7 +18052,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -16550,7 +18084,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 309,
@@ -16586,7 +18121,8 @@
     "drain": null,
     "healing": 50,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 310,
@@ -16618,7 +18154,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 311,
@@ -16654,7 +18191,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 312,
@@ -16686,7 +18224,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      },
+      {
+       "stat": "spe",
+       "stages": 2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 313,
@@ -16719,7 +18273,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 314,
@@ -16751,7 +18306,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 315,
@@ -16783,7 +18339,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 316,
@@ -16818,7 +18375,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 318,
@@ -16850,7 +18408,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 319,
@@ -16884,7 +18443,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 320,
@@ -16915,7 +18475,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 321,
@@ -16948,7 +18509,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 324,
@@ -16981,7 +18543,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -17014,7 +18577,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 325,
@@ -17047,7 +18611,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 326,
@@ -17080,7 +18645,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 327,
@@ -17112,7 +18678,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 229,
@@ -17144,7 +18711,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 72,
@@ -17177,7 +18756,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 71,
@@ -17209,7 +18800,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 289,
@@ -17242,7 +18834,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 314,
@@ -17273,7 +18866,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      },
+      {
+       "stat": "spa",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 328,
@@ -17305,7 +18914,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 21,
@@ -17338,7 +18959,8 @@
     "drain": -25,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 49,
@@ -17372,7 +18994,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 44,
@@ -17405,7 +19028,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 2
+    "maxHits": 2,
+    "statChanges": null
    },
    "source": {
     "effectId": 45,
@@ -17438,7 +19062,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -17472,7 +19097,8 @@
     "drain": 50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 4,
@@ -17505,7 +19131,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 304,
@@ -17538,7 +19165,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 70,
@@ -17572,7 +19211,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 292,
@@ -17605,7 +19245,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 74,
@@ -17638,7 +19290,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 151,
@@ -17669,7 +19322,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 3
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 329,
@@ -17701,7 +19366,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 40,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "accuracy",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 74,
@@ -17733,7 +19410,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 283,
@@ -17766,7 +19444,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 30,
@@ -17799,7 +19478,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 334,
@@ -17832,7 +19512,8 @@
     "drain": -25,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 49,
@@ -17866,7 +19547,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 2
+    "maxHits": 2,
+    "statChanges": null
    },
    "source": {
     "effectId": 45,
@@ -17899,7 +19581,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -17931,7 +19614,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 269,
@@ -17965,7 +19649,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 330,
@@ -17997,7 +19682,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 283,
@@ -18029,7 +19715,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 331,
@@ -18062,7 +19760,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 7,
@@ -18094,7 +19793,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -18127,7 +19827,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 277,
@@ -18160,7 +19872,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 332,
@@ -18194,7 +19907,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 333,
@@ -18229,7 +19943,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 72,
@@ -18261,7 +19987,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 32,
@@ -18294,7 +20021,27 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      },
+      {
+       "stat": "spd",
+       "stages": -1
+      },
+      {
+       "stat": "spe",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 335,
@@ -18327,7 +20074,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 336,
@@ -18359,7 +20107,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 337,
@@ -18395,7 +20144,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 338,
@@ -18427,7 +20177,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 377,
@@ -18458,7 +20209,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 339,
@@ -18480,7 +20232,7 @@
     "non-sky-battle"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -18490,12 +20242,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 340,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 564,
@@ -18521,7 +20275,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 341,
@@ -18555,7 +20310,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 342,
@@ -18588,7 +20344,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 273,
@@ -18622,7 +20379,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 343,
@@ -18658,7 +20416,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -1
+      },
+      {
+       "stat": "spa",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 344,
@@ -18687,7 +20461,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 345,
@@ -18721,7 +20496,8 @@
     "drain": 50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 346,
@@ -18754,7 +20530,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 376,
@@ -18787,7 +20564,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 379,
@@ -18819,7 +20597,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 380,
@@ -18853,7 +20632,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 381,
@@ -18878,7 +20658,7 @@
     "sound"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -18888,12 +20668,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 347,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 576,
@@ -18921,7 +20703,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 348,
@@ -18956,7 +20739,8 @@
     "drain": 75,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 349,
@@ -18985,7 +20769,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 350,
@@ -19016,7 +20801,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 351,
@@ -19048,7 +20834,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 352,
@@ -19080,7 +20867,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 353,
@@ -19113,7 +20901,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 354,
@@ -19147,7 +20936,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 10,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 69,
@@ -19179,7 +20980,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -19211,7 +21013,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 30,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 72,
@@ -19245,7 +21059,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 379,
@@ -19277,7 +21092,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 355,
@@ -19307,7 +21123,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 356,
@@ -19340,7 +21157,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 357,
@@ -19374,7 +21203,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 358,
@@ -19406,7 +21247,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 50,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": 1
+      }
+     ],
+     "source": "gen6-diff"
+    }
    },
    "source": {
     "effectId": 359,
@@ -19439,7 +21292,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 5,
@@ -19471,7 +21325,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 360,
@@ -19503,7 +21358,8 @@
     "drain": null,
     "healing": null,
     "minHits": 2,
-    "maxHits": 5
+    "maxHits": 5,
+    "statChanges": null
    },
    "source": {
     "effectId": 361,
@@ -19535,7 +21391,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 72,
@@ -19564,7 +21432,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 362,
@@ -19595,7 +21464,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spd",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 363,
@@ -19628,7 +21509,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "spa",
+       "stages": -2
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 62,
@@ -19651,7 +21544,7 @@
     "reflectable"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -19661,12 +21554,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 364,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 600,
@@ -19696,7 +21591,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 378,
@@ -19729,13 +21625,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 366,
     "category": "net-good-stats"
    },
-   "unsupportedReason": "charge turn"
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 602,
@@ -19753,7 +21650,7 @@
     "snatch"
    ],
    "effectId": "statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -19763,12 +21660,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 367,
     "category": "net-good-stats"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   },
   {
    "id": 603,
@@ -19792,7 +21691,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 368,
@@ -19824,7 +21724,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 369,
@@ -19857,7 +21758,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -19886,7 +21788,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 370,
@@ -19918,7 +21821,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 371,
@@ -19952,7 +21856,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "target",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 365,
@@ -19985,7 +21901,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 372,
@@ -20018,7 +21935,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 102,
@@ -20051,7 +21969,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 43,
@@ -20086,7 +22005,19 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "secondary",
+     "changes": [
+      {
+       "stat": "atk",
+       "stages": 1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 375,
@@ -20120,7 +22051,8 @@
     "drain": 75,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 349,
@@ -20153,7 +22085,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 373,
@@ -20187,7 +22120,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 374,
@@ -20220,7 +22154,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -20252,7 +22187,8 @@
     "drain": -50,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 270,
@@ -20286,7 +22222,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -20319,7 +22256,8 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 1,
@@ -20353,7 +22291,23 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": {
+     "recipient": "user",
+     "chance": 100,
+     "kind": "direct",
+     "changes": [
+      {
+       "stat": "def",
+       "stages": -1
+      },
+      {
+       "stat": "spd",
+       "stages": -1
+      }
+     ],
+     "source": "both-sources-agree"
+    }
    },
    "source": {
     "effectId": 230,
@@ -20375,7 +22329,7 @@
     "mirror"
    ],
    "effectId": "damage.statChange",
-   "supported": true,
+   "supported": false,
    "meta": {
     "ailment": null,
     "ailmentChance": null,
@@ -20385,12 +22339,14 @@
     "drain": null,
     "healing": null,
     "minHits": null,
-    "maxHits": null
+    "maxHits": null,
+    "statChanges": null
    },
    "source": {
     "effectId": 360,
     "category": "damage+raise"
-   }
+   },
+   "unsupportedReason": "stat changes: the stat change is conditional"
   }
  ]
 }

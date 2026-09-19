@@ -21,6 +21,16 @@ const MANIFEST = join(CACHE_DIR, 'manifest.json')
 
 const sha256 = text => createHash('sha256').update(text).digest('hex')
 
+/**
+ * A source file's name in the cache.
+ *
+ * A listed file may be a path inside its repository (`data/mods/gen6/moves.ts`)
+ * and two of them share a basename, so the path is flattened rather than
+ * truncated — otherwise the Gen VI diff would quietly overwrite the file it is
+ * a diff of.
+ */
+export const cacheName = path => path.replace(/[\\/]/g, '__')
+
 export async function loadSources() {
   return JSON.parse(await readFile(join(here, 'sources.json'), 'utf8'))
 }
@@ -43,7 +53,8 @@ async function main() {
 
   const previous = (await readManifest())?.files ?? {}
   const files = {}
-  for (const { rawBase, files: names } of downloads) for (const name of names) {
+  for (const { rawBase, files: names } of downloads) for (const path of names) {
+    const name = cacheName(path)
     const target = join(CACHE_DIR, name)
     if (!force && previous[name]) {
       try {
@@ -55,8 +66,8 @@ async function main() {
         }
       } catch { /* fall through and download */ }
     }
-    const response = await fetch(`${rawBase}/${name}`)
-    if (!response.ok) throw new Error(`${name}: HTTP ${response.status}`)
+    const response = await fetch(`${rawBase}/${path}`)
+    if (!response.ok) throw new Error(`${path}: HTTP ${response.status}`)
     const text = await response.text()
     await writeFile(target, text)
     files[name] = { bytes: Buffer.byteLength(text), sha256: sha256(text) }
