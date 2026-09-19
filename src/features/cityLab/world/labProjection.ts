@@ -17,11 +17,15 @@ import { TILE } from '../../wildlands/engine/world'
  * EDIT cameras. `plan` is the lab's near top-down view: the engine's own
  * `cenital` lens (distance 4200) sits past the renderer's MAX_DEPTH (1500) and
  * draws no ground at all, so the lab uses a shorter distance with the same
- * squash. The other two are the game's lenses unchanged.
+ * squash. Ground is drawn up to MAX_DEPTH − distance north of the focus, so at
+ * 900 (the game's own distance) a whole framed city fits; at 1300 its far rows
+ * were cut. The other two are the game's lenses unchanged.
  */
 export const EDIT_LENSES = {
-  plan: { zoom: 3, squash: 0.92, distance: 1300 },
-  handheld: LENSES.handheld,
+  // 3D models stand as tall as in the town camera (CameraLens.rise), so the editor matches the game.
+  plan: { zoom: 3, squash: 0.92, distance: 900, rise: LENSES.town.rise },
+  // "Vista jugador": the camera the player really has in town.
+  handheld: LENSES.town,
   dramatic: LENSES.dramatic,
 } satisfies Record<string, CameraLens>
 

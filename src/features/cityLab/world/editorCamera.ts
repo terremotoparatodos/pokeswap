@@ -7,14 +7,14 @@
 // Pure: every function takes numbers and returns numbers.
 
 import type { CameraLens } from '../../wildlands/engine/projection'
-import { geometryFor, worldAtDevice, type FrameGeometry } from './labProjection'
+import { geometryFor, screenAt, worldAtDevice, type FrameGeometry, type ViewSize } from './labProjection'
 
 /**
- * Safe zoom range on top of the edit lens. Below 0.35 the renderer's
- * MAX_DEPTH clip starts eating the far rows with the tilted lenses; above 2.5
- * a tile is bigger than useful for editing.
+ * Safe zoom range on top of the edit lens. How far north the ground is drawn
+ * does not depend on the zoom (the renderer's MAX_DEPTH is in world px), so
+ * the floor only keeps tiles readable; above 2.5 a tile is bigger than useful.
  */
-export const ZOOM_MIN = 0.35
+export const ZOOM_MIN = 0.2
 export const ZOOM_MAX = 2.5
 export const ZOOM_STEP = 1.25
 
@@ -63,7 +63,34 @@ export function withZoom(lens: CameraLens, zoom: number): CameraLens {
  * Zoom and focus that frame a whole map (world pixels) in the view, as far as
  * the zoom range allows. The tilted lens foreshortens depth, so width decides.
  */
-export function fitZoom(mapWidth: number, mapHeight: number, view: { width: number; dpr: number; fit: number }, lens: CameraLens): EditorCamera {
+export function fitZoom(mapWidth: number, mapHeight: number, view: ViewSize, lens: CameraLens): EditorCamera {
+  const x = mapWidth / 2
+  const corners = [[0, 0], [mapWidth, 0], [0, mapHeight], [mapWidth, mapHeight]]
+  // Screen extent of the whole map for a zoom and a camera row (the near rows are the widest).
+  const extent = (z: number, y: number) => {
+    const g = geometryFor(view, withZoom(lens, z), x, y)
+    const ps = corners.map(([cx, cy]) => screenAt(g, cx, cy))
+    if (ps.some(p => !p)) return null
+    const xs = ps.map(p => p!.x), ys = ps.map(p => p!.y)
+    return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys), scale: g.proj.project(0, 0)!.scale }
+  }
+  // The camera row that centres the map vertically on screen at that zoom.
+  const centred = (z: number) => {
+    let y = mapHeight / 2
+    for (let i = 0; i < 6; i++) {
+      const e = extent(z, y)
+      if (!e) break
+      y += ((e.top + e.bottom) / 2 - view.height / 2) / (e.scale * lens.squash)
+    }
+    return y
+  }
+  const fits = (z: number, y: number) => {
+    const e = extent(z, y)
+    return !!e && e.right - e.left <= view.width * 0.98 && e.bottom - e.top <= view.height * 0.96
+  }
+  // From the zoom that fits the width, back off until the whole map is on screen.
   const pxPerWorld = lens.zoom * view.dpr * view.fit
-  return { x: mapWidth / 2, y: mapHeight / 2, zoom: clampZoom((view.width * 0.96) / (mapWidth * pxPerWorld)) }
+  let zoom = clampZoom((view.width * 0.96) / (mapWidth * pxPerWorld))
+  while (zoom > ZOOM_MIN && !fits(zoom, centred(zoom))) zoom = clampZoom(zoom * 0.95)
+  return { x, y: centred(zoom), zoom }
 }

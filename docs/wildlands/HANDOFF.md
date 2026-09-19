@@ -184,7 +184,7 @@ Otros cambios fuera de la carpeta:
 
 ### Puertas de edificios (R25)
 
-- **Datos.** `TownBuilding.door` es la casilla del umbral, en la fila inferior del footprint, y `TownBuilding.feature` es la función. Se cargan en `hearthome.ts`: Centro Pokémon (17,19), Tienda (30,29), Silph Co. (31,14; antes Salón de Concursos), Gimnasio (51,19), Club de Fans (11,29) y Casa de los Poffins (41,29).
+- **Datos.** `TownBuilding.door` es la casilla del umbral, en la fila inferior del footprint, y `TownBuilding.feature` es la función. Se cargan en `hearthome.ts`: Centro Pokémon (17,19), Tienda (29,29), Silph Co. (31,14; antes Salón de Concursos), Gimnasio (51,19), Casa de Mr. Pokémon (11,29; antes Club de Fans) y Casino (40,29; antes Casa de los Poffins).
 - **Por qué el umbral está dentro del footprint** y no en la vereda: pasar caminando por delante no entra por accidente. `TownArea` lo marca caminable, los NPCs lo tratan como bloqueado (igual que los portales) y `nearestOpen` lo evita.
 - **Entrada.** Pisar el umbral dispara `onEnterBuilding(buildingId, feature)` y `WildlandsView` hace `router.push`. Tocar el edificio (footprint más 2 filas de fachada por encima, `TAP_REACH_ROWS`) camina hasta la puerta. Tocar a un personaje delante del edificio sigue hablándole.
 - **Motor.** `game.ts` solo tiene los enganches: `setPaused`, `placeAtDoor`, `Entrances.retarget` en `tap` y `Entrances.arrive` al llegar a una casilla.

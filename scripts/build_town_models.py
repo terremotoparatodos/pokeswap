@@ -52,13 +52,14 @@ MODELS = {
     # HeartGold/SoulSilver's fountain, exported at 1/8 scale: 8 px per unit makes it Platinum's 60 px.
     'fountain': ('fuente de agua/Fountain.obj', {}, {'scale': 8}),
     # HeartGold/SoulSilver's route gates: passages with a door at each end. Gate 2 runs east-west
-    # (doors on its sides at x ±44), Gate 1 north-south (doors front and back). Each is placed so the
-    # door meets its portal: the west gate's east door on tile x 6, the east gate's west door on
-    # x 57 (both centred on rows 41-42), the south gate's back door facing the portal above it,
-    # its roof kept south of the portal and the arrival point (it stands past the map's bottom edge).
-    'gate-west': ('gates/Gate 2/Gate 2.obj', {}, {'center': -4, 'front': 32}),
-    'gate-east': ('gates/Gate 2/Gate 2.obj', {}, {'center': 4, 'front': 32}),
-    'gate-south': ('gates/Gate 1/Gate 1.obj', {}, {'center': 8, 'front': 33}),
+    # (walls at x ±44, stairs out to ±64), Gate 1 north-south (doors front and back). Each is placed
+    # so a door meets its portal and nothing leaves the map: the west gate's outer stair starts at
+    # the map's left edge and its east door opens on the portal tile x 6; the east gate mirrors it
+    # (door on x 57); the south gate's back door faces the portal above it, its roof kept south of
+    # the portal and the arrival point, its outer stair on the two rows added under it.
+    'gate-west': ('gates/Gate 2/Gate 2.obj', {}, {'center': -16, 'front': 32}),
+    'gate-east': ('gates/Gate 2/Gate 2.obj', {}, {'center': 16, 'front': 32}),
+    'gate-south': ('gates/Gate 1/Gate 1.obj', {}, {'center': 8, 'front': 65}),
     # HeartGold/SoulSilver's Celadon City buildings: the green one for the houses (4 tiles wide),
     # the tall beige one with a side stair for the apartments (5 tiles wide).
     'celadon-green': ('buildings/Celadon City Building 1/Celadon City Building.obj', {}),

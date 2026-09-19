@@ -44,7 +44,7 @@ describe('export', () => {
     expect(patch.props.modified).toEqual([{ id: 'sign@28,15', from: { text: 'Ciudad Corazón · Donde los corazones se encuentran' }, to: { text: 'Bienvenidos a la beta' } }])
     expect(patch.terrain).toEqual([{ tx: 30, ty: 31, from: 's', to: 'g' }, { tx: 31, ty: 31, from: 's', to: 'g' }])
     expect(patch.spawn).toEqual({ from: { tx: 31, ty: 20, dir: 'down' }, to: { tx: 32, ty: 21, dir: 'up' } })
-    expect(patch.buildings.moved).toEqual([{ id: 'mart', from: { x: 28, y: 26, door: { tx: 30, ty: 29 } }, to: { x: 28, y: 21, door: { tx: 30, ty: 24 } } }])
+    expect(patch.buildings.moved).toEqual([{ id: 'mart', from: { x: 28, y: 26, door: { tx: 29, ty: 29 } }, to: { x: 28, y: 21, door: { tx: 29, ty: 24 } } }])
     expect(patch.residents.moved.map(m => m.id)).toEqual(['resident-3'])
     expect(patch.wanderers.removed.map(w => w.id)).toEqual(['wanderer-4'])
     expect(patch.notes.join()).toMatch(/pine/)

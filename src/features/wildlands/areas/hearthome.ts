@@ -72,7 +72,7 @@ function props(): TownProp[] {
     [21, 29, 'Barrio de las fuentes · Casas y Tienda'],
     [36, 28, 'Casino · Perfil de entrenadores'],
     [46, 18, 'Gimnasio de Ciudad Corazón · Líder: por anunciar'],
-    [13, 39, 'Puerta oeste → Pradera Brisa · Puerta sur → Desierto Ardiente'],
+    [14, 40, 'Puerta oeste → Pradera Brisa · Puerta sur → Desierto Ardiente'],
     [50, 39, 'Puerta este → Bosque Umbrío'],
   ]
   for (const [tx, ty, text] of signs) out.push({ kind: 'sign', tx, ty, text })
@@ -97,7 +97,7 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       { id: 'amityR', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Costa Coral.', style: 'amityGate', x: 50, y: 1, w: 6, d: 9, open: [{ tx: 52, ty: 9 }, { tx: 53, ty: 9 }], image: { src: art('amity-gate'), flatTop: 'all', model: '/assets/town/models/gate-north.json' } },
       { id: 'gateW', name: 'Puerta oeste', blurb: 'Entrá por el costado para ir a la Pradera Brisa.', style: 'routeGate', x: 0, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-west.json' } },
       { id: 'gateE', name: 'Puerta este', blurb: 'Entrá por el costado para ir al Bosque Umbrío.', style: 'routeGate', x: 58, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-east.json' } },
-      { id: 'gateS', name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', x: 9, y: 44, w: 5, d: 5, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-south.json' } },
+      { id: 'gateS', name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', x: 9, y: 44, w: 5, d: 7, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-south.json' } },
       { id: 'pokecenter', name: 'Centro Pokémon', blurb: 'Acá te guardan la caja con tus Pokémon.', style: 'pokecenter', x: 15, y: 15, w: 5, d: 5, door: { tx: 17, ty: 19 }, feature: 'caja', image: { src: art('pokecenter'), flatTop: 54, model: '/assets/town/models/pokecenter.json' } },
       { id: 'house1', name: 'Casa', blurb: 'No hay nadie. Se escucha una radio adentro.', style: 'house', x: 21, y: 15, w: 4, d: 5, image: { src: art('house-green'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
       { id: 'apt1', name: 'Departamentos', blurb: 'Las jardineras están recién regadas.', style: 'apartment', x: 36, y: 13, w: 5, d: 7, image: { src: art('apartment-a'), flatTop: 70, model: '/assets/town/models/celadon-tall.json' } },
@@ -105,7 +105,7 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       // Mr. Pokémon's House (HeartGold's model) where the Fan Club was: same Pokédex door, a 4×4 footprint.
       { id: 'fanclub', name: 'Casa de Mr. Pokémon', blurb: 'Guarda la Pokédex de todos los entrenadores.', style: 'redhouse', x: 10, y: 26, w: 4, d: 4, door: { tx: 11, ty: 29 }, feature: 'pokedex', image: { src: '/assets/town/models/mrpokemon-sprite.png', model: '/assets/town/models/mrpokemon.json' } },
       { id: 'house2', name: 'Casa', blurb: 'Huele a pan recién horneado.', style: 'house', x: 23, y: 25, w: 4, d: 5, image: { src: art('house-blue'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
-      { id: 'mart', name: 'Tienda', blurb: 'El Mercado de PokeSwap: comprá y vendé Pokémon.', style: 'mart', x: 28, y: 26, w: 4, d: 4, door: { tx: 30, ty: 29 }, feature: 'mercado', image: { src: art('mart'), flatTop: 36, model: '/assets/town/models/mart.json' } },
+      { id: 'mart', name: 'Tienda', blurb: 'El Mercado de PokeSwap: comprá y vendé Pokémon.', style: 'mart', x: 28, y: 26, w: 4, d: 4, door: { tx: 29, ty: 29 }, feature: 'mercado', image: { src: art('mart'), flatTop: 36, model: '/assets/town/models/mart.json' } },
       // The Casino (HeartGold's Game Corner) where the Poffin House was: the Perfil entrance, 7×4 tiles
       // (a hedge column and the end of the hedge row made room for it).
       { id: 'poffin', name: 'Casino', blurb: 'Tu perfil, tus tokens y tus movimientos.', style: 'contest', x: 37, y: 26, w: 7, d: 4, door: { tx: 40, ty: 29 }, feature: 'perfil', image: { src: '/assets/town/models/casino-sprite.png', model: '/assets/town/models/casino.json' } },

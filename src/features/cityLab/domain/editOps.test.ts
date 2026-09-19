@@ -84,7 +84,7 @@ describe('move', () => {
     expect(gate.tiles).toEqual([{ tx: 11, ty: 9 }, { tx: 12, ty: 9 }])
     expect(gate.arrival).toMatchObject({ tx: 11, ty: 11 })
     const mart = ok(moveEntity(HEARTHOME, base, { type: 'building', id: 'mart' }, { tx: 28, ty: 21 }))
-    expect(mart.buildings.find(b => b.id === 'mart')!.door).toEqual({ tx: 30, ty: 24 })
+    expect(mart.buildings.find(b => b.id === 'mart')!.door).toEqual({ tx: 29, ty: 24 })
   })
 
   it('refuses overlapping buildings', () => {

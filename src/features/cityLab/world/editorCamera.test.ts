@@ -68,11 +68,20 @@ describe('zoom', () => {
     }
   })
 
-  it('frames the whole city', () => {
-    const fit = fitZoom(64 * TILE, 49 * TILE, VIEW, EDIT_LENSES.plan)
-    expect(fit.x).toBe(32 * TILE)
-    expect(fit.zoom).toBeGreaterThanOrEqual(ZOOM_MIN)
-    expect(fit.zoom).toBeLessThan(1)
+  it('frames the whole city: all four corners on screen, in perspective', () => {
+    for (const view of [VIEW, { width: 1400, height: 800, dpr: 1, fit: 1 }]) {
+      const fit = fitZoom(64 * TILE, 51 * TILE, view, EDIT_LENSES.plan)
+      expect(fit.x).toBe(32 * TILE)
+      // The camera row is shifted so the map sits in the middle of the screen.
+      expect(fit.zoom).toBeGreaterThanOrEqual(ZOOM_MIN)
+      expect(fit.zoom).toBeLessThan(1)
+      const g = geometryFor(view, withZoom(EDIT_LENSES.plan, fit.zoom), fit.x, fit.y)
+      for (const [x, y] of [[0, 0], [64 * TILE, 0], [0, 51 * TILE], [64 * TILE, 51 * TILE]]) {
+        const p = screenAt(g, x, y)!
+        expect(p.y, `${x},${y}`).toBeGreaterThanOrEqual(0)
+        expect(p.y, `${x},${y}`).toBeLessThanOrEqual(view.height)
+      }
+    }
   })
 })
 

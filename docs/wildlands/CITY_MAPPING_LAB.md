@@ -15,7 +15,7 @@ human review.
 
 ## How the city is built today (audit)
 
-- `areas/hearthome.ts` → `TownDef`: data (terrain `s/g/p/t` 64×49, buildings
+- `areas/hearthome.ts` → `TownDef`: data (terrain `s/g/p/t` 64×51, buildings
   with footprint/door/`open`/feature/PNG, fountains, props `lamp/sign/hedge/fenceH/fenceV`,
   gates (portal tiles + arrival), spawn, residents, wanderers, plots, plazaZones).
 - `areas/townArea.ts` → `TownArea(def)`: collision (forest `t`, footprints minus
@@ -161,7 +161,10 @@ The "Entradas y salidas" layer (on by default, in EDIT and PLAY) marks on the ma
 - With **Agregar**: a click places, a drag only pans (it never places by accident).
 - 5 px threshold before a press counts as a drag.
 - **Wheel** → zoom centred on the cursor. `− 100% +`, Reset and "Encuadrar ciudad" buttons.
-  Keys `+`, `-`, `0`. Range 35 %–250 %.
+  Keys `+`, `-`, `0`. Range 20 %–250 %. "Encuadrar ciudad" fits the whole map (its four corners,
+  in perspective) and centres it vertically.
+- Lenses: "Planta" (near top-down, the game's distance, so a framed city is drawn whole) and
+  "Vista jugador" (the town camera the player has). Both show 3D models at the game's height.
 - The hovered tile and the placement preview are recomputed every frame from the last cursor position,
   so zooming with the buttons or panning with WASD never leaves them stale.
 - EDIT → PLAY → EDIT restores the editor's pan and zoom. PLAY uses the game's camera.
