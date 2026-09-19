@@ -59,6 +59,10 @@ MODELS = {
     'gate-west': ('gates/Gate 2/Gate 2.obj', {}, {'center': -4, 'front': 32}),
     'gate-east': ('gates/Gate 2/Gate 2.obj', {}, {'center': 4, 'front': 32}),
     'gate-south': ('gates/Gate 1/Gate 1.obj', {}, {'center': 8, 'front': 33}),
+    # HeartGold/SoulSilver's Celadon City buildings: the green one for the houses (4 tiles wide),
+    # the tall beige one with a side stair for the apartments (5 tiles wide).
+    'celadon-green': ('buildings/Celadon City Building 1/Celadon City Building.obj', {}),
+    'celadon-tall': ('buildings/Celadon City Building 2/Celadon City Building 2.obj', {}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }

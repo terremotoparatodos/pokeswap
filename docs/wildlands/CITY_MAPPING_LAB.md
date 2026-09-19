@@ -109,7 +109,9 @@ requires engine support (main station's decision).
   1/8: 8 px per unit).
 - A building opts in with `image.model` (the PNG stays as loading fallback and for the ground
   dressing); fountains with `art.fountains[i].model`; props with `art.models[kind]`. Today: the Pokémon Center, the Poké Mart, the gym, Silph Co. (where the Contest Hall was), the
-  three route gates (door on their portal), the street lamps, the fountains and both benches.
+  three route gates (door on their portal), the houses and apartments (Celadon's buildings), the
+  street lamps, the fountains and both benches. Still sprites: the Fan Club, the Poffin House and
+  the Amity Square gates.
 
 ## Buildings from scratch
 

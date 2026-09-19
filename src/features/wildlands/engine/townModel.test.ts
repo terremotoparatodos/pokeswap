@@ -54,6 +54,11 @@ describe('converted town models', () => {
     expect(['gateW', 'gateE', 'gateS'].map(id => HEARTHOME.buildings.find(b => b.id === id)?.image?.model)).toEqual([
       '/assets/town/models/gate-west.json', '/assets/town/models/gate-east.json', '/assets/town/models/gate-south.json',
     ])
+    // Celadon's buildings: the green one on both houses, the tall one on both apartment blocks.
+    expect(['house1', 'house2', 'apt1', 'apt2'].map(id => HEARTHOME.buildings.find(b => b.id === id)?.image?.model)).toEqual([
+      '/assets/town/models/celadon-green.json', '/assets/town/models/celadon-green.json',
+      '/assets/town/models/celadon-tall.json', '/assets/town/models/celadon-tall.json',
+    ])
     // Silph Co. replaces the Contest Hall: same id, door and Swap entrance, a wider footprint.
     expect(HEARTHOME.buildings.find(b => b.id === 'contest')).toMatchObject({
       name: 'Silph Co.', x: 26, w: 10, door: { tx: 31, ty: 14 }, feature: 'swap', image: { model: '/assets/town/models/silph.json' },
