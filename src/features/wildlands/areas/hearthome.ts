@@ -85,6 +85,8 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
   return {
     id,
     name: 'Ciudad Corazón',
+    // The steeper town camera: 3D buildings keep Platinum's proportions and hide less behind them.
+    lens: 'town',
     terrain: HEARTHOME_TERRAIN,
     spawn: { tx: 31, ty: 20, dir: 'down' },
     buildings: [
@@ -94,7 +96,7 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       { id: 'amityR', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Costa Coral.', style: 'amityGate', x: 50, y: 1, w: 6, d: 9, open: [{ tx: 52, ty: 9 }, { tx: 53, ty: 9 }], image: { src: art('amity-gate'), flatTop: 'all' } },
       { id: 'gateW', name: 'Puerta oeste', blurb: 'Entrá por el costado para ir a la Pradera Brisa.', style: 'routeGate', x: 0, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-west.json' } },
       { id: 'gateE', name: 'Puerta este', blurb: 'Entrá por el costado para ir al Bosque Umbrío.', style: 'routeGate', x: 58, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-east.json' } },
-      { id: 'gateS', name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', x: 9, y: 43, w: 5, d: 6, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-south.json' } },
+      { id: 'gateS', name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', x: 9, y: 44, w: 5, d: 5, image: { src: art('route-gate'), flatTop: 52, model: '/assets/town/models/gate-south.json' } },
       { id: 'pokecenter', name: 'Centro Pokémon', blurb: 'Acá te guardan la caja con tus Pokémon.', style: 'pokecenter', x: 15, y: 15, w: 5, d: 5, door: { tx: 17, ty: 19 }, feature: 'caja', image: { src: art('pokecenter'), flatTop: 54, model: '/assets/town/models/pokecenter.json' } },
       { id: 'house1', name: 'Casa', blurb: 'No hay nadie. Se escucha una radio adentro.', style: 'house', x: 21, y: 15, w: 4, d: 5, image: { src: art('house-green'), flatTop: 43 } },
       { id: 'apt1', name: 'Departamentos', blurb: 'Las jardineras están recién regadas.', style: 'apartment', x: 36, y: 13, w: 5, d: 7, image: { src: art('apartment-a'), flatTop: 70 } },

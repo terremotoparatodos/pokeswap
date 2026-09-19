@@ -54,10 +54,11 @@ MODELS = {
     # HeartGold/SoulSilver's route gates: passages with a door at each end. Gate 2 runs east-west
     # (doors on its sides at x ±44), Gate 1 north-south (doors front and back). Each is placed so the
     # door meets its portal: the west gate's east door on tile x 6, the east gate's west door on
-    # x 57 (both centred on rows 41-42), the south gate's back door facing the portal above it.
+    # x 57 (both centred on rows 41-42), the south gate's back door facing the portal above it,
+    # its roof kept south of the portal and the arrival point (it stands past the map's bottom edge).
     'gate-west': ('gates/Gate 2/Gate 2.obj', {}, {'center': -4, 'front': 32}),
     'gate-east': ('gates/Gate 2/Gate 2.obj', {}, {'center': 4, 'front': 32}),
-    'gate-south': ('gates/Gate 1/Gate 1.obj', {}, {'center': 8, 'front': 57}),
+    'gate-south': ('gates/Gate 1/Gate 1.obj', {}, {'center': 8, 'front': 33}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }

@@ -60,10 +60,11 @@ export function placeOnFootprint(data: Pick<TownModelData, 'center' | 'front'>, 
   return { x: centreX - data.center, y: frontY - data.front }
 }
 
-/** The camera, relative to the focus: `depth` in front of it, `height` above the ground. */
+/** The camera, relative to the focus: `depth` in front of it, `height` above the ground; `rise` shortens models (CameraLens.rise). */
 export interface Eye {
   readonly depth: number
   readonly height: number
+  readonly rise?: number
 }
 
 /**
@@ -72,7 +73,7 @@ export interface Eye {
  * h × scale, the rule upright sprites follow. Null if any is behind the camera.
  */
 export function projectVertices(
-  data: TownModelData, at: ModelPlacement, proj: Projector, camX: number, camY: number,
+  data: TownModelData, at: ModelPlacement, proj: Projector, camX: number, camY: number, rise = 1,
 ): Float64Array | null {
   const out = new Float64Array(data.vertices.length * 3)
   for (let i = 0; i < data.vertices.length; i++) {
@@ -80,7 +81,7 @@ export function projectVertices(
     const p = proj.project(at.x + x - camX, at.y + z - camY)
     if (!p) return null
     out[i * 3] = p.x
-    out[i * 3 + 1] = p.y - y * p.scale
+    out[i * 3 + 1] = p.y - y * rise * p.scale
     out[i * 3 + 2] = p.scale
   }
   return out
@@ -228,9 +229,9 @@ export const MODEL_DETAIL = 3
 export const MODEL_REDRAW_STEP = 2
 
 /** When a model must be rasterized again: the camera moved a step relative to it, or the zoom changed. */
-export function rasterKey(at: ModelPlacement, camX: number, camY: number, scale: number): string {
+export function rasterKey(at: ModelPlacement, camX: number, camY: number, scale: number, rise = 1): string {
   const q = (v: number) => Math.round(v / MODEL_REDRAW_STEP)
-  return `${q(camX - at.x)}|${q(camY - at.y)}|${scale.toFixed(2)}`
+  return `${q(camX - at.x)}|${q(camY - at.y)}|${scale.toFixed(2)}|${rise.toFixed(2)}`
 }
 
 /** Draws a placed model: rasterized at about screen resolution (see MODEL_DETAIL), then copied onto the screen. */
@@ -240,9 +241,9 @@ export function drawTownModel(
   const front = proj.project(at.x + model.data.center - camX, at.y + model.data.front - camY)
   if (!front) return false
   let surface = surfaces.get(at)
-  const key = rasterKey(at, camX, camY, front.scale)
+  const key = rasterKey(at, camX, camY, front.scale, eye.rise)
   if (!surface || surface.key !== key) {
-    const screen = projectVertices(model.data, at, proj, camX, camY)
+    const screen = projectVertices(model.data, at, proj, camX, camY, eye.rise)
     if (!screen) return false
     const frame = rasterFrame(screen, Math.max(1, front.scale / MODEL_DETAIL))
     if (frame.width <= 0 || frame.height <= 0 || frame.width > 2048 || frame.height > 2048) return false

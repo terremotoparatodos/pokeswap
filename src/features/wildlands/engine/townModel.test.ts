@@ -69,6 +69,15 @@ describe('drawing a model', () => {
     expect(placeOnFootprint({ center: 1, front: 26 }, 280, 320)).toEqual({ x: 279, y: 294 })
   })
 
+  it('shortens model heights by the lens rise (the town camera looks down more steeply)', () => {
+    const data = quad([[0, 0, 0], [10, 0, 0], [0, 10, 0]])
+    const full = projectVertices(data, { x: 0, y: 0 }, proj, 0, 0)!
+    const town = projectVertices(data, { x: 0, y: 0 }, proj, 0, 0, LENSES.town.rise)!
+    const ground = proj.project(0, 0)!
+    expect(ground.y - town[7]).toBeCloseTo((ground.y - full[7]) * 0.62)
+    expect(HEARTHOME.lens).toBe('town')
+  })
+
   it('projects with the ground’s own perspective: taller points rise by their height × scale', () => {
     const data = quad([[0, 0, 0], [10, 0, 0], [0, 10, 0]])
     const screen = projectVertices(data, { x: 0, y: 0 }, proj, 0, 0)!

@@ -90,6 +90,9 @@ requires engine support (main station's decision).
   edges are as fine as the rest of the frame. The image is reused while the camera moves less
   than `MODEL_REDRAW_STEP` world px relative to it. A building to one side of the screen shows
   its real side wall.
+- Ciudad Corazón uses the `town` lens (`engine/projection.ts`): ground at 0.85 and 3D models at
+  0.62 of their height (`rise`), the proportions of Platinum's own sprites; the steeper camera also
+  hides less behind each building. Sprites are unaffected (they are drawn that way already).
 - `scripts/preview_town_model.py <model.json> <out.png> [sprite.png]` renders a converted
   model left of, at and right of the screen centre, to check textures and walls before use.
 - The Pokémon Center, the Poké Mart and the gym are HeartGold/SoulSilver's models (closer to Platinum
