@@ -10,11 +10,18 @@
 //   dies with the battle, and Speed in particular is never written back: a
 //   modifier changes the cooldown, not the Pokémon (§13).
 //
-// Stat stages, as approved (§24): the internal number stays the honest −6…+6
-// ladder, so a move that says +2 keeps saying +2 and the data never has to be
-// rewritten. What is clamped is the **multiplier**, to PokeSwap's ×2 / ×0.5
-// band. The alternative — squashing the ladder itself — would have made the
-// move data lie about the game it came from.
+// Stat stages, as approved: PokeSwap's temporary stages run **−2 … +2**, and
+// the clamp is on the **stage itself**.
+//
+// The first version of these rules clamped only the multiplier and kept a
+// −6…+6 ladder underneath. That hides accumulation: six Swords Dances read ×2
+// like two do, and then a Growl takes the hidden +6 to +5 and nothing visibly
+// changes. A player cannot learn a rule they cannot see, so the ladder is the
+// narrow one and a debuff is felt on the very next action.
+//
+// The move data is untouched by this: Swords Dance still says +2 in the
+// catalog. What the clamp changes is what a *second* Swords Dance is worth,
+// which is a runtime question and not a data one.
 
 import { deriveStats, levelForExperience } from '../../pokemon/model'
 import type { PokemonInstance, StatValues } from '../../pokemon/model'
@@ -25,29 +32,36 @@ import type { BattleCombatant, StageKey, StatStages } from './state'
 /** The stats a battle can buff or debuff, mapped to the persistent stat keys. */
 export type BattleStatKey = 'atk' | 'def' | 'spa' | 'spd' | 'spe'
 
+/** The stage a value lands on, never outside PokeSwap's range. */
+export const clampStage = (stage: number, config: StatStageConfig): number =>
+  Math.max(config.minStage, Math.min(config.maxStage, Math.trunc(stage)))
+
 /**
- * The multiplier of a stage, clamped to PokeSwap's band.
+ * What one stage is worth: ×0.5, ×2/3, ×1, ×1.5, ×2.
  *
- * Shape: +1 stage is ×1.5, and two stages already reach the ×2 ceiling. A
- * realtime fight is read at a glance, so "up" and "way up" is the whole
- * vocabulary; a −6…+6 ladder nobody can read would only be precision nobody
- * uses.
+ * Read straight out of the config, so the ladder is one table and not a
+ * formula anybody has to re-derive.
  */
 export function stageMultiplier(stage: number, config: StatStageConfig): number {
-  const clamped = Math.max(config.minStage, Math.min(config.maxStage, stage))
-  const raw = clamped >= 0 ? 1 + clamped * 0.5 : 1 / (1 + Math.abs(clamped) * 0.5)
-  return Math.max(config.minMultiplier, Math.min(config.maxMultiplier, raw))
+  return config.multiplierByStage[String(clampStage(stage, config))] ?? 1
 }
 
 /** The stage of one stat; an absent entry is zero. */
 export const stageOf = (stages: StatStages, stat: StageKey): number => stages[stat] ?? 0
 
-/** Adds a delta to a stage, keeping the honest ladder inside its own limits. */
+/**
+ * Moves a stage, clamping **the stage**.
+ *
+ * At the ceiling another buff changes nothing at all, and a single debuff
+ * takes it straight down one step — there is no hidden surplus to eat first.
+ * Returns the stage it landed on so the caller can say whether anything moved.
+ */
 export function applyStage(
   stages: StatStages, stat: StageKey, delta: number, config: StatStageConfig,
-): StatStages {
-  const next = Math.max(config.minStage, Math.min(config.maxStage, stageOf(stages, stat) + delta))
-  return { ...stages, [stat]: next }
+): { stages: StatStages; stage: number; changed: boolean } {
+  const before = stageOf(stages, stat)
+  const stage = clampStage(before + delta, config)
+  return { stages: { ...stages, [stat]: stage }, stage, changed: stage !== before }
 }
 
 /**
@@ -94,11 +108,11 @@ export function effectiveStat(
  * The accuracy check's multiplier: the attacker's accuracy stage against the
  * defender's evasion stage.
  *
- * No move in R32.3 can move either stage — the catalog does not say which stat
- * a stat-changing move touches (`moveSupport.ts`) — so today this is always 1.
- * It is here, and tested, because an ability or an item hook is the obvious
- * next thing to reach for it, and because leaving the hole out would have made
- * the accuracy roll look simpler than it is.
+ * Accuracy and evasion use the **same −2…+2 ladder** as the other five, on
+ * purpose: one vocabulary for the whole battle runtime. The games give them
+ * their own 3/9…9/3 table, but a second ladder would mean two rules to read on
+ * screen and two to explain, and nothing in PokeSwap needs that precision yet.
+ * Sand Attack and Double Team are executable, so this is live, not theory.
  */
 export function accuracyMultiplier(
   attacker: BattleCombatant, defender: BattleCombatant, config: BattleRulesConfig,

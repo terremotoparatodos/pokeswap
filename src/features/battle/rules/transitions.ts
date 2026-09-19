@@ -16,7 +16,8 @@ import type { MajorStatus } from '../../pokemon/model'
 import { isExecutable } from './moveSupport'
 import type { BattleRulesCatalog } from './catalogView'
 import type { BattleEvent } from './events'
-import type { BattleCombatant, BattleState } from './state'
+import { applyStage } from './stats'
+import type { BattleCombatant, BattleState, StageKey } from './state'
 import {
   combatantOf, currentHpOf, isCombatantFainted, withCombatant, withConditionPatch, withRuntime,
 } from './state'
@@ -268,6 +269,47 @@ export function applyConfusion(working: Working, targetId: string): boolean {
   const durationMs = working.state.config.confusion.durationMs
   update(working, withRuntime(target, { confusionRemainingMs: durationMs }))
   emit(working, { type: 'CONFUSION_APPLIED', combatantId: targetId, durationMs })
+  return true
+}
+
+// ── Stat stages ─────────────────────────────────────────────────────────────
+
+/**
+ * Moves one stat stage, and says out loud when it could not.
+ *
+ * This is the **only** way a stat changes, and it takes a stat and a number —
+ * never a move. Swords Dance, Growl and Shadow Ball's secondary all arrive
+ * here as data read out of the catalog, which is why there is no branch for
+ * any of them anywhere in these rules.
+ *
+ * The clamp is on the **stage**: at +2 another buff does nothing at all, and a
+ * single −1 takes it to +1 immediately. There is no hidden surplus to eat
+ * through, because a player cannot learn a rule they cannot see.
+ */
+export function modifyStat(
+  working: Working,
+  combatantId: string,
+  stat: StageKey,
+  delta: number,
+  sourceId: string | null,
+): boolean {
+  const combatant = requireCombatant(working, combatantId)
+  if (!combatant || isCombatantFainted(combatant)) return false
+  const config = working.state.config.statStages
+  const result = applyStage(combatant.runtime.stages, stat, delta, config)
+
+  if (!result.changed) {
+    emit(working, {
+      type: 'STAT_STAGE_UNCHANGED',
+      combatantId,
+      stat,
+      stage: result.stage,
+      reason: delta > 0 ? 'atCeiling' : 'atFloor',
+    })
+    return false
+  }
+  update(working, withRuntime(combatant, { stages: result.stages }))
+  emit(working, { type: 'STAT_STAGE_CHANGED', combatantId, stat, delta, stage: result.stage, sourceId })
   return true
 }
 

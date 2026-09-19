@@ -67,13 +67,21 @@ export interface DamageConfig {
   readonly randomRollFloorPercent: number
 }
 
+/**
+ * APPROVED: PokeSwap's temporary stat stages run **−2 … +2**, and the clamp is
+ * on the **stage**, not on the multiplier.
+ *
+ * The first version clamped only the multiplier and kept a −6…+6 ladder
+ * underneath. That hides accumulation: six Swords Dances read ×2 like two do,
+ * and then a Growl takes the hidden +6 to +5 and the number on screen does not
+ * move. A player cannot learn a rule they cannot see. With the clamp on the
+ * stage, a debuff is felt on the very next action.
+ */
 export interface StatStageConfig {
-  /** The honest ladder: move data says +2, and the data stays true. */
   readonly minStage: number
   readonly maxStage: number
-  /** APPROVED PokeSwap simplification: the multiplier never leaves this band. */
-  readonly maxMultiplier: number
-  readonly minMultiplier: number
+  /** The multiplier of each stage, keyed by stage. Classic values in this range. */
+  readonly multiplierByStage: Readonly<Record<string, number>>
 }
 
 export interface StruggleConfig {
@@ -141,7 +149,13 @@ export const DEFAULT_BATTLE_RULES_CONFIG: BattleRulesConfig = {
     randomRollSteps: 16,
     randomRollFloorPercent: 85,
   },
-  statStages: { minStage: -6, maxStage: 6, maxMultiplier: 2, minMultiplier: 0.5 },
+  statStages: {
+    minStage: -2,
+    maxStage: 2,
+    // The classic ladder, read inside PokeSwap's narrower range: +1 is 3/2 and
+    // −1 is its reciprocal, so a buff and the debuff that answers it cancel.
+    multiplierByStage: { '-2': 0.5, '-1': 2 / 3, 0: 1, 1: 1.5, 2: 2 },
+  },
   struggle: { recoilFractionOfMaxHp: 0.25 },
   capture: {
     scale: 0.5,

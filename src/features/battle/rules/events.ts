@@ -111,12 +111,31 @@ export type BattleEvent =
     })
   /** The last charge went: the shield is down and the next cooldown is longer. */
   | (EventBase & { readonly type: 'PROTECT_EXPIRED'; readonly combatantId: string })
+  /**
+   * Protect was used while a shield was still up. The Action Window and the PP
+   * are spent; the shield is neither refreshed nor extended.
+   */
+  | (EventBase & {
+      readonly type: 'PROTECT_FAILED'
+      readonly combatantId: string
+      readonly chargesLeft: number
+    })
   | (EventBase & {
       readonly type: 'STAT_STAGE_CHANGED'
       readonly combatantId: string
       readonly stat: StageKey
       readonly delta: number
+      /** Where it landed, after the −2…+2 clamp. */
       readonly stage: number
+      readonly sourceId: string | null
+    })
+  /** The stage was already at the end of the ladder, so nothing moved. */
+  | (EventBase & {
+      readonly type: 'STAT_STAGE_UNCHANGED'
+      readonly combatantId: string
+      readonly stat: StageKey
+      readonly stage: number
+      readonly reason: 'atCeiling' | 'atFloor'
     })
   | (EventBase & {
       readonly type: 'SWITCHED'

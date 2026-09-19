@@ -14,7 +14,7 @@ import { computeDamage, critChance, rollAccuracy, rollHitCount } from './damage'
 import { captureChance, resolveCapture } from './capture'
 import { classifyMove, reportMoveCoverage } from './moveSupport'
 import { createRngState, drawChance, drawInt, drawRandom, rngValueAt } from './rng'
-import { applyStage, stageMultiplier } from './stats'
+import { applyStage, clampStage, stageMultiplier } from './stats'
 import { buildSampleBattle, PIKACHU_VS_GENGAR } from './sampleBattles'
 import type { BattleCombatant } from './state'
 
@@ -125,22 +125,56 @@ describe('the Action Bar', () => {
 })
 
 describe('stat stages', () => {
-  it('keeps the honest −6…+6 ladder and clamps only the multiplier', () => {
+  it('runs −2…+2 with the classic multipliers inside that range', () => {
+    expect(stageMultiplier(-2, CONFIG.statStages)).toBe(0.5)
+    expect(stageMultiplier(-1, CONFIG.statStages)).toBeCloseTo(2 / 3, 10)
     expect(stageMultiplier(0, CONFIG.statStages)).toBe(1)
     expect(stageMultiplier(1, CONFIG.statStages)).toBe(1.5)
     expect(stageMultiplier(2, CONFIG.statStages)).toBe(2)
-    expect(stageMultiplier(6, CONFIG.statStages)).toBe(2)
-    expect(stageMultiplier(-1, CONFIG.statStages)).toBeCloseTo(1 / 1.5, 10)
-    expect(stageMultiplier(-2, CONFIG.statStages)).toBe(0.5)
-    expect(stageMultiplier(-6, CONFIG.statStages)).toBe(0.5)
   })
 
-  it('never lets a stage leave its own limits', () => {
+  it('clamps the **stage**, so there is nothing hidden past the ends', () => {
+    expect(stageMultiplier(6, CONFIG.statStages)).toBe(2)
+    expect(stageMultiplier(-6, CONFIG.statStages)).toBe(0.5)
+    expect(clampStage(9, CONFIG.statStages)).toBe(2)
+    expect(clampStage(-9, CONFIG.statStages)).toBe(-2)
+  })
+
+  /**
+   * The bug this replaces: with a −6…+6 ladder under a clamped multiplier,
+   * four Swords Dances read ×2 like two do, and then a Growl takes the hidden
+   * +6 to +5 and the number on screen does not move. A player cannot learn a
+   * rule they cannot see.
+   */
+  it('has no hidden stacking above the ceiling', () => {
     let stages = {}
-    for (let i = 0; i < 20; i++) stages = applyStage(stages, 'atk', 2, CONFIG.statStages)
-    expect(stages).toEqual({ atk: 6 })
-    for (let i = 0; i < 40; i++) stages = applyStage(stages, 'atk', -2, CONFIG.statStages)
-    expect(stages).toEqual({ atk: -6 })
+    for (let i = 0; i < 4; i++) stages = applyStage(stages, 'atk', 2, CONFIG.statStages).stages
+    expect(stages).toEqual({ atk: 2 })
+    expect(stageMultiplier(2, CONFIG.statStages)).toBe(2)
+
+    // One debuff, and it is felt immediately.
+    const down = applyStage(stages, 'atk', -1, CONFIG.statStages)
+    expect(down.stage).toBe(1)
+    expect(down.changed).toBe(true)
+    expect(stageMultiplier(down.stage, CONFIG.statStages)).toBe(1.5)
+  })
+
+  it('has no hidden stacking below the floor either', () => {
+    let stages = {}
+    for (let i = 0; i < 4; i++) stages = applyStage(stages, 'def', -2, CONFIG.statStages).stages
+    expect(stages).toEqual({ def: -2 })
+
+    const up = applyStage(stages, 'def', 1, CONFIG.statStages)
+    expect(up.stage).toBe(-1)
+    expect(stageMultiplier(up.stage, CONFIG.statStages)).toBeCloseTo(2 / 3, 10)
+  })
+
+  it('says when a stage did not move', () => {
+    const capped = applyStage({ spe: 2 }, 'spe', 2, CONFIG.statStages)
+    expect(capped.changed).toBe(false)
+    expect(capped.stage).toBe(2)
+    const floored = applyStage({ spe: -2 }, 'spe', -1, CONFIG.statStages)
+    expect(floored.changed).toBe(false)
   })
 })
 
@@ -267,6 +301,9 @@ describe('the move effect registry', () => {
       ['thunder-wave', 'ailment'],
       ['recover', 'heal'],
       ['protect', 'protect'],
+      ['swords-dance', 'statChange'],
+      ['growl', 'statChange'],
+      ['shadow-ball', 'damage.statChange'],
     ]
     for (const [name, effect] of expectations) {
       const move = catalog.moveNamed(name)
@@ -278,8 +315,8 @@ describe('the move effect registry', () => {
   it('defers what it cannot run, with a reason and never a silent fallback', async () => {
     const catalog = await catalogPromise
     const deferred: readonly [string, string][] = [
-      ['swords-dance', 'stat change payload missing from catalog'],
-      ['shadow-ball', 'stat change payload missing from catalog'],
+      ['growth', 'stat change not stated by the pinned sources'],
+      ['defense-curl', 'stat change not stated by the pinned sources'],
       ['solar-beam', 'charge turn'],
       ['fissure', 'effect ohko'],
       ['whirlwind', 'effect forceSwitch'],
@@ -302,11 +339,76 @@ describe('the move effect registry', () => {
     const report = reportMoveCoverage(catalog.allMoves())
     expect(report.total).toBe(621)
     expect(report.executable + report.deferred).toBe(report.total)
-    expect(report.executable).toBe(282)
+    expect(report.executable).toBe(390)
     expect(report.byReason.reduce((sum, row) => sum + row.moves, 0)).toBe(report.deferred)
-    // The biggest gap is data, not work: R32.1 does not emit which stat a
-    // stat-changing move touches.
-    expect(report.byReason[0]).toEqual({ reason: 'stat change payload missing from catalog', moves: 118 })
+    // What used to be the biggest bucket — 118 moves whose stat change the
+    // catalog could not state — is down to the handful the pinned sources
+    // genuinely do not settle.
+    expect(report.byReason[0]).toEqual({ reason: 'effect unique', moves: 78 })
+    expect(report.byReason.find(row => row.reason === 'stat change not stated by the pinned sources'))
+      .toEqual({ reason: 'stat change not stated by the pinned sources', moves: 10 })
+  })
+
+  it('states every stat change it claims to run, fully', async () => {
+    const catalog = await catalogPromise
+    const stageable = new Set(['atk', 'def', 'spa', 'spd', 'spe', 'accuracy', 'evasion'])
+    for (const move of catalog.allMoves()) {
+      const verdict = classifyMove(move)
+      if (verdict.kind !== 'executable') continue
+      if (verdict.effect !== 'statChange' && verdict.effect !== 'damage.statChange') continue
+
+      const spec = move.meta.statChanges
+      expect(spec, move.name).not.toBeNull()
+      expect(['user', 'target']).toContain(spec!.recipient)
+      expect(spec!.chance).toBeGreaterThan(0)
+      expect(spec!.chance).toBeLessThanOrEqual(100)
+      expect(spec!.changes.length).toBeGreaterThan(0)
+      for (const change of spec!.changes) {
+        expect(stageable.has(change.stat), `${move.name}: ${change.stat}`).toBe(true)
+        expect(change.stages).not.toBe(0)
+      }
+      // A pure stat move is never a chance; a secondary always is.
+      if (verdict.effect === 'statChange') expect(spec!.kind).toBe('direct')
+    }
+  })
+
+  it('reads the recipient from the sources, not from the sign of the number', async () => {
+    const catalog = await catalogPromise
+    const expected: readonly [string, 'user' | 'target', number, string, number][] = [
+      ['swords-dance', 'user', 100, 'atk', 2],
+      ['growl', 'target', 100, 'atk', -1],
+      ['tail-whip', 'target', 100, 'def', -1],
+      ['agility', 'user', 100, 'spe', 2],
+      ['screech', 'target', 100, 'def', -2],
+      ['sand-attack', 'target', 100, 'accuracy', -1],
+      ['double-team', 'user', 100, 'evasion', 1],
+      // A self-inflicted drop: the sign says "down" and the recipient is still
+      // the user, which is exactly what a sign cannot tell you.
+      ['overheat', 'user', 100, 'spa', -2],
+      ['charge-beam', 'user', 70, 'spa', 1],
+      ['shadow-ball', 'target', 20, 'spd', -1],
+    ]
+    for (const [name, recipient, chance, stat, stages] of expected) {
+      const move = catalog.moveNamed(name)
+      expect(move, name).not.toBeNull()
+      expect(move!.meta.statChanges, name).toMatchObject({ recipient, chance })
+      expect(move!.meta.statChanges!.changes, name).toContainEqual({ stat, stages })
+    }
+  })
+
+  it('takes the Gen VI diff over the tabular row when they disagree', async () => {
+    const catalog = await catalogPromise
+    // The tabular stat-change table is present-day and `move_changelog.csv`
+    // does not roll it back: it says Diamond Storm raises Defence by two, and
+    // Generation VI is one. The pinned Gen VI diff settles it.
+    const move = catalog.moveNamed('diamond-storm')
+    expect(move!.meta.statChanges).toEqual({
+      recipient: 'user',
+      chance: 50,
+      kind: 'secondary',
+      changes: [{ stat: 'def', stages: 1 }],
+      source: 'gen6-diff',
+    })
   })
 })
 
