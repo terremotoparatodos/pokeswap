@@ -37,23 +37,29 @@ Regla de commit: **staging explícito siempre**, nunca `git add .`.
 
 | # | Commit | Qué entró |
 |---|---|---|
-| 0 | _(este commit)_ | Auditoría + docs de arranque |
+| 0 | `8469bd6` | Auditoría + docs de arranque |
+| 1 | `4ad2604` | P0: gate, kill switch, build id, bug reporter |
+| 2 | `0e95abf` | P1A: Dungeons como cuevas en WildLands |
 
 ## Tarea actual
 
-**P0 — Playtest safety**: flag de build, gate de acceso, kill switch, banner,
-build id, clasificación de datos.
+**P1B — Chat multijugador** sobre `PresenceRoom`.
 
 ## Completadas
 
 - [x] Verificación de base contractual (`local = remote = e0a1581`)
 - [x] Rama `playtest/community-0.1` creada desde el HEAD exacto
 - [x] Auditoría de repo (ver `COMMUNITY_PLAYTEST_0_1.md` §Auditoría)
+- [x] **P0** — `VITE_PLAYTEST` como modo de build; `PlaytestShell`; gate remoto
+      (`playtest_gate`, migración escrita, **no aplicada**); banner + build id;
+      bug reporter al portapapeles. Aislamiento verificado: la build normal no
+      contiene ni una cadena del playtest.
+- [x] **P1A** — cuevas derivadas en los 5 mundos (6 por mundo, la más cercana a
+      6–17 tiles), arte en el lenguaje visual de WildLands, colisión real,
+      `PlayDungeon` con `autoStart`/`exit`. Loop verificado en navegador.
 
 ## Pendientes
 
-- [ ] P0 — safety / gate / kill switch / banner / build id / data classification
-- [ ] P1A — Dungeon entrances en WildLands (cuevas) + densidad playtest
 - [ ] P1B — Chat (PresenceRoom + UI)
 - [ ] P1C — Skills OSRS-like (promover profesiones a playtest + panel)
 - [ ] P1D — Ciudad limitada (abrir Centro + Tienda, cerrar el resto)

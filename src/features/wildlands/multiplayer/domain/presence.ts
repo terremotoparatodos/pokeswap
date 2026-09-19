@@ -28,3 +28,21 @@ export interface LocalPresencePort {
   changeArea(areaId: string): void
   observe(areaId: string, tx: number, ty: number): void
 }
+
+/**
+ * Where chat traffic goes, when there is any.
+ *
+ * Declared here, as a shape rather than an import, so the socket adapter can
+ * carry chat without the multiplayer feature depending on the chat feature.
+ * Community Playtest 0.1 passes one in; a normal build passes nothing and the
+ * adapter simply never routes those messages.
+ */
+export interface ChatTransportPort {
+  /** One line from the room, unvalidated: the receiver parses it. */
+  line(raw: unknown): void
+  /** The recent history of an area, on join and on every area change. */
+  history(areaId: string, raw: unknown): void
+  setAccess(access: 'connecting' | 'player' | 'guest'): void
+  /** The socket is gone; nothing can be sent until a new one attaches. */
+  detach(): void
+}

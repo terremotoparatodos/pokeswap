@@ -1,5 +1,6 @@
 import { Room, ServerError } from '@colyseus/core'
 import { authenticateSupabase, authorizedCompanion } from '../auth/supabaseAuth.js'
+import { ChatLog, acceptChat, chatIntent, chatMessage } from '../chat/chat.js'
 import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
 import { acceptMove } from '../presence/movement.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
@@ -15,6 +16,10 @@ const observers = new Map()
 // player crosses a wild-sector boundary.
 const visibleByClient = new Map()
 const reconnectingActors = new ReconnectCache()
+// Community Playtest 0.1: the last lines of each area, in memory. It dies with
+// the process on purpose — chat is not state this playtest should persist.
+const chatLog = new ChatLog()
+let chatSequence = 0
 const WILD_SPAWN = Object.freeze({ tx: 8, ty: 41 })
 
 export class PresenceRoom extends Room {
@@ -32,6 +37,7 @@ export class PresenceRoom extends Room {
     this.onMessage(MESSAGE.MOVE, (client, payload) => this.move(client, payload))
     this.onMessage(MESSAGE.AREA, (client, payload) => this.changeArea(client, payload))
     this.onMessage(MESSAGE.OBSERVE, (client, payload) => this.observe(client, payload))
+    this.onMessage(MESSAGE.CHAT, (client, payload) => this.chat(client, payload))
   }
 
   async onJoin(client, options, auth) {
@@ -116,6 +122,39 @@ export class PresenceRoom extends Room {
     this.sendSnapshot(client, observer)
   }
 
+  /**
+   * Community Playtest 0.1 — area chat.
+   *
+   * Players only: a guest joins as an observer with no username, and a line
+   * with no name behind it is not something a two-hour playtest should have to
+   * moderate. Guests read what the area is saying and cannot add to it.
+   */
+  chat(client, payload) {
+    const actor = actors.get(client.userData?.actorId)
+    if (!actor) return this.reject(client, 'chat denied', 'invalid')
+    const intent = chatIntent(payload)
+    if (!intent) return this.reject(client, 'chat denied', 'invalid')
+    const now = Date.now()
+    if (!acceptChat(actor, now)) return this.reject(client, 'chat rate denied', 'rate')
+    const message = chatMessage(actor, intent.text, now, ++chatSequence)
+    chatLog.append(message)
+    this.broadcastChat(message)
+  }
+
+  /**
+   * Everyone in the area hears it, near or far.
+   *
+   * Deliberately not filtered by `visibleActors` the way presence is: interest
+   * management exists so a client is not told about a trainer it cannot see,
+   * but a chat you can only read from six tiles away is not a chat.
+   */
+  broadcastChat(message) {
+    for (const client of observers.values()) {
+      const viewer = actors.get(client.userData?.actorId) ?? client.userData?.observer
+      if (viewer?.areaId === message.areaId) client.send(MESSAGE.CHAT_LINE, message)
+    }
+  }
+
   publish(actor) { this.broadcastDelta({ type: 'upsert', actor: publicActor(actor) }, actor) }
   broadcastDelta(delta, changed) {
     for (const client of observers.values()) {
@@ -142,6 +181,10 @@ export class PresenceRoom extends Room {
       actors: visible.map(publicActor),
       ...(self ? { self: publicActor(self) } : {}),
     })
+    // Arriving in the middle of a conversation should not look like silence.
+    // A snapshot is sent on join and on every area change, which is exactly
+    // when the history a client should hold changes.
+    if (viewer?.areaId) client.send(MESSAGE.CHAT_HISTORY, { areaId: viewer.areaId, lines: chatLog.recent(viewer.areaId) })
   }
   sendSelf(client, actor) { client.send(MESSAGE.SELF, publicActor(actor)) }
   reject(client, reason, kind) { metrics.rejected(kind); client.send(MESSAGE.ERROR, { code: 'invalid-intent', reason }) }

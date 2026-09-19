@@ -12,6 +12,17 @@ function client(id) {
   }
 }
 
+/**
+ * The last message of a given type.
+ *
+ * These assertions used to read `messages.at(-1)` and so depended on the
+ * snapshot being the final thing a join sends. Community Playtest 0.1 sends
+ * the area's chat history right after it, which is a protocol addition and not
+ * a regression — asking for the message by name says what the test means and
+ * does not break the next time the handshake grows.
+ */
+const lastOf = (target, type) => [...target.messages].reverse().find(entry => entry.type === type)
+
 test('guest receives a read-only snapshot and never receives an actor', async () => {
   const room = new PresenceRoom()
   const guest = client('guest-test')
@@ -58,7 +69,7 @@ test('an authenticated snapshot includes only its server-authoritative self acto
   await room.onJoin(player, {}, { kind: 'player', userId: 'self-user', username: 'Self', token: null })
   assert.equal(player.messages.length, 0)
   room.ready(player)
-  assert.deepEqual(player.messages.at(-1), {
+  assert.deepEqual(lastOf(player, MESSAGE.SNAPSHOT), {
     type: MESSAGE.SNAPSHOT,
     payload: {
       access: 'player',
@@ -98,7 +109,7 @@ test('a reload replaces presence before an optional companion lookup resolves', 
   room.onLeave(first)
   assert.deepEqual(second.userData, { actorId: 'reload-user' })
   room.ready(second)
-  assert.equal(second.messages.at(-1).type, MESSAGE.SNAPSHOT)
+  assert.equal(lastOf(second, MESSAGE.SNAPSHOT)?.type, MESSAGE.SNAPSHOT)
   room.onLeave(second)
 })
 
@@ -118,10 +129,100 @@ test('a browser refresh recovers only the same player’s short-lived server pos
   } finally {
     Date.now = realNow
   }
-  assert.deepEqual(second.messages.at(-1).payload.self, {
+  assert.deepEqual(lastOf(second, MESSAGE.SNAPSHOT).payload.self, {
     id: 'refresh-user', areaId: 'ciudad-corazon', tx: 32, ty: 20, username: 'Refresh', characterId: 'lucas', companionId: null, dir: 'right', speed: 3.75, moveSequence: 1,
   })
   room.onLeave(second)
+})
+
+test('chat reaches everyone in the area, and nobody outside it', async () => {
+  const room = new PresenceRoom()
+  const speaker = client('chat-speaker')
+  const neighbour = client('chat-neighbour')
+  const elsewhere = client('chat-elsewhere')
+  await room.onJoin(speaker, {}, { kind: 'player', userId: 'chat-a', username: 'Ash', token: null })
+  await room.onJoin(neighbour, {}, { kind: 'player', userId: 'chat-b', username: 'Misty', token: null })
+  await room.onJoin(elsewhere, {}, { kind: 'player', userId: 'chat-c', username: 'Brock', token: null })
+  room.ready(speaker)
+  room.ready(neighbour)
+  // Brock walks off to the wild; the other two stay in the city.
+  room.changeArea(elsewhere, { areaId: 'pradera' })
+
+  room.chat(speaker, { text: '  hola   a todos  ' })
+
+  const heard = lastOf(neighbour, MESSAGE.CHAT_LINE)
+  assert.equal(heard.payload.text, 'hola a todos')
+  assert.equal(heard.payload.username, 'Ash')
+  assert.equal(heard.payload.areaId, 'ciudad-corazon')
+  // The speaker hears their own line, so the log is the same for everyone.
+  assert.equal(lastOf(speaker, MESSAGE.CHAT_LINE).payload.text, 'hola a todos')
+  assert.equal(lastOf(elsewhere, MESSAGE.CHAT_LINE), undefined)
+
+  room.onLeave(speaker)
+  room.onLeave(neighbour)
+  room.onLeave(elsewhere)
+})
+
+test('a guest may read the area but not speak into it', async () => {
+  const room = new PresenceRoom()
+  const guest = client('chat-guest')
+  await room.onJoin(guest, {}, { kind: 'guest', token: null })
+  room.ready(guest)
+  room.chat(guest, { text: 'hola' })
+  assert.equal(guest.messages.at(-1).type, MESSAGE.ERROR)
+  assert.equal(lastOf(guest, MESSAGE.CHAT_LINE), undefined)
+  room.onLeave(guest)
+})
+
+test('an empty message is refused rather than broadcast', async () => {
+  const room = new PresenceRoom()
+  const player = client('chat-empty')
+  await room.onJoin(player, {}, { kind: 'player', userId: 'chat-empty-user', username: 'Ash', token: null })
+  room.ready(player)
+  room.chat(player, { text: '   ' })
+  assert.equal(player.messages.at(-1).type, MESSAGE.ERROR)
+  assert.equal(lastOf(player, MESSAGE.CHAT_LINE), undefined)
+  room.onLeave(player)
+})
+
+test('a second message in the same instant is rate limited', async () => {
+  const room = new PresenceRoom()
+  const player = client('chat-flood')
+  await room.onJoin(player, {}, { kind: 'player', userId: 'chat-flood-user', username: 'Ash', token: null })
+  room.ready(player)
+  const realNow = Date.now
+  Date.now = () => 5_000_000
+  try {
+    room.chat(player, { text: 'uno' })
+    room.chat(player, { text: 'dos' })
+  } finally {
+    Date.now = realNow
+  }
+  assert.equal(lastOf(player, MESSAGE.CHAT_LINE).payload.text, 'uno')
+  assert.equal(player.messages.at(-1).type, MESSAGE.ERROR)
+  room.onLeave(player)
+})
+
+test('somebody arriving mid-conversation is handed the area history', async () => {
+  const room = new PresenceRoom()
+  const early = client('chat-early')
+  const late = client('chat-late')
+  await room.onJoin(early, {}, { kind: 'player', userId: 'chat-early-user', username: 'Ash', token: null })
+  room.ready(early)
+  room.chat(early, { text: 'alguien vio una cueva?' })
+
+  await room.onJoin(late, {}, { kind: 'player', userId: 'chat-late-user', username: 'Misty', token: null })
+  room.ready(late)
+  const history = lastOf(late, MESSAGE.CHAT_HISTORY)
+  assert.equal(history.payload.areaId, 'ciudad-corazon')
+  assert.ok(history.payload.lines.some(line => line.text === 'alguien vio una cueva?'))
+
+  // And changing area hands over that area's history instead, not the old one.
+  room.changeArea(late, { areaId: 'pradera' })
+  assert.equal(lastOf(late, MESSAGE.CHAT_HISTORY).payload.areaId, 'pradera')
+
+  room.onLeave(early)
+  room.onLeave(late)
 })
 
 test('capacity rejects a new connection before it can create presence', async () => {

@@ -74,6 +74,8 @@
       @close="dungeonRun = null"
     />
 
+    <component :is="ChatPanel" v-if="ChatPanel && !dungeonRun" />
+
     <LobbyMenu
       v-model:open="menuOpen"
       :reduced-motion="reduceMotion"
@@ -112,6 +114,7 @@ import LobbyPanel from './LobbyPanel.vue'
 import LobbyPlaza from './LobbyPlaza.vue'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
 import { ColyseusPresence } from '../multiplayer/api/colyseusPresence'
+import { useChat } from '../../chat/state/useChat'
 import type { LocalPresencePort } from '../multiplayer/domain/presence'
 import { useAuth } from '../../auth/composables/useAuth'
 import { composeWorldProbes } from '../engine/worldProbes'
@@ -134,6 +137,9 @@ const ProfessionWorldDemo = import.meta.env.DEV || isPlaytest ? defineAsyncCompo
 const dungeonsInWorld = import.meta.env.DEV || isPlaytest
 const DungeonEntrances = dungeonsInWorld ? defineAsyncComponent(() => import('../../dungeonEntrances/components/DungeonEntrances.vue')) : null
 const DungeonRunPanel = dungeonsInWorld ? defineAsyncComponent(() => import('../../dungeonEntrances/components/DungeonRunPanel.vue')) : null
+// Area chat rides the presence socket. Same gates again: playtest builds have
+// players to talk to, development builds have the server to talk to.
+const ChatPanel = dungeonsInWorld ? defineAsyncComponent(() => import('../../chat/components/ChatPanel.vue')) : null
 
 const arrows: { dir: Dir; label: string }[] = [
   { dir: 'up', label: 'Arriba' },
@@ -154,6 +160,15 @@ const hud = reactive<HudState>({
 const identity = usePlayerIdentity(game)
 const { user } = useAuth()
 let presence: ColyseusPresence | null = null
+// Null outside a playtest or development build, and then nothing below routes
+// chat traffic at all.
+const chat = ChatPanel ? useChat() : null
+/** One socket, two passengers: presence and chat. */
+function connectPresence(target: WildlandsGame): ColyseusPresence {
+  const socket = new ColyseusPresence(target, chat?.sink ?? null)
+  chat?.attach(text => socket.sendChat(text))
+  return socket
+}
 const presencePort: LocalPresencePort = {
   move: (direction, running, sequence) => presence?.move(direction, running, sequence),
   changeArea: areaId => presence?.changeArea(areaId),
@@ -306,7 +321,7 @@ onMounted(async () => {
   if (panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
   game.value = created
   created.setPresenceAccess('pending')
-  presence = new ColyseusPresence(created)
+  presence = connectPresence(created)
   void presence.connect(identity.visualIdentity.value)
   created.setVisibilityPaused(hidden.value)
   created.setReducedMotion(reduceMotion.value)
@@ -335,6 +350,7 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
   game.value?.destroy()
   presence?.disconnect()
+  chat?.attach(null)
 })
 
 // A session change replaces the socket rather than keeping an authenticated actor after logout.
@@ -342,7 +358,7 @@ watch(user, () => {
   if (!game.value) return
   game.value.setPresenceAccess('pending')
   presence?.disconnect()
-  presence = new ColyseusPresence(game.value)
+  presence = connectPresence(game.value)
   void presence.connect(identity.visualIdentity.value)
 })
 

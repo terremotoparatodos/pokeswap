@@ -1,12 +1,16 @@
 import { Client, type Room } from '@colyseus/sdk'
 import { supabase } from '../../../../shared/api/supabase'
 import type { Dir } from '../../engine/characters'
-import type { LocalPresencePort, RemoteActorsPort, RemotePresenceActor } from '../domain/presence'
+import type { ChatTransportPort, LocalPresencePort, RemoteActorsPort, RemotePresenceActor } from '../domain/presence'
 import type { PlayerVisualIdentity } from '../../identity/playerIdentity'
 
 const SNAPSHOT = 'presence:snapshot'
 const SELF = 'presence:self'
 const DELTA = 'presence:delta'
+// Community Playtest 0.1 — area chat rides the same socket.
+const CHAT = 'chat'
+const CHAT_HISTORY = 'chat:history'
+const CHAT_LINE = 'chat:line'
 const REALTIME_URL = import.meta.env.VITE_REALTIME_URL as string | undefined
 /** Server code used when a newer browser replaces this authenticated session. */
 const REPLACED_SESSION_CODE = 4001
@@ -24,7 +28,12 @@ export class ColyseusPresence implements LocalPresencePort {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempt = 0
 
-  constructor(private readonly remote: RemoteActorsPort) {}
+  /**
+   * `chat` is optional on purpose: without one, the adapter never installs the
+   * chat receivers and `sendChat` is a no-op, so a build with no chat carries
+   * no chat behaviour rather than dormant chat behaviour.
+   */
+  constructor(private readonly remote: RemoteActorsPort, private readonly chat: ChatTransportPort | null = null) {}
 
   async connect(identity?: PlayerVisualIdentity): Promise<void> {
     if (!REALTIME_URL || this.room || this.stopped || this.suspended || this.connecting) return
@@ -45,11 +54,20 @@ export class ColyseusPresence implements LocalPresencePort {
       this.room = room; this.reconnectAttempt = 0
       room.onMessage<Snapshot>(SNAPSHOT, snapshot => {
         this.remote.setPresenceAccess(snapshot.access)
+        // A guest reads the area and cannot speak into it, which the panel
+        // has to know in order to say so instead of dropping the message.
+        this.chat?.setAccess(snapshot.access)
         this.remote.setAuthoritativeActor(snapshot.self ?? null)
         this.replace(snapshot.actors)
       })
       room.onMessage<RemotePresenceActor>(SELF, actor => this.remote.setAuthoritativeActor(actor))
       room.onMessage<Delta>(DELTA, delta => this.apply(delta))
+      if (this.chat) {
+        const chat = this.chat
+        chat.setAccess('connecting')
+        room.onMessage<{ areaId: string; lines: unknown }>(CHAT_HISTORY, payload => chat.history(payload.areaId, payload.lines))
+        room.onMessage<unknown>(CHAT_LINE, line => chat.line(line))
+      }
       // Install every receiver first. The server only sends the initial
       // authoritative position after this explicit readiness acknowledgement.
       room.send('presence:ready')
@@ -84,6 +102,8 @@ export class ColyseusPresence implements LocalPresencePort {
   }
 
   move(direction: Dir, running: boolean, sequence: number): void { this.room?.send('move', { direction, running, sequence }) }
+  /** Intent, not a fact: the room may refuse it, and only what comes back is shown. */
+  sendChat(text: string): void { this.room?.send(CHAT, { text }) }
   changeArea(areaId: string): void { this.room?.send('area', { areaId }) }
   observe(areaId: string, tx: number, ty: number): void { this.room?.send('observe', { areaId, tx, ty }) }
   disconnect(): void {
@@ -116,6 +136,7 @@ export class ColyseusPresence implements LocalPresencePort {
   }
   private emit(): void { this.remote.setRemoteActors([...this.actors.values()]) }
   private clearActors(): void {
+    this.chat?.detach()
     this.actors.clear()
     this.remote.setPresenceAccess('pending')
     this.remote.setAuthoritativeActor(null)
