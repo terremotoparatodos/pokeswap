@@ -5,7 +5,12 @@ import tseslint from 'typescript-eslint'
 import prettierConfig from 'eslint-config-prettier'
 
 export default tseslint.config(
-  { ignores: ['dist/', 'node_modules/', 'legacy/', 'supabase/', 'services/'] },
+  // `.worktrees/` holds detached checkouts of other branches. Linting them
+  // reports another branch's code as this one's errors, which is how
+  // `eslint .` came to have 14 failures that belong to nobody. (Open question 2
+  // of PRE_R34_TOWN_3D_CONSOLIDATION.md; answered here because the playtest
+  // gate needs `npm run lint` to mean something.)
+  { ignores: ['dist/', 'node_modules/', 'legacy/', 'supabase/', 'services/', '.worktrees/'] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
