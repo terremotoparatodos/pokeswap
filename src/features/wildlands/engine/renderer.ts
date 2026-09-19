@@ -22,6 +22,7 @@ import { placedFeet, type PlacedObject } from './placedObjects'
 import type { Tile } from './pathfinding'
 import { pixelsToCanvas } from './pixels'
 import { drawPlayerNameplate } from './playerNameplate'
+import { drawChatBubble } from './chatBubble'
 import { createProjector, type CameraLens, type Projector } from './projection'
 import { buildPropSprites } from './props'
 import type { OverlayLabel, SceneOverlay } from './sceneOverlay'
@@ -48,6 +49,8 @@ export interface Scene {
   /** Guests keep a camera anchor but do not render a local playable avatar. */
   showPlayer: boolean
   actors: readonly Actor[]
+  /** Server-accepted area chat, keyed by the rendered actor id. */
+  chatBubbles?: ReadonlyMap<string, string>
   showGrid: boolean
   route: RouteMarker
   /** Optional prototype effects (see sceneOverlay.ts). */
@@ -102,6 +105,7 @@ interface Drawable {
   prop?: { tx: number; ty: number }
   username?: string
   actor?: Actor
+  chat?: string
   /** A 3D model drawn instead of the sprite (the sprite still decides culling). */
   model?: { model: TownModel; at: ModelPlacement }
 }
@@ -331,6 +335,7 @@ export class Renderer {
           submerged: inWater,
           actor: actor.kind === 'npc' ? actor : undefined,
           username: actor === scene.player ? scene.username ?? undefined : actor.remoteUsername,
+          chat: scene.chatBubbles?.get(actor.id),
         })
       }
     }
@@ -361,6 +366,7 @@ export class Renderer {
 
     const t = scene.seconds
     const nameplates: { username: string; x: number; y: number }[] = []
+    const chatBubbles: { text: string; x: number; y: number }[] = []
     for (const d of drawables) {
       const { sprite, scale: s } = d
       const x = Math.round(d.x - sprite.ax * s)
@@ -380,6 +386,10 @@ export class Renderer {
           ...spriteRect(x, y, d.y, sprite.w, sprite.top ?? 0, s),
         })
       }
+      // Identity and speech stay above the actor even while its lower half is
+      // clipped by water.
+      if (d.username) nameplates.push({ username: d.username, x: d.x, y: y + (sprite.top ?? 0) * s - 4 * (this.frame?.dpr ?? 1) })
+      if (d.chat) chatBubbles.push({ text: d.chat, x: d.x, y: y + (sprite.top ?? 0) * s - 18 * (this.frame?.dpr ?? 1) })
       if (d.submerged) {
         // Hide the lower third of the visible art, not of the (possibly padded) cell.
         const top = sprite.top ?? 0
@@ -415,9 +425,9 @@ export class Renderer {
       if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: lampY, scale: s })
       if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) drawSparkle(ctx, d.x + s * 2, y + s * 3, s)
       if (d.mine) drawOwnerMarker(ctx, d.x, y + (sprite.top ?? 0) * s, s, t)
-      if (d.username) nameplates.push({ username: d.username, x: d.x, y: y + (sprite.top ?? 0) * s - 4 * (this.frame?.dpr ?? 1) })
     }
     if (this.frame) for (const nameplate of nameplates) drawPlayerNameplate(ctx, nameplate.username, nameplate.x, nameplate.y, this.frame.dpr)
+    if (this.frame) for (const bubble of chatBubbles) drawChatBubble(ctx, bubble.text, bubble.x, bubble.y, this.frame.dpr)
     const labels = scene.overlay?.labels?.(scene.area, t)
     if (labels?.length && this.frame) for (const label of labels) this.drawLabel(label, scene, proj, this.frame.dpr)
   }

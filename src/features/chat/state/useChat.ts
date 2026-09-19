@@ -20,6 +20,7 @@ const access = ref<ChatAccess>('connecting')
 const unread = ref(0)
 const open = ref(false)
 let sender: ((text: string) => void) | null = null
+const lineListeners = new Set<(line: ChatLine) => void>()
 
 /** What the socket adapter calls. Kept apart from what the UI calls. */
 export interface ChatSink {
@@ -44,6 +45,8 @@ export interface Chat {
   attach(send: ((text: string) => void) | null): void
   /** Returns false when the draft was empty and nothing was sent. */
   send(draft: string): boolean
+  /** Observes server-accepted live lines (history replays do not speak again). */
+  subscribe(listener: (line: ChatLine) => void): () => void
   markRead(): void
   readonly sink: ChatSink
 }
@@ -54,7 +57,10 @@ const sink: ChatSink = {
     if (!line) return
     const before = lines.value.length
     lines.value = appendLine(lines.value, line)
-    if (!open.value && lines.value.length > before) unread.value++
+    if (lines.value.length > before) {
+      if (!open.value) unread.value++
+      for (const listener of lineListeners) listener(line)
+    }
   },
   history(nextAreaId, raw) {
     areaId.value = nextAreaId
@@ -90,6 +96,10 @@ export function useChat(): Chat {
       if (!text || !sender) return false
       sender(text)
       return true
+    },
+    subscribe(listener) {
+      lineListeners.add(listener)
+      return () => { lineListeners.delete(listener) }
     },
     markRead() {
       unread.value = 0

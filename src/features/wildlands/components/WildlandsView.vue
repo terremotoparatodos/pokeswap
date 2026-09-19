@@ -185,6 +185,7 @@ const hud = reactive<HudState>({
 const identity = usePlayerIdentity(game)
 const { user } = useAuth()
 let presence: ColyseusPresence | null = null
+let stopChatBubbles: (() => void) | null = null
 /**
  * Null outside a playtest or development build, and then nothing below routes
  * chat traffic at all. Loaded dynamically for the same reason as the playtest
@@ -398,6 +399,7 @@ onMounted(async () => {
   if (ChatPanel) {
     const { useChat } = await import('../../chat/state/useChat')
     chat.value = useChat()
+    stopChatBubbles = chat.value.subscribe(line => game.value?.showChatMessage(line))
   }
   if (isPlaytest) {
     const { usePlaytestStore } = await import('../../playtest/state/usePlaytestStore')
@@ -456,6 +458,7 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
   game.value?.destroy()
   presence?.disconnect()
+  stopChatBubbles?.()
   chat.value?.attach(null)
 })
 

@@ -134,6 +134,8 @@ export class WildlandsGame {
   private remoteGeneration = 0
   private observerAt: string | null = null
   private receivedAuthoritativeActor = false
+  /** Server id of the local player, used only to attach accepted chat to its sprite. */
+  private localPresenceActorId: string | null = null
   /** Area requested locally; old-area socket acknowledgements cannot undo it. */
   private pendingPresenceArea: 'ciudad-corazon' | 'pradera' | null = null
   private nextMoveSequence = 0
@@ -157,6 +159,7 @@ export class WildlandsGame {
   private showGrid = true
   private crystals = 0
   private toast: { text: string; until: number } | null = null
+  private readonly chatBubbles = new Map<string, { text: string; until: number }>()
   private weather = { kind: 'clear' as WeatherKind, intensity: 0, target: 0 }
   private weatherCheck = 0
   private hudTimer = 0
@@ -335,11 +338,13 @@ export class WildlandsGame {
   setAuthoritativeActor(actor: RemotePresenceActor | null): void {
     if (!actor) {
       this.receivedAuthoritativeActor = false
+      this.localPresenceActorId = null
       this.pendingPresenceArea = null
       this.nextMoveSequence = 0
       return
     }
     if (this.spectator) return
+    this.localPresenceActorId = actor.id
     const area = reconcilePresenceArea(this.pendingPresenceArea, actor.areaId)
     this.pendingPresenceArea = area.pendingArea
     if (!area.accept) return
@@ -498,7 +503,30 @@ export class WildlandsGame {
   }
 
   returnToLobby(): void {
-    this.travelTo(LOBBY_ID)
+    if (this.area.id !== LOBBY_ID) {
+      this.travelTo(LOBBY_ID)
+      return
+    }
+    // The same-area action is an escape hatch: reset every local movement
+    // state and ask presence to authoritatively place the actor at town spawn.
+    const arrival = this.area.arrival(null)
+    this.placePlayer(arrival)
+    this.onTownPosition?.({ tx: arrival.tx, ty: arrival.ty, dir: arrival.dir })
+    if (this.presence && !this.spectator) {
+      this.pendingPresenceArea = 'ciudad-corazon'
+      this.receivedAuthoritativeActor = false
+      this.nextMoveSequence = 0
+      this.presence.changeArea(LOBBY_ID)
+    } else {
+      this.observerAt = null
+    }
+    this.say('Volviste al centro de Ciudad Corazón')
+  }
+
+  /** Shows only a line the server accepted and echoed; never an optimistic draft. */
+  showChatMessage(line: { from: string; text: string }): void {
+    const actorId = line.from === this.localPresenceActorId ? this.player.id : `remote:${line.from}`
+    this.chatBubbles.set(actorId, { text: line.text, until: this.seconds + 5 })
   }
 
   paintMinimap(canvas: HTMLCanvasElement): void {
@@ -683,6 +711,11 @@ export class WildlandsGame {
   }
 
   private scene(): Scene {
+    const chatBubbles = new Map<string, string>()
+    for (const [actorId, bubble] of this.chatBubbles) {
+      if (bubble.until <= this.seconds) this.chatBubbles.delete(actorId)
+      else chatBubbles.set(actorId, bubble.text)
+    }
     return {
       area: this.area,
       fade: this.reduceMotion ? 0 : this.travel.fade(),
@@ -697,6 +730,7 @@ export class WildlandsGame {
       username: this.username,
       showPlayer: !this.spectator,
       actors: [...this.populace.actors, ...this.remoteActors, ...this.remoteCompanions],
+      chatBubbles,
       // The grid helps read procedural terrain; over town art it is noise.
       showGrid: this.showGrid && this.area.kind === 'wild',
       route: this.nav.route(this.player),

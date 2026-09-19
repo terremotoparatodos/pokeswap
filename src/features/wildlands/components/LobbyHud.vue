@@ -20,12 +20,17 @@
     <template v-if="hud.areaKind === 'wild'">
       <span class="wl-sep" />
       <span class="wl-crystals">{{ hud.crystals }} cristales</span>
-      <span class="wl-sep" />
-      <button class="wl-hud-btn wl-home" :disabled="hud.traveling" title="Volver a Ciudad Corazón" @click="emit('home')">
-        <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9.5 10 3.5l7 6M5 8.5V16h10V8.5M8.5 16v-4h3v4" /></svg>
-        Ciudad
-      </button>
     </template>
+    <span class="wl-sep" />
+    <button
+      class="wl-hud-btn wl-home"
+      :disabled="hud.traveling"
+      :title="hud.areaKind === 'town' ? 'Reubicar en Ciudad Corazón' : 'Volver a Ciudad Corazón'"
+      @click="emit('home')"
+    >
+      <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9.5 10 3.5l7 6M5 8.5V16h10V8.5M8.5 16v-4h3v4" /></svg>
+      Ciudad
+    </button>
   </div>
 </template>
 
