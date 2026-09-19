@@ -5,6 +5,9 @@ opaque regions), tightly cropped, and 1px transparent seams left by the
 sheet's tile grid are filled from neighbouring pixels.
 
     python scripts/extract_town_sprites.py
+
+Fences are built by scripts/build_town_street_art.py (autotile pieces from
+this sheet).
 """
 from pathlib import Path
 
@@ -35,13 +38,10 @@ PIECES = {
     'hedge': (225, 958, 14, 14),
     'lamp': (705, 113, 18, 37),
     'sign': (240, 922, 18, 20),
-    'bench-a': (187, 1013, 16, 33),
-    'bench-b': (213, 1013, 16, 33),
     'fountain-a': (835, 27, 60, 52),
     'fountain-b': (904, 27, 60, 52),
     'fountain-c': (974, 27, 60, 52),
 }
-FENCE = (256, 956, 50, 51)
 
 
 def fill_seams(img: Image.Image) -> Image.Image:
@@ -90,11 +90,6 @@ def main() -> None:
             piece = PATCHES[name](piece)
         piece.save(OUT / f'{name}.png')
         print(f'{name:14} {piece.size}')
-    fx, fy, fw, fh = FENCE
-    fence = sheet.crop((fx, fy, fx + fw, fy + fh))
-    tight(fence.crop((17, 0, 33, 17))).save(OUT / 'fence-h.png')
-    tight(fence.crop((0, 17, 16, 34))).save(OUT / 'fence-v.png')
-    print('fence-h / fence-v')
 
 
 if __name__ == '__main__':

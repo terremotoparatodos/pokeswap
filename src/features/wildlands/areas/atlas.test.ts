@@ -10,9 +10,9 @@ import { WildArea } from './wildArea'
 describe('Ciudad Corazón lobby', () => {
   const town = new TownArea(HEARTHOME)
   const W = 64
-  const H = 49
+  const H = 51
 
-  it('has a rectangular 64×49 terrain made only of known cells', () => {
+  it('has a rectangular 64×51 terrain made only of known cells', () => {
     expect(HEARTHOME.terrain).toHaveLength(H)
     for (const row of HEARTHOME.terrain) {
       expect(row).toHaveLength(W)

@@ -26,6 +26,7 @@ import { createProjector, type CameraLens, type Projector } from './projection'
 import { buildPropSprites } from './props'
 import type { OverlayLabel, SceneOverlay } from './sceneOverlay'
 import type { Sprite } from './sprite'
+import { drawTownModel, type ModelPlacement, type TownModel } from './townModel'
 import { WATER_TEX, waterFramePixels } from './terrainArt'
 import { TILE, type DecorKind } from './world'
 
@@ -93,6 +94,8 @@ interface Drawable {
   prop?: { tx: number; ty: number }
   username?: string
   actor?: Actor
+  /** A 3D model drawn instead of the sprite (the sprite still decides culling). */
+  model?: { model: TownModel; at: ModelPlacement }
 }
 
 interface FrameInfo {
@@ -285,6 +288,7 @@ export class Renderer {
         // Only wild props: town buildings bring their own sprite and already
         // resolve a tap through their footprint (`doorForTap`).
         prop: d.kind ? { tx: d.tx, ty: d.ty } : undefined,
+        model: d.model,
       })
     }
 
@@ -337,7 +341,8 @@ export class Renderer {
     // A sprite pixel at height (ay - y) lands at feet + height·(vx, vy).
     ctx.globalAlpha = alpha * (1 - scene.weather.intensity * 0.6)
     for (const d of drawables) {
-      if (d.submerged || d.sprite.castShadow === false) continue
+      // Models bring their own ground shadow.
+      if (d.submerged || d.model || d.sprite.castShadow === false) continue
       const s = d.scale
       const { ax, ay } = d.sprite
       ctx.setTransform(s, 0, -s * vx, -s * vy, d.x - ax * s + ay * s * vx, d.y + ay * s * vy)
@@ -383,7 +388,10 @@ export class Renderer {
       const faded = d.alpha !== undefined && d.alpha < 1
       if (faded) ctx.globalAlpha = Math.max(0, d.alpha!)
       const flat = sprite.flatTop ?? 0
-      if (flat > 0) {
+      const eye = { depth: scene.lens.distance, height: scene.lens.squash * scene.lens.distance, rise: scene.lens.rise }
+      if (d.model && drawTownModel(ctx, d.model.model, d.model.at, proj, scene.camX, scene.camY, eye)) {
+        // Drawn from its 3D model.
+      } else if (flat > 0) {
         // Upright façade, then the roof squashed by the camera tilt like the ground.
         const faceH = sprite.h - flat
         const faceY = Math.round(d.y - (sprite.ay - flat) * s)
@@ -394,7 +402,9 @@ export class Renderer {
         ctx.drawImage(sprite.canvas, x, y, Math.round(sprite.w * s), Math.round(sprite.h * s))
       }
       if (faded) ctx.globalAlpha = 1
-      if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: y + 5 * s, scale: s })
+      // A lamp's glow sits in its lamp head: near the model's top, or the sprite's.
+      const lampY = d.model ? d.y - (d.model.model.data.bounds.y[1] - 9) * (scene.lens.rise ?? 1) * s : y + 5 * s
+      if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: lampY, scale: s })
       if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) drawSparkle(ctx, d.x + s * 2, y + s * 3, s)
       if (d.mine) drawOwnerMarker(ctx, d.x, y + (sprite.top ?? 0) * s, s, t)
       if (d.username) nameplates.push({ username: d.username, x: d.x, y: y + (sprite.top ?? 0) * s - 4 * (this.frame?.dpr ?? 1) })
