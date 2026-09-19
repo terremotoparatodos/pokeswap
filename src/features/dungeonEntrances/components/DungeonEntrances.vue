@@ -164,6 +164,6 @@ defineExpose({ inspect, isWorldObject, placedObjects, overlay })
 }
 
 @media (max-width: 720px) {
-  .de-hint { left: 50%; bottom: 10.5rem; transform: translateX(-50%); max-width: calc(100% - 1.5rem); }
+  .de-hint { left: 50%; bottom: 12.5rem; transform: translateX(-50%); max-width: calc(100% - 1.5rem); white-space: normal; text-align: center; }
 }
 </style>

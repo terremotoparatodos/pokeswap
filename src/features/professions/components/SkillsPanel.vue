@@ -195,8 +195,10 @@ const energy = computed(() => energyView(state.value.energy, demoMaxEnergy(state
 .sk-note { opacity: 0.45; }
 
 @media (max-width: 720px) {
-  .sk { left: 0.6rem; bottom: 3.4rem; }
+  /* Beside the chat tab, not above it: two icon-sized chips in one row keep
+     the bottom-left corner from turning into a tower of pills. */
+  .sk { left: 4.4rem; bottom: 4.6rem; }
   .sk-tab-text { display: none; }
-  .sk-panel { width: calc(100vw - 1.2rem); max-height: 45dvh; }
+  .sk-panel { width: calc(100vw - 1.2rem); max-height: 45dvh; margin-left: -3.8rem; }
 }
 </style>

@@ -3,7 +3,8 @@
     <SkillsPanel v-if="skills" :session="session" />
 
     <p v-if="areaKind === 'wild' && !anySelection" class="pwd-hint">
-      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia, el horno o la orilla
+      <span class="pf-demo-badge">{{ skills ? 'Skills' : 'Dev' }}</span>
+      Acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia, el horno o la orilla
     </p>
 
     <div v-if="anySelection" class="pwd-mining">
@@ -119,11 +120,14 @@ import { equipDemoTool, setDemoLevel } from '../../demo/demoSession'
 import { TOOL_BY_ID } from '../../domain/catalog/tools'
 import '../professions.css'
 
-// Visual integration inside WildLands, mounted only in development builds
-// (WildlandsView). Every profession — mining, fishing, logging, foraging and
-// the alchemy bench — draws itself in the real scene through its overlay, so
-// the R31-B generic node panel is no longer shown here (the playground still
-// uses it). Local demo session only: no writes, no network, no presence messages.
+// Visual integration inside WildLands, mounted by `WildlandsView` behind its
+// build gate: development builds, and Community Playtest 0.1, where this is the
+// Skills layer players actually use. A normal production build mounts nothing.
+//
+// Every profession — mining, fishing, logging, foraging and the alchemy bench —
+// draws itself in the real scene through its overlay, so the R31-B generic node
+// panel is no longer shown here (the playground still uses it). Local demo
+// session only: no writes, no network, no presence messages.
 const props = defineProps<{
   areaKind: 'town' | 'wild'
   game: MiningGamePort | null
@@ -316,6 +320,8 @@ defineExpose({ inspect, isWorldObject, placedObjects, overlay })
 .pwd-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.4rem; }
 @media (max-width: 720px) {
   .pwd-mining { bottom: 4.4rem; }
-  .pwd-hint { bottom: 8rem; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+  /* It used to be `nowrap` and ran off both edges of a phone. It is a sentence
+     a player reads, so it wraps, and it sits above the row of tabs. */
+  .pwd-hint { bottom: 8.6rem; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 1.5rem); white-space: normal; text-align: center; }
 }
 </style>

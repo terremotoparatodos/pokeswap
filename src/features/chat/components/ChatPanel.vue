@@ -226,8 +226,9 @@ watch(chat.open, isOpen => {
 .ch-send:disabled { opacity: 0.45; cursor: default; }
 
 @media (max-width: 720px) {
-  /* The lobby HUD owns the bottom centre; the chat tab sits clear of it. */
-  .ch { left: 0.6rem; bottom: 0.6rem; }
+  /* The lobby HUD owns the bottom centre and is nearly full width on a phone,
+     so the chat tab sits in a row above it rather than under it. */
+  .ch { left: 0.6rem; bottom: 4.6rem; }
   .ch-tab-text { display: none; }
   /* Never more than a third of a phone screen: the game is the thing. */
   .ch-panel { height: min(15rem, 38dvh); width: calc(100vw - 1.2rem); }

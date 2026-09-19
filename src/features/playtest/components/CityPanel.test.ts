@@ -46,7 +46,8 @@ describe('the Centro Pokémon', () => {
     await wrapper.findAll('.pc-col')[1].findAll('.pc-move')[0].trigger('click')
     expect(store.party.value).toHaveLength(before + 1)
 
-    await wrapper.findAll('.pc-col')[0].findAll('.pc-move').at(-1)!.trigger('click')
+    const partyButtons = wrapper.findAll('.pc-col')[0].findAll('.pc-move')
+    await partyButtons[partyButtons.length - 1].trigger('click')
     expect(store.party.value).toHaveLength(before)
   })
 
@@ -63,7 +64,10 @@ describe('the Centro Pokémon', () => {
 
   it('will not let the last Pokémon leave the team', async () => {
     const wrapper = open('caja')
-    while (store.party.value.length > 1) store.sendToBox(store.party.value.at(-1)!.instanceId)
+    while (store.party.value.length > 1) {
+      const members = store.party.value
+      store.sendToBox(members[members.length - 1].instanceId)
+    }
     await wrapper.vm.$nextTick()
     expect(wrapper.findAll('.pc-col')[0].findAll('.pc-move')[0].attributes('disabled')).toBeDefined()
   })
