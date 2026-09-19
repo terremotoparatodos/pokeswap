@@ -89,9 +89,22 @@ async function loadBuilders(): Promise<{
   return { catalog: rulesCatalog, build }
 }
 
+/**
+ * The catalog and the fighter builder, on their own.
+ *
+ * R32.4's authority takes parties and picks its **own** seed, so it cannot go
+ * through `buildSampleBattle` — that one builds the state. Rather than a
+ * second copy of the loading, the pieces are exported and both callers share
+ * the same pinned Pokémon.
+ */
+export const loadSampleRoster = (): Promise<{
+  catalog: BattleRulesCatalog
+  build: (fighter: SampleFighter, instanceId: string) => PokemonInstance
+}> => (loading ??= loadBuilders())
+
 /** A 1-vs-1 battle from the real catalog, ready for `reduceBattle`. */
 export async function buildSampleBattle(input: SampleBattleInput): Promise<SampleBattle> {
-  const { catalog, build } = await (loading ??= loadBuilders())
+  const { catalog, build } = await loadSampleRoster()
 
   const allies = [build(input.ally, 'ally-lead'), ...(input.bench ?? []).map((f, i) => build(f, `ally-bench-${i}`))]
   const enemies = [build(input.enemy, 'enemy-lead')]
