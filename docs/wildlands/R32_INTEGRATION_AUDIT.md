@@ -58,7 +58,9 @@
 
 ## 3. T-S3 — Lenguaje visual de estaciones (congelado)
 
-`FACT` Rama `art/station-visual-language` @ **`ee5f6924e3a59a8f70a19eb84b2d78a629b1a65b`**, 6 commits, base exacta `bfc0836`. **No mergeada**, congelada hasta R33.
+`FACT` Rama `art/station-visual-language` @ **`ee5f6924e3a59a8f70a19eb84b2d78a629b1a65b`**, 6 commits, base exacta `bfc0836`. **No mergeada**.
+
+`FACT` **Actualización R33 (2026-09-19):** el arte se **portó selectivamente** a `feat/r33-stations-product`, sin mergear la rama. Se tomaron los 5 archivos de `art/` y el doc; **no** se trajo `StationVisualLab.vue` ni su ruta `/dev/estaciones` (clase C). Detalle en [`../economy/R33_STATIONS_PRODUCT.md`](../economy/R33_STATIONS_PRODUCT.md) §10.
 
 | Pieza | Clase |
 |---|---|
@@ -70,7 +72,7 @@
 
 `FACT` **El límite se respetó:** sin Supabase, realtime, recetas, crafting, timers de gameplay, XP, inventario, `PlacedObject` ni hitbox productivo. La ruta usa el mismo patrón `import.meta.env.DEV` que `/dev/profesiones` y `/dev/dungeon`. El único `setInterval` es la animación del visor y se limpia al desmontar.
 
-`PROPOSAL` En R33, la conexión correcta es: el arte aporta `width`/`height`/anclaje → se declara como `TapHitbox` del `PlacedObject` (F-1 ya lo acepta por objeto) → el `StationState` visual lo alimenta el **estado de proceso**, que todavía no existe.
+~~`PROPOSAL` En R33, la conexión correcta es: el arte aporta `width`/`height`/anclaje → se declara como `TapHitbox` del `PlacedObject` → el `StationState` visual lo alimenta el **estado de proceso**, que todavía no existe.~~ **HECHA en R33, tal cual se propuso.** El estado de proceso existe (`stations/stationProcess.ts`) y `stations/stationVisualState.ts` es el único punto donde los dos vocabularios se tocan.
 
 ---
 
@@ -173,7 +175,7 @@ Sin balancear nada todavía: consumibles (Poción, Revivir, Éter) como sink rea
 
 | Fase | Contenido | Depende de |
 |---|---|---|
-| **R33 — Estaciones productivas** | T-S3 art + `PlacedObject` + estado de proceso. **Horno primero**: mineral → lingote jugable. Después Fogata y Banco | F-1, T-S3 |
+| **R33 — Estaciones productivas** | **Entregada** (2026-09-19, `feat/r33-stations-product`, pendiente de gate humano). T-S3 art + `PlacedObject` multi-tile + estado de proceso; `mineral → Horno → lingote` recorrible. Fogata y Banco quedan declarados, no jugables. Doc: [`../economy/R33_STATIONS_PRODUCT.md`](../economy/R33_STATIONS_PRODUCT.md) | F-1, T-S3 |
 | **R34 — Dungeon world + combate autoritativo** | Generación, área y props a producción; combate validado por servidor | R32.4, R33 opcional |
 | **R35 — Expedition authority** | Loot, llave, captura (§4), retreat, wipe, expiración | R34 |
 | **R36 — Persistencia** | Estructuras colocadas, inventario, progreso de profesión, instancias capturadas | R35 |
@@ -194,7 +196,7 @@ Uno al cierre de cada subfase y de cada release, con la regla del PRE-R32: una p
 | R32.2 | Una instancia real se describe completa y el combate del lab sigue igual |
 | R32.3 | Un combate completo corre de punta a punta con el catálogo y el modelo nuevos, el replay determinista pasa y los huecos de movimientos son explícitos. **Precisión:** no se puede firmar "el mismo resultado que antes del port" — el prototipo peleaba con 12 movimientos a mano, una tabla de tipos propia y sin IV/EV/naturaleza, así que sus números no son comparables. Lo que se firma es que las **reglas aprobadas** siguen siendo las mismas (`SHARED_BATTLE_RULES.md` §23) |
 | R32.4 | Ninguna de las validaciones depende del cliente; reenviar una acción no la cobra dos veces. Los once criterios exactos están en [`AUTHORITY_FOUNDATIONS.md`](AUTHORITY_FOUNDATIONS.md) §19 |
-| R33 | `mineral → horno → lingote` recorrible sin atajos de playground |
+| R33 | `mineral → horno → lingote` recorrible sin atajos de playground. Los doce criterios y la recorrida exacta están en [`../economy/R33_STATIONS_PRODUCT.md`](../economy/R33_STATIONS_PRODUCT.md) §15 |
 | R34 | Un piso recorrible y un combate resuelto por el servidor |
 | R35 | Retreat asegura, wipe pierde, expiración extrae |
 

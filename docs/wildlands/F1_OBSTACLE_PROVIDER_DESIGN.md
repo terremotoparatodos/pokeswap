@@ -356,7 +356,7 @@ Una estación no puede quitarle el toque a un actor, ni a un prop que el rendere
 
 ### 11.4 Limitaciones conocidas
 
-- **Solo 1×1 por ahora.** El contrato ya es una lista de tiles y hay tests de 2×2, pero nada coloca todavía un objeto más grande.
+- ~~**Solo 1×1 por ahora.**~~ **RESUELTO en R33 (2026-09-19).** El Horno se coloca en 2×2 y el contrato se extendió genéricamente: un spec puede dar `cells` (forma arbitraria) además de `width`/`depth`; `placedFeet` proyecta el hitbox desde el **centro del frente** del footprint en vez del ancla —leer el ancla desplazaba medio sprite el hitbox de un objeto 2×2—; y `nearestTile` reapunta un toque del ancla al tile más cercano del mismo objeto, en distancia **Manhattan**, para que estar parado en la esquina opuesta siga contando como estar al lado. Ningún tamaño quedó escrito en el motor. Detalle en [`../economy/R33_STATIONS_PRODUCT.md`](../economy/R33_STATIONS_PRODUCT.md) §11.
 - **Búsqueda lineal**, sin índice espacial: correcto con unidades o decenas de objetos por área (§6).
 - **El hitbox es un rectángulo**, no la silueta del arte: una esquina transparente responde por el objeto, igual que en actores y props (F-2).
 - **Lo que el arte tapa, le pertenece.** El arte de la Mesa es más ancho que un tile, así que cubre por completo las dos tiles detrás suyo en su columna: un toque ahí abre la Mesa. Es el mismo criterio que un árbol; lo que ya no ocurre es que se lleve tiles fuera de su arte.
@@ -367,7 +367,7 @@ Una estación no puede quitarle el toque a un actor, ni a un prop que el rendere
 
 ### 11.5 Qué queda pendiente
 
-**Para Horno y Construcción:** colocar sus objetos con este mismo contrato (arte primero, `A-8`), decidir footprint multi-tile (`C-7`), y todo lo de `O-10` — progresión, planos, colocación por el jugador, retiro, permisos y mantenimiento. Nada de eso se abrió acá.
+**Para Horno y Construcción:** ~~colocar sus objetos con este mismo contrato (arte primero, `A-8`), decidir footprint multi-tile (`C-7`)~~ — **hecho en R33**: el Horno usa este contrato, con arte aprobado y footprint 2×2, y `validatePlacement` es la validación que un constructor futuro llamará. Sigue pendiente todo lo de `O-10` — progresión, planos, colocación por el jugador, retiro, permisos y mantenimiento.
 
 **Para servidor y persistencia (R32-0):** que las posiciones sean dato compartible y no "lo que dijo el cliente", que una acción se describa como `(jugador, objetoId, acción, …)`, y las validaciones 1–16 del `CONSTRUCTION_SMELTER_DESIGN_DISCOVERY.md` §7. El registro está preparado para eso —datos planos, sin comportamiento— pero no lo implementa.
 
