@@ -1,0 +1,39 @@
+name: Deploy Community Playtest 0.1
+
+on:
+  push:
+    branches: [playtest/community-0.1]
+
+jobs:
+  deploy:
+    name: Cloudflare Pages (playtest)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      deployments: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build playtest
+        run: npm run build
+        env:
+          VITE_PLAYTEST: on
+          VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
+          VITE_REALTIME_URL: ${{ vars.VITE_REALTIME_URL }}
+
+      - name: Deploy playtest to the official domain
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=pokeswap --branch=main --commit-dirty=true
