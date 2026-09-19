@@ -187,13 +187,21 @@ export function useFurnaceController(
   }
 
   /**
-   * Called from the surface's frame loop. Asks the domain whether the work is
+   * Called from the surface's poll. Asks the domain whether the work is
    * finished at the session's current reading; it never completes anything
    * itself, and calling it a thousand times is the same as calling it once.
+   *
+   * `sync()` first, because the session's clock only moves when something asks
+   * it to. Without that, `state.now` stays at the reading the last action left
+   * behind: the furnace was starting, showing "9 s left" for ever and never
+   * finishing, because it kept being asked about a moment that had already
+   * passed. `syncDemoClock` is a pure reducer and returns the same object when
+   * the reading has not moved, so polling it is cheap.
    */
   function tick(): void {
     const current = station.value
     if (!current || current.process?.phase !== 'working') return
+    session.sync()
     const next = tickStation(current, session.state.value.now)
     if (next !== current) commit(next)
   }
