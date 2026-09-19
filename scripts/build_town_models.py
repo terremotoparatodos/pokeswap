@@ -29,8 +29,9 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'public/assets/town/models'
 
 # id: (source OBJ relative to the input folder, {material: (wrap u, wrap v)}[, options])
-# options: 'center' — the x that stands on the footprint's centre, when the model reaches
-# past its building on one side (the Poké Mart's sign post).
+# options: 'center' / 'front' — the x that stands on the footprint's centre and the z on its
+# front edge, when the model reaches past its body (the Poké Mart's sign post, a lamp's
+# painted shadow); 'skip' — materials not drawn (a lamp's glow: the game lights lamps itself).
 MODELS = {
     # HeartGold/SoulSilver's Pokémon Center (closer to Platinum than Diamond/Pearl's).
     'pokecenter': ('Pokemon Center HG/Pokémon Center.obj', {'gs_pc_a': ('repeat', 'repeat'), 'gs_pc_b': ('repeat', 'repeat')}),
@@ -42,12 +43,17 @@ MODELS = {
     'casino': ('Casino/Goldenrod Game Corner.obj', {}),
     # HeartGold/SoulSilver's Celadon Condominiums (placeable from the lab).
     'condo': ('Condominio/Celadon Condominiums.obj', {}),
+    # HeartGold/SoulSilver's street lamp (Goldenrod): the pole stands on its tile; its glow is skipped.
+    'lamp': ('faroles/Goldenrod City Station.obj', {}, {'center': 0, 'front': 6.27, 'skip': ['ko_light']}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }
-# The ground shadow under every model: the translucent material (h_kage / kage in the MTL).
-def is_shadow(material: dict) -> bool:
-    return material['alpha'] < 1
+# The ground shadow under a model: a translucent material lying on the ground (h_kage / kage).
+GROUND = 2.5
+
+
+def is_shadow(material: dict, heights: list) -> bool:
+    return material['alpha'] < 1 and max(heights) <= GROUND
 
 
 def parse_mtl(path: Path) -> dict:
@@ -108,8 +114,11 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict, options: dict | 
             idx = [[int(x) - 1 for x in q.split('/')[:2]] for q in p[1:]]
             for i in range(1, len(idx) - 1):  # fan into triangles
                 faces.append((cur, idx[0], idx[i], idx[i + 1]))
+    faces = [f for f in faces if f[0] not in options.get('skip', ())]
+    heights = {m: [V[c[0]][1] for f in faces if f[0] == m for c in f[1:]] for m in {f[0] for f in faces}}
+    shadow = {m: is_shadow(mtl[m], heights[m]) for m in heights}
 
-    names = sorted({f[0] for f in faces}, key=lambda m: (not is_shadow(mtl[m]), m))
+    names = sorted({f[0] for f in faces}, key=lambda m: (not shadow[m], m))
     materials, tri = [], []
     for m in names:
         used = [f for f in faces if f[0] == m]
@@ -121,7 +130,7 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict, options: dict | 
         file = f'{model_id}-{m}.png'
         big.save(OUT / file)
         w, h = tex.size
-        materials.append({'name': m, 'texture': file, 'alpha': round(mtl[m]['alpha'], 4), 'shadow': is_shadow(mtl[m])})
+        materials.append({'name': m, 'texture': file, 'alpha': round(mtl[m]['alpha'], 4), 'shadow': shadow[m]})
         k = len(materials) - 1
         for _, a, b, c in used:
             uv = []
@@ -141,7 +150,7 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict, options: dict | 
         'bounds': {'x': [min(xs), max(xs)], 'y': [min(ys), max(ys)], 'z': [min(zs), max(zs)]},
         # Middle of the solid part across, and its front: the model stands with them on its footprint.
         'center': round(options.get('center', (min(sx) + max(sx)) / 2), 4),
-        'front': round(max(sz), 4),
+        'front': round(options.get('front', max(sz)), 4),
         'vertices': [[round(c, 4) for c in v] for v in V],
         'materials': materials,
         'triangles': tri,

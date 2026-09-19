@@ -31,6 +31,7 @@ const HEARTHOME_ART: TownArtSet = {
   // row meets a column, and vertical runs as upright posts every 8 px.
   // Platinum's own 3D models (scripts/build_town_models.py).
   models: {
+    lamp: '/assets/town/models/lamp.json',
     bench: '/assets/town/models/bench-1.json',
     benchLeft: '/assets/town/models/bench-2.json',
   },

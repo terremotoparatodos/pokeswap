@@ -20,7 +20,8 @@ describe('converted town models', () => {
         for (const i of t.slice(1, 4)) expect(data.vertices[i], path).toBeDefined()
       }
       for (const m of data.materials) expect(Object.keys(TEXTURES).some(p => p.endsWith(`/${m.texture}`)), m.texture).toBe(true)
-      expect(data.materials.filter(m => m.shadow)).toHaveLength(1)
+      // At most one ground shadow (a lamp's is painted into its pole's texture).
+      expect(data.materials.filter(m => m.shadow).length).toBeLessThanOrEqual(1)
     }
   })
 
@@ -41,11 +42,13 @@ describe('converted town models', () => {
     expect(Math.min(...solidX)).toBe(-32)
   })
 
-  it('are drawn by Ciudad Corazón: the Pokémon Center, the Poké Mart, the gym and both benches', () => {
+  it('are drawn by Ciudad Corazón: the Pokémon Center, the Poké Mart, the gym, the lamps and both benches', () => {
     expect(HEARTHOME.buildings.find(b => b.id === 'pokecenter')?.image?.model).toBe('/assets/town/models/pokecenter.json')
     expect(HEARTHOME.buildings.find(b => b.id === 'mart')?.image?.model).toBe('/assets/town/models/mart.json')
     expect(HEARTHOME.buildings.find(b => b.id === 'gym')?.image?.model).toBe('/assets/town/models/gym.json')
-    expect(HEARTHOME.art?.models).toEqual({ bench: '/assets/town/models/bench-1.json', benchLeft: '/assets/town/models/bench-2.json' })
+    expect(HEARTHOME.art?.models).toEqual({
+      lamp: '/assets/town/models/lamp.json', bench: '/assets/town/models/bench-1.json', benchLeft: '/assets/town/models/bench-2.json',
+    })
   })
 })
 

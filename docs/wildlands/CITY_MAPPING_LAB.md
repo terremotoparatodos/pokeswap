@@ -98,8 +98,12 @@ requires engine support (main station's decision).
   and loading fallback. Models no city building uses (the Goldenrod Game Corner "Casino",
   the Celadon Condominiums)
   are placeable from the lab's palette → Edificios → Modelos 3D.
+- Per-model options in the converter: `center` / `front` (where the body stands, ignoring a
+  sign post or a painted shadow) and `skip` (materials not drawn, e.g. a lamp's glow: the game
+  lights lamps itself, at the model's lamp head). A ground shadow is a translucent material
+  lying on the ground.
 - A building opts in with `image.model` (the PNG stays as loading fallback and for the ground
-  dressing); props with `art.models[kind]`. Today: the Pokémon Center and both benches.
+  dressing); props with `art.models[kind]`. Today: the Pokémon Center, the Poké Mart, the gym, the street lamps and both benches.
 
 ## Buildings from scratch
 

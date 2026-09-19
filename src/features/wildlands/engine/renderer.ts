@@ -399,7 +399,9 @@ export class Renderer {
         ctx.drawImage(sprite.canvas, x, y, Math.round(sprite.w * s), Math.round(sprite.h * s))
       }
       if (faded) ctx.globalAlpha = 1
-      if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: y + 5 * s, scale: s })
+      // A lamp's glow sits in its lamp head: near the model's top, or the sprite's.
+      const lampY = d.model ? d.y - (d.model.model.data.bounds.y[1] - 9) * s : y + 5 * s
+      if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: lampY, scale: s })
       if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) drawSparkle(ctx, d.x + s * 2, y + s * 3, s)
       if (d.mine) drawOwnerMarker(ctx, d.x, y + (sprite.top ?? 0) * s, s, t)
       if (d.username) nameplates.push({ username: d.username, x: d.x, y: y + (sprite.top ?? 0) * s - 4 * (this.frame?.dpr ?? 1) })
