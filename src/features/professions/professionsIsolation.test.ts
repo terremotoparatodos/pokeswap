@@ -8,6 +8,16 @@ const isTest = (path: string) => path.endsWith('.test.ts')
 const isComponent = (path: string) => path.startsWith('./components/')
 
 /**
+ * The scans below look for *code*, so comments are stripped first.
+ *
+ * R33 added modules whose headers explain, in prose, that they do not touch
+ * Supabase, localStorage or `Math.random` — and the literal ban tripped on the
+ * explanation. A comment cannot call anything, so removing them makes the
+ * guard strictly more accurate, not weaker.
+ */
+const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+
+/**
  * The only production files allowed to reference this feature, and only
  * behind an `import.meta.env.DEV` guard on the same line (R31-B).
  */
@@ -24,6 +34,9 @@ const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
   ['./alchemy/', /\/wildlands\/(engine\/(world|area|chunks|characters|sceneOverlay|game)|areas\/atlas)$/],
   ['./forage/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay|game)$/],
   ['./overworld/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay)$/],
+  // R33 station contracts are pure domain: shape, process, serialization. They
+  // import no engine module at all, and the empty pattern keeps it that way.
+  ['./stations/', /^$/],
   ['./components/', /\/wildlands\/engine\/(world|noise|characters|game)$/],
   ['./', /\/wildlands\/engine\/(world|noise)$/],
 ]
@@ -48,14 +61,14 @@ describe('R31 professions isolation', () => {
 
   it('never persists, fetches or talks to realtime services', () => {
     for (const [path, source] of ownSources) {
-      expect(source, path).not.toMatch(/supabase|colyseus|localStorage|sessionStorage|fetch\(|\.rpc\(|innerHTML|v-html/)
+      expect(code(source), path).not.toMatch(/supabase|colyseus|localStorage|sessionStorage|fetch\(|\.rpc\(|innerHTML|v-html/)
     }
   })
 
   it('keeps domain, simulation, art, mining runtime and demo state free of DOM globals and unseeded randomness', () => {
     for (const [path, source] of ownSources.filter(([path]) => !isComponent(path))) {
-      expect(source, path).not.toMatch(/from 'vue-router'|document\.|window\.|Math\.random/)
-      if (!VUE_ALLOWED.includes(path)) expect(source, path).not.toMatch(/from 'vue'/)
+      expect(code(source), path).not.toMatch(/from 'vue-router'|document\.|window\.|Math\.random/)
+      if (!VUE_ALLOWED.includes(path)) expect(code(source), path).not.toMatch(/from 'vue'/)
     }
   })
 
