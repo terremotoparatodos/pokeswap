@@ -33,7 +33,7 @@ MODELS = {
     # HeartGold/SoulSilver's Pokémon Center (closer to Platinum than Diamond/Pearl's).
     'pokecenter': ('Pokemon Center HG/Pokémon Center.obj', {'gs_pc_a': ('repeat', 'repeat'), 'gs_pc_b': ('repeat', 'repeat')}),
     # HeartGold/SoulSilver's Poké Mart: the building is x −32…32; its sign post stands to the right.
-    'mart': ('Poké Mart/Poké Mart.obj', {'fs_a': ('repeat', 'mirror')}, {'center': 0}),
+    'mart': ('Poké Mart/Poké Mart.obj', {'fs_a': ('repeat', 'repeat')}, {'center': 0}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }
