@@ -13,6 +13,9 @@ import { loadPokemonInfo } from '../engine/population'
 import type { TownArea } from './townArea'
 
 const TOWN_DIRS: Dir[] = ['down', 'left', 'right', 'up']
+// Community Playtest 0.1 prioritises movement profiling over ambient crowds.
+// Real players and plaza Pokémon are separate actors and remain visible.
+const SHOW_TOWN_NPCS = import.meta.env.VITE_PLAYTEST !== 'on'
 
 export class TownPopulace implements Populace {
   readonly actors: Actor[] = []
@@ -21,20 +24,22 @@ export class TownPopulace implements Populace {
   constructor(town: TownArea, context: PopulaceContext) {
     const { def } = town
     const looks = context.npcSprites
-    def.residents.forEach((r, i) => {
-      const { tx, ty } = town.nearestOpen(r)
-      this.actors.push(createActor({
-        id: `town:r${i}`, kind: 'npc', habitat: 'land', tx, ty, speed: 3, dir: r.dir,
-        trainer: looks[(i + 2) % looks.length], stationary: true, lines: r.lines,
-      }))
-    })
-    def.wanderers.forEach((spot, i) => {
-      const { tx, ty } = town.nearestOpen(spot)
-      this.actors.push(createActor({
-        id: `town:n${i}`, kind: 'npc', habitat: 'land', tx, ty, speed: 3,
-        dir: TOWN_DIRS[i % TOWN_DIRS.length], trainer: looks[i % looks.length],
-      }))
-    })
+    if (SHOW_TOWN_NPCS) {
+      def.residents.forEach((r, i) => {
+        const { tx, ty } = town.nearestOpen(r)
+        this.actors.push(createActor({
+          id: `town:r${i}`, kind: 'npc', habitat: 'land', tx, ty, speed: 3, dir: r.dir,
+          trainer: looks[(i + 2) % looks.length], stationary: true, lines: r.lines,
+        }))
+      })
+      def.wanderers.forEach((spot, i) => {
+        const { tx, ty } = town.nearestOpen(spot)
+        this.actors.push(createActor({
+          id: `town:n${i}`, kind: 'npc', habitat: 'land', tx, ty, speed: 3,
+          dir: TOWN_DIRS[i % TOWN_DIRS.length], trainer: looks[i % looks.length],
+        }))
+      })
+    }
     // Homes keep off the tiles townsfolk start on.
     const candidates = plazaCandidates(town, def.plazaZones ?? [], this.actors.map(a => ({ tx: a.tx, ty: a.ty })))
     this.plaza = new PlazaPokemon(this.actors, candidates, context.pokedex, entry => loadPokemonInfo(entry, false), pokeballInfo)
