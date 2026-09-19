@@ -22,7 +22,7 @@
 |---|---|---|
 | Centro Pokémon | Mi caja (Pokémon propios) | `progression/useMyBox` (+ panel nuevo o sección de `ProfileView`) |
 | Tienda | Mercado | `market/MarketView.vue` |
-| Salón de Concursos | Swap | `swap/SwapView.vue` |
+| Silph Co. (antes Salón de Concursos) | Swap | `swap/SwapView.vue` |
 | Gimnasio | Dungeon | `dungeon/DungeonView.vue` |
 | Club de Fans Pokémon | Pokédex | `pokedex/PokedexView.vue` |
 | Casa de los Poffins | Perfil y progresión | `progression/ProfileView.vue` |

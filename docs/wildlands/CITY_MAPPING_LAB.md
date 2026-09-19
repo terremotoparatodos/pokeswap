@@ -103,7 +103,8 @@ requires engine support (main station's decision).
   lights lamps itself, at the model's lamp head). A ground shadow is a translucent material
   lying on the ground.
 - A building opts in with `image.model` (the PNG stays as loading fallback and for the ground
-  dressing); props with `art.models[kind]`. Today: the Pokémon Center, the Poké Mart, the gym, the street lamps and both benches.
+  dressing); props with `art.models[kind]`. Today: the Pokémon Center, the Poké Mart, the gym, Silph Co. (where the Contest Hall was), the
+  street lamps and both benches.
 
 ## Buildings from scratch
 

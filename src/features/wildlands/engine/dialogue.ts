@@ -14,7 +14,7 @@ const TRAINER_LINES = [
 const TOWN_LINES = [
   '«¿Ya elegiste a qué mundo ir hoy?»',
   '«Me encanta pasear por la plaza de las fuentes.»',
-  '«Hoy me toca un Swap en el Salón de Concursos.»',
+  '«Hoy me toca un Swap en Silph Co.»',
   '«Vengo de la Costa Coral, ¡hay Pokémon nadando por todos lados!»',
 ]
 

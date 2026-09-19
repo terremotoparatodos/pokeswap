@@ -87,7 +87,8 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
     terrain: HEARTHOME_TERRAIN,
     spawn: { tx: 31, ty: 20, dir: 'down' },
     buildings: [
-      { id: 'contest', name: 'Salón de Concursos', blurb: 'Adentro se hacen los Swaps.', style: 'contest', x: 28, y: 7, w: 7, d: 8, door: { tx: 31, ty: 14 }, feature: 'swap', image: { src: art('contest'), flatTop: 100 } },
+      // Silph Co. (HeartGold's model) stands where the Contest Hall was: 10 tiles wide for its 160 px, same door.
+      { id: 'contest', name: 'Silph Co.', blurb: 'Adentro se hacen los Swaps.', style: 'contest', x: 26, y: 7, w: 10, d: 8, door: { tx: 31, ty: 14 }, feature: 'swap', image: { src: '/assets/town/models/silph-sprite.png', model: '/assets/town/models/silph.json' } },
       { id: 'amityL', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Tundra Helada.', style: 'amityGate', x: 8, y: 1, w: 6, d: 9, open: [{ tx: 10, ty: 9 }, { tx: 11, ty: 9 }], image: { src: art('amity-gate'), flatTop: 'all' } },
       { id: 'amityR', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Costa Coral.', style: 'amityGate', x: 50, y: 1, w: 6, d: 9, open: [{ tx: 52, ty: 9 }, { tx: 53, ty: 9 }], image: { src: art('amity-gate'), flatTop: 'all' } },
       { id: 'gateW', name: 'Puerta oeste', blurb: 'Entrá por el costado para ir a la Pradera Brisa.', style: 'routeGate', x: 0, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52 } },
@@ -131,7 +132,7 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       { tx: 16, ty: 22, dir: 'down', lines: ['«En el Centro Pokémon te guardan la caja con tus Pokémon.»'] },
       { tx: 17, ty: 32, dir: 'up', lines: ['«Por la puerta sur se llega al Desierto Ardiente. ¡Llevá agua!»'] },
       { tx: 21, ty: 23, dir: 'right', lines: ['«En el Club de Fans no se habla de otra cosa que de Pokémon.»'] },
-      { tx: 24, ty: 12, dir: 'down', lines: ['«En el Salón de Concursos se hacen los Swaps.»'] },
+      { tx: 24, ty: 12, dir: 'down', lines: ['«En Silph Co. se hacen los Swaps.»'] },
       { tx: 26, ty: 33, dir: 'left', lines: ['«Me encanta el ruido de las fuentes.»'] },
       { tx: 28, ty: 23, dir: 'down', lines: ['«En la Tienda está el Mercado. ¡Hay cada Pokémon!»'] },
       { tx: 29, ty: 39, dir: 'up', lines: ['«Las puertas de arriba llevan a la Tundra y a la Costa.»'] },

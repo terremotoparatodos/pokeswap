@@ -24,7 +24,7 @@ def render(model_path: Path, offset: float, width=460, height=170, background=GR
     textures = [Image.open(model_path.parent / m['texture']).convert('RGBA') for m in data['materials']]
     D, f = LENS['distance'], LENS['zoom'] * LENS['distance']
     h = LENS['squash'] * D
-    cx, horizon = width / 2, height * 0.72 - LENS['zoom'] * LENS['squash'] * D
+    cx, horizon = width / 2, height * 0.9 - LENS['zoom'] * LENS['squash'] * D
     img = Image.new('RGBA', (width, height), background)
     px = img.load()
     zbuf = [[1e18] * width for _ in range(height)]

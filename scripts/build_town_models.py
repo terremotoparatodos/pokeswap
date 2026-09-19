@@ -45,6 +45,9 @@ MODELS = {
     'condo': ('Condominio/Celadon Condominiums.obj', {}),
     # HeartGold/SoulSilver's street lamp (Goldenrod): the pole stands on its tile; its glow is skipped.
     'lamp': ('faroles/Goldenrod City Station.obj', {}, {'center': 0, 'front': 6.27, 'skip': ['ko_light']}),
+    # HeartGold/SoulSilver's Silph Co.: stands where the Contest Hall was (the Swap building).
+    # Its 10-tile footprint is centred half a tile left of the door: the model moves right to meet it.
+    'silph': ('silph co/Silph Co..obj', {}, {'center': -8}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }

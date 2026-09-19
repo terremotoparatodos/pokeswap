@@ -46,6 +46,10 @@ describe('converted town models', () => {
     expect(HEARTHOME.buildings.find(b => b.id === 'pokecenter')?.image?.model).toBe('/assets/town/models/pokecenter.json')
     expect(HEARTHOME.buildings.find(b => b.id === 'mart')?.image?.model).toBe('/assets/town/models/mart.json')
     expect(HEARTHOME.buildings.find(b => b.id === 'gym')?.image?.model).toBe('/assets/town/models/gym.json')
+    // Silph Co. replaces the Contest Hall: same id, door and Swap entrance, a wider footprint.
+    expect(HEARTHOME.buildings.find(b => b.id === 'contest')).toMatchObject({
+      name: 'Silph Co.', x: 26, w: 10, door: { tx: 31, ty: 14 }, feature: 'swap', image: { model: '/assets/town/models/silph.json' },
+    })
     expect(HEARTHOME.art?.models).toEqual({
       lamp: '/assets/town/models/lamp.json', bench: '/assets/town/models/bench-1.json', benchLeft: '/assets/town/models/bench-2.json',
     })
