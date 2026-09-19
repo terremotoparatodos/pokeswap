@@ -10,13 +10,13 @@
 // The D1.1 prototype renderer is still here, behind a DEV switch, purely so the
 // two can be compared side by side (§4, §32).
 
-import { computed, onMounted, onUnmounted, ref, shallowRef, triggerRef } from 'vue'
+import { computed, defineAsyncComponent, onMounted, onUnmounted, ref, shallowRef, triggerRef } from 'vue'
 import BattleHud from './BattleHud.vue'
 import CombatPopup from './CombatPopup.vue'
 import DungeonStage from './DungeonStage.vue'
 import WildStage from './WildStage.vue'
 import DungeonCatalog from './DungeonCatalog.vue'
-import DevTools, { type DevCommand } from './DevTools.vue'
+import type { DevCommand } from './DevTools.vue'
 import {
   BATTLE_ITEMS, buildParty, buildWild, combatantFor, FLOOR_LOOT, STARTING_INVENTORY,
 } from '../data/runFixtures'
@@ -73,6 +73,12 @@ const props = defineProps<{
  */
 const emit = defineEmits<{ exit: [party: readonly PokemonInstance[] | null] }>()
 
+// Debug controls must never be present in a playtest/production bundle. Apart
+// from hiding the drawer, the compile-time branch lets Vite drop its code.
+const DevTools = import.meta.env.DEV
+  ? defineAsyncComponent(() => import('./DevTools.vue'))
+  : null
+
 // `begin` is a hoisted function declaration, so the entrance can be taken
 // before the rest of the component has finished reading itself.
 /** True once a cave entrance really opened a dungeon, so the catalog stays hidden. */
@@ -98,15 +104,18 @@ const clockSpeed = ref(1)
 /** D1.2: the WildLands renderer is the experience; the old one is a DEV compare. */
 const legacyRenderer = ref(false)
 /** A monotonic clock for the visuals: effects and the renderer share it. */
-const clock = ref(0)
+let clock = 0
+// The canvas owns the 60 fps animation. Vue only needs a human-readable HUD
+// refresh; pulsing it at 12 fps avoids rerendering the whole dungeon per frame.
+const uiClock = ref(0)
 // The session is a shallowRef mutated in place, so a child that only holds it as
 // a prop would never see its props change and would freeze on its first render.
 // DEV TOOLS gets a redraw token instead: four times a second is enough for a
 // debug readout and costs nothing next to the frame loop.
 const devPulse = ref(0)
-const devRev = computed(() => Math.floor(clock.value * 4) + devPulse.value)
+const devRev = computed(() => Math.floor(uiClock.value * 4) + devPulse.value)
 /** The combat panel needs the same trick, faster: HP has to read as live. */
-const hudRev = computed(() => Math.floor(clock.value * 12))
+const hudRev = computed(() => Math.floor(uiClock.value * 12))
 const confirmRetreat = ref(false)
 const toast = ref<{ title: string; body: string; tone: 'good' | 'bad' } | null>(null)
 
@@ -232,7 +241,7 @@ function spawnLegacy(event: BattleEvent, live: PlaySession): void {
   const fromAlly = event.actorId.startsWith('ally')
   const from = fromAlly ? ally : foe
   const to = fromAlly ? foe : ally
-  const now = clock.value
+  const now = clock
 
   if (event.kind === 'move') {
     const name = /^(.+?):/.exec(event.text)?.[1]
@@ -303,10 +312,13 @@ function loop(now: number): void {
       }
     }
     if (flash.value && performance.now() > flashUntil) flash.value = null
-    clock.value += dt
+    clock += dt
     advanceClock(live, dt * 1000 * clockSpeed.value)
     if (live.phase === 'ended' && !toast.value) announceEnding(live)
-    triggerRef(session)
+    if (clock - uiClock.value >= 1 / 12) {
+      uiClock.value = clock
+      triggerRef(session)
+    }
   }
   if (live.phase !== 'ended') frame = requestAnimationFrame(loop)
   else frame = 0
@@ -328,12 +340,12 @@ function announceRewards(live: PlaySession, hadKey: boolean): void {
   }
   const spot = worldOf(live.player)
   if (latest.startsWith('Botín:')) {
-    stage.value?.spawn({ kind: 'reward', text: latest.replace('Botín: ', ''), x: spot.x, y: spot.y - 26, bornAt: clock.value, life: 1.6 })
+    stage.value?.spawn({ kind: 'reward', text: latest.replace('Botín: ', ''), x: spot.x, y: spot.y - 26, bornAt: clock, life: 1.6 })
   }
 }
 
-/** Applies a DEV command. The session has one writer, and this is it. */
-function runDev(command: DevCommand): void {
+/** Applies a DEV command. The whole implementation folds out of playtest builds. */
+const runDev: ((command: DevCommand) => void) | undefined = import.meta.env.DEV ? (command: DevCommand): void => {
   const live = session.value
   if (!live) return
   if (command.kind === 'forceKey') {
@@ -391,7 +403,7 @@ function runDev(command: DevCommand): void {
     return
   }
   triggerRef(session)
-}
+} : undefined
 
 function announceEnding(live: PlaySession): void {
   devPulse.value++ // the frame loop is about to stop: let DEV TOOLS redraw once more
@@ -520,7 +532,7 @@ function interact(entityId: string): void {
     const at = tileCentre(entity.at.x, entity.at.y)
     if (legacyRenderer.value) {
       const spot = worldOf(entity.at)
-      stage.value?.spawn({ kind: 'reward', text: live.log[0]?.split(': ')[1] ?? 'Cofre', x: spot.x, y: spot.y - 24, bornAt: clock.value, life: 1.6 })
+      stage.value?.spawn({ kind: 'reward', text: live.log[0]?.split(': ')[1] ?? 'Cofre', x: spot.x, y: spot.y - 24, bornAt: clock, life: 1.6 })
     } else {
       wild.value?.spawn({ kind: 'summon', wx: at.x, wy: at.y, life: 0.5 })
       wild.value?.say({ wx: at.x, wy: at.y, text: live.log[0]?.split(': ')[1] ?? 'Cofre', colour: '#ffd27a', life: 1.8 })
@@ -597,7 +609,7 @@ const view = computed<RenderView | null>(() => {
     tiles: live.tiles,
     entities: live.entities,
     player: { x: live.player.x, y: live.player.y, dir: 'down', moving: false },
-    seconds: clock.value,
+    seconds: clock,
     combat: live.battle
       ? {
         allies: live.battle.actors.filter(actor => actor.side === 'ally').map(actor => combatantView(actor, isBoss)),
@@ -851,18 +863,20 @@ defineExpose({ leave })
       <button type="button" class="pd-tool" @click="confirmRetreat = true">↩ Retirarse</button>
     </div>
 
-    <DevTools
+    <component
+      :is="DevTools"
+      v-if="DevTools"
       v-model:clock-speed="clockSpeed" v-model:players="players" v-model:legacy-renderer="legacyRenderer"
       :rev="devRev" :session="session"
-      @command="runDev" @wipe="finish('wipe')" @restart="restart"
+      @command="runDev?.($event)" @wipe="finish('wipe')" @restart="restart"
     />
   </div>
 </template>
 
 <style scoped>
-.pd { display: grid; gap: 8px; }
-.pd-world { position: relative; }
-.pd-stage { height: min(58vh, 520px); }
+.pd { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 0; height: 100%; min-height: 0; }
+.pd-world { position: relative; min-height: 0; }
+.pd-stage { height: 100%; min-height: 0; border-radius: 0; }
 .pd-layer { position: absolute; inset: 0; pointer-events: none; }
 .pd-layer > * { pointer-events: auto; }
 
@@ -922,7 +936,7 @@ defineExpose({ leave })
   background: transparent; color: #e8eeff; font: inherit; cursor: pointer;
 }
 
-.pd-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+.pd-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 8px; background: #0b1020; }
 .pd-need {
   display: inline-flex; gap: 3px; align-items: center; padding: 0 6px;
   border-radius: 999px; background: #1b2540; color: #b9c8ee; font-size: 0.66rem; font-weight: 700;
@@ -957,7 +971,6 @@ defineExpose({ leave })
 .pd-dot--revive { background: #ffd27a; }
 
 @media (max-width: 420px) {
-  .pd-stage { height: 50vh; }
   .pd-context { right: 8px; bottom: 8px; }
 }
 </style>

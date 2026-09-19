@@ -88,5 +88,10 @@ defineExpose({
   openBoard(): void {
     boardOpen.value = true
   },
+  dismissTransient(): void {
+    cardId.value = null
+    wildCardId.value = null
+    boardOpen.value = false
+  },
 })
 </script>

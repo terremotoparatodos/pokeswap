@@ -19,6 +19,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
+    <component :is="PlaytestPerformanceHud" v-if="PlaytestPerformanceHud" :fps="hud.fps" :frame-ms="hud.frameMs" />
 
     <div class="wl-minimap" aria-label="Minimapa de la zona actual">
       <canvas ref="minimapRef" />
@@ -58,6 +59,7 @@
       :skills="dungeonsInWorld"
       :fresh="isPlaytest"
       :owned-tools="playtestStore?.tools.value"
+      :owned-supplies="playtestStore?.supplies.value"
       @overlay="(open: boolean) => (professionOpen = open)"
     />
 
@@ -90,9 +92,11 @@
 
     <LobbyMenu
       v-model:open="menuOpen"
+      :inventory="isPlaytest"
       :reduced-motion="reduceMotion"
       @select="feature => openFeature(feature, 'menu')"
       @activity="plazaRef?.openBoard()"
+      @inventory="professionRef?.toggleInventory()"
       @sign-in="signInOpen = true"
       @update:reduced-motion="reduceMotion = $event"
     />
@@ -142,6 +146,9 @@ import type { SceneOverlay } from '../engine/sceneOverlay'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
+const PlaytestPerformanceHud = isPlaytest
+  ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))
+  : null
 // R31-B profession prototype: development builds, and Community Playtest 0.1,
 // where the same local session is what the Skills panel reads. A normal
 // production build still never mounts it.
@@ -229,6 +236,8 @@ const professionRef = ref<{
   isWorldObject: (target: WorldObjectTarget) => boolean
   placedObjects: (area: Area) => readonly PlacedObjectSpec[]
   overlay: SceneOverlay
+  closeTransient: () => void
+  toggleInventory: () => void
 } | null>(null)
 const professionOpen = ref(false)
 
@@ -339,9 +348,15 @@ let press: { id: number; x: number; y: number; dragging: boolean } | null = null
 
 function onPointerDown(e: PointerEvent): void {
   if (!e.isPrimary || e.button > 0) return
+  dismissTransientOverlays()
   ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
   press = { id: e.pointerId, x: e.offsetX, y: e.offsetY, dragging: false }
   game.value?.tap(e.offsetX, e.offsetY)
+}
+
+function dismissTransientOverlays(): void {
+  plazaRef.value?.dismissTransient()
+  professionRef.value?.closeTransient()
 }
 
 function onPointerMove(e: PointerEvent): void {
@@ -356,7 +371,9 @@ function onPointerUp(e: PointerEvent): void {
 }
 
 function onHud(next: HudState): void {
+  const moved = next.areaId !== hud.areaId || next.tx !== hud.tx || next.ty !== hud.ty
   Object.assign(hud, next)
+  if (moved) dismissTransientOverlays()
   // Where the player is, so a bug report can say so instead of "no me anda".
   if (isPlaytest) playtest.setWorld(next.areaId, next.tx, next.ty)
   // Worlds resample biomes (costly) every few tiles; the town map is just an image.

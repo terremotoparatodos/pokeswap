@@ -42,6 +42,12 @@ describe('LobbyMenu', () => {
     expect(wrapper.emitted('activity')).toHaveLength(1)
   })
 
+  it('offers a one-tap inventory shortcut when the host enables it', async () => {
+    const wrapper = mount(LobbyMenu, { props: { open: false, inventory: true } })
+    await wrapper.find('.lm-inventory').trigger('click')
+    expect(wrapper.emitted('inventory')).toHaveLength(1)
+  })
+
   it('offers sign-in without a session and hides tokens', async () => {
     const wrapper = mount(LobbyMenu, { props: { open: true } })
     expect(wrapper.find('.lm-tokens').exists()).toBe(false)

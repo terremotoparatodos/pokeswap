@@ -10,6 +10,9 @@
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" /></svg>
         Menú
       </button>
+      <button v-if="inventory" type="button" class="lm-toggle lm-inventory" @click="emit('inventory')">
+        🎒 Mochila
+      </button>
       <span v-if="profile" class="lm-tokens" :title="`${formatTokens(profile.tokens)} tokens`">
         <span class="lm-coin" aria-hidden="true" />
         {{ formatTokens(profile.tokens) }}
@@ -66,8 +69,18 @@ import { HEARTHOME } from '../areas/atlas'
 import { LOBBY_FEATURE_IDS, LOBBY_FEATURES, type LobbyFeature } from '../lobby/features'
 
 // Shortcut to every PokeSwap function, plus the session. Tokens are shown read-only.
-const props = withDefaults(defineProps<{ open: boolean; reducedMotion?: boolean }>(), { reducedMotion: false })
-const emit = defineEmits<{ 'update:open': [open: boolean]; 'update:reducedMotion': [reduced: boolean]; select: [feature: LobbyFeature]; activity: []; signIn: [] }>()
+const props = withDefaults(defineProps<{ open: boolean; reducedMotion?: boolean; inventory?: boolean }>(), {
+  reducedMotion: false,
+  inventory: false,
+})
+const emit = defineEmits<{
+  'update:open': [open: boolean]
+  'update:reducedMotion': [reduced: boolean]
+  select: [feature: LobbyFeature]
+  activity: []
+  inventory: []
+  signIn: []
+}>()
 
 const { profile, isLoading } = useAuth()
 const signingOut = ref(false)
@@ -149,6 +162,7 @@ async function signOut(): Promise<void> {
 .lm-toggle[aria-expanded='true'] {
   background: #1d2c58;
 }
+.lm-inventory { border-color: #d79b32; color: #ffe0a0; }
 .lm-toggle svg {
   width: 18px;
   height: 18px;
@@ -287,6 +301,8 @@ async function signOut(): Promise<void> {
   .lm-tokens {
     font-size: 0.85rem;
   }
+  .lm-toggle { padding: 0 0.75rem; }
+  .lm-inventory { font-size: 0.8rem; }
   .lm-sheet {
     top: auto;
     right: 0;

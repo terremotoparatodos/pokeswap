@@ -2,6 +2,19 @@
   <div class="pf pwd">
     <SkillsPanel v-if="skills" :session="session" />
 
+    <section v-if="bagOpen" class="pwd-bag-panel" aria-label="Mochila" role="dialog">
+      <header class="pwd-bag-head">
+        <strong>🎒 Mochila</strong>
+        <button type="button" aria-label="Cerrar mochila" @click="bagOpen = false">×</button>
+      </header>
+      <div v-if="ownedSupplies" class="pwd-supplies">
+        <span v-for="(quantity, itemId) in ownedSupplies" :key="itemId">
+          {{ SUPPLY_LABEL[itemId] ?? itemId }} ×{{ quantity }}
+        </span>
+      </div>
+      <InventoryGrid :session="session" :highlight="highlight" compact />
+    </section>
+
     <p v-if="areaKind === 'wild' && !anySelection" class="pwd-hint">
       <span class="pf-demo-badge">{{ skills ? 'Skills' : 'Dev' }}</span>
       Acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia, el horno o la orilla
@@ -10,9 +23,7 @@
     <div v-if="anySelection" class="pwd-mining">
       <div class="pwd-top">
         <ProfessionHud :session="session" :profession="activeProfession" />
-        <button type="button" class="pwd-bag-btn" :aria-expanded="bagOpen" @click="bagOpen = !bagOpen">Mochila</button>
       </div>
-      <InventoryGrid v-if="bagOpen" class="pwd-bag" :session="session" :highlight="highlight" compact />
       <MiningActionCard
         v-if="mining.selection.value"
         :key="mining.selection.value.target.nodeId"
@@ -149,6 +160,8 @@ const props = defineProps<{
   fresh?: boolean
   /** Tool item ids the player owns, e.g. bought in the Tienda. */
   ownedTools?: readonly string[]
+  /** Consumables carried into a playtest dungeon. */
+  ownedSupplies?: Readonly<Record<string, number>>
 }>()
 // WildlandsView still listens for `overlay` to pause the game behind a covering
 // panel. Since R31-Z.1 the demo opens none, so it never emits; the event stays
@@ -162,6 +175,9 @@ const FURNACE_POLL_MS = 250
 
 const session = useProfessionDemo()
 const bagOpen = ref(false)
+const SUPPLY_LABEL: Readonly<Record<string, string>> = {
+  poke_ball: 'Poké Ball', potion: 'Poción', revive: 'Revivir', ether: 'Éter',
+}
 const mining = useMiningController(session, () => props.game)
 const fishing = useFishingController(session, () => props.game)
 const logging = useLoggingController(session, () => props.game)
@@ -310,16 +326,25 @@ function closeAll(): void {
 // thing drawing into the scene any more: Community Playtest 0.1 composes this
 // overlay with the dungeon entrances' one. Exposing it changes nothing for the
 // dev demo, which still installs it itself in the watcher above.
-defineExpose({ inspect, isWorldObject, placedObjects, overlay })
+function toggleInventory(): void {
+  bagOpen.value = !bagOpen.value
+}
+
+defineExpose({ inspect, isWorldObject, placedObjects, overlay, closeTransient: closeAll, toggleInventory })
 </script>
 
 <style scoped>
 .pwd-hint { position: absolute; left: 1rem; bottom: 7.2rem; max-width: calc(100% - 2rem); z-index: 5; margin: 0; padding: 0.4rem 0.7rem; border: 2px solid var(--pf-line); border-radius: 10px; background: rgba(16, 26, 54, 0.9); color: var(--pf-soft); font-size: 0.8rem; }
 .pwd-mining { position: absolute; left: 50%; bottom: 4.9rem; z-index: 14; display: grid; gap: 0.4rem; width: min(380px, calc(100% - 1.5rem)); max-height: calc(100dvh - 7rem); overflow-y: auto; transform: translateX(-50%); }
-.pwd-bag-btn { min-height: 38px; padding: 0 0.8rem; border: 2px solid var(--pf-gold); border-radius: 999px; background: rgba(16, 26, 54, 0.92); color: var(--pf-gold); font: inherit; font-weight: 700; cursor: pointer; }
 .pwd-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.4rem; }
+.pwd-bag-panel { position: absolute; top: 4.5rem; left: 1rem; z-index: 16; display: grid; gap: 0.55rem; width: min(440px, calc(100% - 2rem)); max-height: calc(100dvh - 9rem); padding: 0.75rem; overflow-y: auto; border: 2px solid var(--pf-gold); border-radius: 12px; background: rgba(12, 20, 42, 0.97); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.48); }
+.pwd-bag-head { display: flex; align-items: center; justify-content: space-between; color: var(--pf-gold); }
+.pwd-bag-head button { width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.25); border-radius: 8px; background: transparent; color: #fff; font: inherit; font-size: 1.3rem; cursor: pointer; }
+.pwd-supplies { display: flex; flex-wrap: wrap; gap: 0.3rem; }
+.pwd-supplies span { padding: 0.15rem 0.5rem; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: var(--pf-soft); font-size: 0.72rem; }
 @media (max-width: 720px) {
   .pwd-mining { bottom: 4.4rem; }
+  .pwd-bag-panel { top: 4.2rem; left: 0.75rem; width: calc(100% - 1.5rem); max-height: calc(100dvh - 8.5rem); }
   /* It used to be `nowrap` and ran off both edges of a phone. It is a sentence
      a player reads, so it wraps, and it sits above the row of tabs. */
   .pwd-hint { bottom: 8.6rem; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 1.5rem); white-space: normal; text-align: center; }
