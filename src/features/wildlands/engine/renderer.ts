@@ -80,6 +80,10 @@ const SKY_HAZE = '#d8ecfb'
 // that nearly four times as much work on phones; pixel art gains no useful
 // detail from it during the playtest, so render that build at CSS resolution.
 const MAX_RENDER_DPR = import.meta.env.VITE_PLAYTEST === 'on' ? 1 : 2
+// Town models use a CPU triangle rasterizer. Moving the camera invalidates
+// every model surface, which is the large city-only frame spike. The existing
+// façade sprites are the playtest fallback; normal builds keep full 3D.
+const ENABLE_TOWN_MODELS = import.meta.env.VITE_PLAYTEST !== 'on'
 
 interface Drawable {
   depth: number
@@ -292,7 +296,7 @@ export class Renderer {
         // Only wild props: town buildings bring their own sprite and already
         // resolve a tap through their footprint (`doorForTap`).
         prop: d.kind ? { tx: d.tx, ty: d.ty } : undefined,
-        model: d.model,
+        model: ENABLE_TOWN_MODELS ? d.model : undefined,
       })
     }
 
@@ -393,7 +397,7 @@ export class Renderer {
       if (faded) ctx.globalAlpha = Math.max(0, d.alpha!)
       const flat = sprite.flatTop ?? 0
       const eye = { depth: scene.lens.distance, height: scene.lens.squash * scene.lens.distance, rise: scene.lens.rise }
-      if (d.model && drawTownModel(ctx, d.model.model, d.model.at, proj, scene.camX, scene.camY, eye)) {
+      if (ENABLE_TOWN_MODELS && d.model && drawTownModel(ctx, d.model.model, d.model.at, proj, scene.camX, scene.camY, eye)) {
         // Drawn from its 3D model.
       } else if (flat > 0) {
         // Upright façade, then the roof squashed by the camera tilt like the ground.
