@@ -10,12 +10,12 @@
 // defers is refused with a reason, never quietly run as a plain hit. A player
 // who selects one is told; nothing silently does something else.
 //
-// The one gap that is data and not work: `move_meta_stat_changes` is not in
-// the generated catalog, so a `statChange` move says *that* it changes stats
-// and never *which* or *by how much*. Swords Dance and Growl are
-// indistinguishable here. The stat-stage machinery exists and is tested
-// (`stats.ts`), but no catalog move can drive it until R32.1 emits that table
-// — which is a new `catalogVersion`, and therefore not R32.3's to do.
+// Stat changes used to be the biggest gap here — the catalog said *that* a
+// move changed stats and never *which* — and the pipeline now resolves them
+// from its two pinned sources (`scripts/battle-catalog/statChanges.mjs`). The
+// rules read `meta.statChanges` and nothing else: a move whose stat change the
+// sources could not settle arrives with `statChanges: null` and is deferred
+// with the reason, exactly as before. Support follows the data.
 
 import type { CatalogMove } from '../catalog'
 import type { MajorStatus } from '../../pokemon/model'
@@ -41,7 +41,9 @@ export type SupportedEffect =
   | 'damage.recoil'
   | 'damage.recharge'
   | 'damage.ailment'
+  | 'damage.statChange'
   | 'ailment'
+  | 'statChange'
   | 'heal'
   | 'protect'
 
@@ -100,8 +102,20 @@ export function classifyMove(move: CatalogMove): MoveExecution {
         : { kind: 'deferred', reason: 'side protect' }
 
     case 'statChange':
-    case 'damage.statChange':
-      return { kind: 'deferred', reason: 'stat change payload missing from catalog' }
+      // A pure stat move is only the stat change, so the catalog has to state
+      // it fully; `statChanges: null` means the pinned sources did not settle
+      // stat, amount, recipient and probability between them.
+      return move.meta.statChanges
+        ? { kind: 'executable', effect: 'statChange' }
+        : { kind: 'deferred', reason: 'stat change not stated by the pinned sources' }
+
+    case 'damage.statChange': {
+      const missing = needsPower()
+      if (missing) return missing
+      return move.meta.statChanges
+        ? { kind: 'executable', effect: 'damage.statChange' }
+        : { kind: 'deferred', reason: 'stat change not stated by the pinned sources' }
+    }
 
     case 'damage.flinch':
       // Flinch means "you lose your turn". With an Action Bar the equivalent

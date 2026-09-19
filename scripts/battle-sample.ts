@@ -41,7 +41,10 @@ function describeEvent(event: BattleEvent, names: Record<string, string>): strin
     case 'CONFUSION_APPLIED': return `  ${who(event.combatantId)} queda confundido (${event.durationMs} ms)`
     case 'CONFUSION_SELF_HIT': return `  ${who(event.combatantId)} se golpea a sí mismo (${event.damage})`
     case 'CONFUSION_ENDED': return `  ${who(event.combatantId)} deja de estar confundido`
+    case 'STAT_STAGE_CHANGED': return `  ${who(event.combatantId)}: ${event.stat} ${event.delta > 0 ? '+' : ''}${event.delta} → etapa ${event.stage}`
+    case 'STAT_STAGE_UNCHANGED': return `  ${who(event.combatantId)}: ${event.stat} ya está en ${event.stage} (${event.reason})`
     case 'PROTECT_GAINED': return `  ${who(event.combatantId)} levanta escudo ×${event.charges}`
+    case 'PROTECT_FAILED': return `  ${who(event.combatantId)} ya tenía escudo (${event.chargesLeft}): no se repone`
     case 'PROTECT_BLOCKED': return `  escudo de ${who(event.combatantId)} bloquea (${event.chargesLeft} restantes)`
     case 'PROTECT_EXPIRED': return `  el escudo de ${who(event.combatantId)} se agotó: próximo cooldown ×2`
     case 'SWITCHED': return `  cambio: sale ${who(event.outgoingId)}, entra ${who(event.incomingId)}`
@@ -130,6 +133,27 @@ async function playRuleFixtures(): Promise<void> {
     ...Array.from({ length: 30 }, () => ({ type: 'ADVANCE_TIME', deltaMs: 500 }) as BattleCommand),
   ])
   console.log('Protect:', protectRun.events.filter(e => e.type.startsWith('PROTECT')).map(e => e.type).join(' → ') || '(sin eventos)')
+
+  // Stat changes, read out of the catalog: who, which stat, how many stages.
+  const stats = await buildSampleBattle({
+    battleId: 'fixture-stats', seed: 404,
+    ally: { speciesId: 213, level: 50, moves: ['swords-dance', 'growl', 'agility', 'screech'] },
+    enemy: { speciesId: 213, level: 50, wild: true, moves: ['tackle'] },
+  })
+  for (const name of ['swords-dance', 'growl', 'tail-whip', 'agility', 'screech', 'charge-beam', 'overheat', 'growth']) {
+    const move = stats.catalog.moveNamed(name)
+    const spec = move?.meta.statChanges
+    const verdict = move ? classifyMove(move) : null
+    console.log(`${name.padEnd(13)} ${spec
+      ? `${spec.kind} → ${spec.recipient} ${spec.changes.map(c => `${c.stat} ${c.stages > 0 ? '+' : ''}${c.stages}`).join(', ')} @ ${spec.chance} % [${spec.source}]`
+      : `sin metadata — ${verdict?.kind === 'deferred' ? verdict.reason : '?'}`}`)
+  }
+  const statsRun = run(stats, stats.state, [
+    { type: 'USE_MOVE', combatantId: 'ally-0', moveId: stats.moveId('swords-dance') },
+    ...Array.from({ length: 40 }, () => ({ type: 'ADVANCE_TIME', deltaMs: 500 }) as BattleCommand),
+  ])
+  const stageEvents = statsRun.events.filter(e => e.type.startsWith('STAT_STAGE'))
+  console.log(`Etapas (clamp −2…+2): ${stageEvents.map(e => e.type === 'STAT_STAGE_CHANGED' ? `${e.stat}→${e.stage}` : `${e.stat} ${e.reason}`).join(' · ')}`)
 
   // Struggle: a Pokémon with no PP left still does something, and it hurts.
   const struggle = await buildSampleBattle({

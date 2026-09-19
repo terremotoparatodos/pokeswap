@@ -23,10 +23,11 @@ import { computeDamage, rollAccuracy, rollHitCount } from './damage'
 import { classifyMove, isMajorStatusAilment } from './moveSupport'
 import type { SupportedEffect } from './moveSupport'
 import { drawChance } from './rng'
-import type { BattleCombatant } from './state'
+import type { BattleCombatant, StageKey } from './state'
 import { isCombatantFainted, opposingActive, withRuntime } from './state'
 import {
-  applyConfusion, applyDamage, applyHeal, applyMajorStatus, emit, requireCombatant, spendPp, update,
+  applyConfusion, applyDamage, applyHeal, applyMajorStatus, emit, modifyStat, requireCombatant,
+  spendPp, update,
 } from './transitions'
 import type { Working } from './transitions'
 
@@ -115,16 +116,76 @@ export function executeMove(
     case 'ailment':
       runStatusMove(working, attackerId, target.combatantId, move)
       return
+    case 'statChange':
+      runStatChangeMove(working, attackerId, target.combatantId, move)
+      return
     default:
       runDamagingMove(working, attackerId, target.combatantId, move, verdict.effect, asStruggle)
   }
 }
 
+// ── Stat changes ────────────────────────────────────────────────────────────
+
+/**
+ * Applies a move's stat change, read entirely from the catalog.
+ *
+ * There is no branch per move: `meta.statChanges` says who, which stat, how
+ * many stages and how often, and the pipeline only fills it in when its two
+ * pinned sources settle all four (`statChanges.mjs`). Swords Dance, Growl and
+ * Shadow Ball's secondary all come through here as data.
+ */
+function applyStatChanges(
+  working: Working, attackerId: string, targetId: string, move: CatalogMove,
+): void {
+  const spec = move.meta.statChanges
+  if (!spec) return
+  const recipientId = spec.recipient === 'user' ? attackerId : targetId
+  for (const change of spec.changes) {
+    modifyStat(working, recipientId, change.stat as StageKey, change.stages, attackerId)
+  }
+}
+
+/** A move whose whole point is the stat change: Swords Dance, Growl, Screech. */
+function runStatChangeMove(
+  working: Working, attackerId: string, targetId: string, move: CatalogMove,
+): void {
+  const attacker = requireCombatant(working, attackerId)
+  const target = requireCombatant(working, targetId)
+  if (!attacker || !target) return
+
+  const accuracy = rollAccuracy(move.accuracy, attacker, target, working.state.config, working.state.rng)
+  working.state = { ...working.state, rng: accuracy.rng }
+  if (!accuracy.hit) {
+    emit(working, { type: 'MOVE_MISSED', combatantId: attackerId, moveId: move.id })
+    return
+  }
+  // Deliberately no type check: in Generation VI a Growl lowers a Ghost's
+  // Attack. Only the damaging moves and Thunder Wave answer to the chart.
+  applyStatChanges(working, attackerId, targetId, move)
+}
+
 // ── Protect ─────────────────────────────────────────────────────────────────
 
+/**
+ * Raises the shield — unless one is already up.
+ *
+ * Auto-repeat keeps a move selected, so without this a Pokémon that chose
+ * Protect once would top its shield back up every Action Window and never be
+ * hit again. The attempt is not free and it is not silent: the window and the
+ * PP are already spent by the time we get here, and the failure is an event.
+ *
+ * What this deliberately is **not** is the games' falling success rate for
+ * consecutive Protects. That is balance, and it is a later decision.
+ */
 function gainProtect(working: Working, combatantId: string): void {
   const combatant = requireCombatant(working, combatantId)
   if (!combatant) return
+  if (combatant.runtime.protectCharges > 0) {
+    emit(working, {
+      type: 'PROTECT_FAILED', combatantId, chargesLeft: combatant.runtime.protectCharges,
+    })
+    return
+  }
   const charges = working.state.config.protect.charges
   update(working, withRuntime(combatant, { protectCharges: charges }))
   emit(working, { type: 'PROTECT_GAINED', combatantId, charges })
@@ -254,6 +315,30 @@ function runDamagingMove(
 
   applyDrainOrRecoil(working, attackerId, move, effect, total, asStruggle)
   if (effect === 'damage.ailment') rollSecondaryAilment(working, attackerId, targetId, move)
+  if (effect === 'damage.statChange') rollSecondaryStatChange(working, attackerId, targetId, move)
+}
+
+/**
+ * The stat change of a damaging move: one roll, after the damage.
+ *
+ * A `chance` of 100 is not a roll that always wins — it is Overheat and Close
+ * Combat, whose drop is part of the move. The draw is spent either way, so
+ * adding one later cannot shift the rolls after it.
+ */
+function rollSecondaryStatChange(
+  working: Working, attackerId: string, targetId: string, move: CatalogMove,
+): void {
+  const spec = move.meta.statChanges
+  if (!spec) return
+  const roll = drawChance(working.state.rng, spec.chance / 100)
+  working.state = { ...working.state, rng: roll.rng }
+  if (!roll.value) return
+
+  // A target that fainted to the hit takes nothing more; a user's own drop
+  // still lands, because it is the cost of the move it just used.
+  const target = requireCombatant(working, targetId)
+  if (spec.recipient === 'target' && (!target || isCombatantFainted(target))) return
+  applyStatChanges(working, attackerId, targetId, move)
 }
 
 /**

@@ -13,6 +13,7 @@ import { DEFAULT_BATTLE_RULES_CONFIG } from './config'
 import type { BattleRulesConfig } from './config'
 import type { BattleCommand } from './commands'
 import type { BattleEvent } from './events'
+import { cooldownMs } from './actionBar'
 import { reduceBattle } from './reduce'
 import { finishBattle } from './setup'
 import { currentHpOf, isCombatantFainted } from './state'
@@ -130,17 +131,19 @@ describe('commands are intentions, not mutations', () => {
   it('refuses a move these rules defer, at selection time and with the reason', async () => {
     const battle = await buildSampleBattle({
       ...DUEL,
-      ally: { speciesId: 25, level: 50, moves: ['thunderbolt', 'swords-dance'] },
+      // Growth raises one stage normally and two in sun, so the catalog refuses
+      // to state it and these rules refuse to approximate it.
+      ally: { speciesId: 25, level: 50, moves: ['thunderbolt', 'growth'] },
     })
     const result = reduceBattle(
       battle.state,
-      { type: 'USE_MOVE', combatantId: 'ally-0', moveId: battle.moveId('swords-dance') },
+      { type: 'USE_MOVE', combatantId: 'ally-0', moveId: battle.moveId('growth') },
       battle.context,
     )
     expect(result.state).toBe(battle.state)
     expect(result.events[0]).toMatchObject({
       type: 'COMMAND_REJECTED',
-      reason: expect.stringContaining('stat change payload missing from catalog'),
+      reason: expect.stringContaining('stat change not stated by the pinned sources'),
     })
   })
 
@@ -278,6 +281,42 @@ describe('the realtime readings of priority, recharge and Protect', () => {
       .some(e => e.combatantId === 'ally-0' && e.seq > expired[0].seq)).toBe(true)
   })
 
+  /**
+   * Auto-repeat keeps Protect selected, so without this rule a Pokémon would
+   * top its shield back up every window and never be hit again.
+   */
+  it('does not refresh a shield that is still up, and says so', async () => {
+    const battle = await buildSampleBattle({
+      battleId: 'protect-no-refresh', seed: 5,
+      ally: { speciesId: 213, level: 50, moves: ['protect'] },
+      enemy: { speciesId: 213, level: 50, wild: true, moves: ['tackle'] },
+    })
+    const protectId = battle.moveId('protect')
+    const maxPp = battle.catalog.move(protectId)!.pp
+    const result = play(battle, withConfig(battle.state, NO_CRITS), [
+      { type: 'USE_MOVE', combatantId: 'ally-0', moveId: protectId },
+      ...ticks(40),
+    ])
+
+    const gained = typesOf(result.events, 'PROTECT_GAINED')
+    const failed = typesOf(result.events, 'PROTECT_FAILED')
+    expect(gained.length).toBeGreaterThan(0)
+    expect(failed.length).toBeGreaterThan(0)
+    // Every failure happened while a charge was still up.
+    expect(failed.every(event => event.chargesLeft > 0)).toBe(true)
+    // A new shield only ever appears after the previous one is gone.
+    for (const event of gained.slice(1)) {
+      const previous = result.events.filter(e => e.seq < event.seq)
+      const last = [...previous].reverse()
+        .find(e => e.type === 'PROTECT_EXPIRED' || e.type === 'PROTECT_GAINED')
+      expect(last?.type).toBe('PROTECT_EXPIRED')
+    }
+    // And the failed attempt is not free: it spent its window and its PP.
+    const spent = typesOf(result.events, 'PP_CHANGED').filter(e => e.moveId === protectId)
+    expect(spent.length).toBe(gained.length + failed.length)
+    expect(spent[spent.length - 1].remaining).toBe(maxPp - spent.length)
+  })
+
   it('spends one Protect charge for a whole multi-hit move, not one per hit', async () => {
     const battle = await buildSampleBattle({
       battleId: 'protect-multihit', seed: 8,
@@ -291,6 +330,134 @@ describe('the realtime readings of priority, recharge and Protect', () => {
     const first = typesOf(result.events, 'PROTECT_BLOCKED')[0]
     expect(first.moveId).toBe(battle.moveId('fury-swipes'))
     expect(first.chargesLeft).toBe(1)
+  })
+})
+
+// ── Stat changes ────────────────────────────────────────────────────────────
+
+describe('stat changes, read from the catalog', () => {
+  /** Two Shuckle so nothing dies while the stages are being read. */
+  const withMoves = (ally: readonly string[], enemy: readonly string[] = ['tackle']): SampleBattleInput => ({
+    battleId: `stat-${ally.join('-')}`, seed: 404,
+    ally: { speciesId: 213, level: 50, moves: ally },
+    enemy: { speciesId: 213, level: 50, wild: true, moves: enemy },
+  })
+
+  const stagesAfter = async (
+    input: SampleBattleInput, moveName: string, windows: number,
+  ): Promise<{ state: BattleState; events: BattleEvent[]; battle: SampleBattle }> => {
+    const battle = await buildSampleBattle(input)
+    const run = play(battle, withConfig(battle.state, NO_CRITS), [
+      { type: 'USE_MOVE', combatantId: 'ally-0', moveId: battle.moveId(moveName) },
+      ...ticks(windows * 18),
+    ])
+    return { ...run, battle }
+  }
+
+  it('Swords Dance raises the user two stages, and a second one changes nothing', async () => {
+    const { state, events } = await stagesAfter(withMoves(['swords-dance']), 'swords-dance', 2)
+    expect(state.combatants['ally-0'].runtime.stages.atk).toBe(2)
+
+    const changed = typesOf(events, 'STAT_STAGE_CHANGED').filter(e => e.combatantId === 'ally-0')
+    expect(changed[0]).toMatchObject({ stat: 'atk', delta: 2, stage: 2, sourceId: 'ally-0' })
+    // Auto-repeat uses it again; the ceiling holds and the engine says so.
+    expect(typesOf(events, 'STAT_STAGE_UNCHANGED')).toContainEqual(
+      expect.objectContaining({ combatantId: 'ally-0', stat: 'atk', stage: 2, reason: 'atCeiling' }),
+    )
+    expect(changed).toHaveLength(1)
+  })
+
+  it('Growl lowers the enemy Attack by one', async () => {
+    const { state, events } = await stagesAfter(withMoves(['growl']), 'growl', 1)
+    expect(state.combatants['enemy-0'].runtime.stages.atk).toBe(-1)
+    expect(typesOf(events, 'STAT_STAGE_CHANGED')[0])
+      .toMatchObject({ combatantId: 'enemy-0', stat: 'atk', delta: -1, stage: -1, sourceId: 'ally-0' })
+  })
+
+  it('Tail Whip lowers the enemy Defence by one', async () => {
+    const { state } = await stagesAfter(withMoves(['tail-whip']), 'tail-whip', 1)
+    expect(state.combatants['enemy-0'].runtime.stages.def).toBe(-1)
+  })
+
+  it('Screech lowers the enemy Defence by two', async () => {
+    // Screech is 85 % accurate, so it is given a few windows to land.
+    const { state, events } = await stagesAfter(withMoves(['screech']), 'screech', 4)
+    expect(state.combatants['enemy-0'].runtime.stages.def).toBe(-2)
+    expect(typesOf(events, 'STAT_STAGE_CHANGED')[0])
+      .toMatchObject({ combatantId: 'enemy-0', stat: 'def', delta: -2, stage: -2 })
+  })
+
+  it('Agility raises Speed, and the Action Bar gets shorter for it', async () => {
+    const battle = await buildSampleBattle(withMoves(['agility']))
+    const before = cooldownMs(battle.state.combatants['ally-0'], battle.state.config)
+
+    const run = play(battle, withConfig(battle.state, NO_CRITS), [
+      { type: 'USE_MOVE', combatantId: 'ally-0', moveId: battle.moveId('agility') },
+      ...ticks(20),
+    ])
+    const after = run.state.combatants['ally-0']
+    expect(after.runtime.stages.spe).toBe(2)
+    // ×2 Speed, and the bar is the square root of that: shorter, not halved.
+    expect(cooldownMs(after, run.state.config)).toBeLessThan(before)
+    // The persistent stat never moved; only the runtime did.
+    expect(after.stats.spe).toBe(battle.state.combatants['ally-0'].stats.spe)
+  })
+
+  it('applies a damaging move secondary stat change, and rolls it', async () => {
+    // Charge Beam: 70 % to raise the user's Sp. Attack. Certain and impossible
+    // are both reachable from the config, so both can be asserted.
+    const always: BattleRulesConfig = { ...NO_CRITS }
+    const battle = await buildSampleBattle(withMoves(['charge-beam']))
+    const run = play(battle, withConfig(battle.state, always), [
+      { type: 'USE_MOVE', combatantId: 'ally-0', moveId: battle.moveId('charge-beam') },
+      ...ticks(40),
+    ])
+    const boosted = typesOf(run.events, 'STAT_STAGE_CHANGED')
+      .filter(e => e.combatantId === 'ally-0' && e.stat === 'spa')
+    expect(boosted.length).toBeGreaterThan(0)
+    // Every boost lands after the damage of the hit that caused it.
+    const firstDamage = typesOf(run.events, 'DAMAGE').find(e => e.sourceId === 'ally-0')
+    expect(boosted[0].seq).toBeGreaterThan(firstDamage!.seq)
+    expect(run.state.combatants['ally-0'].runtime.stages.spa).toBeGreaterThan(0)
+  })
+
+  it('applies a guaranteed self-drop: Overheat costs the user two Sp. Attack', async () => {
+    const battle = await buildSampleBattle({
+      battleId: 'overheat', seed: 12,
+      ally: { speciesId: 6, level: 50, moves: ['overheat'] },
+      enemy: { speciesId: 213, level: 50, wild: true, moves: ['tackle'] },
+    })
+    const run = play(battle, withConfig(battle.state, NO_CRITS), [
+      { type: 'USE_MOVE', combatantId: 'ally-0', moveId: battle.moveId('overheat') },
+      ...ticks(10),
+    ])
+    expect(run.state.combatants['ally-0'].runtime.stages.spa).toBe(-2)
+  })
+
+  it('still refuses the ones the sources do not settle', async () => {
+    const battle = await buildSampleBattle(withMoves(['growth', 'tackle']))
+    const run = play(battle, withConfig(battle.state, NO_CRITS), ticks(40))
+    // The fallback skips it: it has PP, but no rule can run it.
+    const used = typesOf(run.events, 'MOVE_USED').filter(e => e.combatantId === 'ally-0')
+    expect(used.length).toBeGreaterThan(0)
+    expect(used.every(e => e.moveId === battle.moveId('tackle'))).toBe(true)
+    expect(typesOf(run.events, 'STAT_STAGE_CHANGED')).toHaveLength(0)
+  })
+
+  it('drops the stages on a switch and never on the instance', async () => {
+    const battle = await buildSampleBattle({
+      ...withMoves(['swords-dance']),
+      bench: [{ speciesId: 6, level: 50, moves: ['flamethrower'] }],
+    })
+    const run = play(battle, withConfig(battle.state, NO_CRITS), [
+      { type: 'USE_MOVE', combatantId: 'ally-0', moveId: battle.moveId('swords-dance') },
+      ...ticks(20),
+      { type: 'SWITCH', combatantId: 'ally-0', incomingId: 'ally-1' },
+      ...ticks(20),
+    ])
+    expect(run.state.combatants['ally-0'].runtime.stages).toEqual({})
+    const after = finishBattle(run.state)
+    expect(JSON.stringify(after['ally-0'])).not.toContain('stages')
   })
 })
 
