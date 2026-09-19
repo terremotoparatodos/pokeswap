@@ -65,6 +65,9 @@ MODELS = {
     'celadon-tall': ('buildings/Celadon City Building 2/Celadon City Building 2.obj', {}),
     # HeartGold/SoulSilver's Mr. Pokémon's House (where the Fan Club was: the Pokédex entrance).
     'mrpokemon': ("mr pokemon house/Mr. Pokémon's House.obj", {}),
+    # The north exits (Tundra, Costa): the taller north-south Gate 3, its front door on the portal
+    # tiles (row 9) and its stair coming down to the city; both portals sit centred on their footprint.
+    'gate-north': ('gates/Gate 3/Gate 3.obj', {}, {'center': 0, 'front': 54}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }

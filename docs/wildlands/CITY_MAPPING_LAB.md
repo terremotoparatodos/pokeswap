@@ -110,7 +110,8 @@ requires engine support (main station's decision).
   dressing); fountains with `art.fountains[i].model`; props with `art.models[kind]`. Today: the Pokémon Center, the Poké Mart, the gym, Silph Co. (where the Contest Hall was), the
   three route gates (door on their portal), the houses and apartments (Celadon's buildings), the
   street lamps, the fountains, both benches, Mr. Pokémon's House (where the Fan Club was, Pokédex)
-  and the Casino (where the Poffin House was, Perfil). Still sprites: the Amity Square gates.
+  and the Casino (where the Poffin House was, Perfil); the north exits (Tundra, Costa) are route
+  gates too. The whole city is 3D.
 
 ## Buildings from scratch
 
