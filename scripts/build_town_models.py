@@ -1,6 +1,7 @@
 """Converts Platinum town models (OBJ + MTL + PNG) into WildLands town models.
 
-The models were exported from the DS games (MKDS Course Modifier). Their units
+The models were exported from the DS games (MKDS Course Modifier); the folder
+layout below is the one they were handed over in. Their units
 are world pixels already: a 16-unit tile is a 16 px tile. The DS repeats or
 mirrors each texture per axis, and the OBJ loses those flags, so each material
 lists its wrap here (found by rendering against the town's own sprites). The
@@ -27,7 +28,8 @@ OUT = ROOT / 'public/assets/town/models'
 
 # id: (source OBJ relative to the input folder, {material: (wrap u, wrap v)})
 MODELS = {
-    'pokecenter': ('Pokémon Center.obj', {'pc_1': ('repeat', 'mirror'), 'pc_2': ('repeat', 'repeat'), 'light_a': ('repeat', 'repeat')}),
+    # HeartGold/SoulSilver's Pokémon Center (closer to Platinum than Diamond/Pearl's).
+    'pokecenter': ('Pokemon Center HG/Pokémon Center.obj', {'gs_pc_a': ('repeat', 'repeat'), 'gs_pc_b': ('repeat', 'repeat')}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }

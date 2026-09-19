@@ -85,8 +85,12 @@ requires engine support (main station's decision).
   The DS repeat/mirror of each texture is listed per material in the script and baked into
   expanded textures, so the game never wraps.
 - `engine/townModel.ts` draws a model with the scene projector (same perspective as the
-  ground): each triangle is its texture mapped into it, far to near, the ground shadow first.
-  A building to one side of the screen shows its real side wall.
+  ground). Like the DS it skips back faces and uses a depth buffer (sorting triangles fails on
+  pieces set into each other), rasterizing at native resolution (one texel per world px) and
+  scaling the result like a sprite. A building to one side of the screen shows its real side wall.
+- `scripts/preview_town_model.py <model.json> <out.png> [sprite.png]` renders a converted
+  model left of, at and right of the screen centre, to check textures and walls before use.
+- The Pokémon Center is HeartGold/SoulSilver's model (closer to Platinum than Diamond/Pearl's).
 - A building opts in with `image.model` (the PNG stays as loading fallback and for the ground
   dressing); props with `art.models[kind]`. Today: the Pokémon Center and both benches.
 
