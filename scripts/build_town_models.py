@@ -51,15 +51,24 @@ MODELS = {
     'silph': ('silph co/Silph Co..obj', {}, {'center': -8}),
     # HeartGold/SoulSilver's fountain, exported at 1/8 scale: 8 px per unit makes it Platinum's 60 px.
     'fountain': ('fuente de agua/Fountain.obj', {}, {'scale': 8}),
+    # HeartGold/SoulSilver's route gates: passages with a door at each end. Gate 2 runs east-west
+    # (doors on its sides at x ±44), Gate 1 north-south (doors front and back). Each is placed so the
+    # door meets its portal: the west gate's east door on tile x 6, the east gate's west door on
+    # x 57 (both centred on rows 41-42), the south gate's back door facing the portal above it.
+    'gate-west': ('gates/Gate 2/Gate 2.obj', {}, {'center': -4, 'front': 32}),
+    'gate-east': ('gates/Gate 2/Gate 2.obj', {}, {'center': 4, 'front': 32}),
+    'gate-south': ('gates/Gate 1/Gate 1.obj', {}, {'center': 8, 'front': 57}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }
-# The ground shadow under a model: a translucent material lying on the ground (h_kage / kage).
+# A model's shadow: a translucent material named *kage* (Japanese for shadow), or one lying on
+# the ground. It may also darken a roof (a gate's parapet shadow). A translucent material that
+# is neither (a lamp's glow) is not a shadow.
 GROUND = 2.5
 
 
-def is_shadow(material: dict, heights: list) -> bool:
-    return material['alpha'] < 1 and max(heights) <= GROUND
+def is_shadow(name: str, material: dict, heights: list) -> bool:
+    return material['alpha'] < 1 and ('kage' in name or max(heights) <= GROUND)
 
 
 def parse_mtl(path: Path) -> dict:
@@ -122,7 +131,7 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict, options: dict | 
                 faces.append((cur, idx[0], idx[i], idx[i + 1]))
     faces = [f for f in faces if f[0] not in options.get('skip', ())]
     heights = {m: [V[c[0]][1] for f in faces if f[0] == m for c in f[1:]] for m in {f[0] for f in faces}}
-    shadow = {m: is_shadow(mtl[m], heights[m]) for m in heights}
+    shadow = {m: is_shadow(m, mtl[m], heights[m]) for m in heights}
 
     names = sorted({f[0] for f in faces}, key=lambda m: (not shadow[m], m))
     materials, tri = [], []

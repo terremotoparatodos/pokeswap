@@ -34,7 +34,8 @@ def render(model_path: Path, offset: float, width=460, height=170, background=GR
         depth = D - (z - data['front'])
         return cx + f * (x - data['center'] + offset) / depth, horizon + f * (h - y) / depth, depth
 
-    order = sorted(data['triangles'], key=lambda t: not data['materials'][t[0]]['shadow'])
+    # Solids first, then shadows blended over what they are not behind (as the game does).
+    order = sorted(data['triangles'], key=lambda t: data['materials'][t[0]]['shadow'])
     for t in order:
         m = data['materials'][t[0]]
         tex = textures[t[0]]
@@ -59,7 +60,9 @@ def render(model_path: Path, offset: float, width=460, height=170, background=GR
                 v = (w0 * uv[0][1] / d0 + w1 * uv[1][1] / d1 + w2 * uv[2][1] / d2) * depth
                 c = tex.getpixel((min(tw - 1, max(0, int(u))), min(th - 1, max(0, int(v)))))
                 if m['shadow']:
-                    if background[3] == 0:
+                    if depth > zbuf[sy][sx] * 1.001:
+                        continue  # behind the model
+                    if background[3] == 0 and zbuf[sy][sx] >= 1e18:
                         continue  # a cut-out sprite carries no ground shadow
                     a = m['alpha'] * c[3] / 255
                     base = px[sx, sy]

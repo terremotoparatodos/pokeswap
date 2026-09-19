@@ -133,7 +133,9 @@ export function rasterFrame(screen: Float64Array, k: number): RasterFrame {
 /**
  * Rasterizes the given triangles into RGBA pixels with a depth buffer and
  * perspective-correct texture coordinates. Solid texels under half alpha are
- * holes; the shadow only fills pixels no solid face covers, at its alpha.
+ * holes. Shadows go last, blended at their alpha over whatever they are not
+ * behind: the ground around a building, or a roof they lie on (a gate's
+ * parapet shadow), but never through a wall in front of them.
  */
 export function rasterize(
   model: TownModel, screen: Float64Array, triangles: readonly number[], frame: RasterFrame,
@@ -143,7 +145,8 @@ export function rasterize(
   out.fill(0)
   const nearest = new Float32Array(W * H) // 1 / depth of the nearest solid texel so far (0 = none)
   const { data } = model
-  for (const index of triangles) {
+  const solidFirst = [...triangles].sort((a, b) => Number(data.materials[data.triangles[a][0]].shadow) - Number(data.materials[data.triangles[b][0]].shadow))
+  for (const index of solidFirst) {
     const t = data.triangles[index]
     const mat = data.materials[t[0]]
     const tex = model.textures[t[0]]
@@ -168,7 +171,8 @@ export function rasterize(
         const iz = w0 * az + w1 * bz + w2 * cz
         const o = py * W + px
         if (!mat.shadow && iz <= nearest[o]) continue
-        if (mat.shadow && nearest[o] > 0) continue
+        // A shadow behind a solid face stays hidden (a small bias lets a roof's own shadow through).
+        if (mat.shadow && nearest[o] > 0 && iz < nearest[o] * 0.999) continue
         const u = (w0 * t[4] * az + w1 * t[6] * bz + w2 * t[8] * cz) / iz
         const v = (w0 * t[5] * az + w1 * t[7] * bz + w2 * t[9] * cz) / iz
         const tx = Math.min(tex.width - 1, Math.max(0, Math.floor(u)))
@@ -176,8 +180,15 @@ export function rasterize(
         const s = (ty * tex.width + tx) * 4
         const alpha = tex.data[s + 3]
         if (mat.shadow) {
-          out[o * 4] = tex.data[s]; out[o * 4 + 1] = tex.data[s + 1]; out[o * 4 + 2] = tex.data[s + 2]
-          out[o * 4 + 3] = Math.round(alpha * mat.alpha)
+          const a = (alpha / 255) * mat.alpha
+          if (out[o * 4 + 3] === 255) {
+            // Over the model itself: darken it.
+            for (let k = 0; k < 3; k++) out[o * 4 + k] = Math.round(out[o * 4 + k] * (1 - a) + tex.data[s + k] * a)
+          } else {
+            // Over the ground: a translucent pixel the screen blends.
+            out[o * 4] = tex.data[s]; out[o * 4 + 1] = tex.data[s + 1]; out[o * 4 + 2] = tex.data[s + 2]
+            out[o * 4 + 3] = Math.max(out[o * 4 + 3], Math.round(a * 255))
+          }
           continue
         }
         if (alpha < 128) continue

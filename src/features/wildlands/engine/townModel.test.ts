@@ -50,6 +50,10 @@ describe('converted town models', () => {
     expect(HEARTHOME.buildings.find(b => b.id === 'mart')?.image?.model).toBe('/assets/town/models/mart.json')
     expect(HEARTHOME.buildings.find(b => b.id === 'gym')?.image?.model).toBe('/assets/town/models/gym.json')
     for (const f of HEARTHOME.art?.fountains ?? []) expect(f.model).toBe('/assets/town/models/fountain.json')
+    // The route gates: HeartGold's passages, each with a door on its portal.
+    expect(['gateW', 'gateE', 'gateS'].map(id => HEARTHOME.buildings.find(b => b.id === id)?.image?.model)).toEqual([
+      '/assets/town/models/gate-west.json', '/assets/town/models/gate-east.json', '/assets/town/models/gate-south.json',
+    ])
     // Silph Co. replaces the Contest Hall: same id, door and Swap entrance, a wider footprint.
     expect(HEARTHOME.buildings.find(b => b.id === 'contest')).toMatchObject({
       name: 'Silph Co.', x: 26, w: 10, door: { tx: 31, ty: 14 }, feature: 'swap', image: { model: '/assets/town/models/silph.json' },
