@@ -4,12 +4,13 @@
       <span class="dr-tag">DUNGEON PLAYTEST</span>
       <span class="dr-name">{{ entrance.definition.name }}</span>
       <span class="dr-warn">El progreso y las recompensas de la Dungeon pueden no persistir.</span>
-      <button type="button" class="dr-close" aria-label="Salir de la Dungeon" @click="emit('close')">Salir</button>
+      <button type="button" class="dr-close" aria-label="Salir de la Dungeon" @click="leave">Salir</button>
     </header>
 
     <div class="dr-body">
       <component
         :is="PlayDungeon"
+        ref="runRef"
         :auto-start="{ definitionId: entrance.definition.definitionId, minutes }"
         :starting-party="party"
         :inventory="inventory"
@@ -20,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { defineAsyncComponent } from 'vue'
+import { defineAsyncComponent, ref } from 'vue'
 import { minutesLeft } from '../../dungeonPrototype/domain/dungeonSpawn'
 import type { PokemonInstance } from '../../dungeonPrototype/domain/party'
 import type { AreaEntrance } from '../domain/entranceSpawns'
@@ -47,6 +48,21 @@ const emit = defineEmits<{ close: [party?: readonly PokemonInstance[] | null] }>
 const minutes = Math.max(1, Math.ceil(minutesLeft(props.entrance.spawn, Date.now())))
 
 const PlayDungeon = defineAsyncComponent(() => import('../../dungeonPrototype/components/PlayDungeon.vue'))
+
+const runRef = ref<{ leave(): void } | null>(null)
+
+/**
+ * The header's own Salir asks the run to leave rather than closing over it.
+ *
+ * Closing directly worked and quietly dropped the party's wear on the floor —
+ * and since this button is the exit most players will reach for, the Pokémon
+ * Center was left with nothing to heal. The run hands its party back; this only
+ * asks.
+ */
+function leave(): void {
+  if (runRef.value) runRef.value.leave()
+  else emit('close', null)
+}
 </script>
 
 <style scoped>

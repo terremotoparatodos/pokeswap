@@ -141,7 +141,7 @@ defineExpose({ inspect, isWorldObject, placedObjects, overlay })
 .de-hint {
   position: absolute;
   left: 1rem;
-  bottom: 7.5rem;
+  bottom: 10.4rem;
   z-index: 5;
   margin: 0;
   padding: 0.4rem 0.7rem;

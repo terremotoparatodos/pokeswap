@@ -306,6 +306,17 @@ function closePlaytestSurface(): void {
 const covered = computed(() =>
   panel.feature.value !== null || menuOpen.value || authOpen.value
   || dungeonRun.value !== null || playtestSurface.value !== null)
+
+/**
+ * Where the player is and what is on top of them, for the bug reporter.
+ *
+ * Declared here rather than beside `onHud` because the `watchEffect` below
+ * runs eagerly and reads it. `if (isPlaytest)` short-circuits in a normal
+ * build, so the temporal dead zone was invisible until a playtest build
+ * actually ran — which is what a white screen on first boot turned out to be.
+ */
+const playtest = usePlaytestContext()
+
 const motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
 const reduceMotion = ref(motionMedia.matches)
 const hidden = ref(document.visibilityState === 'hidden')
@@ -343,8 +354,6 @@ function onPointerMove(e: PointerEvent): void {
 function onPointerUp(e: PointerEvent): void {
   if (press && e.pointerId === press.id) press = null
 }
-
-const playtest = usePlaytestContext()
 
 function onHud(next: HudState): void {
   Object.assign(hud, next)

@@ -672,13 +672,29 @@ function runAway(): void {
   triggerRef(session)
 }
 
-function restart(): void {
+/**
+ * Leaving, and handing the party back as the expedition left it.
+ *
+ * Exposed as well as wired to the in-game buttons, because the host's own
+ * "Salir" in the panel header is the exit most players will actually use —
+ * and a header button that closed the panel over this component's head would
+ * drop the wear on the floor, leaving the Pokémon Center with nothing to heal.
+ */
+function leave(): void {
   stop()
   toast.value = null
+  emit('exit', session.value?.expedition.party ?? null)
+}
+
+function restart(): void {
   // Entered from a cave: there is no catalog to go back to, only WildLands.
-  if (props.autoStart) { emit('exit', session.value?.expedition.party ?? null); return }
+  if (props.autoStart) { leave(); return }
+  stop()
+  toast.value = null
   session.value = null
 }
+
+defineExpose({ leave })
 </script>
 
 <template>
