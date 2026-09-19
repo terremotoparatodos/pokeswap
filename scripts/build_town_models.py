@@ -34,6 +34,8 @@ MODELS = {
     'pokecenter': ('Pokemon Center HG/Pokémon Center.obj', {'gs_pc_a': ('repeat', 'repeat'), 'gs_pc_b': ('repeat', 'repeat')}),
     # HeartGold/SoulSilver's Poké Mart: the building is x −32…32; its sign post stands to the right.
     'mart': ('Poké Mart/Poké Mart.obj', {'fs_a': ('repeat', 'repeat')}, {'center': 0}),
+    # HeartGold/SoulSilver's gym (Saffron's textures): every texture repeats.
+    'gym': ('Saffron Gym/Saffron Gym.obj', {}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }

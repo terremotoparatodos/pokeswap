@@ -41,9 +41,10 @@ describe('converted town models', () => {
     expect(Math.min(...solidX)).toBe(-32)
   })
 
-  it('are drawn by Ciudad Corazón: the Pokémon Center, the Poké Mart and both benches', () => {
+  it('are drawn by Ciudad Corazón: the Pokémon Center, the Poké Mart, the gym and both benches', () => {
     expect(HEARTHOME.buildings.find(b => b.id === 'pokecenter')?.image?.model).toBe('/assets/town/models/pokecenter.json')
     expect(HEARTHOME.buildings.find(b => b.id === 'mart')?.image?.model).toBe('/assets/town/models/mart.json')
+    expect(HEARTHOME.buildings.find(b => b.id === 'gym')?.image?.model).toBe('/assets/town/models/gym.json')
     expect(HEARTHOME.art?.models).toEqual({ bench: '/assets/town/models/bench-1.json', benchLeft: '/assets/town/models/bench-2.json' })
   })
 })
