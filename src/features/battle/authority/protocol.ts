@@ -34,14 +34,23 @@ export type BattleIntent =
       readonly combatantId: string
       readonly moveId: number
       /**
-       * Optional, and checked when it is there. R32.3 is 1 vs 1 and derives
-       * the target itself, so this is not how a target is *chosen* — it is how
-       * a client says which one it believed it was aiming at, and the server
-       * refuses the action when that is not who it would hit. Sending it is
-       * strictly safer than not sending it, and multi-slot battles will need
-       * it to be mandatory.
+       * **Mandatory** (A-3, closed), even though R32.3's baseline is 1 vs 1.
+       *
+       * The rules can derive the single opponent, and the authority refuses to
+       * let them: a command whose shape depends on how many combatants are on
+       * the field is a command that has to change when an Alpha or a co-op
+       * fight arrives, and every caller changes with it. Making it mandatory
+       * now costs one field and keeps the wire contract stable.
+       *
+       * It is not a formality either. A client that names its target is a
+       * client the server can catch disagreeing with it — aiming at a Pokémon
+       * that already fainted, or at one that switched out — instead of
+       * silently attacking whoever happens to be there now.
+       *
+       * A self-targeted move names the user itself, explicitly. Nothing is
+       * ever inferred (§7).
        */
-      readonly targetId?: string
+      readonly targetId: string
     }
   | { readonly kind: 'switch'; readonly combatantId: string; readonly incomingId: string }
   | {
@@ -161,7 +170,17 @@ export interface AuthorityDuplicate {
   readonly snapshot: ClientBattleSnapshot
 }
 
-/** Rejected: nothing ran, nothing mutated, and the revision did not move. */
+/**
+ * Rejected: nothing ran, nothing mutated, and the revision did not move.
+ *
+ * **Public and deliberately thin** (A-4, closed). It carries a stable code and
+ * the two numbers a client needs to recover, and nothing else. The earlier
+ * version carried a `detail` sentence straight from the validator, which is
+ * two mistakes in one field: it tells whoever is probing the boundary exactly
+ * which check they tripped, and it invites a client to match on prose that was
+ * never a protocol. The sentence still exists — it goes to
+ * `AuthorityDiagnostic`, server-side.
+ */
 export interface AuthorityRejected {
   readonly kind: 'rejected'
   readonly reason: RejectionReason
@@ -169,8 +188,74 @@ export interface AuthorityRejected {
   readonly actionId: string | null
   /** The canonical revision right now, so a client can tell how far behind it is. */
   readonly revision: number
-  /** Diagnostics. Not a protocol: never match on this string. */
-  readonly detail: string
+  /**
+   * Where to resume counting, on the rejections where a client cannot work it
+   * out for itself — `STALE_ACTION` above all. It is the same number
+   * `JoinAck` carries, and it is not a secret: it is this controller's own
+   * counter, told to the controller it belongs to.
+   */
+  readonly nextActionSequence?: number
 }
 
 export type AuthoritySubmitResult = AuthorityAccepted | AuthorityDuplicate | AuthorityRejected
+
+// ── Joining, and rejoining ──────────────────────────────────────────────────
+
+/**
+ * What a controller is told when it joins or rejoins (A-1, closed).
+ *
+ * A reconnecting client — a reload, a second tab, a dropped socket — starts
+ * its counter at 1, and that `controller:1` lands under its own accepted
+ * floor. Resetting the floor would fix it by throwing away the dedupe window,
+ * which is precisely what a reconnect must not do: the actions in flight when
+ * the socket died are the ones most likely to arrive twice.
+ *
+ * So the server tells the client where to resume. `nextActionSequence` is
+ * `acceptedFloor + 1`, and the counter becomes a **continuation** rather than
+ * a fresh count.
+ *
+ * This is per-controller handshake metadata and **not** part of
+ * `ClientBattleSnapshot`: a snapshot describes the battle and goes to
+ * everyone, while this describes one controller's own position in its own
+ * sequence. Putting it in the snapshot would mean either sending every
+ * controller's counter to every client, or a snapshot whose contents depend on
+ * who asked — and a snapshot that is different per viewer is not a snapshot.
+ *
+ * R32.4 does not implement a handshake; it fixes the shape of one, and proves
+ * that a client following it recovers. Delivering it is R34's.
+ */
+export interface JoinAck {
+  readonly battleId: string
+  readonly controllerId: string
+  /** The canonical revision at the moment of the join. */
+  readonly currentRevision: number
+  /** `acceptedFloor + 1`. Where this controller's next `actionId` starts. */
+  readonly nextActionSequence: number
+  readonly catalogVersion: string
+  readonly battleRulesVersion: string
+  /** What this controller may act for. Empty when it commands nothing. */
+  readonly controlledCombatantIds: readonly string[]
+}
+
+// ── What the server keeps to itself ─────────────────────────────────────────
+
+/**
+ * The detail a rejection used to leak (A-4, closed).
+ *
+ * Which check failed, on what, and why — the things that make an incident
+ * readable at three in the morning, and exactly the things that make a
+ * boundary easy to probe from outside. It stays server-side: a test reads it,
+ * and a future observability layer will. It is never sent to a client, and it
+ * is never written with `console.*` (AGENTS, R21).
+ */
+export interface AuthorityDiagnostic {
+  readonly serverTimeMs: number
+  /** Whoever the transport authenticated, when the rejection got that far. */
+  readonly controllerId: string | null
+  readonly actionId: string | null
+  readonly reason: RejectionReason
+  /** Which check refused it, as a short stable slug. */
+  readonly check: string
+  /** The sentence. Diagnostics, not a protocol: nothing may match on it. */
+  readonly detail: string
+}

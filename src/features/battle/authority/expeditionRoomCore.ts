@@ -7,16 +7,25 @@
 // boss, no co-op and no persistence, and adding any of them here is R34/R35
 // work pretending to be R32.4 (§26, §37).
 //
-// **Why it is TypeScript here and not a Colyseus room in `services/realtime`.**
-// That service is CommonJS JavaScript with no build step: it cannot import
-// Shared Battle Rules, which are TypeScript under `src/`. Writing the room
-// over there today would mean either a second copy of the rules — the one
-// thing R32.3 exists to prevent — or a bundler decision made in a hurry at the
-// end of a release. So the room lives where the rules live, with no transport
-// dependency at all, and R34 wires it to Colyseus by giving the service a
-// build step. Nothing in this file has to change when that happens: a Colyseus
-// `Room` subclass would call `join`, `message`, `update` and `leave`, in that
-// order, and forward what they return.
+// **Why `Core`, and why it is TypeScript here.** `services/realtime` is
+// CommonJS JavaScript with no build step: it cannot import Shared Battle
+// Rules, which are TypeScript under `src/`. Writing the room over there today
+// would mean either a second copy of the rules — the one thing R32.3 exists to
+// prevent — or a bundler decision made in a hurry at the end of a release. So
+// the room lives where the rules live, with no transport dependency at all.
+//
+// R34 will almost certainly declare `class ExpeditionRoom extends Room` in
+// that service, and two different things called `ExpeditionRoom` in one
+// codebase is a collision worth spending a word to avoid. This one is the
+// **core**: the part that owns no socket and can be tested without one. The
+// Colyseus room will wrap it —
+//
+//     class ExpeditionRoom extends Room {
+//       onCreate() { this.core = createExpeditionRoomCore({ … }) }
+//     }
+//
+// — calling `join`, `message`, `update` and `leave` and forwarding what they
+// return. Nothing in this file has to change when that happens.
 //
 // The lifecycle mirrors `PresenceRoom` on purpose, down to the vocabulary, so
 // the two read as the same kind of object.
@@ -25,7 +34,7 @@ import type { BattleRulesCatalog, BattleRulesConfig, BattleSideInput } from '../
 import { createBattleAuthority } from './authority'
 import type { BattleAuthority, SupportedVersions } from './authority'
 import type { AuthorityClock } from './clock'
-import type { AuthorityEventEnvelope, AuthoritySubmitResult } from './protocol'
+import type { AuthorityEventEnvelope, AuthoritySubmitResult, JoinAck, RejectionReason } from './protocol'
 import { REJECTION } from './protocol'
 import type { AuthoritySeedSource } from './seed'
 import type { ClientBattleSnapshot } from './snapshot'
@@ -47,7 +56,7 @@ export interface ExpeditionParticipant {
   readonly controllerId: string
 }
 
-export interface CreateExpeditionRoomInput {
+export interface CreateExpeditionRoomCoreInput {
   readonly roomId: string
   readonly clock: AuthorityClock
   readonly seedSource: AuthoritySeedSource
@@ -67,9 +76,17 @@ export interface RoomUpdate {
   readonly snapshot: ClientBattleSnapshot | null
 }
 
-export interface ExpeditionRoom {
+export interface ExpeditionRoomCore {
   readonly roomId: string
-  join(participant: ExpeditionParticipant): void
+  /**
+   * Admits a participant and returns its handshake, or `null` when there is no
+   * battle to hand one out for yet.
+   *
+   * The `JoinAck` is what a reconnecting client needs and cannot work out: the
+   * sequence its next `actionId` should carry (A-1). Sending it is R34's job;
+   * producing it correctly is this release's.
+   */
+  join(participant: ExpeditionParticipant): JoinAck | null
   leave(sessionId: string): void
   /** Participants currently connected, in join order. */
   participants(): readonly ExpeditionParticipant[]
@@ -90,16 +107,17 @@ export interface ExpeditionRoom {
   update(): RoomUpdate
 }
 
-export function createExpeditionRoom(input: CreateExpeditionRoomInput): ExpeditionRoom {
+export function createExpeditionRoomCore(input: CreateExpeditionRoomCoreInput): ExpeditionRoomCore {
   const bySession = new Map<string, ExpeditionParticipant>()
   let authority: BattleAuthority | null = null
 
-  const refuse = (reason: (typeof REJECTION)[keyof typeof REJECTION], detail: string): AuthoritySubmitResult => ({
+  // The room's own refusals never reach the authority, so they carry no
+  // diagnostic either — there is nothing to diagnose but the transport.
+  const refuse = (reason: RejectionReason, actionId: string | null = null): AuthoritySubmitResult => ({
     kind: 'rejected',
     reason,
-    actionId: null,
+    actionId,
     revision: authority?.revision() ?? 0,
-    detail,
   })
 
   return {
@@ -113,6 +131,7 @@ export function createExpeditionRoom(input: CreateExpeditionRoomInput): Expediti
         if (existing.controllerId === participant.controllerId) bySession.delete(sessionId)
       }
       bySession.set(participant.sessionId, participant)
+      return authority?.joinAck(participant.controllerId) ?? null
     },
 
     leave(sessionId) {
@@ -141,11 +160,9 @@ export function createExpeditionRoom(input: CreateExpeditionRoomInput): Expediti
       const participant = bySession.get(sessionId)
       // An unknown socket is not a controller. It gets the same code a wrong
       // controller gets, and learns nothing about who is in the room.
-      if (!participant) return refuse(REJECTION.NOT_CONTROLLER, 'this session is not in the room')
-      if (type !== EXPEDITION_MESSAGE.ACTION) {
-        return refuse(REJECTION.UNKNOWN_ACTION, 'this room does not handle that message')
-      }
-      if (!authority) return refuse(REJECTION.UNKNOWN_BATTLE, 'this room has no battle yet')
+      if (!participant) return refuse(REJECTION.NOT_CONTROLLER)
+      if (type !== EXPEDITION_MESSAGE.ACTION) return refuse(REJECTION.UNKNOWN_ACTION)
+      if (!authority) return refuse(REJECTION.UNKNOWN_BATTLE)
       return authority.submit(participant.controllerId, payload)
     },
 

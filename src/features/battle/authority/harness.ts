@@ -17,8 +17,8 @@ import type { SampleFighter } from '../rules/sampleBattles'
 import type { BattleAuthority, SupportedVersions } from './authority'
 import { createManualClock } from './clock'
 import type { ManualClock } from './clock'
-import { createExpeditionRoom } from './expeditionRoom'
-import type { ExpeditionRoom } from './expeditionRoom'
+import { createExpeditionRoomCore } from './expeditionRoomCore'
+import type { ExpeditionRoomCore } from './expeditionRoomCore'
 import { createFixedSeedSource } from './seed'
 import type { AuthoritySeedSource } from './seed'
 
@@ -40,7 +40,7 @@ export interface AuthorityHarnessInput {
 
 export interface AuthorityHarness {
   readonly authority: BattleAuthority
-  readonly room: ExpeditionRoom
+  readonly room: ExpeditionRoomCore
   readonly clock: ManualClock
   readonly catalog: BattleRulesCatalog
   readonly controllerId: string
@@ -79,7 +79,7 @@ export async function createAuthorityHarness(input: AuthorityHarnessInput): Prom
     },
   ]
 
-  const room = createExpeditionRoom({
+  const room = createExpeditionRoomCore({
     roomId: input.roomId ?? 'harness-room',
     clock,
     seedSource: input.seedSource ?? createFixedSeedSource(input.seed ?? 20260919),

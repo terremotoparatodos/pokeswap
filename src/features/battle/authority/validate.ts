@@ -68,10 +68,11 @@ function readIntent(value: unknown): BattleIntent | 'malformed' | 'unknown' {
   switch (value.kind) {
     case 'useMove': {
       const moveId = readCatalogId(value.moveId)
-      if (!combatantId || moveId === null) return 'malformed'
-      if (value.targetId === undefined) return { kind: 'useMove', combatantId, moveId }
       const targetId = readId(value.targetId)
-      return targetId ? { kind: 'useMove', combatantId, moveId, targetId } : 'malformed'
+      // Mandatory (A-3). A missing target is a malformed command here, not a
+      // cue to guess who the only opponent is.
+      if (!combatantId || moveId === null || !targetId) return 'malformed'
+      return { kind: 'useMove', combatantId, moveId, targetId }
     }
     case 'switch': {
       const incomingId = readId(value.incomingId)

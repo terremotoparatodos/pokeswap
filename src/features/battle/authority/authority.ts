@@ -43,8 +43,8 @@ import { createAuthorityItemCatalog } from './itemCatalog'
 import type { AuthorityItemCatalog } from './itemCatalog'
 import { REJECTION } from './protocol'
 import type {
-  AuthorityEventEnvelope, AuthorityRejected, AuthoritySubmitResult, BattleIntent, RejectionReason,
-  TransportAction,
+  AuthorityDiagnostic, AuthorityEventEnvelope, AuthorityRejected, AuthoritySubmitResult, BattleIntent,
+  JoinAck, RejectionReason, TransportAction,
 } from './protocol'
 import type { AuthoritySeedSource } from './seed'
 import { projectClientSnapshot } from './snapshot'
@@ -126,7 +126,40 @@ export interface BattleAuthority {
    * exactly what a reconnect must not do.
    */
   acceptedFloor(controllerId: string): number
+  /**
+   * The handshake a controller gets when it joins or rejoins (A-1).
+   *
+   * Transport-safe and per-controller: it tells one client its own position in
+   * its own sequence. It is not the snapshot and does not belong in one.
+   */
+  joinAck(controllerId: string): JoinAck
+  /**
+   * Why the last rejections were rejected, in detail. **Server-side only.**
+   *
+   * Bounded, in memory, and never sent to a client (A-4). A test reads it; a
+   * future observability layer will drain it.
+   */
+  diagnostics(): readonly AuthorityDiagnostic[]
 }
+
+/** How much detail the authority keeps before the oldest of it falls off. */
+const MAX_DIAGNOSTICS = 64
+
+/**
+ * A refusal, before it is split in two.
+ *
+ * `reason` and the public numbers go to the client; `check` and `detail` go to
+ * the diagnostics. Carrying both in one value means a new rejection cannot be
+ * added without saying what tripped it.
+ */
+interface Refusal {
+  readonly reason: RejectionReason
+  readonly check: string
+  readonly detail: string
+}
+
+const refuse = (reason: RejectionReason, check: string, detail: string): Refusal =>
+  ({ reason, check, detail })
 
 const buildControls = (state: BattleState): Record<string, readonly string[]> => {
   const controls: Record<string, string[]> = {}
@@ -184,9 +217,35 @@ export function createBattleAuthority(input: CreateBattleAuthorityInput): Battle
   const snapshot = (): ClientBattleSnapshot =>
     projectClientSnapshot(state, { revision, serverTimeMs, controls })
 
-  const reject = (
-    reason: RejectionReason, detail: string, actionId: string | null,
-  ): AuthorityRejected => ({ kind: 'rejected', reason, actionId, revision, detail })
+  const diagnostics: AuthorityDiagnostic[] = []
+
+  /**
+   * Splits a refusal: a thin public envelope out, the detail into the log.
+   *
+   * The client learns *that* it was refused and, where it could not work it
+   * out alone, where to resume counting. It does not learn which of a dozen
+   * checks caught it — that is a map of the boundary, drawn for whoever is
+   * probing it.
+   */
+  function reject(
+    refusal: Refusal,
+    actionId: string | null,
+    controllerId: string | null,
+    extra: { readonly nextActionSequence?: number } = {},
+  ): AuthorityRejected {
+    diagnostics.push({
+      serverTimeMs,
+      controllerId,
+      actionId,
+      reason: refusal.reason,
+      check: refusal.check,
+      detail: refusal.detail,
+    })
+    if (diagnostics.length > MAX_DIAGNOSTICS) {
+      diagnostics.splice(0, diagnostics.length - MAX_DIAGNOSTICS)
+    }
+    return { kind: 'rejected', reason: refusal.reason, actionId, revision, ...extra }
+  }
 
   /**
    * Runs a command and commits it — or does not.
@@ -220,33 +279,75 @@ export function createBattleAuthority(input: CreateBattleAuthorityInput): Battle
     return commit({ type: 'ADVANCE_TIME', deltaMs }, null).events
   }
 
+  /**
+   * Whether a move is aimed at its user or at the other side (A-3).
+   *
+   * Read off the catalog's own `target` column — `user` for Swords Dance,
+   * Protect and Recover; a selected opponent for everything else R32.3 runs.
+   * It is data, not a guess: the authority never decides what a move is for.
+   */
+  function targetProblem(intent: Extract<BattleIntent, { kind: 'useMove' }>): Refusal | null {
+    const target = state.combatants[intent.targetId]
+    if (!target) return refuse(REJECTION.INVALID_TARGET, 'target.exists', 'no such combatant in this battle')
+
+    const move = input.catalog.move(intent.moveId)
+    // Not in the catalog: nothing to classify, and the rules refuse it a few
+    // lines later because no Pokémon can know it.
+    if (!move) return null
+
+    if (move.target === 'user') {
+      // Explicitly itself, or nothing. Never inferred from "there is only one
+      // sensible reading".
+      return intent.targetId === intent.combatantId
+        ? null
+        : refuse(REJECTION.INVALID_TARGET, 'target.self', 'this move is aimed at its user')
+    }
+
+    if (intent.targetId === intent.combatantId) {
+      return refuse(REJECTION.INVALID_TARGET, 'target.notSelf', 'this move is aimed at an opponent')
+    }
+    // Under the 1-vs-1 baseline the rules would hit exactly one combatant, and
+    // the client has to name that one. Naming anybody else — a fainted
+    // opponent, a Pokémon that switched out, an ally — means the two are
+    // looking at different battles, and guessing on the client's behalf is how
+    // an attack silently lands on whoever happens to be standing there.
+    const wouldHit = currentTargetOf(state, intent.combatantId)
+    if (!wouldHit) return refuse(REJECTION.INVALID_TARGET, 'target.none', 'there is nothing to aim at')
+    if (wouldHit.combatantId !== intent.targetId) {
+      return refuse(REJECTION.INVALID_TARGET, 'target.mismatch', 'that is not the combatant this would hit')
+    }
+    return null
+  }
+
   function toCommand(
     intent: BattleIntent, owned: readonly string[],
-  ): RejectionReason | { readonly command: BattleCommand } {
+  ): Refusal | { readonly command: BattleCommand } {
     switch (intent.kind) {
       case 'useMove': {
-        if (intent.targetId !== undefined) {
-          const target = currentTargetOf(state, intent.combatantId)
-          // Aiming at something the rules would not hit means the client is
-          // looking at a different battle than the server is.
-          if (!target || target.combatantId !== intent.targetId) return REJECTION.INVALID_TARGET
-        }
+        const problem = targetProblem(intent)
+        if (problem) return problem
         return { command: { type: 'USE_MOVE', combatantId: intent.combatantId, moveId: intent.moveId } }
       }
       case 'switch': {
         // Its own bench, or nobody's. The rules check the side as well; this
         // check is the one that survives a controller owning two sides.
-        if (!owned.includes(intent.incomingId)) return REJECTION.NOT_CONTROLLER
+        if (!owned.includes(intent.incomingId)) {
+          return refuse(REJECTION.NOT_CONTROLLER, 'switch.owned', 'that Pokémon is not this controller s')
+        }
         return {
           command: { type: 'SWITCH', combatantId: intent.combatantId, incomingId: intent.incomingId },
         }
       }
       case 'useItem': {
-        if (!owned.includes(intent.targetId)) return REJECTION.NOT_CONTROLLER
+        if (!owned.includes(intent.targetId)) {
+          return refuse(REJECTION.NOT_CONTROLLER, 'item.owned', 'an item goes on this controller s own team')
+        }
         const effect = items.itemEffect(intent.item.itemId, intent.item.moveId ?? null)
         // The amount is the server's. A client naming an item we do not stock
         // gets nothing, rather than the effect it proposed.
-        if (!effect) return REJECTION.INVALID_SCHEMA
+        if (!effect) {
+          return refuse(REJECTION.INVALID_SCHEMA, 'item.unknown', 'this server does not stock that item')
+        }
         return {
           command: {
             type: 'USE_ITEM', combatantId: intent.combatantId, targetId: intent.targetId, item: effect,
@@ -254,12 +355,16 @@ export function createBattleAuthority(input: CreateBattleAuthorityInput): Battle
         }
       }
       case 'capture': {
-        if (!state.combatants[intent.targetId]) return REJECTION.INVALID_TARGET
+        if (!state.combatants[intent.targetId]) {
+          return refuse(REJECTION.INVALID_TARGET, 'capture.exists', 'no such combatant in this battle')
+        }
         // Capturing something you already command is not a capture, and R35
         // will read ownership off exactly this line.
-        if (owned.includes(intent.targetId)) return REJECTION.INVALID_TARGET
+        if (owned.includes(intent.targetId)) {
+          return refuse(REJECTION.INVALID_TARGET, 'capture.own', 'this controller already commands that one')
+        }
         const ball = items.ball(intent.ballId)
-        if (!ball) return REJECTION.INVALID_SCHEMA
+        if (!ball) return refuse(REJECTION.INVALID_SCHEMA, 'capture.ball', 'this server has no such ball')
         return {
           command: {
             type: 'CAPTURE', combatantId: intent.combatantId, targetId: intent.targetId, ball,
@@ -274,26 +379,50 @@ export function createBattleAuthority(input: CreateBattleAuthorityInput): Battle
   /** Context-dependent checks: everything `validate.ts` could not know alone. */
   function authorize(
     controllerId: string, action: TransportAction, parsed: ParsedActionId,
-  ): RejectionReason | { readonly command: BattleCommand } {
-    if (parsed.controllerId !== controllerId) return REJECTION.NOT_CONTROLLER
-    if (action.battleId !== input.battleId) return REJECTION.UNKNOWN_BATTLE
-    if (!supported.catalogVersions.includes(action.catalogVersion)) return REJECTION.INVALID_VERSION
-    if (action.catalogVersion !== state.catalogVersion) return REJECTION.INVALID_VERSION
-    if (!supported.battleRulesVersions.includes(action.battleRulesVersion)) return REJECTION.INVALID_VERSION
-    if (action.battleRulesVersion !== state.battleRulesVersion) return REJECTION.INVALID_VERSION
-    if (state.outcome.kind !== 'ongoing') return REJECTION.BATTLE_FINISHED
+  ): Refusal | { readonly command: BattleCommand } {
+    if (parsed.controllerId !== controllerId) {
+      return refuse(REJECTION.NOT_CONTROLLER, 'actionId.namespace', 'the actionId names another controller')
+    }
+    if (action.battleId !== input.battleId) {
+      return refuse(REJECTION.UNKNOWN_BATTLE, 'battleId', 'this authority runs a different battle')
+    }
+    if (!supported.catalogVersions.includes(action.catalogVersion)) {
+      return refuse(REJECTION.INVALID_VERSION, 'version.catalogSupported', 'this server does not run that catalog')
+    }
+    if (action.catalogVersion !== state.catalogVersion) {
+      return refuse(REJECTION.INVALID_VERSION, 'version.catalogBattle', 'this battle runs a different catalog')
+    }
+    if (!supported.battleRulesVersions.includes(action.battleRulesVersion)) {
+      return refuse(REJECTION.INVALID_VERSION, 'version.rulesSupported', 'this server does not run those rules')
+    }
+    if (action.battleRulesVersion !== state.battleRulesVersion) {
+      return refuse(REJECTION.INVALID_VERSION, 'version.rulesBattle', 'this battle runs different rules')
+    }
+    if (state.outcome.kind !== 'ongoing') {
+      return refuse(REJECTION.BATTLE_FINISHED, 'outcome', `the battle is ${state.outcome.kind}`)
+    }
 
     const owned = controls[controllerId] ?? []
-    if (!owned.includes(action.intent.combatantId)) return REJECTION.NOT_CONTROLLER
+    if (!owned.includes(action.intent.combatantId)) {
+      return refuse(REJECTION.NOT_CONTROLLER, 'controls', 'this controller does not command that combatant')
+    }
     return toCommand(action.intent, owned)
   }
 
   function submit(controllerId: string, payload: unknown): AuthoritySubmitResult {
     const validation = validateTransportAction(payload)
-    if (!validation.ok) return reject(validation.reason, validation.detail, null)
+    if (!validation.ok) {
+      return reject(
+        refuse(validation.reason, 'schema', validation.detail), null, controllerId,
+      )
+    }
     const action = validation.action
     const parsed = parseActionId(action.actionId)
-    if (!parsed) return reject(REJECTION.INVALID_ACTION_ID, 'unreadable actionId', null)
+    if (!parsed) {
+      return reject(
+        refuse(REJECTION.INVALID_ACTION_ID, 'actionId.parse', 'unreadable actionId'), null, controllerId,
+      )
+    }
 
     // Before anything else is spent: an action we already ran is answered from
     // the ledger and never reaches the rules a second time.
@@ -312,24 +441,29 @@ export function createBattleAuthority(input: CreateBattleAuthorityInput): Battle
     // on from — and if it *was* the evicted original, running it would double
     // it. This is what lets the ledger be bounded at all.
     if (parsed.controllerId === controllerId && parsed.sequence <= ledger.acceptedFloor(controllerId)) {
+      // The one rejection a client cannot recover from on its own: it does not
+      // know the floor. So this one carries the way out (A-1).
       return reject(
-        REJECTION.STALE_ACTION,
-        'a later action from this controller was already accepted',
+        refuse(REJECTION.STALE_ACTION, 'sequence.floor', `sequence ${parsed.sequence} is at or below the floor`),
         action.actionId,
+        controllerId,
+        { nextActionSequence: ledger.acceptedFloor(controllerId) + 1 },
       )
     }
 
     const authorized = authorize(controllerId, action, parsed)
-    if (typeof authorized === 'string') {
-      return reject(authorized, 'the authority refused this action', action.actionId)
-    }
+    if ('reason' in authorized) return reject(authorized, action.actionId, controllerId)
 
     const { events, refused } = commit(authorized.command, action.actionId)
     if (refused) {
       return reject(
-        REJECTION.ACTION_NOT_ALLOWED,
-        refused.type === 'COMMAND_REJECTED' ? refused.reason : 'the rules refused this command',
+        refuse(
+          REJECTION.ACTION_NOT_ALLOWED,
+          'rules',
+          refused.type === 'COMMAND_REJECTED' ? refused.reason : 'the rules refused this command',
+        ),
         action.actionId,
+        controllerId,
       )
     }
     ledger.remember(parsed, { actionId: action.actionId, revision, events })
@@ -344,6 +478,16 @@ export function createBattleAuthority(input: CreateBattleAuthorityInput): Battle
     submit,
     controls: () => controls,
     acceptedFloor: controllerId => ledger.acceptedFloor(controllerId),
+    joinAck: controllerId => ({
+      battleId: input.battleId,
+      controllerId,
+      currentRevision: revision,
+      nextActionSequence: ledger.acceptedFloor(controllerId) + 1,
+      catalogVersion: state.catalogVersion,
+      battleRulesVersion: state.battleRulesVersion,
+      controlledCombatantIds: controls[controllerId] ?? [],
+    }),
+    diagnostics: () => diagnostics,
     internal: () => ({ battleId: input.battleId, revision, serverTimeMs, startedAtMs, state, controls }),
   }
 }
