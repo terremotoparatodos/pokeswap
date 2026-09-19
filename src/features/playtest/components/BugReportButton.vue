@@ -193,8 +193,9 @@ async function copy(): Promise<void> {
 }
 
 @media (max-width: 720px) {
-  /* The lobby HUD owns the bottom centre; keep clear of it and of the arrows. */
-  .pt-bug { right: 0.6rem; bottom: 0.6rem; }
+  /* The lobby HUD is nearly full width on a phone and reaches this corner, so
+     the button joins the row above it rather than sitting on top of it. */
+  .pt-bug { right: 0.6rem; bottom: 4.6rem; }
   .pt-bug-fab-text { display: none; }
   .pt-bug-fab { min-height: 38px; width: 38px; justify-content: center; padding: 0; }
 }

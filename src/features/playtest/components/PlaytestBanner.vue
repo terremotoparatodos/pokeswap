@@ -8,7 +8,10 @@
       @click="expanded = !expanded"
     >
       <span class="pt-banner-dot" aria-hidden="true" />
+      <!-- The full build id on a laptop; a short signal on a phone, where the
+           long one reached across into the minimap. The card always has both. -->
       <span class="pt-banner-label">{{ label }}</span>
+      <span class="pt-banner-short">PLAYTEST 0.1</span>
     </button>
 
     <div v-if="expanded" id="pt-banner-card" class="pt-banner-card" role="note">
@@ -61,7 +64,11 @@ onMounted(() => {
   position: fixed;
   top: 0.5rem;
   left: 50%;
-  z-index: 60;
+  /* Under the panels (city 35, dungeon 40) and over the world. The pill is a
+     standing reminder, not something that should sit on a panel's title. The
+     bug button stays above them on purpose: reporting from inside a Dungeon is
+     exactly when you most want to. */
+  z-index: 25;
   display: grid;
   justify-items: center;
   gap: 0.4rem;
@@ -121,8 +128,12 @@ onMounted(() => {
   cursor: pointer;
 }
 
+.pt-banner-short { display: none; }
+
 @media (max-width: 720px) {
   .pt-banner { top: 0.4rem; }
   .pt-banner-pill { font-size: 0.65rem; min-height: 24px; }
+  .pt-banner-label { display: none; }
+  .pt-banner-short { display: inline; }
 }
 </style>
