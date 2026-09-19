@@ -1,5 +1,7 @@
 <template>
   <div class="pf pwd">
+    <SkillsPanel v-if="skills" :session="session" />
+
     <p v-if="areaKind === 'wild' && !anySelection" class="pwd-hint">
       <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia, el horno o la orilla
     </p>
@@ -111,6 +113,10 @@ import InventoryGrid from '../InventoryGrid.vue'
 import LoggingActionCard from '../LoggingActionCard.vue'
 import MiningActionCard from '../MiningActionCard.vue'
 import ProfessionHud from '../ProfessionHud.vue'
+import SkillsPanel from '../SkillsPanel.vue'
+import { PROFESSION_IDS, type ToolKind } from '../../domain/types'
+import { equipDemoTool, setDemoLevel } from '../../demo/demoSession'
+import { TOOL_BY_ID } from '../../domain/catalog/tools'
 import '../professions.css'
 
 // Visual integration inside WildLands, mounted only in development builds
@@ -118,7 +124,28 @@ import '../professions.css'
 // the alchemy bench — draws itself in the real scene through its overlay, so
 // the R31-B generic node panel is no longer shown here (the playground still
 // uses it). Local demo session only: no writes, no network, no presence messages.
-const props = defineProps<{ areaKind: 'town' | 'wild'; game: MiningGamePort | null }>()
+const props = defineProps<{
+  areaKind: 'town' | 'wild'
+  game: MiningGamePort | null
+  /** Show the Skills panel. Community Playtest 0.1 does; the dev demo does not. */
+  skills?: boolean
+  /**
+   * PLAYTEST RULE: start every profession at level 1 with no tool equipped.
+   *
+   * The dev demo starts mid-career (16/9/6/12) so every surface can be looked
+   * at. A playtest wants the opposite: the first levels of the real curve are
+   * cheap by design — level 2 is two swings — so a tester watches a number go
+   * up inside two hours without anyone inventing a multiplier. Nothing about
+   * the curve, the XP values or the node requirements changes.
+   *
+   * No tool is the other half of it: tier-1 nodes allow bare hands, so a player
+   * with nothing can still play, and the shop's basic tools are a real upgrade
+   * rather than a formality.
+   */
+  fresh?: boolean
+  /** Tool item ids the player owns, e.g. bought in the Tienda. */
+  ownedTools?: readonly string[]
+}>()
 // WildlandsView still listens for `overlay` to pause the game behind a covering
 // panel. Since R31-Z.1 the demo opens none, so it never emits; the event stays
 // declared to keep that host contract unchanged.
@@ -160,6 +187,36 @@ const highlight = computed(() => {
   const gather = fishing.outcome.value?.gather
   return gather?.ok ? gather.placements : []
 })
+
+// PLAYTEST RULE (see the `fresh` prop): level 1 everywhere, empty hands.
+if (props.fresh) {
+  session.update(state => {
+    let next = PROFESSION_IDS.reduce((carry, id) => setDemoLevel(carry, id, 1), state)
+    for (const kind of ['pickaxe', 'axe', 'rod', 'sickle'] as ToolKind[]) next = equipDemoTool(next, kind, null)
+    return next
+  })
+}
+
+/**
+ * Tools the player owns. Equipping is idempotent and driven from outside, so
+ * buying a pickaxe in the Tienda is the whole interaction — nothing in here
+ * grants a tool to itself.
+ */
+watch(() => props.ownedTools, owned => {
+  if (!owned?.length) return
+  session.update(state => {
+    let next = state
+    for (const itemId of owned) {
+      const definition = TOOL_BY_ID.get(itemId)
+      // Never downgrade: a player who bought stone and then iron keeps iron.
+      if (!definition) continue
+      const current = next.tools[definition.kind]
+      const currentTier = current ? TOOL_BY_ID.get(current.itemId)?.tier ?? 0 : 0
+      if (definition.tier > currentTier) next = equipDemoTool(next, definition.kind, itemId)
+    }
+    return next
+  })
+}, { immediate: true, deep: true })
 
 const bitePoll = setInterval(() => fishing.syncBite(), BITE_POLL_MS)
 // The furnace's own poll asks the *domain* whether the work is finished at the

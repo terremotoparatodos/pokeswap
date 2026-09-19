@@ -28,7 +28,7 @@ import { floorRequirements, OBSTACLES, requirementForObstacle } from '../domain/
 import { BALL_TIMING, flee, tick, type BattleActor, type BattleEvent, type PreparedAction } from '../domain/battle'
 import { createSpawn, formatCountdown, type DungeonDefinition } from '../domain/dungeonSpawn'
 import { MOVES } from '../domain/moves'
-import { heal, isFainted, revive } from '../domain/party'
+import { heal, isFainted, revive, type PokemonInstance } from '../domain/party'
 import { streamFor } from '../domain/rng'
 import {
   act, advanceClock, atStairs, clearObstacle, descend, endRun, engage, enterAntechamber, move,
@@ -49,8 +49,29 @@ import { tileCentre } from '../world/dungeonArea'
  * `autoStart` is that second entrance, and it is additive: with the prop
  * absent this component is exactly the lab it has always been.
  */
-const props = defineProps<{ autoStart?: { definitionId: string; minutes?: number } | null }>()
-const emit = defineEmits<{ exit: [] }>()
+const props = defineProps<{
+  autoStart?: { definitionId: string; minutes?: number } | null
+  /**
+   * The party to take in. Absent uses the lab's own six.
+   *
+   * Named `startingParty` rather than `party` because the template already has
+   * a `party` computed — the one currently inside the expedition. Two different
+   * parties with one name is exactly the collision that reads fine and behaves
+   * badly.
+   */
+  startingParty?: readonly PokemonInstance[] | null
+  /** What to carry in. Absent uses the lab's starting loadout. */
+  inventory?: Readonly<Record<string, number>> | null
+}>()
+/**
+ * Leaving hands back the party as the expedition left it.
+ *
+ * `startPlay` clones what it is given, so the run never writes into the
+ * caller's records. Attrition still has to reach the outside world somehow, or
+ * the Pokémon Center has nothing to heal — so the wear comes back out here and
+ * whoever owns the party decides what to do with it.
+ */
+const emit = defineEmits<{ exit: [party: readonly PokemonInstance[] | null] }>()
 
 // `begin` is a hoisted function declaration, so the entrance can be taken
 // before the rest of the component has finished reading itself.
@@ -401,7 +422,6 @@ function announceEnding(live: PlaySession): void {
 
 function begin(definition: DungeonDefinition, minutes: number): void {
   stop()
-  bag.value = { ...STARTING_INVENTORY }
   toast.value = null
   logCursor = 0
   const now = Date.now()
@@ -411,10 +431,11 @@ function begin(definition: DungeonDefinition, minutes: number): void {
     now, minutes, seed: Math.floor(Math.random() * 100000),
   })
   const pool = poolOf(definition)
-  preloadSpecies([...pool, ...buildParty().map(member => member.speciesId)])
-  session.value = startPlay({
-    definition, spawn, party: buildParty(), inventory: STARTING_INVENTORY, pool, now,
-  })
+  const party = props.startingParty?.length ? [...props.startingParty] : buildParty()
+  const inventory = props.inventory ?? STARTING_INVENTORY
+  bag.value = { ...inventory }
+  preloadSpecies([...pool, ...party.map(member => member.speciesId)])
+  session.value = startPlay({ definition, spawn, party, inventory, pool, now })
   last = performance.now()
   frame = requestAnimationFrame(loop)
 }
@@ -655,7 +676,7 @@ function restart(): void {
   stop()
   toast.value = null
   // Entered from a cave: there is no catalog to go back to, only WildLands.
-  if (props.autoStart) { emit('exit'); return }
+  if (props.autoStart) { emit('exit', session.value?.expedition.party ?? null); return }
   session.value = null
 }
 </script>

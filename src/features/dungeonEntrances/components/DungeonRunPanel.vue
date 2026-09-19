@@ -11,7 +11,9 @@
       <component
         :is="PlayDungeon"
         :auto-start="{ definitionId: entrance.definition.definitionId, minutes }"
-        @exit="emit('close')"
+        :starting-party="party"
+        :inventory="inventory"
+        @exit="emit('close', $event)"
       />
     </div>
   </div>
@@ -20,6 +22,7 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
 import { minutesLeft } from '../../dungeonPrototype/domain/dungeonSpawn'
+import type { PokemonInstance } from '../../dungeonPrototype/domain/party'
 import type { AreaEntrance } from '../domain/entranceSpawns'
 
 // The bridge between a cave in WildLands and the approved Dungeon prototype.
@@ -29,8 +32,14 @@ import type { AreaEntrance } from '../domain/entranceSpawns'
 // be server-authoritative (DUNGEON_PROTOTYPE_INTEGRATION.md §4). A player who
 // loses a run to a refresh should have been told beforehand, so the header
 // tells them.
-const props = defineProps<{ entrance: AreaEntrance }>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{
+  entrance: AreaEntrance
+  /** The party that walks in. Absent leaves the prototype on its own fixtures. */
+  party?: readonly PokemonInstance[] | null
+  inventory?: Readonly<Record<string, number>> | null
+}>()
+/** The party comes back out worn, which is what gives the Centro Pokémon a job. */
+const emit = defineEmits<{ close: [party?: readonly PokemonInstance[] | null] }>()
 
 // The expedition inherits the spawn's remaining clock, not a fresh timer:
 // "if forty seven minutes are left when you walk in, forty seven minutes is

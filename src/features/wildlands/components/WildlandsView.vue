@@ -46,8 +46,8 @@
       :pokedex="pokedex"
       :covered="covered"
       @overlay="open => (plazaOpen = open)"
-      @market="panel.open('mercado', 'menu')"
-      @feature="feature => panel.open(feature, 'menu')"
+      @market="openFeature('mercado', 'menu')"
+      @feature="feature => openFeature(feature, 'menu')"
     />
 
     <ProfessionWorldDemo
@@ -55,6 +55,9 @@
       ref="professionRef"
       :area-kind="hud.areaKind"
       :game="game"
+      :skills="isPlaytest"
+      :fresh="isPlaytest"
+      :owned-tools="playtestStore?.tools.value"
       @overlay="(open: boolean) => (professionOpen = open)"
     />
 
@@ -71,15 +74,24 @@
       :is="DungeonRunPanel"
       v-if="DungeonRunPanel && dungeonRun"
       :entrance="dungeonRun"
-      @close="dungeonRun = null"
+      :party="playtestStore?.party.value"
+      :inventory="playtestStore?.supplies.value"
+      @close="leaveDungeon"
     />
 
-    <component :is="ChatPanel" v-if="ChatPanel && !dungeonRun" />
+    <component :is="ChatPanel" v-if="ChatPanel && !dungeonRun && !playtestSurface" />
+
+    <component
+      :is="CityPanel"
+      v-if="CityPanel && playtestSurface"
+      :surface="playtestSurface"
+      @close="closePlaytestSurface"
+    />
 
     <LobbyMenu
       v-model:open="menuOpen"
       :reduced-motion="reduceMotion"
-      @select="feature => panel.open(feature, 'menu')"
+      @select="feature => openFeature(feature, 'menu')"
       @activity="plazaRef?.openBoard()"
       @sign-in="signInOpen = true"
       @update:reduced-motion="reduceMotion = $event"
@@ -107,6 +119,7 @@ import type { PlacedObjectSpec } from '../engine/placedObjects'
 import type { PokedexEntry } from '../engine/population'
 import { LOBBY_ID } from '../areas/atlas'
 import { useLobbyPanel } from '../lobby/useLobbyPanel'
+import type { LobbyFeature } from '../lobby/features'
 import { usePlayerIdentity } from '../identity/usePlayerIdentity'
 import LobbyHud from './LobbyHud.vue'
 import LobbyMenu from './LobbyMenu.vue'
@@ -114,14 +127,17 @@ import LobbyPanel from './LobbyPanel.vue'
 import LobbyPlaza from './LobbyPlaza.vue'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
 import { ColyseusPresence } from '../multiplayer/api/colyseusPresence'
-import { useChat } from '../../chat/state/useChat'
+import type { Chat } from '../../chat/state/useChat'
 import type { LocalPresencePort } from '../multiplayer/domain/presence'
 import { useAuth } from '../../auth/composables/useAuth'
 import { composeWorldProbes } from '../engine/worldProbes'
 import { CompositeOverlay } from '../engine/compositeOverlay'
 import { isPlaytest } from '../../playtest/playtestBuild'
 import { usePlaytestContext } from '../../playtest/state/playtestContext'
+import { playtestSurfaceFor, type PlaytestSurface } from '../../playtest/domain/cityFeatures'
+import type { PlaytestStore } from '../../playtest/state/usePlaytestStore'
 import type { AreaEntrance } from '../../dungeonEntrances/domain/entranceSpawns'
+import type { PokemonInstance } from '../../dungeonPrototype/domain/party'
 import type { SceneOverlay } from '../engine/sceneOverlay'
 
 // Controls and fps help: development builds only, so production never ships it.
@@ -140,6 +156,8 @@ const DungeonRunPanel = dungeonsInWorld ? defineAsyncComponent(() => import('../
 // Area chat rides the presence socket. Same gates again: playtest builds have
 // players to talk to, development builds have the server to talk to.
 const ChatPanel = dungeonsInWorld ? defineAsyncComponent(() => import('../../chat/components/ChatPanel.vue')) : null
+// The city during the playtest: two doors open, the rest say why they are not.
+const CityPanel = isPlaytest ? defineAsyncComponent(() => import('../../playtest/components/CityPanel.vue')) : null
 
 const arrows: { dir: Dir; label: string }[] = [
   { dir: 'up', label: 'Arriba' },
@@ -160,13 +178,16 @@ const hud = reactive<HudState>({
 const identity = usePlayerIdentity(game)
 const { user } = useAuth()
 let presence: ColyseusPresence | null = null
-// Null outside a playtest or development build, and then nothing below routes
-// chat traffic at all.
-const chat = ChatPanel ? useChat() : null
+/**
+ * Null outside a playtest or development build, and then nothing below routes
+ * chat traffic at all. Loaded dynamically for the same reason as the playtest
+ * store: a module with top-level state is a module a bundler must keep.
+ */
+const chat = shallowRef<Chat | null>(null)
 /** One socket, two passengers: presence and chat. */
 function connectPresence(target: WildlandsGame): ColyseusPresence {
-  const socket = new ColyseusPresence(target, chat?.sink ?? null)
-  chat?.attach(text => socket.sendChat(text))
+  const socket = new ColyseusPresence(target, chat.value?.sink ?? null)
+  chat.value?.attach(text => socket.sendChat(text))
   return socket
 }
 const presencePort: LocalPresencePort = {
@@ -233,13 +254,64 @@ const professionClaims = (area: Area, tx: number, ty: number): boolean =>
 const worldProbes = composeWorldProbes(() => [professionRef.value, dungeonRef.value])
 const hasWorldProviders = !!(ProfessionWorldDemo || DungeonEntrances)
 
-const covered = computed(() => panel.feature.value !== null || menuOpen.value || authOpen.value || dungeonRun.value !== null)
+/**
+ * Session-only player state (coins, tools, party, boxes).
+ *
+ * Imported dynamically rather than at the top of the file. A static import
+ * kept the module — and through it the Dungeon prototype's species fixtures —
+ * inside a normal production build, which is exactly the leak the playtest is
+ * supposed to be incapable of. Null until the playtest asks for it, and in a
+ * normal build nothing ever does.
+ */
+const playtestStore = shallowRef<PlaytestStore | null>(null)
+/** Which playtest surface a city door opened, or null when none is open. */
+const playtestSurface = shallowRef<PlaytestSurface | null>(null)
+/** Remembered so closing a door puts the player back outside it, as before. */
+let playtestDoorFeature: LobbyFeature | null = null
+
+/**
+ * Every way into a city feature goes through here: the door, the lobby menu
+ * and the plaza all hand over the same feature id.
+ *
+ * Outside the playtest this is the call it always was. Inside it, the panel
+ * route is never pushed at all — a closed feature must not merely be hidden,
+ * it must not load — and the playtest's own surface opens instead.
+ */
+function openFeature(feature: LobbyFeature, origin: 'menu' | 'door'): void {
+  if (!isPlaytest) {
+    panel.open(feature, origin)
+    return
+  }
+  playtestDoorFeature = origin === 'door' ? feature : null
+  playtestSurface.value = playtestSurfaceFor(feature)
+}
+
+/**
+ * Coming out of a Dungeon. The party comes back as the expedition left it —
+ * hurt, out of PP, maybe fainted — which is the whole reason the Centro
+ * Pokémon exists. Nothing else crosses back: a capture made in there is
+ * client-side loot and stays client-side loot.
+ */
+function leaveDungeon(party?: readonly PokemonInstance[] | null): void {
+  playtestStore.value?.returnFromExpedition(party)
+  dungeonRun.value = null
+}
+
+function closePlaytestSurface(): void {
+  playtestSurface.value = null
+  if (playtestDoorFeature) game.value?.placeAtDoor(playtestDoorFeature)
+  playtestDoorFeature = null
+}
+
+const covered = computed(() =>
+  panel.feature.value !== null || menuOpen.value || authOpen.value
+  || dungeonRun.value !== null || playtestSurface.value !== null)
 const motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
 const reduceMotion = ref(motionMedia.matches)
 const hidden = ref(document.visibilityState === 'hidden')
 
 watchEffect(() => {
-  if (isPlaytest) playtest.setSurface(dungeonRun.value ? 'dungeon' : panel.feature.value ?? null)
+  if (isPlaytest) playtest.setSurface(dungeonRun.value ? 'dungeon' : playtestSurface.value?.kind ?? null)
   game.value?.setPaused(covered.value || plazaOpen.value || professionOpen.value)
   game.value?.setVisibilityPaused(hidden.value)
   game.value?.setReducedMotion(reduceMotion.value)
@@ -297,6 +369,14 @@ onMounted(async () => {
     devWarn('[wildlands] Pokédex unavailable, spawning trainers only', error)
   }
   await authReady
+  if (ChatPanel) {
+    const { useChat } = await import('../../chat/state/useChat')
+    chat.value = useChat()
+  }
+  if (isPlaytest) {
+    const { usePlaytestStore } = await import('../../playtest/state/usePlaytestStore')
+    playtestStore.value = usePlaytestStore()
+  }
   if (!canvasRef.value) return
   // ?area=<world>&x=&y= jumps straight to a spot, handy for sharing places in the (deterministic) worlds.
   const x = Number(route.query.x)
@@ -309,7 +389,7 @@ onMounted(async () => {
   const spawn = querySpawn ?? savedSpawn
   const created = new WildlandsGame(canvasRef.value, {
     pokedex: pokedex.value, onHud, spawn, startArea,
-    onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
+    onEnterBuilding: (_building, feature) => openFeature(feature, 'door'),
     onInspect: hit => plazaRef.value?.inspect(hit),
     onWorldObject: hasWorldProviders ? target => worldProbes.inspect(target) : undefined,
     isWorldObject: hasWorldProviders ? target => worldProbes.isWorldObject(target) : undefined,
@@ -350,7 +430,7 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
   game.value?.destroy()
   presence?.disconnect()
-  chat?.attach(null)
+  chat.value?.attach(null)
 })
 
 // A session change replaces the socket rather than keeping an authenticated actor after logout.
