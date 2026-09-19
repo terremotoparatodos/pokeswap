@@ -169,33 +169,35 @@ describe('editing a building', () => {
 })
 
 describe('3D model buildings', () => {
-  it('offer the models no city building uses (the casino), with their front render as thumbnail', () => {
-    const casino = buildingTemplate('model:casino')!
-    expect(casino).toMatchObject({ group: 'model', w: 7, d: 4, image: { src: '/assets/town/models/casino-sprite.png', model: '/assets/town/models/casino.json' } })
-    expect(buildingTemplate('model:condo')).toMatchObject({ w: 6, d: 5, image: { model: '/assets/town/models/condo.json' } })
+  it('offer the models no city building uses (the condominiums), with their front render as thumbnail', () => {
+    expect(buildingTemplate('model:condo')).toMatchObject({
+      group: 'model', w: 6, d: 5, image: { src: '/assets/town/models/condo-sprite.png', model: '/assets/town/models/condo.json' },
+    })
+    // The casino stands in the city now: its template comes from the city building.
+    expect(buildingTemplate('art:casino-sprite')).toMatchObject({ label: 'Casino (3D)', image: { model: '/assets/town/models/casino.json' } })
     // City buildings with a model keep it in their template.
     expect(buildingTemplate('art:pokecenter')?.image?.model).toBe('/assets/town/models/pokecenter.json')
   })
 
-  it('places a casino and keeps its model through an exported and re-imported patch', () => {
+  it('places condominiums and keeps their model through an exported and re-imported patch', () => {
     const base = baseline()
-    const city = ok(addBuilding(HEARTHOME, base, 'model:casino', freeSpot(base, 'model:casino', false)))
+    const city = ok(addBuilding(HEARTHOME, base, 'model:condo', freeSpot(base, 'model:condo', false)))
     const text = serializePatch(diffCities(base, city, LOBBY_ID))
-    expect(JSON.parse(text).buildings.added[0].image.model).toBe('/assets/town/models/casino.json')
+    expect(JSON.parse(text).buildings.added[0].image.model).toBe('/assets/town/models/condo.json')
     const back = applyPatch(base, JSON.parse(text))
-    expect(back.ok && back.city.buildings.find(b => b.id === 'building-new-1')?.image?.model).toBe('/assets/town/models/casino.json')
+    expect(back.ok && back.city.buildings.find(b => b.id === 'building-new-1')?.image?.model).toBe('/assets/town/models/condo.json')
   })
 })
 
 describe('the patch', () => {
   it('exports a new building as a full record and imports it back byte-identical', () => {
     const base = baseline()
-    let city = ok(addBuilding(HEARTHOME, base, 'art:poffin', freeSpot(base, 'art:poffin')))
+    let city = ok(addBuilding(HEARTHOME, base, 'art:house-blue', freeSpot(base, 'art:house-blue')))
     city = ok(editBuilding(HEARTHOME, city, 'building-new-1', { name: 'Museo', feature: 'pokedex', blurb: 'Fósiles.' }))
     const patch = diffCities(base, city, LOBBY_ID)
     expect(patch.version).toBe(3)
     expect(patch.buildings.added).toHaveLength(1)
-    expect(patch.buildings.added[0]).toMatchObject({ id: 'building-new-1', name: 'Museo', feature: 'pokedex', style: 'redhouse', image: { src: '/assets/town/poffin.png' } })
+    expect(patch.buildings.added[0]).toMatchObject({ id: 'building-new-1', name: 'Museo', feature: 'pokedex', style: 'house', image: { src: '/assets/town/house-blue.png' } })
     const text = serializePatch(patch)
     const parsed = parsePatch(text)
     const back = parsed.ok ? applyPatch(base, parsed.value) : null

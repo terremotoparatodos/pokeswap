@@ -46,10 +46,11 @@ const HEARTHOME_ART: TownArtSet = {
 
 const hedgeRuns: Run[] = [
   [14, 17, 19], [20, 17, 19], [25, 17, 19], [35, 17, 19], [41, 17, 19], [55, 17, 19],
-  [8, 24, 29], [16, 24, 29], [22, 26, 29], [27, 26, 29], [32, 26, 29], [38, 26, 29], [49, 26, 29],
+  [8, 24, 29], [16, 24, 29], [22, 26, 29], [27, 26, 29], [32, 26, 29], [49, 26, 29],
   [35, 35, 37], [43, 35, 37],
 ]
-const hedgeRows: Line[] = [[29, 33, 37]]
+// The row in front of the fountain block stops short of the Casino.
+const hedgeRows: Line[] = [[29, 33, 36]]
 // The north-east fence stops short of the gym, leaving the walk up to the Amity Square lawn.
 const fenceRows: Line[] = [[13, 14, 22], [13, 41, 45], [7, 23, 25], [7, 37, 39], [34, 18, 35], [34, 43, 51]]
 const fenceCols: Run[] = [[23, 8, 12], [39, 8, 12], [7, 14, 33], [56, 14, 33]]
@@ -69,7 +70,7 @@ function props(): TownProp[] {
     [50, 11, 'Plaza Amistad · Puerta a la Costa Coral'],
     [28, 15, 'Ciudad Corazón · Donde los corazones se encuentran'],
     [21, 29, 'Barrio de las fuentes · Casas y Tienda'],
-    [37, 28, 'Casa de los Poffins · Perfil de entrenadores'],
+    [36, 28, 'Casino · Perfil de entrenadores'],
     [46, 18, 'Gimnasio de Ciudad Corazón · Líder: por anunciar'],
     [13, 39, 'Puerta oeste → Pradera Brisa · Puerta sur → Desierto Ardiente'],
     [50, 39, 'Puerta este → Bosque Umbrío'],
@@ -101,10 +102,13 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       { id: 'house1', name: 'Casa', blurb: 'No hay nadie. Se escucha una radio adentro.', style: 'house', x: 21, y: 15, w: 4, d: 5, image: { src: art('house-green'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
       { id: 'apt1', name: 'Departamentos', blurb: 'Las jardineras están recién regadas.', style: 'apartment', x: 36, y: 13, w: 5, d: 7, image: { src: art('apartment-a'), flatTop: 70, model: '/assets/town/models/celadon-tall.json' } },
       { id: 'gym', name: 'Gimnasio', blurb: 'La entrada al Dungeon.', style: 'gym', x: 48, y: 14, w: 7, d: 6, door: { tx: 51, ty: 19 }, feature: 'dungeon', image: { src: art('gym'), flatTop: 59, model: '/assets/town/models/gym.json' } },
-      { id: 'fanclub', name: 'Club de Fans Pokémon', blurb: 'Guardan la Pokédex de todos los socios.', style: 'redhouse', x: 10, y: 24, w: 5, d: 6, door: { tx: 11, ty: 29 }, feature: 'pokedex', image: { src: art('fanclub'), flatTop: 42 } },
+      // Mr. Pokémon's House (HeartGold's model) where the Fan Club was: same Pokédex door, a 4×4 footprint.
+      { id: 'fanclub', name: 'Casa de Mr. Pokémon', blurb: 'Guarda la Pokédex de todos los entrenadores.', style: 'redhouse', x: 10, y: 26, w: 4, d: 4, door: { tx: 11, ty: 29 }, feature: 'pokedex', image: { src: '/assets/town/models/mrpokemon-sprite.png', model: '/assets/town/models/mrpokemon.json' } },
       { id: 'house2', name: 'Casa', blurb: 'Huele a pan recién horneado.', style: 'house', x: 23, y: 25, w: 4, d: 5, image: { src: art('house-blue'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
       { id: 'mart', name: 'Tienda', blurb: 'El Mercado de PokeSwap: comprá y vendé Pokémon.', style: 'mart', x: 28, y: 26, w: 4, d: 4, door: { tx: 30, ty: 29 }, feature: 'mercado', image: { src: art('mart'), flatTop: 36, model: '/assets/town/models/mart.json' } },
-      { id: 'poffin', name: 'Casa de los Poffins', blurb: 'Tu perfil, tus tokens y tus movimientos.', style: 'redhouse', x: 39, y: 24, w: 5, d: 6, door: { tx: 41, ty: 29 }, feature: 'perfil', image: { src: art('poffin'), flatTop: 40 } },
+      // The Casino (HeartGold's Game Corner) where the Poffin House was: the Perfil entrance, 7×4 tiles
+      // (a hedge column and the end of the hedge row made room for it).
+      { id: 'poffin', name: 'Casino', blurb: 'Tu perfil, tus tokens y tus movimientos.', style: 'contest', x: 37, y: 26, w: 7, d: 4, door: { tx: 40, ty: 29 }, feature: 'perfil', image: { src: '/assets/town/models/casino-sprite.png', model: '/assets/town/models/casino.json' } },
       { id: 'apt2', name: 'Departamentos', blurb: 'Alguien practica flauta en el segundo piso.', style: 'apartment', x: 44, y: 23, w: 5, d: 7, image: { src: art('apartment-b'), flatTop: 75, model: '/assets/town/models/celadon-tall.json' } },
     ],
     fountains: [
@@ -134,7 +138,7 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       { tx: 10, ty: 17, dir: 'right', lines: ['«¡Bienvenido a Ciudad Corazón, el corazón de PokeSwap!»'] },
       { tx: 16, ty: 22, dir: 'down', lines: ['«En el Centro Pokémon te guardan la caja con tus Pokémon.»'] },
       { tx: 17, ty: 32, dir: 'up', lines: ['«Por la puerta sur se llega al Desierto Ardiente. ¡Llevá agua!»'] },
-      { tx: 21, ty: 23, dir: 'right', lines: ['«En el Club de Fans no se habla de otra cosa que de Pokémon.»'] },
+      { tx: 21, ty: 23, dir: 'right', lines: ['«Mr. Pokémon no habla de otra cosa que de Pokémon.»'] },
       { tx: 24, ty: 12, dir: 'down', lines: ['«En Silph Co. se hacen los Swaps.»'] },
       { tx: 26, ty: 33, dir: 'left', lines: ['«Me encanta el ruido de las fuentes.»'] },
       { tx: 28, ty: 23, dir: 'down', lines: ['«En la Tienda está el Mercado. ¡Hay cada Pokémon!»'] },

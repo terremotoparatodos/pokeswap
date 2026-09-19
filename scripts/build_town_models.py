@@ -63,6 +63,8 @@ MODELS = {
     # the tall beige one with a side stair for the apartments (5 tiles wide).
     'celadon-green': ('buildings/Celadon City Building 1/Celadon City Building.obj', {}),
     'celadon-tall': ('buildings/Celadon City Building 2/Celadon City Building 2.obj', {}),
+    # HeartGold/SoulSilver's Mr. Pokémon's House (where the Fan Club was: the Pokédex entrance).
+    'mrpokemon': ("mr pokemon house/Mr. Pokémon's House.obj", {}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }

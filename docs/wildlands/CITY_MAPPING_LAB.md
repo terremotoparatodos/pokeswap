@@ -98,8 +98,7 @@ requires engine support (main station's decision).
 - The Pokémon Center, the Poké Mart and the gym are HeartGold/SoulSilver's models (closer to Platinum
   than Diamond/Pearl's). The Mart's sign post stands past its footprint (`center` option).
 - Each converted model also gets `<id>-sprite.png`, its front render: the palette thumbnail
-  and loading fallback. Models no city building uses (the Goldenrod Game Corner "Casino",
-  the Celadon Condominiums)
+  and loading fallback. Models no city building uses (the Celadon Condominiums)
   are placeable from the lab's palette → Edificios → Modelos 3D.
 - Per-model options in the converter: `center` / `front` (where the body stands, ignoring a
   sign post or a painted shadow) and `skip` (materials not drawn, e.g. a lamp's glow: the game
@@ -110,8 +109,8 @@ requires engine support (main station's decision).
 - A building opts in with `image.model` (the PNG stays as loading fallback and for the ground
   dressing); fountains with `art.fountains[i].model`; props with `art.models[kind]`. Today: the Pokémon Center, the Poké Mart, the gym, Silph Co. (where the Contest Hall was), the
   three route gates (door on their portal), the houses and apartments (Celadon's buildings), the
-  street lamps, the fountains and both benches. Still sprites: the Fan Club, the Poffin House and
-  the Amity Square gates.
+  street lamps, the fountains, both benches, Mr. Pokémon's House (where the Fan Club was, Pokédex)
+  and the Casino (where the Poffin House was, Perfil). Still sprites: the Amity Square gates.
 
 ## Buildings from scratch
 

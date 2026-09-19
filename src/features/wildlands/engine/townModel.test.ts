@@ -59,6 +59,9 @@ describe('converted town models', () => {
       '/assets/town/models/celadon-green.json', '/assets/town/models/celadon-green.json',
       '/assets/town/models/celadon-tall.json', '/assets/town/models/celadon-tall.json',
     ])
+    // Mr. Pokémon's House and the Casino replace the Fan Club and the Poffin House, keeping their entrances.
+    expect(HEARTHOME.buildings.find(b => b.id === 'fanclub')).toMatchObject({ door: { tx: 11, ty: 29 }, feature: 'pokedex', image: { model: '/assets/town/models/mrpokemon.json' } })
+    expect(HEARTHOME.buildings.find(b => b.id === 'poffin')).toMatchObject({ door: { tx: 40, ty: 29 }, feature: 'perfil', image: { model: '/assets/town/models/casino.json' } })
     // Silph Co. replaces the Contest Hall: same id, door and Swap entrance, a wider footprint.
     expect(HEARTHOME.buildings.find(b => b.id === 'contest')).toMatchObject({
       name: 'Silph Co.', x: 26, w: 10, door: { tx: 31, ty: 14 }, feature: 'swap', image: { model: '/assets/town/models/silph.json' },

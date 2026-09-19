@@ -33,6 +33,9 @@ const LABELS: Record<string, string> = {
   pokecenter: 'Centro Pokémon', 'house-green': 'Casa verde', 'house-blue': 'Casa azul',
   'apartment-a': 'Departamentos A', 'apartment-b': 'Departamentos B', gym: 'Gimnasio',
   fanclub: 'Club de Fans', mart: 'Tienda', poffin: 'Casa de los Poffins',
+  // City buildings drawn from 3D models (their front render is the template's image).
+  'pokecenter-sprite': 'Centro Pokémon (3D)', 'silph-sprite': 'Silph Co. (3D)', 'casino-sprite': 'Casino (3D)',
+  'mrpokemon-sprite': 'Casa de Mr. Pokémon (3D)',
 }
 
 const BLOCK_LABELS: Record<BuildingStyle, string> = {
@@ -70,7 +73,6 @@ for (const b of HEARTHOME.buildings) {
  * render is the palette thumbnail and loading fallback. Footprints fit the model.
  */
 const MODEL_BUILDINGS: readonly { id: string; label: string; style: BuildingStyle; w: number; d: number }[] = [
-  { id: 'casino', label: 'Casino (Game Corner)', style: 'contest', w: 7, d: 4 },
   { id: 'condo', label: 'Condominios', style: 'apartment', w: 6, d: 5 },
 ]
 
