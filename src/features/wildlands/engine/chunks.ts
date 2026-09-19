@@ -31,6 +31,8 @@ export interface DecorInstance {
   x: number
   y: number
   seed: number
+  /** Buildings: depth of the footprint in world px, so the renderer draws a box (buildingVolume.ts). */
+  volume?: number
 }
 
 export interface ChunkPixels {

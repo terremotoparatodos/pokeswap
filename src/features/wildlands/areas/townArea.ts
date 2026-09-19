@@ -228,7 +228,7 @@ export class TownArea implements Area {
     const buildingEntries: { entry: DecorInstance; depth: number }[] = []
     const buildingArt = def.buildings.map(b => {
       const loaded = addWithArt(
-        { kind: null, sprite: buildingSprite(b), tx: b.x, ty: b.y + b.d - 1, x: (b.x + b.w / 2) * TILE, y: (b.y + b.d) * TILE - 1 },
+        { kind: null, sprite: buildingSprite(b), tx: b.x, ty: b.y + b.d - 1, x: (b.x + b.w / 2) * TILE, y: (b.y + b.d) * TILE - 1, volume: b.d * TILE },
         b.image,
         false,
       )

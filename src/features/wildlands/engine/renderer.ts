@@ -26,6 +26,7 @@ import { createProjector, type CameraLens, type Projector } from './projection'
 import { buildPropSprites } from './props'
 import type { OverlayLabel, SceneOverlay } from './sceneOverlay'
 import type { Sprite } from './sprite'
+import { silhouetteInsets, volumeGeometry, wallColour } from './buildingVolume'
 import { WATER_TEX, waterFramePixels } from './terrainArt'
 import { TILE, type DecorKind } from './world'
 
@@ -93,6 +94,8 @@ interface Drawable {
   prop?: { tx: number; ty: number }
   username?: string
   actor?: Actor
+  /** Buildings: world position of the feet and footprint depth, to draw them as a box. */
+  volume?: { wx: number; wy: number; depth: number }
 }
 
 interface FrameInfo {
@@ -282,6 +285,7 @@ export class Renderer {
         // Only wild props: town buildings bring their own sprite and already
         // resolve a tap through their footprint (`doorForTap`).
         prop: d.kind ? { tx: d.tx, ty: d.ty } : undefined,
+        volume: d.volume ? { wx: d.x, wy: d.y, depth: d.volume } : undefined,
       })
     }
 
@@ -380,7 +384,9 @@ export class Renderer {
       const faded = d.alpha !== undefined && d.alpha < 1
       if (faded) ctx.globalAlpha = Math.max(0, d.alpha!)
       const flat = sprite.flatTop ?? 0
-      if (flat > 0) {
+      if (flat > 0 && d.volume && this.drawVolume(scene, proj, d, W)) {
+        // Drawn as a box: side wall, façade and a roof that narrows with depth.
+      } else if (flat > 0) {
         // Upright façade, then the roof squashed by the camera tilt like the ground.
         const faceH = sprite.h - flat
         const faceY = Math.round(d.y - (sprite.ay - flat) * s)
@@ -399,6 +405,60 @@ export class Renderer {
     if (this.frame) for (const nameplate of nameplates) drawPlayerNameplate(ctx, nameplate.username, nameplate.x, nameplate.y, this.frame.dpr)
     const labels = scene.overlay?.labels?.(scene.area, t)
     if (labels?.length && this.frame) for (const label of labels) this.drawLabel(label, scene, proj, this.frame.dpr)
+  }
+
+  /**
+   * A building as a box (see buildingVolume.ts): the side wall facing the
+   * screen centre, the upright façade, then the roof row by row, narrowing
+   * toward the back of the footprint like the ground does. False when the
+   * back of the footprint cannot be projected (then it is drawn as a card).
+   */
+  private drawVolume(scene: Scene, proj: Projector, d: Drawable, W: number): boolean {
+    const { sprite, scale: s, volume } = d
+    if (!volume) return false
+    const backP = proj.project(volume.wx - scene.camX, volume.wy - volume.depth - scene.camY)
+    const frontP = proj.project(volume.wx - scene.camX, volume.wy - scene.camY)
+    if (!backP || !frontP) return false
+    const ctx = this.ctx
+    const flat = sprite.flatTop ?? 0
+    const faceH = sprite.h - flat
+    const left = Math.round(d.x - sprite.ax * s)
+    const width = Math.round(sprite.w * s)
+    const faceTop = Math.round(d.y - (sprite.ay - flat) * s)
+    const roofH = Math.round(flat * s * scene.lens.squash)
+    const bottom = faceTop + Math.round(faceH * s)
+    const geo = volumeGeometry({ left, width, bottom, faceTop, roofH, cx: W / 2, ratio: backP.scale / frontP.scale })
+    const wall = geo.wall
+    if (wall) {
+      // Row by row, from the art's own silhouette edge, so a pointed roof gets a gable, not a slab.
+      const inset = silhouetteInsets(sprite)[wall.side]
+      const roofTop = faceTop - roofH
+      ctx.fillStyle = wallColour(sprite, wall.side)
+      for (let y = roofTop; y < bottom; y++) {
+        let edge: number
+        if (y >= faceTop) {
+          const src = Math.min(sprite.h - 1, flat + Math.floor((y - faceTop) / s))
+          edge = wall.side === 'left' ? left + inset[src] * s : left + width - inset[src] * s
+        } else {
+          const i = y - roofTop
+          const src = Math.min(flat - 1, Math.floor(((i + 0.5) / roofH) * flat))
+          // Beside a roof that does not reach the side (a gable's slope) there is air, not wall.
+          if (inset[src] > 3) continue
+          const row = geo.roofRow(i)
+          const px = row.width / sprite.w
+          edge = wall.side === 'left' ? row.x + inset[src] * px : row.x + row.width - inset[src] * px
+        }
+        const span = geo.wallSpan(y, edge)
+        if (span) ctx.fillRect(Math.round(span.x0), y, Math.max(1, Math.round(span.x1 - span.x0)), 1)
+      }
+    }
+    if (faceH > 0) ctx.drawImage(sprite.canvas, 0, flat, sprite.w, faceH, left, faceTop, width, bottom - faceTop)
+    for (let i = 0; i < roofH; i++) {
+      const row = geo.roofRow(i)
+      const src = Math.min(flat - 1, Math.floor(((i + 0.5) / roofH) * flat))
+      ctx.drawImage(sprite.canvas, 0, src, sprite.w, 1, row.x, faceTop - roofH + i, row.width, 1)
+    }
+    return true
   }
 
   /** Floating feedback text (e.g. "+2"): canvas text with a dark rim, never markup. */
