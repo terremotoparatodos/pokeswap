@@ -172,6 +172,7 @@ describe('3D model buildings', () => {
   it('offer the models no city building uses (the casino), with their front render as thumbnail', () => {
     const casino = buildingTemplate('model:casino')!
     expect(casino).toMatchObject({ group: 'model', w: 7, d: 4, image: { src: '/assets/town/models/casino-sprite.png', model: '/assets/town/models/casino.json' } })
+    expect(buildingTemplate('model:condo')).toMatchObject({ w: 6, d: 5, image: { model: '/assets/town/models/condo.json' } })
     // City buildings with a model keep it in their template.
     expect(buildingTemplate('art:pokecenter')?.image?.model).toBe('/assets/town/models/pokecenter.json')
   })

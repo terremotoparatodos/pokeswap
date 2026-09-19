@@ -71,6 +71,7 @@ for (const b of HEARTHOME.buildings) {
  */
 const MODEL_BUILDINGS: readonly { id: string; label: string; style: BuildingStyle; w: number; d: number }[] = [
   { id: 'casino', label: 'Casino (Game Corner)', style: 'contest', w: 7, d: 4 },
+  { id: 'condo', label: 'Condominios', style: 'apartment', w: 6, d: 5 },
 ]
 
 const MODEL_TEMPLATES: BuildingTemplate[] = MODEL_BUILDINGS.map(m => ({

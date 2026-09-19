@@ -40,6 +40,8 @@ MODELS = {
     'gym': ('Saffron Gym/Saffron Gym.obj', {}),
     # HeartGold/SoulSilver's Goldenrod Game Corner (not in Ciudad Corazón: a building the lab can place).
     'casino': ('Casino/Goldenrod Game Corner.obj', {}),
+    # HeartGold/SoulSilver's Celadon Condominiums (placeable from the lab).
+    'condo': ('Condominio/Celadon Condominiums.obj', {}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }
