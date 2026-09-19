@@ -79,7 +79,7 @@ En CI/Cloudflare el flag va como variable de entorno del paso de build, junto a
 
 | Sistema | Clase | Por qué |
 |---|---|---|
-| Supabase Auth (login) | **SAFE** | Sólo se lee la sesión; el playtest no escribe perfiles |
+| Supabase Auth (login y registro) | **ONBOARDING — EXCEPCIÓN AUTORIZADA** | Alta de usuario + perfil mínimo; ver §3.1 |
 | Presencia (Colyseus) | **SAFE** | En memoria del servicio, sin persistencia |
 | Chat | **SAFE** | En memoria del servicio, muere con el proceso |
 | Skills / profesiones | **DEV/PLAYTEST ONLY** | `demoSession`, en memoria de la pestaña |
@@ -93,8 +93,39 @@ En CI/Cloudflare el flag va como variable de entorno del paso de build, junto a
 | Pokédex | **DISABLE** | Escribe `pokedex` |
 | Pagos (Ko-fi) | **DISABLE** | Nunca alcanzable desde el playtest |
 
-**Ninguna superficie del playtest escribe en Supabase.** Las únicas lecturas son
-la sesión de Auth y la fila del gate.
+**Ninguna superficie de gameplay del playtest escribe en Supabase**: ni
+economía, inventario, mercado, swap, dungeon, recompensas ni progreso
+productivo. La única escritura es el onboarding de §3.1.
+
+### 3.1 Excepción autorizada: registro y perfil mínimo
+
+El playtest es en stream y admite participantes nuevos. Login y registro por
+email y OAuth (Google) funcionan como en la build normal. El acceso al juego lo
+controlan la build playtest, el gate remoto (§4) y el código dicho en stream, no
+la existencia previa de la cuenta.
+
+Qué escribe un alta (verificado en vivo sobre `qsufableozmyugcrhcai`, 2026-09-19):
+
+- `auth.users` — la cuenta (Supabase Auth).
+- `profiles`, vía trigger `on_auth_user_created` (AFTER INSERT ON `auth.users`)
+  → `handle_new_user()`: sólo `id`, `username`, `display_name`, `avatar_url`.
+- `profiles.upsert` del signup por email (`authApi.signUp`): sólo
+  `{ id, username }`.
+- Defaults de la fila nueva: `tokens = 0`, `total_spent = 0`,
+  `token_multiplier = 1.0`, `dungeon_tokens_today = 0`,
+  `free_claims_remaining = 1`.
+
+`free_claims_remaining = 1` es la asignación diaria normal de cualquier cuenta
+del producto (`reset_daily_free_claim()` la repone a todos), no una recompensa
+del playtest. La build playtest no ofrece ni llama a `free-claim`. La Edge
+Function sigue desplegada (`verify_jwt=true`): una cuenta nueva podría invocarla
+a mano, exactamente como cualquier cuenta normal. **Riesgo documentado y
+aceptado.**
+
+Escrituras de Supabase presentes en el bundle playtest (grep de `dist`):
+`auth.signUp` y `from("profiles").upsert` — nada más. Sin `.rpc(...)` de
+aplicación ni `functions.invoke`. Lecturas: sesión, `profiles`, `pokemon`,
+`slots`, `activity_feed` y `playtest_gate`.
 
 ---
 
@@ -402,10 +433,11 @@ Nada de esto es urgente ni destructivo: el playtest no dejó datos.
 
 1. **Cerrar el acceso** (§4.4). Es lo único que importa hacer rápido.
 2. **Guardar los reportes.** Están en el chat del stream; no hay endpoint.
-3. **Datos creados:** ninguno. Ninguna superficie del playtest escribe en
-   Supabase. El progreso de skills, el party, las cajas, las fichas y el
+3. **Datos creados:** sólo las cuentas y perfiles mínimos de quienes se
+   registraron (§3.1). Son cuentas normales del producto y se quedan. Ninguna
+   superficie de gameplay escribe en Supabase. El progreso de skills, el party, las cajas, las fichas y el
    inventario vivían en la pestaña y ya no existen.
-4. **Reset:** no hay nada que resetear. Un refresh ya era un reset.
+4. **Reset:** no hay gameplay que resetear. Un refresh ya era un reset.
 5. **Volver a la build normal:** deploy sin `VITE_PLAYTEST` (o con otro valor).
 6. **Opcional, `playtest_gate`:** dejarla es inofensivo (sin datos de jugador,
    sólo lectura pública, y una build normal ni la consulta). Si se quiere
