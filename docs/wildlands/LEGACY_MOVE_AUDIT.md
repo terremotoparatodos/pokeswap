@@ -2,7 +2,7 @@
 
 > GENERADO por `node scripts/legacy-move-audit.mjs`. No editar a mano.
 > Fuente legacy: tag `v0-legacy-baseline` (`fd8dd1108631fbd937efe77c92f03ad9b4dab300`), `data/learnset.js` y `data/moves-data.js`.
-> Catálogo: `1.oras.ab69b5804411` (621 movimientos).
+> Catálogo: `1.oras.db4ae081bb58` (621 movimientos).
 > Generación de cada movimiento: `moves.csv` de veekun, la misma fuente fijada de R32.1.
 
 ## Qué se audita
