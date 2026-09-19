@@ -18,7 +18,7 @@ import { buildPropSprites } from '../../wildlands/engine/props'
 import { Renderer, type RouteMarker, type Scene } from '../../wildlands/engine/renderer'
 import { TILE } from '../../wildlands/engine/world'
 import { DEFAULT_PLAYER_CHARACTER_ID, playerCharacter } from '../../wildlands/identity/playerCharacters'
-import { brushTiles, moveEntity, previewAdd, previewSolidTiles, previewTiles } from '../domain/editOps'
+import { brushTiles, moveEntity, previewSolidTiles, previewTiles } from '../domain/editOps'
 import { treeCollisionTiles, treeFeet, treeTapBounds } from '../../worldAssets/trees/cityTrees'
 import type { Pick } from '../../wildlands/engine/renderer'
 import { anchorOf, type EntityRef } from '../domain/labCity'
@@ -221,13 +221,12 @@ function drawOverlay(): void {
 /** In the Agregar tool, what would be placed under the cursor: visual cell, trunk and validity, before clicking. */
 function previewPlacement(): void {
   const at = lab.hover.value
-  const kind = at ? lab.paletteKind(at) : null
   const busy = current?.dragging ?? false
-  if (lab.mode.value !== 'edit' || lab.tool.value !== 'add' || !at || !kind || busy) {
+  const p = at && !busy && lab.mode.value === 'edit' && lab.tool.value === 'add' ? lab.previewAt(at) : null
+  if (!p) {
     if (!busy) ghost.value = null
     return
   }
-  const p = previewAdd(lab.base, lab.city.value, kind, at)
   ghost.value = { tiles: p.tiles, solid: p.solid, valid: p.valid }
 }
 watch([lab.tool, lab.palette, lab.city], previewPlacement)

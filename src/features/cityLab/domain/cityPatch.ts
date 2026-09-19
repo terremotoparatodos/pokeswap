@@ -22,8 +22,11 @@ import {
 } from './labCity'
 
 export const PATCH_FORMAT = 'wildlands-city-patch'
-export const PATCH_VERSION = 2
-/** v1 had no added/removed lists for buildings, fountains and gates; it still imports. */
+export const PATCH_VERSION = 3
+/**
+ * v1 had no added/removed lists for buildings, fountains and gates; v2 had no
+ * `buildings.modified`. Both still import.
+ */
 const OLDEST_VERSION = 1
 
 interface Moved<T> { id: string; from: T; to: T }
@@ -43,7 +46,13 @@ export interface CityPatch {
   }
   terrain: { tx: number; ty: number; from: TerrainKind; to: TerrainKind }[]
   spawn: { from: Arrival; to: Arrival } | null
-  buildings: { added: TownBuilding[]; removed: TownBuilding[]; moved: Moved<{ x: number; y: number; door?: Tile; open?: Tile[] }>[] }
+  buildings: {
+    added: TownBuilding[]
+    removed: TownBuilding[]
+    moved: Moved<{ x: number; y: number; door?: Tile; open?: Tile[] }>[]
+    /** Name, text, function, look or size of a baseline building. */
+    modified: { id: string; from: BuildingLook; to: BuildingLook }[]
+  }
   fountains: { added: LabFountain[]; removed: LabFountain[]; moved: Moved<{ x0: number; y0: number; x1: number; y1: number }>[] }
   gates: { added: LabGate[]; removed: LabGate[]; moved: Moved<{ tiles: Tile[]; arrival: Arrival }>[] }
   residents: { added: LabResident[]; removed: LabResident[]; moved: Moved<{ tx: number; ty: number; dir: Dir }>[] }
@@ -78,6 +87,26 @@ const canonicalWanderer = (w: LabWanderer): LabWanderer => ({ id: w.id, tx: w.tx
 
 function buildingPlace(b: TownBuilding) {
   return { x: b.x, y: b.y, ...(b.door ? { door: xy(b.door) } : {}), ...(b.open ? { open: tiles(b.open) } : {}) }
+}
+
+/** What a building is, apart from where it stands (see `buildingPlace`). */
+export interface BuildingLook {
+  name: string
+  style: TownBuilding['style']
+  w: number
+  d: number
+  feature?: TownBuilding['feature']
+  blurb?: string
+  image?: { src: string; flatTop?: number | 'all' }
+}
+
+function buildingLook(b: TownBuilding): BuildingLook {
+  return {
+    name: b.name, style: b.style, w: b.w, d: b.d,
+    ...(b.feature ? { feature: b.feature } : {}),
+    ...(b.blurb !== undefined ? { blurb: b.blurb } : {}),
+    ...(b.image ? { image: { src: b.image.src, ...(b.image.flatTop !== undefined ? { flatTop: b.image.flatTop } : {}) } } : {}),
+  }
 }
 
 /** Full record in a fixed key order (added/removed entries must be reviewable on their own). */
@@ -139,6 +168,16 @@ function canonicalDiff<T extends { id: string }, P>(d: { added: T[]; removed: T[
   return { added: d.added.map(canon), removed: d.removed.map(canon), moved: d.moved }
 }
 
+function buildingEdits(base: readonly TownBuilding[], work: readonly TownBuilding[]): CityPatch['buildings']['modified'] {
+  const before = new Map(base.map(b => [b.id, b]))
+  const out: CityPatch['buildings']['modified'] = []
+  for (const b of [...work].sort(byId)) {
+    const old = before.get(b.id)
+    if (old && !same(buildingLook(old), buildingLook(b))) out.push({ id: b.id, from: buildingLook(old), to: buildingLook(b) })
+  }
+  return out
+}
+
 /** The working copy as a difference from the baseline. */
 export function diffCities(base: LabCity, work: LabCity, cityId: string): CityPatch {
   const props = diffList(base.props, work.props, xy)
@@ -182,7 +221,7 @@ export function diffCities(base: LabCity, work: LabCity, cityId: string): CityPa
     props: { added: props.added.map(canonicalProp), removed: props.removed.map(canonicalProp), moved: props.moved, modified },
     terrain,
     spawn: same(arrival(base.spawn), arrival(work.spawn)) ? null : { from: arrival(base.spawn), to: arrival(work.spawn) },
-    buildings: canonicalDiff(diffList(base.buildings, work.buildings, buildingPlace), canonicalBuilding),
+    buildings: { ...canonicalDiff(diffList(base.buildings, work.buildings, buildingPlace), canonicalBuilding), modified: buildingEdits(base.buildings, work.buildings) },
     fountains: canonicalDiff(diffList(base.fountains, work.fountains, fountainPlace), canonicalFountain),
     gates: canonicalDiff(diffList(base.gates, work.gates, gatePlace), canonicalGate),
     residents: { added: residents.added.map(canonicalResident), removed: residents.removed.map(canonicalResident), moved: residents.moved },
@@ -199,7 +238,7 @@ export function serializePatch(patch: CityPatch): string {
 export function patchIsEmpty(p: CityPatch): boolean {
   return !p.props.added.length && !p.props.removed.length && !p.props.moved.length && !p.props.modified.length
     && !p.terrain.length && !p.spawn
-    && !p.buildings.added.length && !p.buildings.removed.length && !p.buildings.moved.length
+    && !p.buildings.added.length && !p.buildings.removed.length && !p.buildings.moved.length && !p.buildings.modified.length
     && !p.fountains.added.length && !p.fountains.removed.length && !p.fountains.moved.length
     && !p.gates.added.length && !p.gates.removed.length && !p.gates.moved.length
     && !p.residents.added.length && !p.residents.removed.length && !p.residents.moved.length
@@ -211,6 +250,7 @@ export function patchSummary(p: CityPatch): string {
     ['props +', p.props.added.length], ['props −', p.props.removed.length], ['props movidos', p.props.moved.length],
     ['props editados', p.props.modified.length], ['tiles de terreno', p.terrain.length], ['spawn', p.spawn ? 1 : 0],
     ['edificios +', p.buildings.added.length], ['edificios −', p.buildings.removed.length], ['edificios movidos', p.buildings.moved.length],
+    ['edificios editados', p.buildings.modified.length],
     ['fuentes', p.fountains.added.length + p.fountains.removed.length + p.fountains.moved.length],
     ['portales +', p.gates.added.length], ['portales −', p.gates.removed.length], ['portales movidos', p.gates.moved.length],
     ['residentes', p.residents.added.length + p.residents.removed.length + p.residents.moved.length],
@@ -298,6 +338,19 @@ export function applyPatch(base: LabCity, input: unknown): ApplyResult {
     if (!moved.open) delete moved.open
     return moved
   }, canonicalBuilding)
+  // Edited looks: the patch's target record replaces name, text, function, art and size.
+  const edits = new Map(p.buildings.modified.map(m => [m.id, m]))
+  for (const m of p.buildings.modified) { const x = need(base.buildings, m.id, 'Edificio'); if (x) note(m.id, m.from, buildingLook(x)) }
+  const editedBuildings = buildings.map(b => {
+    const m = edits.get(b.id)
+    if (!m) return b
+    const next: TownBuilding = { ...b, name: m.to.name, style: m.to.style, w: m.to.w, d: m.to.d }
+    for (const key of ['feature', 'blurb', 'image'] as const) {
+      if (m.to[key] === undefined) delete next[key]
+      else (next as unknown as Record<string, unknown>)[key] = key === 'image' ? { ...m.to.image } : m.to[key]
+    }
+    return next
+  })
   const fountains = collection(base.fountains, p.fountains, 'Fuente', fountainPlace, (f, to) => ({ ...f, ...to }), canonicalFountain)
   const gates = collection(base.gates, p.gates, 'Portal', gatePlace, (g, to) => ({ ...g, tiles: tiles(to.tiles), arrival: arrival(to.arrival) }), canonicalGate)
   const residents = collection(base.residents, p.residents, 'Residente', r => ({ tx: r.tx, ty: r.ty, dir: r.dir }), (x, to) => ({ ...x, ...to }), canonicalResident)
@@ -311,7 +364,7 @@ export function applyPatch(base: LabCity, input: unknown): ApplyResult {
     city: {
       terrain: rows.map(r => r.join('')),
       props,
-      buildings,
+      buildings: editedBuildings,
       fountains,
       gates,
       spawn: p.spawn ? arrival(p.spawn.to) : base.spawn,
@@ -332,7 +385,7 @@ export function parsePatch(text: string): { ok: true; value: unknown } | { ok: f
 /** Fills the lists a v1 patch did not have, so the rest of the code sees one shape. */
 function upgrade(p: CityPatch): CityPatch {
   const fill = <G extends object>(g: G | undefined) => ({ added: [], removed: [], moved: [], ...(g ?? {}) })
-  return { ...p, buildings: fill(p.buildings), fountains: fill(p.fountains), gates: fill(p.gates) }
+  return { ...p, buildings: { modified: [], ...fill(p.buildings) }, fountains: fill(p.fountains), gates: fill(p.gates) }
 }
 
 function checkShape(input: unknown): string[] {
@@ -352,6 +405,7 @@ function checkShape(input: unknown): string[] {
       [p.fountains?.added, 'fountains.added'], [p.fountains?.removed, 'fountains.removed'],
       [p.gates?.added, 'gates.added'], [p.gates?.removed, 'gates.removed'],
     ] as [unknown, string][] : []),
+    ...(p.version >= 3 ? [[p.buildings?.modified, 'buildings.modified']] as [unknown, string][] : []),
     [p.residents?.added, 'residents.added'], [p.residents?.removed, 'residents.removed'], [p.residents?.moved, 'residents.moved'],
     [p.wanderers?.added, 'wanderers.added'], [p.wanderers?.removed, 'wanderers.removed'], [p.wanderers?.moved, 'wanderers.moved'],
   ]

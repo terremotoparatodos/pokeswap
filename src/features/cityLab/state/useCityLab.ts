@@ -14,8 +14,10 @@ import { applyPatch, diffCities, parsePatch, patchIsEmpty, patchSummary, seriali
 import { CityGrid } from '../domain/cityGrid'
 import { clearanceMap } from '../domain/clearance'
 import {
-  addProp, addWanderer, canDelete, deleteEntity, duplicateEntity, moveEntity, paintTerrain, setFacing, setSignText, type EditResult,
+  addBuilding, addProp, addWanderer, canDelete, deleteEntity, duplicateEntity, editBuilding, moveEntity, paintTerrain, previewAdd, previewAddBuilding,
+  setFacing, setSignText, type BuildingChanges, type EditResult,
 } from '../domain/editOps'
+import { buildingTemplate } from '../domain/buildingCatalog'
 import { deepFreeze, entityExists, fromTownDef, type EntityRef, type LabCity, type LabPropKind, type TerrainKind } from '../domain/labCity'
 import { clearDraft, loadDraft, saveDraft, type DraftStore, type LabDraft } from '../domain/labDraft'
 import { loadPrefs, savePrefs } from '../domain/labPrefs'
@@ -29,8 +31,11 @@ import { DEFAULT_LAYERS, type LayerToggles } from '../world/labOverlay'
 
 export type LabMode = 'edit' | 'play'
 export type LabTool = 'select' | 'add' | 'terrain'
-/** `random-tree`: a city tree variant picked from the tile (same tile → same tree). */
-export type PaletteChoice = LabPropKind | 'wanderer' | 'random-tree'
+/**
+ * `random-tree`: a city tree variant picked from the tile (same tile → same tree).
+ * `art:…` / `block:…`: a building template (buildingCatalog.ts).
+ */
+export type PaletteChoice = LabPropKind | 'wanderer' | 'random-tree' | `art:${string}` | `block:${string}`
 export type StatusTone = 'ok' | 'warn' | 'error' | 'info'
 
 const DRAFT_DELAY_MS = 700
@@ -44,7 +49,7 @@ function browserStore(): DraftStore | null {
 }
 
 function isPaletteChoice(value: unknown): value is PaletteChoice {
-  return value === 'random-tree' || value === 'wanderer' || isCityTreeId(value) || (typeof value === 'string' && PALETTE.some(p => p.kind === value))
+  return value === 'random-tree' || value === 'wanderer' || (typeof value === 'string' && buildingTemplate(value) !== null) || isCityTreeId(value) || (typeof value === 'string' && PALETTE.some(p => p.kind === value))
 }
 
 export function useCityLab() {
@@ -127,13 +132,23 @@ export function useCityLab() {
   /** The prop kind the palette would place at the cursor tile (resolves "Árbol aleatorio"). */
   function paletteKind(at: Tile): LabPropKind | null {
     const choice = palette.value
-    if (choice === 'wanderer') return null
-    if (choice !== 'random-tree') return choice
+    if (choice === 'wanderer' || buildingTemplate(choice)) return null
+    if (choice !== 'random-tree') return choice as LabPropKind
     const cell = addAnchor('city-tree-pointed', at)
     return treeVariantForTile(cell.tx, cell.ty)
   }
 
+  /** What the Agregar tool would place with the cursor on `at` (footprint, solid part, validity). */
+  function previewAt(at: Tile): { tiles: Tile[]; solid: Tile[]; valid: boolean; reason: string } | null {
+    const choice = palette.value
+    if (buildingTemplate(choice)) return previewAddBuilding(base, city.value, choice, at)
+    const kind = paletteKind(at)
+    return kind ? previewAdd(base, city.value, kind, at) : null
+  }
+
   function addAt(at: Tile): boolean {
+    const template = buildingTemplate(palette.value)
+    if (template) return apply(addBuilding(base, city.value, template.id, at), `Edificio "${template.label}" agregado`)
     if (palette.value === 'wanderer') return apply(addWanderer(base, city.value, at), `Wanderer agregado en (${at.tx}, ${at.ty})`)
     const kind = paletteKind(at)!
     return apply(addProp(base, city.value, kind, at), `${kind} agregado en (${at.tx}, ${at.ty})`)
@@ -163,6 +178,13 @@ export function useCityLab() {
   function duplicateSelected(): void {
     const ref = selection.value
     if (ref) apply(duplicateEntity(base, city.value, ref), `${ref.id} duplicado`)
+  }
+
+  /** Inspector edits on the selected building (name, text, function, door, look, size). */
+  function editSelectedBuilding(changes: BuildingChanges, done = 'Edificio actualizado'): boolean {
+    const ref = selection.value
+    if (ref?.type !== 'building') return false
+    return apply(editBuilding(base, city.value, ref.id, changes), done)
   }
 
   function paint(tiles: readonly Tile[]): void {
@@ -270,11 +292,11 @@ export function useCityLab() {
   return {
     base, baseline, city, revision, grid, clearance, patch, summary, dirty,
     mode, tool, palette, terrainKind, brushSize, layers, selection, status, findings, findingsStale, highlight,
-    hover, clock, editLens, zoom, editCamera, playFrom, paletteKind, rememberView,
+    hover, clock, editLens, zoom, editCamera, playFrom, paletteKind, previewAt, rememberView,
     pendingDraft, draftSavedAt,
     canUndo: computed(() => revision.value >= 0 && history.canUndo),
     canRedo: computed(() => revision.value >= 0 && history.canRedo),
-    select, moveTo, addAt, deleteSelected, duplicateSelected, paint, editSign, face, undo, redo, resetToBaseline,
+    select, moveTo, addAt, deleteSelected, duplicateSelected, editSelectedBuilding, paint, editSign, face, undo, redo, resetToBaseline,
     validate, exportPatch, importPatch, restoreDraft, discardDraft, say, dispose,
   }
 }

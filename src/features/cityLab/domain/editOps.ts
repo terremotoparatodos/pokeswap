@@ -4,12 +4,14 @@
 // reasons it refused), sharing everything it did not change. The baseline is
 // frozen, so an operation that mutated instead of copying would throw.
 
-import type { TownDef } from '../../wildlands/areas/townArea'
+import type { TownBuilding, TownDef } from '../../wildlands/areas/townArea'
 import type { Dir } from '../../wildlands/engine/characters'
 import type { Tile } from '../../wildlands/engine/pathfinding'
+import { LOBBY_FEATURES, type LobbyFeature } from '../../wildlands/lobby/features'
+import { buildingOrigin, buildingTemplate, SIZE_LIMITS, type BuildingTemplate } from './buildingCatalog'
 import { CityGrid } from './cityGrid'
 import {
-  anchorOf, collisionTilesOf, inBounds, isTreeProp, tilesOf, type EntityRef, type LabCity, type LabGate, type LabProp, type LabPropKind, type TerrainKind,
+  anchorOf, collisionTilesOf, inBounds, isTreeProp, rectTiles, tilesOf, type EntityRef, type LabCity, type LabGate, type LabProp, type LabPropKind, type TerrainKind,
 } from './labCity'
 import { placementIssues } from './placement'
 
@@ -106,6 +108,144 @@ export function addProp(base: TownDef, city: LabCity, kind: LabPropKind, cursor:
   const at = addAnchor(kind, cursor)
   const prop: LabProp = { id: nextNewId(city), kind, tx: at.tx, ty: at.ty, ...(kind === 'sign' ? { text: 'Cartel nuevo' } : {}) }
   return settle(base, { ...city, props: [...city.props, prop] }, { type: 'prop', id: prop.id })
+}
+
+/** A new building from a template, its bottom-row middle on the cursor tile. No function until the inspector gives it one. */
+export function newBuilding(template: BuildingTemplate, id: string, at: Tile): TownBuilding {
+  const { x, y } = buildingOrigin(template, at)
+  return {
+    id, name: template.name, style: template.style, x, y, w: template.w, d: template.d,
+    ...(template.blurb ? { blurb: template.blurb } : {}),
+    ...(template.image ? { image: { ...template.image } } : {}),
+    ...(template.open ? { open: template.open.map(t => shift(t, x, y)) } : {}),
+  }
+}
+
+const fits = (city: LabCity, b: TownBuilding) => inBounds(city, b.x, b.y) && inBounds(city, b.x + b.w - 1, b.y + b.d - 1)
+
+export function addBuilding(base: TownDef, city: LabCity, templateId: string, cursor: Tile): EditResult {
+  const template = buildingTemplate(templateId)
+  if (!template) return refused(`Plantilla de edificio "${templateId}" desconocida.`)
+  const b = newBuilding(template, nextNewId(city, 'building-new'), cursor)
+  if (!fits(city, b)) return refused('El edificio no entra en el mapa acá.')
+  return settle(base, { ...city, buildings: [...city.buildings, b] }, { type: 'building', id: b.id })
+}
+
+/** Preview for adding a building: its whole footprint, solid except its stairs. */
+export function previewAddBuilding(base: TownDef, city: LabCity, templateId: string, cursor: Tile): { tiles: Tile[]; solid: Tile[]; valid: boolean; reason: string } {
+  const template = buildingTemplate(templateId)
+  if (!template) return { tiles: [], solid: [], valid: false, reason: '' }
+  const result = addBuilding(base, city, templateId, cursor)
+  const b = newBuilding(template, '__preview__', cursor)
+  const tiles = rectTiles(b.x, b.y, b.x + b.w - 1, b.y + b.d - 1)
+  const open = new Set((b.open ?? []).map(t => `${t.tx},${t.ty}`))
+  return {
+    tiles,
+    solid: tiles.filter(t => !open.has(`${t.tx},${t.ty}`)),
+    valid: result.ok,
+    reason: result.ok ? result.warnings.join(' ') : result.errors.join(' '),
+  }
+}
+
+/** What the inspector can change on a building. `null` removes the door or the function. */
+export interface BuildingChanges {
+  readonly name?: string
+  readonly blurb?: string
+  readonly feature?: LobbyFeature | null
+  /** Column of the door on the bottom row (0 = leftmost). */
+  readonly doorColumn?: number | null
+  readonly w?: number
+  readonly d?: number
+  /** Another look: a template id (`art:…` or `block:…`). */
+  readonly template?: string
+}
+
+const featureTitle = (f: LobbyFeature) => LOBBY_FEATURES[f].title
+const sameJson = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+
+/**
+ * Edits a building's data. Everything is allowed; what would break in the game
+ * comes back as warnings, and geometry changes still go through the placement
+ * rules (overlaps, blocked door exits).
+ */
+export function editBuilding(base: TownDef, city: LabCity, id: string, changes: BuildingChanges): EditResult {
+  const old = city.buildings.find(b => b.id === id)
+  if (!old) return refused('El edificio no existe.')
+  const warnings: string[] = []
+  let b: TownBuilding = { ...old }
+  if (changes.name !== undefined) b.name = changes.name.trim() || old.name
+  if (changes.blurb !== undefined) {
+    const blurb = changes.blurb.trim()
+    if (blurb) b.blurb = blurb
+    else delete b.blurb
+  }
+
+  let doorColumn: number | null = old.door ? old.door.tx - old.x : null
+  if (changes.template !== undefined) {
+    const t = buildingTemplate(changes.template)
+    if (!t) return refused(`Plantilla de edificio "${changes.template}" desconocida.`)
+    // A drawing brings its own footprint; a painted block keeps the current one.
+    const w = t.image ? t.w : b.w
+    const d = t.image ? t.d : b.d
+    // The new look stands on the same street: same bottom row, same centre.
+    const x = b.x + Math.floor(b.w / 2) - Math.floor(w / 2)
+    const y = b.y + b.d - d
+    b = { ...b, style: t.style, x, y, w, d }
+    if (t.image) b.image = { ...t.image }
+    else delete b.image
+    if (t.open) b.open = t.open.map(o => shift(o, x, y))
+    else delete b.open
+    if (doorColumn !== null) doorColumn = Math.max(0, Math.min(doorColumn + (old.x - x), w - 1))
+    if (t.image && (old.w !== w || old.d !== d)) warnings.push(`El dibujo trae su propio tamaño: el footprint pasó a ${w}×${d}.`)
+  }
+
+  if (changes.w !== undefined || changes.d !== undefined) {
+    const w = changes.w ?? b.w
+    const d = changes.d ?? b.d
+    const ok = (n: number) => Number.isInteger(n) && n >= SIZE_LIMITS.min && n <= SIZE_LIMITS.max
+    if (!ok(w) || !ok(d)) return refused(`El tamaño tiene que ser entre ${SIZE_LIMITS.min} y ${SIZE_LIMITS.max} tiles.`)
+    // Resizing keeps the left side and the front row (the street it faces); stairs outside the new footprint go away.
+    const y = b.y + b.d - d
+    const kept = (b.open ?? []).filter(t => t.tx < b.x + w && t.ty >= y)
+    b = { ...b, y, w, d }
+    if (kept.length) b.open = kept
+    else delete b.open
+    if (doorColumn !== null && doorColumn >= w) doorColumn = w - 1
+    if (b.image) warnings.push('El dibujo no cambia de tamaño: sólo cambian la colisión y el footprint.')
+  }
+
+  if (changes.doorColumn !== undefined) {
+    const c = changes.doorColumn
+    if (c !== null && (!Number.isInteger(c) || c < 0 || c >= b.w)) return refused(`La puerta tiene que estar en la fila de abajo (columna 0–${b.w - 1}).`)
+    doorColumn = c
+  }
+
+  if (changes.feature !== undefined) {
+    if (changes.feature === null) {
+      if (old.feature) warnings.push(`"${featureTitle(old.feature)}" queda sin ENTRADA en la ciudad (salvo otra puerta con esa función).`)
+      delete b.feature
+    } else {
+      b.feature = changes.feature
+      const other = city.buildings.find(x => x.id !== id && x.feature === changes.feature)
+      if (other) warnings.push(`"${featureTitle(changes.feature)}" ya tiene ENTRADA en ${other.name} (${other.id}): habrá dos puertas y al cerrar el panel el juego te deja en la primera.`)
+      if (doorColumn === null) {
+        doorColumn = Math.floor(b.w / 2)
+        warnings.push(`Una ENTRADA necesita puerta: se agregó en la columna ${doorColumn} de la fila de abajo.`)
+      }
+    }
+  }
+
+  if (doorColumn !== null) b.door = { tx: b.x + doorColumn, ty: b.y + b.d - 1 }
+  else delete b.door
+  if (b.door && !b.feature && changes.doorColumn != null) warnings.push('Una puerta sin función es sólo un hueco caminable: elegí una función para que sea ENTRADA.')
+  if (!b.door && b.feature) warnings.push(`${b.name} tiene la función "${featureTitle(b.feature)}" pero no tiene puerta: no se puede entrar.`)
+
+  const next: LabCity = { ...city, buildings: city.buildings.map(x => (x.id === id ? b : x)) }
+  const geometry = b.x !== old.x || b.y !== old.y || b.w !== old.w || b.d !== old.d || !sameJson(b.door, old.door) || !sameJson(b.open, old.open)
+  if (!geometry) return { ok: true, city: next, ref: { type: 'building', id }, warnings }
+  if (!fits(city, b)) return refused('El edificio no entra en el mapa así.')
+  const result = settle(base, next, { type: 'building', id })
+  return result.ok ? { ...result, warnings: [...warnings, ...result.warnings] } : result
 }
 
 export function addWanderer(base: TownDef, city: LabCity, at: Tile): EditResult {

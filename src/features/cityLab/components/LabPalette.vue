@@ -8,6 +8,8 @@ import { buildTownProps } from '../../wildlands/engine/townProps'
 import { PALETTE, TERRAIN_LABEL, TREE_GROUPS, isSolidKind } from '../domain/labCatalog'
 import { isStreetProp, isTreeProp, TERRAIN_KINDS, type LabPropKind } from '../domain/labCity'
 import { cityTree } from '../../worldAssets/trees/cityTrees'
+import { buildingSprite } from '../../wildlands/engine/buildings'
+import { BUILDING_TEMPLATES } from '../domain/buildingCatalog'
 
 const BASE_NOTE = { tufts: 'pasto: matas', roots: 'pasto: raíces' } as const
 import type { CityLab, PaletteChoice } from '../state/useCityLab'
@@ -22,6 +24,11 @@ const groups = computed(() => {
 })
 const treeGroups = computed(() => groups.value.filter(([g]) => TREE_GROUPS.includes(g)))
 const otherGroups = computed(() => groups.value.filter(([g]) => !TREE_GROUPS.includes(g)))
+
+const artBuildings = BUILDING_TEMPLATES.filter(t => t.group === 'art')
+const blockBuildings = BUILDING_TEMPLATES.filter(t => t.group === 'block')
+/** Painted blocks have no PNG: their thumbnail is the engine's own placeholder sprite. */
+const blockThumbs = ref<Record<string, string>>({})
 
 /** Thumbnails: the town's hand-drawn PNG when it has one, else the sprite the engine paints. */
 const thumbs = ref<Partial<Record<LabPropKind, string>>>({})
@@ -39,6 +46,7 @@ onMounted(() => {
     out[kind] = art ?? sprite.canvas.toDataURL()
   }
   thumbs.value = out
+  blockThumbs.value = Object.fromEntries(blockBuildings.map(t => [t.id, buildingSprite(t).canvas.toDataURL()]))
 })
 
 function choose(kind: PaletteChoice): void {
@@ -49,6 +57,35 @@ function choose(kind: PaletteChoice): void {
 
 <template>
   <aside class="pal">
+    <section>
+      <h3>Edificios</h3>
+      <p class="hint">Click en el mapa: el cursor marca el medio de la fila de abajo. Salen sin función; nombre, función, puerta, dibujo y tamaño se editan en Propiedades.</p>
+      <h4>Con dibujo de la ciudad</h4>
+      <div class="pal-grid pal-buildings">
+        <button
+          v-for="t in artBuildings" :key="t.id" type="button" class="pal-item pal-building"
+          :class="{ on: lab.tool.value === 'add' && lab.palette.value === t.id }"
+          :title="`${t.label} · ${t.w}×${t.d} tiles · estilo ${t.style}`"
+          @click="choose(t.id as PaletteChoice)"
+        >
+          <img :src="t.image!.src" alt="">
+          <span>{{ t.label }}<small class="badge">{{ t.w }}×{{ t.d }}</small></span>
+        </button>
+      </div>
+      <h4>Bloque pintado (cualquier tamaño)</h4>
+      <div class="pal-grid">
+        <button
+          v-for="t in blockBuildings" :key="t.id" type="button" class="pal-item"
+          :class="{ on: lab.tool.value === 'add' && lab.palette.value === t.id }"
+          :title="`Bloque sin dibujo, estilo ${t.style} · empieza en ${t.w}×${t.d}, se cambia en Propiedades`"
+          @click="choose(t.id as PaletteChoice)"
+        >
+          <img v-if="blockThumbs[t.id]" :src="blockThumbs[t.id]" alt="">
+          <span>{{ t.label }}</span>
+        </button>
+      </div>
+    </section>
+
     <section>
       <h3>Árboles</h3>
       <p class="hint">Celda 2×2 · tronco 2×1 sólido · base según el terreno (plaza/calle: sombra; bosque: sombra densa).</p>
@@ -132,6 +169,8 @@ section + section { margin-top: 16px; border-top: 1px solid #2a3350; padding-top
 .pal-trees { grid-template-columns: repeat(2, 1fr); }
 .pal-tree { flex-direction: column; align-items: center; text-align: center; padding: 4px 2px; }
 .pal-tree img { width: 40px; height: 48px; }
+.pal-building { flex-direction: column; align-items: center; text-align: center; padding: 4px 2px; }
+.pal-building img { width: 56px; height: 52px; }
 .pal-random { width: 100%; margin-bottom: 4px; }
 .badge { display: block; color: #8fd8a0; font-size: 10px; }
 .swatch { width: 18px; height: 18px; border-radius: 3px; border: 1px solid #000; }

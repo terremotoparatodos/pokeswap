@@ -7,6 +7,9 @@ import { canDelete, canDuplicate } from '../domain/editOps'
 import { isSolidKind, propLabel, TERRAIN_LABEL } from '../domain/labCatalog'
 import { isStreetProp, terrainAt, tilesOf, type TerrainKind } from '../domain/labCity'
 import type { CityLab } from '../state/useCityLab'
+import type { TownBuilding } from '../../wildlands/areas/townArea'
+import { LOBBY_FEATURE_IDS, LOBBY_FEATURES, type LobbyFeature } from '../../wildlands/lobby/features'
+import { BUILDING_TEMPLATES, SIZE_LIMITS, templateOf } from '../domain/buildingCatalog'
 
 const props = defineProps<{ lab: CityLab }>()
 const emit = defineEmits<{ focus: [tx: number, ty: number] }>()
@@ -23,6 +26,7 @@ const info = computed(() => {
   const rows: Row[] = [{ label: 'id', value: ref.id }, { label: 'tipo', value: ref.type }]
   let facing: Dir | null = null
   let sign: { id: string; text: string } | null = null
+  let building: TownBuilding | null = null
   const tiles = tilesOf(city, ref)
   switch (ref.type) {
     case 'prop': {
@@ -41,8 +45,8 @@ const info = computed(() => {
     case 'building': {
       const b = city.buildings.find(x => x.id === ref.id)
       if (!b) return null
+      building = b
       rows.push(
-        { label: 'nombre', value: b.name },
         { label: 'estilo', value: b.style },
         { label: 'x, y', value: `${b.x}, ${b.y}` },
         { label: 'footprint', value: `${b.w} × ${b.d} tiles (sólido)` },
@@ -91,7 +95,7 @@ const info = computed(() => {
   }
   const solidTiles = tiles.filter(t => grid.solid(t.tx, t.ty)).length
   rows.push({ label: 'tiles', value: `${tiles.length} (${solidTiles} sólidos en el motor)` })
-  return { rows, facing, sign, ref, anchor: tiles[0] }
+  return { rows, facing, sign, building, ref, anchor: tiles[0] }
 })
 
 const hoverInfo = computed(() => {
@@ -109,6 +113,32 @@ const hoverInfo = computed(() => {
   if (lab.clearance.value && !grid.solid(t.tx, t.ty)) parts.push(`ancho ${lab.clearance.value[t.ty * grid.width + t.tx]}`)
   return parts.filter(Boolean).join(' · ')
 })
+
+const artTemplates = BUILDING_TEMPLATES.filter(t => t.group === 'art')
+const blockTemplates = BUILDING_TEMPLATES.filter(t => t.group === 'block')
+
+/** Who else already opens a function (so the select can say it). */
+function featureOwner(feature: LobbyFeature, self: string): string | null {
+  const other = lab.city.value.buildings.find(b => b.id !== self && b.feature === feature)
+  return other ? other.name : null
+}
+
+const value = (e: Event) => (e.target as HTMLInputElement | HTMLSelectElement).value
+
+function setFeature(e: Event): void {
+  const v = value(e)
+  lab.editSelectedBuilding({ feature: v ? (v as LobbyFeature) : null }, v ? `Función "${LOBBY_FEATURES[v as LobbyFeature].title}" asignada` : 'Función quitada')
+}
+
+function setDoor(e: Event): void {
+  const v = value(e)
+  lab.editSelectedBuilding({ doorColumn: v === '' ? null : Number(v) }, v === '' ? 'Puerta quitada' : 'Puerta movida')
+}
+
+function setSize(axis: 'w' | 'd', e: Event): void {
+  const n = Number(value(e))
+  if (!lab.editSelectedBuilding({ [axis]: n }, 'Tamaño cambiado')) (e.target as HTMLInputElement).value = String(info.value?.building?.[axis] ?? '')
+}
 
 function playHere(): void {
   const i = info.value
@@ -134,6 +164,47 @@ function playHere(): void {
           <option v-for="d in DIRS" :key="d" :value="d">{{ d }}</option>
         </select>
       </label>
+      <div v-if="info.building" class="bld">
+        <label class="field">Nombre
+          <input :value="info.building.name" maxlength="60" @change="lab.editSelectedBuilding({ name: value($event) }, 'Nombre cambiado')">
+        </label>
+        <label class="field">Texto al mirarlo
+          <input :value="info.building.blurb ?? ''" maxlength="160" placeholder="(sin texto)" @change="lab.editSelectedBuilding({ blurb: value($event) }, 'Texto cambiado')">
+        </label>
+        <label class="field">Función (ENTRADA)
+          <select :value="info.building.feature ?? ''" @change="setFeature">
+            <option value="">— ninguna —</option>
+            <option v-for="f in LOBBY_FEATURE_IDS" :key="f" :value="f">
+              {{ LOBBY_FEATURES[f].title }}{{ featureOwner(f, info.building.id) ? ` · ya está en ${featureOwner(f, info.building.id)}` : '' }}
+            </option>
+          </select>
+        </label>
+        <label class="field">Puerta (fila de abajo)
+          <select :value="info.building.door ? String(info.building.door.tx - info.building.x) : ''" @change="setDoor">
+            <option value="">— sin puerta —</option>
+            <option v-for="c in info.building.w" :key="c" :value="String(c - 1)">columna {{ c }} de {{ info.building.w }} (x {{ info.building.x + c - 1 }})</option>
+          </select>
+        </label>
+        <label class="field">Dibujo
+          <select :value="templateOf(info.building)?.id ?? ''" @change="lab.editSelectedBuilding({ template: value($event) }, 'Dibujo cambiado')">
+            <option v-if="!templateOf(info.building)" value="" disabled>(otro)</option>
+            <optgroup label="Con dibujo de la ciudad">
+              <option v-for="t in artTemplates" :key="t.id" :value="t.id">{{ t.label }} · {{ t.w }}×{{ t.d }}</option>
+            </optgroup>
+            <optgroup label="Bloque pintado (mantiene el tamaño)">
+              <option v-for="t in blockTemplates" :key="t.id" :value="t.id">{{ t.label }}</option>
+            </optgroup>
+          </select>
+        </label>
+        <div class="field">Tamaño (tiles, ancho × fondo)
+          <span class="size">
+            <input type="number" :min="SIZE_LIMITS.min" :max="SIZE_LIMITS.max" :value="info.building.w" @change="setSize('w', $event)">
+            ×
+            <input type="number" :min="SIZE_LIMITS.min" :max="SIZE_LIMITS.max" :value="info.building.d" @change="setSize('d', $event)">
+          </span>
+          <small v-if="info.building.image" class="muted">Con dibujo: el PNG no se estira, sólo cambia la colisión.</small>
+        </div>
+      </div>
       <label v-if="info.sign" class="field">Texto del cartel
         <input :value="info.sign.text" maxlength="120" @change="lab.editSign(info.sign.id, ($event.target as HTMLInputElement).value)">
       </label>
@@ -177,6 +248,9 @@ dt { color: #8f9bc4; }
 dd { margin: 0; word-break: break-word; }
 .field { display: flex; flex-direction: column; gap: 3px; margin: 6px 0; color: #8f9bc4; }
 .field input, .field select { padding: 4px 6px; border: 1px solid #34406a; border-radius: 5px; background: #1d2540; color: #dfe7ff; }
+.bld { margin: 4px 0 8px; padding: 6px; border: 1px solid #2c3656; border-radius: 6px; }
+.size { display: flex; align-items: center; gap: 6px; }
+.size input { width: 56px; padding: 4px 6px; border: 1px solid #34406a; border-radius: 5px; background: #1d2540; color: #dfe7ff; }
 .actions { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
 .actions button { padding: 4px 8px; border: 1px solid #34406a; border-radius: 6px; background: #1d2540; color: #dfe7ff; cursor: pointer; }
 .actions button:disabled { opacity: 0.4; cursor: default; }

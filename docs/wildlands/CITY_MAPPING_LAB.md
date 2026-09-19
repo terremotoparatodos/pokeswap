@@ -52,12 +52,13 @@ human review.
 - buildings: their `id`; fountains `fountain-i`; gates `gate-<to>`;
   residents `resident-i`, wanderers `wanderer-i`; new ones `…-new-N`.
 
-## Patch (`wildlands-city-patch` v2, imports v1)
+## Patch (`wildlands-city-patch` v3, imports v1 and v2)
 
 Deterministic JSON (lists sorted, fixed key order). It includes
 `baseline` (FNV-1a fingerprint of the baseline) and only the differences:
 `props.added/removed/moved/modified`, `terrain[] {tx,ty,from,to}`, `spawn`,
-`buildings|fountains|gates.added/removed/moved`, `residents.*`,
+`buildings|fountains|gates.added/removed/moved`, `buildings.modified`
+(name, text, function, look or size of a baseline building, v3), `residents.*`,
 `wanderers.*`, `notes`. Moves carry `from`: if the baseline changed,
 import reports conflicts instead of overwriting silently.
 **It never applies itself to production.**
@@ -65,6 +66,30 @@ import reports conflicts instead of overwriting silently.
 World props (trees, rocks, crystals…) have no slot in `TownDef`: the lab draws
 them through `LabTownArea` and the patch marks them in `notes`. Applying them
 requires engine support (main station's decision).
+
+## Buildings from scratch
+
+`domain/buildingCatalog.ts`, `editOps.addBuilding / editBuilding`. Palette → **Edificios**:
+- **Con dibujo de la ciudad**: one template per hand-drawn building PNG of Ciudad Corazón
+  (12), with that building's style, footprint, roof line (`flatTop`) and stairs (`open`).
+- **Bloque pintado**: the engine's code-painted block for each style, 4×4 to start.
+- Click: the cursor marks the **middle of the bottom row**. Same placement rules as moving
+  a building (overlaps, props, spawn, arrivals, blocked door exit; forest only warns).
+- New buildings get `building-new-N`, the name "Edificio nuevo" and **no function**.
+
+Properties panel (for any building, new or from the city):
+- **Nombre**, **Texto al mirarlo** (blurb).
+- **Función (ENTRADA)**: none or a PokeSwap panel. The list says which building already
+  has each one; picking a used one warns about the duplicate entrance. A function without
+  a door gets one in the middle of the bottom row (with a warning).
+- **Puerta**: column of the bottom row, or none (warns if the function is left without one).
+- **Dibujo**: another template. A drawing brings its own footprint; a block keeps the
+  current size. The building keeps its bottom row and centre.
+- **Tamaño** 1–12 × 1–12 tiles: keeps the left side and the front row. With a drawing,
+  the PNG doesn't stretch (only collision and footprint change; it warns).
+- In the patch: new buildings are full records in `buildings.added`; edits to the city's
+  own buildings go to `buildings.modified`. Validate Map keeps reporting
+  `ENTRANCE_DUPLICATED`, `ENTRANCE_WITHOUT_DOOR` and `BUILDING_ISOLATED`.
 
 ## LOCAL DRAFT vs EXPORT
 
