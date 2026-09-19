@@ -13,10 +13,11 @@
       <div class="auth-divider">── o con email ──</div>
 
       <!-- Tabs -->
-      <div v-if="tab !== 'forgot'" class="auth-tabs">
+      <div v-if="signupAllowed && tab !== 'forgot'" class="auth-tabs">
         <button :class="['auth-tab', tab === 'login' && 'active']" @click="tab = 'login'">Ingresar</button>
         <button :class="['auth-tab', tab === 'signup' && 'active']" @click="tab = 'signup'">Registrarse</button>
       </div>
+      <p v-if="!signupAllowed && tab === 'login'" class="auth-hint">Playtest: ingresá con una cuenta existente. El registro está cerrado.</p>
 
       <!-- LOGIN -->
       <form v-if="tab === 'login'" @submit.prevent="handleLogin" class="auth-form">
@@ -45,7 +46,7 @@
       </form>
 
       <!-- SIGNUP -->
-      <form v-else-if="tab === 'signup'" @submit.prevent="handleSignup" class="auth-form">
+      <form v-else-if="signupAllowed && tab === 'signup'" @submit.prevent="handleSignup" class="auth-form">
         <input
           :value="signupUsername"
           @input="onUsernameInput"
@@ -104,14 +105,22 @@
 import { ref, watch } from 'vue'
 import { loginWithEmail, loginWithGoogle, signUp, resetPassword } from '../api/authApi'
 import { validateUsername, normalizeUsernameInput } from '../utils/username'
+import { isPlaytest } from '../../playtest/playtestBuild'
 
 const props = defineProps<{ open: boolean; initialTab?: 'login' | 'signup' }>()
 const emit = defineEmits<{ close: []; success: [] }>()
 
 type Tab = 'login' | 'signup' | 'forgot'
-const tab = ref<Tab>(props.initialTab ?? 'login')
-watch(() => props.initialTab, (t) => { if (t) tab.value = t })
-watch(() => props.open, (v) => { if (v) { error.value = ''; tab.value = props.initialTab ?? 'login' } })
+
+// Community Playtest 0.1: existing accounts log in, nobody signs up. Sign-up
+// creates an auth user and upserts `profiles` — persistent writes a playtest
+// build must not make. A folded constant, so the sign-up call is dead code there.
+const signupAllowed = !isPlaytest
+const startTab = (t: Tab | undefined): Tab => (t === 'signup' && !signupAllowed ? 'login' : t ?? 'login')
+
+const tab = ref<Tab>(startTab(props.initialTab))
+watch(() => props.initialTab, (t) => { if (t) tab.value = startTab(t) })
+watch(() => props.open, (v) => { if (v) { error.value = ''; tab.value = startTab(props.initialTab) } })
 
 const busy = ref(false)
 const error = ref('')
@@ -160,7 +169,7 @@ async function handleLogin() {
 }
 
 async function handleSignup() {
-  if (busy.value) return
+  if (!signupAllowed || busy.value) return
   error.value = ''
   const validationError = validateUsername(signupUsername.value)
   if (validationError) { usernameError.value = validationError; return }
