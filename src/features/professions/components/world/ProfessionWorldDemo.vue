@@ -1,7 +1,7 @@
 <template>
   <div class="pf pwd">
     <p v-if="areaKind === 'wild' && !anySelection" class="pwd-hint">
-      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia o la orilla
+      <span class="pf-demo-badge">Dev</span> Profesiones: acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia, el horno o la orilla
     </p>
 
     <div v-if="anySelection" class="pwd-mining">
@@ -52,6 +52,26 @@
         @gather="forage.gather()"
         @close="closeAll"
       />
+      <FurnaceStationCard
+        v-else-if="furnace.open.value"
+        :level="furnace.level.value"
+        :phase="furnace.phase.value"
+        :recipes="furnace.recipes.value"
+        :recipe-id="furnace.recipeId.value"
+        :selected="furnace.selected.value"
+        :quantity="furnace.quantity.value"
+        :process="furnace.process.value"
+        :progress="furnace.progress.value"
+        :remaining-seconds="furnace.remainingSeconds.value"
+        :failure="furnace.failure.value"
+        @select="furnace.select($event)"
+        @quantity="furnace.setQuantity($event)"
+        @prepare="furnace.prepare()"
+        @start="furnace.start()"
+        @collect="furnace.collect()"
+        @cancel="furnace.cancel()"
+        @close="closeAll"
+      />
       <AlchemyStationCard
         v-else-if="alchemy.open.value"
         :recipes="alchemy.recipes.value"
@@ -81,8 +101,10 @@ import { useFishingController } from '../../fishing/useFishingController'
 import { useForageController } from '../../forage/useForageController'
 import { useLoggingController } from '../../logging/useLoggingController'
 import { useMiningController, type MiningGamePort } from '../../mining/useMiningController'
+import { useFurnaceController } from '../../stations/useFurnaceController'
 import { CompositeOverlay } from '../../overworld/compositeOverlay'
 import AlchemyStationCard from '../AlchemyStationCard.vue'
+import FurnaceStationCard from '../FurnaceStationCard.vue'
 import FishingActionCard from '../FishingActionCard.vue'
 import ForageActionCard from '../ForageActionCard.vue'
 import InventoryGrid from '../InventoryGrid.vue'
@@ -104,6 +126,8 @@ defineEmits<{ overlay: [open: boolean] }>()
 
 /** The fishing bite window is short, so the card has to light up promptly. */
 const BITE_POLL_MS = 80
+/** How often the surface asks the domain whether the furnace has finished. */
+const FURNACE_POLL_MS = 250
 
 const session = useProfessionDemo()
 const bagOpen = ref(false)
@@ -113,10 +137,17 @@ const logging = useLoggingController(session, () => props.game)
 // Alchemy has no node: the bench is derived from the world's own spawn.
 const alchemy = useAlchemyController(session, () => props.game, () => null)
 const forage = useForageController(session, () => props.game)
+// R33: the furnace is the first station with a real process. It derives its own
+// spot further out than the bench and is told which tile the bench took, so the
+// two never stand on each other.
+const furnace = useFurnaceController(session, () => props.game, area => {
+  const bench = alchemy.overlay.stationTile(area)
+  return bench ? [bench] : []
+})
 /** The engine holds one overlay, so the professions share a composite. */
-const overlay = new CompositeOverlay(mining.overlay, fishing.overlay, logging.overlay, forage.overlay, alchemy.overlay)
+const overlay = new CompositeOverlay(mining.overlay, fishing.overlay, logging.overlay, forage.overlay, alchemy.overlay, furnace.overlay)
 
-const anySelection = computed(() => !!(mining.selection.value || fishing.selection.value || logging.selection.value || forage.selection.value || alchemy.open.value))
+const anySelection = computed(() => !!(mining.selection.value || fishing.selection.value || logging.selection.value || forage.selection.value || alchemy.open.value || furnace.open.value))
 const activeProfession = computed<ProfessionId>(() => {
   if (mining.selection.value) return 'mining'
   if (fishing.selection.value) return 'fishing'
@@ -131,27 +162,34 @@ const highlight = computed(() => {
 })
 
 const bitePoll = setInterval(() => fishing.syncBite(), BITE_POLL_MS)
+// The furnace's own poll asks the *domain* whether the work is finished at the
+// session's clock. It decides nothing and is idempotent: it is a reader, not
+// the source of truth for the process (§15, §37).
+const furnacePoll = setInterval(() => furnace.tick(), FURNACE_POLL_MS)
 
 watch(() => props.game, game => {
   if (game) game.setSceneOverlay(overlay)
 }, { immediate: true })
 onUnmounted(() => {
   clearInterval(bitePoll)
+  clearInterval(furnacePoll)
   mining.detach()
   fishing.detach()
   logging.detach()
   alchemy.detach()
   forage.detach()
+  furnace.detach()
 })
 
 /** Engine probe: the physical objects this demo places in an area (F-1). */
 function placedObjects(area: Parameters<typeof alchemy.placedObjects>[0]) {
-  return alchemy.placedObjects(area)
+  return [...alchemy.placedObjects(area), ...furnace.placedObjects(area)]
 }
 
 /** Engine probe: tiles the navigator should approach and face. */
 function isWorldObject(hit: WorldObjectTarget): boolean {
-  return mining.isNode(hit) || fishing.isSpot(hit) || logging.isTree(hit) || forage.isPlant(hit) || alchemy.isStation(hit)
+  return mining.isNode(hit) || fishing.isSpot(hit) || logging.isTree(hit) || forage.isPlant(hit)
+    || alchemy.isStation(hit) || furnace.isStation(hit)
 }
 
 /** Called by the engine for a tile beside or in front of the player. */
@@ -183,6 +221,15 @@ function inspect(hit: WorldObjectTarget): boolean {
     fishing.close()
     logging.close()
     forage.close()
+    furnace.close()
+    return true
+  }
+  if (furnace.inspect(hit)) {
+    mining.close()
+    fishing.close()
+    logging.close()
+    forage.close()
+    alchemy.close()
     return true
   }
   return false
@@ -194,6 +241,7 @@ function closeAll(): void {
   logging.close()
   alchemy.close()
   forage.close()
+  furnace.close()
   bagOpen.value = false
 }
 

@@ -34,9 +34,10 @@ const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
   ['./alchemy/', /\/wildlands\/(engine\/(world|area|chunks|characters|sceneOverlay|game)|areas\/atlas)$/],
   ['./forage/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay|game)$/],
   ['./overworld/', /\/wildlands\/engine\/(world|area|chunks|characters|sceneOverlay)$/],
-  // R33 station contracts are pure domain: shape, process, serialization. They
-  // import no engine module at all, and the empty pattern keeps it that way.
-  ['./stations/', /^$/],
+  // R33 stations: the contracts are pure domain and import nothing; the overlay
+  // and the controller read the same engine surface the bench does, plus the
+  // atlas, because the furnace is derived from each world's own spawn too.
+  ['./stations/', /\/wildlands\/(engine\/(world|area|chunks|characters|sceneOverlay|game)|areas\/atlas)$/],
   ['./components/', /\/wildlands\/engine\/(world|noise|characters|game)$/],
   ['./', /\/wildlands\/engine\/(world|noise)$/],
 ]
@@ -45,6 +46,7 @@ const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
 const VUE_ALLOWED = [
   './demo/useProfessionDemo.ts', './mining/useMiningController.ts', './fishing/useFishingController.ts',
   './logging/useLoggingController.ts', './alchemy/useAlchemyController.ts', './forage/useForageController.ts',
+  './stations/useFurnaceController.ts',
 ]
 /** Files that instantiate the game engine (dev-only field lab). */
 const ENGINE_VALUE_IMPORT = [
