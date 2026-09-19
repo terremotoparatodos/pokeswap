@@ -15,7 +15,7 @@
 |---|---|
 | Rama | `playtest/community-0.1` |
 | Base (HUMAN APPROVED) | `integration/pre-r34-town-3d` @ `e0a158107ad4e8a98be814481c3daa9c3b1809b8` |
-| Base verificada | local = remote = `e0a1581` ✅ (`git ls-remote` al inicio de la sesión) |
+| Base verificada | local = remote = `e0a1581` ✅ (`git ls-remote` al inicio) |
 | HEAD actual | ver §Checkpoints (última fila) |
 | Untracked preexistentes | 7 entradas, **intactas y sin stagear** |
 
@@ -40,51 +40,68 @@ Regla de commit: **staging explícito siempre**, nunca `git add .`.
 | 0 | `8469bd6` | Auditoría + docs de arranque |
 | 1 | `4ad2604` | P0: gate, kill switch, build id, bug reporter |
 | 2 | `0e95abf` | P1A: Dungeons como cuevas en WildLands |
+| 3 | `1b1ff6a` | P1B: chat de área sobre el socket de presencia |
+| 4 | `e118048` | P1C/D/E/F: skills, ciudad, Centro Pokémon, Tienda |
+| 5 | `65a93c3` | Tests de la regla de arranque y de las dos puertas abiertas |
+| 6 | `a513bce` | Fixes de layout móvil |
 
 ## Tarea actual
 
-**P1B — Chat multijugador** sobre `PresenceRoom`.
+QA autónomo final (§65 del brief) y entrega.
 
 ## Completadas
 
-- [x] Verificación de base contractual (`local = remote = e0a1581`)
-- [x] Rama `playtest/community-0.1` creada desde el HEAD exacto
-- [x] Auditoría de repo (ver `COMMUNITY_PLAYTEST_0_1.md` §Auditoría)
+- [x] Base contractual verificada (`local = remote = e0a1581`)
+- [x] Rama creada desde el HEAD exacto
+- [x] Auditoría de repo → `COMMUNITY_PLAYTEST_0_1.md` §1
 - [x] **P0** — `VITE_PLAYTEST` como modo de build; `PlaytestShell`; gate remoto
       (`playtest_gate`, migración escrita, **no aplicada**); banner + build id;
-      bug reporter al portapapeles. Aislamiento verificado: la build normal no
-      contiene ni una cadena del playtest.
-- [x] **P1A** — cuevas derivadas en los 5 mundos (6 por mundo, la más cercana a
-      6–17 tiles), arte en el lenguaje visual de WildLands, colisión real,
-      `PlayDungeon` con `autoStart`/`exit`. Loop verificado en navegador.
+      bug reporter al portapapeles. Aislamiento verificado.
+- [x] **P1A** — cuevas derivadas en los 5 mundos, arte en el lenguaje visual de
+      WildLands, colisión real, `PlayDungeon` con `autoStart`/`exit`.
+- [x] **P1B** — chat de área con saneo, rate limit e historial.
+- [x] **P1C** — panel de Skills sobre las 4 profesiones reales; arranque en
+      nivel 1 sin herramientas.
+- [x] **P1D** — ciudad con dos puertas abiertas y el resto explicado.
+- [x] **P1E** — Centro Pokémon: curar, equipo y cajas.
+- [x] **P1F** — Tienda: herramientas tier 1 y Poké Balls malas.
+- [x] **P2 parcial** — móvil, performance, tests de montaje de las superficies.
+- [x] Documentación (`COMMUNITY_PLAYTEST_0_1.md`): scope, seguridad, kill
+      switch, reglas, checklist de stream, shutdown, known issues.
 
 ## Pendientes
 
-- [ ] P1B — Chat (PresenceRoom + UI)
-- [ ] P1C — Skills OSRS-like (promover profesiones a playtest + panel)
-- [ ] P1D — Ciudad limitada (abrir Centro + Tienda, cerrar el resto)
-- [ ] P1E — Centro Pokémon (heal + party/cajas)
-- [ ] P1F — Tienda playtest (herramientas básicas + Poké Ball mala)
-- [ ] P2 — QA / multiplayer / multitab / mobile / stress
-- [ ] P3 — polish (sólo si P0–P2 verdes)
-- [ ] Tests, typecheck, lint, build
-- [ ] QA autónomo final + GO / NO-GO
+- [ ] QA final completo y GO / NO-GO
+- [ ] (humano) aplicar la migración del gate
+- [ ] (humano) prueba de 2 sesiones con cuentas reales
 
 ## Blockers
 
-_(ninguno todavía)_
+**Ninguno que bloquee la entrega.** Dos limitaciones de sesión, documentadas:
+
+1. **Multijugador de 2 sesiones no probado en vivo.** Requiere dos cuentas de
+   Supabase con login. La lógica de sala está cubierta por 41 tests del
+   servicio; el ida y vuelta por socket no. → primer ítem de la checklist.
+2. **Las superficies exclusivas de playtest no se vieron en navegador.**
+   `isPlaytest` es constante de build y no hay una config de dev server para el
+   modo playtest (`.claude/launch.json` es una de las 7 untracked intocables).
+   Cubiertas con 18 tests de montaje en su lugar. Para verlas en vivo hace falta
+   una entrada de launch.json que corra `npm run dev` con `VITE_PLAYTEST=on`, o
+   servir la build de playtest.
 
 ## Tests / checks
 
-Baseline heredado de la consolidación pre-R34 (aún no re-corrido en esta rama):
-
-| Check | Baseline |
+| Check | Resultado |
 |---|---|
-| `npx vitest run` | 140 archivos / 1753 tests verdes |
+| `npx vitest run` | **151 archivos / 1858 tests** verdes |
+| `node --test "src/**/*.test.js"` (services/realtime) | **41 tests** verdes |
 | `npm run typecheck` | limpio |
-| `npx eslint src` | 0 errores, 9 warnings preexistentes (AuthModal) |
-| `npm run lint` (`eslint .`) | **14 errores preexistentes**, todos en `.worktrees/**` (untracked, ajeno) |
+| `npm run lint` | **0 errores**, 9 warnings preexistentes (AuthModal) |
 | `npm run build` | OK |
+| `VITE_PLAYTEST=on npm run build` | OK |
+| Aislamiento de `dist` | 0 cadenas de playtest en la build normal |
+
+Baseline heredado: 140 archivos / 1753 tests.
 
 ## Cómo seguir exactamente
 
@@ -94,4 +111,5 @@ git fetch --all --prune
 git checkout playtest/community-0.1
 git status --porcelain
 npx vitest run
+npm run dungeon:entrances   # densidad real de cuevas
 ```
