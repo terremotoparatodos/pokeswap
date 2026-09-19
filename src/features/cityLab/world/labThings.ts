@@ -8,8 +8,9 @@
 
 import type { DecorInstance } from '../../wildlands/engine/chunks'
 import type { Sprite } from '../../wildlands/engine/sprite'
+import { townPropFeet } from '../../wildlands/engine/townProps'
 import { TILE, type DecorKind } from '../../wildlands/engine/world'
-import { isStreetProp, isTreeProp, type EntityRef, type LabCity } from '../domain/labCity'
+import { isStreetProp, isTreeProp, type EntityRef, type LabCity, type StreetPropKind } from '../domain/labCity'
 import { isCityTreeId, treeFeet, treeTapBounds, type CityTreeId, type PixelRect } from '../../worldAssets/trees/cityTrees'
 
 export interface DrawnThing {
@@ -29,7 +30,11 @@ export interface DrawnThing {
 export function drawnThings(
   city: LabCity, decor: readonly DecorInstance[], props: Readonly<Record<DecorKind, Sprite>>,
 ): DrawnThing[] {
-  const street = new Map(city.props.filter(p => isStreetProp(p.kind)).map(p => [`${p.tx},${p.ty}`, p]))
+  // Street props are drawn at their feet (longer benches: the bottom row of their footprint).
+  const street = new Map(city.props.filter(p => isStreetProp(p.kind)).map(p => {
+    const feet = townPropFeet({ kind: p.kind as StreetPropKind, tx: p.tx, ty: p.ty })
+    return [`${p.tx},${feet.ty}` as string, { p, feet }] as const
+  }))
   const world = new Map(city.props.filter(p => !isStreetProp(p.kind) && !isTreeProp(p.kind)).map(p => [`${p.tx},${p.ty}`, p]))
   const trees = new Map(city.props.filter(p => isTreeProp(p.kind)).map(p => [`${p.tx},${p.ty}`, p]))
   const out: DrawnThing[] = []
@@ -55,10 +60,10 @@ export function drawnThings(
     } else {
       const b = city.buildings.find(b => b.x === d.tx && b.y + b.d - 1 === d.ty && d.x === (b.x + b.w / 2) * TILE)
       const f = b ? null : city.fountains.find(f => f.x0 === d.tx && f.y0 === d.ty && d.x === ((f.x0 + f.x1 + 1) / 2) * TILE)
-      const p = b || f ? null : street.get(at)
+      const s = b || f ? null : street.get(at)
       if (b) { ref = { type: 'building', id: b.id }; large = true }
       else if (f) { ref = { type: 'fountain', id: f.id }; large = true }
-      else if (p && d.x === p.tx * TILE + TILE / 2 && d.y === p.ty * TILE + 14) ref = { type: 'prop', id: p.id }
+      else if (s && d.x === s.feet.x && d.y === s.feet.y) ref = { type: 'prop', id: s.p.id }
     }
     // Anything else without an entity is terrain decor: a forest tree when it is the forest art.
     const forest = !ref && !d.kind && sprite.w > TILE * 2

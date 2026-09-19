@@ -67,6 +67,17 @@ World props (trees, rocks, crystals…) have no slot in `TownDef`: the lab draws
 them through `LabTownArea` and the patch marks them in `notes`. Applying them
 requires engine support (main station's decision).
 
+## Fences and benches
+
+- Fences autotile (`engine/townProps.ts → fencePiece`): a horizontal run and a vertical run
+  that touch get a real corner post (┌ ┐ └ ┘), and a vertical run sits under the picket of
+  the corner it hangs from. Place plain `Valla ─` / `Valla │`; the corner is automatic.
+- Benches are Platinum-style plaza benches and cover several tiles from their `(tx, ty)`:
+  `bench` (long 1×3, backrest right), `benchLeft` (long 1×3, backrest left),
+  `benchShort` (1×2) and `benchAcross` (2×1, facing down). All their tiles are solid.
+- Art: `scripts/build_town_street_art.py` (fence pieces cut from the city tileset; benches
+  drawn, since the sheet has none; the old "bench" PNGs were dirt ramps).
+
 ## Buildings from scratch
 
 `domain/buildingCatalog.ts`, `editOps.addBuilding / editBuilding`. Palette → **Edificios**:

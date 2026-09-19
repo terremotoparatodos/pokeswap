@@ -25,9 +25,22 @@ const HEARTHOME_ART: TownArtSet = {
     hedge: [{ src: art('hedge') }],
     lamp: [{ src: art('lamp') }],
     sign: [{ src: art('sign') }],
-    bench: [{ src: art('bench-a'), flatTop: 'all' }, { src: art('bench-b'), flatTop: 'all' }],
+    bench: [{ src: art('bench-long'), flatTop: 'all' }],
+    benchLeft: [{ src: art('bench-long-left'), flatTop: 'all' }],
+    benchShort: [{ src: art('bench-short'), flatTop: 'all' }],
+    benchAcross: [{ src: art('bench-across'), flatTop: 'all' }],
     fenceH: [{ src: art('fence-h') }],
     fenceV: [{ src: art('fence-v') }],
+  },
+  // Autotiled fences (scripts/build_town_street_art.py): corners where a row meets a column.
+  fences: {
+    h: { src: art('fence-h') },
+    v: { src: art('fence-v') },
+    vRight: { src: art('fence-v-right') },
+    nw: { src: art('fence-nw') },
+    ne: { src: art('fence-ne') },
+    sw: { src: art('fence-sw') },
+    se: { src: art('fence-se') },
   },
 }
 
@@ -62,7 +75,8 @@ function props(): TownProp[] {
   for (const [tx, ty, text] of signs) out.push({ kind: 'sign', tx, ty, text })
   // Next to the Pokémon Center: the activity board.
   out.push({ kind: 'sign', tx: 13, ty: 19, text: 'Tablón de actividad', board: true })
-  for (const [tx, ty] of [[33, 35], [33, 37], [45, 35], [45, 37]]) out.push({ kind: 'bench', tx, ty })
+  // Long benches beside the fountains, backrest away from the water (as in Platinum).
+  out.push({ kind: 'bench', tx: 33, ty: 35 }, { kind: 'benchLeft', tx: 45, ty: 35 })
   return out
 }
 

@@ -15,7 +15,7 @@ import { packColor, pixelsToCanvas } from '../engine/pixels'
 import type { LensName } from '../engine/projection'
 import { buildPropSprites } from '../engine/props'
 import { bakeTownGround, type TileRect } from '../engine/townGround'
-import { buildTownProps, type TownPropKind } from '../engine/townProps'
+import { buildTownProps, fencePiece, townPropFeet, townPropTiles, type FencePiece, type TownPropKind } from '../engine/townProps'
 import { TILE } from '../engine/world'
 import { loadImageSprite } from '../engine/sprite'
 import { devWarn } from '../../../shared/utils/devTools'
@@ -60,9 +60,12 @@ export interface TownArtSet {
   trees?: readonly string[]
   fountains?: readonly ArtImage[]
   props?: Partial<Record<TownPropKind, readonly ArtImage[]>>
+  /** Fence pieces by autotile shape (engine/townProps.ts → fencePiece); without one, `props.fenceH/fenceV` is used. */
+  fences?: Partial<Record<FencePiece, ArtImage>>
 }
 
 export interface TownProp extends Tile {
+  /** `tx, ty` is the top-left tile of the prop's footprint (benches cover several tiles). */
   kind: TownPropKind
   /** What a sign says. */
   text?: string
@@ -95,7 +98,7 @@ export interface TownDef {
   plots?: readonly TileRect[]
 }
 
-const SOLID_PROPS = new Set<TownPropKind>(['lamp', 'sign', 'bench', 'hedge', 'fenceH', 'fenceV'])
+const SOLID_PROPS = new Set<TownPropKind>(['lamp', 'sign', 'hedge', 'fenceH', 'fenceV', 'bench', 'benchLeft', 'benchShort', 'benchAcross'])
 
 interface TownArt {
   ground: HTMLCanvasElement
@@ -144,7 +147,7 @@ export class TownArea implements Area {
     for (const f of def.fountains) {
       for (let ty = f.y0; ty <= f.y1; ty++) for (let tx = f.x0; tx <= f.x1; tx++) mark(tx, ty, 1)
     }
-    for (const p of def.props) if (SOLID_PROPS.has(p.kind)) mark(p.tx, p.ty, 1)
+    for (const p of def.props) if (SOLID_PROPS.has(p.kind)) for (const t of townPropTiles(p)) mark(t.tx, t.ty, 1)
     for (const gate of def.gates) for (const t of gate.tiles) mark(t.tx, t.ty, 0)
     return solid
   }
@@ -193,11 +196,15 @@ export class TownArea implements Area {
       }
     }
     const town = buildTownProps()
+    const fences = new Map<string, 'h' | 'v'>()
+    for (const p of def.props) if (p.kind === 'fenceH' || p.kind === 'fenceV') fences.set(`${p.tx},${p.ty}`, p.kind === 'fenceH' ? 'h' : 'v')
+    const fenceAt = (tx: number, ty: number) => fences.get(`${tx},${ty}`) ?? null
     for (const p of def.props) {
-      addWithArt(
-        { kind: null, sprite: town[p.kind], tx: p.tx, ty: p.ty, x: p.tx * TILE + TILE / 2, y: p.ty * TILE + 14, light: p.kind === 'lamp' },
-        variant(art.props?.[p.kind], p.tx, p.ty),
-      )
+      const image = p.kind === 'fenceH' || p.kind === 'fenceV'
+        ? art.fences?.[fencePiece(fenceAt, p.tx, p.ty)] ?? variant(art.props?.[p.kind], p.tx, p.ty)
+        : variant(art.props?.[p.kind], p.tx, p.ty)
+      const { x, y, ty } = townPropFeet(p)
+      addWithArt({ kind: null, sprite: town[p.kind], tx: p.tx, ty, x, y, light: p.kind === 'lamp' }, image)
     }
     def.fountains.forEach((f, i) => {
       const at = { tx: f.x0, ty: f.y0, x: ((f.x0 + f.x1 + 1) / 2) * TILE }
