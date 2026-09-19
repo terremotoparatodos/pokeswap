@@ -98,7 +98,7 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       { id: 'gym', name: 'Gimnasio', blurb: 'La entrada al Dungeon.', style: 'gym', x: 48, y: 14, w: 7, d: 6, door: { tx: 51, ty: 19 }, feature: 'dungeon', image: { src: art('gym'), flatTop: 59 } },
       { id: 'fanclub', name: 'Club de Fans Pokémon', blurb: 'Guardan la Pokédex de todos los socios.', style: 'redhouse', x: 10, y: 24, w: 5, d: 6, door: { tx: 11, ty: 29 }, feature: 'pokedex', image: { src: art('fanclub'), flatTop: 42 } },
       { id: 'house2', name: 'Casa', blurb: 'Huele a pan recién horneado.', style: 'house', x: 23, y: 25, w: 4, d: 5, image: { src: art('house-blue'), flatTop: 43 } },
-      { id: 'mart', name: 'Tienda', blurb: 'El Mercado de PokeSwap: comprá y vendé Pokémon.', style: 'mart', x: 28, y: 26, w: 4, d: 4, door: { tx: 30, ty: 29 }, feature: 'mercado', image: { src: art('mart'), flatTop: 36 } },
+      { id: 'mart', name: 'Tienda', blurb: 'El Mercado de PokeSwap: comprá y vendé Pokémon.', style: 'mart', x: 28, y: 26, w: 4, d: 4, door: { tx: 30, ty: 29 }, feature: 'mercado', image: { src: art('mart'), flatTop: 36, model: '/assets/town/models/mart.json' } },
       { id: 'poffin', name: 'Casa de los Poffins', blurb: 'Tu perfil, tus tokens y tus movimientos.', style: 'redhouse', x: 39, y: 24, w: 5, d: 6, door: { tx: 41, ty: 29 }, feature: 'perfil', image: { src: art('poffin'), flatTop: 40 } },
       { id: 'apt2', name: 'Departamentos', blurb: 'Alguien practica flauta en el segundo piso.', style: 'apartment', x: 44, y: 23, w: 5, d: 7, image: { src: art('apartment-b'), flatTop: 75 } },
     ],

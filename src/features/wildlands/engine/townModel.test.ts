@@ -34,10 +34,16 @@ describe('converted town models', () => {
     expect(solidWidth(model('pokecenter'))).toBeLessThanOrEqual(84)
     // A bench sits inside one 16 px tile across.
     for (const id of ['bench-1', 'bench-2']) expect(solidWidth(model(id))).toBeLessThanOrEqual(16)
+    // The Poké Mart's building stands on its 4-tile footprint (its sign post reaches past it).
+    const mart = model('mart')
+    expect(mart.center).toBe(0)
+    const solidX = mart.triangles.filter(t => !mart.materials[t[0]].shadow).flatMap(t => t.slice(1, 4).map(i => mart.vertices[i][0]))
+    expect(Math.min(...solidX)).toBe(-32)
   })
 
-  it('are drawn by Ciudad Corazón: the Pokémon Center and both benches', () => {
+  it('are drawn by Ciudad Corazón: the Pokémon Center, the Poké Mart and both benches', () => {
     expect(HEARTHOME.buildings.find(b => b.id === 'pokecenter')?.image?.model).toBe('/assets/town/models/pokecenter.json')
+    expect(HEARTHOME.buildings.find(b => b.id === 'mart')?.image?.model).toBe('/assets/town/models/mart.json')
     expect(HEARTHOME.art?.models).toEqual({ bench: '/assets/town/models/bench-1.json', benchLeft: '/assets/town/models/bench-2.json' })
   })
 })

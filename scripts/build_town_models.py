@@ -26,15 +26,20 @@ from PIL import Image
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'public/assets/town/models'
 
-# id: (source OBJ relative to the input folder, {material: (wrap u, wrap v)})
+# id: (source OBJ relative to the input folder, {material: (wrap u, wrap v)}[, options])
+# options: 'center' — the x that stands on the footprint's centre, when the model reaches
+# past its building on one side (the Poké Mart's sign post).
 MODELS = {
     # HeartGold/SoulSilver's Pokémon Center (closer to Platinum than Diamond/Pearl's).
     'pokecenter': ('Pokemon Center HG/Pokémon Center.obj', {'gs_pc_a': ('repeat', 'repeat'), 'gs_pc_b': ('repeat', 'repeat')}),
+    # HeartGold/SoulSilver's Poké Mart: the building is x −32…32; its sign post stands to the right.
+    'mart': ('Poké Mart/Poké Mart.obj', {'fs_a': ('repeat', 'mirror')}, {'center': 0}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }
-# The ground shadow under every model (translucent in the MTL).
-SHADOW = 'h_kage'
+# The ground shadow under every model: the translucent material (h_kage / kage in the MTL).
+def is_shadow(material: dict) -> bool:
+    return material['alpha'] < 1
 
 
 def parse_mtl(path: Path) -> dict:
@@ -76,7 +81,8 @@ def expand(tex: Image.Image, u_range, t_range, wrap) -> tuple[Image.Image, int, 
     return out, u0, t0
 
 
-def convert(folder: Path, model_id: str, obj: str, wraps: dict) -> None:
+def convert(folder: Path, model_id: str, obj: str, wraps: dict, options: dict | None = None) -> None:
+    options = options or {}
     obj_path = folder / obj
     mtl = parse_mtl(obj_path.with_suffix('.mtl'))
     V, T, faces, cur = [], [], [], None
@@ -95,7 +101,7 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict) -> None:
             for i in range(1, len(idx) - 1):  # fan into triangles
                 faces.append((cur, idx[0], idx[i], idx[i + 1]))
 
-    names = sorted({f[0] for f in faces}, key=lambda m: (m != SHADOW, m))
+    names = sorted({f[0] for f in faces}, key=lambda m: (not is_shadow(mtl[m]), m))
     materials, tri = [], []
     for m in names:
         used = [f for f in faces if f[0] == m]
@@ -107,7 +113,7 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict) -> None:
         file = f'{model_id}-{m}.png'
         big.save(OUT / file)
         w, h = tex.size
-        materials.append({'name': m, 'texture': file, 'alpha': round(mtl[m]['alpha'], 4), 'shadow': m == SHADOW})
+        materials.append({'name': m, 'texture': file, 'alpha': round(mtl[m]['alpha'], 4), 'shadow': is_shadow(mtl[m])})
         k = len(materials) - 1
         for _, a, b, c in used:
             uv = []
@@ -126,7 +132,7 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict) -> None:
         'source': obj,
         'bounds': {'x': [min(xs), max(xs)], 'y': [min(ys), max(ys)], 'z': [min(zs), max(zs)]},
         # Middle of the solid part across, and its front: the model stands with them on its footprint.
-        'center': round((min(sx) + max(sx)) / 2, 4),
+        'center': round(options.get('center', (min(sx) + max(sx)) / 2), 4),
         'front': round(max(sz), 4),
         'vertices': [[round(c, 4) for c in v] for v in V],
         'materials': materials,
@@ -141,8 +147,8 @@ def main() -> None:
         sys.exit(__doc__)
     folder = Path(sys.argv[1])
     OUT.mkdir(parents=True, exist_ok=True)
-    for model_id, (obj, wraps) in MODELS.items():
-        convert(folder, model_id, obj, wraps)
+    for model_id, (obj, wraps, *options) in MODELS.items():
+        convert(folder, model_id, obj, wraps, *options)
 
 
 if __name__ == '__main__':
