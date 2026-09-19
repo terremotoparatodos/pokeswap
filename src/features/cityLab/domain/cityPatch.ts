@@ -89,6 +89,11 @@ function buildingPlace(b: TownBuilding) {
   return { x: b.x, y: b.y, ...(b.door ? { door: xy(b.door) } : {}), ...(b.open ? { open: tiles(b.open) } : {}) }
 }
 
+/** A building's art in a fixed key order: its PNG, roof line and 3D model. */
+function canonicalImage(i: NonNullable<TownBuilding['image']>): NonNullable<BuildingLook['image']> {
+  return { src: i.src, ...(i.flatTop !== undefined ? { flatTop: i.flatTop } : {}), ...(i.model !== undefined ? { model: i.model } : {}) }
+}
+
 /** What a building is, apart from where it stands (see `buildingPlace`). */
 export interface BuildingLook {
   name: string
@@ -97,7 +102,7 @@ export interface BuildingLook {
   d: number
   feature?: TownBuilding['feature']
   blurb?: string
-  image?: { src: string; flatTop?: number | 'all' }
+  image?: { src: string; flatTop?: number | 'all'; model?: string }
 }
 
 function buildingLook(b: TownBuilding): BuildingLook {
@@ -105,7 +110,7 @@ function buildingLook(b: TownBuilding): BuildingLook {
     name: b.name, style: b.style, w: b.w, d: b.d,
     ...(b.feature ? { feature: b.feature } : {}),
     ...(b.blurb !== undefined ? { blurb: b.blurb } : {}),
-    ...(b.image ? { image: { src: b.image.src, ...(b.image.flatTop !== undefined ? { flatTop: b.image.flatTop } : {}) } } : {}),
+    ...(b.image ? { image: canonicalImage(b.image) } : {}),
   }
 }
 
@@ -117,7 +122,7 @@ function canonicalBuilding(b: TownBuilding): TownBuilding {
     ...(b.open ? { open: tiles(b.open) } : {}),
     ...(b.feature ? { feature: b.feature } : {}),
     ...(b.blurb !== undefined ? { blurb: b.blurb } : {}),
-    ...(b.image ? { image: { src: b.image.src, ...(b.image.flatTop !== undefined ? { flatTop: b.image.flatTop } : {}) } } : {}),
+    ...(b.image ? { image: canonicalImage(b.image) } : {}),
   }
 }
 

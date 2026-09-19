@@ -94,6 +94,9 @@ requires engine support (main station's decision).
   model left of, at and right of the screen centre, to check textures and walls before use.
 - The Pokémon Center, the Poké Mart and the gym are HeartGold/SoulSilver's models (closer to Platinum
   than Diamond/Pearl's). The Mart's sign post stands past its footprint (`center` option).
+- Each converted model also gets `<id>-sprite.png`, its front render: the palette thumbnail
+  and loading fallback. Models no city building uses (the Goldenrod Game Corner "Casino")
+  are placeable from the lab's palette → Edificios → Modelos 3D.
 - A building opts in with `image.model` (the PNG stays as loading fallback and for the ground
   dressing); props with `art.models[kind]`. Today: the Pokémon Center and both benches.
 

@@ -53,7 +53,7 @@ const info = computed(() => {
         { label: 'puerta', value: b.door ? `${b.door.tx}, ${b.door.ty} → sale a ${b.door.tx}, ${b.door.ty + 1}` : '—' },
         { label: 'feature', value: b.feature ?? '—' },
         { label: 'tiles abiertos', value: b.open?.map(t => `${t.tx},${t.ty}`).join(' ') || '—' },
-        { label: 'arte', value: b.image?.src ?? 'pintado en código' },
+        { label: 'arte', value: b.image?.model ? `modelo 3D ${b.image.model}` : b.image?.src ?? 'pintado en código' },
       )
       break
     }
@@ -115,6 +115,7 @@ const hoverInfo = computed(() => {
 })
 
 const artTemplates = BUILDING_TEMPLATES.filter(t => t.group === 'art')
+const modelTemplates = BUILDING_TEMPLATES.filter(t => t.group === 'model')
 const blockTemplates = BUILDING_TEMPLATES.filter(t => t.group === 'block')
 
 /** Who else already opens a function (so the select can say it). */
@@ -190,6 +191,9 @@ function playHere(): void {
             <option v-if="!templateOf(info.building)" value="" disabled>(otro)</option>
             <optgroup label="Con dibujo de la ciudad">
               <option v-for="t in artTemplates" :key="t.id" :value="t.id">{{ t.label }} · {{ t.w }}×{{ t.d }}</option>
+            </optgroup>
+            <optgroup label="Modelos 3D (HeartGold)">
+              <option v-for="t in modelTemplates" :key="t.id" :value="t.id">{{ t.label }} · {{ t.w }}×{{ t.d }}</option>
             </optgroup>
             <optgroup label="Bloque pintado (mantiene el tamaño)">
               <option v-for="t in blockTemplates" :key="t.id" :value="t.id">{{ t.label }}</option>

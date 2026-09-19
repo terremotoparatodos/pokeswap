@@ -26,6 +26,7 @@ const treeGroups = computed(() => groups.value.filter(([g]) => TREE_GROUPS.inclu
 const otherGroups = computed(() => groups.value.filter(([g]) => !TREE_GROUPS.includes(g)))
 
 const artBuildings = BUILDING_TEMPLATES.filter(t => t.group === 'art')
+const modelBuildings = BUILDING_TEMPLATES.filter(t => t.group === 'model')
 const blockBuildings = BUILDING_TEMPLATES.filter(t => t.group === 'block')
 /** Painted blocks have no PNG: their thumbnail is the engine's own placeholder sprite. */
 const blockThumbs = ref<Record<string, string>>({})
@@ -70,6 +71,18 @@ function choose(kind: PaletteChoice): void {
         >
           <img :src="t.image!.src" alt="">
           <span>{{ t.label }}<small class="badge">{{ t.w }}×{{ t.d }}</small></span>
+        </button>
+      </div>
+      <h4>Modelos 3D (HeartGold)</h4>
+      <div class="pal-grid pal-buildings">
+        <button
+          v-for="t in modelBuildings" :key="t.id" type="button" class="pal-item pal-building"
+          :class="{ on: lab.tool.value === 'add' && lab.palette.value === t.id }"
+          :title="`${t.label} · ${t.w}×${t.d} tiles · modelo 3D`"
+          @click="choose(t.id as PaletteChoice)"
+        >
+          <img :src="t.image!.src" alt="">
+          <span>{{ t.label }}<small class="badge">{{ t.w }}×{{ t.d }} · 3D</small></span>
         </button>
       </div>
       <h4>Bloque pintado (cualquier tamaño)</h4>

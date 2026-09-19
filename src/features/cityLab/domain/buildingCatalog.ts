@@ -1,9 +1,10 @@
 // City Mapping Lab — buildings the palette can place from scratch (DEV only).
 //
-// Only art the city already has: one template per hand-drawn building PNG in
-// Ciudad Corazón (same style, footprint, roof line and walkable stairs), plus
-// the engine's code-painted blocks, whose footprint can be any size. A new
-// building starts with no PokeSwap function; the inspector gives it one.
+// Only art the game already has: one template per hand-drawn building PNG in
+// Ciudad Corazón (same style, footprint, roof line and walkable stairs), the
+// handheld games' 3D models that no city building uses yet, and the engine's
+// code-painted blocks, whose footprint can be any size. A new building starts
+// with no PokeSwap function; the inspector gives it one.
 
 import { HEARTHOME } from '../../wildlands/areas/atlas'
 import type { ArtImage, TownBuilding } from '../../wildlands/areas/townArea'
@@ -11,10 +12,10 @@ import type { BuildingStyle } from '../../wildlands/engine/buildings'
 import type { Tile } from '../../wildlands/engine/pathfinding'
 
 export interface BuildingTemplate {
-  /** `art:<png name>` or `block:<style>`. */
+  /** `art:<png name>`, `model:<model id>` or `block:<style>`. */
   readonly id: string
   readonly label: string
-  readonly group: 'art' | 'block'
+  readonly group: 'art' | 'model' | 'block'
   readonly style: BuildingStyle
   readonly w: number
   readonly d: number
@@ -64,6 +65,20 @@ for (const b of HEARTHOME.buildings) {
   if (b.image && !ART_TEMPLATES.some(t => t.image!.src === b.image!.src)) ART_TEMPLATES.push(fromBuilding(b))
 }
 
+/**
+ * 3D models (scripts/build_town_models.py) no city building uses: their front
+ * render is the palette thumbnail and loading fallback. Footprints fit the model.
+ */
+const MODEL_BUILDINGS: readonly { id: string; label: string; style: BuildingStyle; w: number; d: number }[] = [
+  { id: 'casino', label: 'Casino (Game Corner)', style: 'contest', w: 7, d: 4 },
+]
+
+const MODEL_TEMPLATES: BuildingTemplate[] = MODEL_BUILDINGS.map(m => ({
+  id: `model:${m.id}`, label: m.label, group: 'model', style: m.style, w: m.w, d: m.d,
+  image: { src: `/assets/town/models/${m.id}-sprite.png`, model: `/assets/town/models/${m.id}.json` },
+  name: 'Edificio nuevo', blurb: '',
+}))
+
 /** Default footprint of a code-painted block: a small house. */
 export const BLOCK_SIZE = { w: 4, d: 4 } as const
 /** Footprints the inspector accepts, in tiles. */
@@ -73,7 +88,7 @@ const BLOCK_TEMPLATES: BuildingTemplate[] = (Object.keys(BLOCK_LABELS) as Buildi
   id: `block:${style}`, label: BLOCK_LABELS[style], group: 'block', style, ...BLOCK_SIZE, name: 'Edificio nuevo', blurb: '',
 }))
 
-export const BUILDING_TEMPLATES: readonly BuildingTemplate[] = [...ART_TEMPLATES, ...BLOCK_TEMPLATES]
+export const BUILDING_TEMPLATES: readonly BuildingTemplate[] = [...ART_TEMPLATES, ...MODEL_TEMPLATES, ...BLOCK_TEMPLATES]
 
 export function buildingTemplate(id: string): BuildingTemplate | null {
   return BUILDING_TEMPLATES.find(t => t.id === id) ?? null

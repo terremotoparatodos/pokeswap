@@ -19,13 +19,13 @@ LENS = {'zoom': 1.0, 'squash': 0.74, 'distance': 900.0}
 GROUND = (196, 170, 128, 255)
 
 
-def render(model_path: Path, offset: float, width=460, height=170) -> Image.Image:
+def render(model_path: Path, offset: float, width=460, height=170, background=GROUND) -> Image.Image:
     data = json.loads(model_path.read_text(encoding='utf-8'))
     textures = [Image.open(model_path.parent / m['texture']).convert('RGBA') for m in data['materials']]
     D, f = LENS['distance'], LENS['zoom'] * LENS['distance']
     h = LENS['squash'] * D
     cx, horizon = width / 2, height * 0.72 - LENS['zoom'] * LENS['squash'] * D
-    img = Image.new('RGBA', (width, height), GROUND)
+    img = Image.new('RGBA', (width, height), background)
     px = img.load()
     zbuf = [[1e18] * width for _ in range(height)]
 
@@ -59,6 +59,8 @@ def render(model_path: Path, offset: float, width=460, height=170) -> Image.Imag
                 v = (w0 * uv[0][1] / d0 + w1 * uv[1][1] / d1 + w2 * uv[2][1] / d2) * depth
                 c = tex.getpixel((min(tw - 1, max(0, int(u))), min(th - 1, max(0, int(v)))))
                 if m['shadow']:
+                    if background[3] == 0:
+                        continue  # a cut-out sprite carries no ground shadow
                     a = m['alpha'] * c[3] / 255
                     base = px[sx, sy]
                     px[sx, sy] = tuple(int(base[k] * (1 - a) + c[k] * a) for k in range(3)) + (255,)

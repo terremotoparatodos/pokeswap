@@ -10,6 +10,8 @@ one image without wrapping:
 
     public/assets/town/models/<id>.json          vertices, triangles, materials
     public/assets/town/models/<id>-<mat>.png      expanded textures
+    public/assets/town/models/<id>-sprite.png     the model seen from the front (palette
+                                                  thumbnail and loading fallback)
 
 Model space: x to the right, y up, z toward the viewer (the front). The game
 stands the model on its footprint (engine/townModel.ts).
@@ -36,6 +38,8 @@ MODELS = {
     'mart': ('Poké Mart/Poké Mart.obj', {'fs_a': ('repeat', 'repeat')}, {'center': 0}),
     # HeartGold/SoulSilver's gym (Saffron's textures): every texture repeats.
     'gym': ('Saffron Gym/Saffron Gym.obj', {}),
+    # HeartGold/SoulSilver's Goldenrod Game Corner (not in Ciudad Corazón: a building the lab can place).
+    'casino': ('Casino/Goldenrod Game Corner.obj', {}),
     'bench-1': ('Bench 1/Bench 1.obj', {'lambert2': ('repeat', 'repeat')}),
     'bench-2': ('Bench 2/Bench 2.obj', {'lambert2': ('repeat', 'repeat')}),
 }
@@ -144,6 +148,16 @@ def convert(folder: Path, model_id: str, obj: str, wraps: dict, options: dict | 
     print(f'{model_id:12} {len(V):4} verts {len(tri):4} tris  {[m["name"] for m in materials]}')
 
 
+def sprite(model_id: str) -> None:
+    """The model rendered from the front with the town camera, cut out: its PNG stand-in."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location('preview', Path(__file__).with_name('preview_town_model.py'))
+    preview = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(preview)
+    img = preview.render(OUT / f'{model_id}.json', 0, background=(0, 0, 0, 0))
+    img.crop(img.getbbox()).save(OUT / f'{model_id}-sprite.png')
+
+
 def main() -> None:
     if len(sys.argv) < 2:
         sys.exit(__doc__)
@@ -151,6 +165,7 @@ def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     for model_id, (obj, wraps, *options) in MODELS.items():
         convert(folder, model_id, obj, wraps, *options)
+        sprite(model_id)
 
 
 if __name__ == '__main__':

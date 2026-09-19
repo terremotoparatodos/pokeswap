@@ -168,6 +168,24 @@ describe('editing a building', () => {
   })
 })
 
+describe('3D model buildings', () => {
+  it('offer the models no city building uses (the casino), with their front render as thumbnail', () => {
+    const casino = buildingTemplate('model:casino')!
+    expect(casino).toMatchObject({ group: 'model', w: 7, d: 4, image: { src: '/assets/town/models/casino-sprite.png', model: '/assets/town/models/casino.json' } })
+    // City buildings with a model keep it in their template.
+    expect(buildingTemplate('art:pokecenter')?.image?.model).toBe('/assets/town/models/pokecenter.json')
+  })
+
+  it('places a casino and keeps its model through an exported and re-imported patch', () => {
+    const base = baseline()
+    const city = ok(addBuilding(HEARTHOME, base, 'model:casino', freeSpot(base, 'model:casino', false)))
+    const text = serializePatch(diffCities(base, city, LOBBY_ID))
+    expect(JSON.parse(text).buildings.added[0].image.model).toBe('/assets/town/models/casino.json')
+    const back = applyPatch(base, JSON.parse(text))
+    expect(back.ok && back.city.buildings.find(b => b.id === 'building-new-1')?.image?.model).toBe('/assets/town/models/casino.json')
+  })
+})
+
 describe('the patch', () => {
   it('exports a new building as a full record and imports it back byte-identical', () => {
     const base = baseline()
