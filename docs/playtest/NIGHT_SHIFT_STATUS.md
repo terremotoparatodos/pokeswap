@@ -44,10 +44,13 @@ Regla de commit: **staging explícito siempre**, nunca `git add .`.
 | 4 | `e118048` | P1C/D/E/F: skills, ciudad, Centro Pokémon, Tienda |
 | 5 | `65a93c3` | Tests de la regla de arranque y de las dos puertas abiertas |
 | 6 | `a513bce` | Fixes de layout móvil |
+| 7 | `bfb98dc` | Documentación operativa (scope, kill switch, checklist, shutdown) |
+| 8 | _(este commit)_ | QA final y veredicto |
 
 ## Tarea actual
 
-QA autónomo final (§65 del brief) y entrega.
+**Terminado.** Veredicto: **GO** con dos verificaciones humanas previas
+(ver §Blockers y la checklist de `COMMUNITY_PLAYTEST_0_1.md` §11).
 
 ## Completadas
 
@@ -68,12 +71,17 @@ QA autónomo final (§65 del brief) y entrega.
 - [x] **P2 parcial** — móvil, performance, tests de montaje de las superficies.
 - [x] Documentación (`COMMUNITY_PLAYTEST_0_1.md`): scope, seguridad, kill
       switch, reglas, checklist de stream, shutdown, known issues.
+- [x] **QA final**: suite, typecheck, lint, ambas builds, aislamiento de `dist`,
+      diff revisado archivo por archivo, base y ramas de la secundaria
+      verificadas sin mover, las 7 untracked intactas y fuera de todo commit.
 
-## Pendientes
+## Pendientes (para el humano, antes del stream)
 
-- [ ] QA final completo y GO / NO-GO
-- [ ] (humano) aplicar la migración del gate
-- [ ] (humano) prueba de 2 sesiones con cuentas reales
+- [ ] Aplicar `supabase/migrations/20260919_001_playtest_gate.sql`
+- [ ] Deploy con `VITE_PLAYTEST=on`
+- [ ] **Prueba de 2 sesiones con cuentas reales** — si falla, NO-GO
+- [ ] Prueba en un teléfono real
+- [ ] Abrir el gate con el código del stream
 
 ## Blockers
 
@@ -98,8 +106,12 @@ QA autónomo final (§65 del brief) y entrega.
 | `npm run typecheck` | limpio |
 | `npm run lint` | **0 errores**, 9 warnings preexistentes (AuthModal) |
 | `npm run build` | OK |
-| `VITE_PLAYTEST=on npm run build` | OK |
+| `VITE_PLAYTEST=on npm run build` | OK, commit correcto embebido (`bfb98dc`) |
 | Aislamiento de `dist` | 0 cadenas de playtest en la build normal |
+| Base `integration/pre-r34-town-3d` | sigue en `e0a1581`, local = remote |
+| Ramas de la estación secundaria | sin tocar |
+| Las 7 untracked | intactas, ningún commit las referencia |
+| Regresión de la build normal | Mercado abre normal en DEV; misma lista de chunks que la base |
 
 Baseline heredado: 140 archivos / 1753 tests.
 
