@@ -36,7 +36,7 @@ describe('a hostile client', () => {
     const harness = await createAuthorityHarness(DUEL)
     // The wild side has no controller at all, so nobody may move it.
     expectRejected(send(harness, actionPayload(harness, 'controller-a:1', {
-      kind: 'useMove', combatantId: 'wild-0', moveId: harness.moveId('tackle'),
+      kind: 'useMove', combatantId: 'wild-0', moveId: harness.moveId('tackle'), targetId: 'ally-0',
     })), 'NOT_CONTROLLER')
     expect(harness.authority.revision()).toBe(0)
   })
@@ -46,7 +46,8 @@ describe('a hostile client', () => {
     harness.room.join({ sessionId: 'session-b', controllerId: 'controller-b' })
 
     const stolen = harness.room.message('session-b', 'expedition:action', actionPayload(
-      harness, 'controller-b:1', { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') },
+      harness, 'controller-b:1',
+      { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0' },
     ))
     expectRejected(stolen, 'NOT_CONTROLLER')
     expect(harness.authority.revision()).toBe(0)
@@ -60,12 +61,13 @@ describe('a hostile client', () => {
     // genuine action look like a duplicate. The prefix is checked against the
     // authenticated controller, so it cannot be done.
     const spoofed = harness.room.message('session-b', 'expedition:action', actionPayload(
-      harness, 'controller-a:1', { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') },
+      harness, 'controller-a:1',
+      { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0' },
     ))
     expectRejected(spoofed, 'NOT_CONTROLLER')
 
     const genuine = send(harness, actionPayload(harness, 'controller-a:1', {
-      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'),
+      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0',
     }))
     expect(genuine.kind).toBe('accepted')
   })
@@ -73,7 +75,8 @@ describe('a hostile client', () => {
   it('is not in the room until the transport says it is', async () => {
     const harness = await createAuthorityHarness(DUEL)
     expectRejected(harness.room.message('session-nobody', 'expedition:action', actionPayload(
-      harness, 'controller-a:1', { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') },
+      harness, 'controller-a:1',
+      { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0' },
     )), 'NOT_CONTROLLER')
   })
 
@@ -98,7 +101,7 @@ describe('a hostile client', () => {
     const harness = await createAuthorityHarness(DUEL)
     // Well formed and authorised: the rules are the ones that say no.
     expectRejected(send(harness, actionPayload(harness, 'controller-a:1', {
-      kind: 'useMove', combatantId: 'ally-0', moveId: 999_999,
+      kind: 'useMove', combatantId: 'ally-0', moveId: 999_999, targetId: 'wild-0',
     })), 'ACTION_NOT_ALLOWED')
     expect(harness.authority.revision()).toBe(0)
   })
@@ -108,7 +111,7 @@ describe('a hostile client', () => {
     const bad = [-1, 0, 4.5, Number.NaN, Number.POSITIVE_INFINITY, 1e99, '25', null]
     bad.forEach((moveId, index) => {
       expectRejected(send(harness, actionPayload(harness, `controller-a:${index + 1}`, {
-        kind: 'useMove', combatantId: 'ally-0', moveId,
+        kind: 'useMove', combatantId: 'ally-0', moveId, targetId: 'wild-0',
       })), 'INVALID_SCHEMA')
     })
     expect(harness.authority.revision()).toBe(0)
@@ -136,7 +139,9 @@ describe('a hostile client', () => {
 
   it('cannot spell an action id its own way', async () => {
     const harness = await createAuthorityHarness(DUEL)
-    const intent = { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') }
+    const intent = {
+      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0',
+    }
     const bad = ['', ':1', 'controller-a:', 'controller-a:0', 'controller-a:01', 'controller-a:-1',
       'controller-a:1.0', 'controller-a:1e3', 'a'.repeat(200) + ':1', 7, null, undefined, {}]
     for (const actionId of bad) {
@@ -147,7 +152,9 @@ describe('a hostile client', () => {
 
   it('cannot ask for a version this server does not run', async () => {
     const harness = await createAuthorityHarness(DUEL)
-    const intent = { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') }
+    const intent = {
+      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0',
+    }
 
     expectRejected(send(harness, actionPayload(harness, 'controller-a:1', intent, {
       catalogVersion: '1.oras.deadbeefcafe',
@@ -189,7 +196,7 @@ describe('a hostile client', () => {
       wild: [{ speciesId: 129, level: 5, moves: ['splash'] }],
     })
     send(harness, actionPayload(harness, 'controller-a:1', {
-      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'),
+      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0',
     }))
     for (let step = 0; step < 40; step += 1) {
       harness.clock.advance(250)
@@ -199,7 +206,7 @@ describe('a hostile client', () => {
 
     const revision = harness.authority.revision()
     expectRejected(send(harness, actionPayload(harness, 'controller-a:2', {
-      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'),
+      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0',
     })), 'BATTLE_FINISHED')
     expect(harness.authority.revision()).toBe(revision)
   })
@@ -209,7 +216,7 @@ describe('a hostile client', () => {
     // HP, a capture verdict, a seed, a cursor and a revision — every kind of
     // thing a client is not allowed to assert. Nothing reads any of it.
     const intent = (harness: AuthorityHarness) => ({
-      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'),
+      kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0',
     })
 
     const honest = await createAuthorityHarness(DUEL)

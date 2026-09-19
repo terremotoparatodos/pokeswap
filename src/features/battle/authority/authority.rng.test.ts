@@ -25,7 +25,8 @@ const DUEL = {
 const play = async (seed: number) => {
   const harness = await createAuthorityHarness({ ...DUEL, seed })
   harness.room.message(harness.sessionId, 'expedition:action', actionPayload(
-    harness, 'controller-a:1', { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') },
+    harness, 'controller-a:1',
+    { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0' },
   ))
   const events = []
   for (let step = 0; step < 24; step += 1) {
@@ -84,6 +85,7 @@ describe('the authoritative RNG', () => {
         kind: 'useMove',
         combatantId: 'ally-0',
         moveId: harness.moveId('thunderbolt'),
+        targetId: 'wild-0',
         rng: { seed: 1, cursor: 0 },
         seed: 1,
       },
@@ -121,7 +123,8 @@ describe('the authoritative RNG', () => {
   it('never puts them in an event envelope either', async () => {
     const harness = await createAuthorityHarness({ ...DUEL, seed: 4242 })
     const accepted = harness.room.message(harness.sessionId, 'expedition:action', actionPayload(
-      harness, 'controller-a:1', { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') },
+      harness, 'controller-a:1',
+      { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0' },
     ))
     const envelopes = [...(accepted.kind === 'accepted' ? accepted.events : [])]
     for (let step = 0; step < 24; step += 1) {

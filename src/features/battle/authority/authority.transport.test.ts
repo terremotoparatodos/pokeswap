@@ -32,9 +32,12 @@ const harnessWithBench = () => createAuthorityHarness({
 const send = (harness: AuthorityHarness, payload: unknown): AuthoritySubmitResult =>
   harness.room.message(harness.sessionId, 'expedition:action', payload)
 
-const useMove = (harness: AuthorityHarness, actionId: string, slug: string, overrides = {}) =>
+/** `targetId` is mandatory (A-3), so every helper names one explicitly. */
+const useMove = (
+  harness: AuthorityHarness, actionId: string, slug: string, overrides = {}, targetId = 'wild-0',
+) =>
   send(harness, actionPayload(harness, actionId, {
-    kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId(slug),
+    kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId(slug), targetId,
   }, overrides))
 
 /** Runs the server loop until something is emitted, or the budget is spent. */
@@ -197,7 +200,8 @@ describe('an authoritative battle, end to end', () => {
     harness.room.join({ sessionId: 'session-a2', controllerId: 'controller-a' })
     const revision = harness.authority.revision()
     const fresh = harness.room.message('session-a2', 'expedition:action', actionPayload(
-      harness, 'controller-a:1', { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') },
+      harness, 'controller-a:1',
+      { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0' },
     ))
     expect(fresh.kind).not.toBe('accepted')
     expect(harness.authority.revision()).toBe(revision)
@@ -205,7 +209,7 @@ describe('an authoritative battle, end to end', () => {
     const resumed = harness.room.message('session-a2', 'expedition:action', actionPayload(
       harness,
       `controller-a:${harness.authority.acceptedFloor('controller-a') + 1}`,
-      { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt') },
+      { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('thunderbolt'), targetId: 'wild-0' },
     ))
     expect(resumed.kind).toBe('accepted')
   })

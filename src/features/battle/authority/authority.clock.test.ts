@@ -19,7 +19,7 @@ const SLOW = {
 
 const select = (harness: AuthorityHarness, actionId: string, slug: string) =>
   harness.room.message(harness.sessionId, 'expedition:action', actionPayload(harness, actionId, {
-    kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId(slug),
+    kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId(slug), targetId: 'wild-0',
   }))
 
 const barOf = (harness: AuthorityHarness, id: string): number =>
@@ -62,7 +62,13 @@ describe('the server clock', () => {
       harness.room.message(harness.sessionId, 'expedition:action', actionPayload(
         harness,
         `controller-a:${attempt + 2}`,
-        { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('tackle'), deltaMs: 10_000 },
+        {
+          kind: 'useMove',
+          combatantId: 'ally-0',
+          moveId: harness.moveId('tackle'),
+          targetId: 'wild-0',
+          deltaMs: 10_000,
+        },
         { elapsedMs: 10_000, clientTimeMs: Date.now() + 999_999, timeMs: 10_000, serverTimeMs: 10_000 },
       ))
     }
@@ -113,7 +119,7 @@ describe('the server clock', () => {
     for (let attempt = 0; attempt < 50; attempt += 1) {
       harness.room.message(harness.sessionId, 'expedition:action', actionPayload(
         harness, `controller-a:${attempt + 2}`,
-        { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('tackle') },
+        { kind: 'useMove', combatantId: 'ally-0', moveId: harness.moveId('tackle'), targetId: 'wild-0' },
         { elapsedMs: 60_000 },
       ))
       harness.room.update()

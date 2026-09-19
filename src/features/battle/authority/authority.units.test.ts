@@ -10,7 +10,7 @@ import { formatActionId, parseActionId } from './actionId'
 import { createIdempotencyLedger } from './idempotency'
 import { createAuthorityItemCatalog } from './itemCatalog'
 import { validateTransportAction } from './validate'
-import { createExpeditionRoom } from './expeditionRoom'
+import { createExpeditionRoomCore } from './expeditionRoomCore'
 import { createManualClock } from './clock'
 import { createFixedSeedSource } from './seed'
 import { createBattleAuthority } from './authority'
@@ -22,7 +22,7 @@ const WELL_FORMED = {
   battleId: 'battle-1',
   catalogVersion: '1.oras.db4ae081bb58',
   battleRulesVersion: 'pokeswap-battle-v1',
-  intent: { kind: 'useMove', combatantId: 'ally-0', moveId: 85 },
+  intent: { kind: 'useMove', combatantId: 'ally-0', moveId: 85, targetId: 'wild-0' },
 }
 
 describe('the action id', () => {
@@ -152,7 +152,7 @@ describe('the item catalog', () => {
 })
 
 describe('the room skeleton', () => {
-  const room = () => createExpeditionRoom({
+  const room = () => createExpeditionRoomCore({
     roomId: 'room-1',
     clock: createManualClock(0),
     seedSource: createFixedSeedSource(1),
