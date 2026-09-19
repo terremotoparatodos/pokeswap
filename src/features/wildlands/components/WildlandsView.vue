@@ -55,7 +55,7 @@
       ref="professionRef"
       :area-kind="hud.areaKind"
       :game="game"
-      :skills="isPlaytest"
+      :skills="dungeonsInWorld"
       :fresh="isPlaytest"
       :owned-tools="playtestStore?.tools.value"
       @overlay="(open: boolean) => (professionOpen = open)"
