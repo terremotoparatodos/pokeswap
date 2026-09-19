@@ -14,7 +14,7 @@ const ok = (r: { ok: true; city: LabCity } | { ok: false; errors: readonly strin
 /** The human acceptance workflow, as data: move a tree-like prop, delete a rock-like one, … */
 function proposal(base: LabCity): LabCity {
   let city = ok(moveEntity(HEARTHOME, base, { type: 'prop', id: 'lamp@28,18' }, { tx: 24, ty: 22 }))
-  city = ok(deleteEntity(city, { type: 'prop', id: 'bench@33,35' }))
+  city = ok(deleteEntity(city, { type: 'prop', id: 'hedge@35,35' }))
   city = ok(duplicateEntity(HEARTHOME, city, { type: 'prop', id: 'lamp@34,18' }))
   city = ok(addProp(HEARTHOME, city, 'pine', { tx: 44, ty: 21 }))
   city = ok(moveEntity(HEARTHOME, city, SPAWN_REF, { tx: 32, ty: 21 }))
@@ -39,7 +39,7 @@ describe('export', () => {
   it('describes only the differences from the baseline', () => {
     const patch = diffCities(baseline(), proposal(baseline()), LOBBY_ID)
     expect(patch.props.moved).toEqual([{ id: 'lamp@28,18', from: { tx: 28, ty: 18 }, to: { tx: 24, ty: 22 } }])
-    expect(patch.props.removed.map(p => p.id)).toEqual(['bench@33,35'])
+    expect(patch.props.removed.map(p => p.id)).toEqual(['hedge@35,35'])
     expect(patch.props.added.map(p => p.kind).sort()).toEqual(['lamp', 'pine'])
     expect(patch.props.modified).toEqual([{ id: 'sign@28,15', from: { text: 'Ciudad Corazón · Donde los corazones se encuentran' }, to: { text: 'Bienvenidos a la beta' } }])
     expect(patch.terrain).toEqual([{ tx: 30, ty: 31, from: 's', to: 'g' }, { tx: 31, ty: 31, from: 's', to: 'g' }])

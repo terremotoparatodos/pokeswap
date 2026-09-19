@@ -16,7 +16,7 @@ human review.
 ## How the city is built today (audit)
 
 - `areas/hearthome.ts` → `TownDef`: data (terrain `s/g/p/t` 64×49, buildings
-  with footprint/door/`open`/feature/PNG, fountains, props `lamp/sign/bench/hedge/fenceH/fenceV`,
+  with footprint/door/`open`/feature/PNG, fountains, props `lamp/sign/hedge/fenceH/fenceV`,
   gates (portal tiles + arrival), spawn, residents, wanderers, plots, plazaZones).
 - `areas/townArea.ts` → `TownArea(def)`: collision (forest `t`, footprints minus
   door/`open`, fountains, solid props, portals forced walkable), ground baking
@@ -67,19 +67,15 @@ World props (trees, rocks, crystals…) have no slot in `TownDef`: the lab draws
 them through `LabTownArea` and the patch marks them in `notes`. Applying them
 requires engine support (main station's decision).
 
-## Fences and benches
+## Fences
 
 - Fences autotile (`engine/townProps.ts → fencePiece`): a horizontal run and a vertical run
-  that touch get a real corner post (┌ ┐ └ ┘), and a vertical run sits under the picket of
-  the corner it hangs from. Place plain `Valla ─` / `Valla │`; the corner is automatic.
-- Benches are Platinum-style plaza benches and cover several tiles from their `(tx, ty)`:
-  `bench` (long 1×3, backrest right), `benchLeft` (long 1×3, backrest left),
-  `benchShort` (1×2) and `benchAcross` (2×1, facing down). All their tiles are solid.
-- Benches and vertical fence runs are top views of low things along the ground, so they are
-  painted into the baked ground (`ArtImage.ground`): with the tilted player camera they stay
-  locked to it instead of sliding. Straight runs and corners keep upright pickets.
-- Art: `scripts/build_town_street_art.py` (fence pieces cut from the city tileset; benches
-  drawn, since the sheet has none; the old "bench" PNGs were dirt ramps).
+  that touch meet at a corner picket. Place plain `Valla ─` / `Valla │`; the corner is automatic.
+- A vertical run is drawn as upright posts, one every 8 px on the ground (`fencePosts`), not
+  one sprite per tile: the tilted player camera spaces them like the ground, the posts in
+  front cover the ones behind, and they keep their height.
+- Art: `scripts/build_town_street_art.py` (pieces cut from the city tileset).
+- The city has no benches for now (the old "bench" PNGs were dirt ramps).
 
 ## Buildings from scratch
 

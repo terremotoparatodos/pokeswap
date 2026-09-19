@@ -112,10 +112,10 @@ describe('move', () => {
 
 describe('add, delete, duplicate', () => {
   it('adds real props, street and world kinds, with the engine’s solidity', () => {
-    const street = addProp(HEARTHOME, baseline(), 'bench', openStreet)
+    const street = addProp(HEARTHOME, baseline(), 'lamp', openStreet)
     expect(street.ok && street.ref).toEqual({ type: 'prop', id: 'new-1' })
-    const withBench = ok(street)
-    const rock = ok(addProp(HEARTHOME, withBench, 'boulder', { tx: 31, ty: 22 }))
+    const withLamp = ok(street)
+    const rock = ok(addProp(HEARTHOME, withLamp, 'boulder', { tx: 31, ty: 22 }))
     expect(rock.props.find(p => p.id === 'new-2')?.kind).toBe('boulder')
     const grid = new CityGrid(rock, HEARTHOME)
     expect(grid.solid(31, 22)).toBe(isSolidKind('boulder'))

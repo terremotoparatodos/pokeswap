@@ -25,25 +25,15 @@ const HEARTHOME_ART: TownArtSet = {
     hedge: [{ src: art('hedge') }],
     lamp: [{ src: art('lamp') }],
     sign: [{ src: art('sign') }],
-    // Benches and vertical fence runs are top views of low things along the ground (as in
-    // Platinum): they are painted into the ground, so they never slide against it when the
-    // camera moves. Straight runs and corners keep their upright pickets.
-    bench: [{ src: art('bench-long'), ground: true }],
-    benchLeft: [{ src: art('bench-long-left'), ground: true }],
-    benchShort: [{ src: art('bench-short'), ground: true }],
-    benchAcross: [{ src: art('bench-across'), ground: true }],
     fenceH: [{ src: art('fence-h') }],
-    fenceV: [{ src: art('fence-v'), ground: true }],
   },
-  // Autotiled fences (scripts/build_town_street_art.py): corners where a row meets a column.
+  // Autotiled fences (scripts/build_town_street_art.py): straight runs, corner pickets where a
+  // row meets a column, and vertical runs as upright posts every 8 px.
   fences: {
     h: { src: art('fence-h') },
-    v: { src: art('fence-v'), ground: true },
-    vRight: { src: art('fence-v-right'), ground: true },
-    nw: { src: art('fence-nw') },
-    ne: { src: art('fence-ne') },
-    sw: { src: art('fence-sw') },
-    se: { src: art('fence-se') },
+    cornerLeft: { src: art('fence-corner-left') },
+    cornerRight: { src: art('fence-corner-right') },
+    post: { src: art('fence-post') },
   },
 }
 
@@ -78,8 +68,6 @@ function props(): TownProp[] {
   for (const [tx, ty, text] of signs) out.push({ kind: 'sign', tx, ty, text })
   // Next to the Pokémon Center: the activity board.
   out.push({ kind: 'sign', tx: 13, ty: 19, text: 'Tablón de actividad', board: true })
-  // Long benches beside the fountains, backrest away from the water (as in Platinum).
-  out.push({ kind: 'bench', tx: 33, ty: 35 }, { kind: 'benchLeft', tx: 45, ty: 35 })
   return out
 }
 

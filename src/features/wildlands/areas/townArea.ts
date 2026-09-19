@@ -15,9 +15,9 @@ import { packColor, pixelsToCanvas } from '../engine/pixels'
 import type { LensName } from '../engine/projection'
 import { buildPropSprites } from '../engine/props'
 import { bakeTownGround, type TileRect } from '../engine/townGround'
-import { buildTownProps, fencePiece, townPropFeet, townPropTiles, type FencePiece, type TownPropKind } from '../engine/townProps'
+import { buildTownProps, fencePiece, fencePosts, fenceTileArt, type TownPropKind } from '../engine/townProps'
 import { TILE } from '../engine/world'
-import { loadImageSprite, type Sprite } from '../engine/sprite'
+import { loadImageSprite } from '../engine/sprite'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { LobbyFeature } from '../lobby/features'
 import { TownPopulace } from './townPopulace'
@@ -49,13 +49,16 @@ export interface TownBuilding extends BuildingSpec {
 export interface ArtImage {
   src: string
   flatTop?: number | 'all'
-  /**
-   * Painted into the baked ground instead of standing as a sprite: for art that
-   * is a top view of something low along the ground (a vertical fence run, a
-   * bench). The ground is projected row by row, so the art stays locked to it
-   * with any camera; a squashed sprite would slide against it when moving.
-   */
-  ground?: boolean
+}
+
+/** Autotiled fence art (engine/townProps.ts → fencePiece, fenceTileArt, fencePosts). */
+export interface FenceArt {
+  h?: ArtImage
+  /** A run's end picket, with no rail past it. */
+  cornerLeft?: ArtImage
+  cornerRight?: ArtImage
+  /** One upright post; vertical runs stand one every 8 px. */
+  post?: ArtImage
 }
 
 /**
@@ -67,12 +70,11 @@ export interface TownArtSet {
   trees?: readonly string[]
   fountains?: readonly ArtImage[]
   props?: Partial<Record<TownPropKind, readonly ArtImage[]>>
-  /** Fence pieces by autotile shape (engine/townProps.ts → fencePiece); without one, `props.fenceH/fenceV` is used. */
-  fences?: Partial<Record<FencePiece, ArtImage>>
+  /** Autotiled fences; without them, `props.fenceH/fenceV` art (or the code-painted pieces) is used per tile. */
+  fences?: FenceArt
 }
 
 export interface TownProp extends Tile {
-  /** `tx, ty` is the top-left tile of the prop's footprint (benches cover several tiles). */
   kind: TownPropKind
   /** What a sign says. */
   text?: string
@@ -105,17 +107,7 @@ export interface TownDef {
   plots?: readonly TileRect[]
 }
 
-/** Ground art over the baked terrain, each piece standing on its feet like the sprite would. */
-function paintGroundArt(ground: HTMLCanvasElement, pieces: readonly { sprite: Sprite | null; x: number; y: number }[]): HTMLCanvasElement {
-  const g = ground.getContext('2d')
-  if (!g) return ground
-  for (const { sprite, x, y } of pieces) {
-    if (sprite) g.drawImage(sprite.canvas, Math.round(x - sprite.ax), Math.round(y - sprite.ay))
-  }
-  return ground
-}
-
-const SOLID_PROPS = new Set<TownPropKind>(['lamp', 'sign', 'hedge', 'fenceH', 'fenceV', 'bench', 'benchLeft', 'benchShort', 'benchAcross'])
+const SOLID_PROPS = new Set<TownPropKind>(['lamp', 'sign', 'hedge', 'fenceH', 'fenceV'])
 
 interface TownArt {
   ground: HTMLCanvasElement
@@ -164,7 +156,7 @@ export class TownArea implements Area {
     for (const f of def.fountains) {
       for (let ty = f.y0; ty <= f.y1; ty++) for (let tx = f.x0; tx <= f.x1; tx++) mark(tx, ty, 1)
     }
-    for (const p of def.props) if (SOLID_PROPS.has(p.kind)) for (const t of townPropTiles(p)) mark(t.tx, t.ty, 1)
+    for (const p of def.props) if (SOLID_PROPS.has(p.kind)) mark(p.tx, p.ty, 1)
     for (const gate of def.gates) for (const t of gate.tiles) mark(t.tx, t.ty, 0)
     return solid
   }
@@ -216,23 +208,16 @@ export class TownArea implements Area {
     const fences = new Map<string, 'h' | 'v'>()
     for (const p of def.props) if (p.kind === 'fenceH' || p.kind === 'fenceV') fences.set(`${p.tx},${p.ty}`, p.kind === 'fenceH' ? 'h' : 'v')
     const fenceAt = (tx: number, ty: number) => fences.get(`${tx},${ty}`) ?? null
-    /** Ground art (see `ArtImage.ground`): painted into the ground at each bake once loaded. */
-    const groundArt: { sprite: Sprite | null; x: number; y: number }[] = []
-    const groundLoads: Promise<void>[] = []
     for (const p of def.props) {
-      const image = p.kind === 'fenceH' || p.kind === 'fenceV'
-        ? art.fences?.[fencePiece(fenceAt, p.tx, p.ty)] ?? variant(art.props?.[p.kind], p.tx, p.ty)
-        : variant(art.props?.[p.kind], p.tx, p.ty)
-      const { x, y, ty } = townPropFeet(p)
-      if (image?.ground) {
-        const entry: (typeof groundArt)[number] = { sprite: null, x, y }
-        groundArt.push(entry)
-        groundLoads.push(loadImageSprite(image.src)
-          .then(sprite => { entry.sprite = sprite })
-          .catch(error => devWarn(`[wildlands] art ${image.src} unavailable`, error)))
+      const at = { kind: null, tx: p.tx, ty: p.ty, x: p.tx * TILE + TILE / 2, y: p.ty * TILE + 14, light: p.kind === 'lamp' }
+      if ((p.kind === 'fenceH' || p.kind === 'fenceV') && art.fences) {
+        const piece = fencePiece(fenceAt, p.tx, p.ty)
+        const tileArt = fenceTileArt(piece)
+        if (tileArt) addWithArt({ ...at, sprite: town.fenceH }, art.fences[tileArt])
+        for (const post of fencePosts(piece, p.tx, p.ty)) addWithArt({ ...at, sprite: town.fenceV, ...post }, art.fences.post)
         continue
       }
-      addWithArt({ kind: null, sprite: town[p.kind], tx: p.tx, ty, x, y, light: p.kind === 'lamp' }, image)
+      addWithArt({ ...at, sprite: town[p.kind] }, variant(art.props?.[p.kind], p.tx, p.ty))
     }
     def.fountains.forEach((f, i) => {
       const at = { tx: f.x0, ty: f.y0, x: ((f.x0 + f.x1 + 1) / 2) * TILE }
@@ -260,7 +245,7 @@ export class TownArea implements Area {
       for (let ty = r.y0; ty <= r.y1; ty++) for (let tx = r.x0; tx <= r.x1; tx++) plotTiles.push({ tx, ty })
     }
     const plotSet = new Set(plotTiles.map(t => `${t.tx},${t.ty}`))
-    const bake = () => paintGroundArt(pixelsToCanvas(width * TILE, height * TILE, bakeTownGround(def.terrain, bakedFountains, {
+    const bake = () => pixelsToCanvas(width * TILE, height * TILE, bakeTownGround(def.terrain, bakedFountains, {
       plots: plotTiles,
       buildings: buildingEntries.map(({ entry, depth }) => {
         const s = entry.sprite!
@@ -272,9 +257,9 @@ export class TownArea implements Area {
       }),
       beds: def.props.filter(p => p.kind === 'hedge'),
       posts: def.props.filter(p => p.kind === 'lamp' || p.kind === 'sign').map(p => ({ x: p.tx * TILE + TILE / 2, y: p.ty * TILE + 14 })),
-    })), groundArt)
+    }))
     this.art = { ground: bake(), decor }
-    void Promise.all([...buildingArt, ...groundLoads]).then(() => {
+    void Promise.all(buildingArt).then(() => {
       if (this.art) this.art.ground = bake()
     })
     return this.art

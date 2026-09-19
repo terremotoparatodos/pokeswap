@@ -3,48 +3,16 @@
 // Small town props painted in code with the same outline/ramp rules as the
 // wild props and buildings (fallbacks while a town's hand-drawn art loads).
 //
-// Most props fill one tile. Benches are longer (TOWN_PROP_SIZE); their
-// (tx, ty) is the top-left tile of the footprint. Fences autotile: a run of
-// fence tiles picks straight, vertical or corner pieces from its neighbours
-// (fencePiece), so a horizontal run and a vertical run meet at a real post.
+// Fences autotile: each fence tile picks a straight, vertical or corner piece
+// from its neighbours (fencePiece), so a row and a column meet at a real post.
+// A vertical run stands one upright post every 8 px on the ground (fencePosts)
+// instead of one sprite per tile, so a tilted camera spaces its posts exactly
+// like the ground and the posts in front cover the ones behind.
 
 import { Painter } from './painter'
 import { ellipses, shade, spriteFromPixels, type Sprite } from './sprite'
 
-export type TownPropKind =
-  | 'lamp' | 'sign' | 'hedge' | 'fenceH' | 'fenceV' | 'spray'
-  /** Plaza benches: long 1×3 (backrest right / left), short 1×2, and 2×1 facing down. */
-  | 'bench' | 'benchLeft' | 'benchShort' | 'benchAcross'
-
-/** Footprint in tiles, from the prop's (tx, ty); anything not listed is one tile. */
-export const TOWN_PROP_SIZE: Partial<Record<TownPropKind, { readonly w: number; readonly d: number }>> = {
-  bench: { w: 1, d: 3 },
-  benchLeft: { w: 1, d: 3 },
-  benchShort: { w: 1, d: 2 },
-  benchAcross: { w: 2, d: 1 },
-}
-
-export function townPropSize(kind: TownPropKind): { readonly w: number; readonly d: number } {
-  return TOWN_PROP_SIZE[kind] ?? { w: 1, d: 1 }
-}
-
-/**
- * Where a prop stands, in world pixels, and the tile row it sorts on: one-tile
- * props 2 px above their tile's bottom; longer ones on the bottom of their footprint.
- */
-export function townPropFeet(p: { kind: TownPropKind; tx: number; ty: number }): { x: number; y: number; ty: number } {
-  const { w, d } = townPropSize(p.kind)
-  if (w === 1 && d === 1) return { x: p.tx * 16 + 8, y: p.ty * 16 + 14, ty: p.ty }
-  return { x: (p.tx + w / 2) * 16, y: (p.ty + d) * 16 - 1, ty: p.ty + d - 1 }
-}
-
-/** The tiles a prop covers. */
-export function townPropTiles(p: { kind: TownPropKind; tx: number; ty: number }): { tx: number; ty: number }[] {
-  const { w, d } = townPropSize(p.kind)
-  const out: { tx: number; ty: number }[] = []
-  for (let dy = 0; dy < d; dy++) for (let dx = 0; dx < w; dx++) out.push({ tx: p.tx + dx, ty: p.ty + dy })
-  return out
-}
+export type TownPropKind = 'lamp' | 'sign' | 'hedge' | 'fenceH' | 'fenceV' | 'spray'
 
 /**
  * Which fence piece a fence tile shows:
@@ -77,6 +45,34 @@ export function fencePiece(at: FenceAt, tx: number, ty: number): FencePiece {
     if (north && !south) return east ? 'sw' : 'se'
   }
   return rightHanded(at, tx, ty) ? 'vRight' : 'v'
+}
+
+/** The art a fence piece draws on its tile: a straight run, a corner picket, or nothing but posts. */
+export function fenceTileArt(piece: FencePiece): 'h' | 'cornerLeft' | 'cornerRight' | null {
+  if (piece === 'h') return 'h'
+  if (piece === 'nw' || piece === 'sw') return 'cornerLeft'
+  if (piece === 'ne' || piece === 'se') return 'cornerRight'
+  return null
+}
+
+/** Picket columns of a straight tile, as post centres (px from the tile's left edge). */
+const POST_X = { left: 5, right: 13 } as const
+
+/**
+ * Feet (world px) of the upright posts a fence tile stands: two per vertical
+ * tile, 8 px apart, and one more on a corner the run arrives at from above,
+ * so posts keep their 8 px rhythm into the corner picket.
+ */
+export function fencePosts(piece: FencePiece, tx: number, ty: number): { x: number; y: number }[] {
+  const x0 = tx * 16
+  const y0 = ty * 16
+  switch (piece) {
+    case 'v': return [{ x: x0 + POST_X.left, y: y0 + 6 }, { x: x0 + POST_X.left, y: y0 + 14 }]
+    case 'vRight': return [{ x: x0 + POST_X.right, y: y0 + 6 }, { x: x0 + POST_X.right, y: y0 + 14 }]
+    case 'sw': return [{ x: x0 + POST_X.left, y: y0 + 6 }]
+    case 'se': return [{ x: x0 + POST_X.right, y: y0 + 6 }]
+    default: return []
+  }
 }
 
 /** A vertical run hangs from (or lands on) a right-hand corner: its horizontal neighbour is on the west. */
@@ -132,23 +128,6 @@ function sign(): Sprite {
   return p.toSprite()
 }
 
-/** A plaza bench seen from above, sized to its footprint: planks, and a backrest strip on one side. */
-function bench(w: number, d: number, back: 'left' | 'right' | 'top'): Sprite {
-  const pw = w * 16 - 3
-  const ph = d * 16 - 2
-  const p = new Painter(pw, ph)
-  p.rect(0, 0, pw, ph, '#b05048')
-  if (back === 'top') {
-    for (let y = 6; y < ph - 1; y += 3) p.hline(0, y, pw, '#90422e')
-    p.rect(0, 0, pw, 4, '#cc6a5a')
-  } else {
-    for (let x = 2; x < pw - 3; x += 4) p.vline(x, 0, ph, '#90422e')
-    p.rect(back === 'right' ? pw - 3 : 0, 0, 3, ph, '#cc6a5a')
-  }
-  p.outline(OUTLINE)
-  return p.toSprite({ flatTop: ph })
-}
-
 function hedge(): Sprite {
   const w = 16, h = 14
   return spriteFromPixels(w, h, shade(w, h, ellipses([[8, 8, 7, 5.5], [5, 6, 4, 4], [11, 6, 4, 4]]), {
@@ -191,8 +170,5 @@ function spray(): Sprite {
 }
 
 export function buildTownProps(): Record<TownPropKind, Sprite> {
-  return {
-    lamp: lamp(), sign: sign(), hedge: hedge(), fenceH: fenceH(), fenceV: fenceV(), spray: spray(),
-    bench: bench(1, 3, 'right'), benchLeft: bench(1, 3, 'left'), benchShort: bench(1, 2, 'right'), benchAcross: bench(2, 1, 'top'),
-  }
+  return { lamp: lamp(), sign: sign(), hedge: hedge(), fenceH: fenceH(), fenceV: fenceV(), spray: spray() }
 }

@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { HEARTHOME } from '../areas/atlas'
-import { TownArea, type TownDef, type TownProp } from '../areas/townArea'
-import { fencePiece, townPropFeet, townPropTiles, type FencePiece } from './townProps'
+import { fencePiece, fencePosts, fenceTileArt, type FencePiece } from './townProps'
 
 /** A fence map from a picture: `-` horizontal, `|` vertical. */
 function fences(rows: string[]) {
@@ -72,36 +71,30 @@ describe('fence autotiling', () => {
   })
 })
 
-describe('plaza benches', () => {
-  const town = (props: TownProp[]): TownArea => new TownArea({
-    id: 'bench-test', name: 't', terrain: Array.from({ length: 6 }, () => 'pppppp'), buildings: [], fountains: [],
-    props, gates: [], spawn: { tx: 0, ty: 0, dir: 'down' }, residents: [], wanderers: [],
-  } satisfies TownDef)
-
-  it('cover their whole footprint and block it', () => {
-    const area = town([{ kind: 'bench', tx: 2, ty: 1 }, { kind: 'benchAcross', tx: 3, ty: 5 }])
-    for (const ty of [1, 2, 3]) expect(area.isSolid(2, ty)).toBe(true)
-    expect(area.isSolid(2, 4)).toBe(false)
-    expect(area.isSolid(3, 5) && area.isSolid(4, 5)).toBe(true)
-    expect(townPropTiles({ kind: 'benchShort', tx: 1, ty: 1 })).toEqual([{ tx: 1, ty: 1 }, { tx: 1, ty: 2 }])
+describe('fence posts', () => {
+  it('stand a vertical run as upright posts every 8 px, under the corner picket', () => {
+    expect(fencePosts('v', 2, 3)).toEqual([{ x: 37, y: 54 }, { x: 37, y: 62 }])
+    expect(fencePosts('vRight', 2, 3)).toEqual([{ x: 45, y: 54 }, { x: 45, y: 62 }])
+    // A straight tile's pickets are centred on x = 5 and x = 13 of the tile.
+    expect(fencePosts('h', 2, 3)).toEqual([])
   })
 
-  it('stand on the bottom of their footprint (one-tile props keep their old feet)', () => {
-    expect(townPropFeet({ kind: 'bench', tx: 2, ty: 1 })).toEqual({ x: 40, y: 63, ty: 3 })
-    expect(townPropFeet({ kind: 'benchAcross', tx: 3, ty: 5 })).toEqual({ x: 64, y: 95, ty: 5 })
-    expect(townPropFeet({ kind: 'lamp', tx: 2, ty: 1 })).toEqual({ x: 40, y: 30, ty: 1 })
-  })
-
-  it('in Ciudad Corazón are two long benches beside the fountains, backrest away from the water', () => {
-    const benches = HEARTHOME.props.filter(p => p.kind.startsWith('bench'))
-    expect(benches).toEqual([{ kind: 'bench', tx: 33, ty: 35 }, { kind: 'benchLeft', tx: 45, ty: 35 }])
-    const area = new TownArea(HEARTHOME)
-    for (const ty of [35, 36, 37]) expect(area.isSolid(33, ty) && area.isSolid(45, ty)).toBe(true)
+  it('keep the 8 px rhythm from a column into its corners', () => {
+    // ┌ at (0,0): picket at y 14, then posts at 22, 30, … down the column.
+    const top = [{ x: 5, y: 14 }, ...fencePosts('v', 0, 1)]
+    // └ at (0,3): the column's last posts, then one more at y 54 before the picket at 62.
+    const bottom = [...fencePosts('v', 0, 2), ...fencePosts('sw', 0, 3), { x: 5, y: 62 }]
+    for (const run of [top, bottom]) {
+      for (let i = 1; i < run.length; i++) expect(run[i].y - run[i - 1].y).toBe(8)
+    }
+    expect(fenceTileArt('nw')).toBe('cornerLeft')
+    expect(fenceTileArt('se')).toBe('cornerRight')
+    expect(fenceTileArt('v')).toBeNull()
   })
 })
 
 describe('street art', () => {
-  const PNGS = import.meta.glob<string>('../../../../public/assets/town/{fence,bench}-*.png', { query: '?inline', import: 'default', eager: true })
+  const PNGS = import.meta.glob<string>('../../../../public/assets/town/fence-*.png', { query: '?inline', import: 'default', eager: true })
   const size = (name: string) => {
     const entry = Object.entries(PNGS).find(([path]) => path.endsWith(`/${name}.png`))
     if (!entry) throw new Error(`missing ${name}`)
@@ -110,24 +103,15 @@ describe('street art', () => {
     return [u32(16), u32(20)]
   }
 
-  it('has every piece the town lists, fences as full 16 px tiles', () => {
-    const fences = Object.values(HEARTHOME.art?.fences ?? {}).map(i => i.src)
-    expect(fences).toHaveLength(7)
-    for (const src of fences) expect(size(src.replace(/^.*\/|\.png$/g, ''))).toEqual([16, 16])
-    expect(size('bench-long')).toEqual([13, 56])
-    expect(size('bench-across')).toEqual([30, 19])
-  })
-
-  it('paints benches and vertical fence runs into the ground, so moving never slides them', () => {
+  it('has every fence piece the town lists', () => {
     const f = HEARTHOME.art?.fences
-    expect([f?.v?.ground, f?.vRight?.ground, HEARTHOME.art?.props?.fenceV?.[0].ground]).toEqual([true, true, true])
-    for (const kind of ['bench', 'benchLeft', 'benchShort', 'benchAcross'] as const) expect(HEARTHOME.art?.props?.[kind]?.[0].ground, kind).toBe(true)
-    // Straight runs and corners keep their upright pickets.
-    for (const piece of ['h', 'nw', 'ne', 'sw', 'se'] as const) expect(f?.[piece]?.ground, piece).toBeUndefined()
+    expect(Object.keys(f ?? {}).sort()).toEqual(['cornerLeft', 'cornerRight', 'h', 'post'])
+    for (const piece of ['h', 'cornerLeft', 'cornerRight'] as const) expect(size(f![piece]!.src.replace(/^.*\/|\.png$/g, ''))).toEqual([16, 16])
+    // A post is as tall as the pickets of a straight run.
+    expect(size('fence-post')).toEqual([6, 14])
   })
 
-  it('no longer uses the dirt ramps as benches', () => {
-    const srcs = Object.values(HEARTHOME.art?.props ?? {}).flat().map(i => i!.src)
-    expect(srcs.some(s => /bench-[ab]\.png$/.test(s))).toBe(false)
+  it('has no benches in Ciudad Corazón', () => {
+    expect(HEARTHOME.props.some(p => (p.kind as string).startsWith('bench'))).toBe(false)
   })
 })

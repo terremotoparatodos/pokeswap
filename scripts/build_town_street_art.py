@@ -1,23 +1,19 @@
-"""Builds the town's fences and plaza benches into public/assets/town.
+"""Builds the town's fence pieces into public/assets/town.
 
-Fences come from the picket fence block of public/assets/tilesets/buildings.png
+They come from the picket fence block of public/assets/tilesets/buildings.png
 (a sample enclosure with 1 px seams). The sheet's straight piece only joins its
-own two pickets with the lower rail, so a run looked like pairs; its vertical
-crop carried a sliver of another post; and its corner posts were never cut.
-Here every piece is a full 16 px tile, so the town can autotile them:
+own two pickets with the lower rail, so a run looked like pairs, and its
+vertical crop carried a sliver of another post. Here:
 
-    fence-h                    straight run, both rails continuous
-    fence-v / fence-v-right    vertical run, posts under the left / right picket
-    fence-nw / -ne             corner: the run turns DOWN from this tile
-    fence-sw / -se             corner: the run arrives from ABOVE
+    fence-h              straight run: two pickets, both rails continuous
+    fence-corner-left    the run starts at its left picket (no rail beyond it)
+    fence-corner-right   the run ends at its right picket
+    fence-post           one post of a vertical run, standing upright
 
-The sheet has no bench (the pieces used before were dirt ramps). The benches
-follow Hearthome City's in Platinum: two red planks, a raised backrest strip on
-one side, iron brackets, and a long bench split in two seats.
-
-    bench-long / bench-long-left    1×3 tiles, backrest right / left
-    bench-short                     1×2 tiles, backrest right
-    bench-across                    2×1 tiles, facing down
+A vertical run is not one sprite per tile: the town stands a post every 8 px
+at its own spot on the ground (two per tile), so the tilted camera spaces
+them like the ground and the posts in front cover the ones behind. Corners
+join a row and a column through the corner picket (TownArea autotiles).
 
     python scripts/build_town_street_art.py
 """
@@ -39,26 +35,7 @@ FENCE = {
     'C': (170, 170, 153, 255),  # picket body
     'D': (104, 104, 121, 255),  # rail / shade
 }
-# One post head of a vertical run, as the sheet's left column draws it; 8 px apart.
-POST_HEAD = ['CAAC', 'ABBA', 'AAAA', 'ACCAD', 'CCCCDD', 'CCCCDD', 'CCCCD', 'CCCC']
 LEFT_POST, RIGHT_POST = 2, 10  # picket columns inside a 16 px tile
-
-# Bench colours and rows (one row per pixel row, left to right; backrest on the right).
-BENCH = {
-    'O': (64, 54, 44, 255),     # outline
-    'K': (176, 80, 72, 255),    # plank
-    'L': (172, 66, 56, 255),    # plank, groove
-    'M': (144, 66, 46, 255),    # plank, dark
-    'J': (130, 64, 54, 255),    # shade under the backrest
-    'H': (204, 106, 90, 255),   # backrest
-    'U': (92, 22, 16, 255),     # iron
-    'S': (40, 30, 24, 90),      # soft ground shadow
-}
-BENCH_TOP = ['         OOOO'] + ['         OHHO'] * 4 + ['OOOOOOOOOJHHO']
-SEAT = 'OKLMKKMLKJHHO'
-BRACKET = 'OKLMKKMLKUUUO'
-SPLIT = ['OUUUUUUUUJHHO', 'OUUUUUUUUJHHO', 'OUUOOOOOOJHHO', 'OUO......OHHO', 'OKLOOOOOOJHHO']
-BENCH_END = ['OUUUUUUUUUUUO', 'OUUOOOOOOUUOO', 'OUO......OO..', 'OUOSSSSSSUO..', 'SSS......SSS.']
 
 
 def paint(rows: list[str], colours: dict, x0: int = 0, y0: int = 0, img: Image.Image | None = None) -> Image.Image:
@@ -81,46 +58,17 @@ def fence_h(sheet: Image.Image) -> Image.Image:
     return img
 
 
-def fence_v(post: int) -> Image.Image:
-    return paint(POST_HEAD + POST_HEAD, FENCE, x0=post, img=Image.new('RGBA', (16, 16), CLEAR))
+def fence_post() -> Image.Image:
+    """One upright post: the sheet's post head on top of a shaft as tall as the pickets."""
+    return paint(['CAAC', 'ABBA', 'AAAA', 'ACCAD', 'CCCCD', 'CCCCDD', 'CCCCDD'] + ['CCCCD'] * 6 + ['DDDD'], FENCE, img=Image.new('RGBA', (6, 14), CLEAR))
 
 
-def fence_corner(straight: Image.Image, down: bool, left: bool) -> Image.Image:
+def fence_corner(straight: Image.Image, left: bool) -> Image.Image:
+    """The corner picket closes the run: no rail past it."""
     img = straight.copy()
-    post = LEFT_POST if left else RIGHT_POST
-    for x in (range(0, post) if left else range(post + 4, 16)):               # no rail past the corner post
+    for x in (range(0, LEFT_POST) if left else range(RIGHT_POST + 4, 16)):
         for y in range(16):
             img.putpixel((x, y), CLEAR)
-    if down:   # the corner post keeps going down, as the sheet's top-left post does
-        paint(['CAAC', 'ABBA', 'AAAA', 'ACCAD', 'CCCCDD', 'CCCCDD', 'CCCCD'], FENCE, x0=post, y0=9, img=img)
-    else:      # the run arrives from above: the shaft fills the rows over the picket
-        paint(['CCCCD', 'CCCCD', 'CAAC', 'ABBA', 'ACCAD'], FENCE, x0=post, img=img)
-    return img
-
-
-def bench_long() -> Image.Image:
-    return paint(BENCH_TOP + [SEAT] * 15 + [BRACKET] * 4 + [SEAT] + SPLIT + [SEAT] * 14 + [BRACKET] * 6 + BENCH_END, BENCH)
-
-
-def bench_short() -> Image.Image:
-    return paint(BENCH_TOP + [SEAT] * 13 + [BRACKET] * 6 + BENCH_END, BENCH)
-
-
-def bench_across(width: int = 30) -> Image.Image:
-    inner = width - 2
-    rows = [' ' + 'O' * inner + ' '] + ['O' + 'H' * inner + 'O'] * 4 + ['O' + 'J' * inner + 'O']
-    rows += ['O' + c * inner + 'O' for c in 'KLMKKMLK']
-    rows += [
-        'O' + 'U' * inner + 'O',
-        'OUUO' + 'O' * (inner - 6) + 'OUUO',
-        'OUO.' + '.' * (inner - 6) + '.OUO',
-        'OUO' + 'S' * (inner - 4) + 'OUO',
-        'SSS' + '.' * (inner - 4) + 'SSS',
-    ]
-    img = paint(rows, BENCH)
-    for x in (3, 4, width - 5, width - 4):                                    # iron brackets through the backrest
-        for y in range(1, 6):
-            img.putpixel((x, y), BENCH['U'])
     return img
 
 
@@ -129,21 +77,14 @@ def main() -> None:
     straight = fence_h(sheet)
     pieces = {
         'fence-h': straight,
-        'fence-v': fence_v(LEFT_POST),
-        'fence-v-right': fence_v(RIGHT_POST),
-        'fence-nw': fence_corner(straight, down=True, left=True),
-        'fence-ne': fence_corner(straight, down=True, left=False),
-        'fence-sw': fence_corner(straight, down=False, left=True),
-        'fence-se': fence_corner(straight, down=False, left=False),
-        'bench-long': bench_long(),
-        'bench-long-left': bench_long().transpose(Image.FLIP_LEFT_RIGHT),
-        'bench-short': bench_short(),
-        'bench-across': bench_across(),
+        'fence-corner-left': fence_corner(straight, left=True),
+        'fence-corner-right': fence_corner(straight, left=False),
+        'fence-post': fence_post(),
     }
     OUT.mkdir(parents=True, exist_ok=True)
     for name, img in pieces.items():
         img.save(OUT / f'{name}.png')
-        print(f'{name:16} {img.size}')
+        print(f'{name:18} {img.size}')
 
 
 if __name__ == '__main__':

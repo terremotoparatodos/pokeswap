@@ -6,8 +6,8 @@ sheet's tile grid are filled from neighbouring pixels.
 
     python scripts/extract_town_sprites.py
 
-Fences and benches are built by scripts/build_town_street_art.py (fence
-autotile pieces from this sheet, and the plaza benches the sheet lacks).
+Fences are built by scripts/build_town_street_art.py (autotile pieces from
+this sheet).
 """
 from pathlib import Path
 
