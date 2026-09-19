@@ -58,6 +58,22 @@
       @overlay="(open: boolean) => (professionOpen = open)"
     />
 
+    <component
+      :is="DungeonEntrances"
+      v-if="DungeonEntrances"
+      ref="dungeonRef"
+      :game="game"
+      :is-taken="professionClaims"
+      @enter="dungeonRun = $event"
+    />
+
+    <component
+      :is="DungeonRunPanel"
+      v-if="DungeonRunPanel && dungeonRun"
+      :entrance="dungeonRun"
+      @close="dungeonRun = null"
+    />
+
     <LobbyMenu
       v-model:open="menuOpen"
       :reduced-motion="reduceMotion"
@@ -77,7 +93,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, defineAsyncComponent, onMounted, onUnmounted, reactive, ref, shallowRef, watch, watchEffect } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onMounted, onUnmounted, reactive, ref, shallowRef, watch, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import AuthModal from '../../auth/components/AuthModal.vue'
 import { listPokemon } from '../../pokemon/api/pokemonApi'
@@ -98,11 +114,26 @@ import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
 import { ColyseusPresence } from '../multiplayer/api/colyseusPresence'
 import type { LocalPresencePort } from '../multiplayer/domain/presence'
 import { useAuth } from '../../auth/composables/useAuth'
+import { composeWorldProbes } from '../engine/worldProbes'
+import { CompositeOverlay } from '../engine/compositeOverlay'
+import { isPlaytest } from '../../playtest/playtestBuild'
+import { usePlaytestContext } from '../../playtest/state/playtestContext'
+import type { AreaEntrance } from '../../dungeonEntrances/domain/entranceSpawns'
+import type { SceneOverlay } from '../engine/sceneOverlay'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
-// R31-B profession prototype: development builds only, never shipped to production.
-const ProfessionWorldDemo = import.meta.env.DEV ? defineAsyncComponent(() => import('../../professions/components/world/ProfessionWorldDemo.vue')) : null
+// R31-B profession prototype: development builds, and Community Playtest 0.1,
+// where the same local session is what the Skills panel reads. A normal
+// production build still never mounts it.
+const ProfessionWorldDemo = import.meta.env.DEV || isPlaytest ? defineAsyncComponent(() => import('../../professions/components/world/ProfessionWorldDemo.vue')) : null
+// Dungeons appear physically in WildLands. Same two gates as the professions
+// above, for the same two reasons: a playtest build is where players meet them,
+// and a development build is where they are worked on. A normal production
+// build mounts neither, so nobody outside the playtest ever finds a cave.
+const dungeonsInWorld = import.meta.env.DEV || isPlaytest
+const DungeonEntrances = dungeonsInWorld ? defineAsyncComponent(() => import('../../dungeonEntrances/components/DungeonEntrances.vue')) : null
+const DungeonRunPanel = dungeonsInWorld ? defineAsyncComponent(() => import('../../dungeonEntrances/components/DungeonRunPanel.vue')) : null
 
 const arrows: { dir: Dir; label: string }[] = [
   { dir: 'up', label: 'Arriba' },
@@ -161,14 +192,39 @@ const professionRef = ref<{
   inspect: (target: WorldObjectTarget) => boolean
   isWorldObject: (target: WorldObjectTarget) => boolean
   placedObjects: (area: Area) => readonly PlacedObjectSpec[]
+  overlay: SceneOverlay
 } | null>(null)
 const professionOpen = ref(false)
-const covered = computed(() => panel.feature.value !== null || menuOpen.value || authOpen.value)
+
+// Community Playtest 0.1 only. With the flag off these stay null, the
+// components are never imported and every expression below folds away.
+const dungeonRef = ref<{
+  inspect: (target: WorldObjectTarget) => boolean
+  isWorldObject: (target: WorldObjectTarget) => boolean
+  placedObjects: (area: Area) => readonly PlacedObjectSpec[]
+  overlay: SceneOverlay
+} | null>(null)
+const dungeonRun = shallowRef<AreaEntrance | null>(null)
+
+/** Tiles the professions already own, so a cave never lands on a node or a bench. */
+const professionClaims = (area: Area, tx: number, ty: number): boolean =>
+  professionRef.value?.isWorldObject({ area, tx, ty }) ?? false
+
+/**
+ * The engine takes one provider per world probe; the playtest has two. Asking
+ * the refs per call rather than capturing them means a component that mounts
+ * late is picked up without re-creating the game.
+ */
+const worldProbes = composeWorldProbes(() => [professionRef.value, dungeonRef.value])
+const hasWorldProviders = !!(ProfessionWorldDemo || DungeonEntrances)
+
+const covered = computed(() => panel.feature.value !== null || menuOpen.value || authOpen.value || dungeonRun.value !== null)
 const motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
 const reduceMotion = ref(motionMedia.matches)
 const hidden = ref(document.visibilityState === 'hidden')
 
 watchEffect(() => {
+  if (isPlaytest) playtest.setSurface(dungeonRun.value ? 'dungeon' : panel.feature.value ?? null)
   game.value?.setPaused(covered.value || plazaOpen.value || professionOpen.value)
   game.value?.setVisibilityPaused(hidden.value)
   game.value?.setReducedMotion(reduceMotion.value)
@@ -201,8 +257,12 @@ function onPointerUp(e: PointerEvent): void {
   if (press && e.pointerId === press.id) press = null
 }
 
+const playtest = usePlaytestContext()
+
 function onHud(next: HudState): void {
   Object.assign(hud, next)
+  // Where the player is, so a bug report can say so instead of "no me anda".
+  if (isPlaytest) playtest.setWorld(next.areaId, next.tx, next.ty)
   // Worlds resample biomes (costly) every few tiles; the town map is just an image.
   const step = next.areaKind === 'town' ? 1 : 6
   const stale = !minimapAt || minimapAt.area !== next.areaId ||
@@ -236,9 +296,9 @@ onMounted(async () => {
     pokedex: pokedex.value, onHud, spawn, startArea,
     onEnterBuilding: (_building, feature) => panel.open(feature, 'door'),
     onInspect: hit => plazaRef.value?.inspect(hit),
-    onWorldObject: ProfessionWorldDemo ? target => professionRef.value?.inspect(target) ?? false : undefined,
-    isWorldObject: ProfessionWorldDemo ? target => professionRef.value?.isWorldObject(target) ?? false : undefined,
-    placedObjectsIn: ProfessionWorldDemo ? area => professionRef.value?.placedObjects(area) ?? [] : undefined,
+    onWorldObject: hasWorldProviders ? target => worldProbes.inspect(target) : undefined,
+    isWorldObject: hasWorldProviders ? target => worldProbes.isWorldObject(target) : undefined,
+    placedObjectsIn: hasWorldProviders ? area => worldProbes.placedObjects(area) : undefined,
     onTownPosition: identity.recordTownPosition,
     presence: presencePort,
   })
@@ -251,6 +311,15 @@ onMounted(async () => {
   created.setVisibilityPaused(hidden.value)
   created.setReducedMotion(reduceMotion.value)
   created.start()
+  // Playtest: the professions and the dungeon entrances both draw into the
+  // scene and the engine holds exactly one overlay. Compose after the children
+  // have mounted, so this is the installation that wins.
+  if (dungeonsInWorld) {
+    await nextTick()
+    const parts = [professionRef.value?.overlay, dungeonRef.value?.overlay]
+      .filter((part): part is SceneOverlay => !!part)
+    if (parts.length) created.setSceneOverlay(parts.length === 1 ? parts[0] : new CompositeOverlay(...parts))
+  }
   loading.value = false
   const touch = window.matchMedia('(pointer: coarse)').matches
   created.notify(touch ? 'Tocá el suelo para caminar' : 'Hacé click en el suelo para caminar')

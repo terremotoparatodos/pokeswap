@@ -23,8 +23,15 @@
 
 import type { Tile } from './pathfinding'
 
-/** What kind of thing was placed; the feature that owns it gives it meaning. */
-export type PlacedObjectKind = 'alchemyTable' | 'smelter' | 'campfire' | 'workbench'
+/**
+ * What kind of thing was placed; the feature that owns it gives it meaning.
+ *
+ * `dungeonEntrance` is a cave mouth: solid like any other rock, and used from
+ * the tile in front of it. It belongs here rather than in the dungeon feature
+ * because this registry is the one physical layer — a cave that the navigator
+ * could walk through would be art, not a place.
+ */
+export type PlacedObjectKind = 'alchemyTable' | 'smelter' | 'campfire' | 'workbench' | 'dungeonEntrance'
 
 /**
  * Where a tap on this object's art lands, in world pixels around its feet.

@@ -1,10 +1,19 @@
-// One scene overlay made of several (R31-C2). The engine holds a single
-// overlay, but a world can host more than one profession at a time, so the
-// dev WildLands demo composes mining and fishing into one.
+// One scene overlay made of several (R31-C2).
+//
+// The engine holds a single overlay, but a world can host more than one thing
+// that wants to draw into it: six professions in the dev demo, and the
+// professions plus the dungeon entrances during Community Playtest 0.1.
+//
+// It lived inside the professions feature while they were the only caller. It
+// is engine glue — it knows `SceneOverlay` and nothing else — and leaving it
+// there would have made a dungeon entrance pull in that whole feature just to
+// compose two overlays, which is the boundary `professionsIsolation.test.ts`
+// exists to defend. (That guard scans raw text, so this note spells no import
+// path: a comment naming one would read to it as a reference.)
 
-import type { Area } from '../../wildlands/engine/area'
-import type { DecorInstance } from '../../wildlands/engine/chunks'
-import type { DecorStyle, OverlayLabel, OverlaySprite, SceneOverlay } from '../../wildlands/engine/sceneOverlay'
+import type { Area } from './area'
+import type { DecorInstance } from './chunks'
+import type { DecorStyle, OverlayLabel, OverlaySprite, SceneOverlay } from './sceneOverlay'
 
 export class CompositeOverlay implements SceneOverlay {
   private readonly parts: readonly SceneOverlay[]

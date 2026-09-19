@@ -11,12 +11,18 @@
 //               R33's multi-tile footprint work lives there. It ships, and it
 //               is in the WildLands chunk of every build.
 //
-//   DEV ONLY    everything under `features/professions/`, station contracts
+//   GATED       everything under `features/professions/`, station contracts
 //               included. It is reachable from the app through exactly two
-//               entry points, both behind `import.meta.env.DEV`, so Rollup
+//               entry points, both behind a build-time constant, so Rollup
 //               drops the whole feature from a production build. That is why
 //               the furnace is not in `dist/` — not a build accident, and not
 //               a claim that the code is unfinished.
+//
+// Community Playtest 0.1 added a second gate beside `import.meta.env.DEV`:
+// `isPlaytest`, folded from `VITE_PLAYTEST`. It opens the professions in a
+// playtest build, where they are the Skills layer. The invariant is unchanged
+// and is the one worth stating — **a normal production build reaches neither
+// gate** — and both are build-time constants, so both fold away.
 //
 // The station *domain* is written to production standards and has no DEV gate
 // of its own: what keeps it out of the bundle is that nothing productive
@@ -51,6 +57,9 @@ const DEV_ENTRY_POINTS = [
   'app/router/routes.ts',
   'wildlands/components/WildlandsView.vue',
 ]
+
+/** Build-time constants a reference may hide behind. Both fold in a normal build. */
+const BUILD_GATES = /import\.meta\.env\.DEV|isPlaytest/
 
 describe('the production half', () => {
   it('is the engine physical layer, and it carries R33 multi-tile work', () => {
@@ -88,7 +97,7 @@ describe('the production half', () => {
   })
 })
 
-describe('the dev-only half', () => {
+describe('the gated half', () => {
   const stationSources = Object.entries(ALL)
     .filter(([path]) => isStationModule(path) && !path.endsWith('.test.ts'))
 
@@ -109,9 +118,21 @@ describe('the dev-only half', () => {
     for (const suffix of DEV_ENTRY_POINTS) {
       const [path, source] = find(suffix)
       for (const line of source.split('\n').filter(entry => /features\/professions|\.\.\/professions\//.test(entry))) {
-        expect(line, path).toMatch(/import\.meta\.env\.DEV/)
+        expect(line, path).toMatch(BUILD_GATES)
       }
     }
+  })
+
+  it('and the playtest gate is a build-time constant, not a runtime check', () => {
+    // `isPlaytest` widens *who* may open the door. It must not widen *when*: a
+    // gate read at runtime would ship the whole feature to every player and
+    // merely hide it, which is a different and much worse thing. Both gates
+    // fold at build time, which is why the door being open in two kinds of
+    // build still leaves a normal production bundle without the feature.
+    const [, build] = find('playtest/playtestBuild.ts')
+    expect(build).toMatch(/export const isPlaytest: boolean = PLAYTEST_MODE === 'on'/)
+    expect(build).toMatch(/import\.meta\.env\.VITE_PLAYTEST/)
+    expect(build).not.toMatch(/ref\(|reactive\(|localStorage|fetch\(/)
   })
 
   it('but the station domain itself has no dev gate: nothing about it is a prototype', () => {

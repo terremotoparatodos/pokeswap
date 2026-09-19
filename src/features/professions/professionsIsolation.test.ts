@@ -18,10 +18,22 @@ const isComponent = (path: string) => path.startsWith('./components/')
 const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
 
 /**
- * The only production files allowed to reference this feature, and only
- * behind an `import.meta.env.DEV` guard on the same line (R31-B).
+ * The only production files allowed to reference this feature, and only behind
+ * a build gate on the same line (R31-B).
  */
 const DEV_ENTRY_POINTS = ['../../app/router/routes.ts', '../wildlands/components/WildlandsView.vue']
+
+/**
+ * The gates a reference may hide behind.
+ *
+ * `import.meta.env.DEV` was the only one until Community Playtest 0.1, which
+ * added `isPlaytest` — a `const` folded from `VITE_PLAYTEST`, so Rollup drops
+ * the branch exactly the way it drops the DEV one. Two gates, same property:
+ * **a normal production build reaches neither.** That is the invariant this
+ * file defends, and widening the list of gates does not weaken it as long as
+ * every gate is a build-time constant.
+ */
+const BUILD_GATES = /import\.meta\.env\.DEV|isPlaytest/
 
 /** WildLands engine modules each layer may use. The engine never imports professions. */
 const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
@@ -38,7 +50,9 @@ const ENGINE_ALLOWED: readonly [prefix: string, modules: RegExp][] = [
   // and the controller read the same engine surface the bench does, plus the
   // atlas, because the furnace is derived from each world's own spawn too.
   ['./stations/', /\/wildlands\/(engine\/(world|area|chunks|characters|sceneOverlay|game)|areas\/atlas)$/],
-  ['./components/', /\/wildlands\/engine\/(world|noise|characters|game)$/],
+  // `compositeOverlay` is engine glue and lives in the engine since the
+  // playtest: the dev demo and the alchemy lab compose their overlays with it.
+  ['./components/', /\/wildlands\/engine\/(world|noise|characters|game|compositeOverlay)$/],
   ['./', /\/wildlands\/engine\/(world|noise)$/],
 ]
 
@@ -99,7 +113,7 @@ describe('R31 professions isolation', () => {
     }
   })
 
-  it('is reachable from the app only through development-only entry points', () => {
+  it('is reachable from the app only through build-gated entry points', () => {
     for (const [path, source] of Object.entries(ALL_SOURCES)) {
       // Tests (e.g. routes.test.ts mocking the playground) are not shipped code.
       if (isProfessions(path) || isTest(path)) continue
@@ -109,7 +123,7 @@ describe('R31 professions isolation', () => {
         continue
       }
       expect(references.length, path).toBeGreaterThan(0)
-      for (const line of references) expect(line, path).toMatch(/import\.meta\.env\.DEV/)
+      for (const line of references) expect(line, path).toMatch(BUILD_GATES)
     }
   })
 })

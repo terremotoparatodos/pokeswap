@@ -102,7 +102,7 @@ import { useForageController } from '../../forage/useForageController'
 import { useLoggingController } from '../../logging/useLoggingController'
 import { useMiningController, type MiningGamePort } from '../../mining/useMiningController'
 import { useFurnaceController } from '../../stations/useFurnaceController'
-import { CompositeOverlay } from '../../overworld/compositeOverlay'
+import { CompositeOverlay } from '../../../wildlands/engine/compositeOverlay'
 import AlchemyStationCard from '../AlchemyStationCard.vue'
 import FurnaceStationCard from '../FurnaceStationCard.vue'
 import FishingActionCard from '../FishingActionCard.vue'
@@ -245,7 +245,11 @@ function closeAll(): void {
   bagOpen.value = false
 }
 
-defineExpose({ inspect, isWorldObject, placedObjects })
+// `overlay` joins the three engine probes because the host may not be the only
+// thing drawing into the scene any more: Community Playtest 0.1 composes this
+// overlay with the dungeon entrances' one. Exposing it changes nothing for the
+// dev demo, which still installs it itself in the watcher above.
+defineExpose({ inspect, isWorldObject, placedObjects, overlay })
 </script>
 
 <style scoped>

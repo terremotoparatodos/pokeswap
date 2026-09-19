@@ -10,7 +10,7 @@
 // The D1.1 prototype renderer is still here, behind a DEV switch, purely so the
 // two can be compared side by side (§4, §32).
 
-import { computed, onUnmounted, ref, shallowRef, triggerRef } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, triggerRef } from 'vue'
 import BattleHud from './BattleHud.vue'
 import CombatPopup from './CombatPopup.vue'
 import DungeonStage from './DungeonStage.vue'
@@ -20,7 +20,7 @@ import DevTools, { type DevCommand } from './DevTools.vue'
 import {
   BATTLE_ITEMS, buildParty, buildWild, combatantFor, FLOOR_LOOT, STARTING_INVENTORY,
 } from '../data/runFixtures'
-import { DUNGEON_DEFINITIONS, poolOf } from '../data/dungeonCatalog'
+import { DUNGEON_DEFINITIONS, definitionById, poolOf } from '../data/dungeonCatalog'
 import { speciesById } from '../data/speciesFixtures'
 import CombatIcon, { type IconName } from './CombatIcon.vue'
 import { isWalkable } from '../domain/floorTiles'
@@ -39,6 +39,34 @@ import { DungeonRenderer, type CombatantView, type RenderView } from '../render/
 import { preloadSpecies } from '../render/dungeonSprites'
 import { colourOfType } from '../render/worldOverlay'
 import { tileCentre } from '../world/dungeonArea'
+
+/**
+ * D1.2 ran this as a lab: you picked a dungeon from a catalog and came back to
+ * the catalog when you were done. Community Playtest 0.1 arrives the other way
+ * round — you walked into a cave in WildLands, so the dungeon is already
+ * decided and leaving means going back outside.
+ *
+ * `autoStart` is that second entrance, and it is additive: with the prop
+ * absent this component is exactly the lab it has always been.
+ */
+const props = defineProps<{ autoStart?: { definitionId: string; minutes?: number } | null }>()
+const emit = defineEmits<{ exit: [] }>()
+
+// `begin` is a hoisted function declaration, so the entrance can be taken
+// before the rest of the component has finished reading itself.
+/** True once a cave entrance really opened a dungeon, so the catalog stays hidden. */
+const autoStarted = ref(false)
+
+onMounted(() => {
+  const start = props.autoStart
+  if (!start) return
+  const definition = definitionById(start.definitionId)
+  // An unknown id leaves the player looking at the catalog instead of a blank
+  // screen: the lab's own entrance is still there underneath.
+  if (!definition) return
+  begin(definition, start.minutes ?? 180)
+  autoStarted.value = true
+})
 
 const session = shallowRef<PlaySession | null>(null)
 const stage = ref<InstanceType<typeof DungeonStage> | null>(null)
@@ -623,14 +651,20 @@ function runAway(): void {
   triggerRef(session)
 }
 
-const restart = (): void => { stop(); session.value = null; toast.value = null }
+function restart(): void {
+  stop()
+  toast.value = null
+  // Entered from a cave: there is no catalog to go back to, only WildLands.
+  if (props.autoStart) { emit('exit'); return }
+  session.value = null
+}
 </script>
 
 <template>
   <!-- Choosing where to go: a catalog of entrances, not a form. -->
-  <DungeonCatalog v-if="!session" v-model:players="players" :definitions="DUNGEON_DEFINITIONS" @enter="begin" />
+  <DungeonCatalog v-if="!session && !autoStarted" v-model:players="players" :definitions="DUNGEON_DEFINITIONS" @enter="begin" />
 
-  <div v-else class="pd">
+  <div v-else-if="session" class="pd">
     <!-- Expedition HUD: one thin line, never covering the world. -->
     <div class="pd-hud">
       <span class="pd-floor">PISO {{ session.expedition.floor }}/{{ session.expedition.floors }}</span>
