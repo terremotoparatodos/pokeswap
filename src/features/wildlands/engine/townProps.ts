@@ -12,7 +12,38 @@
 import { Painter } from './painter'
 import { ellipses, shade, spriteFromPixels, type Sprite } from './sprite'
 
-export type TownPropKind = 'lamp' | 'sign' | 'hedge' | 'fenceH' | 'fenceV' | 'spray'
+export type TownPropKind =
+  | 'lamp' | 'sign' | 'hedge' | 'fenceH' | 'fenceV' | 'spray'
+  /** Plaza benches, 1×2 tiles, backrest on the right / left (Platinum's own models). */
+  | 'bench' | 'benchLeft'
+
+/** Footprint in tiles from the prop's (tx, ty); anything not listed is one tile. */
+const TOWN_PROP_SIZE: Partial<Record<TownPropKind, { readonly w: number; readonly d: number }>> = {
+  bench: { w: 1, d: 2 },
+  benchLeft: { w: 1, d: 2 },
+}
+
+export function townPropSize(kind: TownPropKind): { readonly w: number; readonly d: number } {
+  return TOWN_PROP_SIZE[kind] ?? { w: 1, d: 1 }
+}
+
+/** The tiles a prop covers. */
+export function townPropTiles(p: { kind: TownPropKind; tx: number; ty: number }): { tx: number; ty: number }[] {
+  const { w, d } = townPropSize(p.kind)
+  const out: { tx: number; ty: number }[] = []
+  for (let dy = 0; dy < d; dy++) for (let dx = 0; dx < w; dx++) out.push({ tx: p.tx + dx, ty: p.ty + dy })
+  return out
+}
+
+/**
+ * Where a prop stands, in world px, and the tile row it sorts on: one-tile
+ * props 2 px above their tile's bottom, longer ones on their footprint's bottom.
+ */
+export function townPropFeet(p: { kind: TownPropKind; tx: number; ty: number }): { x: number; y: number; ty: number } {
+  const { w, d } = townPropSize(p.kind)
+  if (w === 1 && d === 1) return { x: p.tx * 16 + 8, y: p.ty * 16 + 14, ty: p.ty }
+  return { x: (p.tx + w / 2) * 16, y: (p.ty + d) * 16 - 1, ty: p.ty + d - 1 }
+}
 
 /**
  * Which fence piece a fence tile shows:
@@ -128,6 +159,16 @@ function sign(): Sprite {
   return p.toSprite()
 }
 
+/** Loading fallback for a model bench: red planks on a 1×2 footprint, backrest on one side. */
+function bench(back: 'left' | 'right'): Sprite {
+  const p = new Painter(13, 30)
+  p.rect(0, 0, 13, 30, '#b05048')
+  for (let x = 2; x < 10; x += 4) p.vline(x, 0, 30, '#90422e')
+  p.rect(back === 'right' ? 10 : 0, 0, 3, 30, '#cc6a5a')
+  p.outline(OUTLINE)
+  return p.toSprite({ flatTop: 26 })
+}
+
 function hedge(): Sprite {
   const w = 16, h = 14
   return spriteFromPixels(w, h, shade(w, h, ellipses([[8, 8, 7, 5.5], [5, 6, 4, 4], [11, 6, 4, 4]]), {
@@ -170,5 +211,8 @@ function spray(): Sprite {
 }
 
 export function buildTownProps(): Record<TownPropKind, Sprite> {
-  return { lamp: lamp(), sign: sign(), hedge: hedge(), fenceH: fenceH(), fenceV: fenceV(), spray: spray() }
+  return {
+    lamp: lamp(), sign: sign(), hedge: hedge(), fenceH: fenceH(), fenceV: fenceV(), spray: spray(),
+    bench: bench('right'), benchLeft: bench('left'),
+  }
 }

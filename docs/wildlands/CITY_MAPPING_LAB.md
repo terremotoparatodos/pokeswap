@@ -75,7 +75,20 @@ requires engine support (main station's decision).
   one sprite per tile: the tilted player camera spaces them like the ground, the posts in
   front cover the ones behind, and they keep their height.
 - Art: `scripts/build_town_street_art.py` (pieces cut from the city tileset).
-- The city has no benches for now (the old "bench" PNGs were dirt ramps).
+- Benches (`bench`, `benchLeft`: backrest right / left) cover 1×2 tiles and are drawn from
+  Platinum's own 3D models.
+
+## 3D models (Platinum's own)
+
+- `scripts/build_town_models.py <folder>` converts the exported OBJ/MTL/PNG models into
+  `public/assets/town/models/<id>.json` + textures. Model units are world px (a 16-unit tile).
+  The DS repeat/mirror of each texture is listed per material in the script and baked into
+  expanded textures, so the game never wraps.
+- `engine/townModel.ts` draws a model with the scene projector (same perspective as the
+  ground): each triangle is its texture mapped into it, far to near, the ground shadow first.
+  A building to one side of the screen shows its real side wall.
+- A building opts in with `image.model` (the PNG stays as loading fallback and for the ground
+  dressing); props with `art.models[kind]`. Today: the Pokémon Center and both benches.
 
 ## Buildings from scratch
 

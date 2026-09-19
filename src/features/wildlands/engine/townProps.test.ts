@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { HEARTHOME } from '../areas/atlas'
-import { fencePiece, fencePosts, fenceTileArt, type FencePiece } from './townProps'
+import { TownArea } from '../areas/townArea'
+import { fencePiece, fencePosts, fenceTileArt, townPropFeet, townPropTiles, type FencePiece } from './townProps'
 
 /** A fence map from a picture: `-` horizontal, `|` vertical. */
 function fences(rows: string[]) {
@@ -111,7 +112,15 @@ describe('street art', () => {
     expect(size('fence-post')).toEqual([6, 14])
   })
 
-  it('has no benches in Ciudad Corazón', () => {
-    expect(HEARTHOME.props.some(p => (p.kind as string).startsWith('bench'))).toBe(false)
+  it('puts two benches end to end beside the fountains, backs to the water, blocking both tiles each', () => {
+    const benches = HEARTHOME.props.filter(p => p.kind === 'bench' || p.kind === 'benchLeft')
+    expect(benches).toEqual([
+      { kind: 'bench', tx: 33, ty: 35 }, { kind: 'benchLeft', tx: 45, ty: 35 },
+      { kind: 'bench', tx: 33, ty: 37 }, { kind: 'benchLeft', tx: 45, ty: 37 },
+    ])
+    const area = new TownArea(HEARTHOME)
+    for (const ty of [35, 36, 37, 38]) expect(area.isSolid(33, ty) && area.isSolid(45, ty)).toBe(true)
+    expect(townPropTiles({ kind: 'bench', tx: 33, ty: 35 })).toEqual([{ tx: 33, ty: 35 }, { tx: 33, ty: 36 }])
+    expect(townPropFeet({ kind: 'bench', tx: 33, ty: 35 })).toEqual({ x: 536, y: 591, ty: 36 })
   })
 })

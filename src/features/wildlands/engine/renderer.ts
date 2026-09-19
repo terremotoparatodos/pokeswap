@@ -26,6 +26,7 @@ import { createProjector, type CameraLens, type Projector } from './projection'
 import { buildPropSprites } from './props'
 import type { OverlayLabel, SceneOverlay } from './sceneOverlay'
 import type { Sprite } from './sprite'
+import { drawTownModel, type ModelPlacement, type TownModel } from './townModel'
 import { WATER_TEX, waterFramePixels } from './terrainArt'
 import { TILE, type DecorKind } from './world'
 
@@ -93,6 +94,8 @@ interface Drawable {
   prop?: { tx: number; ty: number }
   username?: string
   actor?: Actor
+  /** A 3D model drawn instead of the sprite (the sprite still decides culling). */
+  model?: { model: TownModel; at: ModelPlacement }
 }
 
 interface FrameInfo {
@@ -282,6 +285,7 @@ export class Renderer {
         // Only wild props: town buildings bring their own sprite and already
         // resolve a tap through their footprint (`doorForTap`).
         prop: d.kind ? { tx: d.tx, ty: d.ty } : undefined,
+        model: d.model,
       })
     }
 
@@ -334,7 +338,8 @@ export class Renderer {
     // A sprite pixel at height (ay - y) lands at feet + height·(vx, vy).
     ctx.globalAlpha = alpha * (1 - scene.weather.intensity * 0.6)
     for (const d of drawables) {
-      if (d.submerged || d.sprite.castShadow === false) continue
+      // Models bring their own ground shadow.
+      if (d.submerged || d.model || d.sprite.castShadow === false) continue
       const s = d.scale
       const { ax, ay } = d.sprite
       ctx.setTransform(s, 0, -s * vx, -s * vy, d.x - ax * s + ay * s * vx, d.y + ay * s * vy)
@@ -380,7 +385,10 @@ export class Renderer {
       const faded = d.alpha !== undefined && d.alpha < 1
       if (faded) ctx.globalAlpha = Math.max(0, d.alpha!)
       const flat = sprite.flatTop ?? 0
-      if (flat > 0) {
+      const eye = { depth: scene.lens.distance, height: scene.lens.squash * scene.lens.distance }
+      if (d.model && drawTownModel(ctx, d.model.model, d.model.at, proj, scene.camX, scene.camY, eye)) {
+        // Drawn from its 3D model.
+      } else if (flat > 0) {
         // Upright façade, then the roof squashed by the camera tilt like the ground.
         const faceH = sprite.h - flat
         const faceY = Math.round(d.y - (sprite.ay - flat) * s)

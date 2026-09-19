@@ -13,7 +13,7 @@ import type { TownBuilding, TownDef, TownGate, TownProp, TownResident } from '..
 import type { Arrival } from '../../wildlands/engine/area'
 import type { Tile } from '../../wildlands/engine/pathfinding'
 import type { TileRect } from '../../wildlands/engine/townGround'
-import type { TownPropKind } from '../../wildlands/engine/townProps'
+import { townPropTiles, type TownPropKind } from '../../wildlands/engine/townProps'
 import type { DecorKind } from '../../wildlands/engine/world'
 import { isCityTreeId, treeCollisionTiles, treeVisualTiles, type CityTreeId } from '../../worldAssets/trees/cityTrees'
 
@@ -23,7 +23,7 @@ export const TERRAIN_KINDS: readonly TerrainKind[] = ['s', 'g', 'p', 't']
 
 /** Street furniture a `TownDef` can hold (`spray` is the fountain's own jet, not a prop). */
 export type StreetPropKind = Exclude<TownPropKind, 'spray'>
-export const STREET_PROP_KINDS: readonly StreetPropKind[] = ['lamp', 'sign', 'hedge', 'fenceH', 'fenceV']
+export const STREET_PROP_KINDS: readonly StreetPropKind[] = ['lamp', 'sign', 'bench', 'benchLeft', 'hedge', 'fenceH', 'fenceV']
 
 /**
  * Anything the palette can place: street furniture, one of the world's own
@@ -244,6 +244,8 @@ export function tilesOf(city: LabCity, ref: EntityRef): Tile[] {
   if (ref.type === 'prop') {
     const p = city.props.find(x => x.id === ref.id)
     if (p && isTreeProp(p.kind)) return treeVisualTiles(p.kind, p.tx, p.ty)
+    // Benches cover two tiles from their (tx, ty).
+    if (p && isStreetProp(p.kind)) return townPropTiles({ kind: p.kind, tx: p.tx, ty: p.ty })
   }
   const at = anchorOf(city, ref)
   return at ? [at] : []

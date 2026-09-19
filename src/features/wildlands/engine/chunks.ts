@@ -7,6 +7,7 @@
 //      looking at neighbouring ids.
 // Water pixels stay transparent: the renderer paints animated water beneath.
 
+import type { ModelPlacement, TownModel } from './townModel'
 import { hash2 } from './noise'
 import { packColor, pixelsToCanvas, TRANSPARENT } from './pixels'
 import type { Sprite } from './sprite'
@@ -31,6 +32,8 @@ export interface DecorInstance {
   x: number
   y: number
   seed: number
+  /** Drawn from a 3D model instead of the sprite, once the model has loaded (townModel.ts). */
+  model?: { model: TownModel; at: ModelPlacement }
 }
 
 export interface ChunkPixels {

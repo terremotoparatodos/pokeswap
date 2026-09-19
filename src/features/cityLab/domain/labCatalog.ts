@@ -29,6 +29,8 @@ export const PALETTE: readonly PaletteEntry[] = [
   ...CITY_TREE_ASSETS.map(t => ({ kind: t.id, label: t.short, group: TREE_GROUP[t.origin] })),
   { kind: 'lamp', label: 'Farol', group: 'Mobiliario urbano' },
   { kind: 'sign', label: 'Cartel', group: 'Mobiliario urbano' },
+  { kind: 'bench', label: 'Banco ▐ (1×2)', group: 'Mobiliario urbano' },
+  { kind: 'benchLeft', label: 'Banco ▌ (1×2)', group: 'Mobiliario urbano' },
   { kind: 'hedge', label: 'Seto', group: 'Setos y vallas' },
   { kind: 'fenceH', label: 'Valla ─', group: 'Setos y vallas' },
   { kind: 'fenceV', label: 'Valla │', group: 'Setos y vallas' },

@@ -29,6 +29,11 @@ const HEARTHOME_ART: TownArtSet = {
   },
   // Autotiled fences (scripts/build_town_street_art.py): straight runs, corner pickets where a
   // row meets a column, and vertical runs as upright posts every 8 px.
+  // Platinum's own 3D models (scripts/build_town_models.py).
+  models: {
+    bench: '/assets/town/models/bench-1.json',
+    benchLeft: '/assets/town/models/bench-2.json',
+  },
   fences: {
     h: { src: art('fence-h') },
     cornerLeft: { src: art('fence-corner-left') },
@@ -55,6 +60,8 @@ function props(): TownProp[] {
   for (const [x, y0, y1] of fenceCols) for (let y = y0; y <= y1; y++) out.push({ kind: 'fenceV', tx: x, ty: y })
   const lamps = [[8, 15], [14, 15], [28, 18], [34, 18], [41, 15], [47, 15], [8, 23], [55, 23], [8, 33], [55, 33], [36, 35], [42, 35], [23, 42], [41, 42]]
   for (const [tx, ty] of lamps) out.push({ kind: 'lamp', tx, ty })
+  // Two benches end to end beside each pair of fountains, backs to the water (Platinum's layout).
+  for (const ty of [35, 37]) out.push({ kind: 'bench', tx: 33, ty }, { kind: 'benchLeft', tx: 45, ty })
   const signs: [number, number, string][] = [
     [13, 11, 'Plaza Amistad · Puerta a la Tundra Helada'],
     [50, 11, 'Plaza Amistad · Puerta a la Costa Coral'],
@@ -85,7 +92,7 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       { id: 'gateW', name: 'Puerta oeste', blurb: 'Entrá por el costado para ir a la Pradera Brisa.', style: 'routeGate', x: 0, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52 } },
       { id: 'gateE', name: 'Puerta este', blurb: 'Entrá por el costado para ir al Bosque Umbrío.', style: 'routeGate', x: 58, y: 38, w: 6, d: 6, image: { src: art('route-gate'), flatTop: 52 } },
       { id: 'gateS', name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', x: 9, y: 43, w: 5, d: 6, image: { src: art('route-gate'), flatTop: 52 } },
-      { id: 'pokecenter', name: 'Centro Pokémon', blurb: 'Acá te guardan la caja con tus Pokémon.', style: 'pokecenter', x: 15, y: 15, w: 5, d: 5, door: { tx: 17, ty: 19 }, feature: 'caja', image: { src: art('pokecenter'), flatTop: 54 } },
+      { id: 'pokecenter', name: 'Centro Pokémon', blurb: 'Acá te guardan la caja con tus Pokémon.', style: 'pokecenter', x: 15, y: 15, w: 5, d: 5, door: { tx: 17, ty: 19 }, feature: 'caja', image: { src: art('pokecenter'), flatTop: 54, model: '/assets/town/models/pokecenter.json' } },
       { id: 'house1', name: 'Casa', blurb: 'No hay nadie. Se escucha una radio adentro.', style: 'house', x: 21, y: 15, w: 4, d: 5, image: { src: art('house-green'), flatTop: 43 } },
       { id: 'apt1', name: 'Departamentos', blurb: 'Las jardineras están recién regadas.', style: 'apartment', x: 36, y: 13, w: 5, d: 7, image: { src: art('apartment-a'), flatTop: 70 } },
       { id: 'gym', name: 'Gimnasio', blurb: 'La entrada al Dungeon.', style: 'gym', x: 48, y: 14, w: 7, d: 6, door: { tx: 51, ty: 19 }, feature: 'dungeon', image: { src: art('gym'), flatTop: 59 } },
