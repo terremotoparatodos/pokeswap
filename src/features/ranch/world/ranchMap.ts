@@ -67,10 +67,11 @@ function vertexTerrainAt(vx: number, vy: number): Terrain {
   if (!isInterior(vx, vy)) return fbm(vx / 4, vy / 4, RANCH_SEED + 9, 3) > 0.46 ? T.TALL : T.GRASS
   if (Math.hypot(vx - ISLAND.x, vy - ISLAND.y) < ISLAND.r) return T.GRASS
   const lake = lakeDistance(vx, vy)
-  if (lake < 0.5) return T.DEEP
+  // Only a small core is deep: a ranch lake should read as friendly blue
+  // water, not as the open sea WildLands paints almost black.
+  if (lake < 0.22) return T.DEEP
   if (lake < 1) return T.WATER
   const pond = pondDistance(vx, vy)
-  if (pond < 0.45) return T.DEEP
   if (pond < 1) return T.WATER
   const cover = pathCover(vx, vy)
   if (cover >= 0) return T.SAND

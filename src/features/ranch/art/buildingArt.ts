@@ -11,6 +11,72 @@ import { FONT_HEIGHT, paintText, textWidth } from './pixelFont'
 const WOOD = { outline: '#3b2412', dark: '#6e4524', mid: '#96643a', light: '#be8650', top: '#dcaa72' }
 const TRIM = { light: '#f2eadb', shade: '#cdbfa6' }
 
+/** The farmhouse where Guti and Sky live: 5 tiles of frontage, door facing south. */
+export function buildHouse(): Sprite {
+  const W = 80
+  const H = 80
+  const p = new Painter(W, H)
+  const roof = { base: '#4f9a54', light: '#68b96b', dark: '#357a3e', ridge: '#27602f' }
+  const wall = { base: '#e4d7b8', light: '#f4ebd2', dark: '#c0ac86', sill: '#8d7a56' }
+
+  // Chimney behind the ridge, so the roof overlaps its base.
+  p.rect(58, 2, 9, 16, '#8c5a48')
+  for (let y = 4; y < 18; y += 3) p.hline(58, y, 9, '#6e4234')
+  p.rect(57, 1, 11, 3, '#a8705c')
+
+  // Hipped roof: rows narrow toward the ridge, shingles staggered.
+  const roofTop = 8
+  const roofBottom = 44
+  for (let y = roofTop; y < roofBottom; y++) {
+    const inset = Math.round((roofBottom - y) * 0.42)
+    const row = Math.floor((y - roofTop) / 4)
+    for (let x = 2 + inset; x <= W - 3 - inset; x++) {
+      const seam = (x + (row % 2) * 3) % 6 === 0
+      const edge = (y - roofTop) % 4 === 3
+      p.set(x, y, edge || seam ? roof.dark : (x * 3 + y) % 13 === 0 ? roof.light : roof.base)
+    }
+  }
+  p.rect(2 + Math.round((roofBottom - roofTop) * 0.42), roofTop - 1, W - 4 - 2 * Math.round((roofBottom - roofTop) * 0.42), 2, roof.ridge)
+  p.rect(2, roofBottom, W - 4, 2, roof.ridge)
+
+  // Façade.
+  p.rect(4, roofBottom + 2, W - 8, H - roofBottom - 3, wall.base)
+  for (let y = roofBottom + 2; y < H - 1; y += 4) p.hline(4, y, W - 8, wall.light)
+  p.vline(5, roofBottom + 2, H - roofBottom - 3, wall.light)
+  p.vline(W - 6, roofBottom + 2, H - roofBottom - 3, wall.dark)
+  p.rect(4, H - 3, W - 8, 2, '#a08a62')
+
+  // Door, centred so the doormat tile lines up, with a little porch light.
+  const dx = W / 2 - 7
+  p.rect(dx - 1, H - 25, 16, 24, wall.sill)
+  p.rect(dx, H - 23, 14, 22, '#7a4a2c')
+  p.vline(dx + 7, H - 23, 22, '#5c3620')
+  p.rect(dx + 2, H - 20, 4, 7, '#a9724a')
+  p.rect(dx + 9, H - 20, 4, 7, '#a9724a')
+  p.set(dx + 11, H - 11, '#e8c040')
+  p.rect(dx + 4, H - 29, 7, 3, '#f2d98a')
+
+  // Windows either side, with shutters and a flower box.
+  for (const wx of [11, W - 27]) {
+    p.rect(wx - 1, H - 27, 18, 15, wall.sill)
+    p.rect(wx + 2, H - 25, 12, 11, '#3c5a6e')
+    p.rect(wx + 2, H - 25, 12, 4, '#5b7f95')
+    p.vline(wx + 7, H - 25, 11, wall.light)
+    p.hline(wx + 2, H - 20, 12, wall.light)
+    p.rect(wx - 1, H - 27, 3, 15, '#b8503c')
+    p.rect(wx + 14, H - 27, 3, 15, '#b8503c')
+    p.rect(wx + 1, H - 13, 14, 4, '#96643a')
+    p.hline(wx + 1, H - 13, 14, '#be8650')
+    for (let x = wx + 2; x < wx + 15; x += 3) {
+      p.set(x, H - 14, '#e0403c')
+      p.set(x + 1, H - 14, '#f6c73a')
+    }
+  }
+
+  p.outline('#2a2230')
+  return p.toSprite({ ax: W / 2, ay: H - 1, castShadow: false })
+}
+
 export function buildBarn(): Sprite {
   const W = 96
   const H = 86

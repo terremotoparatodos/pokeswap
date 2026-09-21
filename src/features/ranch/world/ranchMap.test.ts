@@ -24,7 +24,9 @@ describe('ranch map', () => {
 
   it('has a lake of water with a walkable dock', () => {
     expect(map.water[Math.round(LAKE.cy) * map.w + Math.round(LAKE.cx - 4)]).toBe(1)
-    expect(map.vertexTerrain(LAKE.cx - 5, LAKE.cy)).toBe(T.DEEP)
+    // A deep middle for depth, shallow blue everywhere else.
+    expect(map.vertexTerrain(LAKE.cx, LAKE.cy)).toBe(T.DEEP)
+    expect(map.vertexTerrain(LAKE.cx - 11, LAKE.cy)).toBe(T.WATER)
     for (let y = 29; y <= 34; y++) expect(map.isSolid(86, y), `dock ${y}`).toBe(false)
   })
 
