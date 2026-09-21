@@ -7,7 +7,7 @@
 import type { Actor } from './actors'
 import type { WeatherKind } from './atmosphere'
 import type { Dir, TrainerSprites } from './characters'
-import type { DecorInstance } from './chunks'
+import type { ChunkMetrics, DecorInstance } from './chunks'
 import type { BuildingDoor } from './doors'
 import type { Tile } from './pathfinding'
 import type { PlazaResident } from './plazaPokemon'
@@ -76,6 +76,14 @@ export interface Area {
   /** Collects a pickup on the tile; returns true when something was collected. */
   collect(tx: number, ty: number): boolean
   paintMinimap(canvas: HTMLCanvasElement, tx: number, ty: number): void
+  /** Optionally prepares nearby terrain without blocking the active frame. */
+  prefetch?(tx: number, ty: number): void
+  /** Initial terrain warm-up performed while the loading screen is visible. */
+  warm?(tx: number, ty: number): Promise<void>
+  /** Releases heavyweight transient resources when another area becomes active. */
+  deactivate?(): void
+  /** Diagnostic counters for procedural terrain, when this area owns chunks. */
+  chunkMetrics?(): Readonly<ChunkMetrics>
   /** Per-frame housekeeping (cache eviction). */
   tick(): void
 }

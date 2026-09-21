@@ -23,11 +23,11 @@ import type { Tile } from './pathfinding'
 import { pixelsToCanvas } from './pixels'
 import { drawPlayerNameplate } from './playerNameplate'
 import { drawChatBubble } from './chatBubble'
-import { createProjector, type CameraLens, type Projector } from './projection'
+import { createProjector, projectionViewportScale, type CameraLens, type Projector } from './projection'
+import { ProjectionRowCache } from './projectionRows'
 import { buildPropSprites } from './props'
 import type { OverlayLabel, SceneOverlay } from './sceneOverlay'
 import type { Sprite } from './sprite'
-import { drawTownModel, type ModelPlacement, type TownModel } from './townModel'
 import { WATER_TEX, waterFramePixels } from './terrainArt'
 import { TILE, type DecorKind } from './world'
 
@@ -83,10 +83,16 @@ const SKY_HAZE = '#d8ecfb'
 // that nearly four times as much work on phones; pixel art gains no useful
 // detail from it during the playtest, so render that build at CSS resolution.
 const MAX_RENDER_DPR = import.meta.env.VITE_PLAYTEST === 'on' ? 1 : 2
-// Town models use a CPU triangle rasterizer. Moving the camera invalidates
-// every model surface, which is the large city-only frame spike. The existing
-// façade sprites are the playtest fallback; normal builds keep full 3D.
-const ENABLE_TOWN_MODELS = import.meta.env.VITE_PLAYTEST !== 'on'
+const MEASURE_RENDER_PHASES = import.meta.env.VITE_PLAYTEST === 'on' || import.meta.env.VITE_PERF === 'on'
+
+export interface RendererMetrics {
+  groundComposeMs: number
+  groundProjectMs: number
+  collectMs: number
+  sortMs: number
+  spriteDrawMs: number
+  lightingMs: number
+}
 
 interface Drawable {
   depth: number
@@ -106,8 +112,6 @@ interface Drawable {
   username?: string
   actor?: Actor
   chat?: string
-  /** A 3D model drawn instead of the sprite (the sprite still decides culling). */
-  model?: { model: TownModel; at: ModelPlacement }
 }
 
 interface FrameInfo {
@@ -130,17 +134,29 @@ export class Renderer {
   private readonly ground = document.createElement('canvas')
   private readonly gctx: CanvasRenderingContext2D
   private readonly waterFrames: HTMLCanvasElement[]
+  private readonly waterPatterns: CanvasPattern[]
   private readonly props: Record<DecorKind, Sprite>
   readonly playerSprites: TrainerSprites
   readonly npcSprites: TrainerSprites[]
   private readonly lighting = new SceneLighting()
   private frame: FrameInfo | null = null
+  private readonly drawables: Drawable[] = []
+  private readonly nameplates: { username: string; x: number; y: number }[] = []
+  private readonly visibleChatBubbles: { text: string; x: number; y: number }[] = []
+  private waterPatternTransform: DOMMatrix | null = null
+  private readonly renderLens: CameraLens = { zoom: 1, squash: 1, distance: 1 }
+  private readonly groundRows = new ProjectionRowCache()
+  readonly metrics: RendererMetrics = {
+    groundComposeMs: 0, groundProjectMs: 0, collectMs: 0,
+    sortMs: 0, spriteDrawMs: 0, lightingMs: 0,
+  }
 
   constructor(private readonly canvas: HTMLCanvasElement) {
     this.ctx = canvas.getContext('2d', { alpha: false })!
     this.gctx = this.ground.getContext('2d')!
     this.waterFrames = Array.from({ length: WATER_FRAMES }, (_, i) =>
       pixelsToCanvas(WATER_TEX, WATER_TEX, waterFramePixels(i, WATER_FRAMES)))
+    this.waterPatterns = this.waterFrames.map(frame => this.gctx.createPattern(frame, 'repeat')!)
     this.props = buildPropSprites()
     this.playerSprites = buildTrainer(PLAYER_PALETTE)
     this.npcSprites = NPC_PALETTES.map(buildTrainer)
@@ -158,9 +174,21 @@ export class Renderer {
     ctx.imageSmoothingEnabled = false
     // Small screens zoom out so a phone still shows a useful slice of the world.
     const fit = Math.min(1, Math.max(0.55, Math.min(this.canvas.clientWidth, this.canvas.clientHeight) / 640))
-    const lens = { ...scene.lens, zoom: scene.lens.zoom * dpr * fit }
-    const proj = createProjector(lens, { width: W, height: H, focusY: H * 0.56 })
-    this.frame = { proj, dpr, camX: scene.camX, camY: scene.camY, hits: [], propHits: [], placedHits: [], lights: [] }
+    const lens = this.renderLens
+    // A larger CSS viewport caused by browser zoom-out is not permission to
+    // reveal more world. Keep UI zoom intact while the camera follows the
+    // physical window width represented by the backing canvas.
+    const viewportScale = projectionViewportScale(W, this.canvas.clientWidth, window.outerWidth)
+    lens.zoom = scene.lens.zoom * viewportScale * fit
+    lens.squash = scene.lens.squash
+    lens.distance = scene.lens.distance
+    lens.rise = scene.lens.rise
+    const focusY = H * 0.56
+    const proj = createProjector(lens, { width: W, height: H, focusY })
+    const frame = this.frame ?? { proj, dpr, camX: scene.camX, camY: scene.camY, hits: [], propHits: [], placedHits: [], lights: [] }
+    frame.proj = proj; frame.dpr = dpr; frame.camX = scene.camX; frame.camY = scene.camY
+    frame.hits.length = 0; frame.propHits.length = 0; frame.placedHits.length = 0; frame.lights.length = 0
+    this.frame = frame
     this.collectPlacedHits(scene, proj)
 
     const farY = proj.project(0, lens.distance - MAX_DEPTH)?.y ?? 0
@@ -170,8 +198,12 @@ export class Renderer {
     const rowTop = proj.row(top + 0.5)
     const rowBottom = proj.row(H - 0.5)
     if (rowTop && rowBottom) {
+      let phaseStart = MEASURE_RENDER_PHASES ? performance.now() : 0
       const bounds = this.composeGround(scene, rowTop.scale, rowTop.wy, rowBottom.wy, W, dpr)
-      this.projectGround(scene, proj, top, W, H, bounds)
+      this.sampleMetric('groundComposeMs', phaseStart)
+      phaseStart = MEASURE_RENDER_PHASES ? performance.now() : 0
+      this.projectGround(scene, proj, top, W, H, focusY, lens, bounds)
+      this.sampleMetric('groundProjectMs', phaseStart)
       if (top > 0) {
         const fog = ctx.createLinearGradient(0, top, 0, top + H * 0.18)
         fog.addColorStop(0, SKY_HAZE)
@@ -181,7 +213,15 @@ export class Renderer {
       }
       this.drawSprites(scene, proj, bounds, W, H)
     }
+    const lightingStart = MEASURE_RENDER_PHASES ? performance.now() : 0
     this.lighting.draw(ctx, scene, proj, this.frame.lights, W, H, dt)
+    this.sampleMetric('lightingMs', lightingStart)
+  }
+
+  private sampleMetric(key: keyof RendererMetrics, startedAt: number): void {
+    if (!MEASURE_RENDER_PHASES) return
+    const elapsed = performance.now() - startedAt
+    this.metrics[key] += (elapsed - this.metrics[key]) * 0.1
   }
 
   private drawSky(top: number, W: number): void {
@@ -210,9 +250,10 @@ export class Renderer {
 
     if (scene.area.kind === 'wild') {
       // Worlds leave water transparent in their chunks; paint it animated underneath.
-      const frame = this.waterFrames[Math.floor(scene.seconds * 5) % WATER_FRAMES]
-      const pattern = g.createPattern(frame, 'repeat')!
-      pattern.setTransform(new DOMMatrix().translate(-x0, -y0))
+      const pattern = this.waterPatterns[Math.floor(scene.seconds * 5) % WATER_FRAMES]
+      const transform = this.waterPatternTransform ??= new DOMMatrix()
+      transform.a = 1; transform.b = 0; transform.c = 0; transform.d = 1; transform.e = -x0; transform.f = -y0
+      pattern.setTransform(transform)
       g.fillStyle = pattern
       g.fillRect(0, 0, bw, bh)
     }
@@ -265,20 +306,23 @@ export class Renderer {
     }
   }
 
-  private projectGround(scene: Scene, proj: Projector, top: number, W: number, H: number, b: { x0: number; y0: number }): void {
+  private projectGround(scene: Scene, proj: Projector, top: number, W: number, H: number, focusY: number, lens: CameraLens, b: { x0: number; y0: number }): void {
     const ctx = this.ctx
+    const rows = this.groundRows.prepare(proj, top, H, focusY, lens)
     for (let sy = top; sy < H; sy++) {
-      const row = proj.row(sy + 0.5)
-      if (!row) continue
-      const srcW = W / row.scale
+      const index = sy - top
+      const inverseScale = rows.inverseScale[index]
+      if (!Number.isFinite(inverseScale)) continue
+      const srcW = W * inverseScale
       const srcX = scene.camX - srcW / 2 - b.x0
-      const srcY = Math.floor(scene.camY + row.wy - b.y0)
+      const srcY = Math.floor(scene.camY + rows.worldY[index] - b.y0)
       ctx.drawImage(this.ground, srcX, srcY, srcW, 1, 0, sy, W, 1)
     }
   }
 
   private collect(scene: Scene, proj: Projector, b: { x0: number; y0: number; x1: number; y1: number }, W: number, H: number): Drawable[] {
-    const list: Drawable[] = []
+    const list = this.drawables
+    list.length = 0
     const push = (wx: number, wy: number, sprite: Sprite, extra: Partial<Drawable> = {}) => {
       const p = proj.project(wx - scene.camX, wy - scene.camY)
       if (!p) return
@@ -300,7 +344,6 @@ export class Renderer {
         // Only wild props: town buildings bring their own sprite and already
         // resolve a tap through their footprint (`doorForTap`).
         prop: d.kind ? { tx: d.tx, ty: d.ty } : undefined,
-        model: ENABLE_TOWN_MODELS ? d.model : undefined,
       })
     }
 
@@ -310,9 +353,7 @@ export class Renderer {
       push(extra.wx, extra.wy, extra.sprite, { lift: extra.lift ?? 0, alpha: extra.alpha, scale: extra.scale })
       if (list.length > index && extra.depthBias) list[index].depth += extra.depthBias
     }
-    const visibleActors = !scene.showPlayer ? scene.actors
-      : scene.companion ? [scene.player, scene.companion, ...scene.actors] : [scene.player, ...scene.actors]
-    for (const actor of visibleActors) {
+    const collectActor = (actor: Actor) => {
       const pos = actorPosition(actor)
       const inWater = area.isWater(actor.tx, actor.ty) && area.isWater(actor.fromTx, actor.fromTy)
       if (actor.pokemon) {
@@ -339,12 +380,23 @@ export class Renderer {
         })
       }
     }
-    return list.sort((a, c) => a.depth - c.depth || a.x - c.x)
+    if (scene.showPlayer) {
+      collectActor(scene.player)
+      if (scene.companion) collectActor(scene.companion)
+    }
+    for (const actor of scene.actors) collectActor(actor)
+    return list
   }
 
   private drawSprites(scene: Scene, proj: Projector, b: { x0: number; y0: number; x1: number; y1: number }, W: number, H: number): void {
     const ctx = this.ctx
+    let phaseStart = MEASURE_RENDER_PHASES ? performance.now() : 0
     const drawables = this.collect(scene, proj, b, W, H)
+    this.sampleMetric('collectMs', phaseStart)
+    phaseStart = MEASURE_RENDER_PHASES ? performance.now() : 0
+    drawables.sort((a, c) => a.depth - c.depth || a.x - c.x)
+    this.sampleMetric('sortMs', phaseStart)
+    phaseStart = MEASURE_RENDER_PHASES ? performance.now() : 0
     const { dx, dy, alpha } = scene.light.shadow
     const squash = scene.lens.squash
     const vx = dx
@@ -354,8 +406,7 @@ export class Renderer {
     // A sprite pixel at height (ay - y) lands at feet + height·(vx, vy).
     ctx.globalAlpha = alpha * (1 - scene.weather.intensity * 0.6)
     for (const d of drawables) {
-      // Models bring their own ground shadow.
-      if (d.submerged || d.model || d.sprite.castShadow === false) continue
+      if (d.submerged || d.sprite.castShadow === false) continue
       const s = d.scale
       const { ax, ay } = d.sprite
       ctx.setTransform(s, 0, -s * vx, -s * vy, d.x - ax * s + ay * s * vx, d.y + ay * s * vy)
@@ -365,8 +416,10 @@ export class Renderer {
     ctx.globalAlpha = 1
 
     const t = scene.seconds
-    const nameplates: { username: string; x: number; y: number }[] = []
-    const chatBubbles: { text: string; x: number; y: number }[] = []
+    const nameplates = this.nameplates
+    const chatBubbles = this.visibleChatBubbles
+    nameplates.length = 0
+    chatBubbles.length = 0
     for (const d of drawables) {
       const { sprite, scale: s } = d
       const x = Math.round(d.x - sprite.ax * s)
@@ -406,10 +459,7 @@ export class Renderer {
       const faded = d.alpha !== undefined && d.alpha < 1
       if (faded) ctx.globalAlpha = Math.max(0, d.alpha!)
       const flat = sprite.flatTop ?? 0
-      const eye = { depth: scene.lens.distance, height: scene.lens.squash * scene.lens.distance, rise: scene.lens.rise }
-      if (ENABLE_TOWN_MODELS && d.model && drawTownModel(ctx, d.model.model, d.model.at, proj, scene.camX, scene.camY, eye)) {
-        // Drawn from its 3D model.
-      } else if (flat > 0) {
+      if (flat > 0) {
         // Upright façade, then the roof squashed by the camera tilt like the ground.
         const faceH = sprite.h - flat
         const faceY = Math.round(d.y - (sprite.ay - flat) * s)
@@ -420,8 +470,8 @@ export class Renderer {
         ctx.drawImage(sprite.canvas, x, y, Math.round(sprite.w * s), Math.round(sprite.h * s))
       }
       if (faded) ctx.globalAlpha = 1
-      // A lamp's glow sits in its lamp head: near the model's top, or the sprite's.
-      const lampY = d.model ? d.y - (d.model.model.data.bounds.y[1] - 9) * (scene.lens.rise ?? 1) * s : y + 5 * s
+      // A lamp's glow sits in the upper part of its pre-rendered sprite.
+      const lampY = y + 5 * s
       if (d.light && this.frame) this.frame.lights.push({ x: d.x, y: lampY, scale: s })
       if (d.glow && Math.sin(t * 2.2 + d.x * 0.05) > 0.7) drawSparkle(ctx, d.x + s * 2, y + s * 3, s)
       if (d.mine) drawOwnerMarker(ctx, d.x, y + (sprite.top ?? 0) * s, s, t)
@@ -430,6 +480,7 @@ export class Renderer {
     if (this.frame) for (const bubble of chatBubbles) drawChatBubble(ctx, bubble.text, bubble.x, bubble.y, this.frame.dpr)
     const labels = scene.overlay?.labels?.(scene.area, t)
     if (labels?.length && this.frame) for (const label of labels) this.drawLabel(label, scene, proj, this.frame.dpr)
+    this.sampleMetric('spriteDrawMs', phaseStart)
   }
 
   /** Floating feedback text (e.g. "+2"): canvas text with a dark rim, never markup. */

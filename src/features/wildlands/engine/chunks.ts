@@ -16,6 +16,10 @@ import { T, TILE, type DecorKind, type Terrain, type World } from './world'
 
 export const CHUNK_TILES = 32
 export const CHUNK_PX = CHUNK_TILES * TILE
+/** 16 one-megabyte canvases cover the active 3×3 population with travel margin. */
+export const MAX_CACHED_CHUNKS = 16
+/** Start warming the next 3×3 population this many tiles before a boundary. */
+export const PREFETCH_EDGE_TILES = 8
 const PAD = 3
 const SPAN = CHUNK_PX + PAD * 2
 const GRID = CHUNK_TILES + 3
@@ -32,7 +36,7 @@ export interface DecorInstance {
   x: number
   y: number
   seed: number
-  /** Drawn from a 3D model instead of the sprite, once the model has loaded (townModel.ts). */
+  /** Optional source-model placement retained for tooling; gameplay renders the sprite. */
   model?: { model: TownModel; at: ModelPlacement }
 }
 
@@ -191,11 +195,35 @@ export interface Chunk {
   lastUsed: number
 }
 
+export interface ChunkMetrics {
+  loaded: number
+  generated: number
+  evicted: number
+  lastBuildMs: number
+  maxBuildMs: number
+}
+
+/** Chunk whose neighbourhood should be warm by the time the player reaches it. */
+export function prefetchCenter(tx: number, ty: number): { cx: number; cy: number } {
+  const cx = Math.floor(tx / CHUNK_TILES)
+  const cy = Math.floor(ty / CHUNK_TILES)
+  const localX = tx - cx * CHUNK_TILES
+  const localY = ty - cy * CHUNK_TILES
+  return {
+    cx: cx + (localX < PREFETCH_EDGE_TILES ? -1 : localX >= CHUNK_TILES - PREFETCH_EDGE_TILES ? 1 : 0),
+    cy: cy + (localY < PREFETCH_EDGE_TILES ? -1 : localY >= CHUNK_TILES - PREFETCH_EDGE_TILES ? 1 : 0),
+  }
+}
+
 export class ChunkStore {
   private readonly world: World
   private readonly chunks = new Map<string, Chunk>()
   private readonly removed = new Set<string>()
   private frame = 0
+  private idleHandle: number | null = null
+  private prefetchCenter = ''
+  private prefetchQueue: { cx: number; cy: number }[] = []
+  readonly metrics: ChunkMetrics = { loaded: 0, generated: 0, evicted: 0, lastBuildMs: 0, maxBuildMs: 0 }
 
   constructor(world: World) {
     this.world = world
@@ -205,6 +233,7 @@ export class ChunkStore {
     const key = `${cx},${cy}`
     let chunk = this.chunks.get(key)
     if (!chunk) {
+      const startedAt = performance.now()
       const { pixels, decor } = buildChunkPixels(this.world, cx, cy)
       chunk = {
         cx, cy,
@@ -213,9 +242,85 @@ export class ChunkStore {
         lastUsed: this.frame,
       }
       this.chunks.set(key, chunk)
+      const buildMs = performance.now() - startedAt
+      this.metrics.loaded = this.chunks.size
+      this.metrics.generated++
+      this.metrics.lastBuildMs = buildMs
+      this.metrics.maxBuildMs = Math.max(this.metrics.maxBuildMs, buildMs)
     }
     chunk.lastUsed = this.frame
     return chunk
+  }
+
+  /**
+   * Warms the eight chunks around the player's current chunk, one per idle
+   * callback. Browsers without requestIdleCallback simply keep the existing
+   * synchronous-on-demand behaviour instead of risking movement jank.
+   */
+  prefetchAround(tx: number, ty: number): void {
+    if (typeof requestIdleCallback !== 'function') return
+    const { cx, cy } = prefetchCenter(tx, ty)
+    const center = `${cx},${cy}`
+    if (center === this.prefetchCenter) return
+    this.prefetchCenter = center
+    this.prefetchQueue = [
+      { cx: cx + 1, cy }, { cx: cx - 1, cy }, { cx, cy: cy + 1 }, { cx, cy: cy - 1 },
+      { cx: cx + 1, cy: cy + 1 }, { cx: cx - 1, cy: cy + 1 },
+      { cx: cx + 1, cy: cy - 1 }, { cx: cx - 1, cy: cy - 1 },
+    ].filter(next => !this.chunks.has(`${next.cx},${next.cy}`))
+    this.schedulePrefetch()
+  }
+
+  /**
+   * Prepares the initial 3×3 visible population before the game loop starts.
+   * The loading screen remains mounted while each chunk consumes a separate
+   * idle window, so cold generation never becomes one giant playable frame.
+   */
+  async warmAround(tx: number, ty: number): Promise<void> {
+    if (typeof requestIdleCallback !== 'function') return
+    const cx = Math.floor(tx / CHUNK_TILES)
+    const cy = Math.floor(ty / CHUNK_TILES)
+    const targets: { cx: number; cy: number }[] = []
+    for (let y = cy - 1; y <= cy + 1; y++) {
+      for (let x = cx - 1; x <= cx + 1; x++) targets.push({ cx: x, cy: y })
+    }
+    for (const target of targets) await this.buildWhenIdle(target.cx, target.cy)
+  }
+
+  private buildWhenIdle(cx: number, cy: number): Promise<void> {
+    if (this.chunks.has(`${cx},${cy}`)) return Promise.resolve()
+    return new Promise(resolve => {
+      const attempt: IdleRequestCallback = deadline => {
+        if (deadline.timeRemaining() < 8 && !deadline.didTimeout) {
+          requestIdleCallback(attempt, { timeout: 1000 })
+          return
+        }
+        if (!this.chunks.has(`${cx},${cy}`)) {
+          const chunk = this.get(cx, cy)
+          chunk.lastUsed = this.frame - 1
+        }
+        resolve()
+      }
+      requestIdleCallback(attempt, { timeout: 1000 })
+    })
+  }
+
+  private schedulePrefetch(): void {
+    if (this.idleHandle !== null || this.prefetchQueue.length === 0) return
+    this.idleHandle = requestIdleCallback(deadline => {
+      this.idleHandle = null
+      if (deadline.timeRemaining() < 8) {
+        this.schedulePrefetch()
+        return
+      }
+      const next = this.prefetchQueue.shift()
+      if (next && !this.chunks.has(`${next.cx},${next.cy}`)) {
+        const chunk = this.get(next.cx, next.cy)
+        // Speculative chunks are the first eviction candidates until rendered.
+        chunk.lastUsed = this.frame - 1
+      }
+      this.schedulePrefetch()
+    })
   }
 
   /** Removes a collected decor item (cosmetic, session-only). */
@@ -230,12 +335,25 @@ export class ChunkStore {
     return this.removed.has(`${tx},${ty}`)
   }
 
-  /** Advances the usage clock and evicts chunks unused for a while. */
+  /** Releases bitmap memory when its world is no longer active. */
+  releaseCanvases(): void {
+    if (this.idleHandle !== null && typeof cancelIdleCallback === 'function') cancelIdleCallback(this.idleHandle)
+    this.idleHandle = null
+    this.prefetchQueue.length = 0
+    this.prefetchCenter = ''
+    this.chunks.clear()
+    this.metrics.loaded = 0
+  }
+
+  /** Advances the usage clock and enforces a per-world LRU memory bound. */
   tick(): void {
     this.frame++
-    if (this.chunks.size <= 48) return
-    for (const [key, chunk] of this.chunks) {
-      if (this.frame - chunk.lastUsed > 240) this.chunks.delete(key)
+    if (this.chunks.size <= MAX_CACHED_CHUNKS) return
+    const oldest = [...this.chunks.entries()].sort((a, b) => a[1].lastUsed - b[1].lastUsed)
+    for (let index = 0; this.chunks.size > MAX_CACHED_CHUNKS; index++) {
+      this.chunks.delete(oldest[index][0])
+      this.metrics.evicted++
     }
+    this.metrics.loaded = this.chunks.size
   }
 }

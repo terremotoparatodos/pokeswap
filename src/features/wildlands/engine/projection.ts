@@ -55,6 +55,17 @@ export const LENSES = {
 
 export type LensName = keyof typeof LENSES
 
+/**
+ * Converts world pixels to backing-canvas pixels without treating browser
+ * zoom-out as a wider camera. `outerWidth` remains tied to the actual window
+ * while the CSS viewport grows at 80/50/25% zoom. Using the smaller width also
+ * preserves the normal behaviour of embedded or non-maximized canvases.
+ */
+export function projectionViewportScale(renderWidth: number, cssWidth: number, outerWidth: number): number {
+  const referenceWidth = Math.max(1, Math.min(cssWidth, outerWidth || cssWidth))
+  return renderWidth / referenceWidth
+}
+
 export function lerpLens(a: CameraLens, b: CameraLens, t: number): CameraLens {
   return {
     zoom: a.zoom + (b.zoom - a.zoom) * t,

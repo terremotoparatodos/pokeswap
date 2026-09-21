@@ -98,6 +98,22 @@ export class WildArea implements Area {
     paintMinimap(canvas, this.world, tx, ty)
   }
 
+  prefetch(tx: number, ty: number): void {
+    this.chunks.prefetchAround(tx, ty)
+  }
+
+  warm(tx: number, ty: number): Promise<void> {
+    return this.chunks.warmAround(tx, ty)
+  }
+
+  chunkMetrics() {
+    return this.chunks.metrics
+  }
+
+  deactivate(): void {
+    this.chunks.releaseCanvases()
+  }
+
   tick(): void {
     this.chunks.tick()
   }

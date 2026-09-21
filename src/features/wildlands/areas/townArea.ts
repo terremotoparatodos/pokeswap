@@ -15,10 +15,9 @@ import { packColor, pixelsToCanvas } from '../engine/pixels'
 import type { LensName } from '../engine/projection'
 import { buildPropSprites } from '../engine/props'
 import { bakeTownGround, type TileRect } from '../engine/townGround'
-import { buildTownProps, fencePiece, fencePosts, fenceTileArt, townPropFeet, townPropSize, townPropTiles, type TownPropKind } from '../engine/townProps'
+import { buildTownProps, fencePiece, fencePosts, fenceTileArt, townPropFeet, townPropTiles, type TownPropKind } from '../engine/townProps'
 import { TILE } from '../engine/world'
 import { loadImageSprite } from '../engine/sprite'
-import { loadTownModel, placeOnFootprint } from '../engine/townModel'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { LobbyFeature } from '../lobby/features'
 import { TownPopulace } from './townPopulace'
@@ -50,11 +49,7 @@ export interface TownBuilding extends BuildingSpec {
 export interface ArtImage {
   src: string
   flatTop?: number | 'all'
-  /**
-   * The piece's 3D model (scripts/build_town_models.py). Once loaded it is
-   * drawn instead of the PNG, which stays as the loading fallback and for the
-   * ground dressing's measurements.
-   */
+  /** Source-model metadata retained for art tooling; runtime uses the 2D façade. */
   model?: string
 }
 
@@ -79,7 +74,7 @@ export interface TownArtSet {
   props?: Partial<Record<TownPropKind, readonly ArtImage[]>>
   /** Autotiled fences; without them, `props.fenceH/fenceV` art (or the code-painted pieces) is used per tile. */
   fences?: FenceArt
-  /** Props drawn from a 3D model (scripts/build_town_models.py), standing on their footprint. */
+  /** Source-model metadata retained for art tooling; runtime uses pre-rendered sprites. */
   models?: Partial<Record<TownPropKind, string>>
 }
 
@@ -118,7 +113,6 @@ export interface TownDef {
 }
 
 const SOLID_PROPS = new Set<TownPropKind>(['lamp', 'sign', 'hedge', 'fenceH', 'fenceV', 'bench', 'benchLeft'])
-
 interface TownArt {
   ground: HTMLCanvasElement
   decor: DecorInstance[]
@@ -229,31 +223,15 @@ export class TownArea implements Area {
       }
       const feet = townPropFeet(p)
       addWithArt({ ...at, sprite: town[p.kind], ty: feet.ty, x: feet.x, y: feet.y }, variant(art.props?.[p.kind], p.tx, p.ty))
-      const modelSrc = art.models?.[p.kind]
-      if (modelSrc) {
-        const entry = decor[decor.length - 1]
-        const { w, d } = townPropSize(p.kind)
-        loadTownModel(modelSrc)
-          .then(model => { entry.model = { model, at: placeOnFootprint(model.data, (p.tx + w / 2) * TILE, (p.ty + d) * TILE) } })
-          .catch(error => devWarn(`[wildlands] model ${modelSrc} unavailable`, error))
-      }
     }
     def.fountains.forEach((f, i) => {
       const at = { tx: f.x0, ty: f.y0, x: ((f.x0 + f.x1 + 1) / 2) * TILE }
       const image = art.fountains?.[i % art.fountains.length]
       if (image) addWithArt({ kind: null, sprite: town.spray, ...at, y: (f.y1 + 1) * TILE - 1 }, image, false)
       else add({ kind: null, sprite: town.spray, ...at, y: ((f.y0 + f.y1 + 1) / 2) * TILE + 2 })
-      const modelSrc = image?.model
-      if (modelSrc) {
-        const entry = decor[decor.length - 1]
-        loadTownModel(modelSrc)
-          .then(model => { entry.model = { model, at: placeOnFootprint(model.data, at.x, (f.y1 + 1) * TILE) } })
-          .catch(error => devWarn(`[wildlands] model ${modelSrc} unavailable`, error))
-      }
     })
     const buildingEntries: { entry: DecorInstance; depth: number }[] = []
     const buildingArt = def.buildings.map(b => {
-      const modelSrc = b.image?.model
       const loaded = addWithArt(
         { kind: null, sprite: buildingSprite(b), tx: b.x, ty: b.y + b.d - 1, x: (b.x + b.w / 2) * TILE, y: (b.y + b.d) * TILE - 1 },
         b.image,
@@ -261,11 +239,6 @@ export class TownArea implements Area {
       )
       const entry = decor[decor.length - 1]
       buildingEntries.push({ entry, depth: b.d * TILE })
-      if (modelSrc) {
-        loadTownModel(modelSrc)
-          .then(model => { entry.model = { model, at: placeOnFootprint(model.data, entry.x, (b.y + b.d) * TILE) } })
-          .catch(error => devWarn(`[wildlands] model ${modelSrc} unavailable`, error))
-      }
       return loaded
     })
 

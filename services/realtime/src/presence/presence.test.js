@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { hasCapacity, CONNECTION_LIMIT } from './capacity.js'
 import { acceptMove, MOVE_MIN_INTERVAL_MS, RUN_INTERVAL_MS } from './movement.js'
-import { isVisible, sectorFor } from './interest.js'
+import { isVisible, sectorFor, TOWN_RADIUS_TILES } from './interest.js'
 
 test('capacity includes spectators and stops at 100 connections', () => {
   assert.equal(hasCapacity(CONNECTION_LIMIT - 1), true)
@@ -33,8 +33,9 @@ test('movement rejects replayed client sequences', () => {
   assert.equal(actor.moveSequence, 1)
 })
 
-test('town is fully visible while wild is bounded to neighbor sectors', () => {
-  assert.equal(isVisible({ areaId: 'ciudad-corazon', tx: 0, ty: 0 }, { areaId: 'ciudad-corazon', tx: 900, ty: -900 }), true)
+test('town is viewport-bounded while wild is bounded to neighbor sectors', () => {
+  assert.equal(isVisible({ areaId: 'ciudad-corazon', tx: 0, ty: 0 }, { areaId: 'ciudad-corazon', tx: TOWN_RADIUS_TILES, ty: 0 }), true)
+  assert.equal(isVisible({ areaId: 'ciudad-corazon', tx: 0, ty: 0 }, { areaId: 'ciudad-corazon', tx: TOWN_RADIUS_TILES + 1, ty: 0 }), false)
   assert.equal(isVisible({ areaId: 'pradera', tx: 0, ty: 0 }, { areaId: 'pradera', tx: 13, ty: 0 }), true)
   assert.equal(isVisible({ areaId: 'pradera', tx: 0, ty: 0 }, { areaId: 'pradera', tx: 25, ty: 0 }), false)
   assert.deepEqual(sectorFor(-1, -1), { x: -1, y: -1 })

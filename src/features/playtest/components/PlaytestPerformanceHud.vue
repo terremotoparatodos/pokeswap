@@ -1,15 +1,50 @@
 <template>
   <aside class="ph" :class="healthClass" aria-label="Rendimiento del playtest" title="La latencia es una medición HTTP aproximada al servidor realtime.">
     <span><b>{{ fps }}</b> FPS</span>
-    <span><b>{{ frameMs.toFixed(1) }}</b> ms frame</span>
-    <span><b>{{ pingLabel }}</b> red</span>
+    <span><b>{{ frameMs.toFixed(1) }}</b> ms promedio</span>
+    <span><b>{{ frameP95Ms.toFixed(1) }}</b> ms p95</span>
+    <span><b>{{ frameP99Ms.toFixed(1) }}</b> ms p99</span>
+    <span><b>{{ frameMaxMs.toFixed(1) }}</b> ms máx</span>
+    <span><b>{{ longFramePercent }}</b>% &gt;33 ms</span>
+    <span><b>{{ remoteActors }}</b> remotos</span>
+    <span><b>{{ remoteUpdatesPerSecond.toFixed(1) }}</b> upd/s</span>
+    <span><b>{{ groundComposeMs.toFixed(1) }}</b> ms suelo</span>
+    <span><b>{{ groundProjectMs.toFixed(1) }}</b> ms proyección</span>
+    <span><b>{{ actorCollectMs.toFixed(1) }}</b> ms collect</span>
+    <span><b>{{ actorSortMs.toFixed(1) }}</b> ms sort</span>
+    <span><b>{{ spriteDrawMs.toFixed(1) }}</b> ms sprites</span>
+    <span><b>{{ lightingMs.toFixed(1) }}</b> ms luz</span>
+    <span><b>{{ loadedChunks }}</b> chunks vivos</span>
+    <span><b>{{ generatedChunks }}</b>/<b>{{ evictedChunks }}</b> gen/evict</span>
+    <span><b>{{ lastChunkBuildMs.toFixed(1) }}</b>/<b>{{ maxChunkBuildMs.toFixed(1) }}</b> ms chunk últ/máx</span>
+    <span><b>{{ pingLabel }}</b> HTTP</span>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
-defineProps<{ fps: number; frameMs: number }>()
+defineProps<{
+  fps: number
+  frameMs: number
+  frameP95Ms: number
+  frameP99Ms: number
+  frameMaxMs: number
+  longFramePercent: number
+  remoteActors: number
+  remoteUpdatesPerSecond: number
+  groundComposeMs: number
+  groundProjectMs: number
+  actorCollectMs: number
+  actorSortMs: number
+  spriteDrawMs: number
+  lightingMs: number
+  loadedChunks: number
+  generatedChunks: number
+  evictedChunks: number
+  lastChunkBuildMs: number
+  maxChunkBuildMs: number
+}>()
 
 const realtimeUrl = import.meta.env.VITE_REALTIME_URL as string | undefined
 const ping = ref<number | null>(null)

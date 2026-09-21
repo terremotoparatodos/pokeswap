@@ -62,6 +62,16 @@ describe('an interactive object that does not block', () => {
 })
 
 describe('several objects', () => {
+  it('reuses the per-area view until the registry changes', () => {
+    const placed = new PlacedObjects()
+    placed.register(bench)
+    const first = placed.inArea('pradera')
+    expect(placed.inArea('pradera')).toBe(first)
+    placed.register(placedObject({ id: 'oven', areaId: 'pradera', anchor: { tx: 9, ty: -2 }, kind: 'smelter' }))
+    expect(placed.inArea('pradera')).not.toBe(first)
+    expect(placed.inArea('pradera')).toHaveLength(2)
+  })
+
   it('each owns its own tiles', () => {
     const placed = new PlacedObjects()
     placed.register(bench)

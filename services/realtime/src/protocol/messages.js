@@ -4,7 +4,7 @@ export const AREAS = new Set(Object.values(AREA))
 export const DIRECTIONS = new Set(['up', 'down', 'left', 'right'])
 export const MESSAGE = Object.freeze({
   READY: 'presence:ready', MOVE: 'move', AREA: 'area', OBSERVE: 'observe',
-  SNAPSHOT: 'presence:snapshot', SELF: 'presence:self', DELTA: 'presence:delta', ERROR: 'presence:error',
+  SNAPSHOT: 'presence:snapshot', SELF: 'presence:self', DELTA: 'presence:delta', BATCH: 'presence:batch', ERROR: 'presence:error',
   // Community Playtest 0.1 — area chat. `CHAT` is what a client sends; the
   // other two are what it receives on joining an area and on every new line.
   CHAT: 'chat', CHAT_HISTORY: 'chat:history', CHAT_LINE: 'chat:line',

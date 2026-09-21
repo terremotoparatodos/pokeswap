@@ -40,8 +40,14 @@ import { reconcilePresenceArea } from '../multiplayer/domain/areaReconciliation'
 import { keepsPredictedStep } from '../multiplayer/domain/movementReconciliation'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
-/** While a panel covers the town the scene keeps animating, but at a battery-friendly rate. */
-const PAUSED_FRAME_MS = 100
+const MAX_REMOTE_STEP_BACKLOG = 3
+
+interface RemoteStep {
+  tx: number
+  ty: number
+  dir: Dir
+  speed: number
+}
 
 export interface HudState {
   areaId: AreaId
@@ -58,6 +64,25 @@ export interface HudState {
   fps: number
   /** Average CPU time spent in update + render, in ms. */
   frameMs: number
+  /** 95th percentile of recent update + render work. */
+  frameP95Ms: number
+  frameP99Ms: number
+  frameMaxMs: number
+  /** Share of recent frames whose CPU work exceeded 33.3 ms. */
+  longFramePercent: number
+  remoteActors: number
+  remoteUpdatesPerSecond: number
+  groundComposeMs: number
+  groundProjectMs: number
+  actorCollectMs: number
+  actorSortMs: number
+  spriteDrawMs: number
+  lightingMs: number
+  loadedChunks: number
+  generatedChunks: number
+  evictedChunks: number
+  lastChunkBuildMs: number
+  maxChunkBuildMs: number
 }
 
 /** A world tile the player tapped beside or faces. */
@@ -131,7 +156,11 @@ export class WildlandsGame {
   private readonly presence?: LocalPresencePort | null
   private remoteActors: Actor[] = []
   private remoteCompanions: Actor[] = []
-  private remoteGeneration = 0
+  private readonly remoteActorsById = new Map<string, Actor>()
+  private readonly remoteCompanionsByOwnerId = new Map<string, Actor>()
+  private readonly remoteCharacterIds = new Map<string, string>()
+  private readonly remoteMoveSequences = new Map<string, number>()
+  private readonly remoteStepQueues = new Map<string, RemoteStep[]>()
   private observerAt: string | null = null
   private receivedAuthoritativeActor = false
   /** Server id of the local player, used only to attach accepted chat to its sprite. */
@@ -160,11 +189,23 @@ export class WildlandsGame {
   private crystals = 0
   private toast: { text: string; until: number } | null = null
   private readonly chatBubbles = new Map<string, { text: string; until: number }>()
+  private readonly renderedChatBubbles = new Map<string, string>()
+  private readonly renderedActors: Actor[] = []
   private weather = { kind: 'clear' as WeatherKind, intensity: 0, target: 0 }
   private weatherCheck = 0
   private hudTimer = 0
   private fps = 60
   private frameMs = 0
+  private readonly frameSamples = new Float32Array(180)
+  private frameSampleIndex = 0
+  private frameSampleCount = 0
+  private frameP95Ms = 0
+  private frameP99Ms = 0
+  private frameMaxMs = 0
+  private longFramePercent = 0
+  private lastPerformanceSampleAt = 0
+  private remoteUpdatesSinceSample = 0
+  private remoteUpdatesPerSecond = 0
 
   constructor(canvas: HTMLCanvasElement, options: GameOptions) {
     this.renderer = new Renderer(canvas)
@@ -213,7 +254,10 @@ export class WildlandsGame {
     const area = this.atlas.get(id)
     // Whatever was placed in the area being left stops existing for the
     // engine: its owner re-registers it if the player comes back (F-1).
-    if (area.id !== this.area?.id) this.placedObjects.clearArea(this.area?.id ?? '')
+    if (area.id !== this.area?.id) {
+      this.placedObjects.clearArea(this.area?.id ?? '')
+      this.area?.deactivate?.()
+    }
     this.area = area
     this.populace = area.createPopulace({ pokedex: this.pokedex, npcSprites: this.renderer.npcSprites })
     this.populace.setOwned?.(this.owned)
@@ -226,6 +270,7 @@ export class WildlandsGame {
     this.weather = { kind: 'clear', intensity: 0, target: 0 }
     this.weatherCheck = 0
     this.syncPlacedObjects()
+    area.prefetch?.(this.player.tx, this.player.ty)
   }
 
   /**
@@ -256,26 +301,26 @@ export class WildlandsGame {
   }
 
   start(): void {
+    if (this.running) return
     this.running = true
     if (!this.spectator && !this.paused && !this.visibilityPaused) this.keys.attach()
-    this.last = performance.now()
-    this.frameId = requestAnimationFrame(this.loop)
+    this.resumeFrameLoop()
   }
 
   destroy(): void {
     this.running = false
-    cancelAnimationFrame(this.frameId)
+    this.stopFrameLoop()
     this.keys.detach()
   }
 
-  /** Ignores player input (a feature panel is open) and slows the loop down. */
+  /** Blocks world controls while a UI surface is open; rendering stays live at full rate. */
   setPaused(paused: boolean): void {
     if (paused === this.paused) return
     this.paused = paused
     this.nav.cancel()
     if (!this.running) return
     if (paused || this.visibilityPaused) this.keys.detach()
-    else this.keys.attach()
+    else if (!this.spectator) this.keys.attach()
   }
 
   /** Stops simulation while the document is hidden without conflating it with UI pause. */
@@ -284,11 +329,33 @@ export class WildlandsGame {
     this.visibilityPaused = paused
     this.nav.cancel()
     if (!this.running) return
-    if (paused || this.paused) this.keys.detach()
-    else {
-      this.last = performance.now()
-      this.keys.attach()
+    if (paused) {
+      this.keys.detach()
+      this.stopFrameLoop()
+    } else if (!this.paused) {
+      if (!this.spectator) this.keys.attach()
+      this.resumeFrameLoop()
     }
+  }
+
+  private stopFrameLoop(): void {
+    if (this.frameId === 0) return
+    cancelAnimationFrame(this.frameId)
+    this.frameId = 0
+  }
+
+  private resumeFrameLoop(): void {
+    if (!this.running || this.visibilityPaused || this.frameId !== 0) return
+    // Presence keeps receiving while a hidden document is frozen. Start a
+    // fresh rate window so its first HUD sample is not an accumulated burst.
+    this.remoteUpdatesSinceSample = 0
+    this.remoteUpdatesPerSecond = 0
+    this.lastPerformanceSampleAt = this.seconds
+    // The first rAF supplies the timestamp domain used by every later frame.
+    // `performance.now()` can be slightly ahead of it and produce a fake
+    // sub-millisecond delta (and an impossible FPS spike) after resuming.
+    this.last = 0
+    this.frameId = requestAnimationFrame(this.loop)
   }
 
   /** Cosmetic preference only: no weather particles or transition fade. */
@@ -376,48 +443,158 @@ export class WildlandsGame {
     player.running = actor.speed > WALK_SPEED
   }
 
-  /** Applies server-authoritative ephemeral actor snapshots through the remote-actor port. */
-  setRemoteActors(actors: readonly RemotePresenceActor[]): void {
-    const generation = ++this.remoteGeneration
-    const previous = new Map(this.remoteActors.map(actor => [actor.id, actor]))
-    const previousCompanions = new Map(this.remoteCompanions.map(actor => [actor.id, actor]))
-    this.remoteActors = actors.filter(actor => actor.areaId === this.area.id).map(remote => {
-      const old = previous.get(`remote:${remote.id}`)
-      const actor = createActor({ id: `remote:${remote.id}`, kind: 'remote', habitat: 'any', tx: remote.tx, ty: remote.ty,
+  /** Reconciles an authoritative snapshot while preserving every unchanged actor object. */
+  replaceRemoteActors(actors: readonly RemotePresenceActor[]): void {
+    const present = new Set(actors.map(actor => actor.id))
+    for (const presenceId of this.remoteActorsById.keys()) if (!present.has(presenceId)) this.removeRemoteActor(presenceId)
+    for (const actor of actors) this.applyRemoteActor(actor)
+  }
+
+  /** Completes optional cold terrain work before the first playable frame. */
+  prepare(): Promise<void> {
+    return this.area.warm?.(this.player.tx, this.player.ty) ?? Promise.resolve()
+  }
+
+  /** Applies one presence delta without rebuilding the rest of the remote crowd. */
+  upsertRemoteActor(remote: RemotePresenceActor): void {
+    this.remoteUpdatesSinceSample++
+    this.applyRemoteActor(remote)
+  }
+
+  private applyRemoteActor(remote: RemotePresenceActor): void {
+    if (remote.areaId !== this.area.id) {
+      this.removeRemoteActor(remote.id)
+      return
+    }
+
+    const actorId = `remote:${remote.id}`
+    let actor = this.remoteActorsById.get(remote.id)
+    if (!actor) {
+      actor = createActor({ id: actorId, kind: 'remote', habitat: 'any', tx: remote.tx, ty: remote.ty,
         trainer: this.renderer.playerSprites, remoteUsername: remote.username, remote: true, dir: remote.dir, speed: remote.speed,
       })
-      if (old && (old.tx !== remote.tx || old.ty !== remote.ty)) {
-        actor.fromTx = old.tx; actor.fromTy = old.ty; actor.progress = 0; actor.speed = remote.speed
-      }
-      const character = playerCharacter(isPlayerCharacterId(remote.characterId) ? remote.characterId : DEFAULT_PLAYER_CHARACTER_ID)
+      actor.running = remote.speed > WALK_SPEED
+      this.remoteActorsById.set(remote.id, actor)
+      this.remoteActors.push(actor)
+      this.remoteMoveSequences.set(remote.id, remote.moveSequence)
+    } else {
+      this.queueRemoteStep(remote, actor)
+    }
+    actor.remoteUsername = remote.username
+
+    const characterId = isPlayerCharacterId(remote.characterId) ? remote.characterId : DEFAULT_PLAYER_CHARACTER_ID
+    if (this.remoteCharacterIds.get(remote.id) !== characterId) {
+      this.remoteCharacterIds.set(remote.id, characterId)
+      const character = playerCharacter(characterId)
+      const target = actor
       void loadTrainerSheet(character.sheetUrl).then(sheet => {
-        if (generation !== this.remoteGeneration || !this.remoteActors.includes(actor)) return
-        actor.trainer = sheet.walk; actor.trainerRun = sheet.run
+        if (this.remoteCharacterIds.get(remote.id) !== characterId || !this.remoteActors.includes(target)) return
+        target.trainer = sheet.walk; target.trainerRun = sheet.run
       }).catch(() => undefined)
-      return actor
-    })
-    this.remoteCompanions = actors.filter(actor => actor.areaId === this.area.id && actor.companionId !== null).map(remote => {
-      const id = remote.companionId!
-      const owner = this.remoteActors.find(actor => actor.id === `remote:${remote.id}`)
-      const companionId = `remote-companion:${remote.id}:${id}`
-      const old = previousCompanions.get(companionId)
-      const tx = owner?.fromTx ?? remote.tx
-      const ty = owner?.fromTy ?? remote.ty
-      const companion = createActor({
-        id: companionId, kind: 'pokemon', habitat: 'any', tx, ty,
-        dir: remote.dir, speed: remote.speed, remote: true, pokemon: pokeballInfo({ id, name_es: String(id) }),
-      })
-      // Follow the remote trainer's previous completed tile. Preserving the
-      // old companion position makes running a continuous one-tile trail.
-      if (old && (old.tx !== tx || old.ty !== ty)) {
-        companion.fromTx = old.tx; companion.fromTy = old.ty; companion.progress = 0
+    }
+
+    this.upsertRemoteCompanion(remote, actor)
+  }
+
+  removeRemoteActor(id: string): void {
+    const actor = this.remoteActorsById.get(id)
+    if (actor) this.remoteActors = this.remoteActors.filter(candidate => candidate !== actor)
+    const companion = this.remoteCompanionsByOwnerId.get(id)
+    if (companion) this.remoteCompanions = this.remoteCompanions.filter(candidate => candidate !== companion)
+    this.remoteActorsById.delete(id)
+    this.remoteCompanionsByOwnerId.delete(id)
+    this.remoteCharacterIds.delete(id)
+    this.remoteMoveSequences.delete(id)
+    this.remoteStepQueues.delete(id)
+  }
+
+  private queueRemoteStep(remote: RemotePresenceActor, actor: Actor): void {
+    const sequence = this.remoteMoveSequences.get(remote.id) ?? -1
+    if (remote.moveSequence <= sequence) return
+    this.remoteMoveSequences.set(remote.id, remote.moveSequence)
+
+    const queue = this.remoteStepQueues.get(remote.id) ?? []
+    const tail = queue[queue.length - 1] ?? actor
+    if (tail.tx === remote.tx && tail.ty === remote.ty) {
+      if (!isMoving(actor) && queue.length === 0) {
+        actor.dir = remote.dir; actor.speed = remote.speed; actor.running = remote.speed > WALK_SPEED
       }
-      const entry = this.pokedex.find(pokemon => pokemon.id === id)
+      return
+    }
+    const step = { tx: remote.tx, ty: remote.ty, dir: remote.dir, speed: remote.speed }
+    const distance = Math.abs(tail.tx - step.tx) + Math.abs(tail.ty - step.ty)
+    if (distance !== 1 || queue.length >= MAX_REMOTE_STEP_BACKLOG) {
+      // Area corrections and a stalled client must converge immediately rather
+      // than animating through an old route for several seconds.
+      actor.fromTx = step.tx; actor.fromTy = step.ty
+      actor.tx = step.tx; actor.ty = step.ty; actor.progress = 1
+      actor.dir = step.dir; actor.speed = step.speed; actor.running = step.speed > WALK_SPEED
+      queue.length = 0
+      this.remoteStepQueues.delete(remote.id)
+      return
+    }
+    if (isMoving(actor)) {
+      queue.push(step)
+      this.remoteStepQueues.set(remote.id, queue)
+    } else {
+      this.startRemoteStep(actor, step)
+    }
+  }
+
+  private startRemoteStep(actor: Actor, step: RemoteStep): void {
+    actor.fromTx = actor.tx; actor.fromTy = actor.ty
+    actor.tx = step.tx; actor.ty = step.ty
+    actor.dir = step.dir; actor.speed = step.speed; actor.running = step.speed > WALK_SPEED
+    actor.progress = 0
+  }
+
+  private advanceRemoteActors(dt: number): void {
+    for (const actor of this.remoteActors) {
+      advance(actor, dt)
+      if (isMoving(actor)) continue
+      const presenceId = actor.id.slice('remote:'.length)
+      const queue = this.remoteStepQueues.get(presenceId)
+      const next = queue?.shift()
+      if (next) this.startRemoteStep(actor, next)
+      if (!queue?.length) this.remoteStepQueues.delete(presenceId)
+    }
+  }
+
+  private upsertRemoteCompanion(remote: RemotePresenceActor, owner: Actor): void {
+    const prefix = `remote-companion:${remote.id}:`
+    const existing = this.remoteCompanionsByOwnerId.get(remote.id)
+    if (remote.companionId === null) {
+      if (existing) {
+        this.remoteCompanions = this.remoteCompanions.filter(actor => actor !== existing)
+        this.remoteCompanionsByOwnerId.delete(remote.id)
+      }
+      return
+    }
+
+    const pokemonId = remote.companionId
+    const companionId = `${prefix}${pokemonId}`
+    let companion = existing?.id === companionId ? existing : undefined
+    if (existing && !companion) this.remoteCompanions = this.remoteCompanions.filter(actor => actor !== existing)
+    const tx = owner.fromTx
+    const ty = owner.fromTy
+    if (!companion) {
+      companion = createActor({
+        id: companionId, kind: 'pokemon', habitat: 'any', tx, ty,
+        dir: remote.dir, speed: remote.speed, remote: true, pokemon: pokeballInfo({ id: pokemonId, name_es: String(pokemonId) }),
+      })
+      this.remoteCompanionsByOwnerId.set(remote.id, companion)
+      this.remoteCompanions.push(companion)
+      const target = companion
+      const entry = this.pokedex.find(pokemon => pokemon.id === pokemonId)
       if (entry) void loadPokemonInfo(entry, false).then(info => {
-        if (generation === this.remoteGeneration && this.remoteCompanions.includes(companion) && info) companion.pokemon = info
+        if (this.remoteCompanions.includes(target) && info) target.pokemon = info
       }).catch(() => undefined)
-      return companion
-    })
+    } else if (companion.tx !== tx || companion.ty !== ty) {
+      companion.fromTx = companion.tx; companion.fromTy = companion.ty
+      companion.tx = tx; companion.ty = ty; companion.progress = 0
+    }
+    companion.dir = remote.dir
+    companion.speed = remote.speed
   }
 
   /** Prototype effects drawn with the scene; null removes them. */
@@ -576,6 +753,7 @@ export class WildlandsGame {
   }
 
   private currentLens(): CameraLens {
+    if (this.lensBlend >= 1) return LENSES[this.lensName]
     const t = this.lensBlend
     const eased = t * t * (3 - 2 * t)
     return lerpLens(this.lensFrom, LENSES[this.lensName], eased)
@@ -591,17 +769,14 @@ export class WildlandsGame {
   }
 
   private readonly loop = (now: number): void => {
+    this.frameId = 0
     if (!this.running) return
-    if (this.visibilityPaused) {
+    if (this.visibilityPaused) return
+    if (this.last === 0) {
       this.last = now
       this.frameId = requestAnimationFrame(this.loop)
       return
     }
-    if (this.paused && now - this.last < PAUSED_FRAME_MS) {
-      this.frameId = requestAnimationFrame(this.loop)
-      return
-    }
-    // rAF timestamps can precede the performance.now() taken in start().
     const dt = Math.max(0, Math.min(0.05, (now - this.last) / 1000))
     this.last = now
     this.fps += (1 / Math.max(dt, 0.001) - this.fps) * 0.05
@@ -609,7 +784,11 @@ export class WildlandsGame {
     this.update(dt)
     this.renderer.render(this.scene(), dt)
     this.area.tick()
-    this.frameMs += (performance.now() - workStart - this.frameMs) * 0.1
+    const workMs = performance.now() - workStart
+    this.frameMs += (workMs - this.frameMs) * 0.1
+    this.frameSamples[this.frameSampleIndex] = workMs
+    this.frameSampleIndex = (this.frameSampleIndex + 1) % this.frameSamples.length
+    this.frameSampleCount = Math.min(this.frameSamples.length, this.frameSampleCount + 1)
     this.frameId = requestAnimationFrame(this.loop)
   }
 
@@ -658,7 +837,7 @@ export class WildlandsGame {
       wander(actor, this.seconds, this.rules)
       advance(actor, dt)
     }
-    for (const actor of this.remoteActors) advance(actor, dt)
+    this.advanceRemoteActors(dt)
     for (const actor of this.remoteCompanions) advance(actor, dt)
 
     // Camera: locked to the player's whole-pixel position, like the handheld games.
@@ -707,15 +886,22 @@ export class WildlandsGame {
       this.onTownPosition?.({ tx, ty, dir: this.player.dir })
     }
     this.companion.playerArrived(this.player)
+    this.area.prefetch?.(tx, ty)
     if (to) this.travelTo(to)
   }
 
   private scene(): Scene {
-    const chatBubbles = new Map<string, string>()
+    const chatBubbles = this.renderedChatBubbles
+    chatBubbles.clear()
     for (const [actorId, bubble] of this.chatBubbles) {
       if (bubble.until <= this.seconds) this.chatBubbles.delete(actorId)
       else chatBubbles.set(actorId, bubble.text)
     }
+    const actors = this.renderedActors
+    actors.length = 0
+    for (const actor of this.populace.actors) actors.push(actor)
+    for (const actor of this.remoteActors) actors.push(actor)
+    for (const actor of this.remoteCompanions) actors.push(actor)
     return {
       area: this.area,
       fade: this.reduceMotion ? 0 : this.travel.fade(),
@@ -729,7 +915,7 @@ export class WildlandsGame {
       companion: this.companion.actor,
       username: this.username,
       showPlayer: !this.spectator,
-      actors: [...this.populace.actors, ...this.remoteActors, ...this.remoteCompanions],
+      actors,
       chatBubbles,
       // The grid helps read procedural terrain; over town art it is noise.
       showGrid: this.showGrid && this.area.kind === 'wild',
@@ -740,7 +926,9 @@ export class WildlandsGame {
   }
 
   private emitHud(): void {
+    this.samplePerformance()
     const p = this.player
+    const chunks = this.area.chunkMetrics?.()
     if (this.spectator) {
       const key = `${this.area.id}:${p.tx}:${p.ty}`
       if (key !== this.observerAt) {
@@ -763,6 +951,36 @@ export class WildlandsGame {
       traveling: this.travel.active,
       fps: Math.round(this.fps),
       frameMs: Math.round(this.frameMs * 10) / 10,
+      frameP95Ms: this.frameP95Ms,
+      frameP99Ms: this.frameP99Ms,
+      frameMaxMs: this.frameMaxMs,
+      longFramePercent: this.longFramePercent,
+      remoteActors: this.remoteActors.length,
+      remoteUpdatesPerSecond: this.remoteUpdatesPerSecond,
+      groundComposeMs: this.renderer.metrics.groundComposeMs,
+      groundProjectMs: this.renderer.metrics.groundProjectMs,
+      actorCollectMs: this.renderer.metrics.collectMs,
+      actorSortMs: this.renderer.metrics.sortMs,
+      spriteDrawMs: this.renderer.metrics.spriteDrawMs,
+      lightingMs: this.renderer.metrics.lightingMs,
+      loadedChunks: chunks?.loaded ?? 0,
+      generatedChunks: chunks?.generated ?? 0,
+      evictedChunks: chunks?.evicted ?? 0,
+      lastChunkBuildMs: chunks?.lastBuildMs ?? 0,
+      maxChunkBuildMs: chunks?.maxBuildMs ?? 0,
     })
+  }
+
+  private samplePerformance(): void {
+    const elapsed = this.seconds - this.lastPerformanceSampleAt
+    if (elapsed < 1 || this.frameSampleCount === 0) return
+    const samples = Array.from(this.frameSamples.subarray(0, this.frameSampleCount)).sort((a, b) => a - b)
+    this.frameP95Ms = Math.round(samples[Math.ceil(samples.length * 0.95) - 1] * 10) / 10
+    this.frameP99Ms = Math.round(samples[Math.ceil(samples.length * 0.99) - 1] * 10) / 10
+    this.frameMaxMs = Math.round(samples[samples.length - 1] * 10) / 10
+    this.longFramePercent = Math.round(samples.filter(value => value > 33.3).length / samples.length * 100)
+    this.remoteUpdatesPerSecond = Math.round(this.remoteUpdatesSinceSample / elapsed * 10) / 10
+    this.remoteUpdatesSinceSample = 0
+    this.lastPerformanceSampleAt = this.seconds
   }
 }

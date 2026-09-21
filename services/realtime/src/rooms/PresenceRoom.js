@@ -26,6 +26,8 @@ export class PresenceRoom extends Room {
   static connections = 0
   maxClients = CONNECTION_LIMIT
   autoDispose = false
+  deltaBatching = false
+  pendingDeltas = new Map()
 
   async onAuth(_client, options) {
     const auth = await authenticateSupabase(options?.token, process.env)
@@ -33,6 +35,8 @@ export class PresenceRoom extends Room {
   }
 
   onCreate() {
+    this.deltaBatching = true
+    this.setSimulationInterval(() => this.flushDeltaBatches(), 50)
     this.onMessage(MESSAGE.READY, client => this.ready(client))
     this.onMessage(MESSAGE.MOVE, (client, payload) => this.move(client, payload))
     this.onMessage(MESSAGE.AREA, (client, payload) => this.changeArea(client, payload))
@@ -87,6 +91,7 @@ export class PresenceRoom extends Room {
     const id = client.userData?.actorId
     observers.delete(client.sessionId)
     visibleByClient.delete(client.sessionId)
+    this.pendingDeltas.delete(client)
     if (!id) return
     // A replaced browser may finish closing after the new session has joined.
     // It must not remove the newer actor with the same user id.
@@ -102,7 +107,11 @@ export class PresenceRoom extends Room {
     const actor = actors.get(client.userData?.actorId); const intent = moveIntent(payload)
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
     if (!acceptMove(actor, intent.direction, Date.now(), intent.running, intent.sequence)) return this.reject(client, 'movement rate denied', 'rate')
-    this.publish(actor); this.sendSelf(client, actor)
+    this.publish(actor)
+    // Moving the viewport changes its whole interest set even when every
+    // other actor is stationary. Reconcile entrants/leavers for this client.
+    this.syncVisibility(client, actor)
+    this.sendSelf(client, actor)
   }
 
   changeArea(client, payload) {
@@ -163,16 +172,49 @@ export class PresenceRoom extends Room {
       const visible = visibleActors(viewer, new Map([[changed.id, changed]])).length > 0
       const previous = visibleByClient.get(client.sessionId) ?? new Set()
       if (delta.type === 'leave' ? previous.has(changed.id) : visible) {
-        client.send(MESSAGE.DELTA, delta)
+        this.sendDelta(client, delta)
       } else if (!visible && previous.has(changed.id)) {
-        client.send(MESSAGE.DELTA, { type: 'leave', actor: publicActor(changed) })
+        this.sendDelta(client, { type: 'leave', actor: publicActor(changed) })
       }
       if (delta.type === 'leave' || !visible) previous.delete(changed.id)
       else previous.add(changed.id)
       visibleByClient.set(client.sessionId, previous)
     }
   }
+  syncVisibility(client, viewer) {
+    const previous = visibleByClient.get(client.sessionId) ?? new Set()
+    const visible = visibleActors(viewer, actors)
+    const next = new Set(visible.map(actor => actor.id))
+    for (const actor of visible) {
+      if (!previous.has(actor.id)) this.sendDelta(client, { type: 'upsert', actor: publicActor(actor) })
+    }
+    for (const id of previous) {
+      if (next.has(id)) continue
+      const actor = actors.get(id)
+      if (actor) this.sendDelta(client, { type: 'leave', actor: publicActor(actor) })
+    }
+    visibleByClient.set(client.sessionId, next)
+  }
+  sendDelta(client, delta) {
+    if (!this.deltaBatching) {
+      client.send(MESSAGE.DELTA, delta)
+      return
+    }
+    const pending = this.pendingDeltas.get(client) ?? new Map()
+    // Only the latest state of an actor inside the 50 ms window matters.
+    pending.set(delta.actor.id, delta)
+    this.pendingDeltas.set(client, pending)
+  }
+  flushDeltaBatches() {
+    for (const [client, pending] of this.pendingDeltas) {
+      if (pending.size > 0 && observers.has(client.sessionId)) client.send(MESSAGE.BATCH, [...pending.values()])
+    }
+    this.pendingDeltas.clear()
+  }
   sendSnapshot(client, viewer) {
+    // The snapshot supersedes any old-area operations still waiting for the
+    // next 50 ms flush (ready, observe and area changes all pass through here).
+    this.pendingDeltas.delete(client)
     const visible = viewer ? visibleActors(viewer, actors) : [...actors.values()]
     visibleByClient.set(client.sessionId, new Set(visible.map(actor => actor.id)))
     const self = client.userData?.actorId ? actors.get(client.userData.actorId) : null

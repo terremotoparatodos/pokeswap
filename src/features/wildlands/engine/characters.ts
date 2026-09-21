@@ -223,25 +223,46 @@ export interface TrainerSheet {
   run?: TrainerSprites
 }
 
+const trainerSheetCache = new Map<string, Promise<TrainerSheet>>()
+
+function trainerSheetKey(url: string, shift?: HueShift): string {
+  return shift ? `${url}|${shift.red}|${shift.blue}` : url
+}
+
 /**
  * Trainer sheet (public/assets/trainers/*.png): rows down/up/left/right,
  * columns 0–3 walk and, optionally, 4–7 run. Square cells; frames follow
  * idle/step/idle/step.
  */
-export async function loadTrainerSheet(url: string, shift?: HueShift): Promise<TrainerSheet> {
-  const img = await loadImage(url, false)
-  const source = shift ? recolor(img, shift) : img
-  const cell = img.height / 4
-  const { feet, top } = cellBounds(source, cell)
-  const hasRun = img.width / cell >= 8
-  const walk = {} as TrainerSprites
-  const run = {} as TrainerSprites
-  SHEET_ROWS.forEach((dir, row) => {
-    const frame = (col: number): Sprite => ({ ...crop(source, col * cell, row * cell, cell, cell, feet), top })
-    walk[dir] = [0, 1, 2, 3].map(frame)
-    if (hasRun) run[dir] = [4, 5, 6, 7].map(frame)
+function buildTrainerSheet(url: string, shift?: HueShift): Promise<TrainerSheet> {
+  return loadImage(url, false).then(img => {
+    const source = shift ? recolor(img, shift) : img
+    const cell = img.height / 4
+    const { feet, top } = cellBounds(source, cell)
+    const hasRun = img.width / cell >= 8
+    const walk = {} as TrainerSprites
+    const run = {} as TrainerSprites
+    SHEET_ROWS.forEach((dir, row) => {
+      const frame = (col: number): Sprite => ({ ...crop(source, col * cell, row * cell, cell, cell, feet), top })
+      walk[dir] = [0, 1, 2, 3].map(frame)
+      if (hasRun) run[dir] = [4, 5, 6, 7].map(frame)
+    })
+    return hasRun ? { walk, run } : { walk }
   })
-  return hasRun ? { walk, run } : { walk }
+}
+
+/** Shares image decoding, alpha probing and cropped canvases across every wearer of the same sheet. */
+export function loadTrainerSheet(url: string, shift?: HueShift): Promise<TrainerSheet> {
+  const key = trainerSheetKey(url, shift)
+  const existing = trainerSheetCache.get(key)
+  if (existing) return existing
+  const loading = buildTrainerSheet(url, shift)
+  trainerSheetCache.set(key, loading)
+  void loading.catch(() => {
+    // Missing assets may become available after a reconnect/deploy; failures are not permanent cache entries.
+    if (trainerSheetCache.get(key) === loading) trainerSheetCache.delete(key)
+  })
+  return loading
 }
 
 /** An actor that can wear trainer art (only NPCs are restyled here). */

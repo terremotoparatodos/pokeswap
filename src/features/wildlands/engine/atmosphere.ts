@@ -55,6 +55,16 @@ export function lighting(clock: number): Lighting {
 
 export type WeatherKind = 'clear' | 'rain' | 'snow'
 
+const PRECIPITATION_DENSITY: Record<Exclude<WeatherKind, 'clear'>, number> = { rain: 160, snow: 96 }
+const PRECIPITATION_CAP: Record<Exclude<WeatherKind, 'clear'>, number> = { rain: 180, snow: 110 }
+
+/** A restrained particle budget keeps weather legible without taxing wide/high-DPI displays. */
+export function precipitationTarget(kind: WeatherKind, intensity: number, width: number): number {
+  if (kind === 'clear' || intensity <= 0 || width <= 0) return 0
+  const density = PRECIPITATION_DENSITY[kind]
+  return Math.min(PRECIPITATION_CAP[kind], Math.round(density * Math.min(1, intensity) * (width / 1400)))
+}
+
 export function weatherAt(tx: number, ty: number, biome: Biome, seconds: number, seed: number): { kind: WeatherKind; intensity: number } {
   if (biome === 'deep') return { kind: 'clear', intensity: 0 }
   const field = valueNoise(tx / 90, ty / 90 + seconds / 70, seed + 500)
@@ -77,7 +87,11 @@ export class Precipitation {
   private particles: Particle[] = []
 
   update(dt: number, width: number, height: number, kind: WeatherKind, intensity: number): void {
-    const target = kind === 'clear' ? 0 : Math.round((kind === 'rain' ? 420 : 260) * intensity * (width / 1400))
+    const target = precipitationTarget(kind, intensity, width)
+    if (target === 0) {
+      this.particles.length = 0
+      return
+    }
     while (this.particles.length < target) {
       this.particles.push({
         x: Math.random() * width, y: Math.random() * height, z: 0.4 + Math.random() * 0.6,

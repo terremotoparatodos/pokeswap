@@ -17,6 +17,9 @@ export interface LightSource {
 
 export class SceneLighting {
   private readonly rain = new Precipitation()
+  private vignette: CanvasGradient | null = null
+  private vignetteWidth = 0
+  private vignetteHeight = 0
 
   draw(
     ctx: CanvasRenderingContext2D, scene: Scene, proj: Projector, lights: readonly LightSource[],
@@ -59,11 +62,17 @@ export class SceneLighting {
     this.rain.update(dt, W, H, scene.weather.kind, scene.weather.intensity)
     this.rain.draw(ctx, scene.weather.kind)
 
-    const vignette = ctx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.75)
-    vignette.addColorStop(0, 'rgba(10, 14, 30, 0)')
-    vignette.addColorStop(1, `rgba(10, 14, 30, ${0.28 + darkness * 0.25})`)
-    ctx.fillStyle = vignette
+    if (!this.vignette || this.vignetteWidth !== W || this.vignetteHeight !== H) {
+      this.vignette = ctx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.35, W / 2, H * 0.55, Math.max(W, H) * 0.75)
+      this.vignette.addColorStop(0, 'rgba(10, 14, 30, 0)')
+      this.vignette.addColorStop(1, 'rgba(10, 14, 30, 1)')
+      this.vignetteWidth = W
+      this.vignetteHeight = H
+    }
+    ctx.globalAlpha = 0.28 + darkness * 0.25
+    ctx.fillStyle = this.vignette
     ctx.fillRect(0, 0, W, H)
+    ctx.globalAlpha = 1
 
     if (scene.fade > 0) {
       ctx.fillStyle = `rgba(6, 8, 18, ${Math.min(1, scene.fade)})`

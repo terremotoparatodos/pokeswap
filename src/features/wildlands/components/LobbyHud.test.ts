@@ -7,7 +7,12 @@ const hud = (areaKind: HudState['areaKind']): HudState => ({
   areaId: areaKind === 'town' ? 'ciudad-corazon' : 'pradera', areaKind,
   place: areaKind === 'town' ? 'Ciudad Corazón' : 'Pradera Brisa', tx: 31, ty: 20,
   phase: 'Día', weather: 'clear', crystals: 0, lens: 'town', toast: null,
-  traveling: false, fps: 60, frameMs: 2,
+  traveling: false, fps: 60, frameMs: 2, frameP95Ms: 3, frameP99Ms: 4, frameMaxMs: 5, longFramePercent: 0,
+  remoteActors: 0, remoteUpdatesPerSecond: 0,
+  groundComposeMs: 0, groundProjectMs: 0, actorCollectMs: 0,
+  actorSortMs: 0, spriteDrawMs: 0, lightingMs: 0,
+  loadedChunks: 0, generatedChunks: 0, evictedChunks: 0,
+  lastChunkBuildMs: 0, maxChunkBuildMs: 0,
 })
 
 describe('LobbyHud city recovery', () => {

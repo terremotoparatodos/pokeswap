@@ -1,9 +1,17 @@
 import { describe, expect, it } from 'vitest'
-import { createProjector, LENSES, lerpLens } from './projection'
+import { createProjector, LENSES, lerpLens, projectionViewportScale } from './projection'
 
 const view = { width: 1200, height: 800, focusY: 450 }
 
 describe('createProjector', () => {
+  it('does not turn browser zoom-out into a wider world camera', () => {
+    expect(projectionViewportScale(1920, 1920, 1920)).toBe(1)
+    expect(projectionViewportScale(1920, 7680, 1920)).toBe(1)
+    expect(projectionViewportScale(1000, 4000, 1000)).toBe(1)
+    expect(projectionViewportScale(2000, 1000, 1000)).toBe(2)
+    expect(projectionViewportScale(1000, 1000, 1200)).toBe(1)
+  })
+
   it('places the focus point at the focus row with the lens zoom', () => {
     const proj = createProjector(LENSES.handheld, view)
     const p = proj.project(0, 0)!

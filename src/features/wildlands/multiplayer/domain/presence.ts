@@ -19,7 +19,11 @@ export interface RemotePresenceActor {
   moveSequence: number
 }
 export interface RemoteActorsPort {
-  setRemoteActors(actors: readonly RemotePresenceActor[]): void
+  /** Reconciles the occasional authoritative snapshot without recreating unchanged actors. */
+  replaceRemoteActors(actors: readonly RemotePresenceActor[]): void
+  /** Applies one socket delta; this is the hot path while players are moving. */
+  upsertRemoteActor(actor: RemotePresenceActor): void
+  removeRemoteActor(id: string): void
   setAuthoritativeActor(actor: RemotePresenceActor | null): void
   setPresenceAccess(access: 'pending' | 'player' | 'guest'): void
 }

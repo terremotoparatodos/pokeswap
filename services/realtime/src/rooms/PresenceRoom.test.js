@@ -268,3 +268,98 @@ test('wild interest sends a leave when an actor exits the viewer sector', async 
   room.onLeave(watcher)
   room.onLeave(traveller)
 })
+
+test('moving the viewer reconciles stationary town actors at the interest boundary', async () => {
+  const room = new PresenceRoom()
+  const watcher = client('town-watcher-client')
+  const traveller = client('town-traveller-client')
+  await room.onJoin(watcher, {}, { kind: 'player', userId: 'town-watcher', username: 'Watcher', token: null })
+  await room.onJoin(traveller, {}, { kind: 'player', userId: 'town-traveller', username: 'Traveller', token: null })
+  room.ready(watcher)
+  room.ready(traveller)
+
+  const realNow = Date.now
+  let now = 10_000
+  Date.now = () => now
+  try {
+    // Traveller remains just inside the 20-tile town radius.
+    for (let step = 0; step < 20; step++) {
+      room.move(traveller, { direction: 'right', running: false })
+      now += 250
+    }
+    // Only the watcher moves. Traveller must disappear even while stationary.
+    room.move(watcher, { direction: 'left', running: false })
+    assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.type, 'leave')
+    assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.actor.id, 'town-traveller')
+
+    now += 250
+    room.move(watcher, { direction: 'right', running: false })
+    assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.type, 'upsert')
+    assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.actor.id, 'town-traveller')
+  } finally {
+    Date.now = realNow
+  }
+  room.onLeave(watcher)
+  room.onLeave(traveller)
+})
+
+test('production batching coalesces repeated actor movement into one socket message', async () => {
+  const room = new PresenceRoom()
+  const watcher = client('batch-watcher-client')
+  const traveller = client('batch-traveller-client')
+  await room.onJoin(watcher, {}, { kind: 'player', userId: 'batch-watcher', username: 'Watcher', token: null })
+  await room.onJoin(traveller, {}, { kind: 'player', userId: 'batch-traveller', username: 'Traveller', token: null })
+  room.ready(watcher)
+  room.ready(traveller)
+  room.deltaBatching = true
+
+  const deltasBefore = watcher.messages.filter(message => message.type === MESSAGE.DELTA).length
+  const realNow = Date.now
+  let now = 20_000
+  Date.now = () => now
+  try {
+    room.move(traveller, { direction: 'right', running: true })
+    now += 125
+    room.move(traveller, { direction: 'right', running: true })
+  } finally {
+    Date.now = realNow
+  }
+
+  assert.equal(watcher.messages.filter(message => message.type === MESSAGE.DELTA).length, deltasBefore)
+  room.flushDeltaBatches()
+  const batch = lastOf(watcher, MESSAGE.BATCH)
+  assert.equal(batch.payload.length, 1)
+  assert.equal(batch.payload[0].type, 'upsert')
+  assert.equal(batch.payload[0].actor.id, 'batch-traveller')
+  assert.equal(batch.payload[0].actor.tx, 33)
+
+  room.onLeave(watcher)
+  room.onLeave(traveller)
+})
+
+test('an area snapshot discards queued deltas from the previous area', async () => {
+  const room = new PresenceRoom()
+  const watcher = client('batch-area-watcher-client')
+  const traveller = client('batch-area-traveller-client')
+  await room.onJoin(watcher, {}, { kind: 'player', userId: 'batch-area-watcher', username: 'Watcher', token: null })
+  await room.onJoin(traveller, {}, { kind: 'player', userId: 'batch-area-traveller', username: 'Traveller', token: null })
+  room.ready(watcher)
+  room.ready(traveller)
+  room.deltaBatching = true
+
+  const realNow = Date.now
+  Date.now = () => 30_000
+  try {
+    room.move(traveller, { direction: 'right', running: true })
+    room.changeArea(watcher, { areaId: 'pradera' })
+  } finally {
+    Date.now = realNow
+  }
+  const batchesBefore = watcher.messages.filter(message => message.type === MESSAGE.BATCH).length
+  room.flushDeltaBatches()
+  assert.equal(watcher.messages.filter(message => message.type === MESSAGE.BATCH).length, batchesBefore)
+  assert.deepEqual(lastOf(watcher, MESSAGE.SNAPSHOT).payload.actors, [])
+
+  room.onLeave(watcher)
+  room.onLeave(traveller)
+})

@@ -7,11 +7,13 @@ import type { PlayerVisualIdentity } from '../../identity/playerIdentity'
 const SNAPSHOT = 'presence:snapshot'
 const SELF = 'presence:self'
 const DELTA = 'presence:delta'
+const BATCH = 'presence:batch'
 // Community Playtest 0.1 — area chat rides the same socket.
 const CHAT = 'chat'
 const CHAT_HISTORY = 'chat:history'
 const CHAT_LINE = 'chat:line'
 const REALTIME_URL = import.meta.env.VITE_REALTIME_URL as string | undefined
+const BENCHMARK_PLAYER = import.meta.env.DEV && import.meta.env.VITE_PRESENCE_BENCHMARK === 'on'
 /** Server code used when a newer browser replaces this authenticated session. */
 const REPLACED_SESSION_CODE = 4001
 
@@ -21,7 +23,6 @@ interface Delta { type: 'upsert' | 'leave'; actor: RemotePresenceActor }
 /** Socket adapter: no polling, no persistence and no Supabase writes. */
 export class ColyseusPresence implements LocalPresencePort {
   private room: Room | null = null
-  private readonly actors = new Map<string, RemotePresenceActor>()
   private stopped = false
   private suspended = false
   private connecting = false
@@ -42,9 +43,21 @@ export class ColyseusPresence implements LocalPresencePort {
       const { data } = await supabase.auth.getSession()
       if (this.stopped || this.suspended) return
       const client = new Client(REALTIME_URL)
+      const query = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search)
+      const requestedArea = query?.get('area') ?? null
+      const requestedBenchmarkId = query?.get('benchmarkId') ?? ''
+      const benchmarkId = /^[a-z0-9][a-z0-9-]{0,39}$/.test(requestedBenchmarkId)
+        ? requestedBenchmarkId
+        : 'browser-player'
       const room = await client.joinOrCreate('presence', {
         token: data.session?.access_token ?? null,
         visual: identity ? { characterId: identity.character.id, companionPokemonId: identity.companion?.id ?? null } : null,
+        ...(BENCHMARK_PLAYER ? {
+          benchmark: {
+            id: benchmarkId, username: identity?.username || 'Jugador local',
+            area: requestedArea === 'pradera' ? 'pradera' : 'ciudad-corazon',
+          },
+        } : {}),
       })
       if (this.stopped || this.suspended) { await room.leave(); return }
       // Rejoin with a fresh room after a transport drop. The service keeps
@@ -62,6 +75,7 @@ export class ColyseusPresence implements LocalPresencePort {
       })
       room.onMessage<RemotePresenceActor>(SELF, actor => this.remote.setAuthoritativeActor(actor))
       room.onMessage<Delta>(DELTA, delta => this.apply(delta))
+      room.onMessage<Delta[]>(BATCH, deltas => this.applyBatch(deltas))
       if (this.chat) {
         const chat = this.chat
         chat.setAccess('connecting')
@@ -126,21 +140,17 @@ export class ColyseusPresence implements LocalPresencePort {
     void this.connect(identity)
   }
 
-  private replace(next: readonly RemotePresenceActor[]): void {
-    this.actors.clear(); for (const actor of next) this.actors.set(actor.id, actor); this.emit()
-  }
+  private replace(next: readonly RemotePresenceActor[]): void { this.remote.replaceRemoteActors(next) }
   private apply(delta: Delta): void {
-    if (delta.type === 'leave') this.actors.delete(delta.actor.id)
-    else this.actors.set(delta.actor.id, delta.actor)
-    this.emit()
+    if (delta.type === 'leave') this.remote.removeRemoteActor(delta.actor.id)
+    else this.remote.upsertRemoteActor(delta.actor)
   }
-  private emit(): void { this.remote.setRemoteActors([...this.actors.values()]) }
+  private applyBatch(deltas: readonly Delta[]): void { for (const delta of deltas) this.apply(delta) }
   private clearActors(): void {
     this.chat?.detach()
-    this.actors.clear()
     this.remote.setPresenceAccess('pending')
     this.remote.setAuthoritativeActor(null)
-    this.remote.setRemoteActors([])
+    this.remote.replaceRemoteActors([])
   }
   private clearReconnect(): void {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)

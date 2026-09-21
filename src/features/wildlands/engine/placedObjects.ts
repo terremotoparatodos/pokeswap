@@ -209,24 +209,33 @@ export function besidePlaced(object: PlacedObject): Tile[] {
  */
 export class PlacedObjects {
   private readonly byId = new Map<string, PlacedObject>()
+  private readonly byArea = new Map<string, readonly PlacedObject[]>()
+
+  private invalidateAreas(): void {
+    this.byArea.clear()
+  }
 
   /** Adds the object, replacing any earlier one with the same id. */
   register(object: PlacedObject): void {
     this.byId.set(object.id, object)
+    this.invalidateAreas()
   }
 
   /** Removes one object. Unknown ids are ignored, so cleanup is idempotent. */
   unregister(id: string): void {
-    this.byId.delete(id)
+    if (this.byId.delete(id)) this.invalidateAreas()
   }
 
   /** Drops everything placed in one area (used when that area is left). */
   clearArea(areaId: string): void {
-    for (const [id, object] of this.byId) if (object.areaId === areaId) this.byId.delete(id)
+    let changed = false
+    for (const [id, object] of this.byId) if (object.areaId === areaId) { this.byId.delete(id); changed = true }
+    if (changed) this.invalidateAreas()
   }
 
   clear(): void {
     this.byId.clear()
+    this.invalidateAreas()
   }
 
   get size(): number {
@@ -234,7 +243,11 @@ export class PlacedObjects {
   }
 
   inArea(areaId: string): readonly PlacedObject[] {
-    return [...this.byId.values()].filter(object => object.areaId === areaId)
+    const cached = this.byArea.get(areaId)
+    if (cached) return cached
+    const objects = [...this.byId.values()].filter(object => object.areaId === areaId)
+    this.byArea.set(areaId, objects)
+    return objects
   }
 
   /** The object covering this tile, or null. The last registered one wins. */

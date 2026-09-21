@@ -19,7 +19,29 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
-    <component :is="PlaytestPerformanceHud" v-if="PlaytestPerformanceHud" :fps="hud.fps" :frame-ms="hud.frameMs" />
+    <component
+      :is="PlaytestPerformanceHud"
+      v-if="PlaytestPerformanceHud"
+      :fps="hud.fps"
+      :frame-ms="hud.frameMs"
+      :frame-p95-ms="hud.frameP95Ms"
+      :frame-p99-ms="hud.frameP99Ms"
+      :frame-max-ms="hud.frameMaxMs"
+      :long-frame-percent="hud.longFramePercent"
+      :remote-actors="hud.remoteActors"
+      :remote-updates-per-second="hud.remoteUpdatesPerSecond"
+      :ground-compose-ms="hud.groundComposeMs"
+      :ground-project-ms="hud.groundProjectMs"
+      :actor-collect-ms="hud.actorCollectMs"
+      :actor-sort-ms="hud.actorSortMs"
+      :sprite-draw-ms="hud.spriteDrawMs"
+      :lighting-ms="hud.lightingMs"
+      :loaded-chunks="hud.loadedChunks"
+      :generated-chunks="hud.generatedChunks"
+      :evicted-chunks="hud.evictedChunks"
+      :last-chunk-build-ms="hud.lastChunkBuildMs"
+      :max-chunk-build-ms="hud.maxChunkBuildMs"
+    />
 
     <div class="wl-minimap" aria-label="Minimapa de la zona actual">
       <canvas ref="minimapRef" />
@@ -146,7 +168,8 @@ import type { SceneOverlay } from '../engine/sceneOverlay'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
-const PlaytestPerformanceHud = isPlaytest
+const performanceMode = import.meta.env.VITE_PERF === 'on'
+const PlaytestPerformanceHud = isPlaytest || performanceMode
   ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))
   : null
 // R31-B profession prototype: development builds, and Community Playtest 0.1,
@@ -181,11 +204,15 @@ const loading = ref(true)
 const hud = reactive<HudState>({
   areaId: LOBBY_ID, areaKind: 'town', place: '—', tx: 0, ty: 0, phase: 'Día', weather: 'clear', crystals: 0,
   lens: 'handheld', toast: null, traveling: false, fps: 0, frameMs: 0,
+  frameP95Ms: 0, frameP99Ms: 0, frameMaxMs: 0, longFramePercent: 0, remoteActors: 0, remoteUpdatesPerSecond: 0,
+  groundComposeMs: 0, groundProjectMs: 0, actorCollectMs: 0, actorSortMs: 0, spriteDrawMs: 0, lightingMs: 0,
+  loadedChunks: 0, generatedChunks: 0, evictedChunks: 0, lastChunkBuildMs: 0, maxChunkBuildMs: 0,
 })
 const identity = usePlayerIdentity(game)
 const { user } = useAuth()
 let presence: ColyseusPresence | null = null
 let stopChatBubbles: (() => void) | null = null
+let disposed = false
 /**
  * Null outside a playtest or development build, and then nothing below routes
  * chat traffic at all. Loaded dynamically for the same reason as the playtest
@@ -428,6 +455,8 @@ onMounted(async () => {
   // A direct link to a feature shows the town from that building's door.
   if (panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
   game.value = created
+  await created.prepare()
+  if (disposed) return
   created.setPresenceAccess('pending')
   presence = connectPresence(created)
   void presence.connect(identity.visualIdentity.value)
@@ -454,6 +483,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  disposed = true
   motionMedia.removeEventListener('change', onMotionChange)
   document.removeEventListener('visibilitychange', onVisibilityChange)
   game.value?.destroy()

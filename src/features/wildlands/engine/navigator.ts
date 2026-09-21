@@ -12,6 +12,7 @@ import type { Pick, RouteMarker } from './renderer'
 
 const MAX_REPLANS = 3
 const REJECT_SECONDS = 0.6
+const EMPTY_ROUTE_TILES: readonly Tile[] = []
 
 export interface NavWorld {
   /** Terrain/prop blocking for the player (ignores other actors). */
@@ -31,6 +32,7 @@ export class TapNavigator {
   private replans = 0
   private rejected: (Tile & { age: number }) | null = null
   private readonly world: NavWorld
+  private readonly marker: RouteMarker = { tiles: EMPTY_ROUTE_TILES, target: null, rejected: null }
 
   constructor(world: NavWorld) {
     this.world = world
@@ -102,11 +104,10 @@ export class TapNavigator {
   }
 
   route(player: Actor): RouteMarker {
-    return {
-      tiles: this.target ? pathTiles({ tx: player.tx, ty: player.ty }, this.path) : [],
-      target: this.target,
-      rejected: this.rejected,
-    }
+    this.marker.tiles = this.target ? pathTiles({ tx: player.tx, ty: player.ty }, this.path) : EMPTY_ROUTE_TILES
+    this.marker.target = this.target
+    this.marker.rejected = this.rejected
+    return this.marker
   }
 
   private interactive(tile: Tile): boolean {
