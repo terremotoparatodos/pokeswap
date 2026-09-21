@@ -15,6 +15,13 @@ export default defineConfig({
   build: {
     outDir: '../dist',
     emptyOutDir: true,
+    rollupOptions: {
+      // The Rancho is its own page: it never loads the PokeSwap app, router or backend.
+      input: {
+        main: fileURLToPath(new URL('./src/index.html', import.meta.url)),
+        rancho: fileURLToPath(new URL('./src/rancho/index.html', import.meta.url)),
+      },
+    },
   },
   test: {
     environment: 'jsdom',
