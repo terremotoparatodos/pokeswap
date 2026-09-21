@@ -11,7 +11,17 @@ import { hash2 } from './noise'
 import { packColor, pixelsToCanvas, TRANSPARENT } from './pixels'
 import type { Sprite } from './sprite'
 import { sampleTexture, terrainArt, TEX } from './terrainArt'
-import { T, TILE, type DecorKind, type Terrain, type World } from './world'
+import { T, TILE, type DecorKind, type Terrain } from './world'
+
+/**
+ * Everything baking reads from a map: terrain at tile corners, decor per tile
+ * and the seed that jitters decor placement. `World` satisfies it structurally.
+ */
+export interface ChunkSource {
+  readonly seed: number
+  vertexTerrain(vx: number, vy: number): Terrain
+  decorAt(tx: number, ty: number, corners: readonly Terrain[]): DecorKind | null
+}
 
 export const CHUNK_TILES = 32
 export const CHUNK_PX = CHUNK_TILES * TILE
@@ -55,7 +65,7 @@ const DEEP = packColor('#0b1f7a', 120)
 const DEEP_SOFT = packColor('#0b1f7a', 60)
 
 /** Corner terrains for every vertex touching the chunk (plus a one-tile border). */
-function cornerGrid(world: World, tx0: number, ty0: number): Uint8Array {
+function cornerGrid(world: ChunkSource, tx0: number, ty0: number): Uint8Array {
   const grid = new Uint8Array(GRID * GRID)
   for (let gy = 0; gy < GRID; gy++) {
     for (let gx = 0; gx < GRID; gx++) grid[gy * GRID + gx] = world.vertexTerrain(tx0 - 1 + gx, ty0 - 1 + gy)
@@ -155,7 +165,7 @@ function colourise(ids: Uint8Array, cx: number, cy: number): Uint32Array {
   return out
 }
 
-export function buildChunkPixels(world: World, cx: number, cy: number): ChunkPixels {
+export function buildChunkPixels(world: ChunkSource, cx: number, cy: number): ChunkPixels {
   const tx0 = cx * CHUNK_TILES
   const ty0 = cy * CHUNK_TILES
   const grid = cornerGrid(world, tx0, ty0)
@@ -189,12 +199,12 @@ export interface Chunk {
 }
 
 export class ChunkStore {
-  private readonly world: World
+  private readonly world: ChunkSource
   private readonly chunks = new Map<string, Chunk>()
   private readonly removed = new Set<string>()
   private frame = 0
 
-  constructor(world: World) {
+  constructor(world: ChunkSource) {
     this.world = world
   }
 
