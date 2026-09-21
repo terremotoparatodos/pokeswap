@@ -37,7 +37,7 @@ import type { TownPosition } from '../identity/playerPreferences'
 import { pokeballInfo } from './pokeball'
 import { isPresenceAreaId, type LocalPresencePort, type RemotePresenceActor } from '../multiplayer/domain/presence'
 import { reconcilePresenceArea } from '../multiplayer/domain/areaReconciliation'
-import { keepsPredictedStep } from '../multiplayer/domain/movementReconciliation'
+import { keepsPredictedStep, safeAuthoritativePosition } from '../multiplayer/domain/movementReconciliation'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
 const MAX_REMOTE_STEP_BACKLOG = 3
@@ -415,11 +415,28 @@ export class WildlandsGame {
     const area = reconcilePresenceArea(this.pendingPresenceArea, actor.areaId)
     this.pendingPresenceArea = area.pendingArea
     if (!area.accept) return
+    if (this.area.id !== actor.areaId) this.enterArea(actor.areaId, null, { tx: actor.tx, ty: actor.ty, dir: actor.dir })
+    const safe = safeAuthoritativePosition(
+      actor,
+      this.area.arrival(null),
+      (tx, ty) => this.solidAt(tx, ty),
+    )
+    if (safe.recovered) {
+      // The presence service deliberately owns ephemeral position, so repair
+      // both sides. Keeping only the local fallback would let the next server
+      // acknowledgement push the player straight back into the same hitbox.
+      this.placePlayer(safe.position)
+      this.receivedAuthoritativeActor = false
+      this.nextMoveSequence = 0
+      this.pendingPresenceArea = actor.areaId
+      this.presence?.changeArea(actor.areaId)
+      this.say('Tu posición se corrigió al punto seguro de esta zona')
+      return
+    }
     if (!this.receivedAuthoritativeActor) {
       this.receivedAuthoritativeActor = true
       this.nextMoveSequence = actor.moveSequence
-      if (this.area.id !== actor.areaId) this.enterArea(actor.areaId, null, { tx: actor.tx, ty: actor.ty, dir: actor.dir })
-      else this.placePlayer({ tx: actor.tx, ty: actor.ty, dir: actor.dir })
+      this.placePlayer(safe.position)
       this.player.speed = actor.speed
       return
     }
