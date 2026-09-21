@@ -178,7 +178,7 @@ export class Renderer {
     // A larger CSS viewport caused by browser zoom-out is not permission to
     // reveal more world. Keep UI zoom intact while the camera follows the
     // physical window width represented by the backing canvas.
-    const viewportScale = projectionViewportScale(W, this.canvas.clientWidth, window.outerWidth)
+    const viewportScale = projectionViewportScale(W, this.canvas.clientWidth)
     lens.zoom = scene.lens.zoom * viewportScale * fit
     lens.squash = scene.lens.squash
     lens.distance = scene.lens.distance

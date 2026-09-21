@@ -11,7 +11,7 @@ describe('playtest renderer budget', () => {
   it('keeps the pixel-art canvas at CSS resolution in a playtest build', () => {
     expect(source).toContain("import.meta.env.VITE_PLAYTEST === 'on' ? 1 : 2")
     expect(source).toContain('Math.min(MAX_RENDER_DPR, window.devicePixelRatio || 1)')
-    expect(source).toContain('projectionViewportScale(W, this.canvas.clientWidth, window.outerWidth)')
+    expect(source).toContain('projectionViewportScale(W, this.canvas.clientWidth)')
     expect(source).toContain('scene.lens.zoom * viewportScale * fit')
   })
 
