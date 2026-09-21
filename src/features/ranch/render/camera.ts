@@ -40,19 +40,21 @@ export function zoomLimits(world: WorldBounds, viewW: number, viewH: number): Ca
   return { min: Math.min(fit, MAX_ZOOM), max: MAX_ZOOM }
 }
 
-/** Centre kept inside the map: when the view is wider than the map, it centres. */
-export function clampCentre(world: WorldBounds, viewW: number, viewH: number, zoom: number, centre: Point): Point {
+/**
+ * Centre kept inside the map: when the view is wider than the map, it centres.
+ * Writes into `out` because this runs every frame and must not allocate.
+ */
+export function clampCentre(world: WorldBounds, viewW: number, viewH: number, zoom: number, out: Point): void {
   const halfW = viewW / zoom / 2
   const halfH = viewH / zoom / 2
-  const x =
+  out.x =
     halfW >= world.width / 2 + EDGE_MARGIN
       ? world.width / 2
-      : Math.max(halfW - EDGE_MARGIN, Math.min(world.width - halfW + EDGE_MARGIN, centre.x))
-  const y =
+      : Math.max(halfW - EDGE_MARGIN, Math.min(world.width - halfW + EDGE_MARGIN, out.x))
+  out.y =
     halfH >= world.height / 2 + EDGE_MARGIN
       ? world.height / 2
-      : Math.max(halfH - EDGE_MARGIN, Math.min(world.height - halfH + EDGE_MARGIN, centre.y))
-  return { x, y }
+      : Math.max(halfH - EDGE_MARGIN, Math.min(world.height - halfH + EDGE_MARGIN, out.y))
 }
 
 /** Nearest crisp scale, when one is close enough to snap to without a visible jump. */
@@ -87,7 +89,7 @@ const ease = (t: number): number => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 *
 /** Velocity below this (world px per second) is not worth animating. */
 const MIN_FLICK = 40
 /** Fraction of the velocity kept after one second of drift. */
-const FRICTION = 0.0016
+const FRICTION = 0.01
 
 export interface CameraOptions {
   /** Zoom to open at, clamped to the limits. */
@@ -156,22 +158,13 @@ export class RanchCamera {
     return Math.max(this.limits.min, Math.min(this.limits.max, zoom))
   }
 
-  /** clampCentre, inlined: this runs every frame and must not allocate. */
   private settle(): void {
-    const halfW = this.viewW / this.zoom / 2
-    const halfH = this.viewH / this.zoom / 2
-    const x =
-      halfW >= this.world.width / 2 + EDGE_MARGIN
-        ? this.world.width / 2
-        : Math.max(halfW - EDGE_MARGIN, Math.min(this.world.width - halfW + EDGE_MARGIN, this.x))
-    const y =
-      halfH >= this.world.height / 2 + EDGE_MARGIN
-        ? this.world.height / 2
-        : Math.max(halfH - EDGE_MARGIN, Math.min(this.world.height - halfH + EDGE_MARGIN, this.y))
-    if (x !== this.x) this.vx = 0
-    if (y !== this.y) this.vy = 0
-    this.x = x
-    this.y = y
+    const wasX = this.x
+    const wasY = this.y
+    clampCentre(this.world, this.viewW, this.viewH, this.zoom, this)
+    // Hitting an edge kills the drift, so the view does not strain against it.
+    if (this.x !== wasX) this.vx = 0
+    if (this.y !== wasY) this.vy = 0
   }
 
   /** World point under a position given in CSS pixels relative to the canvas. */
@@ -221,7 +214,8 @@ export class RanchCamera {
   flyTo(wx: number, wy: number, zoom = Math.max(this.zoom, 2), duration = 0.75): void {
     this.vx = 0
     this.vy = 0
-    const target = clampCentre(this.world, this.viewW, this.viewH, this.clampZoom(zoom), { x: wx, y: wy })
+    const target = { x: wx, y: wy }
+    clampCentre(this.world, this.viewW, this.viewH, this.clampZoom(zoom), target)
     this.flight = {
       fromX: this.x,
       fromY: this.y,

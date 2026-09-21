@@ -7,7 +7,6 @@
       aria-modal="true"
       :aria-label="`Ficha de ${resident.displayName}`"
       tabindex="-1"
-      @keydown.esc="emit('close')"
     >
       <button class="rc-close" type="button" aria-label="Cerrar" @click="emit('close')">×</button>
 
@@ -36,14 +35,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { overworldSheetUrl } from '../../wildlands/engine/characters'
 import type { RanchResident } from '../domain/membership'
 import { speciesName } from '../domain/species'
 import { membershipLabel, residentFacts } from '../domain/tenure'
 
 const props = defineProps<{ resident: RanchResident }>()
-const emit = defineEmits<{ (event: 'close'): void }>()
+const emit = defineEmits<{ close: [] }>()
 
 const cardRef = ref<HTMLElement | null>(null)
 const species = computed(() => speciesName(props.resident.speciesId))
@@ -55,7 +54,14 @@ const spriteStyle = computed(() => ({
   backgroundImage: `url("${overworldSheetUrl(props.resident.speciesId, props.resident.shiny)}")`,
 }))
 
-onMounted(() => cardRef.value?.focus())
+const onKeyDown = (event: KeyboardEvent): void => {
+  if (event.key === 'Escape') emit('close')
+}
+onMounted(() => {
+  window.addEventListener('keydown', onKeyDown)
+  cardRef.value?.focus()
+})
+onUnmounted(() => window.removeEventListener('keydown', onKeyDown))
 </script>
 
 <style scoped>

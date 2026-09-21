@@ -23,13 +23,15 @@ describe('camera limits', () => {
 
 describe('camera bounds', () => {
   it('keeps the view over the map when it is smaller than the world', () => {
-    const centre = clampCentre(WORLD, 400, 400, 2, { x: -5000, y: 9000 })
+    const centre = { x: -5000, y: 9000 }
+    clampCentre(WORLD, 400, 400, 2, centre)
     expect(centre.x).toBeGreaterThan(0)
     expect(centre.y).toBeLessThan(WORLD.height)
   })
 
   it('centres the map on the axis where the view is wider than the world', () => {
-    const centre = clampCentre(WORLD, 4000, 400, 1, { x: 10, y: 700 })
+    const centre = { x: 10, y: 700 }
+    clampCentre(WORLD, 4000, 400, 1, centre)
     expect(centre.x).toBe(WORLD.width / 2)
   })
 })

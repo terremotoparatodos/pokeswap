@@ -30,7 +30,6 @@ import { createMockSnapshot } from './data/mockSnapshot'
 import { readRanchParams, urlWithUser } from './data/urlParams'
 import type { RanchResident } from './domain/membership'
 import { buildSearchIndex, findByName, type SearchEntry } from './domain/search'
-import type { ZoneId } from './domain/zones'
 import { RanchScene, type RanchStats } from './render/ranchScene'
 
 /** How long a "nobody with that name" message stays up. */
@@ -49,16 +48,20 @@ let noticeTimer = 0
 
 const params = readRanchParams(window.location.search)
 
+/** Keeps the address bar on whoever is open, so the page is always shareable. */
+function show(resident: RanchResident | null): void {
+  selected.value = resident
+  history.replaceState(null, '', urlWithUser(window.location.href, resident?.displayName ?? null))
+}
+
 function goTo(resident: RanchResident): void {
   scene?.focus(resident.id)
-  selected.value = resident
-  history.replaceState(null, '', urlWithUser(window.location.href, resident.displayName))
+  show(resident)
 }
 
 function close(): void {
-  selected.value = null
   scene?.focus(null)
-  history.replaceState(null, '', urlWithUser(window.location.href, null))
+  show(null)
 }
 
 function nudgeZoom(direction: number): void {
@@ -81,11 +84,11 @@ onMounted(() => {
 
   scene = new RanchScene(canvas, {
     initialZoom: window.innerWidth < 640 ? 1.5 : 2,
-    onSelect: resident => (selected.value = resident),
+    onSelect: show,
   })
   // The mock stands in for the backend: it decides species and homes, exactly
   // as the server will, and the page only renders the snapshot it returns.
-  const snapshot = createMockSnapshot(params.mock, scene.capacity as Record<ZoneId, number>)
+  const snapshot = createMockSnapshot(params.mock, scene.capacity)
   scene.setSnapshot(snapshot)
   index.value = buildSearchIndex(snapshot.residents, resident => resident.displayName)
   scene.start()
@@ -95,6 +98,7 @@ onMounted(() => {
     if (resident) {
       scene.focus(resident.id, { instant: true })
       selected.value = resident
+
     } else {
       say(`Nadie llamado “${params.user}” vive en el Rancho.`)
     }

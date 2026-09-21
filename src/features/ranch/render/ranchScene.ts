@@ -10,6 +10,7 @@
 // kept nearly sorted, and a frame is skipped outright when nothing moved.
 
 import { advance, actorPosition, type Actor, type MoveRules } from '../../wildlands/engine/actors'
+import { pokeballInfo } from '../../wildlands/engine/pokeball'
 import { TILE } from '../../wildlands/engine/world'
 import type { RanchResident, RanchSnapshot } from '../domain/membership'
 import { speciesName } from '../domain/species'
@@ -22,7 +23,7 @@ import {
 } from '../world/residents'
 import { ZONE_LABELS } from '../world/ranchLayout'
 import { buildSlots, slotCapacity, type ZoneSlots } from '../world/slots'
-import { ZONE_IDS, ZONES } from '../domain/zones'
+import { ZONE_IDS, ZONES, type ZoneId } from '../domain/zones'
 import { RanchCamera } from './camera'
 import { NameplateCache } from './nameplates'
 import { buildRanchArt, type RanchArt } from './ranchArt'
@@ -61,7 +62,7 @@ export class RanchScene {
   readonly map: RanchMap
   readonly slots: ZoneSlots
   readonly camera: RanchCamera
-  readonly capacity: Record<string, number>
+  readonly capacity: Record<ZoneId, number>
 
   private readonly canvas: HTMLCanvasElement
   private readonly ctx: CanvasRenderingContext2D
@@ -130,7 +131,7 @@ export class RanchScene {
 
   /** Replaces who lives here. Called once on load with the mock snapshot. */
   setSnapshot(snapshot: RanchSnapshot): void {
-    this.inhabitants = createInhabitants(snapshot.residents, this.map, this.slots, this.clock)
+    this.inhabitants = createInhabitants(snapshot.residents, this.slots, this.clock)
     // Pre-sorted by home depth: the per-frame sort then has almost nothing to do.
     this.inhabitants.sort((a, b) => a.actor.homeTy - b.actor.homeTy || a.actor.homeTx - b.actor.homeTx)
     this.byId.clear()
@@ -298,8 +299,13 @@ export class RanchScene {
     this.forEachVisible(life => {
       const { resident, actor } = life
       const frames = this.speciesArt.request(resident.speciesId)
-      if (frames && actor.pokemon && actor.pokemon.frames !== frames) {
-        actor.pokemon = { id: resident.speciesId, name: speciesName(resident.speciesId), shiny: false, frames }
+      if (frames) {
+        if (actor.pokemon?.frames !== frames) {
+          actor.pokemon = { id: resident.speciesId, name: speciesName(resident.speciesId), shiny: false, frames }
+        }
+      } else if (!actor.pokemon) {
+        // A Poké Ball stands in until the overworld sheet lands.
+        actor.pokemon = pokeballInfo({ id: resident.speciesId, name_es: speciesName(resident.speciesId) })
       }
       this.push(actor, resident.displayName, resident.platform, resident.id)
     })

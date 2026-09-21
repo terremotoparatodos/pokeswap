@@ -9,16 +9,15 @@
 // look somewhere or takes a step or three, never leaving its own zone or
 // straying more than a couple of tiles from home.
 //
-// Art loads lazily: a Pokémon is a Poké Ball until its overworld sheet
-// arrives, and only species that are actually on screen are ever requested.
+// Art loads lazily and stays out of this file: only species actually on
+// screen are requested, and the scene gives an inhabitant its sprites (a
+// Poké Ball until the sheet arrives). Nothing here touches the DOM.
 
 import { createActor, isMoving, tryStep, type Actor, type MoveRules } from '../../wildlands/engine/actors'
 import { loadOverworldFrames, type Dir, type PokemonFrames } from '../../wildlands/engine/characters'
-import { pokeballInfo } from '../../wildlands/engine/pokeball'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { RanchResident } from '../domain/membership'
 import { hashString, seededRandom } from '../domain/seededRandom'
-import { speciesName } from '../domain/species'
 import type { RanchMap } from './ranchMap'
 import type { ZoneSlots } from './slots'
 
@@ -41,13 +40,10 @@ export interface Inhabitant {
   random: () => number
   /** Steps left in the current outing. */
   stepsLeft: number
-  /** The zone it may never leave. */
-  zone: number
 }
 
 export function createInhabitants(
   residents: readonly RanchResident[],
-  map: RanchMap,
   slots: ZoneSlots,
   now: number,
 ): Inhabitant[] {
@@ -64,11 +60,10 @@ export function createInhabitants(
       ty: tile.ty,
       speed: STROLL_SPEED,
       dir: DIRECTIONS[Math.floor(random() * 4)],
-      pokemon: pokeballInfo({ id: resident.speciesId, name_es: speciesName(resident.speciesId) }),
     })
     // Spread the first decisions out, so nobody moves in lockstep after load.
     actor.nextThink = now + THINK_MIN + random() * (THINK_MAX - THINK_MIN)
-    out.push({ resident, actor, random, stepsLeft: 0, zone: map.zones[tile.ty * map.w + tile.tx] })
+    out.push({ resident, actor, random, stepsLeft: 0 })
   }
   return out
 }
@@ -140,10 +135,6 @@ export class SpeciesArt {
   private readonly frames = new Map<number, PokemonFrames>()
   private readonly pending = new Set<number>()
   private readonly failed = new Set<number>()
-
-  has(speciesId: number): boolean {
-    return this.frames.has(speciesId)
-  }
 
   /** Requests the sheet if this is the first time the species is seen. */
   request(speciesId: number): PokemonFrames | null {

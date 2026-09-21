@@ -55,7 +55,7 @@ import { searchByName, type SearchEntry } from '../domain/search'
 import { speciesName } from '../domain/species'
 
 const props = defineProps<{ index: SearchEntry<RanchResident>[] }>()
-const emit = defineEmits<{ (event: 'pick', resident: RanchResident): void }>()
+const emit = defineEmits<{ pick: [resident: RanchResident] }>()
 
 const query = ref('')
 const active = ref(0)
