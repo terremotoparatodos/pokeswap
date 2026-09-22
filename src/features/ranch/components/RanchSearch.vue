@@ -28,15 +28,15 @@
     </label>
 
     <ul v-if="results.length" id="rancho-resultados" class="rs-list" role="listbox">
-      <li v-for="(resident, index) in results" :key="resident.id">
+      <li v-for="(resident, position) in results" :key="resident.id">
         <button
           class="rs-hit"
-          :class="{ 'rs-hit--active': index === active }"
+          :class="{ 'rs-hit--active': position === active }"
           type="button"
           role="option"
-          :aria-selected="index === active"
+          :aria-selected="position === active"
           @click="choose(resident)"
-          @mousemove="active = index"
+          @mousemove="active = position"
         >
           <span class="rs-mark" :class="`rs-mark--${resident.platform}`" aria-hidden="true" />
           <span class="rs-name">{{ resident.displayName }}</span>
