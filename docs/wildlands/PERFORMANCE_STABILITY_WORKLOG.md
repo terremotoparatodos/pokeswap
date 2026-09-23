@@ -192,3 +192,40 @@ El orden sigue siendo: **servidor primero, frontend después.**
 1. En una máquina con npm, correr los gates completos: vitest, typecheck, build, lint, suite del servidor con Colyseus real y `npm run test:load`.
 2. `npm run benchmark:multiplayer -- --players 100 --duration 120` antes y después, para medir bytes reales con msgpack y confirmar el −46 %.
 3. Recorrido visual de Ciudad y Pradera (§12–13) con el código del playtest: tecla sostenida más cambio de pestaña; esperado: el jugador no camina solo.
+
+---
+
+## Sesión 1, segunda continuación — 2026-09-23
+
+Inicio: `b9b51a9`. Push, npm y la API de GitHub siguen devolviendo 403 (se verificó otra vez).
+
+### Hechos
+
+10. **FACT — tap/click pathfinding en la ciudad:**
+    - 0 fallos en 73.339 taps dentro de la vista (±16 × ±12 casillas) desde 200 orígenes alcanzables al azar, con el A* real (radio 40, 5.000 nodos) sobre la colisión real.
+    - Costo p50 0,007 ms, p99 0,18 ms y máximo 4,5 ms (incluye el warm-up del JIT).
+    - Un tap sobre una casilla inalcanzable (el patio cercado) cuesta 0,4 ms de p50 y 3,2 ms de máximo. No genera frames largos, así que **no se optimiza** (política §15).
+11. **FACT — menús, chat y pausa (revisión estática):**
+    - El input de chat usa `@keydown.stop`, así que escribir no mueve al jugador. El keyup sí llega a `window` y libera la tecla.
+    - Panel, menú, login, dungeon y superficies del playtest pausan el mundo y desconectan el teclado; con `fa852ba`, además limpian las teclas.
+    - El chat no pausa el mundo, por diseño.
+    - **Deriva de documentación:** `HANDOFF.md` §1 dice que con un panel abierto se dibuja a ~10 fps (`PAUSED_FRAME_MS`), pero `gamePause.test.ts` exige lo contrario: frecuencia completa, sin `PAUSED_FRAME_MS`. El código actual es el aprobado; no se tocó el HANDOFF, que queda como pendiente documental.
+12. **Instrumentación del cliente** (§10), commit `c535333`:
+    - `PresenceDiagnostics` con contadores agregados: RTT de movimiento (envío → ack de la misma secuencia; p50/p95/p99/máx sobre 128 muestras), última secuencia enviada y confirmada, reconciliaciones, reparaciones por sólido o inalcanzable, reubicaciones, acks viejos ignorados, rechazos por razón y desconexiones.
+    - Se muestra en `PlaytestPerformanceHud`.
+    - `presence:error` antes no tenía handler (una advertencia del SDK por cada rechazo); ahora alimenta el contador.
+    - Harness S5 con el HUD: seq 24/24, 9 rechazos por ritmo, 1 reconciliación.
+
+### Verificación de esta tanda
+
+- Pruebas del cliente tocadas (shim local): presenceDiagnostics 3, colyseusPresence 5, presenceReconciliation 4, remoteActors 4, keyboard 2, townPosition 2, arrivalContract 2.
+- Typecheck parcial: sin errores nuevos. Se corrigió un uso de `.at()`, que no existe con `lib` ES2020.
+- **No verificado aquí:** compilación de los `.vue` modificados (`PlaytestPerformanceHud.vue` y `WildlandsView.vue`). La prueba nueva del HUD está en `PlaytestPerformanceHud.test.ts`. Queda para `npm test`, `npm run typecheck` y `npm run build`.
+
+### Propuesta que requiere decisión de producto
+
+- Agregar al texto de "REPORTAR BUG" una línea de red agregada, por ejemplo `RTT 95/180 ms · seq 12/11 · reconc 1 · seguro 0 · rech 0/0/0`. No incluye identificadores. El módulo documenta que el contenido del reporte es una decisión de producto, así que no se implementó.
+
+### Próximo experimento exacto
+
+Sin cambios: gates completos con npm, benchmark real de 1 a 100 jugadores con bytes msgpack y, con el código del playtest, recorrido visual con el HUD de presencia a la vista.
