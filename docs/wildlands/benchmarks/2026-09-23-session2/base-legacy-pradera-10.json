@@ -1,0 +1,46 @@
+{
+  "benchmark": "presence-websocket-v1",
+  "players": 10,
+  "area": "pradera",
+  "presenceProtocol": null,
+  "warmupSeconds": 5,
+  "identityPrefix": "player",
+  "durationSeconds": 30.17,
+  "joinMs": 137.91,
+  "transport": "ws://127.0.0.1:2610",
+  "totals": {
+    "socketMessages": 4080,
+    "logicalUpdates": 18360,
+    "estimatedBytes": 4043640,
+    "socketMessagesPerSecond": 135.22,
+    "logicalUpdatesPerSecond": 608.51,
+    "estimatedKiBPerSecond": 130.88,
+    "wireFrames": 4080,
+    "wireBytes": 3256840,
+    "wireKiBPerSecond": 105.41
+  },
+  "perClient": {
+    "wireKiBPerSecondP50": 10.54,
+    "wireKiBPerSecondP95": 10.54,
+    "wireKiBPerSecondMax": 10.54,
+    "messagesP50": 408,
+    "messagesP95": 408,
+    "messagesMax": 408,
+    "updatesP50": 1836,
+    "updatesP95": 1836,
+    "updatesMax": 1836
+  },
+  "acknowledgementRttMs": {
+    "samples": 2040,
+    "p50": 0.75,
+    "p95": 1.26,
+    "p99": 1.61,
+    "max": 4.84
+  },
+  "driverEventLoopLagMs": {
+    "p95": 10.33,
+    "p99": 11.09,
+    "max": 11.18
+  },
+  "rejectedMoves": 0
+}

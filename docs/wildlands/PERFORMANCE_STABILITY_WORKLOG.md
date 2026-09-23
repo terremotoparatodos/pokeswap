@@ -229,3 +229,115 @@ Inicio: `b9b51a9`. Push, npm y la API de GitHub siguen devolviendo 403 (se verif
 ### Próximo experimento exacto
 
 Sin cambios: gates completos con npm, benchmark real de 1 a 100 jugadores con bytes msgpack y, con el código del playtest, recorrido visual con el HUD de presencia a la vista.
+
+---
+
+## Sesión 2 — 2026-09-23 (máquina local del usuario, con npm y red)
+
+Inicio: `f438f48` (rama `perf/stability-investigation` traída del bundle). FACT: la base es `cba10e6` (`origin/docs/performance-stability-handoff`), con 13 commits encima. `origin/playtest/community-0.1` = `26f3b7c`. Clon nuevo por HTTPS (SSH falló por host key; no se tocó `known_hosts`).
+
+### Entorno
+
+- Windows 10 Pro 19045, AMD Ryzen 5 3600 (6 núcleos / 12 hilos, 3,6 GHz), 16 GB RAM.
+- El sistema tiene Node 18.14, que no alcanza: `@colyseus/core@0.18.13` y `@colyseus/tools` exigen `>= 22`, `eslint@9.39` exige `>= 18.18` y el glob de `node --test` necesita Node ≥ 21 en Windows.
+- Se usó el zip portable oficial **Node v22.23.2** (SHA-256 verificado contra `SHASUMS256.txt` de nodejs.org), sólo en el `PATH` de los comandos. CI y el Dockerfile usan Node 22. npm 10.9.8.
+
+### Fase 1 — gates reales
+
+| Gate | Resultado |
+|---|---|
+| `npm ci` (cliente) | OK (2 advertencias moderadas de `npm audit`, preexistentes; no se tocaron dependencias) |
+| `npm test` (vitest) | **1.937 / 1.937** (172 archivos) = 1.922 base + 15 nuevas |
+| `npm run typecheck` (vue-tsc) | OK, exit 0. `PlaytestPerformanceHud.vue` y `WildlandsView.vue` compilan |
+| `npm run build` | OK |
+| `npm run lint` | **1 error** → corregido en `1170612` (helper `server` sin uso en el harness). Después: 0 errores y las 9 advertencias antiguas de `AuthModal.vue` |
+| `services/realtime`: `npm ci && npm test` | **64 / 64** con `@colyseus/core` 0.18.13 real (ya no el stub) |
+| `npm run test:load` | OK: 50 jugadores, join 4,7 ms, move 4,5 ms, 0 conexiones colgadas |
+| `scripts/presence-harness/run.sh` | S1–S5: cliente = servidor en los 5 (S5: 9 rechazos por ritmo, seq 24/24, 1 reconciliación) |
+
+Servidor local (`node src/index.js`, `ALLOWED_ORIGINS=https://pokeswap.lol`):
+
+- FACT: `GET /` → 200 `Colyseus 0.18.13`.
+- FACT: `GET /version` → 200, `cache-control: no-store`, `{"service":"pokeswap-presence","commit":"1170612","protocol":2,...}`.
+- FACT: `POST /matchmake/joinOrCreate/presence` → 200 con reserva. Join completo por WebSocket con `@colyseus/sdk` y `Origin: https://pokeswap.lol` → OK como guest.
+- FACT: con un origen ajeno la reserva HTTP también devuelve 200, pero el **upgrade WebSocket se rechaza** (`beforeUpgrade`). Es el comportamiento de `26f3b7c`, no una regresión.
+
+### Fase 2 — benchmark real
+
+- Se corrió `scripts/benchmark-presence.mjs`, idéntico en `26f3b7c` y en la rama. Hallazgos:
+  - FACT: medía bytes sólo con `JSON.stringify`.
+  - FACT: no declaraba `presenceProtocol`, así que nunca podía observar los deltas `step`.
+  - Commit `4ac8a20`: agrega `--protocol N` (si se omite, el comportamiento es el de antes) y cuenta los bytes de payload WebSocket recibidos, es decir msgpack. FACT: `perMessageDeflate` es `false` en `@colyseus/ws-transport`, así que los bytes medidos son los del cable, sin contar cabeceras WS/TCP.
+- Configuración:
+  - 3 configuraciones × 2 áreas × {1, 10, 30, 50, 100} = 30 corridas;
+  - `--duration 30 --warmup 5`: los contadores se reinician después del warm-up; el join queda fuera de la medición;
+  - todos corriendo, un paso cada 140 ms (~7,1/s);
+  - cliente y servidor en la misma máquina por loopback: el RTT **no incluye red real**;
+  - `base-legacy`: servidor `26f3b7c` (worktree) con clientes sin protocolo, es decir producción hoy;
+  - `branch-legacy`: servidor de la rama con clientes sin protocolo, es decir el frontend publicado después del hotfix;
+  - `branch-p2`: servidor de la rama con `presenceProtocol: 2`, es decir la rama completa.
+- JSON crudo: `docs/wildlands/benchmarks/2026-09-23-session2/<config>-<área>-<N>.json`.
+
+KiB/s recibidos por cliente (p50, bytes wire reales):
+
+| N | Ciudad base | Ciudad rama legacy | Ciudad rama p2 | Δ p2 | Pradera base | Pradera rama p2 | Δ p2 |
+|---|---|---|---|---|---|---|---|
+| 1 | 1,07 | 1,05 | 1,05 | — | 1,01 | 1,01 | — |
+| 10 | 11,06 | 11,00 | 6,53 | −41,0 % | 10,54 | 6,52 | −38,1 % |
+| 30 | 33,30 | 33,15 | 18,59 | −44,2 % | 31,76 | 18,37 | −42,2 % |
+| 50 | 55,28 | 55,57 | 30,64 | −44,6 % | 52,98 | 30,30 | −42,8 % |
+| 100 | 111,09 | 111,14 | 61,07 | **−45,0 %** | 107,54 | 61,05 | **−43,2 %** |
+
+- FACT: la reducción real con msgpack es de **38–45 %**: −45 % con 100 jugadores en Ciudad y −43 % en Pradera.
+  - La estimación JSON de la sesión 1 (−46 %) era levemente optimista, pero **se confirma en lo sustancial**.
+  - En las mismas corridas, la estimación JSON da prácticamente la misma proporción que el wire (−45,1 % frente a −45,0 %).
+- FACT: `branch-legacy` es igual a `base` (±1 %). El hotfix de servidor no cambia el tráfico del cliente publicado.
+- FACT: RTT de ack igual en las tres configuraciones: 100 jugadores ≈ p50 5 ms, p95 11–12,5 ms, p99 15–16 ms, máx 29–40 ms.
+- FACT: mensajes físicos/s iguales (~1.400–1.465/s totales con 100). La mejora es de tamaño, no de cantidad.
+- FACT: **0 rechazos** en las 30 corridas. Lag del event loop del driver p99 de 11–15,5 ms; el driver comparte CPU con el servidor.
+- INFERENCE: el costo sigue siendo O(N²) en bytes. Con 100 jugadores en una sola zona son ~61 KiB/s por cliente, aceptable para un playtest. El límite práctico siguiente es el ancho de banda del cliente móvil, no la CPU del servidor.
+- OPEN QUESTION: no se midió la CPU del proceso servidor por separado (comparte máquina con el driver). La sesión 1 lo estimó en ~7,7 % de un núcleo con 100 jugadores.
+
+### Preparación del hotfix de servidor (Fase 3, sin push)
+
+- Rama local `hotfix/realtime-arrival-pacing`, creada desde `origin/playtest/community-0.1` (`26f3b7c`) con cherry-pick de `5c65765`, `f4d0e1f`, `5f0c911` y `1fd49ac`, que quedan como `efd0518`, `14229f5`, `1f9c511` y `0604c47`.
+  - Único conflicto: `1fd49ac` toca `scripts/presence-harness/reconciliation.ts`, que no existe en producción. Se descartó ese hunk.
+  - Se agregó `8cdfab3`: el README del hotfix ahora dice que el harness llega con el PR de cliente.
+  - Único archivo fuera de `services/realtime/`: `arrivalContract.test.ts` (prueba de contrato, no código de runtime).
+- Gates del hotfix:
+  - servidor 62/62 (sin las pruebas de `c8f121b`) y `test:load` OK;
+  - cliente 1.924/1.924 (1.922 + 2 de contrato);
+  - typecheck y build OK;
+  - lint: 0 errores y 9 advertencias antiguas.
+- Harness, **cliente publicado `26f3b7c`** (versión del harness de `1fd49ac`):
+
+  | Escenario | servidor 26f3b7c | servidor hotfix |
+  |---|---|---|
+  | S1 Pradera 20 RTT | 20 recuperaciones, 21 `area`, server (8,41) ≠ cliente (-5,-69) | **0, 1 `area`, convergen** |
+  | S2 "Ciudad" + caminar | 3 rechazos | 3 rechazos (bug del cliente, lo corrige `487ffb8`) |
+  | S3 ida y vuelta | 4 recuperaciones, 1 rechazo, (31,20) | 0, (9,41) = server |
+  | S4 stall 1,6 s | 2 rechazos, desfase permanente | 0, convergen |
+  | S5 stall 3,2 s | 14 rechazos, desfase permanente | 9 rechazos, **convergen** (34,26) |
+
+- **Riesgos para la publicación (FACT):**
+  1. `deploy-community-playtest.yml` se dispara con **cualquier** push a `playtest/community-0.1`, sin filtro de rutas y sin correr tests. **Mergear el PR del hotfix redespliega el frontend.**
+     - INFERENCE: el bundle resultante es funcionalmente igual al publicado, porque no cambia código de `src/` fuera de un `.test.ts`. Sólo cambia el commit en la etiqueta del HUD.
+  2. `c8f121b` (deltas `step`) es **mixto**: toca el servidor y `colyseusPresence.ts`. Queda para el PR "de cliente", lo que implica un **segundo redeploy de Colyseus**. Sin ese redeploy el cliente nuevo funciona igual, pero sin los −43/−45 %.
+  3. `/version` informará `protocol: 2` tanto con el hotfix como con la rama completa. Para distinguirlas hay que mirar `commit`.
+     - OPEN QUESTION: si Colyseus Cloud no inyecta el commit, `/version` dirá `unknown`. En ese caso conviene definir `PRESENCE_BUILD_COMMIT` en el panel (no es secreto).
+
+### Commits de esta sesión
+
+- `1170612` chore(playtest): quitar el helper sin uso del harness (lint).
+- `4ac8a20` perf(playtest): bytes wire reales y `--protocol` en el benchmark.
+- Esta entrada y el JSON crudo.
+
+### Pendientes (sin cambios)
+
+- Decisión del usuario: contadores de red en "REPORTAR BUG". No implementado.
+- Corrección documental de `HANDOFF.md` (~10 fps con panel abierto). No tocado.
+- Recorrido visual en producción (HUD, "Ciudad" caminando, vuelta por la puerta oeste, tecla sostenida más cambio de pestaña). Requiere que el usuario ingrese el código del playtest.
+
+### Próximo paso exacto
+
+Fase 3 con confirmación del usuario en cada paso: push de `perf/stability-investigation` → PR del hotfix → merge (el usuario, sabiendo que redespliega el frontend) → deploy en Colyseus Cloud (el usuario) → verificación de `/version`, `/`, matchmaking desde `https://pokeswap.lol` y Pradera sin toast.
