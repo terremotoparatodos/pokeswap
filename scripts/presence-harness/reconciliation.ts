@@ -103,6 +103,15 @@ async function scenario4() {
   const p = w.g.player
   return { name: 'S4 1.6 s stall, 12 queued steps', ...w.counters, client: `(${p.tx},${p.ty})` }
 }
+async function scenario5() {
+  // 24 running steps (~3.2 s) behind a stalled socket: more than any bucket absorbs.
+  const w = await world('s5')
+  let sent = 0
+  for (let i = 0; sent < 24 && i < 120; i++) if (w.step(['right', 'down', 'left', 'down'][Math.floor(i / 3) % 4])) sent++
+  w.rtt(3)
+  const p = w.g.player
+  return { name: 'S5 3.2 s stall, 24 queued steps', ...w.counters, client: `(${p.tx},${p.ty})` }
+}
 const out = []
-for (const s of [scenario1, scenario2, scenario3, scenario4]) out.push(await s())
+for (const s of [scenario1, scenario2, scenario3, scenario4, scenario5]) out.push(await s())
 console.log(JSON.stringify({ label: process.env.LABEL, results: out }, null, 1))

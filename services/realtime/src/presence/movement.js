@@ -27,7 +27,14 @@ export function applyMove(actor, direction, now, running, sequence = null) {
   const elapsed = Math.max(0, now - actor.moveTokensAt)
   actor.moveTokens = Math.min(MOVE_BURST_CAPACITY, actor.moveTokens + elapsed * MOVE_TOKENS_PER_SECOND / 1000)
   actor.moveTokensAt = now
-  if (actor.moveTokens < 1) return 'rate'
+  if (actor.moveTokens < 1) {
+    // Consume the sequence without moving. The caller echoes the unchanged
+    // actor, so a client whose last step was refused still receives an ack
+    // for its latest sequence and reconciles to this tile instead of staying
+    // ahead of the server for good.
+    if (sequence !== null) actor.moveSequence = sequence
+    return 'rate'
+  }
   actor.moveTokens -= 1
   const [dx, dy] = DELTA[direction]
   actor.lastMoveAt = now; actor.dir = direction; actor.speed = running ? TILE_PER_SECOND * 2 : TILE_PER_SECOND

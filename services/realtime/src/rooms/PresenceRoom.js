@@ -109,7 +109,12 @@ export class PresenceRoom extends Room {
     const actor = actors.get(client.userData?.actorId); const intent = moveIntent(payload)
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
     const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence)
-    if (rejection) return this.reject(client, rejection === 'replay' ? 'movement replay denied' : 'movement rate denied', rejection)
+    if (rejection) {
+      this.reject(client, rejection === 'replay' ? 'movement replay denied' : 'movement rate denied', rejection)
+      // A refused step must still be answered with authority (see applyMove).
+      if (rejection === 'rate' && intent.sequence !== null) this.sendSelf(client, actor)
+      return
+    }
     metrics.moved()
     this.publish(actor)
     // Moving the viewport changes its whole interest set even when every
