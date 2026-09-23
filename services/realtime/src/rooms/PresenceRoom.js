@@ -6,6 +6,7 @@ import { acceptMove } from '../presence/movement.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
 import { AREA, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor } from '../protocol/messages.js'
+import { arrivalFor } from '../protocol/arrival.js'
 import { metrics } from '../observability/metrics.js'
 
 const actors = new Map()
@@ -20,7 +21,6 @@ const reconnectingActors = new ReconnectCache()
 // the process on purpose — chat is not state this playtest should persist.
 const chatLog = new ChatLog()
 let chatSequence = 0
-const WILD_SPAWN = Object.freeze({ tx: 8, ty: 41 })
 
 export class PresenceRoom extends Room {
   static connections = 0
@@ -117,9 +117,11 @@ export class PresenceRoom extends Room {
   changeArea(client, payload) {
     const actor = actors.get(client.userData?.actorId); const intent = areaIntent(payload)
     if (!actor || !intent) return this.reject(client, 'area denied', 'area')
+    // Must match the client's own arrival tile (see protocol/arrival.js):
+    // the client keeps predicting from there before this snapshot reaches it.
+    const arrival = arrivalFor(intent.areaId, actor.areaId)
     actor.areaId = intent.areaId
-    actor.tx = intent.areaId === AREA.TOWN ? 31 : WILD_SPAWN.tx
-    actor.ty = intent.areaId === AREA.TOWN ? 20 : WILD_SPAWN.ty
+    actor.tx = arrival.tx; actor.ty = arrival.ty; actor.dir = arrival.dir
     this.publish(actor); this.sendSnapshot(client, actor)
   }
 
