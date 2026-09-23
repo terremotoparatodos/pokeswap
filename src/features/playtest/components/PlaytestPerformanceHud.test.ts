@@ -32,4 +32,22 @@ describe('PlaytestPerformanceHud', () => {
     expect(wrapper.text()).toContain('… HTTP')
     wrapper.unmount()
   })
+
+  it('shows presence diagnostics when the world provides them', () => {
+    const wrapper = mount(PlaytestPerformanceHud, { props: {
+      fps: 60, frameMs: 2, frameP95Ms: 3, frameP99Ms: 4, frameMaxMs: 5, longFramePercent: 0,
+      remoteActors: 0, remoteUpdatesPerSecond: 0, groundComposeMs: 0, groundProjectMs: 0, actorCollectMs: 0,
+      actorSortMs: 0, spriteDrawMs: 0, lightingMs: 0, loadedChunks: 0, generatedChunks: 0, evictedChunks: 0,
+      lastChunkBuildMs: 0, maxChunkBuildMs: 0,
+      presence: {
+        sent: 12, lastSent: 12, lastAcked: 11, rttMs: { p50: 95, p95: 140, p99: 180, max: 210, samples: 11 },
+        reconciliations: 1, solidRecoveries: 0, placements: 2, staleAcksIgnored: 1,
+        rejections: { rate: 0, replay: 0, other: 0 }, disconnects: 0,
+      },
+    } })
+    expect(wrapper.text()).toContain('95/140/180/210 ms RTT mov')
+    expect(wrapper.text()).toContain('12/11 seq env/conf')
+    expect(wrapper.text()).toContain('0 punto seguro')
+    expect(wrapper.text()).toContain('0/0/0 rech ritmo/replay/otro')
+  })
 })

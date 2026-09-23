@@ -15,7 +15,7 @@ const actor = (id: string): RemotePresenceActor => ({
 function remotePort() {
   return {
     replaceRemoteActors: vi.fn(), upsertRemoteActor: vi.fn(), removeRemoteActor: vi.fn(),
-    setAuthoritativeActor: vi.fn(), setPresenceAccess: vi.fn(),
+    setAuthoritativeActor: vi.fn(), setPresenceAccess: vi.fn(), presenceRejected: vi.fn(),
   } satisfies RemoteActorsPort
 }
 

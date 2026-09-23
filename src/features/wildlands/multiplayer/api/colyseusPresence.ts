@@ -8,6 +8,7 @@ const SNAPSHOT = 'presence:snapshot'
 const SELF = 'presence:self'
 const DELTA = 'presence:delta'
 const BATCH = 'presence:batch'
+const ERROR = 'presence:error'
 // Community Playtest 0.1 — area chat rides the same socket.
 const CHAT = 'chat'
 const CHAT_HISTORY = 'chat:history'
@@ -85,6 +86,10 @@ export class ColyseusPresence implements LocalPresencePort {
       room.onMessage<RemotePresenceActor>(SELF, actor => this.remote.setAuthoritativeActor(actor, 'self'))
       room.onMessage<Delta>(DELTA, delta => this.apply(delta))
       room.onMessage<Delta[]>(BATCH, deltas => this.applyBatch(deltas))
+      // Refusals were unhandled (an SDK warning each); they are diagnostics now.
+      room.onMessage<{ reason?: unknown }>(ERROR, error => {
+        if (typeof error?.reason === 'string') this.remote.presenceRejected?.(error.reason.slice(0, 64))
+      })
       if (this.chat) {
         const chat = this.chat
         chat.setAccess('connecting')

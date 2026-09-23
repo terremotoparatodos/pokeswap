@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Atlas } from '../areas/atlas'
 import { createActor, createWalkerState, type Actor } from './actors'
 import { WildlandsGame } from './game'
+import { PresenceDiagnostics } from '../multiplayer/domain/presenceDiagnostics'
 import { AreaTravel } from './travel'
 import type { RemotePresenceActor } from '../multiplayer/domain/presence'
 
@@ -22,7 +23,7 @@ function game(areaId: 'ciudad-corazon' | 'pradera' = 'ciudad-corazon'): { g: Har
     atlas, area: atlas.get(areaId), spectator: false, localPresenceActorId: null, pendingPresenceArea: null,
     awaitingAreaSnapshot: false, receivedAuthoritativeActor: false, nextMoveSequence: 0, walker: createWalkerState(),
     nav: { cancel() {} }, travel: new AreaTravel(), companion: { reset() {} }, camX: 0, camY: 0, seconds: 0, toast: null,
-    placedObjects: { isSolid: () => false }, onTownPosition: null,
+    placedObjects: { isSolid: () => false }, onTownPosition: null, presenceDiagnostics: new PresenceDiagnostics(),
     player: createActor({ id: 'player', kind: 'player', habitat: 'any', tx: 0, ty: 0 }),
     presence: {
       move: (value: string, _running: boolean, sequence: number) => sent.push({ kind: 'move', value, sequence }),

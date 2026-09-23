@@ -6,6 +6,7 @@
 import { WildlandsGame } from '../../src/features/wildlands/engine/game'
 import { Atlas } from '../../src/features/wildlands/areas/atlas'
 import { createActor, createWalkerState } from '../../src/features/wildlands/engine/actors'
+import { PresenceDiagnostics } from '../../src/features/wildlands/multiplayer/domain/presenceDiagnostics'
 import { AreaTravel } from '../../src/features/wildlands/engine/travel'
 // @ts-expect-error untyped JS module
 import { PresenceRoom } from '../../services/realtime/src/rooms/PresenceRoom.js'
@@ -25,7 +26,7 @@ export async function world(label: string) {
     atlas, area: atlas.get('ciudad-corazon'), spectator: false, localPresenceActorId: null, pendingPresenceArea: null,
     receivedAuthoritativeActor: false, nextMoveSequence: 0, walker: createWalkerState(),
     nav: { cancel() {} }, travel: new AreaTravel(), companion: { reset() {} }, camX: 0, camY: 0, seconds: 0, toast: null,
-    placedObjects: { isSolid: () => false }, onTownPosition: null,
+    placedObjects: { isSolid: () => false }, onTownPosition: null, presenceDiagnostics: new PresenceDiagnostics(),
     player: createActor({ id: 'player', kind: 'player', habitat: 'any', tx: 31, ty: 20 }),
   })
   const origSay = g.say
@@ -36,7 +37,7 @@ export async function world(label: string) {
     down.push(() => {
       if (type === 'presence:snapshot') { counters.snapshots++; g.setAuthoritativeActor(payload.self ?? null, 'snapshot') }
       else if (type === 'presence:self') { counters.selfAcks++; g.setAuthoritativeActor(payload, 'self') }
-      else if (type === 'presence:error') { counters.rejected++; log.push(`error:${payload.reason}`) }
+      else if (type === 'presence:error') { counters.rejected++; g.presenceRejected(payload.reason); log.push(`error:${payload.reason}`) }
     })
   } }
   g.presence = {
@@ -55,6 +56,7 @@ export async function world(label: string) {
     if (g.area.isSolid(p.tx + dx, p.ty + dy)) return false
     p.tx += dx; p.ty += dy; p.fromTx = p.tx; p.fromTy = p.ty; p.progress = 1
     g.presence.move(dir, false, ++g.nextMoveSequence) // game.ts onPlayerArrive
+    g.presenceDiagnostics.moveSent(g.nextMoveSequence, performance.now())
     return true
   }
   // Mirrors game.ts travel callback (lines 816-823) minus population/lens setup.
@@ -110,7 +112,8 @@ async function scenario5() {
   for (let i = 0; sent < 24 && i < 120; i++) if (w.step(['right', 'down', 'left', 'down'][Math.floor(i / 3) % 4])) sent++
   w.rtt(3)
   const p = w.g.player
-  return { name: 'S5 3.2 s stall, 24 queued steps', ...w.counters, client: `(${p.tx},${p.ty})` }
+  const diag = w.g.presenceDiagnostics.snapshot()
+  return { name: 'S5 3.2 s stall, 24 queued steps', ...w.counters, client: `(${p.tx},${p.ty})`, hud: { lastSent: diag.lastSent, lastAcked: diag.lastAcked, reconciliations: diag.reconciliations, rejections: diag.rejections } }
 }
 const out = []
 for (const s of [scenario1, scenario2, scenario3, scenario4, scenario5]) out.push(await s())
