@@ -428,7 +428,7 @@ export class WildlandsGame {
     const safe = safeAuthoritativePosition(
       actor,
       this.area.arrival(null),
-      (tx, ty) => this.solidAt(tx, ty),
+      (tx, ty) => this.solidAt(tx, ty) || !(this.area.isReachable?.(tx, ty) ?? true),
     )
     if (safe.recovered) {
       // The presence service deliberately owns ephemeral position, so repair

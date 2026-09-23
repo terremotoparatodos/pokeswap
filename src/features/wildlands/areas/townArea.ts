@@ -130,6 +130,7 @@ export class TownArea implements Area {
   readonly height: number
   private readonly solid: Uint8Array
   private art: TownArt | null = null
+  private reachable: Uint8Array | null = null
 
   constructor(def: TownDef) {
     this.def = def
@@ -274,6 +275,32 @@ export class TownArea implements Area {
   isSolid(tx: number, ty: number): boolean {
     if (tx < 0 || ty < 0 || tx >= this.width || ty >= this.height) return true
     return this.solid[ty * this.width + tx] === 1
+  }
+
+  isReachable(tx: number, ty: number): boolean {
+    if (this.isSolid(tx, ty)) return false
+    return this.reachableTiles()[ty * this.width + tx] === 1
+  }
+
+  /** Orthogonal flood fill from the spawn over the static collision map, computed once. */
+  private reachableTiles(): Uint8Array {
+    if (this.reachable) return this.reachable
+    const { width } = this
+    const seen = new Uint8Array(width * this.height)
+    const start = this.def.spawn
+    const queue = [start.ty * width + start.tx]
+    seen[queue[0]] = 1
+    for (let i = 0; i < queue.length; i++) {
+      const tx = queue[i] % width
+      const ty = (queue[i] - tx) / width
+      for (const [nx, ny] of [[tx + 1, ty], [tx - 1, ty], [tx, ty + 1], [tx, ty - 1]]) {
+        if (this.isSolid(nx, ny) || seen[ny * width + nx]) continue
+        seen[ny * width + nx] = 1
+        queue.push(ny * width + nx)
+      }
+    }
+    this.reachable = seen
+    return seen
   }
 
   isWater(): boolean {

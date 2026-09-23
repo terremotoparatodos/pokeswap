@@ -72,4 +72,11 @@ describe('presence reconciliation around area requests', () => {
     expect(sent).toHaveLength(1)
     expect([g.player.tx, g.player.ty]).toEqual([arrival.tx, arrival.ty])
   })
+
+  it('treats an unreachable town pocket like collision instead of trapping the player there', () => {
+    const { g, sent } = game()
+    g.setAuthoritativeActor(self({ tx: 37, ty: 9, moveSequence: 2 }), 'snapshot')
+    expect([g.player.tx, g.player.ty]).toEqual([31, 20])
+    expect(sent).toEqual([{ kind: 'area', value: 'ciudad-corazon' }])
+  })
 })
