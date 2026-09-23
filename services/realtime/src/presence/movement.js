@@ -1,25 +1,48 @@
 import { DIRECTIONS } from '../protocol/messages.js'
 
 export const TILE_PER_SECOND = 3.75
-export const BURST_LIMIT = 10
+/** Sustained cap: above the legitimate 7.5 tiles/s run, one move per token. */
+export const MOVE_TOKENS_PER_SECOND = 10
+/**
+ * Burst allowance. A WebSocket stall delivers every move queued behind it at
+ * once; the old 10-per-rolling-second window rejected legitimate running input
+ * after any stall of ~350 ms, leaving the server permanently one tile behind
+ * per rejection. Fifteen tokens absorb a 1.5 s stall at run speed (see
+ * `presence.test.js`) while the sustained rate stays bounded at ten tiles/s.
+ * Walkability is decided by the client either way: this bounds pace, not
+ * collision.
+ */
+export const MOVE_BURST_CAPACITY = 15
+/** @deprecated kept for callers that still read the old constant name. */
+export const BURST_LIMIT = MOVE_TOKENS_PER_SECOND
 
 const DELTA = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
-export function acceptMove(actor, direction, now, running, sequence = null) {
-  if (!DIRECTIONS.has(direction) || typeof running !== 'boolean') return null
+/** Returns `null` when the move is accepted (and applied), else the rejection reason. */
+export function applyMove(actor, direction, now, running, sequence = null) {
+  if (!DIRECTIONS.has(direction) || typeof running !== 'boolean') return 'invalid'
   const currentSequence = Number.isInteger(actor.moveSequence) ? actor.moveSequence : 0
-  if (sequence !== null && sequence <= currentSequence) return null
-  // WebSocket packets sent one tile apart can arrive together after network
-  // jitter. Rejecting the second packet by wall-clock spacing makes the
-  // authoritative actor fall one tile behind the client; after a turn, that
-  // offset can reconcile the player into a building. The rolling burst limit
-  // still caps movement above the legitimate 7.5 tiles/s run speed, while the
-  // strictly increasing sequence rejects replayed input.
-  actor.moves = actor.moves.filter(at => now - at < 1000)
-  if (actor.moves.length >= BURST_LIMIT) return null
+  if (sequence !== null && sequence <= currentSequence) return 'replay'
+  if (!Number.isFinite(actor.moveTokens)) { actor.moveTokens = MOVE_BURST_CAPACITY; actor.moveTokensAt = now }
+  const elapsed = Math.max(0, now - actor.moveTokensAt)
+  actor.moveTokens = Math.min(MOVE_BURST_CAPACITY, actor.moveTokens + elapsed * MOVE_TOKENS_PER_SECOND / 1000)
+  actor.moveTokensAt = now
+  if (actor.moveTokens < 1) {
+    // Consume the sequence without moving. The caller echoes the unchanged
+    // actor, so a client whose last step was refused still receives an ack
+    // for its latest sequence and reconciles to this tile instead of staying
+    // ahead of the server for good.
+    if (sequence !== null) actor.moveSequence = sequence
+    return 'rate'
+  }
+  actor.moveTokens -= 1
   const [dx, dy] = DELTA[direction]
-  actor.lastMoveAt = now; actor.moves.push(now); actor.dir = direction; actor.speed = running ? TILE_PER_SECOND * 2 : TILE_PER_SECOND
+  actor.lastMoveAt = now; actor.dir = direction; actor.speed = running ? TILE_PER_SECOND * 2 : TILE_PER_SECOND
   actor.moveSequence = sequence ?? currentSequence + 1
   actor.tx += dx; actor.ty += dy
-  return actor
+  return null
+}
+
+export function acceptMove(actor, direction, now, running, sequence = null) {
+  return applyMove(actor, direction, now, running, sequence) === null ? actor : null
 }

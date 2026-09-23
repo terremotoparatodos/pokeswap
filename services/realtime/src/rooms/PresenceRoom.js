@@ -2,10 +2,11 @@ import { Room, ServerError } from '@colyseus/core'
 import { authenticateSupabase, authorizedCompanion } from '../auth/supabaseAuth.js'
 import { ChatLog, acceptChat, chatIntent, chatMessage } from '../chat/chat.js'
 import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
-import { acceptMove } from '../presence/movement.js'
+import { applyMove } from '../presence/movement.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
 import { AREA, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor } from '../protocol/messages.js'
+import { arrivalFor } from '../protocol/arrival.js'
 import { metrics } from '../observability/metrics.js'
 
 const actors = new Map()
@@ -20,7 +21,6 @@ const reconnectingActors = new ReconnectCache()
 // the process on purpose — chat is not state this playtest should persist.
 const chatLog = new ChatLog()
 let chatSequence = 0
-const WILD_SPAWN = Object.freeze({ tx: 8, ty: 41 })
 
 export class PresenceRoom extends Room {
   static connections = 0
@@ -59,7 +59,9 @@ export class PresenceRoom extends Room {
     const characterId = ['lucas', 'dawn-pink', 'dawn-yellow'].includes(visual?.characterId) ? visual.characterId : 'lucas'
     // Replace the old socket before any optional visual lookup. Otherwise a
     // reload can let the old onLeave remove presence seen by other clients.
-    const actor = actors.get(auth.userId) ?? reconnectingActors.take(auth.userId) ??
+    const restored = actors.has(auth.userId) ? null : reconnectingActors.take(auth.userId)
+    if (restored) metrics.restored()
+    const actor = actors.get(auth.userId) ?? restored ??
       { id: auth.userId, areaId: AREA.TOWN, tx: 31, ty: 20, username: auth.username, characterId, companionId: null, dir: 'down', speed: 3.75, moveSequence: 0, lastMoveAt: 0, moves: [] }
     actor.username = auth.username
     actor.characterId = characterId
@@ -106,7 +108,14 @@ export class PresenceRoom extends Room {
   move(client, payload) {
     const actor = actors.get(client.userData?.actorId); const intent = moveIntent(payload)
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
-    if (!acceptMove(actor, intent.direction, Date.now(), intent.running, intent.sequence)) return this.reject(client, 'movement rate denied', 'rate')
+    const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence)
+    if (rejection) {
+      this.reject(client, rejection === 'replay' ? 'movement replay denied' : 'movement rate denied', rejection)
+      // A refused step must still be answered with authority (see applyMove).
+      if (rejection === 'rate' && intent.sequence !== null) this.sendSelf(client, actor)
+      return
+    }
+    metrics.moved()
     this.publish(actor)
     // Moving the viewport changes its whole interest set even when every
     // other actor is stationary. Reconcile entrants/leavers for this client.
@@ -117,9 +126,12 @@ export class PresenceRoom extends Room {
   changeArea(client, payload) {
     const actor = actors.get(client.userData?.actorId); const intent = areaIntent(payload)
     if (!actor || !intent) return this.reject(client, 'area denied', 'area')
+    // Must match the client's own arrival tile (see protocol/arrival.js):
+    // the client keeps predicting from there before this snapshot reaches it.
+    const arrival = arrivalFor(intent.areaId, actor.areaId)
     actor.areaId = intent.areaId
-    actor.tx = intent.areaId === AREA.TOWN ? 31 : WILD_SPAWN.tx
-    actor.ty = intent.areaId === AREA.TOWN ? 20 : WILD_SPAWN.ty
+    actor.tx = arrival.tx; actor.ty = arrival.ty; actor.dir = arrival.dir
+    metrics.changedArea()
     this.publish(actor); this.sendSnapshot(client, actor)
   }
 

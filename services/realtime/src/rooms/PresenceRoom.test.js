@@ -263,7 +263,7 @@ test('wild interest sends a leave when an actor exits the viewer sector', async 
   }
   assert.deepEqual(watcher.messages.at(-1), {
     type: MESSAGE.DELTA,
-    payload: { type: 'leave', actor: { id: 'traveller', areaId: 'pradera', tx: 24, ty: 41, username: 'Traveller', characterId: 'lucas', companionId: null, dir: 'right', speed: 7.5, moveSequence: 16 } },
+    payload: { type: 'leave', actor: { id: 'traveller', areaId: 'pradera', tx: 12, ty: -69, username: 'Traveller', characterId: 'lucas', companionId: null, dir: 'right', speed: 7.5, moveSequence: 17 } },
   })
   room.onLeave(watcher)
   room.onLeave(traveller)
@@ -362,4 +362,46 @@ test('an area snapshot discards queued deltas from the previous area', async () 
 
   room.onLeave(watcher)
   room.onLeave(traveller)
+})
+
+test('area changes place the actor exactly where the client arrives, never on Pradera solid terrain', async () => {
+  const room = new PresenceRoom()
+  const traveller = client('arrival-traveller')
+  await room.onJoin(traveller, {}, { kind: 'player', userId: 'arrival-user', username: 'Arrival', token: null })
+  room.ready(traveller)
+  // Town -> Pradera: the client stands on WildArea.arrival(), not the town gate tile (8, 41).
+  room.changeArea(traveller, { areaId: 'pradera' })
+  assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'pradera', tx: -5, ty: -69, dir: 'down' })
+  // A same-area request (client safe-spawn repair) must land on the same safe tile, not loop.
+  room.changeArea(traveller, { areaId: 'pradera' })
+  assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'pradera', tx: -5, ty: -69, dir: 'down' })
+  // Pradera -> town via the return pad: the client lands by the west gate.
+  room.changeArea(traveller, { areaId: 'ciudad-corazon' })
+  assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'ciudad-corazon', tx: 8, ty: 41, dir: 'right' })
+  // The "Ciudad" escape hatch inside town resets to the town spawn.
+  room.changeArea(traveller, { areaId: 'ciudad-corazon' })
+  assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'ciudad-corazon', tx: 31, ty: 20, dir: 'down' })
+  room.onLeave(traveller)
+})
+
+function pick(actor) { return { areaId: actor.areaId, tx: actor.tx, ty: actor.ty, dir: actor.dir } }
+
+test('a rate-refused move is answered with the unchanged authoritative actor', async () => {
+  const room = new PresenceRoom()
+  const mover = client('rate-refused-mover')
+  await room.onJoin(mover, {}, { kind: 'player', userId: 'rate-refused-user', username: 'Rate', token: null })
+  room.ready(mover)
+  const realNow = Date.now
+  Date.now = () => 5_000
+  try {
+    for (let sequence = 1; sequence <= 16; sequence++) room.move(mover, { direction: 'right', running: true, sequence })
+  } finally {
+    Date.now = realNow
+  }
+  const errors = mover.messages.filter(entry => entry.type === MESSAGE.ERROR)
+  assert.equal(errors.length, 1)
+  const self = lastOf(mover, MESSAGE.SELF).payload
+  assert.equal(self.moveSequence, 16)
+  assert.equal(self.tx, 31 + 15)
+  room.onLeave(mover)
 })

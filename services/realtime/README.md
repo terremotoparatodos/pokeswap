@@ -24,3 +24,11 @@ Colyseus Cloud debe alertar sobre conexiones, rechazos de join, CPU, memoria y d
 `npm test` ejecuta los casos de capacidad, autenticación, anti-spam e interés espacial. `npm run test:load` ejecuta un preflight reproducible de 50 jugadores, repartidos entre Ciudad y Pradera, e informa tiempo y mensajes del protocolo. La imagen debe verificarse con `docker build -t pokeswap-realtime-r30 .` en CI o un equipo con Docker.
 
 La reconexión del cliente vuelve a entrar a una sala nueva con backoff acotado; no usa reserva de sesión ni restaura posiciones. Antes de Cloud, verificarla en un navegador normal cerrando y levantando el contenedor con dos sesiones abiertas.
+
+## Verificación de despliegue y métricas (protocolo 2)
+
+- `GET /version` en el puerto **público** devuelve sólo identidad de build: `{ service, commit, protocol, startedAt }`. `commit` sale de `PRESENCE_BUILD_COMMIT` (o `SOURCE_COMMIT`/`GIT_COMMIT`/`COMMIT_SHA`), luego de `git rev-parse`, y si no hay ninguno es `unknown`; nunca refleja texto arbitrario del entorno. `protocol` sube cuando cambia comportamiento del que depende el cliente (ver `src/observability/version.js`). Para verificar un deploy: `curl -s https://<endpoint>/version`.
+- `GET /metrics` sigue sólo en `HEALTH_PORT` (red interna). Además de conexiones y rechazos por razón (`capacity`, `invalid`, `rate`, `replay`, `area`) informa movimientos aceptados, cambios de área, recuperaciones de reconexión, uptime, memoria (MB) y demora del event loop (p50/p99/máx). Nada identifica usuarios.
+- Puntos de llegada: `src/protocol/arrival.js` es el contrato con `Area.arrival()` del cliente; `src/features/wildlands/multiplayer/domain/arrivalContract.test.ts` falla si divergen.
+- Ritmo de movimiento: token bucket de 10 movimientos/s con ráfaga de 15 (`src/presence/movement.js`), para que un corte de red de hasta ~1,5 s corriendo no rechace pasos legítimos.
+- Harness determinista de reconciliación cliente/servidor: `scripts/presence-harness/run.sh` en la rama `perf/stability-investigation` (llega con el PR de cliente).
