@@ -5,7 +5,8 @@ import { execFileSync } from 'node:child_process'
  * deploy can be verified from the outside without the Colyseus dashboard.
  *   1 — R30 / Community Playtest 0.1 (26f3b7c and earlier)
  *   2 — area arrivals match the client (protocol/arrival.js); token-bucket
- *       move pacing; rejection reasons (replay vs rate)
+ *       move pacing; rejection reasons (replay vs rate); rate-refused
+ *       sequences are consumed and answered with the unchanged actor
  */
 export const PRESENCE_PROTOCOL_REVISION = 2
 

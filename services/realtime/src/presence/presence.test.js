@@ -49,6 +49,16 @@ test('a scripted client cannot sustain more than ten tiles per second', () => {
   assert.ok(actor.tx <= MOVE_BURST_CAPACITY + 10 * MOVE_TOKENS_PER_SECOND, `moved ${actor.tx}`)
 })
 
+test('a rate-refused sequenced move is consumed without moving, so its ack reconciles the client', () => {
+  const actor = { tx: 0, ty: 0, lastMoveAt: 0, moves: [], moveSequence: 0 }
+  for (let seq = 1; seq <= MOVE_BURST_CAPACITY; seq++) assert.equal(applyMove(actor, 'right', 0, true, seq), null)
+  assert.equal(applyMove(actor, 'right', 0, true, MOVE_BURST_CAPACITY + 1), 'rate')
+  assert.equal(actor.tx, MOVE_BURST_CAPACITY)
+  assert.equal(actor.moveSequence, MOVE_BURST_CAPACITY + 1)
+  // The consumed sequence cannot be replayed to sneak the step in later.
+  assert.equal(applyMove(actor, 'right', 1_000, true, MOVE_BURST_CAPACITY + 1), 'replay')
+})
+
 test('rejections carry a reason so replays are not reported as rate limiting', () => {
   const actor = { tx: 0, ty: 0, lastMoveAt: 0, moves: [], moveSequence: 4 }
   assert.equal(applyMove(actor, 'north', 0, true, 5), 'invalid')

@@ -385,3 +385,23 @@ test('area changes place the actor exactly where the client arrives, never on Pr
 })
 
 function pick(actor) { return { areaId: actor.areaId, tx: actor.tx, ty: actor.ty, dir: actor.dir } }
+
+test('a rate-refused move is answered with the unchanged authoritative actor', async () => {
+  const room = new PresenceRoom()
+  const mover = client('rate-refused-mover')
+  await room.onJoin(mover, {}, { kind: 'player', userId: 'rate-refused-user', username: 'Rate', token: null })
+  room.ready(mover)
+  const realNow = Date.now
+  Date.now = () => 5_000
+  try {
+    for (let sequence = 1; sequence <= 16; sequence++) room.move(mover, { direction: 'right', running: true, sequence })
+  } finally {
+    Date.now = realNow
+  }
+  const errors = mover.messages.filter(entry => entry.type === MESSAGE.ERROR)
+  assert.equal(errors.length, 1)
+  const self = lastOf(mover, MESSAGE.SELF).payload
+  assert.equal(self.moveSequence, 16)
+  assert.equal(self.tx, 31 + 15)
+  room.onLeave(mover)
+})
