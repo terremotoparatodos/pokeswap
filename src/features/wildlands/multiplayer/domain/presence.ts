@@ -24,7 +24,8 @@ export interface RemoteActorsPort {
   /** Applies one socket delta; this is the hot path while players are moving. */
   upsertRemoteActor(actor: RemotePresenceActor): void
   removeRemoteActor(id: string): void
-  setAuthoritativeActor(actor: RemotePresenceActor | null): void
+  /** `self` acks describe one move; `snapshot` answers join/ready and area requests. */
+  setAuthoritativeActor(actor: RemotePresenceActor | null, source?: 'snapshot' | 'self'): void
   setPresenceAccess(access: 'pending' | 'player' | 'guest'): void
 }
 export interface LocalPresencePort {

@@ -70,10 +70,10 @@ export class ColyseusPresence implements LocalPresencePort {
         // A guest reads the area and cannot speak into it, which the panel
         // has to know in order to say so instead of dropping the message.
         this.chat?.setAccess(snapshot.access)
-        this.remote.setAuthoritativeActor(snapshot.self ?? null)
+        this.remote.setAuthoritativeActor(snapshot.self ?? null, 'snapshot')
         this.replace(snapshot.actors)
       })
-      room.onMessage<RemotePresenceActor>(SELF, actor => this.remote.setAuthoritativeActor(actor))
+      room.onMessage<RemotePresenceActor>(SELF, actor => this.remote.setAuthoritativeActor(actor, 'self'))
       room.onMessage<Delta>(DELTA, delta => this.apply(delta))
       room.onMessage<Delta[]>(BATCH, deltas => this.applyBatch(deltas))
       if (this.chat) {

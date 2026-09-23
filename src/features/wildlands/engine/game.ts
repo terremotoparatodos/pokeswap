@@ -167,6 +167,12 @@ export class WildlandsGame {
   private localPresenceActorId: string | null = null
   /** Area requested locally; old-area socket acknowledgements cannot undo it. */
   private pendingPresenceArea: 'ciudad-corazon' | 'pradera' | null = null
+  /**
+   * Set whenever this client asks the service to re-place its actor. Every
+   * `presence:self` ack still in flight describes the position from before that
+   * request, so only the answering snapshot may reconcile until it arrives.
+   */
+  private awaitingAreaSnapshot = false
   private nextMoveSequence = 0
   private username: string | null = null
   private owned: readonly PlazaResident[] = []
@@ -402,19 +408,22 @@ export class WildlandsGame {
   }
 
   /** Reconciles the playable avatar to the ephemeral position confirmed by the server. */
-  setAuthoritativeActor(actor: RemotePresenceActor | null): void {
+  setAuthoritativeActor(actor: RemotePresenceActor | null, source: 'snapshot' | 'self' = 'snapshot'): void {
     if (!actor) {
       this.receivedAuthoritativeActor = false
       this.localPresenceActorId = null
       this.pendingPresenceArea = null
+      this.awaitingAreaSnapshot = false
       this.nextMoveSequence = 0
       return
     }
     if (this.spectator) return
     this.localPresenceActorId = actor.id
+    if (this.awaitingAreaSnapshot && source !== 'snapshot') return
     const area = reconcilePresenceArea(this.pendingPresenceArea, actor.areaId)
     this.pendingPresenceArea = area.pendingArea
     if (!area.accept) return
+    this.awaitingAreaSnapshot = false
     if (this.area.id !== actor.areaId) this.enterArea(actor.areaId, null, { tx: actor.tx, ty: actor.ty, dir: actor.dir })
     const safe = safeAuthoritativePosition(
       actor,
@@ -426,10 +435,12 @@ export class WildlandsGame {
       // both sides. Keeping only the local fallback would let the next server
       // acknowledgement push the player straight back into the same hitbox.
       this.placePlayer(safe.position)
-      this.receivedAuthoritativeActor = false
-      this.nextMoveSequence = 0
-      this.pendingPresenceArea = actor.areaId
-      this.presence?.changeArea(actor.areaId)
+      // The service's sequence never goes backwards: restarting ours at zero
+      // made every step taken before the reply look like a replay and get
+      // rejected, leaving the server behind the client again.
+      this.receivedAuthoritativeActor = true
+      this.nextMoveSequence = Math.max(this.nextMoveSequence, actor.moveSequence)
+      this.requestPresencePlacement(actor.areaId)
       this.say('Tu posición se corrigió al punto seguro de esta zona')
       return
     }
@@ -707,14 +718,21 @@ export class WildlandsGame {
     this.placePlayer(arrival)
     this.onTownPosition?.({ tx: arrival.tx, ty: arrival.ty, dir: arrival.dir })
     if (this.presence && !this.spectator) {
-      this.pendingPresenceArea = 'ciudad-corazon'
-      this.receivedAuthoritativeActor = false
-      this.nextMoveSequence = 0
-      this.presence.changeArea(LOBBY_ID)
+      this.requestPresencePlacement('ciudad-corazon')
     } else {
       this.observerAt = null
     }
     this.say('Volviste al centro de Ciudad Corazón')
+  }
+
+  /**
+   * Asks the service to place the actor at this area's arrival. The barrier
+   * and the kept move sequence let the player keep walking before the reply.
+   */
+  private requestPresencePlacement(areaId: 'ciudad-corazon' | 'pradera'): void {
+    this.pendingPresenceArea = areaId
+    this.awaitingAreaSnapshot = true
+    this.presence?.changeArea(areaId)
   }
 
   /** Shows only a line the server accepted and echoed; never an optimistic draft. */
@@ -818,8 +836,9 @@ export class WildlandsGame {
       // Only these two areas participate in R30 presence. The request is
       // recorded before it crosses the socket so an older town snapshot cannot
       // pull the local player back through the portal.
-      this.pendingPresenceArea = this.area.id === LOBBY_ID ? 'ciudad-corazon' : this.area.id === 'pradera' ? 'pradera' : null
-      this.presence?.changeArea(this.area.id)
+      const presenceArea = this.area.id === LOBBY_ID ? 'ciudad-corazon' : this.area.id === 'pradera' ? 'pradera' : null
+      if (presenceArea) this.requestPresencePlacement(presenceArea)
+      else this.pendingPresenceArea = null
       this.say(this.area.name)
     })
 
