@@ -2,7 +2,7 @@ import { Room, ServerError } from '@colyseus/core'
 import { authenticateSupabase, authorizedCompanion } from '../auth/supabaseAuth.js'
 import { ChatLog, acceptChat, chatIntent, chatMessage } from '../chat/chat.js'
 import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
-import { acceptMove } from '../presence/movement.js'
+import { applyMove } from '../presence/movement.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
 import { AREA, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor } from '../protocol/messages.js'
@@ -106,7 +106,8 @@ export class PresenceRoom extends Room {
   move(client, payload) {
     const actor = actors.get(client.userData?.actorId); const intent = moveIntent(payload)
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
-    if (!acceptMove(actor, intent.direction, Date.now(), intent.running, intent.sequence)) return this.reject(client, 'movement rate denied', 'rate')
+    const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence)
+    if (rejection) return this.reject(client, rejection === 'replay' ? 'movement replay denied' : 'movement rate denied', rejection)
     this.publish(actor)
     // Moving the viewport changes its whole interest set even when every
     // other actor is stationary. Reconcile entrants/leavers for this client.
