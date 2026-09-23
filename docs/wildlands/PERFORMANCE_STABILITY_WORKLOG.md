@@ -132,3 +132,63 @@ En una máquina con npm:
 3. `cd services/realtime && npm ci && npm test`.
 4. `npm run benchmark:multiplayer -- --players 30 --area pradera` (antes y después), registrando reconciliaciones.
 5. Recién entonces, recorrido visual de Pradera: entrar, esperar 10 s y contar mensajes `area` en la pestaña Network (esperado: 1).
+
+---
+
+## Sesión 1, continuación — 2026-09-23
+
+Inicio: `12ab150`. El entorno sigue igual: push, npm y la API de GitHub devuelven 403 (se verificó de nuevo).
+
+### Hechos y correcciones
+
+5. **FACT — un rechazo real dejaba desfase permanente.** Con un stall de 3,2 s y 24 pasos encolados (harness S5) se rechazan 9 pasos. El último ack corresponde a una secuencia menor que la del cliente, así que el cliente lo ignora para siempre: cliente (35,28) ≠ server (34,26).
+   - Fix `1fd49ac`: el servidor consume la secuencia rechazada sin mover al actor y responde `presence:self`.
+   - Resultado: el cliente converge a (34,26). La secuencia consumida no puede repetirse.
+6. **FACT — 68 casillas de la ciudad son transitables pero inalcanzables desde el spawn** (BFS ortogonal sobre la colisión estática real):
+   - el patio cercado entre Silph Co. y el departamento 1, (36–38, 7–12);
+   - las franjas x=6 y x=57, filas 14–29;
+   - fragmentos de la fila 0 junto a los portones norte.
+   - La restauración de posición y la reconciliación las aceptaban: se comprobó con `(37,9)`.
+   - Fix `40e672f`: `TownArea.isReachable()` (flood fill cacheado). La restauración las rechaza y la reconciliación las trata como colisión.
+   - Resto de la auditoría estática: las 6 puertas, sus umbrales y la fila frente a cada una son transitables y alcanzables. Los 5 portones y sus llegadas también. Hay 21 casillas sin salida, todas umbrales o rincones de fachada, esperables.
+7. **FACT — `KeyboardInput.detach()` no limpiaba las teclas sostenidas.** Un keyup ocurrido con un panel abierto o la pestaña oculta se perdía y, al volver, el jugador caminaba solo.
+   - Nota: la pausa por visibilidad hace `detach` sin que haya `blur`.
+   - Fix `fa852ba`: `detach()` llama a `clear()`. La prueba nueva falla en 26f3b7c.
+   - **INFERENCE — cadena completa de la observación original:** cambio de visibilidad con una tecla apretada → la tecla queda pegada → el jugador camina hasta el portón oeste → entra a Pradera → bucle de "punto seguro" (hecho 1). Cada eslabón está demostrado por separado; la secuencia exacta de aquella automatización no se puede reproducir.
+8. **FACT — el ancho de banda de presencia es O(N²) con el payload completo.** Soak con la lógica real del room: 60 s virtuales, todos corriendo en la plaza a 7,5 pasos/s, flush cada 50 ms. Tamaño estimado en JSON (Colyseus usa msgpack, que pesa menos, pero la proporción se mantiene).
+
+   | Jugadores | CPU lógica p50 / p99 (ms por s) | Mensajes/s | KB/s por cliente (legacy → step) |
+   |---|---|---|---|
+   | 1 | 0,03 / 0,7 | 8 | 1,2 |
+   | 10 | 1,1 / 6,8 | 150 | 13,3 → 7,7 |
+   | 30 | 6,6 / 22,7 | 451 | 40,2 → — |
+   | 50 | 18 / 39 | 752 | 67,2 → 36,4 |
+   | 100 | 76 / 138 | 1.503 | **134,4 → 72,2** |
+
+   - Fix `c8f121b`: deltas `step` compactos para clientes que declaran `presenceProtocol: 2`, con fusión con un `upsert` pendiente en la misma ventana. Los clientes legacy siguen recibiendo `upsert`.
+   - Resultado: −46 % de bytes y el mismo CPU. Con 100 jugadores la CPU de lógica es ~7,7 % de un núcleo: no es el cuello de botella.
+9. **FACT — sin fuga de memoria en el room.** Soak de 15 min virtuales con 100 jugadores y 850 joins, mitad de recambio por minuto. El heap después de GC pasa de 5,2 MB a 4,8 MB. Al salir todos queda en 4,2 MB y, tras expirar el caché de reconexión (timers reales de 15 s), en 3,7 MB. El crecimiento aparente de ~30 KB/min era el caché bajo el reloj virtual.
+
+### Commits de esta continuación (locales)
+
+`1fd49ac`, `40e672f`, `fa852ba`, `c8f121b`, más esta bitácora.
+
+- Servidor: 64 pruebas, 0 fallidas.
+- Cliente: las pruebas tocadas pasan con el shim local (colyseusPresence 5, presenceReconciliation 4, keyboard 2, townPosition 2, arrivalContract 2, remoteActors 4, movementReconciliation 3).
+- Typecheck parcial: sin errores nuevos.
+- Harness: los 5 escenarios convergen.
+
+### Compatibilidad cliente/servidor (actualizada)
+
+| Servidor \ Cliente | 26f3b7c | rama |
+|---|---|---|
+| 26f3b7c (protocolo 1) | producción actual | funciona, pero sigue el bucle de Pradera (es del servidor). El servidor viejo ignora `presenceProtocol` y envía `upsert` |
+| rama (protocolo 2) | sin bucle. Recibe `upsert`, sin deltas `step` | todo |
+
+El orden sigue siendo: **servidor primero, frontend después.**
+
+### Próximo experimento exacto (sin cambios de prioridad)
+
+1. En una máquina con npm, correr los gates completos: vitest, typecheck, build, lint, suite del servidor con Colyseus real y `npm run test:load`.
+2. `npm run benchmark:multiplayer -- --players 100 --duration 120` antes y después, para medir bytes reales con msgpack y confirmar el −46 %.
+3. Recorrido visual de Ciudad y Pradera (§12–13) con el código del playtest: tecla sostenida más cambio de pestaña; esperado: el jugador no camina solo.
