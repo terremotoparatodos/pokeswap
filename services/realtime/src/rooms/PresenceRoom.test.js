@@ -405,3 +405,37 @@ test('a rate-refused move is answered with the unchanged authoritative actor', a
   assert.equal(self.tx, 31 + 15)
   room.onLeave(mover)
 })
+
+test('compact-protocol viewers get step deltas for known actors; legacy viewers keep full upserts', async () => {
+  const room = new PresenceRoom()
+  const mover = client('step-mover')
+  const modern = client('step-modern')
+  const legacy = client('step-legacy')
+  await room.onJoin(mover, {}, { kind: 'player', userId: 'step-mover-user', username: 'Mover', token: null })
+  await room.onJoin(modern, { presenceProtocol: 2 }, { kind: 'player', userId: 'step-modern-user', username: 'Modern', token: null })
+  await room.onJoin(legacy, {}, { kind: 'player', userId: 'step-legacy-user', username: 'Legacy', token: null })
+  for (const socket of [mover, modern, legacy]) room.ready(socket)
+  room.deltaBatching = false
+  room.move(mover, { direction: 'right', running: false, sequence: 1 })
+  assert.deepEqual(modern.messages.at(-1), {
+    type: MESSAGE.DELTA,
+    payload: { type: 'step', actor: { id: 'step-mover-user', tx: 32, ty: 20, dir: 'right', speed: 3.75, moveSequence: 1 } },
+  })
+  assert.equal(legacy.messages.at(-1).payload.type, 'upsert')
+  assert.equal(legacy.messages.at(-1).payload.actor.username, 'Mover')
+  for (const socket of [mover, modern, legacy]) room.onLeave(socket)
+})
+
+test('a step never erases a full upsert queued in the same batch window', async () => {
+  const room = new PresenceRoom()
+  const viewer = client('fold-viewer')
+  await room.onJoin(viewer, { presenceProtocol: 2 }, { kind: 'player', userId: 'fold-viewer-user', username: 'Viewer', token: null })
+  room.ready(viewer)
+  room.deltaBatching = true
+  const identity = { id: 'fold-actor', areaId: 'ciudad-corazon', tx: 32, ty: 20, username: 'Fold', characterId: 'lucas', companionId: 25, dir: 'down', speed: 3.75, moveSequence: 3 }
+  room.sendDelta(viewer, { type: 'upsert', actor: identity })
+  room.sendDelta(viewer, { type: 'step', actor: { id: 'fold-actor', tx: 33, ty: 20, dir: 'right', speed: 3.75, moveSequence: 4 } })
+  room.flushDeltaBatches()
+  assert.deepEqual(lastOf(viewer, MESSAGE.BATCH).payload, [{ type: 'upsert', actor: { ...identity, tx: 33, dir: 'right', moveSequence: 4 } }])
+  room.onLeave(viewer)
+})

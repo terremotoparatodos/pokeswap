@@ -18,7 +18,13 @@ const BENCHMARK_PLAYER = import.meta.env.DEV && import.meta.env.VITE_PRESENCE_BE
 const REPLACED_SESSION_CODE = 4001
 
 interface Snapshot { access: 'player' | 'guest'; self?: RemotePresenceActor; actors: RemotePresenceActor[] }
-interface Delta { type: 'upsert' | 'leave'; actor: RemotePresenceActor }
+type StepFields = Pick<RemotePresenceActor, 'id' | 'tx' | 'ty' | 'dir' | 'speed' | 'moveSequence'>
+type Delta =
+  | { type: 'upsert' | 'leave'; actor: RemotePresenceActor }
+  /** Protocol 2: a move of an actor whose identity this client already holds. */
+  | { type: 'step'; actor: StepFields }
+/** Declared on join; the service then sends compact `step` deltas (see services/realtime protocol/messages.js). */
+const PRESENCE_PROTOCOL = 2
 
 /** Socket adapter: no polling, no persistence and no Supabase writes. */
 export class ColyseusPresence implements LocalPresencePort {
@@ -28,6 +34,8 @@ export class ColyseusPresence implements LocalPresencePort {
   private connecting = false
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempt = 0
+  /** Last full actor per id, so a compact step can be expanded before it reaches the engine. */
+  private readonly known = new Map<string, RemotePresenceActor>()
 
   /**
    * `chat` is optional on purpose: without one, the adapter never installs the
@@ -51,6 +59,7 @@ export class ColyseusPresence implements LocalPresencePort {
         : 'browser-player'
       const room = await client.joinOrCreate('presence', {
         token: data.session?.access_token ?? null,
+        presenceProtocol: PRESENCE_PROTOCOL,
         visual: identity ? { characterId: identity.character.id, companionPokemonId: identity.companion?.id ?? null } : null,
         ...(BENCHMARK_PLAYER ? {
           benchmark: {
@@ -140,13 +149,33 @@ export class ColyseusPresence implements LocalPresencePort {
     void this.connect(identity)
   }
 
-  private replace(next: readonly RemotePresenceActor[]): void { this.remote.replaceRemoteActors(next) }
+  private replace(next: readonly RemotePresenceActor[]): void {
+    this.known.clear()
+    for (const actor of next) this.known.set(actor.id, actor)
+    this.remote.replaceRemoteActors(next)
+  }
   private apply(delta: Delta): void {
-    if (delta.type === 'leave') this.remote.removeRemoteActor(delta.actor.id)
-    else this.remote.upsertRemoteActor(delta.actor)
+    if (delta.type === 'leave') {
+      this.known.delete(delta.actor.id)
+      this.remote.removeRemoteActor(delta.actor.id)
+      return
+    }
+    if (delta.type === 'step') {
+      const identity = this.known.get(delta.actor.id)
+      // The service only sends a step after a full actor; without one there is
+      // nothing to draw, and inventing identity would be worse than waiting.
+      if (!identity) return
+      const actor = { ...identity, ...delta.actor }
+      this.known.set(actor.id, actor)
+      this.remote.upsertRemoteActor(actor)
+      return
+    }
+    this.known.set(delta.actor.id, delta.actor)
+    this.remote.upsertRemoteActor(delta.actor)
   }
   private applyBatch(deltas: readonly Delta[]): void { for (const delta of deltas) this.apply(delta) }
   private clearActors(): void {
+    this.known.clear()
     this.chat?.detach()
     this.remote.setPresenceAccess('pending')
     this.remote.setAuthoritativeActor(null)

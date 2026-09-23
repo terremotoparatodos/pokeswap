@@ -49,4 +49,24 @@ describe('ColyseusPresence remote deltas', () => {
     expect(remote.removeRemoteActor).toHaveBeenCalledWith('a')
     expect(remote.replaceRemoteActors).not.toHaveBeenCalled()
   })
+
+  it('expands a compact step with the identity of the last full actor', () => {
+    const remote = remotePort()
+    const presence = new ColyseusPresence(remote)
+    const apply = (delta: unknown) => (presence as unknown as { apply(delta: unknown): void }).apply(delta)
+    apply({ type: 'upsert', actor: { ...actor('a'), companionId: 25 } })
+    apply({ type: 'step', actor: { id: 'a', tx: 2, ty: 2, dir: 'right', speed: 7.5, moveSequence: 2 } })
+    expect(remote.upsertRemoteActor).toHaveBeenLastCalledWith({ ...actor('a'), companionId: 25, tx: 2, dir: 'right', speed: 7.5, moveSequence: 2 })
+  })
+
+  it('drops a step for an actor it never received in full, and forgets actors that left', () => {
+    const remote = remotePort()
+    const presence = new ColyseusPresence(remote)
+    const apply = (delta: unknown) => (presence as unknown as { apply(delta: unknown): void }).apply(delta)
+    apply({ type: 'step', actor: { id: 'ghost', tx: 2, ty: 2, dir: 'right', speed: 3.75, moveSequence: 2 } })
+    apply({ type: 'upsert', actor: actor('a') })
+    apply({ type: 'leave', actor: actor('a') })
+    apply({ type: 'step', actor: { id: 'a', tx: 2, ty: 2, dir: 'right', speed: 3.75, moveSequence: 2 } })
+    expect(remote.upsertRemoteActor).toHaveBeenCalledOnce()
+  })
 })

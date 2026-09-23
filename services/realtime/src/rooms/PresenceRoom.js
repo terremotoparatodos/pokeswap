@@ -5,7 +5,7 @@ import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
 import { applyMove } from '../presence/movement.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
-import { AREA, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor } from '../protocol/messages.js'
+import { AREA, COMPACT_STEP_PROTOCOL, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor, stepActor } from '../protocol/messages.js'
 import { arrivalFor } from '../protocol/arrival.js'
 import { metrics } from '../observability/metrics.js'
 
@@ -16,6 +16,9 @@ const observers = new Map()
 // transport state, not player state: it lets us send an explicit leave when a
 // player crosses a wild-sector boundary.
 const visibleByClient = new Map()
+// Sockets that declared they understand compact `step` deltas. Kept outside
+// `userData` because a guest's observe() replaces that object.
+const compactClients = new WeakSet()
 const reconnectingActors = new ReconnectCache()
 // Community Playtest 0.1: the last lines of each area, in memory. It dies with
 // the process on purpose — chat is not state this playtest should persist.
@@ -47,6 +50,7 @@ export class PresenceRoom extends Room {
   async onJoin(client, options, auth) {
     if (!hasCapacity(PresenceRoom.connections)) { metrics.rejected('capacity'); throw new ServerError(4210, 'capacity reached') }
     PresenceRoom.connections++
+    if (Number.isInteger(options?.presenceProtocol) && options.presenceProtocol >= COMPACT_STEP_PROTOCOL) compactClients.add(client)
     if (auth.kind === 'guest') {
       metrics.joined('guest')
       client.userData = { observer: { areaId: AREA.TOWN, tx: 31, ty: 20 } }
@@ -116,7 +120,7 @@ export class PresenceRoom extends Room {
       return
     }
     metrics.moved()
-    this.publish(actor)
+    this.publish(actor, stepActor(actor))
     // Moving the viewport changes its whole interest set even when every
     // other actor is stationary. Reconcile entrants/leavers for this client.
     this.syncVisibility(client, actor)
@@ -176,15 +180,17 @@ export class PresenceRoom extends Room {
     }
   }
 
-  publish(actor) { this.broadcastDelta({ type: 'upsert', actor: publicActor(actor) }, actor) }
-  broadcastDelta(delta, changed) {
+  /** `step` is given only for a pure move: identity is unchanged, so viewers that know the actor need just the step. */
+  publish(actor, step = null) { this.broadcastDelta({ type: 'upsert', actor: publicActor(actor) }, actor, step) }
+  broadcastDelta(delta, changed, step = null) {
     for (const client of observers.values()) {
       const viewer = actors.get(client.userData?.actorId) ?? client.userData?.observer
       if (!viewer || changed.id === viewer.id) continue
       const visible = visibleActors(viewer, new Map([[changed.id, changed]])).length > 0
       const previous = visibleByClient.get(client.sessionId) ?? new Set()
       if (delta.type === 'leave' ? previous.has(changed.id) : visible) {
-        this.sendDelta(client, delta)
+        const compact = step !== null && previous.has(changed.id) && compactClients.has(client)
+        this.sendDelta(client, compact ? { type: 'step', actor: step } : delta)
       } else if (!visible && previous.has(changed.id)) {
         this.sendDelta(client, { type: 'leave', actor: publicActor(changed) })
       }
@@ -213,8 +219,13 @@ export class PresenceRoom extends Room {
       return
     }
     const pending = this.pendingDeltas.get(client) ?? new Map()
-    // Only the latest state of an actor inside the 50 ms window matters.
-    pending.set(delta.actor.id, delta)
+    // Only the latest state of an actor inside the 50 ms window matters, but a
+    // step must not erase a full upsert (e.g. a companion change) queued before
+    // it in the same window: fold the step's position into that upsert.
+    const queued = pending.get(delta.actor.id)
+    pending.set(delta.actor.id, delta.type === 'step' && queued?.type === 'upsert'
+      ? { type: 'upsert', actor: { ...queued.actor, ...delta.actor } }
+      : delta)
     this.pendingDeltas.set(client, pending)
   }
   flushDeltaBatches() {
