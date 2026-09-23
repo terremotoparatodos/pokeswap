@@ -59,7 +59,9 @@ export class PresenceRoom extends Room {
     const characterId = ['lucas', 'dawn-pink', 'dawn-yellow'].includes(visual?.characterId) ? visual.characterId : 'lucas'
     // Replace the old socket before any optional visual lookup. Otherwise a
     // reload can let the old onLeave remove presence seen by other clients.
-    const actor = actors.get(auth.userId) ?? reconnectingActors.take(auth.userId) ??
+    const restored = actors.has(auth.userId) ? null : reconnectingActors.take(auth.userId)
+    if (restored) metrics.restored()
+    const actor = actors.get(auth.userId) ?? restored ??
       { id: auth.userId, areaId: AREA.TOWN, tx: 31, ty: 20, username: auth.username, characterId, companionId: null, dir: 'down', speed: 3.75, moveSequence: 0, lastMoveAt: 0, moves: [] }
     actor.username = auth.username
     actor.characterId = characterId
@@ -108,6 +110,7 @@ export class PresenceRoom extends Room {
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
     const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence)
     if (rejection) return this.reject(client, rejection === 'replay' ? 'movement replay denied' : 'movement rate denied', rejection)
+    metrics.moved()
     this.publish(actor)
     // Moving the viewport changes its whole interest set even when every
     // other actor is stationary. Reconcile entrants/leavers for this client.
@@ -123,6 +126,7 @@ export class PresenceRoom extends Room {
     const arrival = arrivalFor(intent.areaId, actor.areaId)
     actor.areaId = intent.areaId
     actor.tx = arrival.tx; actor.ty = arrival.ty; actor.dir = arrival.dir
+    metrics.changedArea()
     this.publish(actor); this.sendSnapshot(client, actor)
   }
 
