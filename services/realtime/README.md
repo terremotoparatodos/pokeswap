@@ -31,4 +31,4 @@ La reconexión del cliente vuelve a entrar a una sala nueva con backoff acotado;
 - `GET /metrics` sigue sólo en `HEALTH_PORT` (red interna). Además de conexiones y rechazos por razón (`capacity`, `invalid`, `rate`, `replay`, `area`) informa movimientos aceptados, cambios de área, recuperaciones de reconexión, uptime, memoria (MB) y demora del event loop (p50/p99/máx). Nada identifica usuarios.
 - Puntos de llegada: `src/protocol/arrival.js` es el contrato con `Area.arrival()` del cliente; `src/features/wildlands/multiplayer/domain/arrivalContract.test.ts` falla si divergen.
 - Ritmo de movimiento: token bucket de 10 movimientos/s con ráfaga de 15 (`src/presence/movement.js`), para que un corte de red de hasta ~1,5 s corriendo no rechace pasos legítimos.
-- Harness determinista de reconciliación cliente/servidor: `scripts/presence-harness/run.sh` desde la raíz.
+- Harness determinista de reconciliación cliente/servidor: `scripts/presence-harness/run.sh` en la rama `perf/stability-investigation` (llega con el PR de cliente).
