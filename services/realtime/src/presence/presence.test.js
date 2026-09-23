@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { hasCapacity, CONNECTION_LIMIT } from './capacity.js'
-import { acceptMove } from './movement.js'
+import { MOVE_BURST_CAPACITY, MOVE_TOKENS_PER_SECOND, acceptMove, applyMove } from './movement.js'
 import { isVisible, sectorFor, TOWN_RADIUS_TILES } from './interest.js'
 
 test('capacity includes spectators and stops at 100 connections', () => {
@@ -21,8 +21,39 @@ test('movement derives facing and visual pace while rejecting malformed directio
   for (let i = 1; i <= 7; i++) assert.ok(acceptMove(actor, 'right', 1000, true))
   assert.ok(acceptMove(actor, 'right', 2000, true))
   const spam = { tx: 0, ty: 0, lastMoveAt: 0, moves: [] }
-  for (let i = 0; i < 10; i++) assert.ok(acceptMove(spam, 'right', 3_000, true))
+  for (let i = 0; i < MOVE_BURST_CAPACITY; i++) assert.ok(acceptMove(spam, 'right', 3_000, true))
   assert.equal(acceptMove(spam, 'right', 3_000, true), null)
+  // Sustained: one token per 100 ms, never faster.
+  assert.ok(acceptMove(spam, 'right', 3_100, true))
+  assert.equal(acceptMove(spam, 'right', 3_150, true), null)
+})
+
+test('a network stall at run speed does not reject the legitimate moves queued behind it', () => {
+  // 7.5 tiles/s for 20 s; everything sent during a 1.5 s stall arrives at once, in order.
+  const actor = { tx: 0, ty: 0, lastMoveAt: 0, moves: [], moveSequence: 0 }
+  const period = 1000 / 7.5
+  let rejected = 0
+  for (let seq = 1; seq * period < 20_000; seq++) {
+    const sent = seq * period
+    const at = sent >= 8_000 && sent < 9_500 ? 9_560 : sent + 60
+    if (applyMove(actor, 'right', Math.round(at), true, seq) !== null) rejected++
+  }
+  assert.equal(rejected, 0)
+  assert.equal(actor.tx, actor.moveSequence)
+})
+
+test('a scripted client cannot sustain more than ten tiles per second', () => {
+  const actor = { tx: 0, ty: 0, lastMoveAt: 0, moves: [], moveSequence: 0 }
+  let seq = 0
+  for (let t = 0; t < 10_000; t++) applyMove(actor, 'right', t, true, ++seq)
+  assert.ok(actor.tx <= MOVE_BURST_CAPACITY + 10 * MOVE_TOKENS_PER_SECOND, `moved ${actor.tx}`)
+})
+
+test('rejections carry a reason so replays are not reported as rate limiting', () => {
+  const actor = { tx: 0, ty: 0, lastMoveAt: 0, moves: [], moveSequence: 4 }
+  assert.equal(applyMove(actor, 'north', 0, true, 5), 'invalid')
+  assert.equal(applyMove(actor, 'right', 0, true, 4), 'replay')
+  assert.equal(applyMove(actor, 'right', 0, true, 5), null)
 })
 
 test('movement rejects replayed client sequences', () => {
