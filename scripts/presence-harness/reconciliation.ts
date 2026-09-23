@@ -67,7 +67,6 @@ export async function world(label: string) {
     g.awaitingAreaSnapshot = true // no-op on old client code
     g.presence.changeArea(to)
   }
-  const server = () => { const a = [...(PresenceRoom as any)._actors?.values?.() ?? []][0]; return a }
   return { g, room, sock, rtt, flushUp, flushDown, step, travel, counters, log, metrics, up, down }
 }
 
