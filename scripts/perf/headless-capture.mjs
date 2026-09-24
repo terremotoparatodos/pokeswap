@@ -10,7 +10,7 @@
 // frame pacing here is synthetic; remote, sprite, chunk and load metrics are not.
 
 import { spawn } from 'node:child_process'
-import { mkdirSync, writeFileSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 
 const args = process.argv.slice(2)
@@ -123,4 +123,7 @@ try {
   console.log(`[perf] wrote ${out} (${captures.length} clients, ${Math.round((Date.now() - started) / 1000)} s)`)
 } finally {
   browser.kill()
+  // Each run gets a fresh profile; left behind they grow by ~70 MB a capture.
+  await new Promise(done => { if (browser.exitCode !== null) done(); else browser.once('exit', done) })
+  rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 })
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Actor } from './actors'
 import { WildlandsGame } from './game'
+import { RemoteStepPlayback } from './remotePlayback'
 import type { RemotePresenceActor } from '../multiplayer/domain/presence'
 
 type RemoteGameState = {
@@ -13,7 +14,7 @@ type RemoteGameState = {
   remoteCompanionsByOwnerId: Map<string, Actor>
   remoteCharacterIds: Map<string, string>
   remoteMoveSequences: Map<string, number>
-  remoteStepQueues: Map<string, unknown[]>
+  remotePlayback: RemoteStepPlayback
 }
 type RemoteGame = RemoteGameState & Pick<WildlandsGame, 'upsertRemoteActor' | 'replaceRemoteActors' | 'removeRemoteActor'>
 
@@ -33,7 +34,7 @@ function game(): RemoteGame {
   instance.remoteCompanionsByOwnerId = new Map()
   instance.remoteCharacterIds = new Map()
   instance.remoteMoveSequences = new Map()
-  instance.remoteStepQueues = new Map()
+  instance.remotePlayback = new RemoteStepPlayback()
   return instance
 }
 
@@ -77,7 +78,8 @@ describe('incremental remote actors', () => {
 
     expect(moving.tx).toBe(2)
     expect(moving.progress).toBe(0.4)
-    expect(instance.remoteStepQueues.get('a')).toEqual([expect.objectContaining({ tx: 3 })])
+    expect(instance.remotePlayback.backlog('a')).toBe(1)
+    expect(instance.remotePlayback.tail('a', moving)).toEqual(expect.objectContaining({ tx: 3 }))
   })
 
   it('ignores an out-of-order movement sequence', () => {

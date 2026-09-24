@@ -59,6 +59,19 @@ describe('ColyseusPresence remote deltas', () => {
     expect(remote.upsertRemoteActor).toHaveBeenLastCalledWith({ ...actor('a'), companionId: 25, tx: 2, dir: 'right', speed: 7.5, moveSequence: 2 })
   })
 
+  it('forwards the moves stacked in one batch window in order, before the final one', () => {
+    const remote = remotePort()
+    const presence = new ColyseusPresence(remote)
+    const apply = (delta: unknown) => (presence as unknown as { apply(delta: unknown): void }).apply(delta)
+    apply({ type: 'upsert', actor: actor('a') })
+    apply({
+      type: 'step', actor: { id: 'a', tx: 3, ty: 3, dir: 'down', speed: 7.5, moveSequence: 4 },
+      via: [{ tx: 2, ty: 2, dir: 'right', speed: 7.5, moveSequence: 2 }, { tx: 3, ty: 2, dir: 'right', speed: 3.75, moveSequence: 3 }],
+    })
+    const forwarded = remote.upsertRemoteActor.mock.calls.slice(1).map(([a]) => [a.id, a.username, a.tx, a.ty, a.speed, a.moveSequence])
+    expect(forwarded).toEqual([['a', 'a', 2, 2, 7.5, 2], ['a', 'a', 3, 2, 3.75, 3], ['a', 'a', 3, 3, 7.5, 4]])
+  })
+
   it('drops a step for an actor it never received in full, and forgets actors that left', () => {
     const remote = remotePort()
     const presence = new ColyseusPresence(remote)

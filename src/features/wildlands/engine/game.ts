@@ -40,16 +40,9 @@ import { reconcilePresenceArea } from '../multiplayer/domain/areaReconciliation'
 import { keepsPredictedStep, safeAuthoritativePosition } from '../multiplayer/domain/movementReconciliation'
 import { PresenceDiagnostics, type PresenceDiagnosticsSnapshot } from '../multiplayer/domain/presenceDiagnostics'
 import type { FrameProbe, RenderProbe } from './perfHooks'
+import { RemoteStepPlayback } from './remotePlayback'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
-const MAX_REMOTE_STEP_BACKLOG = 3
-
-interface RemoteStep {
-  tx: number
-  ty: number
-  dir: Dir
-  speed: number
-}
 
 export interface HudState {
   areaId: AreaId
@@ -164,7 +157,7 @@ export class WildlandsGame {
   private readonly remoteCompanionsByOwnerId = new Map<string, Actor>()
   private readonly remoteCharacterIds = new Map<string, string>()
   private readonly remoteMoveSequences = new Map<string, number>()
-  private readonly remoteStepQueues = new Map<string, RemoteStep[]>()
+  private readonly remotePlayback = new RemoteStepPlayback()
   private observerAt: string | null = null
   private receivedAuthoritativeActor = false
   /** Server id of the local player, used only to attach accepted chat to its sprite. */
@@ -553,7 +546,7 @@ export class WildlandsGame {
     this.remoteCompanionsByOwnerId.delete(id)
     this.remoteCharacterIds.delete(id)
     this.remoteMoveSequences.delete(id)
-    this.remoteStepQueues.delete(id)
+    this.remotePlayback.delete(id)
   }
 
   private queueRemoteStep(remote: RemotePresenceActor, actor: Actor): void {
@@ -561,51 +554,18 @@ export class WildlandsGame {
     if (remote.moveSequence <= sequence) return
     this.remoteMoveSequences.set(remote.id, remote.moveSequence)
 
-    const queue = this.remoteStepQueues.get(remote.id) ?? []
-    const tail = queue[queue.length - 1] ?? actor
+    const tail = this.remotePlayback.tail(remote.id, actor)
     if (tail.tx === remote.tx && tail.ty === remote.ty) {
-      if (!isMoving(actor) && queue.length === 0) {
+      if (!isMoving(actor) && this.remotePlayback.backlog(remote.id) === 0) {
         actor.dir = remote.dir; actor.speed = remote.speed; actor.running = remote.speed > WALK_SPEED
       }
       return
     }
-    const step = { tx: remote.tx, ty: remote.ty, dir: remote.dir, speed: remote.speed }
-    const distance = Math.abs(tail.tx - step.tx) + Math.abs(tail.ty - step.ty)
-    if (distance !== 1 || queue.length >= MAX_REMOTE_STEP_BACKLOG) {
-      // Area corrections and a stalled client must converge immediately rather
-      // than animating through an old route for several seconds.
-      actor.fromTx = step.tx; actor.fromTy = step.ty
-      actor.tx = step.tx; actor.ty = step.ty; actor.progress = 1
-      actor.dir = step.dir; actor.speed = step.speed; actor.running = step.speed > WALK_SPEED
-      queue.length = 0
-      this.remoteStepQueues.delete(remote.id)
-      return
-    }
-    if (isMoving(actor)) {
-      queue.push(step)
-      this.remoteStepQueues.set(remote.id, queue)
-    } else {
-      this.startRemoteStep(actor, step)
-    }
-  }
-
-  private startRemoteStep(actor: Actor, step: RemoteStep): void {
-    actor.fromTx = actor.tx; actor.fromTy = actor.ty
-    actor.tx = step.tx; actor.ty = step.ty
-    actor.dir = step.dir; actor.speed = step.speed; actor.running = step.speed > WALK_SPEED
-    actor.progress = 0
+    this.remotePlayback.push(remote.id, actor, { tx: remote.tx, ty: remote.ty, dir: remote.dir, speed: remote.speed })
   }
 
   private advanceRemoteActors(dt: number): void {
-    for (const actor of this.remoteActors) {
-      advance(actor, dt)
-      if (isMoving(actor)) continue
-      const presenceId = actor.id.slice('remote:'.length)
-      const queue = this.remoteStepQueues.get(presenceId)
-      const next = queue?.shift()
-      if (next) this.startRemoteStep(actor, next)
-      if (!queue?.length) this.remoteStepQueues.delete(presenceId)
-    }
+    for (const actor of this.remoteActors) this.remotePlayback.advance(actor.id.slice('remote:'.length), actor, dt)
   }
 
   private upsertRemoteCompanion(remote: RemotePresenceActor, owner: Actor): void {
@@ -883,11 +843,11 @@ export class WildlandsGame {
     const keyDir = this.travel.active || this.paused || this.spectator || this.inputLocked ? null : this.keys.direction
     if (keyDir) this.nav.cancel() // Keyboard always wins over a tap route.
     const navigating = !keyDir && this.nav.active
-    player.running = this.keys.sprinting
-    // Speed is latched per tile so a step never changes pace halfway through.
-    if (!isMoving(player)) {
-      player.speed = (this.keys.sprinting ? RUN_SPEED : WALK_SPEED) * (this.area.isWater(player.tx, player.ty) ? 0.7 : 1)
-    }
+    // The gait is latched per tile so a step never changes pace halfway
+    // through, and re-read at the start of every chained step so Shift takes
+    // effect on the next tile without stopping. Speed, animation and the gait
+    // announced to presence all describe the same step.
+    if (!isMoving(player)) this.latchGait(player, player.tx, player.ty)
     driveWalker(
       player,
       navigating ? this.nav.next : keyDir,
@@ -899,6 +859,7 @@ export class WildlandsGame {
         this.onPlayerArrive(tx, ty)
       },
       navigating,
+      this.onStepStart,
     )
     if (this.nav.update(player, dt)) this.interact()
     this.companion.update(player, dt)
@@ -945,10 +906,24 @@ export class WildlandsGame {
     }
   }
 
-  private onPlayerArrive(tx: number, ty: number): void {
-    // Only the direction crosses the trust boundary; the presence server derives the position.
-    this.presence?.move(this.player.dir, this.player.running, ++this.nextMoveSequence)
+  /** Water slows a step by the tile it starts from. */
+  private latchGait(player: Actor, fromTx: number, fromTy: number): void {
+    player.running = this.keys.sprinting
+    player.speed = (player.running ? RUN_SPEED : WALK_SPEED) * (this.area.isWater(fromTx, fromTy) ? 0.7 : 1)
+  }
+
+  private readonly onStepStart = (player: Actor): void => this.startStep(player)
+
+  private startStep(player: Actor): void {
+    this.latchGait(player, player.fromTx, player.fromTy)
+    // Announced as the step starts, not when it lands: observers learn of it
+    // a whole tile earlier, and of a gait change before it is walked. Only the
+    // direction crosses the trust boundary; the presence server derives the position.
+    this.presence?.move(player.dir, player.running, ++this.nextMoveSequence)
     if (this.presence) this.presenceDiagnostics.moveSent(this.nextMoveSequence, performance.now())
+  }
+
+  private onPlayerArrive(tx: number, ty: number): void {
     if (this.area.collect(tx, ty)) {
       this.crystals++
       this.say('+1 cristal · demo, no se guarda')

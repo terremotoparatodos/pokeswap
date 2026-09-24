@@ -177,6 +177,10 @@ export function createWalkerState(): WalkerState {
  * `input` may be a function so a path can hand out its next direction the
  * moment a tile is reached (mid-frame). `instantTurn` skips the tap-to-turn
  * delay, for tap-to-move where the intent is already explicit.
+ *
+ * `onStepStart` runs as each step starts, including steps chained without
+ * stopping, before any of it is walked: the caller can latch the pace for
+ * exactly that tile and announce it.
  */
 export function driveWalker(
   actor: Actor,
@@ -186,6 +190,7 @@ export function driveWalker(
   state: WalkerState,
   onArrive?: (tx: number, ty: number) => void,
   instantTurn = false,
+  onStepStart?: (actor: Actor) => void,
 ): void {
   const read = () => (typeof input === 'function' ? input() : input)
   let want = read()
@@ -221,6 +226,7 @@ export function driveWalker(
     state.turning = false
 
     if (tryStep(actor, want, rules)) {
+      onStepStart?.(actor)
       actor.bumping = false
       state.walking = true
       continue

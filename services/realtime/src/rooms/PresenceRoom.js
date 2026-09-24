@@ -5,7 +5,7 @@ import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
 import { applyMove } from '../presence/movement.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
-import { AREA, COMPACT_STEP_PROTOCOL, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor, stepActor } from '../protocol/messages.js'
+import { AREA, COMPACT_STEP_PROTOCOL, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor, stackStep, stepActor } from '../protocol/messages.js'
 import { arrivalFor } from '../protocol/arrival.js'
 import { metrics } from '../observability/metrics.js'
 
@@ -186,8 +186,8 @@ export class PresenceRoom extends Room {
     for (const client of observers.values()) {
       const viewer = actors.get(client.userData?.actorId) ?? client.userData?.observer
       if (!viewer || changed.id === viewer.id) continue
-      const visible = visibleActors(viewer, new Map([[changed.id, changed]])).length > 0
       const previous = visibleByClient.get(client.sessionId) ?? new Set()
+      const visible = visibleActors(viewer, new Map([[changed.id, changed]]), previous).length > 0
       if (delta.type === 'leave' ? previous.has(changed.id) : visible) {
         const compact = step !== null && previous.has(changed.id) && compactClients.has(client)
         this.sendDelta(client, compact ? { type: 'step', actor: step } : delta)
@@ -201,7 +201,7 @@ export class PresenceRoom extends Room {
   }
   syncVisibility(client, viewer) {
     const previous = visibleByClient.get(client.sessionId) ?? new Set()
-    const visible = visibleActors(viewer, actors)
+    const visible = visibleActors(viewer, actors, previous)
     const next = new Set(visible.map(actor => actor.id))
     for (const actor of visible) {
       if (!previous.has(actor.id)) this.sendDelta(client, { type: 'upsert', actor: publicActor(actor) })
@@ -219,16 +219,17 @@ export class PresenceRoom extends Room {
       return
     }
     const pending = this.pendingDeltas.get(client) ?? new Map()
-    // Only the latest state of an actor inside the 50 ms window matters, but a
-    // step must not erase a full upsert (e.g. a companion change) queued before
-    // it in the same window: fold the step's position into that upsert.
+    // One entry per actor per 50 ms window. A step must not erase a full
+    // upsert (e.g. a companion change) queued before it: fold the step's
+    // position into that upsert. A step over a step keeps the earlier one in
+    // `via` (see stackStep), so the viewer can still animate every tile.
     const queued = pending.get(delta.actor.id)
     const folds = delta.type === 'step' && queued?.type === 'upsert'
-    // Measurement only (PERF-1): how often the window drops an intermediate step.
-    metrics.deltaQueued(!queued ? null : folds ? 'stepFoldedIntoUpsert' : delta.type === 'step' && queued.type === 'step' ? 'stepOverStep' : 'replaced')
+    const stacks = delta.type === 'step' && queued?.type === 'step'
+    metrics.deltaQueued(!queued ? null : folds ? 'stepFoldedIntoUpsert' : stacks ? 'stepStacked' : 'replaced')
     pending.set(delta.actor.id, folds
       ? { type: 'upsert', actor: { ...queued.actor, ...delta.actor } }
-      : delta)
+      : stacks ? stackStep(queued, delta) : delta)
     this.pendingDeltas.set(client, pending)
   }
   flushDeltaBatches() {

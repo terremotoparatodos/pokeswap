@@ -10,7 +10,7 @@ export class PresenceMetrics {
     this.rejections = { capacity: 0, invalid: 0, rate: 0, area: 0, replay: 0 }
     this.moves = 0; this.areaChanges = 0; this.reconnectRestores = 0
     // Delta batching (50 ms window). Measurement only: see PresenceRoom.sendDelta.
-    this.batching = { queued: 0, stepOverStep: 0, stepFoldedIntoUpsert: 0, replaced: 0, batches: 0, maxBatch: 0 }
+    this.batching = { queued: 0, stepStacked: 0, stepFoldedIntoUpsert: 0, replaced: 0, batches: 0, maxBatch: 0 }
     this.loopDelay = loopDelay
   }
   joined(kind) { this.connections++; if (kind === 'guest') this.guests++; else this.players++ }

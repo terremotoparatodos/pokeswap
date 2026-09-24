@@ -1,7 +1,8 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PresenceRoom } from './PresenceRoom.js'
-import { MESSAGE } from '../protocol/messages.js'
+import { MAX_VIA_STEPS, MESSAGE } from '../protocol/messages.js'
+import { RETAIN_MARGIN_TILES } from '../presence/interest.js'
 import { metrics } from '../observability/metrics.js'
 
 function client(id) {
@@ -239,7 +240,7 @@ test('capacity rejects a new connection before it can create presence', async ()
   }
 })
 
-test('wild interest sends a leave when an actor exits the viewer sector', async () => {
+test('wild interest sends a leave once an actor is past the retention margin and out of the viewer sectors', async () => {
   const room = new PresenceRoom()
   const watcher = client('wild-watcher')
   const traveller = client('wild-traveller')
@@ -255,7 +256,9 @@ test('wild interest sends a leave when an actor exits the viewer sector', async 
   let now = 1_000
   Date.now = () => now
   try {
-    for (let step = 0; step < 24; step++) {
+    // Both start at (-5, -69). The sectors alone would drop the traveller at
+    // x = 12, 17 tiles away and on screen; now it stays until 20 + 6 tiles.
+    for (let step = 0; step < 30; step++) {
       room.move(traveller, { direction: 'right', running: true })
       now += 125
     }
@@ -264,13 +267,13 @@ test('wild interest sends a leave when an actor exits the viewer sector', async 
   }
   assert.deepEqual(watcher.messages.at(-1), {
     type: MESSAGE.DELTA,
-    payload: { type: 'leave', actor: { id: 'traveller', areaId: 'pradera', tx: 12, ty: -69, username: 'Traveller', characterId: 'lucas', companionId: null, dir: 'right', speed: 7.5, moveSequence: 17 } },
+    payload: { type: 'leave', actor: { id: 'traveller', areaId: 'pradera', tx: 22, ty: -69, username: 'Traveller', characterId: 'lucas', companionId: null, dir: 'right', speed: 7.5, moveSequence: 27 } },
   })
   room.onLeave(watcher)
   room.onLeave(traveller)
 })
 
-test('moving the viewer reconciles stationary town actors at the interest boundary', async () => {
+test('moving the viewer reconciles stationary town actors at the interest boundary, with hysteresis', async () => {
   const room = new PresenceRoom()
   const watcher = client('town-watcher-client')
   const traveller = client('town-traveller-client')
@@ -282,17 +285,31 @@ test('moving the viewer reconciles stationary town actors at the interest bounda
   const realNow = Date.now
   let now = 10_000
   Date.now = () => now
+  const deltas = () => watcher.messages.filter(message => message.type === MESSAGE.DELTA).map(message => message.payload.type)
   try {
     // Traveller remains just inside the 20-tile town radius.
     for (let step = 0; step < 20; step++) {
       room.move(traveller, { direction: 'right', running: false })
       now += 250
     }
-    // Only the watcher moves. Traveller must disappear even while stationary.
+    const seen = deltas().length
+    // Only the watcher moves. Within the retention margin the traveller stays.
+    for (let step = 0; step < RETAIN_MARGIN_TILES; step++) {
+      room.move(watcher, { direction: 'left', running: false })
+      now += 250
+    }
+    assert.equal(deltas().length, seen)
+    // One more tile and it is gone, even while stationary.
     room.move(watcher, { direction: 'left', running: false })
     assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.type, 'leave')
     assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.actor.id, 'town-traveller')
 
+    // Coming back, it reappears only once inside the entry radius again.
+    for (let step = 0; step < RETAIN_MARGIN_TILES; step++) {
+      now += 250
+      room.move(watcher, { direction: 'right', running: false })
+    }
+    assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.type, 'leave')
     now += 250
     room.move(watcher, { direction: 'right', running: false })
     assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.type, 'upsert')
@@ -338,7 +355,7 @@ test('production batching coalesces repeated actor movement into one socket mess
   room.onLeave(traveller)
 })
 
-test('batching metrics count a step that overwrites a queued step in the same window', async () => {
+test('a step over a queued step in the same window keeps the earlier one in via', async () => {
   const room = new PresenceRoom()
   const watcher = client('metrics-watcher-client')
   const traveller = client('metrics-traveller-client')
@@ -362,10 +379,46 @@ test('batching metrics count a step that overwrites a queued step in the same wi
   }
   room.flushDeltaBatches()
 
-  assert.equal(metrics.batching.stepOverStep - before.stepOverStep, 1)
+  assert.equal(metrics.batching.stepStacked - before.stepStacked, 1)
   assert.equal(metrics.batching.batches - before.batches, 1)
   const batch = lastOf(watcher, MESSAGE.BATCH)
   assert.deepEqual(batch.payload.map(delta => [delta.type, delta.actor.tx, delta.actor.moveSequence]), [['step', 33, 2]])
+  assert.deepEqual(batch.payload[0].via, [{ tx: 32, ty: 20, dir: 'right', speed: 7.5, moveSequence: 1 }])
+
+  room.onLeave(watcher)
+  room.onLeave(traveller)
+})
+
+test('a stalled uplink keeps every step of the window, bounded', async () => {
+  const room = new PresenceRoom()
+  const watcher = client('via-watcher-client')
+  const traveller = client('via-traveller-client')
+  await room.onJoin(watcher, { presenceProtocol: 2 }, { kind: 'player', userId: 'via-watcher', username: 'Watcher', token: null })
+  await room.onJoin(traveller, {}, { kind: 'player', userId: 'via-traveller', username: 'Traveller', token: null })
+  room.ready(watcher)
+  room.ready(traveller)
+  room.deltaBatching = true
+  room.flushDeltaBatches()
+
+  const realNow = Date.now
+  Date.now = () => 60_000
+  try {
+    // Moves queued behind a stall reach the server together: one window.
+    const directions = ['right', 'right', 'down', 'down']
+    directions.forEach((direction, i) => room.move(traveller, { direction, running: true, sequence: i + 1 }))
+    room.flushDeltaBatches()
+    const [delta] = lastOf(watcher, MESSAGE.BATCH).payload
+    assert.deepEqual([delta.actor.tx, delta.actor.ty, delta.actor.moveSequence], [33, 22, 4])
+    assert.deepEqual(delta.via.map(step => [step.tx, step.ty, step.moveSequence]), [[32, 20, 1], [33, 20, 2], [33, 21, 3]])
+
+    for (let i = 5; i <= 5 + MAX_VIA_STEPS + 1; i++) room.move(traveller, { direction: 'left', running: true, sequence: i })
+    room.flushDeltaBatches()
+    const [bounded] = lastOf(watcher, MESSAGE.BATCH).payload
+    assert.equal(bounded.via.length, MAX_VIA_STEPS)
+    assert.equal(bounded.via.at(-1).moveSequence, bounded.actor.moveSequence - 1)
+  } finally {
+    Date.now = realNow
+  }
 
   room.onLeave(watcher)
   room.onLeave(traveller)
