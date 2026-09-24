@@ -97,9 +97,27 @@ Hooks mínimos en el motor (`engine/perfHooks.ts`, todos `null` fuera de `VITE_P
 - iPhone y monitores de 120/144 Hz.
 - Safari sin `requestIdleCallback`: sin él, todo chunk se construiría dentro del frame, no sólo en los viajes.
 
-### 2.3 Dispositivos reales
+### 2.3 Dispositivos reales (2026-09-24, build playtest de medición, servidor local)
 
-Pendiente de las capturas PC-1…3 e IP-1…3 (§10).
+Resumen anónimo; los raw quedan fuera del repo (§13.14).
+
+| Dispositivo · escenario | Cadencia | Intervalo p99 / máx (ms) | >50 ms | Trabajo p95 | HUD p50 / p95 | Chunks en el frame (p95 ms) | Percepción |
+|---|---|---|---:|---:|---|---|---|
+| PC (monitor 60 Hz, 1920×953) · Pradera | 60 | 16,8 / 33,4 | 0 | 4,2–4,6 | 3,4 / 5,1 | **15–16** (8,8–9,5) | 10/10 |
+| PC · Ciudad | 60 | 16,8 / 16,8 | 0 | 2,9 | 2,7 / 3,2 | 0 | 10/10 |
+| PC · manual (caminar/correr/Shift) | 60 | 16,8 / 16,8 | 0 | 3,3 | 2,0 / 3,6 | 0 | 10/10 salvo el bug de Shift |
+| iPhone 15 Pro (Safari, 393×641, DPR 3) · Pradera | **60** (58,8) | 17 / 31 | 0 | 3 | 3 / 6 | **10** (16) | 10/10 |
+| iPhone · Ciudad | 60 | 17 / 23 | 0 | 2 | 3 / 4 | 0 | 10/10 |
+| iPhone · Traversal | 60 | 17 / **232** | 3 | 3 | 3 / 5 | 12 (11) | 10/10 |
+
+Lectura:
+- **Rendimiento continuo excelente** en los dos dispositivos: 0 frames tarde fuera de transiciones y trabajo p95 ≤ 4,8 ms.
+- El trabajo en PC (2,9–4,8 ms) es mayor que en headless (2,2 ms) porque la pantalla completa dibuja ~2× más (218–263 drawables contra 121–150).
+- **Safari limita el `requestAnimationFrame` a 60 Hz** aunque la pantalla sea ProMotion.
+- **Safari no tiene `requestIdleCallback`**: en iPhone todos los chunks se construyen dentro del frame (p95 16 ms). Aun así no bajó de 60 al recorrer Pradera.
+- **En PC real tampoco llegó la precarga ociosa**: 15–16 builds dentro del frame, contra 0 en headless 1280×720. HIPÓTESIS: con 1920 px de ancho y la perspectiva, la vista pide chunks fuera del 3×3 que se precarga.
+- **Cambio de área en iPhone: peor frame de 232 ms.** No se percibe porque ocurre bajo el fade de transición.
+- Safari no expone long tasks, LoAF ni memoria (se reportan como "no soportado").
 
 ### 2.4 Movimiento local y cámara
 
@@ -588,4 +606,190 @@ A recorre la ruta (`city-loop` / `pradera-loop`, cerca de los corredores); B mir
 - Lo que sí producen los NPC divergentes es **inconsistencia**, no saltos: A frena ante un NPC que B no ve, o B ve a A atravesar un NPC. Es un problema de mundo compartido (§6, WORLD-1), no de locomoción.
 - La causa de los "pequeños saltos al correr" sigue siendo la de §3.4: la cola sin recuperación, la ventana de 50 ms con pasos agrupados y el desfase de Shift en movimiento.
 
-Pendiente: tu comparación visual en PC e iPhone de las cuatro variantes (URLs en el chat de 2026-09-24).
+### 12.5 Prueba física
+
+| | Ciudad con NPC | Ciudad sin NPC | Pradera con NPC | Pradera sin NPC |
+|---|---|---|---|---|
+| Percepción PC | 7,5/10 | 7,5/10 | 7,5/10 | 7,5/10 |
+| Percepción iPhone | 7,5/10 | 7,5/10 | 7,5/10 | 7,5/10 |
+| Saltos medidos PC (por remoto por minuto) | 1,8 | 2,5 | 1,1 | 2,2 |
+| Saltos medidos iPhone (por remoto por minuto) | 6,0 | 5,4 | 6,9 | 6,9 |
+
+Sin mejora percibida ni medida al quitar los NPC: **descartado** como causa de los saltos. La inconsistencia de NPC entre clientes pasa a WORLD-1.
+
+---
+
+## 13. Cierre de PERF-1 (baseline física + headless + experimento NPC)
+
+### 13.1 Rendimiento en PC
+
+**10/10 percibido. Medido:**
+- a 60 Hz (el monitor real), 0 frames tarde;
+- trabajo p95 2,9–4,8 ms a 1920×953;
+- HUD Vue p50 2–3,4 ms.
+
+**Único punto medible:** en Pradera 15–16 chunks se construyen dentro del frame (p95 ~9 ms). No produjo frames tarde en este equipo (máximo 33 ms, un vsync). Rendimiento general: **no es el problema**.
+
+### 13.2 Rendimiento en iPhone 15 Pro
+
+**10/10 percibido. Medido:**
+- Safari a 60 Hz (limita el rAF aunque la pantalla sea ProMotion);
+- 0 frames tarde en uso continuo;
+- trabajo p95 2–4 ms.
+
+**Puntos medibles:**
+- sin `requestIdleCallback`, todos los chunks se construyen dentro del frame (p95 16 ms);
+- el cambio de área llega a 232 ms, oculto bajo el fade.
+
+No hay problema de rendimiento general; hay margen, aunque ajustado para los builds de chunk.
+
+### 13.3 Locomoción remota
+
+- Caminar remoto: bien.
+- Correr remoto: **7,5/10**, idéntico en PC e iPhone, en ciudad y en Pradera, con y sin NPC.
+
+Medido con datos perfectos: el 100 % de las actualizaciones llega de a 1 casilla y sin huecos de secuencia. Aun así:
+
+| | Saltos | Esperas cortas |
+|---|---|---|
+| PC (cableado) | 1,1–2,5 por remoto por minuto | p95 ~200 ms |
+| iPhone (Wi-Fi) | 5,4–6,9 por remoto por minuto | p95 ~200 ms |
+| Dúo real (una persona con cambios de Shift, frenadas y zig-zag) | ~10 por minuto, hasta 5 casillas | — |
+
+Es el problema principal de fluidez multijugador.
+
+### 13.4 El "reset" visual
+
+Determinado con los datos existentes, sin pruebas nuevas.
+
+- **No es el bot reiniciando su recorrido.**
+  - El driver de los corredores sigue un cuadrado continuo de 5 casillas por lado, sin teletransporte, y sólo termina a los 3.600 s.
+  - Los saltos no están sincronizados con el ciclo del bot: 0–50 % de coincidencia de fase, alrededor del ~20 % que da el azar.
+- **Es principalmente el salto de la cola.**
+  - En las 8 capturas del experimento, el **100 % de los saltos medidos son de exactamente 4 casillas**: la firma de la cola llena (3 pasos encolados + el actual).
+  - El remoto, que venía atrasado, se teletransporta al último estado. Sobre el cuadrado del bot, un salto de 4 casillas cerca de una esquina corta en diagonal y se ve como si "volviera".
+- **Se suma, en Pradera, la salida y reentrada del AOI.**
+  - El interés wild es por sectores de 12 casillas; las salidas ocurren a **10–12 casillas, dentro de la pantalla**: 9 por recorrido, fuera ~0,6–0,8 s.
+  - En la ciudad el borde está a ~20 casillas, prácticamente en el borde de la vista.
+- **Por qué el iPhone salta 2,5–3× más que la PC** con el mismo servidor, los mismos bots y la misma ruta: HIPÓTESIS, el jitter de llegada del Wi-Fi alimenta la cola. El intervalo de llegada p95 es similar, así que la diferencia estaría en la cola larga, que no medí.
+
+### 13.5 Bug walk/run
+
+Confirmado en tres fuentes:
+- en código: la velocidad sólo se fija quieto y el walker encadena casillas;
+- en el harness, escenarios C e I;
+- a mano, por vos: Shift sin frenar cambia la animación pero no la velocidad, y al revés.
+
+Remotamente produce esperas (~35 % del tiempo en C) o saltos de 4–5 casillas (I).
+
+### 13.6 Papel real del batching
+
+Pisa pasos **sólo** cuando dos movimientos del mismo jugador llegan en la misma ventana de 50 ms:
+- 100 % de saltos de 2 casillas en ese caso;
+- 0 pasos pisados de 121.800 con cadencia estable;
+- **ninguno de los saltos medidos en las pruebas físicas fue de 2 casillas.**
+
+Hoy es secundario frente a la cola; se vuelve primario si el uplink agrupa movimientos (conexiones malas o tabs en segundo plano).
+
+### 13.7 Papel real de la cola / interpolación
+
+**Es la causa principal:**
+- cola de 3 pasos;
+- reproducción a velocidad nominal, sin recuperación;
+- sin buffer temporal;
+- salto al llenarse.
+
+Con jitter, oscila entre esperar vacía (*stop-and-go*) y llenarse (salto de 4). Además, el retraso inherente es de ~180–470 ms (se envía al completar la casilla, más latencia y cuantización).
+
+### 13.8 AOI
+
+- Borde duro, sin histéresis.
+- Ciudad: ~30 salidas por minuto con 30 remotos cerca del borde de 20 casillas, a lo sumo 2 por entidad, reentrada en < 1 s.
+- Pradera: salidas a 10–12 casillas, visibles.
+- Cada salida recrea el actor (hit de caché de sprite, sin costo de textura) y pierde su estado de movimiento.
+
+Afecta la continuidad, no el rendimiento.
+
+### 13.9 Sprites
+
+- **Bug histórico** (rebuild total + recarga sin caché): el mecanismo ya no existe.
+- **No reproducido en ningún dispositivo:** 0 regresiones a fallback, 0 frames sin arte, 0 fallbacks trabados. Incluye PC, iPhone, dúo, 8 capturas con 10 corredores, 13 capturas headless y el soak de 10 minutos.
+- Lo que hoy se percibe como "desaparece o se resetea" es el salto de la cola (§13.4).
+
+### 13.10 Chunks y transiciones
+
+**Cambio de área:**
+
+| Dónde | Builds dentro del frame | Peor frame |
+|---|---:|---:|
+| Headless | 12 | 66–136 ms |
+| iPhone | — | 232 ms |
+
+Queda oculto por el fade: hoy no se percibe, pero existe.
+
+**Recorrido continuo:**
+- Chrome headless: 0 builds en el frame.
+- PC real a pantalla completa: 15–16 builds en el frame (precarga insuficiente para la vista).
+- iPhone: todos en el frame (no hay rIC).
+
+Sin frames tarde en ningún caso.
+
+### 13.11 NPC / hitboxes
+
+**Descartados como causa de saltos.** La colisión es local de cada cliente; el servidor no la conoce.
+
+Consecuencias medidas:
+- 0 saltos después de 4 choques;
+- 0 correcciones y 0 rechazos;
+- la misma tasa de saltos con y sin NPC;
+- 7,5/10 idéntico en las ocho observaciones.
+
+Sí generan inconsistencia entre clientes (frenar ante un NPC que el otro no ve, o atravesarlo): **WORLD-1**.
+
+### 13.12 Shared World
+
+Compartido hoy:
+- terreno;
+- nodos de recursos (posición y tipo);
+- residentes estáticos;
+- jugadores;
+- chat;
+- identidad del acompañante.
+
+No compartido:
+- Pokémon salvajes (especie y posición);
+- wanderers;
+- posición de los Pokémon de plaza;
+- estado de recursos;
+- acciones (no existen en el protocolo);
+- posición del acompañante;
+- hora y clima.
+
+Es trabajo de arquitectura y producto para **WORLD-1**, no de rendimiento.
+
+### 13.13 Prioridades propuestas para PERF-2 (Multiplayer Smoothness)
+
+Sin implementar. Ordenadas por evidencia y efecto visible.
+
+1. **Fidelidad de velocidad (walk/run).** Que el paso cambie de velocidad cuando cambia Shift, o que lo transmitido coincida con lo que el paso hace realmente. Es el bug más claro, con impacto local y remoto.
+   - Gate: harness C/I con 0 esperas y 0 saltos extra; dúo real sin saltos de 5 casillas.
+2. **Consumo de la cola remota.** Recuperar atraso en lugar de saltar (aceleración moderada cuando hay pasos encolados, o un buffer temporal corto) y decidir qué hacer con el tope de 3.
+   - Gate: MULTI-30 y el experimento de 10 corredores con saltos ≈ 0 en PC **e iPhone**; esperas p95 reducidas.
+3. **Pasos agrupados en la ventana de 50 ms**, para que el batching no pise pasos.
+   - Gate: ráfagas ×2 sin saltos.
+4. **Borde del AOI:** histéresis o retención breve del actor; el sector wild a 10–12 casillas es lo más visible.
+   - Gate: salidas/min y reentradas < 2 s ≈ 0 en MULTI-30-AOI y Pradera.
+5. **Chunks en transiciones** (preparar el área destino bajo el fade) y **precarga para vistas grandes / Safari**.
+   - Gate: TRAVERSAL sin frames > 33 ms; Pradera en PC fullscreen e iPhone sin builds dentro del frame.
+
+WORLD-1 (Shared World Foundation) va aparte y después, con su propio breakdown.
+
+### 13.14 Datos crudos
+
+- **Se conservan en el repo:**
+  - las capturas **sintéticas** reproducibles (`baselines/2026-09-24/*.json`, headless con identidades de benchmark);
+  - el experimento NPC headless;
+  - el harness.
+- **Se retiran:** las capturas de tus dispositivos físicos (User-Agent, dispositivo, marcas de tiempo), del índice en un commit nuevo. `docs/performance/baselines/incoming/` pasa a `.gitignore`: los archivos quedan sólo en tu disco.
+- **Historia:** los 9 archivos que ya se habían publicado en `23ae20d` no se reescriben. Sólo contienen User-Agent, viewport, núcleos de CPU y marcas de tiempo: sin IP, sin usuario, sin email, sin tokens.
+- Los resultados físicos quedan en este informe sólo de forma resumida (§2.3, §12.5, §13).
