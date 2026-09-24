@@ -2,6 +2,7 @@ import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
+import { perfCollector } from './scripts/perf/vitePerfCollector'
 
 /**
  * Short commit of this build, so a bug report can name the build it came from.
@@ -21,7 +22,8 @@ export default defineConfig({
   root: 'src',
   publicDir: '../public',
   envDir: '..',
-  plugins: [vue()],
+  // PERF-1: measurement builds also accept captures from devices on the LAN.
+  plugins: [vue(), ...(process.env.VITE_PERF === 'on' ? [perfCollector()] : [])],
   define: {
     __PLAYTEST_COMMIT__: JSON.stringify(buildCommit()),
     __PLAYTEST_BUILT_AT__: JSON.stringify(new Date().toISOString()),

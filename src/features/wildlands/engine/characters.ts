@@ -6,6 +6,7 @@
 
 import { devWarn } from '../../../shared/utils/devTools'
 import type { Actor } from './actors'
+import { perfHooks } from './perfHooks'
 import { fromAscii, silhouette, spriteFromPixels, type Sprite } from './sprite'
 
 export type Dir = 'down' | 'up' | 'left' | 'right'
@@ -255,9 +256,11 @@ function buildTrainerSheet(url: string, shift?: HueShift): Promise<TrainerSheet>
 export function loadTrainerSheet(url: string, shift?: HueShift): Promise<TrainerSheet> {
   const key = trainerSheetKey(url, shift)
   const existing = trainerSheetCache.get(key)
+  perfHooks.sheets?.requested(key, existing !== undefined)
   if (existing) return existing
   const loading = buildTrainerSheet(url, shift)
   trainerSheetCache.set(key, loading)
+  if (perfHooks.sheets) loading.then(() => perfHooks.sheets?.settled(key, true), () => perfHooks.sheets?.settled(key, false))
   void loading.catch(() => {
     // Missing assets may become available after a reconnect/deploy; failures are not permanent cache entries.
     if (trainerSheetCache.get(key) === loading) trainerSheetCache.delete(key)

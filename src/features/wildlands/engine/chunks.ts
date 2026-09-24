@@ -9,6 +9,7 @@
 
 import type { ModelPlacement, TownModel } from './townModel'
 import { hash2 } from './noise'
+import { perfHooks, type ChunkBuildSource } from './perfHooks'
 import { packColor, pixelsToCanvas, TRANSPARENT } from './pixels'
 import type { Sprite } from './sprite'
 import { sampleTexture, terrainArt, TEX } from './terrainArt'
@@ -23,6 +24,15 @@ export const PREFETCH_EDGE_TILES = 8
 const PAD = 3
 const SPAN = CHUNK_PX + PAD * 2
 const GRID = CHUNK_TILES + 3
+
+/** Measurement context for the next build: set only around idle-callback builds (PERF-1). */
+let buildSource: ChunkBuildSource = 'frame'
+let buildIdleRemaining: number | null = null
+function buildInIdle(source: ChunkBuildSource, deadline: IdleDeadline, build: () => void): void {
+  buildSource = source
+  buildIdleRemaining = perfHooks.chunks ? deadline.timeRemaining() : null
+  try { build() } finally { buildSource = 'frame'; buildIdleRemaining = null }
+}
 
 export interface DecorInstance {
   /** Wild prop kind; null when the area supplies its own `sprite`. */
@@ -247,6 +257,7 @@ export class ChunkStore {
       this.metrics.generated++
       this.metrics.lastBuildMs = buildMs
       this.metrics.maxBuildMs = Math.max(this.metrics.maxBuildMs, buildMs)
+      perfHooks.chunks?.built(buildMs, buildSource, buildIdleRemaining)
     }
     chunk.lastUsed = this.frame
     return chunk
@@ -296,8 +307,7 @@ export class ChunkStore {
           return
         }
         if (!this.chunks.has(`${cx},${cy}`)) {
-          const chunk = this.get(cx, cy)
-          chunk.lastUsed = this.frame - 1
+          buildInIdle('warm', deadline, () => { this.get(cx, cy).lastUsed = this.frame - 1 })
         }
         resolve()
       }
@@ -315,9 +325,8 @@ export class ChunkStore {
       }
       const next = this.prefetchQueue.shift()
       if (next && !this.chunks.has(`${next.cx},${next.cy}`)) {
-        const chunk = this.get(next.cx, next.cy)
         // Speculative chunks are the first eviction candidates until rendered.
-        chunk.lastUsed = this.frame - 1
+        buildInIdle('prefetch', deadline, () => { this.get(next.cx, next.cy).lastUsed = this.frame - 1 })
       }
       this.schedulePrefetch()
     })
@@ -341,6 +350,7 @@ export class ChunkStore {
     this.idleHandle = null
     this.prefetchQueue.length = 0
     this.prefetchCenter = ''
+    perfHooks.chunks?.released(this.chunks.size)
     this.chunks.clear()
     this.metrics.loaded = 0
   }
@@ -350,10 +360,12 @@ export class ChunkStore {
     this.frame++
     if (this.chunks.size <= MAX_CACHED_CHUNKS) return
     const oldest = [...this.chunks.entries()].sort((a, b) => a[1].lastUsed - b[1].lastUsed)
+    const before = this.chunks.size
     for (let index = 0; this.chunks.size > MAX_CACHED_CHUNKS; index++) {
       this.chunks.delete(oldest[index][0])
       this.metrics.evicted++
     }
+    perfHooks.chunks?.evicted(before - this.chunks.size)
     this.metrics.loaded = this.chunks.size
   }
 }

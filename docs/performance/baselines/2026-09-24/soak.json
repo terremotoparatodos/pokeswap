@@ -1,0 +1,5711 @@
+{
+  "tool": "pokeswap-perf-headless-v1",
+  "label": "soak",
+  "capturedAt": "2026-09-24T06:41:54.029Z",
+  "captures": [
+    {
+      "url": "http://localhost:4173/?benchmarkId=soak&x=31&y=20",
+      "mode": "observe",
+      "pageErrors": [],
+      "tool": "pokeswap-perf-v1",
+      "label": "soak-observe",
+      "scenario": null,
+      "scenarioCompleted": null,
+      "capturedAt": "2026-09-24T06:41:54.002Z",
+      "durationS": 600.8,
+      "environment": {
+        "build": "normal",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+        "viewport": {
+          "width": 1264,
+          "height": 625,
+          "dpr": 1
+        },
+        "hardwareConcurrency": 20,
+        "zoom": 2.9296875,
+        "runner": "headless-chrome"
+      },
+      "pacing": {
+        "frames": 36000,
+        "cadence": {
+          "observedHz": 59.9,
+          "nominalHz": 60,
+          "budgetMs": 16.666666666666668
+        },
+        "intervalMs": {
+          "n": 36000,
+          "mean": 16.67,
+          "p50": 16.7,
+          "p95": 16.8,
+          "p99": 16.8,
+          "max": 18.4
+        },
+        "lateFrames": 0,
+        "latePercent": 0,
+        "droppedVsyncs": 0,
+        "over33ms": 0,
+        "over50ms": 0,
+        "over100ms": 0,
+        "onTimeJitterMs": 0.06,
+        "updateMs": {
+          "n": 36000,
+          "mean": 0.03,
+          "p50": 0,
+          "p95": 0.1,
+          "p99": 0.2,
+          "max": 0.9
+        },
+        "renderMs": {
+          "n": 36000,
+          "mean": 1.28,
+          "p50": 1.2,
+          "p95": 2,
+          "p99": 2.2,
+          "max": 7.3
+        },
+        "tickMs": {
+          "n": 36000,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0.1
+        },
+        "workMs": {
+          "n": 36000,
+          "mean": 1.31,
+          "p50": 1.2,
+          "p95": 2,
+          "p99": 2.3,
+          "max": 7.3
+        },
+        "outsideEngineMs": {
+          "n": 36000,
+          "mean": 15.35,
+          "p50": 15.4,
+          "p95": 16,
+          "p99": 16.1,
+          "max": 16.3
+        }
+      },
+      "mainThread": {
+        "supported": {
+          "longtask": true,
+          "longAnimationFrame": true,
+          "memory": true
+        },
+        "longTasks": {
+          "count": 0,
+          "durationMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "longAnimationFrames": {
+          "count": 0,
+          "durationMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "blockingMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "topScripts": []
+        },
+        "heapMb": {
+          "n": 600,
+          "mean": 16.22,
+          "p50": 13.32,
+          "p95": 28.51,
+          "p99": 30.18,
+          "max": 30.8,
+          "first": 11.6,
+          "last": 13.3
+        }
+      },
+      "ui": {
+        "hudFlushMs": {
+          "n": 3862,
+          "mean": 1.52,
+          "p50": 1.4,
+          "p95": 2.3,
+          "p99": 2.6,
+          "max": 3.3
+        }
+      },
+      "motion": {
+        "movingFrames": 0,
+        "cameraStepPx": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "stalledFrames": 0,
+        "roundingErrorPx": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "stepVariationPx": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "unevenPercent": 0,
+        "exactStepVariationPx": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "speedRatio": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "cameraJumps": 0,
+        "zoom": 2.93
+      },
+      "remote": {
+        "receive": {
+          "updates": 84480,
+          "snapshots": 0,
+          "removals": 0,
+          "intervalMs": {
+            "n": 50000,
+            "mean": 142.33,
+            "p50": 127.3,
+            "p95": 191.7,
+            "p99": 197.6,
+            "max": 216.5
+          },
+          "tileDistance": {
+            "same": 0,
+            "one": 84460,
+            "two": 0,
+            "threeOrMore": 0
+          },
+          "sequenceGaps": 0
+        },
+        "lifecycle": {
+          "created": 20,
+          "destroyed": 0,
+          "recreated": 0,
+          "recreatedWithin2s": 0,
+          "maxConcurrent": 20,
+          "concurrentPerFrame": {
+            "n": 36000,
+            "mean": 20,
+            "p50": 20,
+            "p95": 20,
+            "p99": 20,
+            "max": 20
+          }
+        },
+        "sprites": {
+          "fallbackToSheet": 0,
+          "fallbackToSheetMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "sheetToFallback": 0,
+          "sheetToSheet": 0,
+          "stuckFallbackFrames": 0,
+          "runWithoutRunFrames": 499427,
+          "drawn": 721020,
+          "culled": 0,
+          "noArt": 0,
+          "sheetRequests": 0,
+          "sheetCacheHits": 0,
+          "sheetLoads": 0,
+          "sheetFailures": 0,
+          "sheetLoadMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "motion": {
+          "snaps": 580,
+          "maxSnapTiles": 4,
+          "stopAndGo": 1353,
+          "stopAndGoMs": {
+            "n": 1353,
+            "mean": 92.6,
+            "p50": 33.4,
+            "p95": 200.1,
+            "p99": 201.1,
+            "max": 201.1
+          }
+        }
+      },
+      "chunks": {
+        "requestIdleCallback": true,
+        "builds": {
+          "frame": 0,
+          "prefetch": 0,
+          "warm": 0
+        },
+        "buildMs": {
+          "frame": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "prefetch": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "warm": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "idleOverruns": 0,
+        "idleOverrunMs": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "evicted": 0,
+        "released": 0,
+        "framesWithInFrameBuild": 0
+      },
+      "entities": {
+        "populace": {
+          "n": 36000,
+          "mean": 29,
+          "p50": 29,
+          "p95": 29,
+          "p99": 29,
+          "max": 29
+        },
+        "drawables": {
+          "n": 36000,
+          "mean": 97.86,
+          "p50": 98,
+          "p95": 98,
+          "p99": 99,
+          "max": 99
+        }
+      },
+      "areasMs": {
+        "ciudad-corazon": 600821
+      },
+      "driver": [],
+      "timeline": [
+        {
+          "t": 1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.6
+        },
+        {
+          "t": 2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.8
+        },
+        {
+          "t": 3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.8
+        },
+        {
+          "t": 4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.9
+        },
+        {
+          "t": 5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.4
+        },
+        {
+          "t": 6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 10.9
+        },
+        {
+          "t": 7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.7
+        },
+        {
+          "t": 8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12
+        },
+        {
+          "t": 9.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.1
+        },
+        {
+          "t": 10.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 10.7
+        },
+        {
+          "t": 11.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.9,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.1
+        },
+        {
+          "t": 12.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 10.7
+        },
+        {
+          "t": 13.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 10.7
+        },
+        {
+          "t": 14.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.2
+        },
+        {
+          "t": 15.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.2
+        },
+        {
+          "t": 16.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.7
+        },
+        {
+          "t": 17.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.1
+        },
+        {
+          "t": 18.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12
+        },
+        {
+          "t": 19.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.8
+        },
+        {
+          "t": 20.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.1
+        },
+        {
+          "t": 21.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.1
+        },
+        {
+          "t": 22.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 10.9
+        },
+        {
+          "t": 23.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.7
+        },
+        {
+          "t": 24.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.7
+        },
+        {
+          "t": 25.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 10.8
+        },
+        {
+          "t": 26.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 10.5
+        },
+        {
+          "t": 27.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.1
+        },
+        {
+          "t": 28.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.4
+        },
+        {
+          "t": 29.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.6
+        },
+        {
+          "t": 30.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.2
+        },
+        {
+          "t": 31.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.1
+        },
+        {
+          "t": 32.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.8
+        },
+        {
+          "t": 33.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.7
+        },
+        {
+          "t": 34.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.9
+        },
+        {
+          "t": 35.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.8
+        },
+        {
+          "t": 36.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.9,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.6
+        },
+        {
+          "t": 37.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.3
+        },
+        {
+          "t": 38.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.5
+        },
+        {
+          "t": 39.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.9,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 10.9
+        },
+        {
+          "t": 40.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.9
+        },
+        {
+          "t": 41.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.8
+        },
+        {
+          "t": 42.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.3
+        },
+        {
+          "t": 43.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12
+        },
+        {
+          "t": 44.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 14.2
+        },
+        {
+          "t": 45.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.8
+        },
+        {
+          "t": 46.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 15.4
+        },
+        {
+          "t": 47.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 15.1
+        },
+        {
+          "t": 48.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.1
+        },
+        {
+          "t": 49.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.2
+        },
+        {
+          "t": 50.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 10.9
+        },
+        {
+          "t": 51.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.2
+        },
+        {
+          "t": 52.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.9
+        },
+        {
+          "t": 53.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.9
+        },
+        {
+          "t": 54.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.6
+        },
+        {
+          "t": 55.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 15
+        },
+        {
+          "t": 56.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 14.6
+        },
+        {
+          "t": 57.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 16.1
+        },
+        {
+          "t": 58.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.4
+        },
+        {
+          "t": 59.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 17.7
+        },
+        {
+          "t": 60.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.9
+        },
+        {
+          "t": 61.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.7
+        },
+        {
+          "t": 62.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.8
+        },
+        {
+          "t": 63.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.9,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.9
+        },
+        {
+          "t": 64.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.7
+        },
+        {
+          "t": 65.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.8
+        },
+        {
+          "t": 66.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 15.8
+        },
+        {
+          "t": 67.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 15.4
+        },
+        {
+          "t": 68.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.7
+        },
+        {
+          "t": 69.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 70.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.2
+        },
+        {
+          "t": 71.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.5
+        },
+        {
+          "t": 72.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.3
+        },
+        {
+          "t": 73.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.2
+        },
+        {
+          "t": 74.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.1
+        },
+        {
+          "t": 75.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 16.2
+        },
+        {
+          "t": 76.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 16.2
+        },
+        {
+          "t": 77.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 17.8
+        },
+        {
+          "t": 78.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.2
+        },
+        {
+          "t": 79.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.1
+        },
+        {
+          "t": 80.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.9
+        },
+        {
+          "t": 81.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.5
+        },
+        {
+          "t": 82.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 14.3
+        },
+        {
+          "t": 83.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.1
+        },
+        {
+          "t": 84.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.3
+        },
+        {
+          "t": 85.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.4
+        },
+        {
+          "t": 86.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.4
+        },
+        {
+          "t": 87.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.2
+        },
+        {
+          "t": 88.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.4
+        },
+        {
+          "t": 89.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.8
+        },
+        {
+          "t": 90.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 91.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.9
+        },
+        {
+          "t": 92.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.8
+        },
+        {
+          "t": 93.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.9
+        },
+        {
+          "t": 94.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 14.7
+        },
+        {
+          "t": 95.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 17.1
+        },
+        {
+          "t": 96.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 17.1
+        },
+        {
+          "t": 97.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 18.3
+        },
+        {
+          "t": 98.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.3
+        },
+        {
+          "t": 99.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.2
+        },
+        {
+          "t": 100.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.6
+        },
+        {
+          "t": 101.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.7
+        },
+        {
+          "t": 102.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 14.9
+        },
+        {
+          "t": 103.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15
+        },
+        {
+          "t": 104.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.4
+        },
+        {
+          "t": 105.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.4
+        },
+        {
+          "t": 106.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.4
+        },
+        {
+          "t": 107.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.1
+        },
+        {
+          "t": 108.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.2
+        },
+        {
+          "t": 109.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.7
+        },
+        {
+          "t": 110.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.6
+        },
+        {
+          "t": 111.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15
+        },
+        {
+          "t": 112.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.1
+        },
+        {
+          "t": 113.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.3
+        },
+        {
+          "t": 114.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.4
+        },
+        {
+          "t": 115.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19
+        },
+        {
+          "t": 116.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 117.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.6
+        },
+        {
+          "t": 118.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14
+        },
+        {
+          "t": 119.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.3
+        },
+        {
+          "t": 120.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.2
+        },
+        {
+          "t": 121.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.4
+        },
+        {
+          "t": 122.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.6
+        },
+        {
+          "t": 123.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.6
+        },
+        {
+          "t": 124.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.9,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.2
+        },
+        {
+          "t": 125.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 126.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.6
+        },
+        {
+          "t": 127.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.4
+        },
+        {
+          "t": 128.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.5
+        },
+        {
+          "t": 129.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.5
+        },
+        {
+          "t": 130.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.7
+        },
+        {
+          "t": 131.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.6
+        },
+        {
+          "t": 132.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.8
+        },
+        {
+          "t": 133.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.6
+        },
+        {
+          "t": 134.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 135.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.8
+        },
+        {
+          "t": 136.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.9,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.4
+        },
+        {
+          "t": 137.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.5
+        },
+        {
+          "t": 138.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.3
+        },
+        {
+          "t": 139.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.1
+        },
+        {
+          "t": 140.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.2
+        },
+        {
+          "t": 141.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.4
+        },
+        {
+          "t": 142.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.5
+        },
+        {
+          "t": 143.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.1
+        },
+        {
+          "t": 144.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.6
+        },
+        {
+          "t": 145.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.7
+        },
+        {
+          "t": 146.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.1
+        },
+        {
+          "t": 147.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 148.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.1
+        },
+        {
+          "t": 149.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.7
+        },
+        {
+          "t": 150.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.6
+        },
+        {
+          "t": 151.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.8
+        },
+        {
+          "t": 153,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17
+        },
+        {
+          "t": 154,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18
+        },
+        {
+          "t": 155,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 156,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 157,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.8
+        },
+        {
+          "t": 158,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.1
+        },
+        {
+          "t": 159,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.7
+        },
+        {
+          "t": 160,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 18.4,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.3
+        },
+        {
+          "t": 161,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.5
+        },
+        {
+          "t": 162,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19
+        },
+        {
+          "t": 163,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.2
+        },
+        {
+          "t": 164,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.6
+        },
+        {
+          "t": 165,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 166,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.7
+        },
+        {
+          "t": 167,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.6
+        },
+        {
+          "t": 168.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.9
+        },
+        {
+          "t": 169.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.3
+        },
+        {
+          "t": 170.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.4
+        },
+        {
+          "t": 171.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20
+        },
+        {
+          "t": 172.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.1
+        },
+        {
+          "t": 173.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.1
+        },
+        {
+          "t": 174.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 175.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.7
+        },
+        {
+          "t": 176.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.4
+        },
+        {
+          "t": 177.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.7
+        },
+        {
+          "t": 178.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.9
+        },
+        {
+          "t": 179.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.6
+        },
+        {
+          "t": 180.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.1
+        },
+        {
+          "t": 181.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.5
+        },
+        {
+          "t": 182.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 11
+        },
+        {
+          "t": 183.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 11.7
+        },
+        {
+          "t": 184.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 14.5
+        },
+        {
+          "t": 185.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 15.2
+        },
+        {
+          "t": 186.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 15.6
+        },
+        {
+          "t": 187.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.4
+        },
+        {
+          "t": 188.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.6
+        },
+        {
+          "t": 189.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.2
+        },
+        {
+          "t": 190.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.3
+        },
+        {
+          "t": 191.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 14.6
+        },
+        {
+          "t": 192.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.3
+        },
+        {
+          "t": 193.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.6
+        },
+        {
+          "t": 194.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.9
+        },
+        {
+          "t": 195.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.5
+        },
+        {
+          "t": 196.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.2
+        },
+        {
+          "t": 197.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.8
+        },
+        {
+          "t": 198.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.6
+        },
+        {
+          "t": 199.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.7
+        },
+        {
+          "t": 200.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.1
+        },
+        {
+          "t": 201.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.7
+        },
+        {
+          "t": 202.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.8
+        },
+        {
+          "t": 203.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 23
+        },
+        {
+          "t": 204.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.7
+        },
+        {
+          "t": 205.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27
+        },
+        {
+          "t": 206.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.5
+        },
+        {
+          "t": 207.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.5
+        },
+        {
+          "t": 208.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.2
+        },
+        {
+          "t": 209.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.1
+        },
+        {
+          "t": 210.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.1
+        },
+        {
+          "t": 211.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29.2
+        },
+        {
+          "t": 212.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.8
+        },
+        {
+          "t": 213.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.2
+        },
+        {
+          "t": 214.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 23.5
+        },
+        {
+          "t": 215.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.3
+        },
+        {
+          "t": 216.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.6
+        },
+        {
+          "t": 217.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.1
+        },
+        {
+          "t": 218.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29.3
+        },
+        {
+          "t": 219.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.2
+        },
+        {
+          "t": 220.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.9
+        },
+        {
+          "t": 221.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 24.3
+        },
+        {
+          "t": 222.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.1
+        },
+        {
+          "t": 223.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.5
+        },
+        {
+          "t": 224.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.8
+        },
+        {
+          "t": 225.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 226.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 23
+        },
+        {
+          "t": 227.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.3
+        },
+        {
+          "t": 228.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 24.7
+        },
+        {
+          "t": 229.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.5
+        },
+        {
+          "t": 230.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29
+        },
+        {
+          "t": 231.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19
+        },
+        {
+          "t": 232.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 233.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 23
+        },
+        {
+          "t": 234.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.7
+        },
+        {
+          "t": 235.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.7
+        },
+        {
+          "t": 236.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.8
+        },
+        {
+          "t": 237.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 32.8
+        },
+        {
+          "t": 238.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.7
+        },
+        {
+          "t": 239.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.3
+        },
+        {
+          "t": 240.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.2
+        },
+        {
+          "t": 241.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17
+        },
+        {
+          "t": 242.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29.1
+        },
+        {
+          "t": 243.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.7
+        },
+        {
+          "t": 244.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.1
+        },
+        {
+          "t": 245.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 23.2
+        },
+        {
+          "t": 246.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 15.8
+        },
+        {
+          "t": 247.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.9
+        },
+        {
+          "t": 248.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.3
+        },
+        {
+          "t": 249.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29.5
+        },
+        {
+          "t": 250.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.7
+        },
+        {
+          "t": 251.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 252.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 23.7
+        },
+        {
+          "t": 253.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16
+        },
+        {
+          "t": 254.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.8
+        },
+        {
+          "t": 255.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 17.9
+        },
+        {
+          "t": 256.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 30.6
+        },
+        {
+          "t": 257.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.3
+        },
+        {
+          "t": 258.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.7
+        },
+        {
+          "t": 259.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 24.5
+        },
+        {
+          "t": 260.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.4
+        },
+        {
+          "t": 261.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29.3
+        },
+        {
+          "t": 262.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.1
+        },
+        {
+          "t": 263.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 30.5
+        },
+        {
+          "t": 264.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.7
+        },
+        {
+          "t": 265.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.8
+        },
+        {
+          "t": 266.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 24.8
+        },
+        {
+          "t": 267.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 16.6
+        },
+        {
+          "t": 268.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29.1
+        },
+        {
+          "t": 269.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.5
+        },
+        {
+          "t": 270.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 31.5
+        },
+        {
+          "t": 271.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 23.3
+        },
+        {
+          "t": 272.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.2
+        },
+        {
+          "t": 273.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 24.8
+        },
+        {
+          "t": 274.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.8
+        },
+        {
+          "t": 275.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.2
+        },
+        {
+          "t": 276.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.4
+        },
+        {
+          "t": 277.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.7
+        },
+        {
+          "t": 278.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.1
+        },
+        {
+          "t": 279.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.3
+        },
+        {
+          "t": 280.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.9
+        },
+        {
+          "t": 281.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 282.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.5
+        },
+        {
+          "t": 283.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.1
+        },
+        {
+          "t": 284.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.4
+        },
+        {
+          "t": 285.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.9
+        },
+        {
+          "t": 286.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.3
+        },
+        {
+          "t": 287.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 288.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.9,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.1
+        },
+        {
+          "t": 289.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19
+        },
+        {
+          "t": 290.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 291.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.3
+        },
+        {
+          "t": 292.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.6
+        },
+        {
+          "t": 293.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.8
+        },
+        {
+          "t": 294.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.2
+        },
+        {
+          "t": 295.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.5
+        },
+        {
+          "t": 296.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13
+        },
+        {
+          "t": 297.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.5
+        },
+        {
+          "t": 298.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.8
+        },
+        {
+          "t": 299.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.8
+        },
+        {
+          "t": 300.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.1
+        },
+        {
+          "t": 301.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.5
+        },
+        {
+          "t": 303,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.1
+        },
+        {
+          "t": 304,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.9
+        },
+        {
+          "t": 305,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20
+        },
+        {
+          "t": 306,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.1
+        },
+        {
+          "t": 307,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27
+        },
+        {
+          "t": 308,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.3
+        },
+        {
+          "t": 309,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.4
+        },
+        {
+          "t": 310,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.2
+        },
+        {
+          "t": 311,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20
+        },
+        {
+          "t": 312,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.2
+        },
+        {
+          "t": 313,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.1
+        },
+        {
+          "t": 314,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.3
+        },
+        {
+          "t": 315,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.3
+        },
+        {
+          "t": 316,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.2
+        },
+        {
+          "t": 317,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.6
+        },
+        {
+          "t": 318.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.1
+        },
+        {
+          "t": 319.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11
+        },
+        {
+          "t": 320.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.2
+        },
+        {
+          "t": 321.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.1
+        },
+        {
+          "t": 322.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.5
+        },
+        {
+          "t": 323.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.5
+        },
+        {
+          "t": 324.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.2
+        },
+        {
+          "t": 325.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 326.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.8
+        },
+        {
+          "t": 327.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.5
+        },
+        {
+          "t": 328.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 329.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26
+        },
+        {
+          "t": 330.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.6
+        },
+        {
+          "t": 331.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 332.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.9
+        },
+        {
+          "t": 333.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.8
+        },
+        {
+          "t": 334.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.6
+        },
+        {
+          "t": 335.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.1
+        },
+        {
+          "t": 336.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.9
+        },
+        {
+          "t": 337.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.7
+        },
+        {
+          "t": 338.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 25.9
+        },
+        {
+          "t": 339.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.1
+        },
+        {
+          "t": 340.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.9
+        },
+        {
+          "t": 341.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.6
+        },
+        {
+          "t": 342.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.3
+        },
+        {
+          "t": 343.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.9
+        },
+        {
+          "t": 344.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.6
+        },
+        {
+          "t": 345.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.4
+        },
+        {
+          "t": 346.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.1
+        },
+        {
+          "t": 347.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 26.9
+        },
+        {
+          "t": 348.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.2
+        },
+        {
+          "t": 349.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12
+        },
+        {
+          "t": 350.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.4
+        },
+        {
+          "t": 351.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.6
+        },
+        {
+          "t": 352.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.1
+        },
+        {
+          "t": 353.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.4
+        },
+        {
+          "t": 354.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.6
+        },
+        {
+          "t": 355.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.2
+        },
+        {
+          "t": 356.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.5
+        },
+        {
+          "t": 357.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.7
+        },
+        {
+          "t": 358.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.2
+        },
+        {
+          "t": 359.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.3
+        },
+        {
+          "t": 360.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.8
+        },
+        {
+          "t": 361.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.4
+        },
+        {
+          "t": 362.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.7
+        },
+        {
+          "t": 363.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20
+        },
+        {
+          "t": 364.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.5
+        },
+        {
+          "t": 365.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.9
+        },
+        {
+          "t": 366.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.1
+        },
+        {
+          "t": 367.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.4
+        },
+        {
+          "t": 368.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.1
+        },
+        {
+          "t": 369.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.2
+        },
+        {
+          "t": 370.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 371.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.3
+        },
+        {
+          "t": 372.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.5
+        },
+        {
+          "t": 373.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.6
+        },
+        {
+          "t": 374.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.3
+        },
+        {
+          "t": 375.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.3
+        },
+        {
+          "t": 376.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.9
+        },
+        {
+          "t": 377.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29
+        },
+        {
+          "t": 378.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.9
+        },
+        {
+          "t": 379.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.8
+        },
+        {
+          "t": 380.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.9
+        },
+        {
+          "t": 381.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 21.1
+        },
+        {
+          "t": 382.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.1
+        },
+        {
+          "t": 383.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 29.4
+        },
+        {
+          "t": 384.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 21.2
+        },
+        {
+          "t": 385.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.2
+        },
+        {
+          "t": 386.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29.1
+        },
+        {
+          "t": 387.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.5
+        },
+        {
+          "t": 388.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 13.2
+        },
+        {
+          "t": 389.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 35.2
+        },
+        {
+          "t": 390.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.1
+        },
+        {
+          "t": 391.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.8
+        },
+        {
+          "t": 392.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 35.3
+        },
+        {
+          "t": 393.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.3
+        },
+        {
+          "t": 394.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 18.9
+        },
+        {
+          "t": 395.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 35.4
+        },
+        {
+          "t": 396.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.2
+        },
+        {
+          "t": 397.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19
+        },
+        {
+          "t": 398.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.9
+        },
+        {
+          "t": 399.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.4
+        },
+        {
+          "t": 400.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.2
+        },
+        {
+          "t": 401.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22
+        },
+        {
+          "t": 402.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 27.5
+        },
+        {
+          "t": 403.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.4
+        },
+        {
+          "t": 404.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.1
+        },
+        {
+          "t": 405.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28
+        },
+        {
+          "t": 406.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.5
+        },
+        {
+          "t": 407.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.1
+        },
+        {
+          "t": 408.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28
+        },
+        {
+          "t": 409.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.7
+        },
+        {
+          "t": 410.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.3
+        },
+        {
+          "t": 411.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.3
+        },
+        {
+          "t": 412.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.5
+        },
+        {
+          "t": 413.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 414.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.6
+        },
+        {
+          "t": 415.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.1
+        },
+        {
+          "t": 416.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 417.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.4
+        },
+        {
+          "t": 418.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 20.3
+        },
+        {
+          "t": 419.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 23.1
+        },
+        {
+          "t": 420.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 28.9
+        },
+        {
+          "t": 421.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 20.1
+        },
+        {
+          "t": 422.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 11.7
+        },
+        {
+          "t": 423.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 28.5
+        },
+        {
+          "t": 424.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.5
+        },
+        {
+          "t": 425.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 20.2
+        },
+        {
+          "t": 426.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.3
+        },
+        {
+          "t": 427.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.4
+        },
+        {
+          "t": 428.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20
+        },
+        {
+          "t": 429.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.9
+        },
+        {
+          "t": 430.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.9
+        },
+        {
+          "t": 431.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 29.1
+        },
+        {
+          "t": 432.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.8
+        },
+        {
+          "t": 433.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.5
+        },
+        {
+          "t": 434.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.6
+        },
+        {
+          "t": 435.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.9
+        },
+        {
+          "t": 436.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.2
+        },
+        {
+          "t": 437.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.1
+        },
+        {
+          "t": 438.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.1
+        },
+        {
+          "t": 439.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 440.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.3
+        },
+        {
+          "t": 441.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.5
+        },
+        {
+          "t": 442.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.4
+        },
+        {
+          "t": 443.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.4
+        },
+        {
+          "t": 444.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.5
+        },
+        {
+          "t": 445.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.5
+        },
+        {
+          "t": 446.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 447.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.6
+        },
+        {
+          "t": 448.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 449.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 450.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.8
+        },
+        {
+          "t": 451.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.8
+        },
+        {
+          "t": 452.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.9
+        },
+        {
+          "t": 453.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.9
+        },
+        {
+          "t": 454.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12.8
+        },
+        {
+          "t": 455.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13
+        },
+        {
+          "t": 456.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13
+        },
+        {
+          "t": 457.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13
+        },
+        {
+          "t": 459,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.2
+        },
+        {
+          "t": 460,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.1
+        },
+        {
+          "t": 461,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.1
+        },
+        {
+          "t": 462,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13
+        },
+        {
+          "t": 463,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.2
+        },
+        {
+          "t": 464,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.2
+        },
+        {
+          "t": 465,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.2
+        },
+        {
+          "t": 466,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.1
+        },
+        {
+          "t": 467,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.2
+        },
+        {
+          "t": 468,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.2
+        },
+        {
+          "t": 469,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.1
+        },
+        {
+          "t": 470,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.2
+        },
+        {
+          "t": 471,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13.2
+        },
+        {
+          "t": 472,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 13
+        },
+        {
+          "t": 473.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.8
+        },
+        {
+          "t": 474.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 20
+        },
+        {
+          "t": 475.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 20
+        },
+        {
+          "t": 476.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 19.9
+        },
+        {
+          "t": 477.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.3
+        },
+        {
+          "t": 478.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.2
+        },
+        {
+          "t": 479.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.3
+        },
+        {
+          "t": 480.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.1
+        },
+        {
+          "t": 481.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.2
+        },
+        {
+          "t": 482.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20
+        },
+        {
+          "t": 483.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.4
+        },
+        {
+          "t": 484.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.4
+        },
+        {
+          "t": 485.1,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.7
+        },
+        {
+          "t": 486.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.6
+        },
+        {
+          "t": 487.1,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.4
+        },
+        {
+          "t": 488.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.2
+        },
+        {
+          "t": 489.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.6
+        },
+        {
+          "t": 490.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.5
+        },
+        {
+          "t": 491.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.7
+        },
+        {
+          "t": 492.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.7
+        },
+        {
+          "t": 493.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 20.8
+        },
+        {
+          "t": 494.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 20.8
+        },
+        {
+          "t": 495.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 20.9
+        },
+        {
+          "t": 496.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.1
+        },
+        {
+          "t": 497.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.2
+        },
+        {
+          "t": 498.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 20.7
+        },
+        {
+          "t": 499.2,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.3
+        },
+        {
+          "t": 500.2,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.1
+        },
+        {
+          "t": 501.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.2
+        },
+        {
+          "t": 502.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.2
+        },
+        {
+          "t": 503.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.2
+        },
+        {
+          "t": 504.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.4
+        },
+        {
+          "t": 505.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.4
+        },
+        {
+          "t": 506.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.4
+        },
+        {
+          "t": 507.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.5
+        },
+        {
+          "t": 508.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.8
+        },
+        {
+          "t": 509.3,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 21.7
+        },
+        {
+          "t": 510.3,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.5
+        },
+        {
+          "t": 511.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.8
+        },
+        {
+          "t": 512.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.8
+        },
+        {
+          "t": 513.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.9
+        },
+        {
+          "t": 514.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.7
+        },
+        {
+          "t": 515.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.1
+        },
+        {
+          "t": 516.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.1
+        },
+        {
+          "t": 517.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22
+        },
+        {
+          "t": 518.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.1
+        },
+        {
+          "t": 519.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.9
+        },
+        {
+          "t": 520.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.2
+        },
+        {
+          "t": 521.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.2
+        },
+        {
+          "t": 522.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.1
+        },
+        {
+          "t": 523.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.4
+        },
+        {
+          "t": 524.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.4
+        },
+        {
+          "t": 525.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.7
+        },
+        {
+          "t": 526.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.5
+        },
+        {
+          "t": 527.4,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.5
+        },
+        {
+          "t": 528.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.8
+        },
+        {
+          "t": 529.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.6
+        },
+        {
+          "t": 530.4,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.4
+        },
+        {
+          "t": 531.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.6
+        },
+        {
+          "t": 532.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 22.7
+        },
+        {
+          "t": 533.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 22.7
+        },
+        {
+          "t": 534.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 22.5
+        },
+        {
+          "t": 535.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 22.8
+        },
+        {
+          "t": 536.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 22.8
+        },
+        {
+          "t": 537.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 22.7
+        },
+        {
+          "t": 538.5,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 30
+        },
+        {
+          "t": 539.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 30.2
+        },
+        {
+          "t": 540.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 30.3
+        },
+        {
+          "t": 541.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 30.1
+        },
+        {
+          "t": 542.5,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 30.2
+        },
+        {
+          "t": 543.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 30.5
+        },
+        {
+          "t": 544.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.4
+        },
+        {
+          "t": 545.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.6
+        },
+        {
+          "t": 546.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.6
+        },
+        {
+          "t": 547.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.6
+        },
+        {
+          "t": 548.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.8
+        },
+        {
+          "t": 549.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.9
+        },
+        {
+          "t": 550.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21
+        },
+        {
+          "t": 551.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.9
+        },
+        {
+          "t": 552.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 20.8
+        },
+        {
+          "t": 553.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 554.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.3
+        },
+        {
+          "t": 555.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 556.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.2
+        },
+        {
+          "t": 557.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 558.6,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 559.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.4
+        },
+        {
+          "t": 560.6,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.1
+        },
+        {
+          "t": 561.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.5
+        },
+        {
+          "t": 562.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.7,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.6
+        },
+        {
+          "t": 563.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.6
+        },
+        {
+          "t": 564.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.6
+        },
+        {
+          "t": 565.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 11.6
+        },
+        {
+          "t": 566.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 21.5
+        },
+        {
+          "t": 567.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.8
+        },
+        {
+          "t": 568.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.8
+        },
+        {
+          "t": 569.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12
+        },
+        {
+          "t": 570.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.9
+        },
+        {
+          "t": 571.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.8
+        },
+        {
+          "t": 572.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.7
+        },
+        {
+          "t": 573.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12
+        },
+        {
+          "t": 574.7,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12
+        },
+        {
+          "t": 575.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 97,
+          "heapMb": 12
+        },
+        {
+          "t": 576.7,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 11.8
+        },
+        {
+          "t": 577.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 12.1
+        },
+        {
+          "t": 578.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 12
+        },
+        {
+          "t": 579.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 12
+        },
+        {
+          "t": 580.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 99,
+          "heapMb": 12.2
+        },
+        {
+          "t": 581.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.1
+        },
+        {
+          "t": 582.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 583.8,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 584.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 585.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 586.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.2
+        },
+        {
+          "t": 587.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 588.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 589.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.3
+        },
+        {
+          "t": 590.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.5
+        },
+        {
+          "t": 591.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.4
+        },
+        {
+          "t": 592.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.6
+        },
+        {
+          "t": 593.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.6
+        },
+        {
+          "t": 594.8,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.4
+        },
+        {
+          "t": 595.9,
+          "fps": 60,
+          "p95IntervalMs": 16.8,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 596.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.6
+        },
+        {
+          "t": 597.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.5
+        },
+        {
+          "t": 598.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.7
+        },
+        {
+          "t": 599.9,
+          "fps": 60,
+          "p95IntervalMs": 16.7,
+          "maxIntervalMs": 16.8,
+          "remotes": 20,
+          "drawables": 98,
+          "heapMb": 12.6
+        }
+      ]
+    }
+  ]
+}

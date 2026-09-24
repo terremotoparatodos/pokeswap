@@ -4,3 +4,6 @@ dist/
 *.local
 .colyseus-cloud.json
 .DS_Store
+
+# PERF-1 captures from real devices (User-Agent, device, timestamps): kept locally, summarised in the reports.
+docs/performance/baselines/incoming/

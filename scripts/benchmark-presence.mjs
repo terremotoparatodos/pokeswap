@@ -25,6 +25,8 @@ function percentile(values, fraction) {
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)]
 }
 
+/** Long runs collect more samples than Math.max(...values) can take as arguments. */
+function maxOf(values) { let max = 0; for (const value of values) if (value > max) max = value; return max }
 function round(value) { return Math.round(value * 100) / 100 }
 function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
 
@@ -43,6 +45,22 @@ async function waitForPort(port, timeoutMs = 10_000) {
   throw new Error(`realtime did not listen on port ${port}`)
 }
 
+/** Aggregate counters from the internal health port of a server this command started. */
+async function serverMetrics() {
+  if (externalServer) return null
+  try {
+    const response = await fetch(`http://127.0.0.1:${port + 1}/metrics`)
+    return response.ok ? await response.json() : null
+  } catch {
+    return null
+  }
+}
+
+function batchingDelta(before, after) {
+  if (!before?.batching || !after?.batching) return null
+  return Object.fromEntries(Object.keys(after.batching).map(key => [key, key === 'maxBatch' ? after.batching[key] : after.batching[key] - before.batching[key]]))
+}
+
 const players = boundedInteger(option('players', process.argv[2]), 50, 1, 100)
 const durationSeconds = boundedInteger(option('duration', process.argv[3]), 30, 3, 3600)
 const warmupSeconds = boundedInteger(option('warmup', '3'), 3, 0, 30)
@@ -56,6 +74,15 @@ if (!/^[a-z0-9][a-z0-9-]{0,24}$/.test(identityPrefix)) throw new Error(`invalid 
 // Omitted = legacy clients (no `presenceProtocol`), as before; 2 = compact `step` deltas.
 const presenceProtocol = option('protocol') === undefined ? undefined : boundedInteger(option('protocol'), 1, 1, 9)
 const externalServer = process.argv.includes('--external-server')
+// PERF-1: `--burst N` sends N moves back to back every N steps (same average
+// pace), reproducing moves that reach the server inside one 50 ms window.
+const burst = boundedInteger(option('burst', '1'), 1, 1, 5)
+// `--gait run` (133 ms per tile) and `walk` (267 ms) match the client's step
+// cadence; omitted keeps the historical 140 ms so older runs stay comparable.
+const gait = option('gait', 'legacy')
+if (!['legacy', 'run', 'walk'].includes(gait)) throw new Error(`unsupported gait: ${gait}`)
+const stepMs = gait === 'run' ? 1000 / 7.5 : gait === 'walk' ? 1000 / 3.75 : 140
+const running = gait !== 'walk'
 let server = null
 
 if (!externalServer) {
@@ -101,6 +128,20 @@ try {
     const current = {
       room, bytes: 0, wireBytes: 0, wireFrames: 0, physicalMessages: 0, logicalUpdates: 0, snapshots: 0,
       selfAcks: 0, errors: 0, sequence: 0, sentAt: new Map(), rtt: [],
+      // What this client, as an observer, sees of every other actor.
+      seen: new Map(), tileJumps: { 0: 0, 1: 0, 2: 0, 3: 0 }, sequenceGaps: 0, updateIntervals: [],
+    }
+    const observe = actor => {
+      if (!actor || typeof actor.id !== 'string') return
+      const now = performance.now()
+      const last = current.seen.get(actor.id)
+      if (last && typeof actor.tx === 'number') {
+        const distance = Math.abs(actor.tx - last.tx) + Math.abs(actor.ty - last.ty)
+        current.tileJumps[Math.min(3, distance)]++
+        if (Number.isInteger(actor.moveSequence) && actor.moveSequence - last.moveSequence > 1) current.sequenceGaps++
+        if (Number.isFinite(last.at)) current.updateIntervals.push(now - last.at)
+      }
+      if (typeof actor.tx === 'number') current.seen.set(actor.id, { tx: actor.tx, ty: actor.ty, moveSequence: actor.moveSequence ?? 0, at: now })
     }
     // Real received payload bytes (Colyseus msgpack frames), not the JSON estimate.
     room.connection.transport.ws.addEventListener('message', event => {
@@ -111,9 +152,17 @@ try {
       room.onMessage(type, payload => {
         current.physicalMessages++
         current.bytes += Buffer.byteLength(JSON.stringify([type, payload]))
-        if (type === 'presence:batch') current.logicalUpdates += payload.length
-        else if (type === 'presence:delta') current.logicalUpdates++
-        else if (type === 'presence:snapshot') current.snapshots++
+        if (type === 'presence:batch') {
+          current.logicalUpdates += payload.length
+          for (const delta of payload) if (delta.type !== 'leave') observe(delta.actor)
+        } else if (type === 'presence:delta') {
+          current.logicalUpdates++
+          if (payload.type !== 'leave') observe(payload.actor)
+        } else if (type === 'presence:snapshot') {
+          current.snapshots++
+          current.seen.clear()
+          for (const actor of payload.actors ?? []) observe(actor)
+        }
         else if (type === 'presence:error') current.errors++
         else if (type === 'presence:self') {
           current.selfAcks++
@@ -135,7 +184,11 @@ try {
   for (const current of stats) {
     current.bytes = 0; current.wireBytes = 0; current.wireFrames = 0; current.physicalMessages = 0; current.logicalUpdates = 0
     current.snapshots = 0; current.selfAcks = 0; current.errors = 0; current.rtt.length = 0
+    current.tileJumps = { 0: 0, 1: 0, 2: 0, 3: 0 }; current.sequenceGaps = 0; current.updateIntervals.length = 0
+    // The idle warm-up is not an update interval: restart every clock here.
+    for (const seen of current.seen.values()) seen.at = Number.POSITIVE_INFINITY
   }
+  const serverBefore = await serverMetrics()
   eventLoopLag.length = 0
   lagExpected = performance.now() + 100
 
@@ -145,17 +198,24 @@ try {
     const now = performance.now()
     for (let index = 0; index < stats.length; index++) {
       const current = stats[index]
-      const direction = DIRECTIONS[Math.floor((tick + index % 4) / 5) % DIRECTIONS.length]
-      current.sequence++
-      current.sentAt.set(current.sequence, now)
-      current.room.send('move', { direction, running: true, sequence: current.sequence })
+      for (let step = 0; step < burst; step++) {
+        const direction = DIRECTIONS[Math.floor((tick * burst + step + index % 4) / 5) % DIRECTIONS.length]
+        current.sequence++
+        current.sentAt.set(current.sequence, now)
+        current.room.send('move', { direction, running, sequence: current.sequence })
+      }
     }
     tick++
-  }, 140)
+  }, stepMs * burst)
   await delay(durationSeconds * 1000)
   clearInterval(movementTimer)
   await delay(150)
   const finishedAt = performance.now()
+  const serverAfter = await serverMetrics()
+  const jumps = { 0: 0, 1: 0, 2: 0, 3: 0 }
+  for (const current of stats) for (const key of Object.keys(jumps)) jumps[key] += current.tileJumps[key]
+  const observedUpdates = Object.values(jumps).reduce((sum, value) => sum + value, 0)
+  const intervals = stats.flatMap(current => current.updateIntervals)
 
   const allRtt = stats.flatMap(current => current.rtt)
   const clientMessages = stats.map(current => current.physicalMessages)
@@ -203,7 +263,7 @@ try {
       p50: round(percentile(allRtt, 0.5)),
       p95: round(percentile(allRtt, 0.95)),
       p99: round(percentile(allRtt, 0.99)),
-      max: round(Math.max(0, ...allRtt)),
+      max: round(maxOf(allRtt)),
     },
     driverEventLoopLagMs: {
       p95: round(percentile(eventLoopLag, 0.95)),
@@ -211,6 +271,19 @@ try {
       max: round(Math.max(0, ...eventLoopLag)),
     },
     rejectedMoves: stats.reduce((sum, current) => sum + current.errors, 0),
+    // PERF-1: movement as the other clients receive it.
+    movement: { gait, stepMs: round(stepMs), burst },
+    observed: {
+      updates: observedUpdates,
+      tileDistance: { same: jumps[0], one: jumps[1], two: jumps[2], threeOrMore: jumps[3] },
+      multiTileShare: observedUpdates ? round((jumps[2] + jumps[3]) / observedUpdates * 100) : 0,
+      sequenceGaps: stats.reduce((sum, current) => sum + current.sequenceGaps, 0),
+      updateIntervalMs: {
+        p50: round(percentile(intervals, 0.5)), p95: round(percentile(intervals, 0.95)),
+        p99: round(percentile(intervals, 0.99)), max: round(maxOf(intervals)),
+      },
+    },
+    serverBatching: batchingDelta(serverBefore, serverAfter),
   }
   console.log(JSON.stringify(result, null, 2))
   if (allRtt.length < players) process.exitCode = 1
