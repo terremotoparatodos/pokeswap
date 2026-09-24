@@ -3,7 +3,7 @@
 Rama `perf/2-multiplayer-smoothness`, desde `14e38eb` (PERF-1 integrado, PR #28).
 Objetivo: llevar la locomoción remota de 7,5/10 percibido a 9,5–10/10 sin empeorar el costo de frame.
 
-**Estado:** implementado y medido con harness y headless. **Falta la validación física** (§6); PERF-2 no está cerrado hasta que esté.
+**Estado: APROBADO.** Implementado, medido con harness y headless, y validado físicamente en PC + iPhone 15 Pro (§6): la locomoción remota pasa de **7,5/10 a 10/10** percibido.
 
 ## 1. Cambios, en orden y atribuibles
 
@@ -95,29 +95,67 @@ Retención AOI: sólo se conservan actores ya vistos a ≤ 26 casillas. El peor 
 
 - **G (todos los paquetes del emisor de a dos):** sin saltos, pero con esperas de ~220–270 ms/s y ritmo 1,2–1,4×. Es un emisor degradado (pestaña en segundo plano o red muy mala), no el caso normal.
 - **Red "rough":** sin saltos, pero con esperas de 100–180 ms/s. Una pausa de 250 ms no se puede ocultar con 50 ms de holgura sin sumar latencia a todos.
-- **Wi-Fi modelada:** esperas de 20–50 ms/s (más que LAN). Es un modelo, no una medición del iPhone; la prueba física lo confirma o no.
+- **Wi-Fi modelada:** esperas de 20–50 ms/s (más que LAN). Es un modelo; en el iPhone real (§6) no hubo saltos y las esperas no se percibieron.
 - **Arranque:** el primer paso tras quedarse quieto parte a ritmo nominal; el controlador tarda unos pasos en asentar la holgura.
 - **Compatibilidad:** clientes viejos contra servidor nuevo reciben lo mismo que antes. Clientes nuevos que miran a un cliente viejo (que envía al llegar) funcionan igual que en 2.2a.
 - **Sin cambios, por alcance:** `cityLab` y `dungeonPrototype` (un jugador, sin presencia) siguen con la marcha fijada sólo estando quieto.
 
-## 6. Validación física — PENDIENTE
+## 6. Validación física (PC + iPhone 15 Pro, misma Wi-Fi)
 
-Stack LAN: `node scripts/perf/local-stack.mjs --crowd 10` (build `VITE_PERF`, servidor local, 10 corredores en ciudad y 10 en Pradera).
+Stack LAN: `node scripts/perf/local-stack.mjs --crowd 10` (build `VITE_PERF`, servidor local, 10 corredores en ciudad y 10 en Pradera). Las capturas crudas quedan fuera de Git (`baselines/incoming/`); acá sólo el resumen.
 
-| Observación | PC observa | iPhone observa | PERF-1 |
+### 6.1 Percepción (humana)
+
+| Observación | PERF-1 | PERF-2, PC → iPhone | PERF-2, iPhone → PC |
 |---|---|---|---|
-| Caminar | — | — | bien |
-| Correr | — | — | 7,5 |
-| Walk → run sin frenar | — | — | — |
-| Run → walk sin frenar | — | — | — |
-| Frenar | — | — | — |
-| Zig-zag | — | — | — |
-| Cambios bruscos | — | — | — |
-| Varios corredores | — | — | 7,5 |
-| Borde de visión en Pradera | — | — | "reset" |
+| Caminar | bien | **10/10** | **10/10** |
+| Correr | **7,5/10** | **10/10** | **10/10** |
+| Walk → run sin frenar | la animación cambiaba, la velocidad no; esperas o saltos de 4–5 | correcto | correcto |
+| Run → walk sin frenar | el inverso | correcto | correcto |
+| Frenadas | — | correcto | correcto |
+| Zig-zag / giros | — | correcto | correcto |
+| Latencia percibida | atraso visible | prácticamente en tiempo real | prácticamente en tiempo real |
+| 10 corredores en ciudad | 7,5/10, saltos y "reset" periódicos | muchísimo mejor, casi perfecto; sin el patrón de saltos | — |
+| Borde de visión en Pradera | apariciones y desapariciones dentro de pantalla ("reset") | **10/10**, sin desapariciones raras | — |
 
-Meta: 9,5–10. PERF-2 no se declara cerrado sin esta tabla.
+### 6.2 Medido en los dispositivos
 
-## 7. Deploy
+| | PERF-1 dúo (iPhone mira a la PC) | PERF-2 dúo (iPhone mira a la PC + 10 corredores) | PERF-2 (PC mira al iPhone + 10 corredores) | PERF-2 Pradera (iPhone) |
+|---|---:|---:|---:|---:|
+| Duración | 99 s | 60 s | 33 s | 17 s |
+| Remotos | 1 | 11 | 11 | 9–10 |
+| Saltos | **17 (10,5/min), hasta 5 casillas** | **0** | 0 de locomoción (ver nota) | **0** |
+| Esperas por remoto-minuto | 47 | 4,5 | 3 | — |
+| Espera p95 / máx. (ms) | 250 / 367 | 216 / 333 | 249 / 249 | 266 / 266 |
+| Llegadas: distancia 2+ casillas | 0 | 0 | 0 | 0 |
+| Salidas de AOI dentro de 26 casillas | 1 (a 11) | 0 | 0 | **0** |
+| Trabajo de frame p95 | 2 ms | 2 ms | 2,8 ms | 4 ms |
+| Frames tarde | 0 % | 0 % | 0 % | 3,3 % |
+| RTT de movimiento p50 / p95 | — | — | 13 / 31 ms | 4 / 9 ms |
 
-No desplegado. 2.3 y 2.4 cambian `services/realtime`: el merge a `playtest/community-0.1` redespliega Colyseus y Pages. El servidor es compatible con los clientes actuales, así que el orden no importa.
+Nota PC: la captura registra 11 saltos, **todos en el mismo instante** y en los 11 remotos a la vez, en el primer frame tras tocar **Iniciar**. Son de 1 casilla en los bots y de 3 en el iPhone, y coinciden con un intervalo de llegada máximo de 62 s y 10 huecos de secuencia, uno por remoto. Es un artefacto de arranque de la traza: compara contra el estado anterior a la captura. No hubo ninguno durante el movimiento.
+
+Nota Pradera: las 12 salidas de AOI de esa captura son todas a 102–106 casillas. Son los cambios de área ciudad ↔ Pradera, no el borde de visión.
+
+Frames tarde en Pradera (3,3 %): es un frame de 147 ms al entrar al área, bajo el fundido, igual que en PERF-1 (§13.10), y fuera del alcance de esta fase.
+
+### 6.3 Conclusión
+
+La meta de la fase era que ver correr a otro jugador dejara de sentirse como un sistema de red. Se alcanzó en PC y en iPhone, en ambos sentidos, con multitud y en el borde de visión.
+
+## 7. Limitaciones técnicas residuales
+
+Ver §5. En resumen:
+- un emisor que agrupa siempre dos pasos por paquete, o una red con pausas largas, ya no produce saltos pero sí algunas esperas;
+- el primer paso tras quedarse quieto parte a ritmo nominal;
+- el costo de retener actores entre 20 y 26 casillas está acotado (+67 % de área en el peor caso) pero no se midió con una multitud repartida en ese anillo;
+- el pico de ~150–230 ms al cambiar de área (chunks) sigue oculto bajo el fundido.
+
+## 8. Observado en la validación, fuera de PERF-2 (registrado, no corregido)
+
+1. **Transiciones / edificios.** Al entrar a un edificio o durante una transición, el remoto a veces parece teletransportarse al spawn o a una posición incorrecta. Frente: cambio de área, spawn, transición y sincronización de posición entre mapas. No es la locomoción validada acá. Dato de partida: en la captura de la PC hubo 3 `solidRecoveries` (corrección a punto seguro) y 3 `placements` en 33 s.
+2. **MOBILE-1 — Mobile Viewport & HUD** (etapa futura). En iPhone el rendimiento es excelente, pero la vista queda comprimida por las barras de Safari, el HUD normal, el panel de métricas, los controles PERF/captura y los diálogos. Objetivos aproximados: PWA/standalone, `dvh` y safe areas, HUD de performance colapsable o mínimo, controles de captura plegables, y revisar el HUD normal móvil. No es un problema de rendimiento.
+
+## 9. Deploy
+
+2.3 y 2.4 cambian `services/realtime`: el merge a `playtest/community-0.1` redespliega Colyseus (auto) y Pages (CI). El servidor es compatible con los clientes actuales, así que el orden no importa.
