@@ -90,6 +90,8 @@ try {
   if (watch) for (let i = 0; i < Number(one('watch-count', '8')); i++) { console.log('[perf] watch', await clients[0].page.eval(watch).catch(e => String(e))); await sleep(2000) }
   // Let every client join, receive its snapshot and warm its sheets before measuring.
   await sleep(3000)
+  // --no-render-probe: overhead A/B for the per-actor render hook.
+  if (args.includes('--no-render-probe')) for (const c of clients) await c.page.eval('window.__pokeswapPerf.session.setRenderProbe(false)')
   for (const c of clients) {
     const scenario = c.mode === 'observe' ? 'null' : JSON.stringify(c.mode)
     await c.page.eval(`window.__pokeswapPerf.session.start(${JSON.stringify(`${label}-${c.mode}`)}, ${scenario})`)

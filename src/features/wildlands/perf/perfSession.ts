@@ -30,6 +30,7 @@ export class PerfSession {
   private readonly hudMs = new SampleRing(20_000)
   private readonly populace = new SampleRing(36_000)
   private readonly drawablesPerFrame = new SampleRing(36_000)
+  private readonly probeMs = new SampleRing(36_000)
   private readonly timeline: SecondSample[] = []
   private second = { start: 0, frames: 0, intervals: [] as number[], remotes: 0, drawables: 0 }
   private lastRaf = -1
@@ -69,6 +70,11 @@ export class PerfSession {
     }
     document.addEventListener('visibilitychange', this.onVisibility)
     this.main.start()
+  }
+
+  /** Overhead A/B: capture with or without the per-actor render probe (sprite metrics need it). */
+  setRenderProbe(on: boolean): void {
+    this.game?.setFrameProbe(this.frameProbe, on ? this.renderProbe : null)
   }
 
   uninstall(): void {
@@ -112,7 +118,7 @@ export class PerfSession {
 
   start(label: string, scenarioId: string | null = null): void {
     for (const trace of [this.pacing, this.motion, this.remote, this.chunks, this.main]) trace.clear()
-    for (const ring of [this.hudMs, this.populace, this.drawablesPerFrame]) ring.clear()
+    for (const ring of [this.hudMs, this.populace, this.drawablesPerFrame, this.probeMs]) ring.clear()
     this.timeline.length = 0
     this.areaTimes.clear()
     this.label = label
@@ -135,12 +141,13 @@ export class PerfSession {
     player: Actor, camX: number, camY: number, area: Area, remotes: readonly Actor[], populace: number,
   ): void {
     if (!this.recording) return
+    const probeStart = performance.now()
     this.driver?.step(player, area)
     const interval = this.lastRaf >= 0 ? raf - this.lastRaf : 0
     this.lastRaf = raf
     this.pacing.record(raf, updateEnd - workStart, renderEnd - updateEnd, frameEnd - renderEnd)
     this.motion.record(player, camX, camY, interval, this.zoom)
-    if (this.fallback) this.remote.frame(remotes, this.fallback)
+    if (this.fallback) this.remote.frame(remotes, this.fallback, player)
     this.chunks.endFrame()
     this.populace.push(populace)
     this.drawablesPerFrame.push(this.drawables)
@@ -162,6 +169,8 @@ export class PerfSession {
       })
       this.second = { start: raf, frames: 0, intervals: [], remotes: 0, drawables: 0 }
     }
+    // Cost of this probe itself (outside the engine's work measurement).
+    this.probeMs.push(performance.now() - probeStart)
     if (this.driver?.finished) this.stop()
   }
 
@@ -186,6 +195,8 @@ export class PerfSession {
       pacing: this.pacing.report(),
       mainThread: this.main.report(),
       ui: { hudFlushMs: summarize(this.hudMs.values()) },
+      /** Time spent in the capture probe per frame, not counted in pacing.workMs. */
+      instrumentationMs: summarize(this.probeMs.values()),
       motion: this.motion.report(),
       remote: this.remote.report(),
       chunks: this.chunks.report(),

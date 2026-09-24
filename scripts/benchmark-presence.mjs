@@ -25,6 +25,8 @@ function percentile(values, fraction) {
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * fraction) - 1)]
 }
 
+/** Long runs collect more samples than Math.max(...values) can take as arguments. */
+function maxOf(values) { let max = 0; for (const value of values) if (value > max) max = value; return max }
 function round(value) { return Math.round(value * 100) / 100 }
 function delay(ms) { return new Promise(resolve => setTimeout(resolve, ms)) }
 
@@ -261,7 +263,7 @@ try {
       p50: round(percentile(allRtt, 0.5)),
       p95: round(percentile(allRtt, 0.95)),
       p99: round(percentile(allRtt, 0.99)),
-      max: round(Math.max(0, ...allRtt)),
+      max: round(maxOf(allRtt)),
     },
     driverEventLoopLagMs: {
       p95: round(percentile(eventLoopLag, 0.95)),
@@ -278,7 +280,7 @@ try {
       sequenceGaps: stats.reduce((sum, current) => sum + current.sequenceGaps, 0),
       updateIntervalMs: {
         p50: round(percentile(intervals, 0.5)), p95: round(percentile(intervals, 0.95)),
-        p99: round(percentile(intervals, 0.99)), max: round(Math.max(0, ...intervals)),
+        p99: round(percentile(intervals, 0.99)), max: round(maxOf(intervals)),
       },
     },
     serverBatching: batchingDelta(serverBefore, serverAfter),

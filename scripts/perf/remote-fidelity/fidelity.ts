@@ -152,6 +152,8 @@ const SCENARIOS: Scenario[] = [
   { id: 'G', name: 'run, two moves per uplink packet', movers: [[run('right', 16)]], pairUp: true },
   // Shift released mid-run: the local walker keeps its running speed until it stops.
   { id: 'I', name: 'run then walk without stopping', movers: [[run('right', 6), walk('right', 10)]] },
+  // A long constant run: does the observer's lag grow, and does it ever catch up?
+  { id: 'J', name: 'long run, 80 tiles', movers: [[run('right', 20), run('down', 20), run('left', 20), run('up', 20)]] },
   {
     id: 'H', name: 'ten players running at once',
     movers: Array.from({ length: 10 }, (_, i) => {

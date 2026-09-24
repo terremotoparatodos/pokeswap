@@ -44,6 +44,21 @@ describe('remote trace', () => {
     expect(trace.report().lifecycle).toMatchObject({ destroyed: 1, recreated: 1, recreatedWithin2s: 1 })
   })
 
+  it('records interest-boundary exits per entity, their distance and the gap until re-entry', () => {
+    let now = 0
+    const trace = new RemoteTrace(() => now)
+    const player = { tx: 0, ty: 0 }
+    trace.frame([remote('a', 20)], fallback, player)
+    now = 100; trace.frame([], fallback, player)
+    now = 400; trace.frame([remote('a', 19)], fallback, player)
+    now = 500; trace.frame([], fallback, player)
+    const aoi = trace.report().aoi
+    expect(aoi).toMatchObject({ enters: 2, exits: 2, entitiesThatLeft: 1, maxExitsPerEntity: 2 })
+    expect(aoi.distanceAtExit.max).toBe(20)
+    expect(aoi.distanceAtEnter.p50).toBe(19)
+    expect(aoi.gapMs.max).toBe(300)
+  })
+
   it('measures snaps in tiles and short stop-and-go rests', () => {
     let now = 0
     const trace = new RemoteTrace(() => now)

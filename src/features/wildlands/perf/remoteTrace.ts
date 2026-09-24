@@ -82,6 +82,22 @@ export interface RemoteReport {
     stopAndGo: number
     stopAndGoMs: Summary
   }
+  /** Interest-boundary behaviour, measured from the local player (town AOI: 20 tiles, Chebyshev). */
+  aoi: {
+    enters: number
+    exits: number
+    /** Entities that left at least once, and how many times the busiest one left. */
+    entitiesThatLeft: number
+    maxExitsPerEntity: number
+    /** Exits per entity that left, p95. */
+    exitsPerEntityP95: number
+    /** max(|dx|, |dy|) in tiles between the local player and the remote's last tile when it disappeared / reappeared. */
+    distanceAtExit: Summary
+    distanceAtEnter: Summary
+    /** Time between disappearing and reappearing for the same entity. */
+    gapMs: Summary
+    exitsPerMinute: number
+  }
 }
 
 export class RemoteTrace {
@@ -93,6 +109,11 @@ export class RemoteTrace {
   private readonly waits = new SampleRing(50_000)
   private readonly concurrent = new SampleRing(36_000)
   private readonly pendingLoads = new Map<string, number>()
+  private readonly exitsById = new Map<string, number>()
+  private readonly exitDistance = new SampleRing(20_000)
+  private readonly enterDistance = new SampleRing(20_000)
+  private readonly gaps = new SampleRing(20_000)
+  private firstFrameAt = -1
   private r = this.emptyReport()
 
   constructor(private readonly now: () => number = () => performance.now()) {}
@@ -108,12 +129,15 @@ export class RemoteTrace {
         sheetFailures: 0, sheetLoadMs: empty,
       },
       motion: { snaps: 0, maxSnapTiles: 0, stopAndGo: 0, stopAndGoMs: empty },
+      aoi: { enters: 0, exits: 0, entitiesThatLeft: 0, maxExitsPerEntity: 0, exitsPerEntityP95: 0, distanceAtExit: empty, distanceAtEnter: empty, gapMs: empty, exitsPerMinute: 0 },
     }
   }
 
   clear(): void {
     this.r = this.emptyReport()
-    for (const ring of [this.intervals, this.sheetLatency, this.loadMs, this.waits, this.concurrent]) ring.clear()
+    for (const ring of [this.intervals, this.sheetLatency, this.loadMs, this.waits, this.concurrent, this.exitDistance, this.enterDistance, this.gaps]) ring.clear()
+    this.exitsById.clear()
+    this.firstFrameAt = -1
     this.removed.clear()
     this.pendingLoads.clear()
     // Tracks stay: actors on screen keep their identity across a new capture.
@@ -176,8 +200,11 @@ export class RemoteTrace {
 
   // ── every frame ──
 
-  frame(remotes: readonly Actor[], fallback: TrainerSprites): void {
+  /** `player`: the local player tile, for distances to the interest boundary. */
+  frame(remotes: readonly Actor[], fallback: TrainerSprites, player: { tx: number; ty: number } | null = null): void {
     const at = this.now()
+    if (this.firstFrameAt < 0) this.firstFrameAt = at
+    const reach = (tx: number, ty: number) => (player ? Math.max(Math.abs(tx - player.tx), Math.abs(ty - player.ty)) : -1)
     const seen = new Set<string>()
     for (const actor of remotes) {
       const id = actor.id.startsWith('remote:') ? actor.id.slice(7) : actor.id
@@ -185,6 +212,9 @@ export class RemoteTrace {
       let track = this.tracks.get(id)
       if (!track || track.actor !== actor) {
         const removedAt = this.removed.get(id)
+        this.r.aoi.enters++
+        if (player) this.enterDistance.push(reach(actor.tx, actor.ty))
+        if (removedAt !== undefined) this.gaps.push(at - removedAt)
         if (track || removedAt !== undefined) {
           this.r.lifecycle.recreated++
           if (removedAt !== undefined && at - removedAt < 2000) this.r.lifecycle.recreatedWithin2s++
@@ -234,6 +264,9 @@ export class RemoteTrace {
     for (const [id, track] of this.tracks) {
       if (seen.has(id)) continue
       this.r.lifecycle.destroyed++
+      this.r.aoi.exits++
+      this.exitsById.set(id, (this.exitsById.get(id) ?? 0) + 1)
+      if (player) this.exitDistance.push(reach(track.actor.tx, track.actor.ty))
       track.removedAt = at
       this.removed.set(id, at)
       this.tracks.delete(id)
@@ -249,6 +282,15 @@ export class RemoteTrace {
     r.sprites.fallbackToSheetMs = summarize(this.sheetLatency.values())
     r.sprites.sheetLoadMs = summarize(this.loadMs.values())
     r.motion.stopAndGoMs = summarize(this.waits.values())
+    const exits = [...this.exitsById.values()].sort((a, b) => a - b)
+    r.aoi.entitiesThatLeft = exits.length
+    r.aoi.maxExitsPerEntity = exits[exits.length - 1] ?? 0
+    r.aoi.exitsPerEntityP95 = exits.length ? exits[Math.ceil(exits.length * 0.95) - 1] : 0
+    r.aoi.distanceAtExit = summarize(this.exitDistance.values())
+    r.aoi.distanceAtEnter = summarize(this.enterDistance.values())
+    r.aoi.gapMs = summarize(this.gaps.values())
+    const minutes = this.firstFrameAt >= 0 ? (this.now() - this.firstFrameAt) / 60000 : 0
+    r.aoi.exitsPerMinute = minutes > 0 ? Math.round(r.aoi.exits / minutes * 10) / 10 : 0
     return r
   }
 }
