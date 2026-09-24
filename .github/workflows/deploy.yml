@@ -6,6 +6,12 @@ on:
   pull_request:
     branches: [main]
 
+# A push to main deploys to the same Pages production as the playtest build:
+# share its group so the two can never overlap. PR previews stay independent.
+concurrency:
+  group: ${{ github.event_name == 'push' && 'pages-production' || format('pages-preview-{0}', github.ref) }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Cloudflare Pages
