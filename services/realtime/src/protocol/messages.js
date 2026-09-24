@@ -42,6 +42,22 @@ export function stepActor(actor) {
   return { id: actor.id, tx: actor.tx, ty: actor.ty, dir: actor.dir, speed: actor.speed, moveSequence: actor.moveSequence }
 }
 
+/**
+ * Earlier steps of the same actor kept when several land in one 50 ms batch
+ * window. Only the latest state used to survive the window, so two moves
+ * inside it reached viewers as a two-tile jump. The final step keeps its
+ * shape; `via` lists the steps before it, oldest first, without the id.
+ * Viewers that do not know the field still get the final step, as before.
+ * Bounded: past this many, the oldest are dropped and the viewer resyncs.
+ */
+export const MAX_VIA_STEPS = 8
+
+export function stackStep(queued, delta) {
+  const { id: _id, ...earlier } = queued.actor
+  const via = [...(queued.via ?? []), earlier].slice(-MAX_VIA_STEPS)
+  return { ...delta, via }
+}
+
 export function publicActor(actor) {
   return {
     id: actor.id, areaId: actor.areaId, tx: actor.tx, ty: actor.ty,

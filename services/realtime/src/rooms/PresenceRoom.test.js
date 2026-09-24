@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PresenceRoom } from './PresenceRoom.js'
-import { MESSAGE } from '../protocol/messages.js'
+import { MAX_VIA_STEPS, MESSAGE } from '../protocol/messages.js'
 import { metrics } from '../observability/metrics.js'
 
 function client(id) {
@@ -338,7 +338,7 @@ test('production batching coalesces repeated actor movement into one socket mess
   room.onLeave(traveller)
 })
 
-test('batching metrics count a step that overwrites a queued step in the same window', async () => {
+test('a step over a queued step in the same window keeps the earlier one in via', async () => {
   const room = new PresenceRoom()
   const watcher = client('metrics-watcher-client')
   const traveller = client('metrics-traveller-client')
@@ -362,10 +362,46 @@ test('batching metrics count a step that overwrites a queued step in the same wi
   }
   room.flushDeltaBatches()
 
-  assert.equal(metrics.batching.stepOverStep - before.stepOverStep, 1)
+  assert.equal(metrics.batching.stepStacked - before.stepStacked, 1)
   assert.equal(metrics.batching.batches - before.batches, 1)
   const batch = lastOf(watcher, MESSAGE.BATCH)
   assert.deepEqual(batch.payload.map(delta => [delta.type, delta.actor.tx, delta.actor.moveSequence]), [['step', 33, 2]])
+  assert.deepEqual(batch.payload[0].via, [{ tx: 32, ty: 20, dir: 'right', speed: 7.5, moveSequence: 1 }])
+
+  room.onLeave(watcher)
+  room.onLeave(traveller)
+})
+
+test('a stalled uplink keeps every step of the window, bounded', async () => {
+  const room = new PresenceRoom()
+  const watcher = client('via-watcher-client')
+  const traveller = client('via-traveller-client')
+  await room.onJoin(watcher, { presenceProtocol: 2 }, { kind: 'player', userId: 'via-watcher', username: 'Watcher', token: null })
+  await room.onJoin(traveller, {}, { kind: 'player', userId: 'via-traveller', username: 'Traveller', token: null })
+  room.ready(watcher)
+  room.ready(traveller)
+  room.deltaBatching = true
+  room.flushDeltaBatches()
+
+  const realNow = Date.now
+  Date.now = () => 60_000
+  try {
+    // Moves queued behind a stall reach the server together: one window.
+    const directions = ['right', 'right', 'down', 'down']
+    directions.forEach((direction, i) => room.move(traveller, { direction, running: true, sequence: i + 1 }))
+    room.flushDeltaBatches()
+    const [delta] = lastOf(watcher, MESSAGE.BATCH).payload
+    assert.deepEqual([delta.actor.tx, delta.actor.ty, delta.actor.moveSequence], [33, 22, 4])
+    assert.deepEqual(delta.via.map(step => [step.tx, step.ty, step.moveSequence]), [[32, 20, 1], [33, 20, 2], [33, 21, 3]])
+
+    for (let i = 5; i <= 5 + MAX_VIA_STEPS + 1; i++) room.move(traveller, { direction: 'left', running: true, sequence: i })
+    room.flushDeltaBatches()
+    const [bounded] = lastOf(watcher, MESSAGE.BATCH).payload
+    assert.equal(bounded.via.length, MAX_VIA_STEPS)
+    assert.equal(bounded.via.at(-1).moveSequence, bounded.actor.moveSequence - 1)
+  } finally {
+    Date.now = realNow
+  }
 
   room.onLeave(watcher)
   room.onLeave(traveller)

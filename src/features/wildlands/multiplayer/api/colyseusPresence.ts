@@ -25,8 +25,12 @@ interface Snapshot { access: 'player' | 'guest'; self?: RemotePresenceActor; act
 type StepFields = Pick<RemotePresenceActor, 'id' | 'tx' | 'ty' | 'dir' | 'speed' | 'moveSequence'>
 type Delta =
   | { type: 'upsert' | 'leave'; actor: RemotePresenceActor }
-  /** Protocol 2: a move of an actor whose identity this client already holds. */
-  | { type: 'step'; actor: StepFields }
+  /**
+   * Protocol 2: a move of an actor whose identity this client already holds.
+   * `via`: earlier moves of the same actor that fell in the same 50 ms batch
+   * window, oldest first (services/realtime protocol/messages.js stackStep).
+   */
+  | { type: 'step'; actor: StepFields; via?: Omit<StepFields, 'id'>[] }
 /** Declared on join; the service then sends compact `step` deltas (see services/realtime protocol/messages.js). */
 const PRESENCE_PROTOCOL = 2
 
@@ -173,6 +177,8 @@ export class ColyseusPresence implements LocalPresencePort {
       // The service only sends a step after a full actor; without one there is
       // nothing to draw, and inventing identity would be worse than waiting.
       if (!identity) return
+      // Each intermediate move reaches the engine as its own step, so none is skipped on screen.
+      for (const earlier of delta.via ?? []) this.remote.upsertRemoteActor({ ...identity, ...earlier, id: identity.id })
       const actor = { ...identity, ...delta.actor }
       this.known.set(actor.id, actor)
       this.remote.upsertRemoteActor(actor)
