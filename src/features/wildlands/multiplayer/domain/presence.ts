@@ -24,8 +24,11 @@ export interface RemoteActorsPort {
   /** Applies one socket delta; this is the hot path while players are moving. */
   upsertRemoteActor(actor: RemotePresenceActor): void
   removeRemoteActor(id: string): void
-  setAuthoritativeActor(actor: RemotePresenceActor | null): void
+  /** `self` acks describe one move; `snapshot` answers join/ready and area requests. */
+  setAuthoritativeActor(actor: RemotePresenceActor | null, source?: 'snapshot' | 'self'): void
   setPresenceAccess(access: 'pending' | 'player' | 'guest'): void
+  /** Optional: an intent the service refused, by its public reason text. Diagnostics only. */
+  presenceRejected?(reason: string): void
 }
 export interface LocalPresencePort {
   move(direction: Dir, running: boolean, sequence: number): void

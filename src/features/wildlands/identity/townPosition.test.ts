@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { Area } from '../engine/area'
 import { isRestorableTownPosition } from './townPosition'
+import { Atlas } from '../areas/atlas'
 
 function area(): Area {
   return {
@@ -22,5 +23,12 @@ describe('town position restoration', () => {
     expect(isRestorableTownPosition(town, { tx: 2, ty: 2, dir: 'down' })).toBe(false)
     expect(isRestorableTownPosition(town, { tx: 3, ty: 3, dir: 'down' })).toBe(false)
     expect(isRestorableTownPosition(town, { tx: 4, ty: 4, dir: 'down' })).toBe(false)
+  })
+
+  it('rejects walkable tiles that cannot be walked to, such as the fenced yard by Silph Co.', () => {
+    const town = new Atlas().get('ciudad-corazon')
+    expect(town.isSolid(37, 9)).toBe(false)
+    expect(isRestorableTownPosition(town, { tx: 37, ty: 9, dir: 'down' })).toBe(false)
+    expect(isRestorableTownPosition(town, { tx: 31, ty: 21, dir: 'down' })).toBe(true)
   })
 })

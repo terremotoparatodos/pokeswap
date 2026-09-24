@@ -29,6 +29,19 @@ export function observeIntent(value) {
   return { areaId: value.areaId, tx: value.tx, ty: value.ty }
 }
 
+/**
+ * Presence protocol a client may declare in its join options. From 2 on, a
+ * viewer that already holds an actor's identity receives its moves as `step`
+ * deltas carrying only what a step changes. Older clients keep receiving full
+ * `upsert` actors, so the server can deploy ahead of the frontend.
+ */
+export const COMPACT_STEP_PROTOCOL = 2
+
+/** The fields a single move changes. Identity (username, character, companion, area) is not repeated. */
+export function stepActor(actor) {
+  return { id: actor.id, tx: actor.tx, ty: actor.ty, dir: actor.dir, speed: actor.speed, moveSequence: actor.moveSequence }
+}
+
 export function publicActor(actor) {
   return {
     id: actor.id, areaId: actor.areaId, tx: actor.tx, ty: actor.ty,

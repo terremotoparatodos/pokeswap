@@ -6,7 +6,8 @@ import { execFileSync } from 'node:child_process'
  *   1 — R30 / Community Playtest 0.1 (26f3b7c and earlier)
  *   2 — area arrivals match the client (protocol/arrival.js); token-bucket
  *       move pacing; rejection reasons (replay vs rate); rate-refused
- *       sequences are consumed and answered with the unchanged actor
+ *       sequences are consumed and answered with the unchanged actor;
+ *       clients declaring `presenceProtocol: 2` get compact `step` deltas
  */
 export const PRESENCE_PROTOCOL_REVISION = 2
 

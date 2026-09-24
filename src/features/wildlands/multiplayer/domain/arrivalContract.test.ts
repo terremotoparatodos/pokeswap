@@ -22,6 +22,7 @@ describe('presence arrival contract', () => {
     for (const [to, from] of [['ciudad-corazon', 'pradera'], ['ciudad-corazon', 'ciudad-corazon'], ['pradera', 'ciudad-corazon'], ['pradera', 'pradera']] as const) {
       const at = arrivalFor(to, from)!
       expect(atlas.get(to).isSolid(at.tx, at.ty)).toBe(false)
+      expect(atlas.get(to).isReachable?.(at.tx, at.ty) ?? true).toBe(true)
     }
   })
 })

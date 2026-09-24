@@ -1,0 +1,46 @@
+{
+  "benchmark": "presence-websocket-v1",
+  "players": 30,
+  "area": "ciudad-corazon",
+  "presenceProtocol": null,
+  "warmupSeconds": 5,
+  "identityPrefix": "player",
+  "durationSeconds": 30.17,
+  "joinMs": 350.69,
+  "transport": "ws://127.0.0.1:2610",
+  "totals": {
+    "socketMessages": 12389,
+    "logicalUpdates": 178350,
+    "estimatedBytes": 38060440,
+    "socketMessagesPerSecond": 410.67,
+    "logicalUpdatesPerSecond": 5911.88,
+    "estimatedKiBPerSecond": 1232.04,
+    "wireFrames": 12389,
+    "wireBytes": 30859781,
+    "wireKiBPerSecond": 998.95
+  },
+  "perClient": {
+    "wireKiBPerSecondP50": 33.3,
+    "wireKiBPerSecondP95": 33.3,
+    "wireKiBPerSecondMax": 33.3,
+    "messagesP50": 413,
+    "messagesP95": 413,
+    "messagesMax": 413,
+    "updatesP50": 5945,
+    "updatesP95": 5945,
+    "updatesMax": 5945
+  },
+  "acknowledgementRttMs": {
+    "samples": 6150,
+    "p50": 1.28,
+    "p95": 2.63,
+    "p99": 3.67,
+    "max": 9.49
+  },
+  "driverEventLoopLagMs": {
+    "p95": 11.08,
+    "p99": 12.03,
+    "max": 12.32
+  },
+  "rejectedMoves": 0
+}

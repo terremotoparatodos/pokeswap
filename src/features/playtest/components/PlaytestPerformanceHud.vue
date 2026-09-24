@@ -18,11 +18,21 @@
     <span><b>{{ generatedChunks }}</b>/<b>{{ evictedChunks }}</b> gen/evict</span>
     <span><b>{{ lastChunkBuildMs.toFixed(1) }}</b>/<b>{{ maxChunkBuildMs.toFixed(1) }}</b> ms chunk últ/máx</span>
     <span><b>{{ pingLabel }}</b> HTTP</span>
+    <template v-if="presence">
+      <span title="Movimiento enviado → confirmado por el servidor"><b>{{ presence.rttMs.p50 }}</b>/<b>{{ presence.rttMs.p95 }}</b>/<b>{{ presence.rttMs.p99 }}</b>/<b>{{ presence.rttMs.max }}</b> ms RTT mov</span>
+      <span><b>{{ presence.lastSent }}</b>/<b>{{ presence.lastAcked }}</b> seq env/conf</span>
+      <span><b>{{ presence.reconciliations }}</b> reconc</span>
+      <span><b>{{ presence.solidRecoveries }}</b> punto seguro</span>
+      <span><b>{{ presence.rejections.rate }}</b>/<b>{{ presence.rejections.replay }}</b>/<b>{{ presence.rejections.other }}</b> rech ritmo/replay/otro</span>
+      <span><b>{{ presence.placements }}</b>/<b>{{ presence.staleAcksIgnored }}</b> reubic/ack viejo</span>
+      <span><b>{{ presence.disconnects }}</b> desconex</span>
+    </template>
   </aside>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
+import type { PresenceDiagnosticsSnapshot } from '../../wildlands/multiplayer/domain/presenceDiagnostics'
 
 defineProps<{
   fps: number
@@ -44,6 +54,7 @@ defineProps<{
   evictedChunks: number
   lastChunkBuildMs: number
   maxChunkBuildMs: number
+  presence?: PresenceDiagnosticsSnapshot | null
 }>()
 
 const realtimeUrl = import.meta.env.VITE_REALTIME_URL as string | undefined

@@ -53,6 +53,8 @@ const area = requestedArea === 'wild' ? 'pradera' : requestedArea
 if (!['ciudad-corazon', 'pradera'].includes(area)) throw new Error(`unsupported area: ${requestedArea}`)
 const identityPrefix = option('prefix', 'player')
 if (!/^[a-z0-9][a-z0-9-]{0,24}$/.test(identityPrefix)) throw new Error(`invalid identity prefix: ${identityPrefix}`)
+// Omitted = legacy clients (no `presenceProtocol`), as before; 2 = compact `step` deltas.
+const presenceProtocol = option('protocol') === undefined ? undefined : boundedInteger(option('protocol'), 1, 1, 9)
 const externalServer = process.argv.includes('--external-server')
 let server = null
 
@@ -93,12 +95,18 @@ try {
     const room = await new Client(url).joinOrCreate('presence', {
       benchmark: { id: `${identityPrefix}-${index}`, username: `Carga ${index}`, area },
       visual: { characterId: index % 3 === 0 ? 'dawn-pink' : index % 3 === 1 ? 'dawn-yellow' : 'lucas' },
+      ...(presenceProtocol === undefined ? {} : { presenceProtocol }),
     })
     room.reconnection.enabled = false
     const current = {
-      room, bytes: 0, physicalMessages: 0, logicalUpdates: 0, snapshots: 0,
+      room, bytes: 0, wireBytes: 0, wireFrames: 0, physicalMessages: 0, logicalUpdates: 0, snapshots: 0,
       selfAcks: 0, errors: 0, sequence: 0, sentAt: new Map(), rtt: [],
     }
+    // Real received payload bytes (Colyseus msgpack frames), not the JSON estimate.
+    room.connection.transport.ws.addEventListener('message', event => {
+      current.wireFrames++
+      current.wireBytes += event.data.byteLength ?? Buffer.byteLength(event.data)
+    })
     for (const type of MESSAGE_TYPES) {
       room.onMessage(type, payload => {
         current.physicalMessages++
@@ -125,7 +133,7 @@ try {
   if (warmupSeconds > 0) await delay(warmupSeconds * 1000)
 
   for (const current of stats) {
-    current.bytes = 0; current.physicalMessages = 0; current.logicalUpdates = 0
+    current.bytes = 0; current.wireBytes = 0; current.wireFrames = 0; current.physicalMessages = 0; current.logicalUpdates = 0
     current.snapshots = 0; current.selfAcks = 0; current.errors = 0; current.rtt.length = 0
   }
   eventLoopLag.length = 0
@@ -155,11 +163,15 @@ try {
   const totalBytes = stats.reduce((sum, current) => sum + current.bytes, 0)
   const totalMessages = stats.reduce((sum, current) => sum + current.physicalMessages, 0)
   const totalUpdates = stats.reduce((sum, current) => sum + current.logicalUpdates, 0)
+  const totalWireBytes = stats.reduce((sum, current) => sum + current.wireBytes, 0)
   const elapsedSeconds = (finishedAt - movementStarted) / 1000
+  const clientWireKiBPerSecond = stats.map(current => current.wireBytes / 1024 / elapsedSeconds)
   const result = {
     benchmark: 'presence-websocket-v1',
     players,
     area,
+    presenceProtocol: presenceProtocol ?? null,
+    warmupSeconds,
     identityPrefix,
     durationSeconds: round(elapsedSeconds),
     joinMs: round(joinedAt - joinStarted),
@@ -171,8 +183,14 @@ try {
       socketMessagesPerSecond: round(totalMessages / elapsedSeconds),
       logicalUpdatesPerSecond: round(totalUpdates / elapsedSeconds),
       estimatedKiBPerSecond: round(totalBytes / 1024 / elapsedSeconds),
+      wireFrames: stats.reduce((sum, current) => sum + current.wireFrames, 0),
+      wireBytes: totalWireBytes,
+      wireKiBPerSecond: round(totalWireBytes / 1024 / elapsedSeconds),
     },
     perClient: {
+      wireKiBPerSecondP50: round(percentile(clientWireKiBPerSecond, 0.5)),
+      wireKiBPerSecondP95: round(percentile(clientWireKiBPerSecond, 0.95)),
+      wireKiBPerSecondMax: round(Math.max(...clientWireKiBPerSecond)),
       messagesP50: percentile(clientMessages, 0.5),
       messagesP95: percentile(clientMessages, 0.95),
       messagesMax: Math.max(...clientMessages),

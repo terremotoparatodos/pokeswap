@@ -40,6 +40,10 @@ export class KeyboardInput {
     window.removeEventListener('keydown', this.onKeyDown)
     window.removeEventListener('keyup', this.onKeyUp)
     window.removeEventListener('blur', this.clear)
+    // A key released while detached (panel open, tab hidden) never delivers
+    // its keyup here. Keeping it would make the player walk on its own after
+    // re-attaching, e.g. straight through the west gate into Pradera.
+    this.clear()
   }
 
   private readonly onKeyDown = (e: KeyboardEvent): void => {

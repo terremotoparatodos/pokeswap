@@ -55,6 +55,12 @@ export interface Area {
   readonly doors?: readonly BuildingDoor[]
 
   isSolid(tx: number, ty: number): boolean
+  /**
+   * Whether a walkable tile can be walked to from the area's spawn. Bounded
+   * areas implement it so a teleport (restored or authoritative position)
+   * never lands in a fenced pocket; unbounded worlds omit it.
+   */
+  isReachable?(tx: number, ty: number): boolean
   isWater(tx: number, ty: number): boolean
   /** HUD label for a tile, e.g. the biome in a world. */
   placeName(tx: number, ty: number): string

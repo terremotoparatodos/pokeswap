@@ -41,6 +41,7 @@
       :evicted-chunks="hud.evictedChunks"
       :last-chunk-build-ms="hud.lastChunkBuildMs"
       :max-chunk-build-ms="hud.maxChunkBuildMs"
+      :presence="hud.presence"
     />
 
     <div class="wl-minimap" aria-label="Minimapa de la zona actual">
@@ -140,6 +141,7 @@ import { listPokemon } from '../../pokemon/api/pokemonApi'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { Dir } from '../engine/characters'
 import { WildlandsGame, type HudState, type WorldObjectTarget } from '../engine/game'
+import { PresenceDiagnostics } from '../multiplayer/domain/presenceDiagnostics'
 import type { Area } from '../engine/area'
 import type { PlacedObjectSpec } from '../engine/placedObjects'
 import type { PokedexEntry } from '../engine/population'
@@ -207,6 +209,7 @@ const hud = reactive<HudState>({
   frameP95Ms: 0, frameP99Ms: 0, frameMaxMs: 0, longFramePercent: 0, remoteActors: 0, remoteUpdatesPerSecond: 0,
   groundComposeMs: 0, groundProjectMs: 0, actorCollectMs: 0, actorSortMs: 0, spriteDrawMs: 0, lightingMs: 0,
   loadedChunks: 0, generatedChunks: 0, evictedChunks: 0, lastChunkBuildMs: 0, maxChunkBuildMs: 0,
+  presence: new PresenceDiagnostics().snapshot(),
 })
 const identity = usePlayerIdentity(game)
 const { user } = useAuth()

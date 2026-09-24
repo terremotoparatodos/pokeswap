@@ -6,6 +6,7 @@ import type { TownPosition } from './playerPreferences'
 export function isRestorableTownPosition(area: Area, position: TownPosition): boolean {
   return area.kind === 'town' &&
     !area.isSolid(position.tx, position.ty) &&
+    (area.isReachable?.(position.tx, position.ty) ?? true) &&
     !isPortalTile(area, position.tx, position.ty) &&
     !doorAt(area.doors ?? [], position.tx, position.ty)
 }

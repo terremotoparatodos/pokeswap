@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import LobbyHud from './LobbyHud.vue'
 import type { HudState } from '../engine/game'
+import { PresenceDiagnostics } from '../multiplayer/domain/presenceDiagnostics'
 
 const hud = (areaKind: HudState['areaKind']): HudState => ({
   areaId: areaKind === 'town' ? 'ciudad-corazon' : 'pradera', areaKind,
@@ -13,6 +14,7 @@ const hud = (areaKind: HudState['areaKind']): HudState => ({
   actorSortMs: 0, spriteDrawMs: 0, lightingMs: 0,
   loadedChunks: 0, generatedChunks: 0, evictedChunks: 0,
   lastChunkBuildMs: 0, maxChunkBuildMs: 0,
+  presence: new PresenceDiagnostics().snapshot(),
 })
 
 describe('LobbyHud city recovery', () => {

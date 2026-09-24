@@ -38,6 +38,7 @@ import { pokeballInfo } from './pokeball'
 import { isPresenceAreaId, type LocalPresencePort, type RemotePresenceActor } from '../multiplayer/domain/presence'
 import { reconcilePresenceArea } from '../multiplayer/domain/areaReconciliation'
 import { keepsPredictedStep, safeAuthoritativePosition } from '../multiplayer/domain/movementReconciliation'
+import { PresenceDiagnostics, type PresenceDiagnosticsSnapshot } from '../multiplayer/domain/presenceDiagnostics'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
 const MAX_REMOTE_STEP_BACKLOG = 3
@@ -83,6 +84,8 @@ export interface HudState {
   evictedChunks: number
   lastChunkBuildMs: number
   maxChunkBuildMs: number
+  /** Aggregate presence counters for the playtest HUD; no ids or coordinates. */
+  presence: PresenceDiagnosticsSnapshot
 }
 
 /** A world tile the player tapped beside or faces. */
@@ -167,6 +170,13 @@ export class WildlandsGame {
   private localPresenceActorId: string | null = null
   /** Area requested locally; old-area socket acknowledgements cannot undo it. */
   private pendingPresenceArea: 'ciudad-corazon' | 'pradera' | null = null
+  /**
+   * Set whenever this client asks the service to re-place its actor. Every
+   * `presence:self` ack still in flight describes the position from before that
+   * request, so only the answering snapshot may reconcile until it arrives.
+   */
+  private awaitingAreaSnapshot = false
+  private readonly presenceDiagnostics = new PresenceDiagnostics()
   private nextMoveSequence = 0
   private username: string | null = null
   private owned: readonly PlazaResident[] = []
@@ -402,34 +412,45 @@ export class WildlandsGame {
   }
 
   /** Reconciles the playable avatar to the ephemeral position confirmed by the server. */
-  setAuthoritativeActor(actor: RemotePresenceActor | null): void {
+  setAuthoritativeActor(actor: RemotePresenceActor | null, source: 'snapshot' | 'self' = 'snapshot'): void {
     if (!actor) {
+      if (this.localPresenceActorId !== null) this.presenceDiagnostics.disconnected()
       this.receivedAuthoritativeActor = false
       this.localPresenceActorId = null
       this.pendingPresenceArea = null
+      this.awaitingAreaSnapshot = false
       this.nextMoveSequence = 0
       return
     }
     if (this.spectator) return
     this.localPresenceActorId = actor.id
+    if (source === 'self') this.presenceDiagnostics.ackReceived(actor.moveSequence, performance.now())
+    if (this.awaitingAreaSnapshot && source !== 'snapshot') {
+      this.presenceDiagnostics.staleAckIgnored()
+      return
+    }
     const area = reconcilePresenceArea(this.pendingPresenceArea, actor.areaId)
     this.pendingPresenceArea = area.pendingArea
     if (!area.accept) return
+    this.awaitingAreaSnapshot = false
     if (this.area.id !== actor.areaId) this.enterArea(actor.areaId, null, { tx: actor.tx, ty: actor.ty, dir: actor.dir })
     const safe = safeAuthoritativePosition(
       actor,
       this.area.arrival(null),
-      (tx, ty) => this.solidAt(tx, ty),
+      (tx, ty) => this.solidAt(tx, ty) || !(this.area.isReachable?.(tx, ty) ?? true),
     )
     if (safe.recovered) {
+      this.presenceDiagnostics.recoveredFromSolid()
       // The presence service deliberately owns ephemeral position, so repair
       // both sides. Keeping only the local fallback would let the next server
       // acknowledgement push the player straight back into the same hitbox.
       this.placePlayer(safe.position)
-      this.receivedAuthoritativeActor = false
-      this.nextMoveSequence = 0
-      this.pendingPresenceArea = actor.areaId
-      this.presence?.changeArea(actor.areaId)
+      // The service's sequence never goes backwards: restarting ours at zero
+      // made every step taken before the reply look like a replay and get
+      // rejected, leaving the server behind the client again.
+      this.receivedAuthoritativeActor = true
+      this.nextMoveSequence = Math.max(this.nextMoveSequence, actor.moveSequence)
+      this.requestPresencePlacement(actor.areaId)
       this.say('Tu posición se corrigió al punto seguro de esta zona')
       return
     }
@@ -454,10 +475,18 @@ export class WildlandsGame {
     // It is not a server disagreement; reconciling it would cancel click-paths
     // and make running restart every tile.
     const differs = player.tx !== actor.tx || player.ty !== actor.ty
-    if (differs) this.placePlayer({ tx: actor.tx, ty: actor.ty, dir: actor.dir })
+    if (differs) {
+      this.presenceDiagnostics.reconciled()
+      this.placePlayer({ tx: actor.tx, ty: actor.ty, dir: actor.dir })
+    }
     else player.dir = actor.dir
     player.speed = actor.speed
     player.running = actor.speed > WALK_SPEED
+  }
+
+  /** The service refused an intent; counted for the playtest HUD only. */
+  presenceRejected(reason: string): void {
+    this.presenceDiagnostics.rejected(reason)
   }
 
   /** Reconciles an authoritative snapshot while preserving every unchanged actor object. */
@@ -707,14 +736,22 @@ export class WildlandsGame {
     this.placePlayer(arrival)
     this.onTownPosition?.({ tx: arrival.tx, ty: arrival.ty, dir: arrival.dir })
     if (this.presence && !this.spectator) {
-      this.pendingPresenceArea = 'ciudad-corazon'
-      this.receivedAuthoritativeActor = false
-      this.nextMoveSequence = 0
-      this.presence.changeArea(LOBBY_ID)
+      this.requestPresencePlacement('ciudad-corazon')
     } else {
       this.observerAt = null
     }
     this.say('Volviste al centro de Ciudad Corazón')
+  }
+
+  /**
+   * Asks the service to place the actor at this area's arrival. The barrier
+   * and the kept move sequence let the player keep walking before the reply.
+   */
+  private requestPresencePlacement(areaId: 'ciudad-corazon' | 'pradera'): void {
+    this.pendingPresenceArea = areaId
+    this.awaitingAreaSnapshot = true
+    if (this.presence) this.presenceDiagnostics.placementRequested()
+    this.presence?.changeArea(areaId)
   }
 
   /** Shows only a line the server accepted and echoed; never an optimistic draft. */
@@ -818,8 +855,9 @@ export class WildlandsGame {
       // Only these two areas participate in R30 presence. The request is
       // recorded before it crosses the socket so an older town snapshot cannot
       // pull the local player back through the portal.
-      this.pendingPresenceArea = this.area.id === LOBBY_ID ? 'ciudad-corazon' : this.area.id === 'pradera' ? 'pradera' : null
-      this.presence?.changeArea(this.area.id)
+      const presenceArea = this.area.id === LOBBY_ID ? 'ciudad-corazon' : this.area.id === 'pradera' ? 'pradera' : null
+      if (presenceArea) this.requestPresencePlacement(presenceArea)
+      else this.pendingPresenceArea = null
       this.say(this.area.name)
     })
 
@@ -893,6 +931,7 @@ export class WildlandsGame {
   private onPlayerArrive(tx: number, ty: number): void {
     // Only the direction crosses the trust boundary; the presence server derives the position.
     this.presence?.move(this.player.dir, this.player.running, ++this.nextMoveSequence)
+    if (this.presence) this.presenceDiagnostics.moveSent(this.nextMoveSequence, performance.now())
     if (this.area.collect(tx, ty)) {
       this.crystals++
       this.say('+1 cristal · demo, no se guarda')
@@ -985,6 +1024,7 @@ export class WildlandsGame {
       evictedChunks: chunks?.evicted ?? 0,
       lastChunkBuildMs: chunks?.lastBuildMs ?? 0,
       maxChunkBuildMs: chunks?.maxBuildMs ?? 0,
+      presence: this.presenceDiagnostics.snapshot(),
     })
   }
 
