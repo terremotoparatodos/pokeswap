@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PresenceRoom } from './PresenceRoom.js'
 import { MESSAGE } from '../protocol/messages.js'
+import { metrics } from '../observability/metrics.js'
 
 function client(id) {
   const messages = []
@@ -332,6 +333,39 @@ test('production batching coalesces repeated actor movement into one socket mess
   assert.equal(batch.payload[0].type, 'upsert')
   assert.equal(batch.payload[0].actor.id, 'batch-traveller')
   assert.equal(batch.payload[0].actor.tx, 33)
+
+  room.onLeave(watcher)
+  room.onLeave(traveller)
+})
+
+test('batching metrics count a step that overwrites a queued step in the same window', async () => {
+  const room = new PresenceRoom()
+  const watcher = client('metrics-watcher-client')
+  const traveller = client('metrics-traveller-client')
+  await room.onJoin(watcher, { presenceProtocol: 2 }, { kind: 'player', userId: 'metrics-watcher', username: 'Watcher', token: null })
+  await room.onJoin(traveller, {}, { kind: 'player', userId: 'metrics-traveller', username: 'Traveller', token: null })
+  room.ready(watcher)
+  room.ready(traveller)
+  room.deltaBatching = true
+  room.flushDeltaBatches()
+
+  const before = { ...metrics.batching }
+  const realNow = Date.now
+  let now = 40_000
+  Date.now = () => now
+  try {
+    room.move(traveller, { direction: 'right', running: true, sequence: 1 })
+    now += 20
+    room.move(traveller, { direction: 'right', running: true, sequence: 2 })
+  } finally {
+    Date.now = realNow
+  }
+  room.flushDeltaBatches()
+
+  assert.equal(metrics.batching.stepOverStep - before.stepOverStep, 1)
+  assert.equal(metrics.batching.batches - before.batches, 1)
+  const batch = lastOf(watcher, MESSAGE.BATCH)
+  assert.deepEqual(batch.payload.map(delta => [delta.type, delta.actor.tx, delta.actor.moveSequence]), [['step', 33, 2]])
 
   room.onLeave(watcher)
   room.onLeave(traveller)

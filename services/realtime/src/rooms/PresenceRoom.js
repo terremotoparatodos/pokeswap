@@ -223,14 +223,20 @@ export class PresenceRoom extends Room {
     // step must not erase a full upsert (e.g. a companion change) queued before
     // it in the same window: fold the step's position into that upsert.
     const queued = pending.get(delta.actor.id)
-    pending.set(delta.actor.id, delta.type === 'step' && queued?.type === 'upsert'
+    const folds = delta.type === 'step' && queued?.type === 'upsert'
+    // Measurement only (PERF-1): how often the window drops an intermediate step.
+    metrics.deltaQueued(!queued ? null : folds ? 'stepFoldedIntoUpsert' : delta.type === 'step' && queued.type === 'step' ? 'stepOverStep' : 'replaced')
+    pending.set(delta.actor.id, folds
       ? { type: 'upsert', actor: { ...queued.actor, ...delta.actor } }
       : delta)
     this.pendingDeltas.set(client, pending)
   }
   flushDeltaBatches() {
     for (const [client, pending] of this.pendingDeltas) {
-      if (pending.size > 0 && observers.has(client.sessionId)) client.send(MESSAGE.BATCH, [...pending.values()])
+      if (pending.size > 0 && observers.has(client.sessionId)) {
+        client.send(MESSAGE.BATCH, [...pending.values()])
+        metrics.batchSent(pending.size)
+      }
     }
     this.pendingDeltas.clear()
   }
