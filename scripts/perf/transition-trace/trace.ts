@@ -192,8 +192,10 @@ async function run(scenario: Scenario) {
       inPanel = false
       const feature = g.enteredDoor?.feature ?? door.feature
       const before = pos(g.player)
+      const sequence = g.nextMoveSequence
       g.placeAtDoor(feature)
-      aLog(`panel closed → placeAtDoor ${before} → ${pos(g.player)} (local only)`)
+      const how = g.nextMoveSequence > sequence ? `announced as move #${g.nextMoveSequence}` : 'local only, nothing sent'
+      aLog(`panel closed → placeAtDoor ${before} → ${pos(g.player)} (${how})`)
     }
     // Read at every tile boundary, like the game's tap routes.
     const want = () => (!inPanel && !g.travel.active ? queue[0] ?? null : null)
@@ -244,8 +246,9 @@ const SCENARIOS: Scenario[] = [
   { id: 'D2', name: 'enter, leave, walk right', start: 'door', observer: AT_SPAWN, script: [{ walk: 'up', tiles: 1 }, { walk: 'right', tiles: 3 }] },
   { id: 'D3', name: 'enter, leave, walk down', start: 'door', observer: AT_SPAWN, script: [{ walk: 'up', tiles: 1 }, { walk: 'down', tiles: 3 }] },
   { id: 'D4', name: 'enter and leave three times', start: 'door', observer: AT_SPAWN, script: [
-    { walk: 'up', tiles: 1 }, { walk: 'down', tiles: 1 }, { walk: 'up', tiles: 1 }, { walk: 'left', tiles: 2 },
-    { walk: 'right', tiles: 2 }, { walk: 'up', tiles: 1 }, { walk: 'right', tiles: 2 },
+    // Leaving a building steps out of the doorway (automatically after the fix).
+    { walk: 'up', tiles: 1 }, { waitMs: 400 }, { walk: 'up', tiles: 1 }, { waitMs: 400 }, { walk: 'left', tiles: 2 },
+    { walk: 'right', tiles: 2 }, { walk: 'up', tiles: 1 }, { waitMs: 400 }, { walk: 'right', tiles: 2 },
   ] },
   { id: 'D5', name: 'enter, leave at once, walk left', start: 'door', panelMs: 50, observer: AT_SPAWN, script: [{ walk: 'up', tiles: 1 }, { walk: 'left', tiles: 2 }] },
   { id: 'A1', name: 'town → Pradera → town by the west gate, observed near the gate', start: 'west-gate', observer: NEAR_WEST_GATE,

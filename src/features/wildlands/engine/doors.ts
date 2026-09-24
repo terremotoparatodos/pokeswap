@@ -89,6 +89,10 @@ export class Entrances {
   }
 
   exitFor(area: Area, feature: LobbyFeature): Arrival | null {
-    return area.doors?.find(d => d.feature === feature)?.exit ?? null
+    return this.doorFor(area, feature)?.exit ?? null
+  }
+
+  doorFor(area: Area, feature: LobbyFeature): BuildingDoor | null {
+    return area.doors?.find(d => d.feature === feature) ?? null
   }
 }
