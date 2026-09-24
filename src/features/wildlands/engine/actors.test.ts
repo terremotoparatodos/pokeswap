@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   actorPosition, advance, createActor, createWalkerState, driveWalker, isMoving, TURN_DELAY, tryStep, wander,
-  WALK_SPEED, walkFrame, type Actor, type MoveRules, type WalkerState,
+  RUN_SPEED, WALK_SPEED, walkFrame, type Actor, type MoveRules, type WalkerState,
 } from './actors'
 import { overworldSheetUrl, type Dir } from './characters'
 import { candidatesFor, normaliseType, type PokedexEntry } from './population'
@@ -75,6 +75,52 @@ describe('driveWalker', () => {
     hold(actor, null, 1, open, state)
     driveWalker(actor, 'left', frame, open, state)
     expect(isMoving(actor)).toBe(true)
+  })
+
+  describe('gait changes while chaining steps', () => {
+    // Wired like game.ts: the gait is latched when each step starts and the
+    // arrival reports the gait of the step that just completed.
+    const drive = (script: (t: number) => boolean, seconds: number) => {
+      const actor = createActor({ id: 'p', kind: 'player', habitat: 'any', tx: 0, ty: 0, dir: 'right', speed: WALK_SPEED })
+      const state = createWalkerState()
+      let shift = false
+      const latch = (a: Actor) => { a.running = shift; a.speed = shift ? RUN_SPEED : WALK_SPEED }
+      const arrivals: { t: number; tx: number; running: boolean }[] = []
+      const speeds: number[][] = []
+      let t = 0
+      for (; t < seconds - 1e-9; t += frame) {
+        shift = script(t)
+        if (!isMoving(actor)) latch(actor)
+        driveWalker(actor, 'right', frame, open, state, tx => arrivals.push({ t, tx, running: actor.running }), false, latch)
+        ;(speeds[actor.tx] ??= []).push(actor.speed)
+      }
+      return { arrivals, speeds }
+    }
+    const tileTimes = (arrivals: { t: number }[]) => arrivals.slice(1).map((a, i) => a.t - arrivals[i].t)
+
+    it('walk → run without stopping: the next tile runs', () => {
+      const { arrivals } = drive(t => t >= 1.1, 2.5)
+      const times = tileTimes(arrivals)
+      expect(times.slice(0, 2).every(d => Math.abs(d - 1 / WALK_SPEED) < 2 * frame)).toBe(true)
+      expect(times.slice(-4).every(d => Math.abs(d - 1 / RUN_SPEED) < 2 * frame)).toBe(true)
+      expect(arrivals[0].running).toBe(false)
+      expect(arrivals[arrivals.length - 1].running).toBe(true)
+    })
+
+    it('run → walk without stopping: the next tile walks', () => {
+      const { arrivals } = drive(t => t < 1.1, 2.5)
+      const times = tileTimes(arrivals)
+      expect(times.slice(0, 4).every(d => Math.abs(d - 1 / RUN_SPEED) < 2 * frame)).toBe(true)
+      expect(times.slice(-2).every(d => Math.abs(d - 1 / WALK_SPEED) < 2 * frame)).toBe(true)
+      expect(arrivals[arrivals.length - 1].running).toBe(false)
+    })
+
+    it('never changes pace halfway through a tile, and each arrival reports the pace it was walked at', () => {
+      const flicker = (t: number) => Math.floor(t / 0.09) % 2 === 0
+      const { arrivals, speeds } = drive(flicker, 3)
+      for (const tile of speeds.slice(1, -1)) expect(new Set(tile).size).toBe(1)
+      for (const arrival of arrivals) expect(arrival.running).toBe(speeds[arrival.tx][0] === RUN_SPEED)
+    })
   })
 
   it('walks in place against obstacles and alternates feet across tiles', () => {

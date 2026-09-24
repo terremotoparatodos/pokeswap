@@ -111,12 +111,16 @@ class Mover {
   }
 
   frame(dt: number): void {
-    const current = this.intent()
-    const moving = current && !('stopMs' in current) ? current : null
-    // As game.ts update(): the running flag follows the key every frame, the
-    // speed is only set while standing (the walker chains steps without stopping).
-    this.actor.running = moving?.run ?? false
-    if (!isMoving(this.actor)) this.actor.speed = moving?.run ? RUN_SPEED : WALK_SPEED
+    // Advances finished legs and stop timers before this frame's input is read.
+    this.intent()
+    // As game.ts update(): the gait is latched while standing and again at the
+    // start of every chained step, so a Shift change applies from the next tile.
+    const latch = (actor: Actor) => {
+      const leg = this.intent()
+      actor.running = !!leg && !('stopMs' in leg) && leg.run
+      actor.speed = actor.running ? RUN_SPEED : WALK_SPEED
+    }
+    if (!isMoving(this.actor)) latch(this.actor)
     driveWalker(this.actor, () => {
       const next = this.intent()
       return next && !('stopMs' in next) ? next.dir : null
@@ -130,7 +134,7 @@ class Mover {
       if (!this.pairUp) this.uplink.send(send)
       else if (this.held) { const first = this.held; this.held = null; this.uplink.send(() => { first(); send() }) }
       else this.held = send
-    }, false)
+    }, false, latch)
     if (this.pairUp && this.held && this.done) { this.uplink.send(this.held); this.held = null }
   }
 }
@@ -150,7 +154,7 @@ const SCENARIOS: Scenario[] = [
   { id: 'E', name: 'run and reverse', movers: [[run('right', 8), run('left', 8)]] },
   { id: 'F', name: 'zig-zag running', movers: [zigzag(16)] },
   { id: 'G', name: 'run, two moves per uplink packet', movers: [[run('right', 16)]], pairUp: true },
-  // Shift released mid-run: the local walker keeps its running speed until it stops.
+  // Shift released mid-run (PERF-1: the walker kept running until it stopped).
   { id: 'I', name: 'run then walk without stopping', movers: [[run('right', 6), walk('right', 10)]] },
   // A long constant run: does the observer's lag grow, and does it ever catch up?
   { id: 'J', name: 'long run, 80 tiles', movers: [[run('right', 20), run('down', 20), run('left', 20), run('up', 20)]] },

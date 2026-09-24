@@ -883,11 +883,11 @@ export class WildlandsGame {
     const keyDir = this.travel.active || this.paused || this.spectator || this.inputLocked ? null : this.keys.direction
     if (keyDir) this.nav.cancel() // Keyboard always wins over a tap route.
     const navigating = !keyDir && this.nav.active
-    player.running = this.keys.sprinting
-    // Speed is latched per tile so a step never changes pace halfway through.
-    if (!isMoving(player)) {
-      player.speed = (this.keys.sprinting ? RUN_SPEED : WALK_SPEED) * (this.area.isWater(player.tx, player.ty) ? 0.7 : 1)
-    }
+    // The gait is latched per tile so a step never changes pace halfway
+    // through, and re-read at the start of every chained step so Shift takes
+    // effect on the next tile without stopping. Speed, animation and the gait
+    // sent on arrival all describe the same step.
+    if (!isMoving(player)) this.latchGait(player)
     driveWalker(
       player,
       navigating ? this.nav.next : keyDir,
@@ -899,6 +899,7 @@ export class WildlandsGame {
         this.onPlayerArrive(tx, ty)
       },
       navigating,
+      this.latchGait,
     )
     if (this.nav.update(player, dt)) this.interact()
     this.companion.update(player, dt)
@@ -943,6 +944,11 @@ export class WildlandsGame {
       if (gate) this.say(gate)
       this.emitHud()
     }
+  }
+
+  private readonly latchGait = (player: Actor): void => {
+    player.running = this.keys.sprinting
+    player.speed = (player.running ? RUN_SPEED : WALK_SPEED) * (this.area.isWater(player.tx, player.ty) ? 0.7 : 1)
   }
 
   private onPlayerArrive(tx: number, ty: number): void {
