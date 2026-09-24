@@ -846,8 +846,8 @@ export class WildlandsGame {
     // The gait is latched per tile so a step never changes pace halfway
     // through, and re-read at the start of every chained step so Shift takes
     // effect on the next tile without stopping. Speed, animation and the gait
-    // sent on arrival all describe the same step.
-    if (!isMoving(player)) this.latchGait(player)
+    // announced to presence all describe the same step.
+    if (!isMoving(player)) this.latchGait(player, player.tx, player.ty)
     driveWalker(
       player,
       navigating ? this.nav.next : keyDir,
@@ -859,7 +859,7 @@ export class WildlandsGame {
         this.onPlayerArrive(tx, ty)
       },
       navigating,
-      this.latchGait,
+      this.onStepStart,
     )
     if (this.nav.update(player, dt)) this.interact()
     this.companion.update(player, dt)
@@ -906,15 +906,24 @@ export class WildlandsGame {
     }
   }
 
-  private readonly latchGait = (player: Actor): void => {
+  /** Water slows a step by the tile it starts from. */
+  private latchGait(player: Actor, fromTx: number, fromTy: number): void {
     player.running = this.keys.sprinting
-    player.speed = (player.running ? RUN_SPEED : WALK_SPEED) * (this.area.isWater(player.tx, player.ty) ? 0.7 : 1)
+    player.speed = (player.running ? RUN_SPEED : WALK_SPEED) * (this.area.isWater(fromTx, fromTy) ? 0.7 : 1)
+  }
+
+  private readonly onStepStart = (player: Actor): void => this.startStep(player)
+
+  private startStep(player: Actor): void {
+    this.latchGait(player, player.fromTx, player.fromTy)
+    // Announced as the step starts, not when it lands: observers learn of it
+    // a whole tile earlier, and of a gait change before it is walked. Only the
+    // direction crosses the trust boundary; the presence server derives the position.
+    this.presence?.move(player.dir, player.running, ++this.nextMoveSequence)
+    if (this.presence) this.presenceDiagnostics.moveSent(this.nextMoveSequence, performance.now())
   }
 
   private onPlayerArrive(tx: number, ty: number): void {
-    // Only the direction crosses the trust boundary; the presence server derives the position.
-    this.presence?.move(this.player.dir, this.player.running, ++this.nextMoveSequence)
-    if (this.presence) this.presenceDiagnostics.moveSent(this.nextMoveSequence, performance.now())
     if (this.area.collect(tx, ty)) {
       this.crystals++
       this.say('+1 cristal · demo, no se guarda')

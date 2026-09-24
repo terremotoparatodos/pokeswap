@@ -131,16 +131,17 @@ class Mover {
       const next = this.intent()
       return next && !('stopMs' in next) ? next.dir : null
     }, dt, FREE, this.walker, (tx, ty) => {
-      // game.ts onPlayerArrive: the intent is sent once the local step completes.
       this.tilesInLeg++
-      const seq = ++this.seq
-      this.arrivals.push({ seq, tx, ty, at: now })
-      const payload = { direction: this.actor.dir, running: this.actor.running, sequence: seq }
+      this.arrivals.push({ seq: this.seq, tx, ty, at: now })
+    }, false, actor => {
+      // game.ts startStep: the gait is latched and the intent sent as the step starts.
+      latch(actor)
+      const payload = { direction: actor.dir, running: actor.running, sequence: ++this.seq }
       const send = () => this.room.move(this.sock, payload)
       if (!this.pairUp) this.uplink.send(send)
       else if (this.held) { const first = this.held; this.held = null; this.uplink.send(() => { first(); send() }) }
       else this.held = send
-    }, false, latch)
+    })
     if (this.pairUp && this.held && this.done) { this.uplink.send(this.held); this.held = null }
   }
 }

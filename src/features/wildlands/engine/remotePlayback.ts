@@ -53,8 +53,10 @@ interface Pacing {
   /** Time since the actor ran out of tiles; Infinity before its first move. */
   idleS: number
   sinceArrivalS: number
-  /** Smoothed time between moves over the duration of the step that arrived (1 = on pace). */
+  /** Smoothed time between moves over the duration of the step before (1 = on pace). */
   intervalRatio: number
+  /** Nominal duration of the last step that arrived. */
+  lastStepS: number
 }
 /**
  * Resync only past this many waiting steps (~1.6 s of running): a stalled or
@@ -100,21 +102,23 @@ export class RemoteStepPlayback {
     }
     const queue = this.queues.get(id)
     const stepS = 1 / step.speed
-    const pacing = this.pacing.get(id) ?? { target: 1, rate: 1, idleS: Infinity, sinceArrivalS: 0, intervalRatio: 1 }
+    const pacing = this.pacing.get(id) ?? { target: 1, rate: 1, idleS: Infinity, sinceArrivalS: 0, intervalRatio: 1, lastStepS: stepS }
     this.pacing.set(id, pacing)
     const waiting = !isMoving(actor) && !queue?.length
     if (waiting && pacing.idleS > PLAYBACK.restartSteps * stepS) {
       // A fresh start after a real stop: nothing to catch up on.
       pacing.target = 1; pacing.rate = 1; pacing.intervalRatio = 1
     } else {
-      // With moves sent on arrival, the interval before a move is how long its step took the sender.
-      const ratio = Math.min(pacing.sinceArrivalS / stepS, 3)
+      // Moves are announced as their step starts: the interval before a move
+      // is how long the previous step took the sender.
+      const ratio = Math.min(pacing.sinceArrivalS / pacing.lastStepS, 3)
       pacing.intervalRatio += (ratio - pacing.intervalRatio) * PLAYBACK.cadenceAlpha
       const cadence = Math.min(PLAYBACK.maxCadence, Math.max(PLAYBACK.minCadence, 1 / pacing.intervalRatio))
       pacing.target = playbackRate(waiting ? -pacing.idleS : lagSeconds(actor, queue), cadence)
     }
     pacing.idleS = 0
     pacing.sinceArrivalS = 0
+    pacing.lastStepS = stepS
     if (!isMoving(actor)) {
       start(actor, step)
       return 'started'

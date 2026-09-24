@@ -78,23 +78,25 @@ describe('driveWalker', () => {
   })
 
   describe('gait changes while chaining steps', () => {
-    // Wired like game.ts: the gait is latched when each step starts and the
-    // arrival reports the gait of the step that just completed.
+    // Wired like game.ts: the gait is latched and announced as each step
+    // starts, so every announcement matches the pace of the step it names.
     const drive = (script: (t: number) => boolean, seconds: number) => {
       const actor = createActor({ id: 'p', kind: 'player', habitat: 'any', tx: 0, ty: 0, dir: 'right', speed: WALK_SPEED })
       const state = createWalkerState()
       let shift = false
       const latch = (a: Actor) => { a.running = shift; a.speed = shift ? RUN_SPEED : WALK_SPEED }
       const arrivals: { t: number; tx: number; running: boolean }[] = []
+      const announced: { tx: number; running: boolean }[] = []
+      const start = (a: Actor) => { latch(a); announced.push({ tx: a.tx, running: a.running }) }
       const speeds: number[][] = []
       let t = 0
       for (; t < seconds - 1e-9; t += frame) {
         shift = script(t)
         if (!isMoving(actor)) latch(actor)
-        driveWalker(actor, 'right', frame, open, state, tx => arrivals.push({ t, tx, running: actor.running }), false, latch)
+        driveWalker(actor, 'right', frame, open, state, tx => arrivals.push({ t, tx, running: actor.running }), false, start)
         ;(speeds[actor.tx] ??= []).push(actor.speed)
       }
-      return { arrivals, speeds }
+      return { arrivals, speeds, announced }
     }
     const tileTimes = (arrivals: { t: number }[]) => arrivals.slice(1).map((a, i) => a.t - arrivals[i].t)
 
@@ -115,11 +117,15 @@ describe('driveWalker', () => {
       expect(arrivals[arrivals.length - 1].running).toBe(false)
     })
 
-    it('never changes pace halfway through a tile, and each arrival reports the pace it was walked at', () => {
+    it('never changes pace halfway through a tile, and each step is announced with the pace it is walked at', () => {
       const flicker = (t: number) => Math.floor(t / 0.09) % 2 === 0
-      const { arrivals, speeds } = drive(flicker, 3)
+      const { arrivals, speeds, announced } = drive(flicker, 3)
       for (const tile of speeds.slice(1, -1)) expect(new Set(tile).size).toBe(1)
       for (const arrival of arrivals) expect(arrival.running).toBe(speeds[arrival.tx][0] === RUN_SPEED)
+      // One announcement per step, sent before the step is walked.
+      expect(announced.map(a => a.tx)).toEqual(Array.from({ length: announced.length }, (_, i) => i + 1))
+      expect(announced.length).toBe(arrivals.length + 1)
+      for (const step of announced.slice(0, -1)) expect(step.running).toBe(speeds[step.tx][0] === RUN_SPEED)
     })
   })
 
