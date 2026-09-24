@@ -4,7 +4,12 @@ on:
   push:
     branches: [main, migration]
   pull_request:
-    branches: [main, migration]
+    branches: [main, migration, playtest/community-0.1]
+  # Deploy workflows call this as their gate: no green CI, no deploy.
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
   check:
@@ -41,3 +46,25 @@ jobs:
           VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ vars.VITE_SUPABASE_ANON_KEY }}
           VITE_REALTIME_URL: ${{ vars.VITE_REALTIME_URL }}
+
+  realtime:
+    name: Realtime service tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/realtime
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: services/realtime/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm test
