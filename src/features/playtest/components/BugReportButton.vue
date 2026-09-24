@@ -107,8 +107,8 @@ async function copy(): Promise<void> {
 <style scoped>
 .pt-bug {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  right: calc(1rem + var(--safe-right, 0px));
+  bottom: calc(1rem + var(--safe-bottom, 0px));
   z-index: 60;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -192,10 +192,10 @@ async function copy(): Promise<void> {
   cursor: pointer;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   /* The lobby HUD is nearly full width on a phone and reaches this corner, so
      the button joins the row above it rather than sitting on top of it. */
-  .pt-bug { right: 0.6rem; bottom: 4.6rem; }
+  .pt-bug { right: calc(0.6rem + var(--safe-right, 0px)); bottom: calc(4.6rem + var(--safe-bottom, 0px)); }
   .pt-bug-fab-text { display: none; }
   .pt-bug-fab { min-height: 38px; width: 38px; justify-content: center; padding: 0; }
 }

@@ -42,7 +42,7 @@ const title = computed(() => {
   z-index: 35;
   display: grid;
   place-items: center;
-  padding: 1rem;
+  padding: calc(1rem + var(--safe-top, 0px)) calc(1rem + var(--safe-right, 0px)) calc(1rem + var(--safe-bottom, 0px)) calc(1rem + var(--safe-left, 0px));
   background: rgba(6, 10, 22, 0.75);
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -89,8 +89,8 @@ const title = computed(() => {
 }
 .cp-body { flex: 1; min-height: 0; overflow-y: auto; padding: 0.9rem; }
 
-@media (max-width: 720px) {
-  .cp { padding: 0.5rem; }
+@media (max-width: 720px), (max-height: 500px) {
+  .cp { padding: calc(0.5rem + var(--safe-top, 0px)) calc(0.5rem + var(--safe-right, 0px)) calc(0.5rem + var(--safe-bottom, 0px)) calc(0.5rem + var(--safe-left, 0px)); }
   .cp-card { max-height: calc(100dvh - 1rem); }
 }
 </style>

@@ -117,8 +117,8 @@ onUnmounted(() => emit('open', false))
 <style scoped>
 .ch {
   position: fixed;
-  left: 1rem;
-  bottom: 1rem;
+  left: calc(1rem + var(--safe-left, 0px));
+  bottom: calc(1rem + var(--safe-bottom, 0px));
   z-index: 30;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -230,10 +230,10 @@ onUnmounted(() => emit('open', false))
 }
 .ch-send:disabled { opacity: 0.45; cursor: default; }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   /* The lobby HUD owns the bottom centre and is nearly full width on a phone,
      so the chat tab sits in a row above it rather than under it. */
-  .ch { left: 0.6rem; bottom: 4.6rem; }
+  .ch { left: calc(0.6rem + var(--safe-left, 0px)); bottom: calc(4.6rem + var(--safe-bottom, 0px)); }
   .ch-tab-text { display: none; }
   /* Never more than a third of a phone screen: the game is the thing. */
   .ch-panel { height: min(15rem, 38dvh); width: calc(100vw - 1.2rem); }

@@ -48,7 +48,7 @@ const WEATHER_LABEL: Record<WeatherKind, string> = { clear: 'Despejado', rain: '
 <style scoped>
 .wl-hud {
   position: absolute;
-  bottom: 1.25rem;
+  bottom: calc(1.25rem + var(--safe-bottom, 0px));
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -109,7 +109,7 @@ const WEATHER_LABEL: Record<WeatherKind, string> = { clear: 'Despejado', rain: '
   font-weight: 600;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   .wl-hud { font-size: 0.8rem; gap: 0.5rem; padding: 0.45rem 0.9rem; }
 }
 </style>

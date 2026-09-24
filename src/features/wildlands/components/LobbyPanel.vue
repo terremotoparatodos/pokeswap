@@ -49,7 +49,7 @@ onUnmounted(() => {
   z-index: 20;
   display: grid;
   place-items: center;
-  padding: 1.5rem;
+  padding: calc(1.5rem + var(--safe-top, 0px)) calc(1.5rem + var(--safe-right, 0px)) calc(1.5rem + var(--safe-bottom, 0px)) calc(1.5rem + var(--safe-left, 0px));
   background: rgba(8, 12, 28, 0.45);
 }
 
@@ -129,7 +129,7 @@ onUnmounted(() => {
   display: none;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   .lp-backdrop {
     place-items: end stretch;
     padding: 0;

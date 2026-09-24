@@ -19,7 +19,7 @@ defineProps<{ hints: readonly WorldHint[] }>()
 .wh {
   position: absolute;
   left: 50%;
-  bottom: 5rem;
+  bottom: calc(5rem + var(--safe-bottom, 0px));
   z-index: 5;
   display: grid;
   gap: 0.3rem;
@@ -56,8 +56,8 @@ defineProps<{ hints: readonly WorldHint[] }>()
 .wh-badge--dungeon { background: #f0b429; color: #101a36; }
 .wh-badge--skills { background: #e03c3c; color: #fff; }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   /* On a phone the chat and Pokédex buttons take a row above the area pill. */
-  .wh { bottom: 7.6rem; width: calc(100% - 1.5rem); max-width: none; }
+  .wh { bottom: calc(7.6rem + var(--safe-bottom, 0px)); width: calc(100% - 1.5rem); max-width: none; }
 }
 </style>

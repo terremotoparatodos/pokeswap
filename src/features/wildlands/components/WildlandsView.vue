@@ -541,7 +541,8 @@ watch(user, () => {
   position: relative;
   height: 100vh;
   height: 100dvh;
-  min-height: 420px;
+  /* A landscape phone is ~350 px tall: a taller floor pushed the bottom HUD off screen. */
+  min-height: 300px;
   overflow: hidden;
   background: #0f1a33;
   user-select: none;
@@ -577,7 +578,7 @@ watch(user, () => {
 
 .wl-toast {
   position: absolute;
-  top: 4.5rem;
+  top: calc(4.5rem + var(--safe-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
@@ -608,8 +609,8 @@ watch(user, () => {
 
 .wl-minimap {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: calc(1rem + var(--safe-top, 0px));
+  right: calc(1rem + var(--safe-right, 0px));
   width: 132px;
   height: 132px;
   padding: 3px;
@@ -671,14 +672,20 @@ watch(user, () => {
   opacity: 0.7;
 }
 
-@media (max-width: 720px) {
+/* Phones, portrait or landscape. */
+@media (max-width: 720px), (max-height: 500px) {
   .wl-toast {
     top: auto;
-    bottom: 4.75rem;
+    bottom: calc(4.75rem + var(--safe-bottom, 0px));
     max-width: calc(100% - 2rem);
     white-space: normal;
     text-align: center;
   }
-  .wl-minimap { top: 0.75rem; right: 0.75rem; width: 96px; height: 96px; }
+  .wl-minimap {
+    top: calc(0.75rem + var(--safe-top, 0px));
+    right: calc(0.75rem + var(--safe-right, 0px));
+    width: 96px;
+    height: 96px;
+  }
 }
 </style>

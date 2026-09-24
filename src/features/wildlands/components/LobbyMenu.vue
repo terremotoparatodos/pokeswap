@@ -131,8 +131,8 @@ async function signOut(): Promise<void> {
 <style scoped>
 .lm-bar {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
+  top: calc(1rem + var(--safe-top, 0px));
+  left: calc(1rem + var(--safe-left, 0px));
   z-index: 5;
   display: flex;
   align-items: center;
@@ -200,8 +200,8 @@ async function signOut(): Promise<void> {
 
 .lm-sheet {
   position: absolute;
-  top: 4.25rem;
-  left: 1rem;
+  top: calc(4.25rem + var(--safe-top, 0px));
+  left: calc(1rem + var(--safe-left, 0px));
   width: 280px;
   max-height: calc(100% - 5.5rem);
   overflow-y: auto;
@@ -292,10 +292,10 @@ async function signOut(): Promise<void> {
   opacity: 0.5;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   .lm-bar {
-    top: 0.75rem;
-    left: 0.75rem;
+    top: calc(0.75rem + var(--safe-top, 0px));
+    left: calc(0.75rem + var(--safe-left, 0px));
   }
   .lm-toggle,
   .lm-tokens {
