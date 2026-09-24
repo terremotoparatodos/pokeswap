@@ -1,3 +1,5 @@
 # Vitest writes snapshots with LF; checking them out as CRLF (core.autocrlf on Windows)
 # makes every test run rewrite the file and dirty the tree.
 *.snap text eol=lf
+# Shell scripts run under bash on Windows too: CRLF breaks line continuations.
+*.sh text eol=lf
