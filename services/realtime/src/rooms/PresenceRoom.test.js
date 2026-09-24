@@ -526,3 +526,45 @@ test('a step never erases a full upsert queued in the same batch window', async 
   assert.deepEqual(lastOf(viewer, MESSAGE.BATCH).payload, [{ type: 'upsert', actor: { ...identity, tx: 33, dir: 'right', moveSequence: 4 } }])
   room.onLeave(viewer)
 })
+
+test('an area change reaches observers as one coherent update: a leave in the old area, the arrival in the new one', async () => {
+  const room = new PresenceRoom()
+  const townWatcher = client('area-town-watcher')
+  const wildWatcher = client('area-wild-watcher')
+  const traveller = client('area-traveller')
+  await room.onJoin(townWatcher, { presenceProtocol: 2 }, { kind: 'guest', token: null })
+  await room.onJoin(wildWatcher, { presenceProtocol: 2 }, { kind: 'guest', token: null })
+  await room.onJoin(traveller, {}, { kind: 'player', userId: 'area-traveller-user', username: 'Traveller', token: null })
+  room.ready(traveller)
+  room.observe(townWatcher, { areaId: 'ciudad-corazon', tx: 20, ty: 30 })
+  room.observe(wildWatcher, { areaId: 'pradera', tx: -5, ty: -66 })
+  // Only what follows the trip counts: before it the Pradera guest was still in town.
+  const from = new Map([townWatcher, wildWatcher].map(w => [w, w.messages.length]))
+  const seen = watcher => watcher.messages.slice(from.get(watcher)).filter(m => m.type === MESSAGE.DELTA && m.payload.actor.id === 'area-traveller-user')
+    .map(m => [m.payload.type, m.payload.actor.areaId, m.payload.actor.tx, m.payload.actor.ty])
+
+  const realNow = Date.now
+  let now = 70_000
+  Date.now = () => now
+  try {
+    room.changeArea(traveller, { areaId: 'pradera' })
+    // Every update the Pradera watcher gets names Pradera and Pradera coordinates.
+    assert.deepEqual(seen(wildWatcher), [['upsert', 'pradera', -5, -69]])
+    assert.deepEqual(seen(townWatcher).at(-1)[0], 'leave')
+
+    now += 500
+    room.changeArea(traveller, { areaId: 'ciudad-corazon' })
+    assert.deepEqual(seen(wildWatcher).at(-1)[0], 'leave')
+    // Back in town: it reappears at the gate arrival and keeps walking from there.
+    assert.deepEqual(seen(townWatcher).at(-1), ['upsert', 'ciudad-corazon', 8, 41])
+    now += 300
+    room.move(traveller, { direction: 'right', running: false, sequence: 1 })
+    const last = townWatcher.messages.filter(m => m.type === MESSAGE.DELTA).at(-1).payload
+    assert.deepEqual([last.type, last.actor.tx, last.actor.ty], ['step', 9, 41])
+  } finally {
+    Date.now = realNow
+  }
+  room.onLeave(townWatcher)
+  room.onLeave(wildWatcher)
+  room.onLeave(traveller)
+})

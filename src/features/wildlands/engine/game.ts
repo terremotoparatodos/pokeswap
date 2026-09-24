@@ -370,8 +370,30 @@ export class WildlandsGame {
 
   /** Stands the player outside the building hosting `feature`, facing away from it. */
   placeAtDoor(feature: LobbyFeature): void {
-    const exit = this.entrances.exitFor(this.area, feature)
-    if (exit && !this.travel.active) this.placePlayer(exit)
+    const door = this.entrances.doorFor(this.area, feature)
+    if (!door || this.travel.active) return
+    const p = this.player
+    const onDoor = p.tx === door.door.tx && p.ty === door.door.ty && !isMoving(p)
+    const step = stepBetween(door.door, door.exit)
+    if (onDoor && step && this.presence && !this.spectator && this.receivedAuthoritativeActor) {
+      // Presence owns the position, and a building is not an area: the player
+      // never left the street. Leaving is one ordinary step out of the doorway,
+      // announced like any other, so the server and every observer follow it.
+      // Moving the avatar locally alone left the server on the door tile, and
+      // the next sideways step then landed inside the building's solid front
+      // row, which the safe point answered with the town spawn (TRANS-1).
+      this.nav.cancel()
+      this.walker = createWalkerState()
+      p.dir = step
+      p.fromTx = p.tx; p.fromTy = p.ty
+      p.tx = door.exit.tx; p.ty = door.exit.ty
+      p.progress = 0
+      this.startStep(p)
+      return
+    }
+    // No presence, or not standing in the doorway (a direct link to a
+    // feature, before any authoritative position): nothing to announce.
+    this.placePlayer(door.exit)
   }
 
   /** Owned Pokémon for the town plazas; kept across trips so the town is repopulated on return. */
@@ -1032,4 +1054,12 @@ export class WildlandsGame {
     this.remoteUpdatesSinceSample = 0
     this.lastPerformanceSampleAt = this.seconds
   }
+}
+
+/** The direction of a one-tile move from `a` to `b`, or null when they are not neighbours. */
+function stepBetween(a: Tile, b: Tile): Dir | null {
+  for (const [dir, [dx, dy]] of Object.entries(DIRS) as [Dir, readonly [number, number]][]) {
+    if (a.tx + dx === b.tx && a.ty + dy === b.ty) return dir
+  }
+  return null
 }
