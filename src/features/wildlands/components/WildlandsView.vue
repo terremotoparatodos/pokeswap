@@ -104,7 +104,9 @@
       @close="leaveDungeon"
     />
 
-    <component :is="ChatPanel" v-if="ChatPanel && !dungeonRun && !playtestSurface" />
+    <WorldHintTray :hints="worldHints" />
+
+    <component :is="ChatPanel" v-if="ChatPanel && !dungeonRun && !playtestSurface" @open="(open: boolean) => (chatOpen = open)" />
 
     <component
       :is="CityPanel"
@@ -153,6 +155,8 @@ import LobbyHud from './LobbyHud.vue'
 import LobbyMenu from './LobbyMenu.vue'
 import LobbyPanel from './LobbyPanel.vue'
 import LobbyPlaza from './LobbyPlaza.vue'
+import WorldHintTray from './WorldHintTray.vue'
+import { visibleWorldHints, type WorldHint } from './worldHints'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
 import { ColyseusPresence } from '../multiplayer/api/colyseusPresence'
 import type { Chat } from '../../chat/state/useChat'
@@ -269,6 +273,8 @@ const professionRef = ref<{
   overlay: SceneOverlay
   closeTransient: () => void
   toggleInventory: () => void
+  hint: WorldHint | null
+  actionOpen: boolean
 } | null>(null)
 const professionOpen = ref(false)
 
@@ -279,8 +285,17 @@ const dungeonRef = ref<{
   isWorldObject: (target: WorldObjectTarget) => boolean
   placedObjects: (area: Area) => readonly PlacedObjectSpec[]
   overlay: SceneOverlay
+  hint: WorldHint | null
 } | null>(null)
 const dungeonRun = shallowRef<AreaEntrance | null>(null)
+
+// Every feature's hint in one tray above the area pill, out of the way while
+// the chat or a profession action card owns the bottom of the screen.
+const chatOpen = ref(false)
+const worldHints = computed(() => visibleWorldHints(
+  [dungeonRef.value?.hint, professionRef.value?.hint],
+  { chatOpen: chatOpen.value, actionOpen: professionRef.value?.actionOpen ?? false },
+))
 
 /** Tiles the professions already own, so a cave never lands on a node or a bench. */
 const professionClaims = (area: Area, tx: number, ty: number): boolean =>

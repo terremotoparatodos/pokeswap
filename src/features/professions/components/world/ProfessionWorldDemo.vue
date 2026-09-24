@@ -15,11 +15,6 @@
       <InventoryGrid :session="session" :highlight="highlight" compact />
     </section>
 
-    <p v-if="areaKind === 'wild' && !anySelection" class="pwd-hint">
-      <span class="pf-demo-badge">{{ skills ? 'Skills' : 'Dev' }}</span>
-      Acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia, el horno o la orilla
-    </p>
-
     <div v-if="anySelection" class="pwd-mining">
       <div class="pwd-top">
         <ProfessionHud :session="session" :profession="activeProfession" />
@@ -330,11 +325,16 @@ function toggleInventory(): void {
   bagOpen.value = !bagOpen.value
 }
 
-defineExpose({ inspect, isWorldObject, placedObjects, overlay, closeTransient: closeAll, toggleInventory })
+// The host draws this in its world hint tray, next to the other features'
+// hints. A plain object, so this feature needs nothing from WildLands for it.
+const hint = computed(() => props.areaKind === 'wild' && !anySelection.value
+  ? { id: 'skills', badge: props.skills ? 'Skills' : 'Dev', tone: 'skills' as const, text: 'Acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia, el horno o la orilla' }
+  : null)
+
+defineExpose({ inspect, isWorldObject, placedObjects, overlay, closeTransient: closeAll, toggleInventory, hint, actionOpen: anySelection })
 </script>
 
 <style scoped>
-.pwd-hint { position: absolute; left: 1rem; bottom: 7.2rem; max-width: calc(100% - 2rem); z-index: 5; margin: 0; padding: 0.4rem 0.7rem; border: 2px solid var(--pf-line); border-radius: 10px; background: rgba(16, 26, 54, 0.9); color: var(--pf-soft); font-size: 0.8rem; }
 .pwd-mining { position: absolute; left: 50%; bottom: 4.9rem; z-index: 14; display: grid; gap: 0.4rem; width: min(380px, calc(100% - 1.5rem)); max-height: calc(100dvh - 7rem); overflow-y: auto; transform: translateX(-50%); }
 .pwd-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.4rem; }
 .pwd-bag-panel { position: absolute; top: 4.5rem; left: 1rem; z-index: 16; display: grid; gap: 0.55rem; width: min(440px, calc(100% - 2rem)); max-height: calc(100dvh - 9rem); padding: 0.75rem; overflow-y: auto; border: 2px solid var(--pf-gold); border-radius: 12px; background: rgba(12, 20, 42, 0.97); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.48); }
@@ -345,8 +345,5 @@ defineExpose({ inspect, isWorldObject, placedObjects, overlay, closeTransient: c
 @media (max-width: 720px) {
   .pwd-mining { bottom: 4.4rem; }
   .pwd-bag-panel { top: 4.2rem; left: 0.75rem; width: calc(100% - 1.5rem); max-height: calc(100dvh - 8.5rem); }
-  /* It used to be `nowrap` and ran off both edges of a phone. It is a sentence
-     a player reads, so it wraps, and it sits above the row of tabs. */
-  .pwd-hint { bottom: 8.6rem; left: 50%; transform: translateX(-50%); max-width: calc(100vw - 1.5rem); white-space: normal; text-align: center; }
 }
 </style>
