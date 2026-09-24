@@ -17,6 +17,7 @@ import { buildTrainer, NPC_PALETTES, PLAYER_PALETTE, type TrainerSprites } from 
 import { drawGrid, drawPads, drawRoute } from './groundMarks'
 import { drawSparkle, SceneLighting, type LightSource } from './lighting'
 import { drawOwnerMarker } from './ownerMarker'
+import type { RenderProbe } from './perfHooks'
 import { resolvePick, spriteRect, type ActorHit, type PlacedHit, type PropHit } from './picking'
 import { placedFeet, type PlacedObject } from './placedObjects'
 import type { Tile } from './pathfinding'
@@ -146,6 +147,8 @@ export class Renderer {
   private waterPatternTransform: DOMMatrix | null = null
   private readonly renderLens: CameraLens = { zoom: 1, squash: 1, distance: 1 }
   private readonly groundRows = new ProjectionRowCache()
+  /** Measurement hook (PERF-1); null outside VITE_PERF builds. */
+  probe: RenderProbe | null = null
   readonly metrics: RendererMetrics = {
     groundComposeMs: 0, groundProjectMs: 0, collectMs: 0,
     sortMs: 0, spriteDrawMs: 0, lightingMs: 0,
@@ -353,7 +356,7 @@ export class Renderer {
       push(extra.wx, extra.wy, extra.sprite, { lift: extra.lift ?? 0, alpha: extra.alpha, scale: extra.scale })
       if (list.length > index && extra.depthBias) list[index].depth += extra.depthBias
     }
-    const collectActor = (actor: Actor) => {
+    const collectOne = (actor: Actor) => {
       const pos = actorPosition(actor)
       const inWater = area.isWater(actor.tx, actor.ty) && area.isWater(actor.fromTx, actor.fromTy)
       if (actor.pokemon) {
@@ -380,6 +383,15 @@ export class Renderer {
         })
       }
     }
+    const probe = this.probe
+    // Measured builds only: report whether each actor made it into the frame.
+    const collectActor = probe
+      ? (actor: Actor) => {
+        const before = list.length
+        collectOne(actor)
+        probe.actor(actor, !actor.pokemon && !actor.trainer ? 'noArt' : list.length > before ? 'drawn' : 'culled')
+      }
+      : collectOne
     if (scene.showPlayer) {
       collectActor(scene.player)
       if (scene.companion) collectActor(scene.companion)
@@ -396,6 +408,7 @@ export class Renderer {
     phaseStart = MEASURE_RENDER_PHASES ? performance.now() : 0
     drawables.sort((a, c) => a.depth - c.depth || a.x - c.x)
     this.sampleMetric('sortMs', phaseStart)
+    this.probe?.frame(drawables.length, this.renderLens.zoom)
     phaseStart = MEASURE_RENDER_PHASES ? performance.now() : 0
     const { dx, dy, alpha } = scene.light.shadow
     const squash = scene.lens.squash

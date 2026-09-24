@@ -39,6 +39,7 @@ import { isPresenceAreaId, type LocalPresencePort, type RemotePresenceActor } fr
 import { reconcilePresenceArea } from '../multiplayer/domain/areaReconciliation'
 import { keepsPredictedStep, safeAuthoritativePosition } from '../multiplayer/domain/movementReconciliation'
 import { PresenceDiagnostics, type PresenceDiagnosticsSnapshot } from '../multiplayer/domain/presenceDiagnostics'
+import type { FrameProbe, RenderProbe } from './perfHooks'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
 const MAX_REMOTE_STEP_BACKLOG = 3
@@ -216,6 +217,7 @@ export class WildlandsGame {
   private lastPerformanceSampleAt = 0
   private remoteUpdatesSinceSample = 0
   private remoteUpdatesPerSecond = 0
+  private frameProbe: FrameProbe | null = null
 
   constructor(canvas: HTMLCanvasElement, options: GameOptions) {
     this.renderer = new Renderer(canvas)
@@ -665,6 +667,17 @@ export class WildlandsGame {
     this.keys.virtualDir = dir
   }
 
+  /** PERF-1 only: installs measurement hooks (see perfHooks.ts); scripted runs also hold sprint. */
+  setFrameProbe(probe: FrameProbe | null, render: RenderProbe | null): void {
+    this.frameProbe = probe
+    this.renderer.probe = render
+    probe?.attached?.(this.renderer.playerSprites)
+  }
+
+  setVirtualSprint(on: boolean): void {
+    this.keys.sprinting = on
+  }
+
   /**
    * Tap/click at a CSS-pixel point on the canvas. Tapping an owned Pokémon or
    * the activity board inspects it; tapping another Pokémon, NPC or obstacle
@@ -836,9 +849,13 @@ export class WildlandsGame {
     this.fps += (1 / Math.max(dt, 0.001) - this.fps) * 0.05
     const workStart = performance.now()
     this.update(dt)
+    const updateEnd = this.frameProbe ? performance.now() : 0
     this.renderer.render(this.scene(), dt)
+    const renderEnd = this.frameProbe ? performance.now() : 0
     this.area.tick()
     const workMs = performance.now() - workStart
+    this.frameProbe?.frame(now, workStart, updateEnd, renderEnd, workStart + workMs, this.player, this.camX, this.camY,
+      this.area, this.remoteActors, this.populace.actors.length)
     this.frameMs += (workMs - this.frameMs) * 0.1
     this.frameSamples[this.frameSampleIndex] = workMs
     this.frameSampleIndex = (this.frameSampleIndex + 1) % this.frameSamples.length
