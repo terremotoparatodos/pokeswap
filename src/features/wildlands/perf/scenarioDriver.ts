@@ -71,6 +71,8 @@ export class ScenarioDriver {
   private path: Tile[] | null = null
   private stuckSince = -1
   private replans = 0
+  /** Tiles the player bumped into on this leg; cleared when the leg ends. */
+  private readonly avoid = new Set<string>()
   finished = false
 
   constructor(readonly def: ScenarioDef, private readonly controls: DriverControls, private readonly now: () => number = () => performance.now()) {}
@@ -84,7 +86,7 @@ export class ScenarioDriver {
   private advance(kind: 'arrived' | 'skipped'): void {
     const w = this.waypoint
     this.log(kind, `${w.area} ${w.tx},${w.ty}`)
-    this.path = null; this.replans = 0; this.stuckSince = -1
+    this.path = null; this.replans = 0; this.stuckSince = -1; this.avoid.clear()
     this.index++
     if (this.index >= this.def.waypoints.length) {
       this.index = 0
@@ -130,6 +132,8 @@ export class ScenarioDriver {
     else if (player.bumping) {
       if (this.stuckSince < 0) this.stuckSince = this.now()
       else if (this.now() - this.stuckSince > 800) {
+        // Whatever stands there (usually a townsperson) is avoided on the next plan.
+        this.avoid.add(`${next.tx},${next.ty}`)
         this.stuckSince = -1
         this.path = null
         if (++this.replans > 3) this.advance('skipped')
@@ -143,14 +147,16 @@ export class ScenarioDriver {
 
   private plan(player: Actor, area: Area, w: Waypoint): Tile[] | null {
     const doors = doorTiles(area)
-    const open = (tx: number, ty: number) => !area.isSolid(tx, ty) && !doors.has(`${tx},${ty}`) && (area.isReachable?.(tx, ty) ?? true)
+    const open = (tx: number, ty: number) => !area.isSolid(tx, ty) && !doors.has(`${tx},${ty}`) && !this.avoid.has(`${tx},${ty}`)
+      && (area.isReachable?.(tx, ty) ?? true)
     const target = nearestFree(w, (tx, ty) => !open(tx, ty) || isPortalTile(area, tx, ty), 'to' in w)
     if (!target) return null
     // A portal is only walked onto when it is the destination.
     const blocked = (tx: number, ty: number) => !open(tx, ty) || (isPortalTile(area, tx, ty) && (tx !== target.tx || ty !== target.ty))
     const start = { tx: player.tx, ty: player.ty }
     const dirs = findPath({ start, target, isGoal: (tx, ty) => tx === target.tx && ty === target.ty, blocked, radius: 60, maxNodes: 20_000 })
-    return dirs ? pathTiles(start, dirs) : null
+    // pathTiles excludes the start; the driver locates the player on the route, start included.
+    return dirs ? [start, ...pathTiles(start, dirs)] : null
   }
 }
 

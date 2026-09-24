@@ -23,6 +23,8 @@ describe('scenario driver routes', () => {
         const player = createActor({ id: 'p', kind: 'player', habitat: 'any', tx: at.tx, ty: at.ty })
         const path = driver.plan(player, area, w)
         expect(path, `${def.id} → ${w.area} ${w.tx},${w.ty}`).not.toBeNull()
+        // The route starts where the player stands, or the driver cannot find it on it.
+        expect(path![0]).toEqual({ tx: at.tx, ty: at.ty })
         at = path![path!.length - 1]
       }
     })

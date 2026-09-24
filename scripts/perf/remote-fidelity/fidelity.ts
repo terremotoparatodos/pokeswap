@@ -113,10 +113,10 @@ class Mover {
   frame(dt: number): void {
     const current = this.intent()
     const moving = current && !('stopMs' in current) ? current : null
-    if (!isMoving(this.actor)) {
-      this.actor.speed = moving?.run ? RUN_SPEED : WALK_SPEED
-      this.actor.running = moving?.run ?? false
-    }
+    // As game.ts update(): the running flag follows the key every frame, the
+    // speed is only set while standing (the walker chains steps without stopping).
+    this.actor.running = moving?.run ?? false
+    if (!isMoving(this.actor)) this.actor.speed = moving?.run ? RUN_SPEED : WALK_SPEED
     driveWalker(this.actor, () => {
       const next = this.intent()
       return next && !('stopMs' in next) ? next.dir : null
@@ -150,6 +150,8 @@ const SCENARIOS: Scenario[] = [
   { id: 'E', name: 'run and reverse', movers: [[run('right', 8), run('left', 8)]] },
   { id: 'F', name: 'zig-zag running', movers: [zigzag(16)] },
   { id: 'G', name: 'run, two moves per uplink packet', movers: [[run('right', 16)]], pairUp: true },
+  // Shift released mid-run: the local walker keeps its running speed until it stops.
+  { id: 'I', name: 'run then walk without stopping', movers: [[run('right', 6), walk('right', 10)]] },
   {
     id: 'H', name: 'ten players running at once',
     movers: Array.from({ length: 10 }, (_, i) => {
@@ -315,7 +317,9 @@ function analyse(m: Mover, received: { at: number; tx: number; ty: number; seq: 
     else { delays.push(seen - a.at); p = q }
   }
   const movingMs = arrivals.length > 1 ? arrivals[arrivals.length - 1].at - arrivals[0].at : 0
+  const localSteps = arrivals.slice(1).map((a, i) => a.at - arrivals[i].at)
   return {
+    localSteps,
     tiles: arrivals.length, received: received.length, intervals, distance, seqGaps, snaps, maxSnapTiles,
     stallFrames, stallEpisodes, longestStallMs, stallMs: stallFrames * observerStep, delays, skipped, movingMs,
   }
@@ -329,6 +333,8 @@ function aggregate(list: ReturnType<typeof analyse>[]) {
   return {
     movers: list.length,
     localTiles: sum(x => x.tiles),
+    /** The mover's own step cadence: 267 ms walking, 133 ms running. */
+    localStepMs: (() => { const s = list.flatMap(x => x.localSteps).filter(v => v < 1000); return { min: r1(Math.min(...s)), p50: r1(pct(s, 0.5)), max: r1(Math.max(...s)) } })(),
     receive: {
       updates: sum(x => x.received),
       intervalMs: { p50: r1(pct(intervals, 0.5)), p95: r1(pct(intervals, 0.95)), max: r1(Math.max(0, ...intervals)) },
