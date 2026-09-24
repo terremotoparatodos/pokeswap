@@ -1,8 +1,17 @@
 <template>
-  <aside class="pp" aria-label="Captura de rendimiento (PERF-1)">
+  <!-- MOBILE-1: folded to one bar on a phone; while recording the bar keeps Detener at hand. -->
+  <aside v-if="!open" class="pp pp--bar" aria-label="Captura de rendimiento (PERF)">
+    <span :class="{ rec: recording }">{{ recording ? `● ${scenarioLabel} ${elapsed}s` : captured ? 'PERF · lista' : 'PERF' }}</span>
+    <button v-if="recording" type="button" @click="toggle">Detener</button>
+    <button v-else-if="captured" type="button" @click="send">Enviar a PC</button>
+    <button type="button" class="pp-fold" aria-label="Abrir el panel de captura" :aria-expanded="false" @click="setOpen(true)">▸</button>
+    <p v-if="status && !recording" class="status">{{ status }}</p>
+  </aside>
+  <aside v-else class="pp" aria-label="Captura de rendimiento (PERF)">
     <header>
-      <b>PERF-1</b>
+      <b>PERF</b>
       <span :class="{ rec: recording }">{{ recording ? `● ${scenarioLabel} ${elapsed}s` : 'detenido' }}</span>
+      <button type="button" class="pp-fold" aria-label="Plegar el panel de captura" :aria-expanded="true" @click="setOpen(false)">▾</button>
     </header>
     <div class="row">
       <input v-model="label" aria-label="Etiqueta" placeholder="etiqueta (p. ej. pc-144hz)" :disabled="recording">
@@ -45,6 +54,21 @@ const startedAt = ref(0)
 const now = ref(0)
 const live = ref<Record<string, string> | null>(null)
 let timer: ReturnType<typeof setInterval> | null = null
+
+// Phones start folded; the open/closed choice is kept per device.
+const OPEN_KEY = 'pokeswap:perf-panel-open'
+function initialOpen(): boolean {
+  try {
+    const saved = localStorage.getItem(OPEN_KEY)
+    if (saved !== null) return saved === '1'
+  } catch { /* storage unavailable: fall back to the screen size */ }
+  return !(typeof matchMedia === 'function' && matchMedia('(max-width: 720px), (max-height: 500px)').matches)
+}
+const open = ref(initialOpen())
+function setOpen(value: boolean): void {
+  open.value = value
+  try { localStorage.setItem(OPEN_KEY, value ? '1' : '0') } catch { /* preference not kept */ }
+}
 
 const elapsed = computed(() => Math.round((now.value - startedAt.value) / 1000))
 const scenarioLabel = computed(() => scenario.value || 'manual')
@@ -114,11 +138,27 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 
 <style scoped>
 .pp {
-  position: absolute; left: 8px; bottom: 8px; z-index: 40; width: min(320px, calc(100vw - 16px));
+  position: absolute; left: calc(8px + var(--safe-left, 0px)); bottom: calc(8px + var(--safe-bottom, 0px)); z-index: 40;
+  width: min(320px, calc(100vw - 16px));
   padding: 8px 10px; border-radius: 10px; background: rgba(10, 16, 34, 0.86); color: #eef3ff;
   font: 12px/1.35 system-ui, sans-serif; pointer-events: auto;
 }
-header { display: flex; justify-content: space-between; margin-bottom: 6px; }
+header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+header span { margin-left: auto; }
+.pp-fold { flex: 0 0 auto; min-width: 32px; min-height: 28px; padding: 0 6px; }
+.pp--bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; width: auto; max-width: calc(100vw - 16px);
+  padding: 4px 6px 4px 10px;
+}
+.pp--bar > button:not(.pp-fold) { flex: 0 0 auto; min-height: 28px; }
+.pp--bar .status { flex-basis: 100%; margin: 0; font-size: 11px; }
+@media (max-width: 720px), (max-height: 500px) {
+  /* Folded, it sits under the menu button, clear of the bottom HUD and chat. */
+  .pp--bar {
+    top: calc(0.75rem + 44px + 0.5rem + var(--safe-top, 0px)); bottom: auto;
+    left: calc(0.75rem + var(--safe-left, 0px));
+  }
+}
 .rec { color: #ff7b7b; }
 .row { display: flex; gap: 6px; margin-bottom: 6px; }
 .row input, .row select { flex: 1; min-width: 0; font: inherit; }

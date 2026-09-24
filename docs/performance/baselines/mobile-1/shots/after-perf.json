@@ -1,0 +1,167 @@
+[
+  {
+    "label": "after-perf",
+    "viewport": "safari",
+    "size": "393x659",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after-perf-safari.png",
+    "uiPercent": 12.9,
+    "top": [
+      [
+        "div.wl-minimap",
+        4.3
+      ],
+      [
+        "div.wl-hud",
+        4.1
+      ],
+      [
+        "button.lm-toggle",
+        1.5
+      ],
+      [
+        "aside.ph.ph--good",
+        1.3
+      ],
+      [
+        "aside.pp.pp--bar",
+        1.1
+      ],
+      [
+        "span.wl-place",
+        0.6
+      ],
+      [
+        "button.ph-toggle",
+        0.6
+      ],
+      [
+        "button.wl-hud-btn.wl-home",
+        0.5
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        659
+      ],
+      "visual": [
+        393,
+        659
+      ],
+      "stage": [
+        393,
+        659
+      ]
+    }
+  },
+  {
+    "label": "after-perf",
+    "viewport": "standalone",
+    "size": "393x852",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after-perf-standalone.png",
+    "uiPercent": 10,
+    "top": [
+      [
+        "div.wl-minimap",
+        3.4
+      ],
+      [
+        "div.wl-hud",
+        3.2
+      ],
+      [
+        "button.lm-toggle",
+        1.2
+      ],
+      [
+        "aside.ph.ph--good",
+        1
+      ],
+      [
+        "aside.pp.pp--bar",
+        0.9
+      ],
+      [
+        "span.wl-place",
+        0.5
+      ],
+      [
+        "button.ph-toggle",
+        0.4
+      ],
+      [
+        "button.wl-hud-btn.wl-home",
+        0.4
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        852
+      ],
+      "visual": [
+        393,
+        852
+      ],
+      "stage": [
+        393,
+        852
+      ]
+    }
+  },
+  {
+    "label": "after-perf",
+    "viewport": "landscape",
+    "size": "852x353",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after-perf-landscape.png",
+    "uiPercent": 11,
+    "top": [
+      [
+        "div.wl-minimap",
+        3.7
+      ],
+      [
+        "div.wl-hud",
+        3.6
+      ],
+      [
+        "button.lm-toggle",
+        1.3
+      ],
+      [
+        "aside.ph.ph--good",
+        1.2
+      ],
+      [
+        "aside.pp.pp--bar",
+        1
+      ],
+      [
+        "span.wl-place",
+        0.5
+      ],
+      [
+        "button.ph-toggle",
+        0.5
+      ],
+      [
+        "button.wl-hud-btn.wl-home",
+        0.4
+      ]
+    ],
+    "page": {
+      "inner": [
+        852,
+        353
+      ],
+      "visual": [
+        852,
+        353
+      ],
+      "stage": [
+        852,
+        353
+      ]
+    }
+  }
+]
