@@ -17,6 +17,7 @@ import {
   type Actor, type MoveRules,
 } from '../../../src/features/wildlands/engine/actors'
 import type { Dir } from '../../../src/features/wildlands/engine/characters'
+import { RemoteStepPlayback } from '../../../src/features/wildlands/engine/remotePlayback'
 import { ColyseusPresence } from '../../../src/features/wildlands/multiplayer/api/colyseusPresence'
 // @ts-expect-error untyped JS module
 import { PresenceRoom } from '../../../services/realtime/src/rooms/PresenceRoom.js'
@@ -51,6 +52,9 @@ const PROFILES: Record<string, NetworkProfile> = {
   // Buenos Aires → Miami: movement RTT p50 155 / p99 181 ms measured in production (worklog, 2026-09-23).
   miami: { name: 'miami', baseMs: 78, jitterMs: 12, stallChance: 0, stallMs: 0 },
   rough: { name: 'rough', baseMs: 78, jitterMs: 35, stallChance: 0.02, stallMs: 250 },
+  // PERF-2 model of the iPhone on home Wi-Fi: short path, noisy radio, rare
+  // retransmission pauses. Modelled, not measured per packet.
+  wifi: { name: 'wifi', baseMs: 8, jitterMs: 25, stallChance: 0.01, stallMs: 120 },
 }
 
 class Link {
@@ -73,7 +77,8 @@ class Link {
 
 // ── scripted movers ──────────────────────────────────────────────────────────
 
-type Leg = { dir: Dir; run: boolean; tiles: number } | { stopMs: number }
+/** `pace` scales the local speed as water does (0.7); the gait sent stays the same. */
+type Leg = { dir: Dir; run: boolean; tiles: number; pace?: number } | { stopMs: number }
 interface Arrival { seq: number; tx: number; ty: number; at: number }
 
 const FREE: MoveRules = { blocked: () => false, occupied: () => false }
@@ -117,8 +122,9 @@ class Mover {
     // start of every chained step, so a Shift change applies from the next tile.
     const latch = (actor: Actor) => {
       const leg = this.intent()
-      actor.running = !!leg && !('stopMs' in leg) && leg.run
-      actor.speed = actor.running ? RUN_SPEED : WALK_SPEED
+      const moving = leg && !('stopMs' in leg) ? leg : null
+      actor.running = !!moving?.run
+      actor.speed = (actor.running ? RUN_SPEED : WALK_SPEED) * (moving?.pace ?? 1)
     }
     if (!isMoving(this.actor)) latch(this.actor)
     driveWalker(this.actor, () => {
@@ -156,6 +162,8 @@ const SCENARIOS: Scenario[] = [
   { id: 'G', name: 'run, two moves per uplink packet', movers: [[run('right', 16)]], pairUp: true },
   // Shift released mid-run (PERF-1: the walker kept running until it stopped).
   { id: 'I', name: 'run then walk without stopping', movers: [[run('right', 6), walk('right', 10)]] },
+  // Running through water: the sender moves at 0.7× but reports the nominal gait.
+  { id: 'K', name: 'run through water', movers: [[{ ...run('right', 12), pace: 0.7 }, { ...run('down', 12), pace: 0.7 }]] },
   // A long constant run: does the observer's lag grow, and does it ever catch up?
   { id: 'J', name: 'long run, 80 tiles', movers: [[run('right', 20), run('down', 20), run('left', 20), run('up', 20)]] },
   {
@@ -169,7 +177,11 @@ const SCENARIOS: Scenario[] = [
 
 // ── one run: movers → server → observer ──────────────────────────────────────
 
-interface ObserverFrame { at: number; x: number; y: number; tx: number; ty: number; fx: number; fy: number; moving: boolean; applied: number }
+interface ObserverFrame {
+  at: number; x: number; y: number; tx: number; ty: number; fx: number; fy: number; moving: boolean; applied: number
+  /** Unrounded position in tiles along the route, and the gait speed of the step on screen. */
+  px: number; py: number; speed: number
+}
 
 let socketSeq = 0
 function socket(onSend: (type: string, payload: any) => void): any {
@@ -192,7 +204,7 @@ async function runOnce(scenario: Scenario, profile: NetworkProfile, observerHz: 
   Object.assign(g, {
     area: atlas.get('ciudad-corazon'), pokedex: [], renderer: { playerSprites: {} },
     remoteActors: [], remoteCompanions: [], remoteActorsById: new Map(), remoteCompanionsByOwnerId: new Map(),
-    remoteCharacterIds: new Map(), remoteMoveSequences: new Map(), remoteStepQueues: new Map(), remoteUpdatesSinceSample: 0,
+    remoteCharacterIds: new Map(), remoteMoveSequences: new Map(), remotePlayback: new RemoteStepPlayback(), remoteUpdatesSinceSample: 0,
   })
   const received = new Map<string, { at: number; tx: number; ty: number; seq: number }[]>()
   const port = {
@@ -246,6 +258,8 @@ async function runOnce(scenario: Scenario, profile: NetworkProfile, observerHz: 
         frames.get(m.id)!.push({
           at: t, x, y, tx: actor.tx, ty: actor.ty, fx: actor.fromTx, fy: actor.fromTy,
           moving: isMoving(actor), applied: g.remoteMoveSequences.get(m.id) ?? 0,
+          px: actor.fromTx + (actor.tx - actor.fromTx) * actor.progress,
+          py: actor.fromTy + (actor.ty - actor.fromTy) * actor.progress, speed: actor.speed,
         })
       }
       nextObserver += observerStep
@@ -257,7 +271,7 @@ async function runOnce(scenario: Scenario, profile: NetworkProfile, observerHz: 
   const batching = Object.fromEntries(Object.keys(metrics.batching).map(k => [k, k === 'maxBatch' ? metrics.batching[k] : metrics.batching[k] - before[k]]))
   const perMover = movers.map(m => analyse(m, received.get(m.id) ?? [], frames.get(m.id)!, observerStep))
   room.onLeave(observerSock); for (const m of movers) room.onLeave(m.sock)
-  return { scenario: scenario.id, name: scenario.name, network: profile.name, observerHz, serverBatching: batching, ...aggregate(perMover) }
+  return { scenario: scenario.id, name: scenario.name, network: profile.name, observerHz, serverBatching: batching, resyncs: g.remotePlayback.resyncs, ...aggregate(perMover) }
 }
 
 // ── analysis ─────────────────────────────────────────────────────────────────
@@ -268,6 +282,7 @@ function pct(values: number[], p: number): number {
   return sorted[Math.min(sorted.length - 1, Math.ceil(sorted.length * p) - 1)]
 }
 const r1 = (v: number) => Math.round(v * 10) / 10
+const r2 = (v: number) => Math.round(v * 100) / 100
 
 function analyse(m: Mover, received: { at: number; tx: number; ty: number; seq: number }[], frames: ObserverFrame[], observerStep: number) {
   const arrivals = m.arrivals
@@ -305,6 +320,18 @@ function analyse(m: Mover, received: { at: number; tx: number; ty: number; seq: 
   }
   if (run) { stallEpisodes++; longestStallMs = Math.max(longestStallMs, run * observerStep) }
 
+  // Pace: on-screen speed over nominal gait speed, between consecutive moving
+  // frames that did not snap. 1 is the sender's pace; the spread is how much
+  // the playback rate varies to absorb jitter and catch up.
+  const paceRatios: number[] = []
+  for (let i = 1; i < frames.length; i++) {
+    const a = frames[i - 1], b = frames[i]
+    if (!a.moving || !b.moving || b.speed !== a.speed) continue
+    const d = Math.abs(b.px - a.px) + Math.abs(b.py - a.py)
+    if (d > 0.5) continue
+    paceRatios.push(d / (observerStep / 1000) / b.speed)
+  }
+
   // Representation delay per step, in sequence order (tiles repeat in E and F):
   // the first frame at rest on that tile once its step has been applied. A tile
   // the observer never rests on before a later step was applied was snapped past.
@@ -327,7 +354,7 @@ function analyse(m: Mover, received: { at: number; tx: number; ty: number; seq: 
   return {
     localSteps,
     tiles: arrivals.length, received: received.length, intervals, distance, seqGaps, snaps, maxSnapTiles,
-    stallFrames, stallEpisodes, longestStallMs, stallMs: stallFrames * observerStep, delays, skipped, movingMs,
+    stallFrames, stallEpisodes, longestStallMs, stallMs: stallFrames * observerStep, delays, skipped, movingMs, paceRatios,
   }
 }
 
@@ -358,6 +385,8 @@ function aggregate(list: ReturnType<typeof analyse>[]) {
       stallMsPerMovingSecond: movingMs ? r1(sum(x => x.stallMs) / (movingMs / 1000)) : 0,
       longestStallMs: r1(Math.max(0, ...list.map(x => x.longestStallMs))),
       representationDelayMs: { p50: r1(pct(delays, 0.5)), p95: r1(pct(delays, 0.95)), max: r1(Math.max(0, ...delays)) },
+      /** On-screen pace over the sender's gait speed, per frame (1 = exact). */
+      pace: (() => { const r = list.flatMap(x => x.paceRatios); return { p5: r2(pct(r, 0.05)), p50: r2(pct(r, 0.5)), p95: r2(pct(r, 0.95)) } })(),
     },
   }
 }
