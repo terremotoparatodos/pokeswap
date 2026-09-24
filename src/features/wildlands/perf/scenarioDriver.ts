@@ -49,6 +49,13 @@ export const SCENARIOS: Record<string, ScenarioDef> = {
       leg(PRADERA, 85, -40, false), leg(PRADERA, 55, -40, true), leg(PRADERA, 25, -40, true), leg(PRADERA, -5, -69, false),
     ],
   },
+  // NPC experiment: laps close to the Pradera spawn, where the synthetic runners are.
+  'pradera-loop': {
+    id: 'pradera-loop', title: 'Pradera laps around the spawn', startArea: PRADERA, start: { tx: -5, ty: -69 }, loops: 3,
+    waypoints: [
+      leg(PRADERA, 5, -69, true), leg(PRADERA, 5, -60, false), leg(PRADERA, -12, -60, true), leg(PRADERA, -12, -74, false), leg(PRADERA, -5, -69, true),
+    ],
+  },
   traversal: {
     id: 'traversal', title: 'TRAVERSAL: town → Pradera → town through the west gate', startArea: TOWN, start: { tx: 31, ty: 20 }, loops: 3,
     waypoints: [

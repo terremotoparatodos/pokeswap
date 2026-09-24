@@ -8,6 +8,7 @@ import type { TrainerSprites } from '../engine/characters'
 import { perfHooks, type FrameProbe, type RenderProbe } from '../engine/perfHooks'
 import type { RemoteActorsPort, RemotePresenceActor } from '../multiplayer/domain/presence'
 import { ChunkTrace } from './chunkTrace'
+import { CollisionTrace } from './collisionTrace'
 import { FramePacing } from './framePacing'
 import { MainThreadTrace } from './mainThread'
 import { MotionTrace } from './motionTrace'
@@ -27,6 +28,10 @@ export class PerfSession {
   readonly remote = new RemoteTrace()
   readonly chunks = new ChunkTrace()
   readonly main = new MainThreadTrace()
+  readonly collisions = new CollisionTrace()
+  /** NPC experiment: true while this client runs with an empty population. */
+  private populationDisabled = false
+  private readonly emptyPopulace = { actors: [] as Actor[], update(): void {} }
   private readonly hudMs = new SampleRing(20_000)
   private readonly populace = new SampleRing(36_000)
   private readonly drawablesPerFrame = new SampleRing(36_000)
@@ -70,6 +75,28 @@ export class PerfSession {
     }
     document.addEventListener('visibilitychange', this.onVisibility)
     this.main.start()
+  }
+
+  /**
+   * NPC experiment (VITE_PERF only): swap this client's population for an empty one.
+   * The walker, the tap navigator and the renderer all read that one list, so
+   * drawing, simulation and collision go away together. Re-applied every frame,
+   * because entering an area builds a new population.
+   */
+  setPopulationEnabled(on: boolean): void {
+    this.populationDisabled = !on
+    this.applyPopulation()
+  }
+
+  private applyPopulation(): void {
+    if (!this.populationDisabled || !this.game) return
+    const game = this.game as unknown as { populace: unknown }
+    if (game.populace !== this.emptyPopulace) game.populace = this.emptyPopulace
+  }
+
+  /** The population the engine is running (this client's own NPC and wild actors). */
+  private population(): readonly Actor[] {
+    return (this.game as unknown as { populace?: { actors: readonly Actor[] } } | null)?.populace?.actors ?? []
   }
 
   /** Overhead A/B: capture with or without the per-actor render probe (sprite metrics need it). */
@@ -117,7 +144,7 @@ export class PerfSession {
   get scenarioDone(): boolean { return this.driver?.finished ?? false }
 
   start(label: string, scenarioId: string | null = null): void {
-    for (const trace of [this.pacing, this.motion, this.remote, this.chunks, this.main]) trace.clear()
+    for (const trace of [this.pacing, this.motion, this.remote, this.chunks, this.main, this.collisions]) trace.clear()
     for (const ring of [this.hudMs, this.populace, this.drawablesPerFrame, this.probeMs]) ring.clear()
     this.timeline.length = 0
     this.areaTimes.clear()
@@ -140,6 +167,7 @@ export class PerfSession {
     raf: number, workStart: number, updateEnd: number, renderEnd: number, frameEnd: number,
     player: Actor, camX: number, camY: number, area: Area, remotes: readonly Actor[], populace: number,
   ): void {
+    this.applyPopulation()
     if (!this.recording) return
     const probeStart = performance.now()
     this.driver?.step(player, area)
@@ -147,6 +175,7 @@ export class PerfSession {
     this.lastRaf = raf
     this.pacing.record(raf, updateEnd - workStart, renderEnd - updateEnd, frameEnd - renderEnd)
     this.motion.record(player, camX, camY, interval, this.zoom)
+    this.collisions.frame(player, this.population())
     if (this.fallback) this.remote.frame(remotes, this.fallback, player)
     this.chunks.endFrame()
     this.populace.push(populace)
@@ -199,6 +228,10 @@ export class PerfSession {
       instrumentationMs: summarize(this.probeMs.values()),
       motion: this.motion.report(),
       remote: this.remote.report(),
+      npcExperiment: { population: this.populationDisabled ? 'off' : 'on' },
+      collisions: this.collisions.report(),
+      remoteSnapEvents: this.remote.snaps(),
+      presenceDiagnostics: (this.game as unknown as { presenceDiagnostics?: { snapshot(): unknown } } | null)?.presenceDiagnostics?.snapshot() ?? null,
       chunks: this.chunks.report(),
       entities: {
         populace: summarize(this.populace.values()),

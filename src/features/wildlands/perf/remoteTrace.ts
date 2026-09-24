@@ -116,7 +116,10 @@ export class RemoteTrace {
   private firstFrameAt = -1
   private r = this.emptyReport()
 
-  constructor(private readonly now: () => number = () => performance.now()) {}
+  constructor(private readonly now: () => number = () => performance.now(), private readonly wallClock: () => number = () => Date.now()) {}
+
+  /** Wall-clock snap events (capped), to line up with another client's blocks. */
+  private snapEvents: { at: number; id: string; tiles: number }[] = []
 
   private emptyReport(): RemoteReport {
     const empty = summarize([])
@@ -138,6 +141,7 @@ export class RemoteTrace {
     for (const ring of [this.intervals, this.sheetLatency, this.loadMs, this.waits, this.concurrent, this.exitDistance, this.enterDistance, this.gaps]) ring.clear()
     this.exitsById.clear()
     this.firstFrameAt = -1
+    this.snapEvents = []
     this.removed.clear()
     this.pendingLoads.clear()
     // Tracks stay: actors on screen keep their identity across a new capture.
@@ -252,6 +256,7 @@ export class RemoteTrace {
       if (jump > TILE / 2) {
         this.r.motion.snaps++
         this.r.motion.maxSnapTiles = Math.max(this.r.motion.maxSnapTiles, Math.round(jump / TILE))
+        if (this.snapEvents.length < 2000) this.snapEvents.push({ at: this.wallClock(), id, tiles: Math.round(jump / TILE) })
       }
       if (!moving && track.moving) track.restingSince = at
       if (moving && !track.moving && track.restingSince !== null) {
@@ -274,6 +279,8 @@ export class RemoteTrace {
     this.concurrent.push(remotes.length)
     this.r.lifecycle.maxConcurrent = Math.max(this.r.lifecycle.maxConcurrent, remotes.length)
   }
+
+  snaps(): readonly { at: number; id: string; tiles: number }[] { return [...this.snapEvents] }
 
   report(): RemoteReport {
     const r = structuredClone(this.r)

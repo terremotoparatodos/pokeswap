@@ -15,12 +15,14 @@ import { networkInterfaces } from 'node:os'
 const arg = name => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : undefined }
 const lan = Object.values(networkInterfaces()).flat().find(a => a?.family === 'IPv4' && !a.internal && /^(192\.168|10\.)/.test(a.address))?.address
 const host = arg('host') ?? lan ?? '127.0.0.1'
-const realtimePort = 2568
+// --realtime-port / --app-port run a second, isolated stack beside one already running.
+const realtimePort = Number(arg('realtime-port') ?? 2568)
+const appPort = Number(arg('app-port') ?? 4173)
 const bundles = [
-  { name: 'normal', port: 4173, env: {} },
-  { name: 'playtest', port: 4174, env: { VITE_PLAYTEST: 'on' } },
+  { name: 'normal', port: appPort, env: {} },
+  { name: 'playtest', port: appPort + 1, env: { VITE_PLAYTEST: 'on' } },
 ]
-const outDir = name => `node_modules/.cache/perf-dist/${name}`
+const outDir = name => `node_modules/.cache/perf-dist/${name}${appPort === 4173 ? '' : '-' + appPort}`
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx'
 const shell = process.platform === 'win32'
 
@@ -45,6 +47,20 @@ const children = [
     stdio: 'inherit', shell, env: { ...process.env, VITE_PERF: 'on' },
   })),
 ]
+// --crowd N: N synthetic runners in town and N in Pradera, the same fixed
+// square pattern every time (benchmark driver, running gait, protocol 2), for
+// an hour. They run on the server only: the client's NPCs cannot touch them.
+const crowd = Number(arg('crowd') ?? 0)
+if (crowd > 0) {
+  setTimeout(() => {
+    for (const [area, prefix] of [['ciudad-corazon', 'crowd-town'], ['pradera', 'crowd-wild']]) {
+      children.push(spawn(process.execPath, ['scripts/benchmark-presence.mjs', '--external-server', '--url', `ws://127.0.0.1:${realtimePort}`,
+        '--players', String(crowd), '--duration', '3600', '--warmup', '1', '--protocol', '2', '--gait', 'run', '--area', area, '--prefix', prefix],
+      { stdio: 'ignore' }))
+    }
+    console.log(`[perf] crowd     ${crowd} runners in town and ${crowd} in Pradera (1 h)`)
+  }, 3000)
+}
 console.log(`\n[perf] realtime  ws://${host}:${realtimePort}   metrics http://127.0.0.1:${realtimePort + 1}/metrics`)
 for (const b of bundles) console.log(`[perf] ${b.name.padEnd(9)} http://${host}:${b.port}/?benchmarkId=pc-a`)
 const stop = () => { for (const child of children) child.kill(); process.exit(0) }

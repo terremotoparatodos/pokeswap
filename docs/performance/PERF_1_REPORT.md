@@ -538,3 +538,54 @@ Con esas capturas completo la tabla de dispositivos real (§2.3).
   - typecheck OK; lint con 0 errores;
   - builds normal y playtest sin rastros del módulo de medición (`grep` de 6 marcadores = 0).
 - **Overhead:** §8.7 (sonda de frame p95 0,1 ms; sonda de render sin diferencia medible).
+
+---
+
+## 12. Experimento: ¿contribuyen los NPC a los saltos remotos? (2026-09-24)
+
+Motivo: en la prueba física PC + iPhone, correr remoto "no llega a 10/10" y los dos clientes ven los NPC en posiciones distintas.
+
+### 12.1 Qué dice el código (FACT)
+
+- La colisión con NPC existe **sólo en el cliente**: el walker (`game.ts` `rules.occupied`) y el navegador de toques (`nav.occupied`) consultan `populace.actors` del propio cliente.
+- El servidor **no conoce ni valida colisiones**: `movement.js` sólo valida dirección, secuencia y ritmo ("bounds pace, not collision").
+- Los jugadores remotos no chocan con nada (no están en `occupied`).
+- Si A y B tienen el mismo NPC en posiciones distintas (demostrado en §6):
+  - cuando A choca con un NPC que en B no está ahí, A no envía movimiento (se envía al completar una casilla); B lo ve frenar o girar sin motivo; no hay corrección ni rechazo, porque el servidor no sabe del choque;
+  - al revés, A puede atravesar una casilla donde B tiene un NPC, y B ve a A superpuesto.
+  - No produce saltos: no hay un paso de más ni de menos, sólo una pausa real de A.
+- Los corredores sintéticos del benchmark corren sólo en el servidor: los NPC de cualquier cliente **no pueden afectarlos por construcción**.
+
+### 12.2 Variante `VITE_PERF` (no existe en los builds normal ni playtest)
+
+- `?perfNpc=off` reemplaza la población del cliente por una vacía. El walker, el navegador y el renderer leen esa misma lista, así que se van a la vez el dibujo, la simulación y la **colisión**. Se reaplica cada frame (una población nueva al cambiar de área vive a lo sumo un frame).
+- Se quitan residentes, wanderers y Pokémon de plaza en la ciudad; Pokémon salvajes y entrenadores en wild.
+- Traza de bloqueos del jugador local: momento (reloj de pared), causa (NPC / Pokémon / terreno), id del actor, casilla.
+- Saltos remotos con reloj de pared, para cruzarlos con los bloqueos del otro cliente.
+- También se exportan las correcciones y los rechazos de presencia.
+- Tests: `collisionTrace.test.ts`, `perfSession.test.ts` (la población se vacía también tras un cambio de área).
+
+### 12.3 Resultados (headless, 10 corredores sintéticos con el mismo patrón en cada corrida, 2 repeticiones)
+
+A recorre la ruta (`city-loop` / `pradera-loop`, cerca de los corredores); B mira desde el spawn con la misma configuración de NPC. Crudos en `baselines/2026-09-24/npc-experiment/`; tabla con `node scripts/perf/npc-analyze.mjs …`.
+
+| Corrida | NPC | Saltos de corredores/min (B) | Esperas (B) | Saltos de A vistos por B | Bloqueos de A por NPC | Saltos de A ≤ 1,5 s tras un bloqueo | Esperado por azar | Reconc. / rechazos de A | Trabajo p95 A / B |
+|---|---|---:|---:|---:|---:|---:|---:|---|---|
+| ciudad r1 | sí | 33,1 | 129 | 2 | 2 | 0 | 0,1 | 0 / 0 | 2,3 / 2,0 |
+| ciudad r2 | sí | 33,0 | 70 | 2 | 2 | 0 | 0,1 | 0 / 0 | 2,3 / 2,1 |
+| ciudad r1 | no | 34,4 | 70 | 4 | 0 | — | — | 0 / 0 | 2,2 / 2,0 |
+| ciudad r2 | no | 34,4 | 85 | 4 | 0 | — | — | 0 / 0 | 2,3 / 2,1 |
+| Pradera r1 | sí | 31,3 | 26 | 1 | 0 | — | — | 0 / 0 | 2,4 / 2,1 |
+| Pradera r2 | sí | 31,3 | 25 | 1 | 0 | — | — | 0 / 0 | 2,3 / 2,1 |
+| Pradera r1 | no | 31,3 | 55 | 1 | 0 | — | — | 0 / 0 | 2,3 / 2,1 |
+| Pradera r2 | no | 31,3 | 66 | 2 | 0 | — | — | 0 / 0 | 2,3 / 2,1 |
+
+### 12.4 Conclusión
+
+- **DEMOSTRADO**: los saltos de los jugadores remotos **no cambian** con o sin NPC. En la ciudad, 33,0–33,1 saltos/min con NPC contra 34,4 sin NPC; en Pradera, 31,3 en los dos casos. Tampoco cambian el trabajo del frame ni los drawables de forma relevante.
+- **DEMOSTRADO**: no hay correlación `choque con NPC → corrección → salto`. Hubo 4 choques de A con NPC y 0 saltos de A vistos por B en la ventana posterior; tampoco hubo reconciliaciones ni rechazos.
+- Las esperas cortas de B varían bastante entre repeticiones (25–129), sin patrón a favor de una variante. Son ruido de la cola (§3.4), no un efecto de los NPC.
+- Lo que sí producen los NPC divergentes es **inconsistencia**, no saltos: A frena ante un NPC que B no ve, o B ve a A atravesar un NPC. Es un problema de mundo compartido (§6, WORLD-1), no de locomoción.
+- La causa de los "pequeños saltos al correr" sigue siendo la de §3.4: la cola sin recuperación, la ventana de 50 ms con pasos agrupados y el desfase de Shift en movimiento.
+
+Pendiente: tu comparación visual en PC e iPhone de las cuatro variantes (URLs en el chat de 2026-09-24).

@@ -8,7 +8,7 @@ import { perfSession } from './perfSession'
 
 export interface PerfCapture {
   readonly session: ReturnType<typeof perfSession>
-  /** URL options: ?perfScenario=city-loop&perfLabel=pc-144hz starts a scripted capture. */
+  /** URL options: ?perfScenario=city-loop&perfLabel=pc-144hz starts a scripted capture; ?perfNpc=off empties the population. */
   readonly autoScenario: string | null
   readonly autoLabel: string | null
   attach(game: WildlandsGame): void
@@ -28,6 +28,8 @@ export function usePerfCapture(): PerfCapture {
     autoLabel: query.get('perfLabel')?.replace(/[^\w-]/g, '').slice(0, 40) ?? null,
     attach: game => {
       session.install(game)
+      // ?perfNpc=off: NPC experiment, this client runs with no population (drawing and collision).
+      if (query.get('perfNpc') === 'off') session.setPopulationEnabled(false)
       // Console/automation handle for measurement builds (this module never ships otherwise).
       ;(window as unknown as { __pokeswapPerf?: unknown }).__pokeswapPerf = { session, game }
     },
