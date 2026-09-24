@@ -19,6 +19,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
+    <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"
       v-if="PlaytestPerformanceHud"
@@ -171,6 +172,7 @@ import type { PlaytestStore } from '../../playtest/state/usePlaytestStore'
 import type { AreaEntrance } from '../../dungeonEntrances/domain/entranceSpawns'
 import type { PokemonInstance } from '../../dungeonPrototype/domain/party'
 import type { SceneOverlay } from '../engine/sceneOverlay'
+import type { PerfCapture } from '../perf/usePerfCapture'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
@@ -178,6 +180,9 @@ const performanceMode = import.meta.env.VITE_PERF === 'on'
 const PlaytestPerformanceHud = isPlaytest || performanceMode
   ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))
   : null
+// PERF-1 capture panel and hooks: VITE_PERF=on builds only (see perf/usePerfCapture.ts).
+const PerfPanel = performanceMode ? defineAsyncComponent(() => import('../perf/PerfPanel.vue')) : null
+const perfCapture = shallowRef<PerfCapture | null>(null)
 // R31-B profession prototype: development builds, and Community Playtest 0.1,
 // where the same local session is what the Skills panel reads. A normal
 // production build still never mounts it.
@@ -228,7 +233,7 @@ let disposed = false
 const chat = shallowRef<Chat | null>(null)
 /** One socket, two passengers: presence and chat. */
 function connectPresence(target: WildlandsGame): ColyseusPresence {
-  const socket = new ColyseusPresence(target, chat.value?.sink ?? null)
+  const socket = new ColyseusPresence(perfCapture.value?.port(target) ?? target, chat.value?.sink ?? null)
   chat.value?.attach(text => socket.sendChat(text))
   return socket
 }
@@ -418,7 +423,8 @@ function onPointerUp(e: PointerEvent): void {
 
 function onHud(next: HudState): void {
   const moved = next.areaId !== hud.areaId || next.tx !== hud.tx || next.ty !== hud.ty
-  Object.assign(hud, next)
+  if (perfCapture.value) perfCapture.value.measureHud(() => Object.assign(hud, next))
+  else Object.assign(hud, next)
   if (moved) dismissTransientOverlays()
   // Where the player is, so a bug report can say so instead of "no me anda".
   if (isPlaytest) playtest.setWorld(next.areaId, next.tx, next.ty)
@@ -473,6 +479,11 @@ onMounted(async () => {
   // A direct link to a feature shows the town from that building's door.
   if (panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
   game.value = created
+  if (performanceMode) {
+    const { usePerfCapture } = await import('../perf/usePerfCapture')
+    perfCapture.value = usePerfCapture()
+    perfCapture.value.attach(created)
+  }
   await created.prepare()
   if (disposed) return
   created.setPresenceAccess('pending')
@@ -504,6 +515,7 @@ onUnmounted(() => {
   disposed = true
   motionMedia.removeEventListener('change', onMotionChange)
   document.removeEventListener('visibilitychange', onVisibilityChange)
+  perfCapture.value?.detach()
   game.value?.destroy()
   presence?.disconnect()
   stopChatBubbles?.()
