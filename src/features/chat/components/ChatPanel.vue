@@ -48,7 +48,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { MAX_CHAT_LENGTH, formatTime } from '../domain/chatLine'
 import { useChat } from '../state/useChat'
 
@@ -66,6 +66,8 @@ const AREA_LABELS: Readonly<Record<string, string>> = {
 }
 
 const chat = useChat()
+// The host hides the world hint tray while the open panel owns that corner.
+const emit = defineEmits<{ open: [open: boolean] }>()
 const draft = ref('')
 const logRef = ref<HTMLElement | null>(null)
 
@@ -107,6 +109,9 @@ watch(chat.open, isOpen => {
     void scrollToEnd()
   }
 })
+// Immediate: the open state is shared, so the panel can mount already open.
+watch(chat.open, isOpen => emit('open', isOpen), { immediate: true })
+onUnmounted(() => emit('open', false))
 </script>
 
 <style scoped>

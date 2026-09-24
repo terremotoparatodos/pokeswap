@@ -1,9 +1,3 @@
-<template>
-  <p v-if="hint" class="de-hint">
-    <span class="de-badge">Dungeon</span> {{ hint }}
-  </p>
-</template>
-
 <script setup lang="ts">
 import { computed, ref, shallowRef } from 'vue'
 import type { Area } from '../../wildlands/engine/area'
@@ -33,6 +27,9 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{ enter: [entrance: AreaEntrance] }>()
+// Nothing of its own on screen: the caves are drawn by the engine overlay and
+// the hint by the host's world hint tray.
+defineOptions({ render: () => null })
 
 /** Caves of the area the player is in, paired with the object the engine holds. */
 const placed = shallowRef<readonly { entrance: AreaEntrance; object: PlacedObject }[]>([])
@@ -126,44 +123,14 @@ function inspect(target: WorldProbeTarget): boolean {
   return true
 }
 
+/** Drawn by the host's world hint tray; a plain object, like the professions' one. */
 const hint = computed(() => {
   const player = props.game?.playerSnapshot()
   if (!player || !placed.value.length) return null
   const close = placed.value.some(({ entrance }) =>
     Math.max(Math.abs(entrance.placement.approach.tx - player.tx), Math.abs(entrance.placement.approach.ty - player.ty)) <= 6)
-  return close ? null : 'Hay cuevas cerca. Buscá una boca oscura en la roca y tocala.'
+  return close ? null : { id: 'dungeon', badge: 'Dungeon', tone: 'dungeon' as const, text: 'Hay cuevas cerca. Buscá una boca oscura en la roca y tocala.' }
 })
 
-defineExpose({ inspect, isWorldObject, placedObjects, overlay })
+defineExpose({ inspect, isWorldObject, placedObjects, overlay, hint })
 </script>
-
-<style scoped>
-.de-hint {
-  position: absolute;
-  left: 1rem;
-  bottom: 10.4rem;
-  z-index: 5;
-  margin: 0;
-  padding: 0.4rem 0.7rem;
-  border: 2px solid #3a5fb8;
-  border-radius: 10px;
-  background: rgba(16, 26, 54, 0.9);
-  color: #dfe8ff;
-  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-  font-size: 0.78rem;
-}
-.de-badge {
-  display: inline-block;
-  margin-right: 0.35rem;
-  padding: 0 0.35rem;
-  border-radius: 5px;
-  background: #f0b429;
-  color: #101a36;
-  font-size: 0.68rem;
-  font-weight: 800;
-}
-
-@media (max-width: 720px) {
-  .de-hint { left: 50%; bottom: 12.5rem; transform: translateX(-50%); max-width: calc(100% - 1.5rem); white-space: normal; text-align: center; }
-}
-</style>
