@@ -341,3 +341,47 @@ KiB/s recibidos por cliente (p50, bytes wire reales):
 ### Próximo paso exacto
 
 Fase 3 con confirmación del usuario en cada paso: push de `perf/stability-investigation` → PR del hotfix → merge (el usuario, sabiendo que redespliega el frontend) → deploy en Colyseus Cloud (el usuario) → verificación de `/version`, `/`, matchmaking desde `https://pokeswap.lol` y Pradera sin toast.
+
+---
+
+## Sesión 2, continuación — publicación del hotfix de servidor (2026-09-23)
+
+### Acciones
+
+- Push de `perf/stability-investigation` (`aa0010e`) y de `hotfix/realtime-arrival-pacing` (`8cdfab3`), con el OK del usuario.
+- PR #22 `hotfix/realtime-arrival-pacing` → `playtest/community-0.1`: abierto y mergeado con **merge commit** `6a76236` (no squash), con el OK del usuario. Se usó el navegador de la app, con la sesión de GitHub que inició el usuario; `gh` no está instalado.
+  - FACT: `ci.yml` sólo corre en PRs hacia `main` o `migration`. El PR #22 no tuvo checks; valen los gates locales de la sesión 2.
+- FACT: el frontend se redesplegó solo (run #11 de "Deploy Community Playtest 0.1", 42 s, verde). `https://pokeswap.lol` muestra "Community Playtest 0.1 · 6a76236".
+- **FACT nuevo: Colyseus Cloud redespliega automáticamente con cada push a `playtest/community-0.1`**, mediante la integración de GitHub del panel, no mediante GitHub Actions.
+  - El historial muestra `playtest/community-0.1 @ 8cdfab3` desplegado (17 s) poco después del merge, sin intervención manual.
+  - `8cdfab3` es el head del PR; su árbol es idéntico al de `6a76236`.
+  - El documento maestro dice "no tiene despliegue automático de Colyseus": es cierto sólo respecto de GitHub Actions.
+  - **Consecuencia:** cualquier merge a `playtest/community-0.1` despliega frontend y servidor a la vez.
+
+### Verificación en producción
+
+- FACT: `GET https://us-mia-2a460f24.colyseus.cloud/` → 200 `Colyseus 0.18.13`.
+- FACT: `GET /version` → 200 `{"service":"pokeswap-presence","commit":"6a76236","protocol":2,...}` (antes 404). El commit se resolvió sin configurar `PRESENCE_BUILD_COMMIT`, así que esa OPEN QUESTION queda cerrada.
+- FACT: `POST /matchmake/joinOrCreate/presence` con `Origin: https://pokeswap.lol` → 200. Join WebSocket completo como guest con `@colyseus/sdk` → OK.
+- FACT: prueba visual con el cliente publicado (`6a76236`, código de cliente igual a `26f3b7c`):
+  - el usuario, con sesión propia, cruzó el portón oeste;
+  - el HUD muestra **Pradera (-5, -69)**, la llegada correcta;
+  - después de 10 s no aparece "Tu posición se corrigió al punto seguro" y el área sigue siendo Pradera;
+  - 60 FPS, frame p99 2,8 ms, 0 % > 33 ms, HTTP ~167 ms.
+- OPEN QUESTION: desde el navegador de la app, los clics y las teclas sintéticos llegan al canvas como eventos *trusted*, pero el jugador no se mueve.
+  - La tecla dura menos de un frame, y `tap()` sale temprano si `spectator`, `paused`, `inputLocked` o `travel.active`.
+  - El usuario sí pudo moverse. No se investigó más: es del entorno de automatización, no del juego.
+
+### Integración para el PR de cliente
+
+- `origin/playtest/community-0.1` se mergeó en `perf/stability-investigation` → `935b0b3`.
+  - Conflictos sólo en archivos que `c8f121b` o `40e672f` volvieron a modificar después de los commits del hotfix.
+  - Todos se resolvieron a favor de la rama. Las únicas líneas del hotfix ausentes eran versiones previas reemplazadas por `c8f121b` y la línea del README que remitía a esta rama.
+  - FACT: el árbol de `935b0b3` es **idéntico** al de `aa0010e`, así que los gates de la sesión 2 aplican sin cambios.
+- Servidor en el PR de cliente: sólo `c8f121b` (deltas `step`) y el README. Por el auto-deploy, llega a Colyseus en el mismo merge que el frontend.
+
+### Rollback (actualizado)
+
+- `git revert -m 1 <merge>` en `playtest/community-0.1`. Eso redespliega **frontend y Colyseus** solos.
+- Si el auto-deploy fallara: redeploy manual en el panel de Colyseus Cloud.
+- Sin force-push.
