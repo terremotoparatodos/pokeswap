@@ -14,7 +14,10 @@ const CHAT = 'chat'
 const CHAT_HISTORY = 'chat:history'
 const CHAT_LINE = 'chat:line'
 const REALTIME_URL = import.meta.env.VITE_REALTIME_URL as string | undefined
-const BENCHMARK_PLAYER = import.meta.env.DEV && import.meta.env.VITE_PRESENCE_BENCHMARK === 'on'
+// Synthetic identities exist only in the local BenchmarkPresenceRoom; a
+// production server ignores the option. PERF-1 measurement builds use it too,
+// so captures run on production-built code without accounts.
+const BENCHMARK_PLAYER = (import.meta.env.DEV || import.meta.env.VITE_PERF === 'on') && import.meta.env.VITE_PRESENCE_BENCHMARK === 'on'
 /** Server code used when a newer browser replaces this authenticated session. */
 const REPLACED_SESSION_CODE = 4001
 
