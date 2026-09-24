@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { PresenceRoom } from './PresenceRoom.js'
 import { MAX_VIA_STEPS, MESSAGE } from '../protocol/messages.js'
+import { RETAIN_MARGIN_TILES } from '../presence/interest.js'
 import { metrics } from '../observability/metrics.js'
 
 function client(id) {
@@ -239,7 +240,7 @@ test('capacity rejects a new connection before it can create presence', async ()
   }
 })
 
-test('wild interest sends a leave when an actor exits the viewer sector', async () => {
+test('wild interest sends a leave once an actor is past the retention margin and out of the viewer sectors', async () => {
   const room = new PresenceRoom()
   const watcher = client('wild-watcher')
   const traveller = client('wild-traveller')
@@ -255,7 +256,9 @@ test('wild interest sends a leave when an actor exits the viewer sector', async 
   let now = 1_000
   Date.now = () => now
   try {
-    for (let step = 0; step < 24; step++) {
+    // Both start at (-5, -69). The sectors alone would drop the traveller at
+    // x = 12, 17 tiles away and on screen; now it stays until 20 + 6 tiles.
+    for (let step = 0; step < 30; step++) {
       room.move(traveller, { direction: 'right', running: true })
       now += 125
     }
@@ -264,13 +267,13 @@ test('wild interest sends a leave when an actor exits the viewer sector', async 
   }
   assert.deepEqual(watcher.messages.at(-1), {
     type: MESSAGE.DELTA,
-    payload: { type: 'leave', actor: { id: 'traveller', areaId: 'pradera', tx: 12, ty: -69, username: 'Traveller', characterId: 'lucas', companionId: null, dir: 'right', speed: 7.5, moveSequence: 17 } },
+    payload: { type: 'leave', actor: { id: 'traveller', areaId: 'pradera', tx: 22, ty: -69, username: 'Traveller', characterId: 'lucas', companionId: null, dir: 'right', speed: 7.5, moveSequence: 27 } },
   })
   room.onLeave(watcher)
   room.onLeave(traveller)
 })
 
-test('moving the viewer reconciles stationary town actors at the interest boundary', async () => {
+test('moving the viewer reconciles stationary town actors at the interest boundary, with hysteresis', async () => {
   const room = new PresenceRoom()
   const watcher = client('town-watcher-client')
   const traveller = client('town-traveller-client')
@@ -282,17 +285,31 @@ test('moving the viewer reconciles stationary town actors at the interest bounda
   const realNow = Date.now
   let now = 10_000
   Date.now = () => now
+  const deltas = () => watcher.messages.filter(message => message.type === MESSAGE.DELTA).map(message => message.payload.type)
   try {
     // Traveller remains just inside the 20-tile town radius.
     for (let step = 0; step < 20; step++) {
       room.move(traveller, { direction: 'right', running: false })
       now += 250
     }
-    // Only the watcher moves. Traveller must disappear even while stationary.
+    const seen = deltas().length
+    // Only the watcher moves. Within the retention margin the traveller stays.
+    for (let step = 0; step < RETAIN_MARGIN_TILES; step++) {
+      room.move(watcher, { direction: 'left', running: false })
+      now += 250
+    }
+    assert.equal(deltas().length, seen)
+    // One more tile and it is gone, even while stationary.
     room.move(watcher, { direction: 'left', running: false })
     assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.type, 'leave')
     assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.actor.id, 'town-traveller')
 
+    // Coming back, it reappears only once inside the entry radius again.
+    for (let step = 0; step < RETAIN_MARGIN_TILES; step++) {
+      now += 250
+      room.move(watcher, { direction: 'right', running: false })
+    }
+    assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.type, 'leave')
     now += 250
     room.move(watcher, { direction: 'right', running: false })
     assert.equal(lastOf(watcher, MESSAGE.DELTA).payload.type, 'upsert')

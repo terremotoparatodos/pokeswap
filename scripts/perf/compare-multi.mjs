@@ -26,11 +26,17 @@ function row(dir, file) {
     'waits/remote-min': remoteMinutes ? round(motion.stopAndGo / remoteMinutes) : 0,
     'wait p95 ms': motion.stopAndGoMs.p95,
     'wait max ms': motion.stopAndGoMs.max,
-    'AOI recreated': watcher.remote.lifecycle.recreated,
+    'B AOI recreated': watcher.remote.lifecycle.recreated,
+    'A AOI exits/min': walker.remote.aoi.exitsPerMinute,
+    'A AOI re-entries < 2 s': walker.remote.lifecycle.recreatedWithin2s,
+    'A AOI exit distance p50': walker.remote.aoi.distanceAtExit.p50,
+    'A AOI time out p50 ms': walker.remote.aoi.gapMs.p50,
+    'A remotes p95': walker.remote.lifecycle.concurrentPerFrame.p95,
   }
 }
 
-const files = readdirSync(afterDir).filter(f => /^multi-\d+\.json$/.test(f)).sort((a, b) => parseInt(a.slice(6)) - parseInt(b.slice(6)))
+const size = f => parseInt(f.match(/(\d+)\.json$/)[1])
+const files = readdirSync(afterDir).filter(f => /^multi-(pradera-)?\d+\.json$/.test(f)).sort((a, b) => a.length - b.length || size(a) - size(b))
 for (const file of files) {
   if (!existsSync(join(beforeDir, file))) continue
   const b = row(beforeDir, file)

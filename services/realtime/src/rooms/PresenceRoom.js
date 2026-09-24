@@ -186,8 +186,8 @@ export class PresenceRoom extends Room {
     for (const client of observers.values()) {
       const viewer = actors.get(client.userData?.actorId) ?? client.userData?.observer
       if (!viewer || changed.id === viewer.id) continue
-      const visible = visibleActors(viewer, new Map([[changed.id, changed]])).length > 0
       const previous = visibleByClient.get(client.sessionId) ?? new Set()
+      const visible = visibleActors(viewer, new Map([[changed.id, changed]]), previous).length > 0
       if (delta.type === 'leave' ? previous.has(changed.id) : visible) {
         const compact = step !== null && previous.has(changed.id) && compactClients.has(client)
         this.sendDelta(client, compact ? { type: 'step', actor: step } : delta)
@@ -201,7 +201,7 @@ export class PresenceRoom extends Room {
   }
   syncVisibility(client, viewer) {
     const previous = visibleByClient.get(client.sessionId) ?? new Set()
-    const visible = visibleActors(viewer, actors)
+    const visible = visibleActors(viewer, actors, previous)
     const next = new Set(visible.map(actor => actor.id))
     for (const actor of visible) {
       if (!previous.has(actor.id)) this.sendDelta(client, { type: 'upsert', actor: publicActor(actor) })
