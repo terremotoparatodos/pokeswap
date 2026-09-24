@@ -57,8 +57,18 @@ class Page {
   }
 }
 
+let browserSession = null
+/** Each client gets its own window: a background tab gets no animation frames. */
 async function open(url) {
-  const target = await http(`/json/new?${encodeURIComponent(url)}`, 'PUT')
+  if (!browserSession) {
+    const ws = new WebSocket((await http('/json/version')).webSocketDebuggerUrl)
+    await new Promise((ok, fail) => { ws.addEventListener('open', ok); ws.addEventListener('error', fail) })
+    browserSession = new Page(ws)
+  }
+  const created = await browserSession.send('Target.createTarget', { url, newWindow: true })
+  const targetId = created.result.targetId
+  let target = null
+  for (let i = 0; i < 50 && !target; i++) { target = (await http('/json/list')).find(t => t.id === targetId); if (!target) await sleep(100) }
   const ws = new WebSocket(target.webSocketDebuggerUrl)
   await new Promise((ok, fail) => { ws.addEventListener('open', ok); ws.addEventListener('error', fail) })
   const page = new Page(ws)
@@ -98,10 +108,13 @@ try {
     }
   }
   const captures = []
+  // --dump <js>: evaluated on every page at the end and stored beside its capture.
+  const dump = one('dump')
   for (const c of clients) {
     await c.page.eval('window.__pokeswapPerf.session.stop()')
     const capture = await c.page.eval('window.__pokeswapPerf.session.export({ runner: "headless-chrome" })')
-    captures.push({ url: c.url, mode: c.mode, pageErrors: c.page.errors.slice(0, 20), ...capture })
+    const dumped = dump ? await c.page.eval(dump).catch(e => String(e)) : undefined
+    captures.push({ url: c.url, mode: c.mode, pageErrors: c.page.errors.slice(0, 20), ...(dump ? { dump: dumped } : {}), ...capture })
   }
   mkdirSync(dirname(out), { recursive: true })
   writeFileSync(out, JSON.stringify({ tool: 'pokeswap-perf-headless-v1', label, capturedAt: new Date().toISOString(), captures }, null, 2))
