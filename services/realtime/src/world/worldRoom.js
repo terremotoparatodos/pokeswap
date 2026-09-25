@@ -77,6 +77,7 @@ export class WorldRoom {
     if (!(Number.isInteger(options?.worldProtocol) && options.worldProtocol >= WORLD_PROTOCOL)) return
     const playerId = auth?.kind === 'player' ? auth.userId : null
     this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId })
+    if (playerId !== null) this.authority.newConnection(playerId)
     if (playerId !== null && this.playerData) void this.#sendPlayerState(client, playerId)
   }
 

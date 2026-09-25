@@ -151,6 +151,15 @@ export class ResourceAuthority {
     return true
   }
 
+  /**
+   * A new connection for this player: request ids are per connection (a
+   * reloaded page counts from 1 again), so the previous connection's ids are
+   * forgotten. Their effects are not: every physical check still applies.
+   */
+  newConnection(playerId) {
+    this.recent.delete(playerId)
+  }
+
   /** Physical consistency after the actor moved, changed area or rejoined. */
   reconcileActor(actor) {
     const actionId = this.byPlayer.get(actor.id)

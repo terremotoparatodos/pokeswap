@@ -216,3 +216,21 @@ test('a long session needs no player token: ownership is asked by user id, serve
   await work(world, a.actor, 1, 25)
   assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT).ok, true)
 })
+
+test('a reloaded page counts request ids from 1 again and is not refused as a duplicate', async () => {
+  const { world, clock, join, sockets } = setup()
+  const a = join('a', SPOT_A)
+  await work(world, a.actor, 1, 25)
+  clock.advance(3_000); world.tick(); await settle()
+  world.leave(a.client)
+  const reloaded = fakeClient('a-reloaded')
+  sockets.set('a', reloaded)
+  world.join(reloaded, { worldProtocol: 1 }, { kind: 'player', userId: 'a', token: null })
+  const [, other] = praderaNodesNearSpawn()
+  a.actor.tx = other.stands[0].tx; a.actor.ty = other.stands[0].ty
+  await world.work(a.actor, { nodeId: other.node.id, pokemonInstanceId: 25, requestId: 1 })
+  assert.equal(lastMessage(reloaded, WORLD_MESSAGE.WORK_RESULT).ok, true)
+  // Within one connection a repeated id is still a duplicate.
+  await world.work(a.actor, { nodeId: other.node.id, pokemonInstanceId: 25, requestId: 1 })
+  assert.equal(lastMessage(reloaded, WORLD_MESSAGE.WORK_RESULT).reason, 'duplicate-request')
+})
