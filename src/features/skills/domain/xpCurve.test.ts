@@ -5,9 +5,9 @@ import { buildThresholds, cappedGain, levelForXp, levelProgress, totalXpForLevel
 // The whole 1–50 table, pinned. A change here is a balance change and should
 // show up in review as one — update SKILLS_1_REPORT.md §7 with it.
 const EXPECTED_THRESHOLDS = [
-  0, 0, 34, 95, 182, 296, 438, 607, 805, 1031, 1286, 1571, 1887, 2234, 2614, 3028, 3477, 3963, 4488, 5054, 5663,
-  6319, 7025, 7784, 8602, 9484, 10436, 11465, 12580, 13790, 15107, 16544, 18116, 19840, 21737, 23831, 26149, 28722,
-  31588, 34790, 38377, 42407, 46947, 52074, 57878, 64464, 71953, 80485, 90223, 101356, 114103,
+  0, 0, 38, 99, 184, 294, 430, 593, 784, 1004, 1256, 1541, 1863, 2224, 2628, 3079, 3583, 4146, 4775, 5479, 6268,
+  7154, 8153, 9282, 10562, 12017, 13678, 15579, 17763, 20279, 23187, 26557, 30473, 35036, 40364, 46599, 53910, 62497,
+  72598, 84498, 98534, 115109, 134701, 157880, 185323, 217837, 256382, 302099, 356348, 420745, 497216,
 ]
 
 describe('XP curve thresholds 1–50', () => {
@@ -20,8 +20,8 @@ describe('XP curve thresholds 1–50', () => {
     for (let level = 2; level < MAX_SKILL_LEVEL; level++) {
       expect(xpToNextLevel(level), `L${level}`).toBeGreaterThan(xpToNextLevel(level - 1))
     }
-    // Late levels are an investment: 49→50 costs over 40× what 9→10 costs.
-    expect(xpToNextLevel(49) / xpToNextLevel(9)).toBeGreaterThan(40)
+    // Late levels are an investment: 49→50 costs over 200× what 9→10 costs.
+    expect(xpToNextLevel(49) / xpToNextLevel(9)).toBeGreaterThan(200)
   })
 
   it('keeps the tutorial quick: level 2 is a handful of basic actions', () => {

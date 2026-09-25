@@ -16,12 +16,14 @@ export const MAX_SKILL_LEVEL = 50
  *
  *   round(linear · L + base · growth^L)
  *
- * The linear term makes the first levels quick (L2 is three basic actions);
+ * The linear term makes the first levels quick (L2 is four basic actions);
  * the exponential term takes over in the 30s so the late levels are an
- * investment. `growth` is the knob for "how steep is the midgame"; `linear`
- * for "how fast is the tutorial". See docs/skills/SKILLS_1_REPORT.md §7.
+ * investment: at the reference pace (scripts/skills/pacing.ts) Nv 10 takes
+ * ~15 min, Nv 25 ~1 h, Nv 40 ~5 h and Nv 50 ~17 h of active play per skill.
+ * `growth` is the knob for "how steep is the midgame"; `linear` for "how fast
+ * is the tutorial". See docs/skills/SKILLS_1_REPORT.md §7.
  */
-export const XP_CURVE = { linear: 25, base: 8, growth: 1.16 } as const
+export const XP_CURVE = { linear: 20, base: 15, growth: 1.19 } as const
 
 /**
  * Work duration multiplier by aptitude 1..5. 3 is the reference Pokémon.
