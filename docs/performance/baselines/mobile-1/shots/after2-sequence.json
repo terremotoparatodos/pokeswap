@@ -1,0 +1,335 @@
+[
+  {
+    "label": "after2-sequence",
+    "viewport": "safari",
+    "size": "393x659",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after2-sequence-safari.png",
+    "evaluated": [
+      [
+        "chat",
+        {
+          "chat": true,
+          "skills": false,
+          "chatTab": "true",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "skills",
+        {
+          "chat": false,
+          "skills": true,
+          "chatTab": "false",
+          "skillsTab": "true"
+        }
+      ],
+      [
+        "chat",
+        {
+          "chat": true,
+          "skills": false,
+          "chatTab": "true",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "chat again",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "skills twice",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "escape",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ]
+    ],
+    "uiPercent": 12.5,
+    "top": [
+      [
+        "div.wl-minimap",
+        4.3
+      ],
+      [
+        "div.wl-hud",
+        4.1
+      ],
+      [
+        "button.lm-toggle",
+        1.5
+      ],
+      [
+        "button.sk-tab",
+        1.3
+      ],
+      [
+        "button.ch-tab",
+        0.7
+      ],
+      [
+        "span.wl-place",
+        0.6
+      ],
+      [
+        "button.wl-hud-btn.wl-home",
+        0.5
+      ],
+      [
+        "span.sk-total",
+        0.2
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        659
+      ],
+      "visual": [
+        393,
+        659
+      ],
+      "stage": [
+        393,
+        659
+      ]
+    }
+  },
+  {
+    "label": "after2-sequence",
+    "viewport": "standalone",
+    "size": "393x852",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after2-sequence-standalone.png",
+    "evaluated": [
+      [
+        "chat",
+        {
+          "chat": true,
+          "skills": false,
+          "chatTab": "true",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "skills",
+        {
+          "chat": false,
+          "skills": true,
+          "chatTab": "false",
+          "skillsTab": "true"
+        }
+      ],
+      [
+        "chat",
+        {
+          "chat": true,
+          "skills": false,
+          "chatTab": "true",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "chat again",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "skills twice",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "escape",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ]
+    ],
+    "uiPercent": 9.6,
+    "top": [
+      [
+        "div.wl-minimap",
+        3.4
+      ],
+      [
+        "div.wl-hud",
+        3.2
+      ],
+      [
+        "button.lm-toggle",
+        1.2
+      ],
+      [
+        "button.sk-tab",
+        1
+      ],
+      [
+        "button.ch-tab",
+        0.6
+      ],
+      [
+        "span.wl-place",
+        0.5
+      ],
+      [
+        "button.wl-hud-btn.wl-home",
+        0.4
+      ],
+      [
+        "span.sk-total",
+        0.1
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        852
+      ],
+      "visual": [
+        393,
+        852
+      ],
+      "stage": [
+        393,
+        852
+      ]
+    }
+  },
+  {
+    "label": "after2-sequence",
+    "viewport": "landscape",
+    "size": "852x353",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after2-sequence-landscape.png",
+    "evaluated": [
+      [
+        "chat",
+        {
+          "chat": true,
+          "skills": false,
+          "chatTab": "true",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "skills",
+        {
+          "chat": false,
+          "skills": true,
+          "chatTab": "false",
+          "skillsTab": "true"
+        }
+      ],
+      [
+        "chat",
+        {
+          "chat": true,
+          "skills": false,
+          "chatTab": "true",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "chat again",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "skills twice",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ],
+      [
+        "escape",
+        {
+          "chat": false,
+          "skills": false,
+          "chatTab": "false",
+          "skillsTab": "false"
+        }
+      ]
+    ],
+    "uiPercent": 28.7,
+    "top": [
+      [
+        "aside.wl-help",
+        17.9
+      ],
+      [
+        "div.wl-minimap",
+        3.7
+      ],
+      [
+        "div.wl-hud",
+        3.6
+      ],
+      [
+        "p.wl-help-title",
+        2.3
+      ],
+      [
+        "p.wl-help-perf",
+        2.3
+      ],
+      [
+        "button.lm-toggle",
+        1.3
+      ],
+      [
+        "button.sk-tab",
+        1.1
+      ],
+      [
+        "button.ch-tab",
+        0.6
+      ]
+    ],
+    "page": {
+      "inner": [
+        852,
+        353
+      ],
+      "visual": [
+        852,
+        353
+      ],
+      "stage": [
+        852,
+        353
+      ]
+    }
+  }
+]

@@ -1,6 +1,6 @@
 <template>
   <div class="pf pwd">
-    <SkillsPanel v-if="skills" :session="session" />
+    <SkillsPanel v-if="skills" ref="skillsRef" :session="session" @open="(open: boolean) => emit('panel', 'skills', open)" />
 
     <section v-if="bagOpen" class="pwd-bag-panel" aria-label="Mochila" role="dialog">
       <header class="pwd-bag-head">
@@ -160,8 +160,9 @@ const props = defineProps<{
 }>()
 // WildlandsView still listens for `overlay` to pause the game behind a covering
 // panel. Since R31-Z.1 the demo opens none, so it never emits; the event stays
-// declared to keep that host contract unchanged.
-defineEmits<{ overlay: [open: boolean] }>()
+// declared to keep that host contract unchanged. `panel` reports the HUD panels
+// (Skills, the bag) so the host can keep only one of them open (MOBILE-1).
+const emit = defineEmits<{ overlay: [open: boolean]; panel: [panel: 'skills' | 'bag', open: boolean] }>()
 
 /** The fishing bite window is short, so the card has to light up promptly. */
 const BITE_POLL_MS = 80
@@ -170,6 +171,8 @@ const FURNACE_POLL_MS = 250
 
 const session = useProfessionDemo()
 const bagOpen = ref(false)
+watch(bagOpen, open => emit('panel', 'bag', open))
+const skillsRef = ref<{ close: () => void } | null>(null)
 const SUPPLY_LABEL: Readonly<Record<string, string>> = {
   poke_ball: 'Poké Ball', potion: 'Poción', revive: 'Revivir', ether: 'Éter',
 }
@@ -331,19 +334,27 @@ const hint = computed(() => props.areaKind === 'wild' && !anySelection.value
   ? { id: 'skills', badge: props.skills ? 'Skills' : 'Dev', tone: 'skills' as const, text: 'Acercate a una roca con vetas, un árbol con cinta, un arbusto con bayas, la mesa de alquimia, el horno o la orilla' }
   : null)
 
-defineExpose({ inspect, isWorldObject, placedObjects, overlay, closeTransient: closeAll, toggleInventory, hint, actionOpen: anySelection })
+function closeSkills(): void { skillsRef.value?.close() }
+function closeBag(): void { bagOpen.value = false }
+
+defineExpose({ inspect, isWorldObject, placedObjects, overlay, closeTransient: closeAll, toggleInventory, closeSkills, closeBag, hint, actionOpen: anySelection })
 </script>
 
 <style scoped>
 .pwd-mining { position: absolute; left: 50%; bottom: 4.9rem; z-index: 14; display: grid; gap: 0.4rem; width: min(380px, calc(100% - 1.5rem)); max-height: calc(100dvh - 7rem); overflow-y: auto; transform: translateX(-50%); }
 .pwd-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 0.4rem; }
-.pwd-bag-panel { position: absolute; top: 4.5rem; left: 1rem; z-index: 16; display: grid; gap: 0.55rem; width: min(440px, calc(100% - 2rem)); max-height: calc(100dvh - 9rem); padding: 0.75rem; overflow-y: auto; border: 2px solid var(--pf-gold); border-radius: 12px; background: rgba(12, 20, 42, 0.97); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.48); }
+.pwd-bag-panel { position: absolute; top: calc(4.5rem + var(--safe-top, 0px)); left: calc(1rem + var(--safe-left, 0px)); z-index: 16; display: grid; gap: 0.55rem; width: min(440px, calc(100% - 2rem)); max-height: calc(100dvh - 9rem); padding: 0.75rem; overflow-y: auto; border: 2px solid var(--pf-gold); border-radius: 12px; background: rgba(12, 20, 42, 0.97); box-shadow: 0 12px 30px rgba(0, 0, 0, 0.48); }
 .pwd-bag-head { display: flex; align-items: center; justify-content: space-between; color: var(--pf-gold); }
 .pwd-bag-head button { width: 36px; height: 36px; border: 1px solid rgba(255,255,255,.25); border-radius: 8px; background: transparent; color: #fff; font: inherit; font-size: 1.3rem; cursor: pointer; }
 .pwd-supplies { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .pwd-supplies span { padding: 0.15rem 0.5rem; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: var(--pf-soft); font-size: 0.72rem; }
-@media (max-width: 720px) {
-  .pwd-mining { bottom: 4.4rem; }
-  .pwd-bag-panel { top: 4.2rem; left: 0.75rem; width: calc(100% - 1.5rem); max-height: calc(100dvh - 8.5rem); }
+@media (max-width: 720px), (max-height: 500px) {
+  .pwd-mining { bottom: calc(4.4rem + var(--safe-bottom, 0px)); }
+  .pwd-bag-panel {
+    top: calc(4.2rem + var(--safe-top, 0px));
+    left: calc(0.75rem + var(--safe-left, 0px));
+    width: calc(100% - 1.5rem - var(--safe-left, 0px) - var(--safe-right, 0px));
+    max-height: calc(100dvh - 8.5rem - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+  }
 }
 </style>

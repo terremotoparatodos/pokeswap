@@ -1,5 +1,5 @@
 // MOBILE-1: phone-viewport screenshots and how much of the screen the UI covers.
-//   node scripts/perf/mobile-shots.mjs --url "<page>" --out <dir> --label <name> [--wait 7000] [--eval "<js before shot>"]
+//   node scripts/perf/mobile-shots.mjs --url "<page>" --out <dir> --label <name> [--wait 7000] [--eval "<js before shot, its value is printed>"]
 // Emulates an iPhone 15 Pro (touch, coarse pointer, dpr 3) in two viewports:
 //   safari     393×659  portrait Safari with its toolbars shown
 //   standalone 393×852  home-screen web app (no browser chrome)
@@ -93,17 +93,17 @@ try {
     await page.send('Page.enable')
     await page.send('Page.navigate', { url })
     await sleep(wait)
-    if (before) await page.send('Runtime.evaluate', { expression: before, awaitPromise: true })
+    const evaluated = before ? (await page.send('Runtime.evaluate', { expression: before, awaitPromise: true, returnByValue: true })).result?.result?.value : undefined
     if (before) await sleep(800)
     const shot = await page.send('Page.captureScreenshot', { format: 'png' })
     const file = join(out, `${label}-${vp.name}.png`)
     writeFileSync(file, Buffer.from(shot.result.data, 'base64'))
     const measured = (await page.send('Runtime.evaluate', { expression: COVERAGE, returnByValue: true })).result.result.value
-    results.push({ label, viewport: vp.name, size: `${vp.width}x${vp.height}`, file, ...measured })
+    results.push({ label, viewport: vp.name, size: `${vp.width}x${vp.height}`, file, ...(evaluated !== undefined ? { evaluated } : {}), ...measured })
     page.close()
   }
   writeFileSync(join(out, `${label}.json`), JSON.stringify(results, null, 2))
-  for (const r of results) console.log(`[mobile] ${r.label} ${r.viewport} ${r.size}: UI ${r.uiPercent}% · ${r.top.map(([k, a]) => `${k} ${a}%`).join(' · ')}`)
+  for (const r of results) console.log(`[mobile] ${r.label} ${r.viewport} ${r.size}: UI ${r.uiPercent}% · ${r.top.map(([k, a]) => `${k} ${a}%`).join(' · ')}${r.evaluated !== undefined ? ` · eval ${JSON.stringify(r.evaluated)}` : ''}`)
 } finally {
   browser.kill()
   await new Promise(done => { if (browser.exitCode !== null) done(); else browser.once('exit', done) })

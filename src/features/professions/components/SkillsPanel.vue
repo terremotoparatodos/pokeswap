@@ -1,24 +1,28 @@
 <template>
   <div class="sk">
+    <!-- The button that opens Skills also closes it (MOBILE-1); the header's × is the alternative. -->
     <button
-      v-if="!open"
       type="button"
       class="sk-tab"
-      :aria-label="`Abrir habilidades, nivel total ${totalLevel}`"
-      @click="open = true"
+      :class="{ 'sk-tab--on': open }"
+      :aria-label="open ? 'Cerrar habilidades' : `Abrir habilidades, nivel total ${totalLevel}`"
+      :aria-expanded="open"
+      aria-controls="skills-panel"
+      @click="open = !open"
     >
       <span aria-hidden="true">📘</span>
       <span class="sk-tab-text">Skills</span>
       <span class="sk-total">{{ totalLevel }}</span>
     </button>
 
-    <section v-else class="sk-panel pf" aria-label="Habilidades">
+    <section v-if="open" id="skills-panel" class="sk-panel pf" aria-label="Habilidades">
       <header class="sk-head">
         <strong class="sk-title">Habilidades</strong>
         <span class="sk-sum">Nivel total <strong>{{ totalLevel }}</strong></span>
-        <button type="button" class="sk-x" aria-label="Cerrar habilidades" @click="open = false">−</button>
+        <button type="button" class="sk-x" aria-label="Cerrar habilidades" @click="open = false">×</button>
       </header>
 
+      <div class="sk-scroll">
       <ul class="sk-list">
         <li v-for="skill in skills" :key="skill.id" class="sk-row" :class="`sk-row--${skill.id}`">
           <span class="sk-icon" aria-hidden="true">{{ ICON[skill.id] }}</span>
@@ -48,12 +52,13 @@
         </span>
         <span class="sk-note">PLAYTEST · el progreso de esta build no se guarda</span>
       </footer>
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import { ENERGY_CONFIG, PROFESSIONS } from '../domain/catalog/professions'
 import { PROFESSION_IDS, type ProfessionId } from '../domain/types'
 import { demoMaxEnergy } from '../demo/demoSession'
@@ -77,6 +82,11 @@ const ICON: Readonly<Record<ProfessionId, string>> = {
 }
 
 const open = ref(false)
+// The host keeps Chat, Skills and the bag from piling up over the world.
+const emit = defineEmits<{ open: [open: boolean] }>()
+watch(open, value => emit('open', value))
+onUnmounted(() => { if (open.value) emit('open', false) })
+defineExpose({ close: () => { open.value = false } })
 const state = computed(() => props.session.state.value)
 
 const skills = computed(() => PROFESSION_IDS.map(id => {
@@ -91,8 +101,8 @@ const energy = computed(() => energyView(state.value.energy, demoMaxEnergy(state
 <style scoped>
 .sk {
   position: fixed;
-  left: 1rem;
-  bottom: 4rem;
+  left: calc(1rem + var(--safe-left, 0px));
+  bottom: calc(4rem + var(--safe-bottom, 0px));
   z-index: 29;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -112,6 +122,13 @@ const energy = computed(() => energyView(state.value.energy, demoMaxEnergy(state
   font-weight: 700;
   cursor: pointer;
 }
+/* Open: the button reads as pressed, and pressing it again closes. */
+.sk-tab--on {
+  background: var(--pf-gold, #ffd27a);
+  color: #101a36;
+  box-shadow: 0 0 0 3px rgba(255, 210, 122, 0.35);
+}
+.sk-tab--on .sk-total { background: #101a36; color: var(--pf-gold, #ffd27a); }
 .sk-total {
   min-width: 22px;
   padding: 0 0.3rem;
@@ -122,11 +139,16 @@ const energy = computed(() => energyView(state.value.energy, demoMaxEnergy(state
   text-align: center;
 }
 
+/* A window of its own above the tab, inside the screen, header always on top. */
 .sk-panel {
-  width: min(23rem, calc(100vw - 2rem));
-  max-height: min(22rem, 55dvh);
-  overflow-y: auto;
-  padding: 0.6rem 0.7rem;
+  position: fixed;
+  left: calc(1rem + var(--safe-left, 0px));
+  bottom: calc(4rem + 40px + 0.5rem + var(--safe-bottom, 0px));
+  display: flex;
+  flex-direction: column;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100dvh - 4rem - 40px - 0.5rem - 6rem - var(--safe-top, 0px) - var(--safe-bottom, 0px)));
+  overflow: hidden;
   border: 2px solid var(--pf-gold, #ffd27a);
   border-radius: 12px;
   background: rgba(12, 20, 42, 0.96);
@@ -134,14 +156,22 @@ const energy = computed(() => energyView(state.value.energy, demoMaxEnergy(state
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.45);
 }
 
-.sk-head { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+.sk-head {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.45rem 0.45rem 0.45rem 0.8rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+.sk-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0.6rem 0.7rem; }
 .sk-title { font-size: 0.9rem; }
 .sk-sum { margin-left: auto; font-size: 0.75rem; opacity: 0.7; }
 .sk-sum strong { color: var(--pf-gold, #ffd27a); }
 .sk-x {
-  width: 28px;
-  height: 28px;
-  border: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 8px;
   background: transparent;
   color: #dfe8ff;
@@ -194,11 +224,26 @@ const energy = computed(() => energyView(state.value.energy, demoMaxEnergy(state
 .sk-energy { color: var(--pf-energy, #7fd7ff); font-weight: 700; }
 .sk-note { opacity: 0.45; }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   /* Beside the chat tab, not above it: two icon-sized chips in one row keep
      the bottom-left corner from turning into a tower of pills. */
-  .sk { left: 4.4rem; bottom: 4.6rem; }
+  .sk { left: calc(4.4rem + var(--safe-left, 0px)); bottom: calc(4.6rem + var(--safe-bottom, 0px)); }
   .sk-tab-text { display: none; }
-  .sk-panel { width: calc(100vw - 1.2rem); max-height: 45dvh; margin-left: -3.8rem; }
+  /* A large sheet across the phone, above the tab row so the same button closes it. */
+  .sk-panel {
+    left: calc(0.6rem + var(--safe-left, 0px));
+    right: calc(0.6rem + var(--safe-right, 0px));
+    width: auto;
+    bottom: calc(4.6rem + 40px + 0.5rem + var(--safe-bottom, 0px));
+    max-height: calc(100dvh - 4.6rem - 40px - 0.5rem - 7rem - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+  }
+}
+
+/* A landscape phone is wide but short: a column on the left, not a band across the world. */
+@media (min-width: 721px) and (max-height: 500px) {
+  .sk-panel {
+    right: auto;
+    width: min(24rem, 48vw);
+  }
 }
 </style>

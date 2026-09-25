@@ -10,7 +10,7 @@
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" /></svg>
         Menú
       </button>
-      <button v-if="inventory" type="button" class="lm-toggle lm-inventory" @click="emit('inventory')">
+      <button v-if="inventory" type="button" class="lm-toggle lm-inventory" :class="{ 'lm-inventory--on': inventoryOpen }" :aria-pressed="inventoryOpen" @click="emit('inventory')">
         🎒 Mochila
       </button>
       <span v-if="profile" class="lm-tokens" :title="`${formatTokens(profile.tokens)} tokens`">
@@ -69,9 +69,10 @@ import { HEARTHOME } from '../areas/atlas'
 import { LOBBY_FEATURE_IDS, LOBBY_FEATURES, type LobbyFeature } from '../lobby/features'
 
 // Shortcut to every PokeSwap function, plus the session. Tokens are shown read-only.
-const props = withDefaults(defineProps<{ open: boolean; reducedMotion?: boolean; inventory?: boolean }>(), {
+const props = withDefaults(defineProps<{ open: boolean; reducedMotion?: boolean; inventory?: boolean; inventoryOpen?: boolean }>(), {
   reducedMotion: false,
   inventory: false,
+  inventoryOpen: false,
 })
 const emit = defineEmits<{
   'update:open': [open: boolean]
@@ -163,6 +164,8 @@ async function signOut(): Promise<void> {
   background: #1d2c58;
 }
 .lm-inventory { border-color: #d79b32; color: #ffe0a0; }
+/* The bag's button also closes it, and shows when it is open (MOBILE-1). */
+.lm-inventory--on { background: #d79b32; color: #101a36; }
 .lm-toggle svg {
   width: 18px;
   height: 18px;

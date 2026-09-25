@@ -1,21 +1,24 @@
 <template>
   <div class="ch" :class="{ 'ch--open': chat.open.value }">
+    <!-- The button that opens the chat also closes it (MOBILE-1); the panel's × is the alternative. -->
     <button
-      v-if="!chat.open.value"
       type="button"
       class="ch-tab"
-      :aria-label="unreadLabel"
-      @click="openChat"
+      :class="{ 'ch-tab--on': chat.open.value }"
+      :aria-label="chat.open.value ? 'Cerrar el chat' : unreadLabel"
+      :aria-expanded="chat.open.value"
+      aria-controls="chat-panel"
+      @click="toggle"
     >
       <span aria-hidden="true">💬</span>
       <span class="ch-tab-text">Chat</span>
-      <span v-if="chat.unread.value" class="ch-badge">{{ chat.unread.value > 99 ? '99+' : chat.unread.value }}</span>
+      <span v-if="chat.unread.value && !chat.open.value" class="ch-badge">{{ chat.unread.value > 99 ? '99+' : chat.unread.value }}</span>
     </button>
 
-    <section v-else class="ch-panel" aria-label="Chat de la zona">
+    <section v-if="chat.open.value" id="chat-panel" class="ch-panel" aria-label="Chat de la zona">
       <header class="ch-head">
         <strong class="ch-title">Chat · {{ areaLabel }}</strong>
-        <button type="button" class="ch-x" aria-label="Cerrar el chat" @click="chat.open.value = false">−</button>
+        <button type="button" class="ch-x" aria-label="Cerrar el chat" @click="close">×</button>
       </header>
 
       <ol ref="logRef" class="ch-log" aria-live="polite">
@@ -38,8 +41,10 @@
           :disabled="!chat.canSend.value"
           :placeholder="placeholder"
           autocomplete="off"
+          enterkeyhint="send"
           aria-label="Escribí un mensaje"
-          @keydown.stop
+          @keydown.stop="onInputKey"
+          @blur="settleViewport"
         >
         <button type="submit" class="ch-send" :disabled="!chat.canSend.value || !draft.trim()">Enviar</button>
       </form>
@@ -51,6 +56,7 @@
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { MAX_CHAT_LENGTH, formatTime } from '../domain/chatLine'
 import { useChat } from '../state/useChat'
+import { trackKeyboardInset } from './keyboardInset'
 
 // A log, a box and Enter — the Habbo shape, not a social network. Every line on
 // screen came back from the server, including your own, so what you read is
@@ -89,6 +95,28 @@ function openChat(): void {
   chat.markRead()
 }
 
+function close(): void {
+  chat.open.value = false
+}
+
+function toggle(): void {
+  if (chat.open.value) close()
+  else openChat()
+}
+
+/** Escape inside the box closes the chat; every other key stays out of the game. */
+function onInputKey(event: KeyboardEvent): void {
+  if (event.key === 'Escape') close()
+}
+
+// iOS may pan the page to reveal a focused input even though the page itself
+// never scrolls; put it back when the keyboard goes away.
+function settleViewport(): void {
+  if (window.scrollX || window.scrollY) window.scrollTo(0, 0)
+}
+
+defineExpose({ close })
+
 function submit(): void {
   if (chat.send(draft.value)) draft.value = ''
 }
@@ -103,18 +131,27 @@ async function scrollToEnd(): Promise<void> {
 watch(() => chat.lines.value.length, () => {
   if (chat.open.value) void scrollToEnd()
 })
+let stopKeyboard: (() => void) | null = null
 watch(chat.open, isOpen => {
   if (isOpen) {
     chat.markRead()
     void scrollToEnd()
+    stopKeyboard ??= trackKeyboardInset()
+  } else {
+    stopKeyboard?.()
+    stopKeyboard = null
   }
-})
+}, { immediate: true })
 // Immediate: the open state is shared, so the panel can mount already open.
 watch(chat.open, isOpen => emit('open', isOpen), { immediate: true })
-onUnmounted(() => emit('open', false))
+onUnmounted(() => {
+  stopKeyboard?.()
+  emit('open', false)
+})
 </script>
 
 <style scoped>
+/* The tab stays where it is; the panel opens above it (MOBILE-1). */
 .ch {
   position: fixed;
   left: calc(1rem + var(--safe-left, 0px));
@@ -138,6 +175,13 @@ onUnmounted(() => emit('open', false))
   font-weight: 700;
   cursor: pointer;
 }
+/* Open: the button reads as pressed, and pressing it again closes. */
+.ch-tab--on {
+  border-color: #8fb0ff;
+  background: #3a5fb8;
+  color: #fff;
+  box-shadow: 0 0 0 3px rgba(143, 176, 255, 0.35);
+}
 .ch-badge {
   min-width: 20px;
   padding: 0 0.3rem;
@@ -149,6 +193,10 @@ onUnmounted(() => emit('open', false))
 }
 
 .ch-panel {
+  position: fixed;
+  left: calc(1rem + var(--safe-left, 0px));
+  /* Above the tab column (chat, Skills above it), which stays reachable. */
+  bottom: calc(4rem + 40px + 0.5rem + var(--safe-bottom, 0px));
   display: flex;
   flex-direction: column;
   width: min(23rem, calc(100vw - 2rem));
@@ -165,14 +213,14 @@ onUnmounted(() => emit('open', false))
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0.35rem 0.5rem 0.35rem 0.7rem;
+  padding: 0.35rem 0.4rem 0.35rem 0.7rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 .ch-title { font-size: 0.8rem; }
 .ch-x {
-  width: 30px;
-  height: 30px;
-  border: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 8px;
   background: transparent;
   color: #dfe8ff;
@@ -230,12 +278,33 @@ onUnmounted(() => emit('open', false))
 }
 .ch-send:disabled { opacity: 0.45; cursor: default; }
 
+/* iOS zooms the page into any focused field under 16 px. */
+@media (pointer: coarse) {
+  .ch-input { font-size: 16px; }
+}
+
 @media (max-width: 720px), (max-height: 500px) {
   /* The lobby HUD owns the bottom centre and is nearly full width on a phone,
      so the chat tab sits in a row above it rather than under it. */
   .ch { left: calc(0.6rem + var(--safe-left, 0px)); bottom: calc(4.6rem + var(--safe-bottom, 0px)); }
   .ch-tab-text { display: none; }
-  /* Never more than a third of a phone screen: the game is the thing. */
-  .ch-panel { height: min(15rem, 38dvh); width: calc(100vw - 1.2rem); }
+  /* A sheet across the phone above the tab row, never more than about a third
+     of the screen: the game is the thing. With the keyboard up it rides just
+     above the keyboard instead, input included. */
+  .ch-panel {
+    left: calc(0.6rem + var(--safe-left, 0px));
+    right: calc(0.6rem + var(--safe-right, 0px));
+    width: auto;
+    bottom: max(calc(4.6rem + 40px + 0.5rem + var(--safe-bottom, 0px)), calc(var(--keyboard-inset, 0px) + 0.4rem));
+    height: min(15rem, 38dvh, calc(var(--visible-height, 100dvh) - 1rem));
+  }
+}
+
+/* A landscape phone is wide but short: a column on the left, not a band across the world. */
+@media (min-width: 721px) and (max-height: 500px) {
+  .ch-panel {
+    right: auto;
+    width: min(24rem, 48vw);
+  }
 }
 </style>
