@@ -8,8 +8,11 @@ import { execFileSync } from 'node:child_process'
  *       move pacing; rejection reasons (replay vs rate); rate-refused
  *       sequences are consumed and answered with the unchanged actor;
  *       clients declaring `presenceProtocol: 2` get compact `step` deltas
+ *   3 — WORLD-1: clients declaring `worldProtocol: 1` get shared resource
+ *       nodes (world:snapshot / world:batch) and may send world:work intents;
+ *       everything else is unchanged for clients that do not declare it
  */
-export const PRESENCE_PROTOCOL_REVISION = 2
+export const PRESENCE_PROTOCOL_REVISION = 3
 
 const COMMIT = /^[0-9a-f]{7,40}$/
 

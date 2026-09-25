@@ -8,6 +8,9 @@ import { visibleActors } from '../presence/interest.js'
 import { AREA, COMPACT_STEP_PROTOCOL, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor, stackStep, stepActor } from '../protocol/messages.js'
 import { arrivalFor } from '../protocol/arrival.js'
 import { metrics } from '../observability/metrics.js'
+import { WORLD_MESSAGE } from '../world/worldProtocol.js'
+import { WorldRoom } from '../world/worldRoom.js'
+import { worldDependencies } from '../world/worldConfig.js'
 
 const actors = new Map()
 const clientsByActor = new Map()
@@ -24,6 +27,25 @@ const reconnectingActors = new ReconnectCache()
 // the process on purpose — chat is not state this playtest should persist.
 const chatLog = new ChatLog()
 let chatSequence = 0
+// WORLD-1: resource nodes and work actions. Module-level like the maps above,
+// so the world survives a room dispose; it rides this room's socket and tick.
+let world = createWorld(worldDependencies())
+
+function createWorld(dependencies) {
+  const created = new WorldRoom({
+    ...dependencies,
+    lookupActor: id => actors.get(id) ?? null,
+    clientForPlayer: id => clientsByActor.get(id) ?? null,
+  })
+  metrics.world = () => created.stats()
+  return created
+}
+
+/** Replaces the world's SKILLS/ownership adapters (tests and local tooling). Drops all world state. */
+export function configureWorld(dependencies) {
+  world = createWorld(dependencies)
+  return world
+}
 
 export class PresenceRoom extends Room {
   static connections = 0
@@ -39,18 +61,21 @@ export class PresenceRoom extends Room {
 
   onCreate() {
     this.deltaBatching = true
-    this.setSimulationInterval(() => this.flushDeltaBatches(), 50)
+    this.setSimulationInterval(() => { world.tick(); this.flushDeltaBatches(); world.flush() }, 50)
     this.onMessage(MESSAGE.READY, client => this.ready(client))
     this.onMessage(MESSAGE.MOVE, (client, payload) => this.move(client, payload))
     this.onMessage(MESSAGE.AREA, (client, payload) => this.changeArea(client, payload))
     this.onMessage(MESSAGE.OBSERVE, (client, payload) => this.observe(client, payload))
     this.onMessage(MESSAGE.CHAT, (client, payload) => this.chat(client, payload))
+    this.onMessage(WORLD_MESSAGE.WORK, (client, payload) => this.work(client, payload))
+    this.onMessage(WORLD_MESSAGE.CANCEL, (client, payload) => this.cancelWork(client, payload))
   }
 
   async onJoin(client, options, auth) {
     if (!hasCapacity(PresenceRoom.connections)) { metrics.rejected('capacity'); throw new ServerError(4210, 'capacity reached') }
     PresenceRoom.connections++
     if (Number.isInteger(options?.presenceProtocol) && options.presenceProtocol >= COMPACT_STEP_PROTOCOL) compactClients.add(client)
+    world.join(client, options, auth)
     if (auth.kind === 'guest') {
       metrics.joined('guest')
       client.userData = { observer: { areaId: AREA.TOWN, tx: 31, ty: 20 } }
@@ -70,6 +95,7 @@ export class PresenceRoom extends Room {
     actor.username = auth.username
     actor.characterId = characterId
     actors.set(actor.id, actor); clientsByActor.set(actor.id, client); observers.set(client.sessionId, client); client.userData = { actorId: actor.id }; metrics.joined('player')
+    world.actorPlaced(actor)
     this.publish(actor)
     // Companion ownership is a display enhancement. It must never delay or
     // invalidate the atomic actor replacement above.
@@ -98,6 +124,7 @@ export class PresenceRoom extends Room {
     observers.delete(client.sessionId)
     visibleByClient.delete(client.sessionId)
     this.pendingDeltas.delete(client)
+    world.leave(client)
     if (!id) return
     // A replaced browser may finish closing after the new session has joined.
     // It must not remove the newer actor with the same user id.
@@ -124,6 +151,7 @@ export class PresenceRoom extends Room {
     // Moving the viewport changes its whole interest set even when every
     // other actor is stationary. Reconcile entrants/leavers for this client.
     this.syncVisibility(client, actor)
+    world.viewerMoved(client, actor)
     this.sendSelf(client, actor)
   }
 
@@ -136,6 +164,7 @@ export class PresenceRoom extends Room {
     actor.areaId = intent.areaId
     actor.tx = arrival.tx; actor.ty = arrival.ty; actor.dir = arrival.dir
     metrics.changedArea()
+    world.actorPlaced(actor)
     this.publish(actor); this.sendSnapshot(client, actor)
   }
 
@@ -178,6 +207,21 @@ export class PresenceRoom extends Room {
       const viewer = actors.get(client.userData?.actorId) ?? client.userData?.observer
       if (viewer?.areaId === message.areaId) client.send(MESSAGE.CHAT_LINE, message)
     }
+  }
+
+  /**
+   * WORLD-1: a player asks to work a resource node with one of its Pokémon.
+   * Players only, like chat: a guest has no actor to stand beside a node.
+   */
+  work(client, payload) {
+    const actor = actors.get(client.userData?.actorId)
+    if (!actor) return this.reject(client, 'world denied', 'invalid')
+    void world.work(actor, payload)
+  }
+
+  cancelWork(client, payload) {
+    const actor = actors.get(client.userData?.actorId)
+    if (actor) world.cancel(actor, payload)
   }
 
   /** `step` is given only for a pure move: identity is unchanged, so viewers that know the actor need just the step. */
@@ -257,6 +301,9 @@ export class PresenceRoom extends Room {
     // A snapshot is sent on join and on every area change, which is exactly
     // when the history a client should hold changes.
     if (viewer?.areaId) client.send(MESSAGE.CHAT_HISTORY, { areaId: viewer.areaId, lines: chatLog.recent(viewer.areaId) })
+    // The world state of the new window, after presence so the client places
+    // the viewer before it draws what is around it.
+    if (viewer) world.snapshot(client, viewer)
   }
   sendSelf(client, actor) { client.send(MESSAGE.SELF, publicActor(actor)) }
   reject(client, reason, kind) { metrics.rejected(kind); client.send(MESSAGE.ERROR, { code: 'invalid-intent', reason }) }
