@@ -41,6 +41,7 @@ import { keepsPredictedStep, safeAuthoritativePosition } from '../multiplayer/do
 import { PresenceDiagnostics, type PresenceDiagnosticsSnapshot } from '../multiplayer/domain/presenceDiagnostics'
 import type { FrameProbe, RenderProbe } from './perfHooks'
 import { RemoteStepPlayback } from './remotePlayback'
+import type { WorldLayer, WorldLayerContext } from './worldLayer'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
 
@@ -142,6 +143,13 @@ export class WildlandsGame {
       || (this.isWorldObject?.({ area: this.area, tx, ty }) ?? false),
   })
   private overlay: SceneOverlay | null = null
+  /** WORLD-1: shared world entities drawn over this client's scene. */
+  private worldLayer: WorldLayer | null = null
+  private readonly worldContext: WorldLayerContext = {
+    area: () => this.area,
+    playerTile: id => id === this.localPresenceActorId ? this.player : this.remoteActorsById.get(id) ?? null,
+    isSolid: (tx, ty) => this.solidAt(tx, ty),
+  }
   private inputLocked = false
   private readonly travel = new AreaTravel()
   private readonly entrances: Entrances
@@ -627,6 +635,11 @@ export class WildlandsGame {
     companion.speed = remote.speed
   }
 
+  /** WORLD-1: the shared world's entities and clock; null removes them. */
+  setWorldLayer(layer: WorldLayer | null): void {
+    this.worldLayer = layer
+  }
+
   /** Prototype effects drawn with the scene; null removes them. */
   setSceneOverlay(overlay: SceneOverlay | null): void {
     this.overlay = overlay
@@ -899,6 +912,7 @@ export class WildlandsGame {
     }
     this.advanceRemoteActors(dt)
     for (const actor of this.remoteCompanions) advance(actor, dt)
+    this.worldLayer?.update(dt, this.worldContext)
 
     // Camera: locked to the player's whole-pixel position, like the handheld games.
     // Easing only kicks in after a large jump so the view never snaps across the map.
@@ -976,7 +990,12 @@ export class WildlandsGame {
     actors.length = 0
     for (const actor of this.populace.actors) actors.push(actor)
     for (const actor of this.remoteActors) actors.push(actor)
-    for (const actor of this.remoteCompanions) actors.push(actor)
+    const world = this.worldLayer
+    for (const [ownerId, actor] of this.remoteCompanionsByOwnerId) {
+      if (!world?.hidesCompanion(ownerId, actor.pokemon?.id ?? -1)) actors.push(actor)
+    }
+    if (world) for (const actor of world.actors()) actors.push(actor)
+    const companion = this.companion.actor
     return {
       area: this.area,
       fade: this.reduceMotion ? 0 : this.travel.fade(),
@@ -987,7 +1006,7 @@ export class WildlandsGame {
       light: lighting(this.clock),
       weather: { kind: this.weather.kind, intensity: this.reduceMotion ? 0 : this.weather.intensity },
       player: this.player,
-      companion: this.companion.actor,
+      companion: companion && this.localPresenceActorId && world?.hidesCompanion(this.localPresenceActorId, companion.pokemon?.id ?? -1) ? null : companion,
       username: this.username,
       showPlayer: !this.spectator,
       actors,

@@ -45,6 +45,7 @@ export function cancelIntent(value) {
  */
 export function publicNode(record) {
   const node = { id: record.id, state: record.state, version: record.version }
+  if (record.base) node.base = true
   if (record.actionId) {
     node.actionId = record.actionId
     node.workKind = record.workKind

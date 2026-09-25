@@ -49,7 +49,10 @@ export class ResourceStore {
       version: ++this.revision,
     }
     const key = chunkKey(node.areaId, node.chunkId)
-    if (record.state === lifecycle.initial && record.actionId === null) {
+    // Back to base: the record goes away and viewers are told so explicitly,
+    // so no client has to know which state is "base" for which kind.
+    record.base = record.state === lifecycle.initial && record.actionId === null
+    if (record.base) {
       this.#records.delete(node.id)
       const ids = this.#byChunk.get(key)
       ids?.delete(node.id)

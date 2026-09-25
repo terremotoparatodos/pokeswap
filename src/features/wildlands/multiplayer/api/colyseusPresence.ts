@@ -3,6 +3,8 @@ import { supabase } from '../../../../shared/api/supabase'
 import type { Dir } from '../../engine/characters'
 import type { ChatTransportPort, LocalPresencePort, RemoteActorsPort, RemotePresenceActor } from '../domain/presence'
 import type { PlayerVisualIdentity } from '../../identity/playerIdentity'
+import type { WorldTransportSink } from '../../../world/api/worldTransport'
+import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../../../../../services/realtime/src/world/worldProtocol.js'
 
 const SNAPSHOT = 'presence:snapshot'
 const SELF = 'presence:self'
@@ -50,7 +52,12 @@ export class ColyseusPresence implements LocalPresencePort {
    * chat receivers and `sendChat` is a no-op, so a build with no chat carries
    * no chat behaviour rather than dormant chat behaviour.
    */
-  constructor(private readonly remote: RemoteActorsPort, private readonly chat: ChatTransportPort | null = null) {}
+  constructor(
+    private readonly remote: RemoteActorsPort,
+    private readonly chat: ChatTransportPort | null = null,
+    /** WORLD-1: shared resources and dynamic entities. Same rule as chat: absent means not declared. */
+    private readonly world: WorldTransportSink | null = null,
+  ) {}
 
   async connect(identity?: PlayerVisualIdentity): Promise<void> {
     if (!REALTIME_URL || this.room || this.stopped || this.suspended || this.connecting) return
@@ -68,6 +75,7 @@ export class ColyseusPresence implements LocalPresencePort {
       const room = await client.joinOrCreate('presence', {
         token: data.session?.access_token ?? null,
         presenceProtocol: PRESENCE_PROTOCOL,
+        ...(this.world ? { worldProtocol: WORLD_PROTOCOL } : {}),
         visual: identity ? { characterId: identity.character.id, companionPokemonId: identity.companion?.id ?? null } : null,
         ...(BENCHMARK_PLAYER ? {
           benchmark: {
@@ -102,6 +110,14 @@ export class ColyseusPresence implements LocalPresencePort {
         chat.setAccess('connecting')
         room.onMessage<{ areaId: string; lines: unknown }>(CHAT_HISTORY, payload => chat.history(payload.areaId, payload.lines))
         room.onMessage<unknown>(CHAT_LINE, line => chat.line(line))
+      }
+      if (this.world) {
+        const world = this.world
+        room.onMessage(WORLD_MESSAGE.SNAPSHOT, snapshot => world.snapshot(snapshot))
+        room.onMessage(WORLD_MESSAGE.BATCH, batch => world.batch(batch))
+        room.onMessage(WORLD_MESSAGE.WORK_RESULT, result => world.workResult(result))
+        room.onMessage(WORLD_MESSAGE.WORK_DONE, done => world.workDone(done))
+        world.attach((type, payload) => { if (this.room === room) room.send(type, payload) })
       }
       // Install every receiver first. The server only sends the initial
       // authoritative position after this explicit readiness acknowledgement.
@@ -191,6 +207,7 @@ export class ColyseusPresence implements LocalPresencePort {
   private clearActors(): void {
     this.known.clear()
     this.chat?.detach()
+    this.world?.detach()
     this.remote.setPresenceAccess('pending')
     this.remote.setAuthoritativeActor(null)
     this.remote.replaceRemoteActors([])

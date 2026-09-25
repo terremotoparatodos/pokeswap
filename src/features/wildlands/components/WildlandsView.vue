@@ -175,6 +175,9 @@ import type { LocalPresencePort } from '../multiplayer/domain/presence'
 import { useAuth } from '../../auth/composables/useAuth'
 import { composeWorldProbes } from '../engine/worldProbes'
 import { CompositeOverlay } from '../engine/compositeOverlay'
+import { SharedWorld } from '../../world/state/sharedWorld'
+import { loadPokemonInfo } from '../engine/population'
+import { pokeballInfo } from '../engine/pokeball'
 import { isPlaytest } from '../../playtest/playtestBuild'
 import { usePlaytestContext } from '../../playtest/state/playtestContext'
 import { playtestSurfaceFor, type PlaytestSurface } from '../../playtest/domain/cityFeatures'
@@ -243,7 +246,7 @@ let disposed = false
 const chat = shallowRef<Chat | null>(null)
 /** One socket, two passengers: presence and chat. */
 function connectPresence(target: WildlandsGame): ColyseusPresence {
-  const socket = new ColyseusPresence(perfCapture.value?.port(target) ?? target, chat.value?.sink ?? null)
+  const socket = new ColyseusPresence(perfCapture.value?.port(target) ?? target, chat.value?.sink ?? null, sharedWorld)
   chat.value?.attach(text => socket.sendChat(text))
   return socket
 }
@@ -279,6 +282,17 @@ function onAuthClose(): void {
 
 // Plaza (R26): owned Pokémon cards and the activity board also pause the town.
 const pokedex = shallowRef<readonly PokedexEntry[]>([])
+/**
+ * WORLD-1: the server-authoritative shared world (resource nodes, work
+ * actions). Rides the presence socket; a server without it just never sends.
+ */
+const sharedWorld = new SharedWorld(
+  id => {
+    const entry = pokedex.value.find(pokemon => pokemon.id === id)
+    return entry ? loadPokemonInfo(entry, false) : Promise.resolve(null)
+  },
+  id => pokeballInfo({ id, name_es: pokedex.value.find(pokemon => pokemon.id === id)?.name_es ?? String(id) }),
+)
 const plazaRef = ref<InstanceType<typeof LobbyPlaza> | null>(null)
 const plazaOpen = ref(false)
 const professionRef = ref<{
@@ -526,6 +540,7 @@ onMounted(async () => {
   // A direct link to a feature shows the town from that building's door.
   if (panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
   game.value = created
+  created.setWorldLayer(sharedWorld)
   if (performanceMode) {
     const { usePerfCapture } = await import('../perf/usePerfCapture')
     perfCapture.value = usePerfCapture()
@@ -542,12 +557,12 @@ onMounted(async () => {
   // Playtest: the professions and the dungeon entrances both draw into the
   // scene and the engine holds exactly one overlay. Compose after the children
   // have mounted, so this is the installation that wins.
-  if (dungeonsInWorld) {
-    await nextTick()
-    const parts = [professionRef.value?.overlay, dungeonRef.value?.overlay]
-      .filter((part): part is SceneOverlay => !!part)
-    if (parts.length) created.setSceneOverlay(parts.length === 1 ? parts[0] : new CompositeOverlay(...parts))
-  }
+  // WORLD-1: the shared world draws first, so a node that is depleted for
+  // everyone is a stump whatever a local overlay would have drawn there.
+  if (dungeonsInWorld) await nextTick()
+  const parts = [sharedWorld.overlay, professionRef.value?.overlay, dungeonRef.value?.overlay]
+    .filter((part): part is SceneOverlay => !!part)
+  created.setSceneOverlay(parts.length === 1 ? parts[0] : new CompositeOverlay(...parts))
   loading.value = false
   const touch = window.matchMedia('(pointer: coarse)').matches
   created.notify(touch ? 'Tocá el suelo para caminar' : 'Hacé click en el suelo para caminar')
