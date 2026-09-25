@@ -139,4 +139,17 @@ describe('PlazaPokemon', () => {
     const again = actors.find(a => a.pokemon?.id === 12)!
     expect([again.homeTx, again.homeTy]).toEqual([first.homeTx, first.homeTy])
   })
+
+  it('gives every Pokémon the same home whatever order the list arrived in (WORLD-1D)', async () => {
+    const homes = (a: ReturnType<typeof setup>) => Object.fromEntries(a.actors.filter(x => x.owned).map(x => [x.pokemon!.id, [x.homeTx, x.homeTy]]))
+    const first = setup()
+    first.plaza.sync([{ pokemonId: 9, mine: false }])
+    await flush()
+    first.plaza.sync([{ pokemonId: 9, mine: false }, { pokemonId: 3, mine: false }, { pokemonId: 5, mine: false }])
+    await flush()
+    const second = setup()
+    second.plaza.sync([{ pokemonId: 5, mine: false }, { pokemonId: 3, mine: false }, { pokemonId: 9, mine: false }])
+    await flush()
+    expect(homes(first)).toEqual(homes(second))
+  })
 })

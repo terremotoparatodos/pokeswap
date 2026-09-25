@@ -9,6 +9,7 @@
 import type { Actor } from './actors'
 import type { Area } from './area'
 import type { Tile } from './pathfinding'
+import type { WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 export interface WorldLayerContext {
   area(): Area
@@ -26,4 +27,6 @@ export interface WorldLayer {
   hidesCompanion(ownerId: string, pokemonId: number): boolean
   /** Server time in ms once known; null before the first world message. */
   serverNow(): number | null
+  /** The server's wild roster for an area, or null. */
+  wildRoster(areaId: string): WildRoster | null
 }

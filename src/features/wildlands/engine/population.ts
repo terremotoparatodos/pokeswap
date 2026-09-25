@@ -2,13 +2,27 @@
 //
 // Chunks near the player are populated with wild Pokémon (picked by biome
 // type affinity from the real Pokédex rows) and wandering NPC trainers.
-// Spawns are cosmetic: they exist only in this browser session.
+//
+// WORLD-1D: once the realtime service shares its clock and wild roster, the
+// wild Pokémon are the server's (one entity per Pokémon, one home, the same
+// for everyone) and every wanderer follows a shared patrol. The local,
+// per-browser population below remains only as the fallback for a server that
+// does not speak the world protocol; remove it once every server does.
 
 import { createActor, type Actor, type PokemonInfo } from './actors'
 import { loadFrontFrames, loadOverworldFrames, type TrainerSprites } from './characters'
 import { CHUNK_TILES } from './chunks'
 import { hash2 } from './noise'
 import type { Biome, World } from './world'
+import type { SharedPopulace } from './area'
+import { buildPatrol } from '../../../../services/realtime/src/world/patrol.js'
+import { NPC_SPEED, WILD_SPEED } from '../../../../services/realtime/src/world/wildPopulation.js'
+import type { WildEntity, WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
+
+/** Shared wild Pokémon are materialised within this many tiles of the player, released past the next. */
+const SHARED_WILD_NEAR = 64
+const SHARED_WILD_FAR = 96
+import { BIOME_TYPES, normaliseType } from '../../../../services/realtime/src/world/wildPopulation.js'
 
 export interface PokedexEntry {
   id: number
@@ -18,35 +32,16 @@ export interface PokedexEntry {
   sprite_url: string | null
 }
 
-const TYPE_ALIASES: Record<string, string> = {
-  planta: 'grass', fuego: 'fire', agua: 'water', normal: 'normal', bicho: 'bug', veneno: 'poison',
-  'eléctrico': 'electric', electrico: 'electric', 'psíquico': 'psychic', psiquico: 'psychic', roca: 'rock',
-  siniestro: 'dark', fantasma: 'ghost', tierra: 'ground', acero: 'steel', hielo: 'ice', lucha: 'fighting',
-  'dragón': 'dragon', dragon: 'dragon', hada: 'fairy', volador: 'flying',
-}
-
-export function normaliseType(type: string | null): string | null {
-  if (!type) return null
-  const key = type.trim().toLowerCase()
-  return TYPE_ALIASES[key] ?? key
-}
+export { normaliseType }
 
 /** Cosmetic shiny rate for wild spawns, same as the classic 1/64 of later games' charms. */
 export const SHINY_ODDS = 1 / 64
 
-export const BIOME_TYPES: Record<Biome, string[]> = {
-  desert: ['ground', 'rock', 'fire', 'steel'],
-  beach: ['water', 'normal', 'flying'],
-  grassland: ['normal', 'grass', 'bug', 'electric', 'fairy'],
-  forest: ['bug', 'grass', 'poison', 'ghost', 'dark'],
-  tundra: ['ice', 'steel', 'psychic'],
-  ocean: ['water', 'dragon'],
-  deep: ['water', 'dragon'],
-}
+export { BIOME_TYPES }
 
 /** Pokédex entries matching any of the biome's types. */
 export function candidatesFor(biome: Biome, pokedex: readonly PokedexEntry[]): PokedexEntry[] {
-  const types = BIOME_TYPES[biome]
+  const types: readonly string[] = BIOME_TYPES[biome]
   return pokedex.filter(p => types.includes(normaliseType(p.type1)!) || types.includes(normaliseType(p.type2) ?? ''))
 }
 
@@ -55,12 +50,21 @@ export class Population {
   private readonly spawnedPokemonIds = new Set<number>()
   private wildPokemonIds: readonly number[] = []
   readonly actors: Actor[] = []
+  private shared: SharedPopulace | null = null
+  /** The roster currently on screen; null in legacy mode. */
+  private roster: WildRoster | null = null
+  private readonly sharedWild = new Map<string, Actor | null>()
+  private patrolled = false
 
   constructor(
     private readonly world: World,
     private readonly pokedex: readonly PokedexEntry[],
     private readonly npcSprites: readonly TrainerSprites[],
   ) {}
+
+  share(shared: SharedPopulace): void {
+    this.shared = shared
+  }
 
   setWildPokemonIds(ids: readonly number[]): void {
     this.wildPokemonIds = ids
@@ -69,6 +73,7 @@ export class Population {
       const actor = this.actors[i]
       if (actor.wild && actor.pokemon && !allowed.has(actor.pokemon.id)) {
         this.spawnedPokemonIds.delete(actor.pokemon.id)
+        this.sharedWild.delete(actor.id)
         this.actors.splice(i, 1)
       }
     }
@@ -76,6 +81,14 @@ export class Population {
 
   /** Populates chunks within one chunk of the player and releases distant ones. */
   update(playerTx: number, playerTy: number): void {
+    const synced = (this.shared?.serverNow() ?? null) !== null
+    const roster = synced ? this.shared!.wildRoster() : null
+    if (roster !== this.roster) this.switchRoster(roster)
+    if (synced && !this.patrolled) {
+      this.patrolled = true
+      for (const actor of this.actors) if (actor.kind === 'npc') this.patrolNpc(actor)
+    }
+    if (this.roster) this.updateSharedWild(playerTx, playerTy)
     const pcx = Math.floor(playerTx / CHUNK_TILES)
     const pcy = Math.floor(playerTy / CHUNK_TILES)
     for (let cy = pcy - 1; cy <= pcy + 1; cy++) {
@@ -104,9 +117,56 @@ export class Population {
     }
   }
 
+  /** Legacy ↔ shared, or a new hour: every wild actor goes, the chunks repopulate. */
+  private switchRoster(roster: WildRoster | null): void {
+    this.roster = roster
+    for (const key of [...this.active]) this.release(key)
+    for (let i = this.actors.length - 1; i >= 0; i--) if (this.actors[i].wild) this.actors.splice(i, 1)
+    this.spawnedPokemonIds.clear()
+    this.sharedWild.clear()
+  }
+
+  private updateSharedWild(playerTx: number, playerTy: number): void {
+    const allowed = new Set(this.wildPokemonIds)
+    for (const entity of this.roster!.entities) {
+      const distance = Math.max(Math.abs(entity.tx - playerTx), Math.abs(entity.ty - playerTy))
+      const held = this.sharedWild.has(entity.id)
+      if (!held && distance <= SHARED_WILD_NEAR && allowed.has(entity.pokemonId)) this.spawnShared(entity)
+      else if (held && distance > SHARED_WILD_FAR) {
+        const actor = this.sharedWild.get(entity.id)
+        this.sharedWild.delete(entity.id)
+        const index = actor ? this.actors.indexOf(actor) : -1
+        if (index >= 0) this.actors.splice(index, 1)
+      }
+    }
+  }
+
+  private spawnShared(entity: WildEntity): void {
+    const entry = this.pokedex.find(pokemon => pokemon.id === entity.pokemonId)
+    if (!entry || !this.shared) return
+    const roster = this.roster
+    const shared = this.shared
+    this.sharedWild.set(entity.id, null)
+    void this.spriteFor(entry, entity.shiny).then(info => {
+      if (!info || this.roster !== roster || this.sharedWild.get(entity.id) !== null) return
+      const actor = createActor({
+        id: entity.id, kind: 'pokemon', habitat: entity.habitat, tx: entity.tx, ty: entity.ty, speed: WILD_SPEED, pokemon: info, wild: true,
+      })
+      actor.patrol = buildPatrol({ key: entity.id, home: entity, walkable: (tx, ty) => shared.walkable(entity.habitat, tx, ty), speed: WILD_SPEED })
+      this.sharedWild.set(entity.id, actor)
+      this.actors.push(actor)
+    })
+  }
+
+  private patrolNpc(actor: Actor): void {
+    const shared = this.shared
+    if (!shared || actor.patrol) return
+    actor.patrol = buildPatrol({ key: actor.id, home: { tx: actor.homeTx, ty: actor.homeTy }, walkable: (tx, ty) => shared.walkable('land', tx, ty), speed: NPC_SPEED })
+  }
+
   private populate(cx: number, cy: number, key: string): void {
     const seed = this.world.seed
-    const pokemonCount = 4 + Math.floor(hash2(cx, cy, seed + 900) * 4)
+    const pokemonCount = this.roster ? 0 : 4 + Math.floor(hash2(cx, cy, seed + 900) * 4)
     for (let i = 0; i < pokemonCount; i++) {
       const tx = cx * CHUNK_TILES + Math.floor(hash2(cx * 31 + i, cy, seed + 901) * CHUNK_TILES)
       const ty = cy * CHUNK_TILES + Math.floor(hash2(cx, cy * 31 + i, seed + 902) * CHUNK_TILES)
@@ -139,7 +199,9 @@ export class Population {
       const ty = cy * CHUNK_TILES + Math.floor(hash2(cx, cy * 17 + i, seed + 952) * CHUNK_TILES)
       if (this.world.isSolid(tx, ty) || this.world.isWater(tx, ty)) continue
       const look = this.npcSprites[Math.floor(hash2(tx, ty, seed + 953) * this.npcSprites.length)]
-      this.actors.push(createActor({ id: `${key}:n${i}`, kind: 'npc', habitat: 'land', tx, ty, speed: 3.2, trainer: look }))
+      const npc = createActor({ id: `${key}:n${i}`, kind: 'npc', habitat: 'land', tx, ty, speed: 3.2, trainer: look })
+      if (this.patrolled) this.patrolNpc(npc)
+      this.actors.push(npc)
     }
   }
 

@@ -16,6 +16,7 @@ export const WORLD_MESSAGE = Object.freeze({
   BATCH: 'world:batch',
   WORK_RESULT: 'world:work:result',
   WORK_DONE: 'world:work:done',
+  WILD: 'world:wild',
 })
 
 const NODE_ID = /^[a-z][a-z0-9-]{0,31}:-?\d{1,6}:-?\d{1,6}:[a-z]{1,16}$/

@@ -8,7 +8,24 @@ export declare const WORLD_MESSAGE: Readonly<{
   BATCH: 'world:batch'
   WORK_RESULT: 'world:work:result'
   WORK_DONE: 'world:work:done'
+  WILD: 'world:wild'
 }>
+
+export interface WildEntity {
+  readonly id: string
+  readonly pokemonId: number
+  /** Home tile; the entity patrols around it (patrol.js). */
+  readonly tx: number
+  readonly ty: number
+  readonly habitat: 'land' | 'water'
+  readonly shiny: boolean
+}
+
+export interface WildRoster {
+  readonly areaId: string
+  readonly epoch: number
+  readonly entities: readonly WildEntity[]
+}
 
 /** A node's public, non-base state as every viewer receives it. */
 export interface PublicNode {
@@ -30,6 +47,7 @@ export interface WorldSnapshot {
   readonly areaId: string
   readonly chunks: readonly string[]
   readonly nodes: readonly PublicNode[]
+  readonly wild?: WildRoster
   readonly ownAction?: { readonly actionId: string; readonly nodeId: string; readonly startedAt: number; readonly endsAt: number }
 }
 

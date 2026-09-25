@@ -72,6 +72,7 @@
       :game="game"
       :pokedex="pokedex"
       :covered="covered"
+      :shared-wild-pool="sharedWildPool"
       @overlay="open => (plazaOpen = open)"
       @market="openFeature('mercado', 'menu')"
       @feature="feature => openFeature(feature, 'menu')"
@@ -293,6 +294,9 @@ const sharedWorld = new SharedWorld(
   },
   id => pokeballInfo({ id, name_es: pokedex.value.find(pokemon => pokemon.id === id)?.name_es ?? String(id) }),
 )
+/** The hour's shared wild pool (WORLD-1D); null keeps the plaza's local fallback. */
+const sharedWildPool = shallowRef<readonly number[] | null>(null)
+sharedWorld.onWildRoster(roster => { sharedWildPool.value = roster ? roster.entities.map(entity => entity.pokemonId) : null })
 const plazaRef = ref<InstanceType<typeof LobbyPlaza> | null>(null)
 const plazaOpen = ref(false)
 const professionRef = ref<{

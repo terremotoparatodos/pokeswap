@@ -28,7 +28,7 @@ function stage() {
     const socket = {
       send: (type: string, payload: unknown) => {
         const sink = world as unknown as Record<string, (value: unknown) => void>
-        const handler = { 'world:snapshot': 'snapshot', 'world:batch': 'batch', 'world:work:result': 'workResult', 'world:work:done': 'workDone' }[type]
+        const handler = { 'world:snapshot': 'snapshot', 'world:batch': 'batch', 'world:work:result': 'workResult', 'world:work:done': 'workDone', 'world:wild': 'wild' }[type]
         if (handler) sink[handler](payload)
       },
     }

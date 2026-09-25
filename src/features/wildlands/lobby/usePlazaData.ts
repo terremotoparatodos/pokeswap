@@ -41,6 +41,11 @@ export interface PlazaDataOptions {
   /** Injectable only for deterministic pool/rotation tests. */
   now?: () => number
   random?: () => number
+  /**
+   * WORLD-1D: the pool the realtime service rolled for everyone this hour.
+   * While it is set, the local roll below is only a fallback and unused.
+   */
+  sharedWildPool?: Ref<readonly number[] | null>
 }
 
 export function usePlazaData(options: PlazaDataOptions) {
@@ -59,7 +64,7 @@ export function usePlazaData(options: PlazaDataOptions) {
     return topPricedIds(slots.value).map(id => ({ pokemonId: id, mine: me !== null && slots.value[id].owner_id === me }))
   })
   /** Pool membership is cosmetic; this extra filter follows server ownership immediately. */
-  const wildPokemonIds = computed(() => availableWildPool(wildPool.value, slots.value))
+  const wildPokemonIds = computed(() => availableWildPool(options.sharedWildPool?.value ?? wildPool.value, slots.value))
 
   function rotateWildPool(): void {
     if (!loaded.value || !options.pokedex.value.length) return

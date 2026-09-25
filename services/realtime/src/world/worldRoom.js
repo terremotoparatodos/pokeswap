@@ -3,6 +3,7 @@ import { ResourceAuthority } from './resourceAuthority.js'
 import { chunkKey } from './resourceStore.js'
 import { WORLD_MESSAGE, WORLD_PROTOCOL, cancelIntent, publicNode, workIntent } from './worldProtocol.js'
 import { chunksInView, isChunkRetained } from './worldInterest.js'
+import { WildService } from './wildService.js'
 
 /**
  * The world's transport glue inside PresenceRoom (WORLD-1B/1C).
@@ -17,13 +18,14 @@ import { chunksInView, isChunkRetained } from './worldInterest.js'
  * O(clients).
  */
 export class WorldRoom {
-  constructor({ skills, ownership, lookupActor, clientForPlayer, now = Date.now, authority = null }) {
+  constructor({ skills, ownership, lookupActor, clientForPlayer, catalog = null, now = Date.now, authority = null }) {
     this.now = now
     this.clientForPlayer = clientForPlayer
     this.clients = new Map()
     this.subscribers = new Map()
     this.credentials = new Map()
     this.metrics = { snapshots: 0, batches: 0, nodeDeltas: 0, chunkEnters: 0, chunkLeaves: 0, maxBatchBytes: 0, bytes: 0 }
+    this.wild = new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster) })
     this.authority = authority ?? new ResourceAuthority({
       skills, ownership, lookupActor, now,
       onNode: record => this.#nodeChanged(record),
@@ -57,8 +59,10 @@ export class WorldRoom {
     const chunks = worldArea(viewer.areaId)?.procedural ? chunksInView(viewer.tx, viewer.ty) : []
     for (const chunkId of chunks) nodes.push(...this.#subscribe(client, state, chunkId))
     const own = viewer.id ? this.authority.actionOf(viewer.id) : null
+    const wild = this.wild.roster(viewer.areaId)
     this.#send(client, WORLD_MESSAGE.SNAPSHOT, {
       now: this.now(), areaId: viewer.areaId, chunks, nodes,
+      ...(wild ? { wild } : {}),
       ...(own ? { ownAction: { actionId: own.actionId, nodeId: own.node.id, startedAt: own.startedAt, endsAt: own.endsAt } } : {}),
     })
     this.metrics.snapshots++
@@ -106,12 +110,14 @@ export class WorldRoom {
 
   tick(now = this.now()) {
     this.authority.tick(now)
+    this.wild.tick(now)
   }
 
   /** Aggregate counters for /metrics: sizes and totals only, never an id or a tile. */
   stats() {
     const authority = this.authority
     return {
+      wild: { epoch: this.wild.epoch, ...this.wild.metrics },
       clients: this.clients.size, subscribedChunks: this.subscribers.size, storedNodes: authority.store.size,
       runningActions: authority.actions.size, queued: authority.queue.size,
       actions: { ...authority.metrics, rejected: { ...authority.metrics.rejected } }, transport: { ...this.metrics },
@@ -131,6 +137,14 @@ export class WorldRoom {
       if (pending.nodes.size) batch.nodes = [...pending.nodes.values()]
       this.#send(client, WORLD_MESSAGE.BATCH, batch)
       this.metrics.batches++
+    }
+  }
+
+  /** A new hour: everyone in the area gets the same roster at the same flush. */
+  #rosterChanged(roster) {
+    const now = this.now()
+    for (const [client, state] of this.clients) {
+      if (state.areaId === roster.areaId) this.#send(client, WORLD_MESSAGE.WILD, { now, wild: roster })
     }
   }
 

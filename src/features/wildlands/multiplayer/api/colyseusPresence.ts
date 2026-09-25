@@ -117,6 +117,7 @@ export class ColyseusPresence implements LocalPresencePort {
         room.onMessage(WORLD_MESSAGE.BATCH, batch => world.batch(batch))
         room.onMessage(WORLD_MESSAGE.WORK_RESULT, result => world.workResult(result))
         room.onMessage(WORLD_MESSAGE.WORK_DONE, done => world.workDone(done))
+        room.onMessage(WORLD_MESSAGE.WILD, message => world.wild(message))
         world.attach((type, payload) => { if (this.room === room) room.send(type, payload) })
       }
       // Install every receiver first. The server only sends the initial

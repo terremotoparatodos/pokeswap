@@ -6,7 +6,7 @@
 
 import type { Actor } from '../../wildlands/engine/actors'
 import type { WorldLayer, WorldLayerContext } from '../../wildlands/engine/worldLayer'
-import type { WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { WildRoster, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WorldSend, WorldTransportSink } from '../api/worldTransport'
 import { WorldClock } from '../domain/worldClock'
@@ -35,6 +35,8 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   private workersRevision = -1
   private own: OwnAction | null = null
   private readonly doneListeners = new Set<(done: WorkDone) => void>()
+  private roster: WildRoster | null = null
+  private readonly wildListeners = new Set<(roster: WildRoster | null) => void>()
 
   constructor(load: LoadPokemon, placeholder: PlaceholderPokemon) {
     this.workers = new WorkerActors(load, placeholder)
@@ -51,6 +53,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     this.send = null
     this.resources.clear()
     this.own = null
+    this.setRoster(null)
     for (const [requestId, entry] of this.pending) {
       clearTimeout(entry.timer)
       entry.resolve({ requestId, ok: false, reason: 'disconnected' })
@@ -62,6 +65,28 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     this.clock.sample(snapshot.now)
     this.resources.applySnapshot(snapshot)
     this.own = snapshot.ownAction ?? null
+    this.setRoster(snapshot.wild ?? null)
+  }
+
+  wild(message: { now: number; wild: WildRoster }): void {
+    this.clock.sample(message.now)
+    if (message.wild.areaId === this.resources.areaId) this.setRoster(message.wild)
+  }
+
+  /** The current area's wild roster, as the server sent it. */
+  get wildRosterValue(): WildRoster | null {
+    return this.roster
+  }
+
+  onWildRoster(listener: (roster: WildRoster | null) => void): () => void {
+    this.wildListeners.add(listener)
+    return () => this.wildListeners.delete(listener)
+  }
+
+  private setRoster(roster: WildRoster | null): void {
+    if (roster === this.roster || (roster && this.roster && roster.areaId === this.roster.areaId && roster.epoch === this.roster.epoch)) return
+    this.roster = roster
+    for (const listener of this.wildListeners) listener(roster)
   }
 
   batch(batch: WorldBatch): void {
@@ -137,5 +162,9 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
 
   serverNow(): number | null {
     return this.clock.now()
+  }
+
+  wildRoster(areaId: string): WildRoster | null {
+    return this.roster?.areaId === areaId ? this.roster : null
   }
 }

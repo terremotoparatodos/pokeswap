@@ -182,3 +182,25 @@ test('malformed intents are refused before any lookup', async () => {
     } else assert.equal(result.reason, 'invalid')
   }
 })
+
+test('Pradera viewers get the same wild roster in their snapshot, and the new one at the hour', async () => {
+  const { createStaticWildCatalog } = await import('./wildService.js')
+  const { WILD_ROTATE_MS } = await import('./wildPopulation.js')
+  let now = 490_000 * WILD_ROTATE_MS + 5
+  const catalog = createStaticWildCatalog(Array.from({ length: 60 }, (_, i) => ({ id: i + 1, type1: 'normal', type2: null, is_legendary: false, base_aura: 0 })))
+  const world = new WorldRoom({ skills: createDemoSkillPolicy(), ownership: createStaticOwnership({}), catalog, now: () => now, lookupActor: () => null, clientForPlayer: () => null })
+  world.tick(); await settle()
+  const a = fakeClient('a'); const b = fakeClient('b'); const town = fakeClient('t')
+  for (const c of [a, b, town]) world.join(c, { worldProtocol: 1 }, { kind: 'guest' })
+  world.snapshot(a, { areaId: 'pradera', ...SPOT_A })
+  world.snapshot(b, { areaId: 'pradera', ...SPOT_B })
+  world.snapshot(town, { areaId: 'ciudad-corazon', tx: 31, ty: 20 })
+  assert.deepEqual(lastMessage(a, WORLD_MESSAGE.SNAPSHOT).wild, lastMessage(b, WORLD_MESSAGE.SNAPSHOT).wild)
+  assert.ok(lastMessage(a, WORLD_MESSAGE.SNAPSHOT).wild.entities.length > 0)
+  assert.equal(lastMessage(town, WORLD_MESSAGE.SNAPSHOT).wild, undefined)
+  now += WILD_ROTATE_MS
+  world.tick(); await settle()
+  assert.equal(lastMessage(a, WORLD_MESSAGE.WILD).wild.epoch, 490_001)
+  assert.deepEqual(lastMessage(a, WORLD_MESSAGE.WILD).wild, lastMessage(b, WORLD_MESSAGE.WILD).wild)
+  assert.equal(lastMessage(town, WORLD_MESSAGE.WILD), undefined)
+})
