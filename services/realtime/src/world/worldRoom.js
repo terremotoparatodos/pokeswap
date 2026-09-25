@@ -176,6 +176,7 @@ export class WorldRoom {
       clients: this.clients.size, subscribedChunks: this.subscribers.size, storedNodes: authority.store.size,
       runningActions: authority.actions.size, queued: authority.queue.size,
       actions: { ...authority.metrics, rejected: { ...authority.metrics.rejected } }, transport: { ...this.metrics },
+      playerData: this.playerData?.metrics?.() ?? null,
     }
   }
 

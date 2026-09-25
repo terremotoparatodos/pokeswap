@@ -1,5 +1,6 @@
 import { createDemoSkillPolicy } from './demoSkillPolicy.js'
 import { createEdgePlayerData } from './persistence/playerData.js'
+import { withPlayerDataMetrics } from './persistence/playerDataMetrics.js'
 import { noOwnership, ownershipFromPlayerData } from './pokemonOwnership.js'
 import { createSkillsWorldPolicy } from './skills/skills.generated.js'
 import { unavailableSkillPolicy } from './skillPolicy.js'
@@ -27,7 +28,7 @@ export function worldDependencies(env = process.env) {
   const catalog = env.WORLD_WILD_CATALOG === 'synthetic' && !production ? syntheticWildCatalog() : createSupabaseWildCatalog(env)
 
   if (!production && env.WORLD_PLAYERDATA === 'pglite') {
-    const playerData = lazyDevPlayerData(env.WORLD_DB_DIR || null)
+    const playerData = withPlayerDataMetrics(lazyDevPlayerData(env.WORLD_DB_DIR || null))
     const scale = Number(env.WORLD_FARM_TIME_SCALE)
     return {
       skills: createSkillsWorldPolicy({ store: playerData, growScale: Number.isFinite(scale) && scale > 0 && scale <= 1 ? scale : 1 }),
@@ -46,7 +47,7 @@ export function worldDependencies(env = process.env) {
     }
   }
   if (env.WORLD_AUTHORITY_URL && env.WORLD_AUTHORITY_SECRET && env.SUPABASE_PUBLISHABLE_KEY) {
-    const playerData = createEdgePlayerData({ url: env.WORLD_AUTHORITY_URL, secret: env.WORLD_AUTHORITY_SECRET, publishableKey: env.SUPABASE_PUBLISHABLE_KEY })
+    const playerData = withPlayerDataMetrics(createEdgePlayerData({ url: env.WORLD_AUTHORITY_URL, secret: env.WORLD_AUTHORITY_SECRET, publishableKey: env.SUPABASE_PUBLISHABLE_KEY }))
     return { skills: createSkillsWorldPolicy({ store: playerData }), ownership: ownershipFromPlayerData(playerData), playerData, catalog, mode: 'authority' }
   }
   return { skills: unavailableSkillPolicy, ownership: noOwnership, playerData: null, catalog, mode: 'unavailable' }

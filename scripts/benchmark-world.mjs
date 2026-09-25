@@ -6,6 +6,10 @@
 //
 // `--world off` runs the same walkers without declaring the world protocol, so
 // the difference between the two runs is what the shared world costs.
+// `--skills real` (INTEGRATION-1) swaps the demo policy for the real SKILLS
+// rules settling into an in-memory PGlite with the real migration: each bot
+// gets a provisioned roster and works with Pokémon it really owns, and the
+// output adds settlement lag and PlayerData calls (database round trips).
 // Output: JSON on stdout (per-client bytes by message family, world message
 // rates, snapshot sizes, work outcomes and latency, server world counters,
 // event loop delay and memory).
@@ -27,6 +31,7 @@ const actionMs = Number(option('action-ms', 3000))
 // browser to watch); server counters are then not collected.
 const externalUrl = option('url', null)
 const prefix = option('prefix', 'world')
+const realSkills = option('skills', 'demo') === 'real'
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const percentile = (values, p) => { if (!values.length) return 0; const s = [...values].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.ceil(s.length * p) - 1)] }
 const round = value => Math.round(value * 100) / 100
@@ -43,7 +48,8 @@ async function waitForPort(target) {
 const server = externalUrl ? null : spawn(process.execPath, ['services/realtime/src/index.js'], {
   env: {
     ...process.env, PORT: String(port), HEALTH_PORT: String(port + 1), NODE_ENV: 'development', PRESENCE_BENCHMARK: 'on',
-    WORLD_DEMO_SKILLS: 'on', WORLD_DEMO_ACTION_MS: String(actionMs), WORLD_WILD_CATALOG: 'synthetic', ALLOWED_ORIGINS: 'http://localhost:5173',
+    ...(realSkills ? { WORLD_PLAYERDATA: 'pglite' } : { WORLD_DEMO_SKILLS: 'on', WORLD_DEMO_ACTION_MS: String(actionMs) }),
+    WORLD_WILD_CATALOG: 'synthetic', ALLOWED_ORIGINS: 'http://localhost:5173',
   },
   stdio: ['ignore', 'ignore', 'inherit'],
 })
@@ -62,12 +68,16 @@ try {
     room.reconnection.enabled = false
     const state = { room, i, tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty, sequence: 0, bytes: { presence: 0, world: 0, chat: 0 }, messages: { presence: 0, world: 0 },
       worldTypes: {}, snapshotBytes: [], batchBytes: [], results: {}, latency: [], done: 0, pending: null, requestId: 0, target: i % targets.length,
+      /** --skills real: owned instance ids from player:state; `worker` rotates past Pokémon SKILLS refuses. */
+      pokemon: [], worker: 0, settleLag: [], settled: 0,
+      /** Nodes SKILLS said this player can never work yet (no resource, level too low): skipped for good. */
+      never: new Set(),
       /** Nodes this client was told are not available: a player would not walk to them. */
       busy: new Set() }
     const learn = nodes => { for (const node of nodes ?? []) { if (node.base) state.busy.delete(node.id); else state.busy.add(node.id) } }
     const count = (type, payload) => {
       const size = JSON.stringify(payload ?? null).length + type.length
-      const family = type.startsWith('world:') ? 'world' : type.startsWith('chat:') ? 'chat' : 'presence'
+      const family = type.startsWith('world:') || type.startsWith('player:') ? 'world' : type.startsWith('chat:') ? 'chat' : 'presence'
       state.bytes[family] += size
       if (family !== 'chat') state.messages[family]++
       if (family === 'world') {
@@ -80,17 +90,26 @@ try {
     for (const type of ['presence:snapshot', 'presence:self', 'presence:delta', 'presence:batch', 'presence:error', 'chat:history', 'chat:line', 'world:snapshot', 'world:batch', 'world:wild', 'world:work:done']) {
       room.onMessage(type, payload => {
         count(type, payload)
-        if (type === 'world:work:done' && state.pending?.actionId === payload.actionId) { state.done++; state.pending = null }
+        if (type === 'world:work:done' && state.pending?.actionId === payload.actionId) {
+          state.done++
+          if (payload.ok) { state.settled++; state.settleLag.push(Date.now() - state.pending.endsAt) } else state.worker++
+          state.pending = null
+        }
         if (type === 'world:snapshot') { state.busy.clear(); learn(payload.nodes) }
         if (type === 'world:batch') { for (const entry of payload.enter ?? []) learn(entry.nodes); learn(payload.nodes) }
       })
     }
+    room.onMessage('player:state', payload => { count('player:state', payload); state.pokemon = (payload.pokemon ?? []).map(p => p.instanceId) })
     room.onMessage('world:work:result', payload => {
       count('world:work:result', payload)
       state.results[payload.ok ? 'ok' : payload.reason] = (state.results[payload.ok ? 'ok' : payload.reason] ?? 0) + 1
       if (state.pending?.requestId === payload.requestId) {
         state.latency.push(performance.now() - state.pending.sentAt)
-        state.pending = payload.ok ? { actionId: payload.actionId } : null
+        state.pending = payload.ok ? { actionId: payload.actionId, endsAt: payload.endsAt } : null
+        // A node this player cannot work yet is skipped for good; a refusal about
+        // the worker (aptitude, missing Pokémon) tries the next Pokémon next time.
+        if (!payload.ok && ['not-a-resource', 'level-too-low'].includes(payload.reason)) state.never.add(state.lastNode)
+        else if (!payload.ok && !['busy', 'depleted', 'respawning', 'actor-busy', 'pokemon-busy', 'too-far'].includes(payload.reason)) state.worker++
       }
     })
     room.send('presence:ready')
@@ -104,14 +123,16 @@ try {
   // are refused and skipped, as a player would.
   const step = state => {
     if (state.pending) return
-    for (let skip = 0; skip < targets.length && state.busy.has(targets[state.target].node.id); skip++) state.target = (state.target + 1) % targets.length
+    for (let skip = 0; skip < targets.length && (state.busy.has(targets[state.target].node.id) || state.never.has(targets[state.target].node.id)); skip++) state.target = (state.target + 1) % targets.length
     const target = targets[state.target]
     const dx = target.stand.tx - state.tx
     const dy = target.stand.ty - state.ty
     if (dx === 0 && dy === 0) {
       if (!worldOn) { state.target = (state.target + players) % targets.length; return }
       state.pending = { requestId: ++state.requestId, sentAt: performance.now() }
-      state.room.send('world:work', { nodeId: target.node.id, pokemonInstanceId: state.i + 1, requestId: state.requestId })
+      const pokemonInstanceId = realSkills ? state.pokemon[state.worker % Math.max(1, state.pokemon.length)] ?? 0 : state.i + 1
+      state.lastNode = target.node.id
+      state.room.send('world:work', { nodeId: target.node.id, pokemonInstanceId, requestId: state.requestId })
       state.target = (state.target + players + 1) % targets.length
       return
     }
@@ -136,7 +157,7 @@ try {
   const results = {}
   for (const state of clients) for (const [key, value] of Object.entries(state.results)) results[key] = (results[key] ?? 0) + value
   console.log(JSON.stringify({
-    benchmark: 'world-1', players, worldProtocol: worldOn, seconds: round(seconds), actionMs, targets: targets.length,
+    benchmark: realSkills ? 'integration-1' : 'world-1', skills: realSkills ? 'real+pglite' : 'demo', players, worldProtocol: worldOn, seconds: round(seconds), actionMs, targets: targets.length,
     perClientKiBps: {
       presence: { mean: round(per('presence').reduce((a, b) => a + b, 0) / players), p95: round(percentile(per('presence'), 0.95)) },
       world: { mean: round(per('world').reduce((a, b) => a + b, 0) / players), p95: round(percentile(per('world'), 0.95)) },
@@ -144,7 +165,8 @@ try {
     worldMessagesPerClientPerSecond: { mean: round(worldMsgs.reduce((a, b) => a + b, 0) / players), p95: round(percentile(worldMsgs, 0.95)) },
     worldSnapshotBytes: { p50: percentile(snapshotBytes, 0.5), max: Math.max(0, ...snapshotBytes) },
     worldBatchBytes: { p50: percentile(batchBytes, 0.5), p95: percentile(batchBytes, 0.95), max: Math.max(0, ...batchBytes) },
-    work: { results, completions: clients.reduce((a, s) => a + s.done, 0), requestToReplyMs: { p50: round(percentile(clients.flatMap(s => s.latency), 0.5)), p95: round(percentile(clients.flatMap(s => s.latency), 0.95)) } },
+    work: { results, completions: clients.reduce((a, s) => a + s.done, 0), settled: clients.reduce((a, s) => a + s.settled, 0),
+      settleLagMs: { p50: round(percentile(clients.flatMap(s => s.settleLag), 0.5)), p95: round(percentile(clients.flatMap(s => s.settleLag), 0.95)), max: round(Math.max(0, ...clients.flatMap(s => s.settleLag))) }, requestToReplyMs: { p50: round(percentile(clients.flatMap(s => s.latency), 0.5)), p95: round(percentile(clients.flatMap(s => s.latency), 0.95)) } },
     concurrentActions: { max: Math.max(0, ...samples.map(s => s?.runningActions ?? 0)), mean: round(samples.reduce((a, s) => a + (s?.runningActions ?? 0), 0) / Math.max(1, samples.length)) },
     storedNodes: { max: Math.max(0, ...samples.map(s => s?.storedNodes ?? 0)) },
     subscribedChunks: { max: Math.max(0, ...samples.map(s => s?.subscribedChunks ?? 0)) },
