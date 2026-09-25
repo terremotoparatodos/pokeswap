@@ -1,0 +1,22 @@
+{
+  "benchmark": "integration-1 settle-stress",
+  "database": "pglite (in memory, single connection)",
+  "players": 50,
+  "actionsPerPlayer": 20,
+  "concurrency": 50,
+  "commits": 1189,
+  "distinctActions": 1000,
+  "applied": 1000,
+  "replays": 189,
+  "seconds": 1.41,
+  "commitsPerSecond": 846,
+  "latencyMs": {
+    "p50": 57.9,
+    "p95": 67.7,
+    "max": 79.3
+  },
+  "ledger": {
+    "playersWithWrongTotals": 0,
+    "nodeOverrides": 1000
+  }
+}

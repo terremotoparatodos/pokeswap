@@ -1,0 +1,146 @@
+
+## D1 enter a building, leave, walk left: safe point 0, reconciliations 0, placements 0, observer jumps 0, B sees A at (29,15) while A is at ciudad-corazon (29,15) (off by 0)
+  1584 ms  A      --- scenario starts at ciudad-corazon (31,15) ---
+  1600 ms  A      send move #6 up (local step (31,14) → server applies it to its own tile)
+  1650 ms  server → B step  (31,14) #6
+  1840 ms  A      entered building door (31,14)
+  1856 ms  A      panel open (800 ms), player (31,14)
+  2656 ms  A      send move #7 down (local step (31,15) → server applies it to its own tile)
+  2656 ms  A      panel closed → placeAtDoor (31,14) → (31,15) (announced as move #7)
+  2700 ms  server → B step  (31,15) #7
+  2912 ms  A      send move #8 left (local step (30,15) → server applies it to its own tile)
+  2950 ms  server → B step  (30,15) #8
+  3152 ms  A      send move #9 left (local step (29,15) → server applies it to its own tile)
+  3200 ms  server → B step  (29,15) #9
+
+## D2 enter, leave, walk right: safe point 0, reconciliations 0, placements 0, observer jumps 0, B sees A at (33,15) while A is at ciudad-corazon (33,15) (off by 0)
+  1584 ms  A      --- scenario starts at ciudad-corazon (31,15) ---
+  1600 ms  A      send move #6 up (local step (31,14) → server applies it to its own tile)
+  1650 ms  server → B step  (31,14) #6
+  1840 ms  A      entered building door (31,14)
+  1856 ms  A      panel open (800 ms), player (31,14)
+  2656 ms  A      send move #7 down (local step (31,15) → server applies it to its own tile)
+  2656 ms  A      panel closed → placeAtDoor (31,14) → (31,15) (announced as move #7)
+  2700 ms  server → B step  (31,15) #7
+  2912 ms  A      send move #8 right (local step (32,15) → server applies it to its own tile)
+  2950 ms  server → B step  (32,15) #8
+  3152 ms  A      send move #9 right (local step (33,15) → server applies it to its own tile)
+  3200 ms  server → B step  (33,15) #9
+
+## D3 enter, leave, walk down: safe point 0, reconciliations 0, placements 0, observer jumps 0, B sees A at (31,17) while A is at ciudad-corazon (31,17) (off by 0)
+  1584 ms  A      --- scenario starts at ciudad-corazon (31,15) ---
+  1600 ms  A      send move #6 up (local step (31,14) → server applies it to its own tile)
+  1650 ms  server → B step  (31,14) #6
+  1840 ms  A      entered building door (31,14)
+  1856 ms  A      panel open (800 ms), player (31,14)
+  2656 ms  A      send move #7 down (local step (31,15) → server applies it to its own tile)
+  2656 ms  A      panel closed → placeAtDoor (31,14) → (31,15) (announced as move #7)
+  2700 ms  server → B step  (31,15) #7
+  2896 ms  A      send move #8 down (local step (31,16) → server applies it to its own tile)
+  2950 ms  server → B step  (31,16) #8
+  3152 ms  A      send move #9 down (local step (31,17) → server applies it to its own tile)
+  3200 ms  server → B step  (31,17) #9
+
+## D4 enter and leave three times: safe point 0, reconciliations 0, placements 0, observer jumps 0, B sees A at (33,15) while A is at ciudad-corazon (33,15) (off by 0)
+  1584 ms  A      --- scenario starts at ciudad-corazon (31,15) ---
+  1600 ms  A      send move #6 up (local step (31,14) → server applies it to its own tile)
+  1650 ms  server → B step  (31,14) #6
+  1840 ms  A      entered building door (31,14)
+  1856 ms  A      panel open (800 ms), player (31,14)
+  2656 ms  A      send move #7 down (local step (31,15) → server applies it to its own tile)
+  2656 ms  A      panel closed → placeAtDoor (31,14) → (31,15) (announced as move #7)
+  2700 ms  server → B step  (31,15) #7
+  3184 ms  A      send move #8 up (local step (31,14) → server applies it to its own tile)
+  3250 ms  server → B step  (31,14) #8
+  3424 ms  A      entered building door (31,14)
+  3440 ms  A      panel open (800 ms), player (31,14)
+  4240 ms  A      send move #9 down (local step (31,15) → server applies it to its own tile)
+  4240 ms  A      panel closed → placeAtDoor (31,14) → (31,15) (announced as move #9)
+  4300 ms  server → B step  (31,15) #9
+  4768 ms  A      send move #10 left (local step (30,15) → server applies it to its own tile)
+  4800 ms  server → B step  (30,15) #10
+  5008 ms  A      send move #11 left (local step (29,15) → server applies it to its own tile)
+  5050 ms  server → B step  (29,15) #11
+  5392 ms  A      send move #12 right (local step (30,15) → server applies it to its own tile)
+  5450 ms  server → B step  (30,15) #12
+  5632 ms  A      send move #13 right (local step (31,15) → server applies it to its own tile)
+  5700 ms  server → B step  (31,15) #13
+  6016 ms  A      send move #14 up (local step (31,14) → server applies it to its own tile)
+  6050 ms  server → B step  (31,14) #14
+  6256 ms  A      entered building door (31,14)
+  6272 ms  A      panel open (800 ms), player (31,14)
+  7072 ms  A      send move #15 down (local step (31,15) → server applies it to its own tile)
+  7072 ms  A      panel closed → placeAtDoor (31,14) → (31,15) (announced as move #15)
+  7150 ms  server → B step  (31,15) #15
+  7600 ms  A      send move #16 right (local step (32,15) → server applies it to its own tile)
+  7650 ms  server → B step  (32,15) #16
+  7840 ms  A      send move #17 right (local step (33,15) → server applies it to its own tile)
+  7900 ms  server → B step  (33,15) #17
+
+## D5 enter, leave at once, walk left: safe point 0, reconciliations 0, placements 0, observer jumps 0, B sees A at (30,15) while A is at ciudad-corazon (30,15) (off by 0)
+  1584 ms  A      --- scenario starts at ciudad-corazon (31,15) ---
+  1600 ms  A      send move #6 up (local step (31,14) → server applies it to its own tile)
+  1650 ms  server → B step  (31,14) #6
+  1840 ms  A      entered building door (31,14)
+  1856 ms  A      panel open (50 ms), player (31,14)
+  1920 ms  A      send move #7 down (local step (31,15) → server applies it to its own tile)
+  1920 ms  A      panel closed → placeAtDoor (31,14) → (31,15) (announced as move #7)
+  1950 ms  server → B step  (31,15) #7
+  2176 ms  A      send move #8 left (local step (30,15) → server applies it to its own tile)
+  2250 ms  server → B step  (30,15) #8
+
+## A1 town → Pradera → town by the west gate, observed near the gate: safe point 0, reconciliations 0, placements 2, observer jumps 0, B sees A at (11,41) while A is at ciudad-corazon (11,41) (off by 0)
+ 20160 ms  A      --- scenario starts at ciudad-corazon (8,41) ---
+ 20176 ms  A      send move #79 left (local step (7,41) → server applies it to its own tile)
+ 20250 ms  server → B step  (7,41) #79
+ 20416 ms  A      send move #80 left (local step (6,41) → server applies it to its own tile)
+ 20450 ms  server → B step  (6,41) #80
+ 20672 ms  A      on portal (6,41) → travel to pradera
+ 21088 ms  A      area swap ciudad-corazon → pradera, placed at (-5,-69)
+ 21088 ms  A      send area pradera (local pradera (-5,-69))
+ 21150 ms  server → B leave pradera (-5,-69) #80
+ 21184 ms  B      A disappears (was (6,41))
+ 23040 ms  A      send move #81 down (local step (-5,-68) → server applies it to its own tile)
+ 23280 ms  A      send move #82 down (local step (-5,-67) → server applies it to its own tile)
+ 23664 ms  A      send move #83 up (local step (-5,-68) → server applies it to its own tile)
+ 23904 ms  A      send move #84 up (local step (-5,-69) → server applies it to its own tile)
+ 24160 ms  A      send move #85 up (local step (-5,-70) → server applies it to its own tile)
+ 24416 ms  A      on portal (-5,-70) → travel to ciudad-corazon
+ 24832 ms  A      area swap pradera → ciudad-corazon, placed at (8,41)
+ 24832 ms  A      send area ciudad-corazon (local ciudad-corazon (8,41))
+ 24900 ms  server → B upsert ciudad-corazon (8,41) #85
+ 24944 ms  B      A appears at (8,41)
+ 26784 ms  A      send move #86 right (local step (9,41) → server applies it to its own tile)
+ 26850 ms  server → B step  (9,41) #86
+ 27024 ms  A      send move #87 right (local step (10,41) → server applies it to its own tile)
+ 27100 ms  server → B step  (10,41) #87
+ 27280 ms  A      send move #88 right (local step (11,41) → server applies it to its own tile)
+ 27350 ms  server → B step  (11,41) #88
+
+## A2 town → Pradera → town, observed in Pradera: safe point 0, reconciliations 0, placements 2, observer jumps 0, B sees A at absent while A is at ciudad-corazon (11,41) (off by 0)
+ 20160 ms  A      --- scenario starts at ciudad-corazon (8,41) ---
+ 20176 ms  A      send move #79 left (local step (7,41) → server applies it to its own tile)
+ 20416 ms  A      send move #80 left (local step (6,41) → server applies it to its own tile)
+ 20672 ms  A      on portal (6,41) → travel to pradera
+ 21088 ms  A      area swap ciudad-corazon → pradera, placed at (-5,-69)
+ 21088 ms  A      send area pradera (local pradera (-5,-69))
+ 21150 ms  server → B upsert pradera (-5,-69) #80
+ 21184 ms  B      A appears at (-5,-69)
+ 23040 ms  A      send move #81 down (local step (-5,-68) → server applies it to its own tile)
+ 23100 ms  server → B step  (-5,-68) #81
+ 23280 ms  A      send move #82 down (local step (-5,-67) → server applies it to its own tile)
+ 23350 ms  server → B step  (-5,-67) #82
+ 23664 ms  A      send move #83 up (local step (-5,-68) → server applies it to its own tile)
+ 23700 ms  server → B step  (-5,-68) #83
+ 23904 ms  A      send move #84 up (local step (-5,-69) → server applies it to its own tile)
+ 23950 ms  server → B step  (-5,-69) #84
+ 24160 ms  A      send move #85 up (local step (-5,-70) → server applies it to its own tile)
+ 24200 ms  server → B step  (-5,-70) #85
+ 24416 ms  A      on portal (-5,-70) → travel to ciudad-corazon
+ 24832 ms  A      area swap pradera → ciudad-corazon, placed at (8,41)
+ 24832 ms  A      send area ciudad-corazon (local ciudad-corazon (8,41))
+ 24900 ms  server → B leave ciudad-corazon (8,41) #85
+ 24944 ms  B      A disappears (was (-5,-70))
+ 26784 ms  A      send move #86 right (local step (9,41) → server applies it to its own tile)
+ 27024 ms  A      send move #87 right (local step (10,41) → server applies it to its own tile)
+ 27280 ms  A      send move #88 right (local step (11,41) → server applies it to its own tile)

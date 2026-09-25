@@ -1,0 +1,146 @@
+{
+  "benchmark": "integration-1",
+  "skills": "real+pglite",
+  "players": 10,
+  "worldProtocol": true,
+  "seconds": 60,
+  "actionMs": 3000,
+  "targets": 26,
+  "perClientKiBps": {
+    "presence": {
+      "mean": 3.07,
+      "p95": 4.1
+    },
+    "world": {
+      "mean": 0.23,
+      "p95": 0.3
+    }
+  },
+  "worldMessagesPerClientPerSecond": {
+    "mean": 1.06,
+    "p95": 1.42
+  },
+  "worldSnapshotBytes": {
+    "p50": 1913,
+    "max": 1913
+  },
+  "worldBatchBytes": {
+    "p50": 154,
+    "p95": 326,
+    "max": 589
+  },
+  "work": {
+    "results": {
+      "invalid": 3,
+      "ok": 17,
+      "level-too-low": 44
+    },
+    "completions": 17,
+    "settled": 17,
+    "settleLagMs": {
+      "p50": 44,
+      "p95": 62,
+      "max": 62
+    },
+    "requestToReplyMs": {
+      "p50": 0.87,
+      "p95": 3.38
+    }
+  },
+  "concurrentActions": {
+    "max": 5,
+    "mean": 1.02
+  },
+  "storedNodes": {
+    "max": 17
+  },
+  "subscribedChunks": {
+    "max": 52
+  },
+  "server": {
+    "world": {
+      "wild": {
+        "epoch": 497318,
+        "loads": 1,
+        "failures": 0
+      },
+      "clients": 10,
+      "subscribedChunks": 45,
+      "storedNodes": 17,
+      "runningActions": 0,
+      "queued": 17,
+      "actions": {
+        "requested": 61,
+        "started": 17,
+        "rejected": {
+          "level-too-low": 44
+        },
+        "completed": 17,
+        "settleRetries": 0,
+        "settleFailed": 0,
+        "cancelled": 0,
+        "respawned": 0,
+        "staleCompletions": 0,
+        "authorizedNotStarted": 0,
+        "restored": 0
+      },
+      "transport": {
+        "snapshots": 16,
+        "batches": 528,
+        "nodeDeltas": 273,
+        "chunkEnters": 536,
+        "chunkLeaves": 477,
+        "maxBatchBytes": 1899,
+        "bytes": 135490
+      },
+      "playerData": {
+        "playerState": {
+          "calls": 10,
+          "failures": 0,
+          "ms": {
+            "p50": 5.8,
+            "p95": 1068.3,
+            "max": 1068.3
+          }
+        },
+        "ownsPokemon": {
+          "calls": 14,
+          "failures": 0,
+          "ms": {
+            "p50": 1.9,
+            "p95": 2.2,
+            "max": 2.2
+          }
+        },
+        "commitWork": {
+          "calls": 17,
+          "failures": 0,
+          "ms": {
+            "p50": 2.8,
+            "p95": 7.1,
+            "max": 7.1
+          }
+        },
+        "loadNodes": {
+          "calls": 1,
+          "failures": 0,
+          "ms": {
+            "p50": 1184.2,
+            "p95": 1184.2,
+            "max": 1184.2
+          }
+        }
+      }
+    },
+    "eventLoopDelayMs": {
+      "p50": 31.2,
+      "p99": 33.31,
+      "max": 905.97
+    },
+    "memoryMb": {
+      "rss": 324,
+      "heapUsed": 28
+    },
+    "moves": 2637
+  }
+}
