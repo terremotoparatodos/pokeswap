@@ -722,10 +722,11 @@ defineExpose({ leave })
       <span class="pd-key" :class="{ 'pd-key--on': doorOpen }">🔑 {{ doorOpen ? 'CONSEGUIDA' : '—' }}</span>
       <span class="pd-loot">◈ {{ lootCount }}</span>
       <span class="pd-party">{{ healthy }}/{{ party.length }}</span>
-      <!-- §1: the professions this floor asks for, and at what level. -->
+      <!-- §1: the skills this floor involves. No level is quoted: nothing in the
+           dungeon enforces a Skills level yet (INTEGRATION-1), so none is promised. -->
       <span v-for="need in needs" :key="need.skill" class="pd-need" :title="`Nodo del catálogo: ${need.nodeId}`">
         <CombatIcon :name="need.skill === 'mine' ? 'physical' : 'special'" />
-        {{ need.profession }} Nv. {{ need.level }}
+        {{ need.profession }}
       </span>
     </div>
 
@@ -767,8 +768,7 @@ defineExpose({ leave })
           >
             {{ OBSTACLES[obstacle.kind].skill === 'mine' ? '⛏' : '🪓' }}
             {{ OBSTACLES[obstacle.kind].label }}
-            <em>{{ requirementForObstacle(obstacle.kind).profession }} Nv.
-              {{ requirementForObstacle(obstacle.kind).level }}</em>
+            <em>{{ requirementForObstacle(obstacle.kind).profession }}</em>
           </button>
           <!-- The scenery that blocks: the same tools, the same nothing in return. -->
           <button
@@ -776,7 +776,7 @@ defineExpose({ leave })
             @click="breakScenery(prop.id)"
           >
             {{ prop.skill === 'mine' ? '⛏' : '🪓' }} {{ prop.label }}
-            <em>{{ prop.requirement.profession }} Nv. {{ prop.requirement.level }}</em>
+            <em>{{ prop.requirement.profession }}</em>
           </button>
           <button
             v-if="onStairs" type="button" class="pd-cta"
