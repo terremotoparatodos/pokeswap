@@ -3,6 +3,7 @@
 > Rama `world/1-shared-authority`, desde `playtest-0.2` = `dc6dc70` (verificado con `git fetch`: tag, `origin/playtest/community-0.1` y HEAD coincidían; no había hotfix posterior).
 > Worktree propio (`../pokeswap-world1`), separado del checkout principal y de la estación de SKILLS.
 > **Sin deploy, sin merge, sin PR.** Rama pusheada para revisión.
+> **Revisión 1 (2026-09-25):** validar antes de reservar, fail closed de salvajes, settlement de SKILLS en espera, persistencia como deuda WORLD-1.1 (§19).
 
 Criterio de éxito: *dos jugadores en el mismo lugar están realmente en el mismo mundo.* Qué quedó cubierto, qué no y por qué, está en §15–§16.
 
@@ -21,7 +22,7 @@ Criterio de éxito: *dos jugadores en el mismo lugar están realmente en el mism
 | Hora del día / clima | por sesión | reloj del servidor |
 | Performance | baseline | PERF-2 y TRANS-1 **idénticos**; costo de mundo medido en §14 |
 
-Tests: realtime 69 → 104 (+35); vitest 188/2002 → 193/2020 (+18); typecheck OK; lint 0 errores / 9 warnings (los mismos); build OK.
+Tests: realtime 69 → 109 (+40); vitest 188/2002 → 194/2021; typecheck OK; lint 0 errores / 9 warnings (los mismos); build OK.
 
 ## 2. Auditoría BEFORE
 
@@ -77,15 +78,18 @@ Cliente A                    Servidor (PresenceRoom + WorldRoom)                
 move(dir) ───────────────►  actor.tx/ty (token bucket, igual que 0.2)
 world:work{node,pkmn,req} ► workIntent() valida forma (sin campos de resultado)
                             ResourceAuthority.requestWork
+                              ── validar (nada queda tomado) ──
                               1 físico: nodo existe (re-derivado), misma área,
-                                adyacente, estado permite, sin claim, 1 acción
-                                por jugador y por Pokémon
-                              2 CLAIM síncrono (nodo, jugador, Pokémon) ── B pide lo mismo → busy
-                              3 await ownership (slots, token de A)
-                              4 await SKILLS.authorizeWorkAttempt(actionId,…)
-                              5 re-chequeo físico con el actor vivo
-                              6 store: working {worker, actionId, startedAt, endsAt}
-                              7 dueQueue.push(endsAt, complete)
+                                adyacente, estado permite, 1 acción por jugador
+                                y por Pokémon, 1 intento en vuelo por jugador
+                              2 await ownership (slots, token de A)
+                              3 await SKILLS.authorizeWorkAttempt(actionId,…)
+                              ── adquirir (síncrono, sin await en el medio) ──
+                              4 re-chequeo físico con el actor vivo y el nodo
+                              5 nodo + jugador + Pokémon tomados; store: working
+                                {worker, actionId, startedAt, endsAt}
+                                (si otro llegó antes → busy y SKILLS.cancelWork)
+                              6 dueQueue.push(endsAt, complete)
 world:work:result ◄──────── (sólo a A)
                             flush 50 ms ─── world:batch {nodes:[working…]} ─────► ve el árbol trabajando,
                                                                                    el Pokémon, el verbo y el progreso
@@ -122,6 +126,7 @@ cancelWork?({ actionId, playerId, reason })   // opcional, informativo
 - SKILLS garantiza: `settleWork` idempotente por `actionId` (recomendado: tabla con `action_id` como PK y la liquidación en la misma transacción, AGENTS §10).
 - `summary` sólo viaja al jugador que trabajó (`world:work:done`), nunca en el estado público.
 - Producción usa `unavailableSkillPolicy` (rechaza todo) hasta que SKILLS entregue su adaptador: **ningún camino de recompensa fake existe en producción.**
+- **Estado del settlement: en espera de decisión.** WORLD-1 no resuelve XP/drops ni agrega service-role ni ningún credencial nuevo. El puerto está listo; *cómo* liquida SKILLS del lado servidor (qué operación, con qué credencial, en qué transacción) se decide después de revisar la rama de SKILLS (OQ-3). Lo que el puerto exige de esa implementación: idempotencia por `actionId`, liquidación server-only y atómica con la escritura de XP/drops, y `retryable` sólo cuando reintentar con el mismo `actionId` es seguro.
 
 ## 6. ResourceNode: schema y estados
 
@@ -150,7 +155,9 @@ Ciclos de vida como **datos** (`resourceLifecycle.js`): `{ initial, work: {desde
 | Nodo trabajando / agotado, acciones en curso | memoria del proceso | restart del room: sí (estado de módulo, como la presencia) · reconexión: sí · área vacía: sí · **reinicio del proceso: no** |
 | Liquidación (XP/drops) | SKILLS (DB) | todo; idempotente por `actionId` (UUID, nunca se reutiliza tras un reinicio) |
 
-Decisión: **no persistir en WORLD-1**. Un reinicio sólo adelanta respawns de 90 s y corta acciones de segundos *sin liquidarlas* (nada se otorga ni se consume). Cero escrituras a DB por frame o por acción desde WORLD. Cuándo cambia: cuando haya estado de larga duración (cultivos de horas en Agricultura) — el puerto `ResourceStore` es el lugar para un adaptador que guarde sólo registros no-base con `respawnAt`/timers.
+Decisión: **no persistir en WORLD-1**. Un reinicio sólo adelanta respawns de 90 s y corta acciones de segundos *sin liquidarlas* (nada se otorga ni se consume). Cero escrituras a DB por frame o por acción desde WORLD.
+
+**Deuda explícita — WORLD-1.1 / integración:** persistir los nodos no-base (estado + `respawnAt`/timers) para sobrevivir reinicios del proceso. Es necesaria antes de cualquier estado de larga duración (cultivos de horas) y se revisa al integrar SKILLS. El lugar es un adaptador detrás de `ResourceStore`; no se amplió el scope ahora.
 
 Timers: una min-heap (`dueQueue.js`) drenada por el tick existente de 50 ms; ningún `setTimeout` por nodo. Las entradas viejas son no-ops porque cada handler re-chequea versión/actionId.
 
@@ -180,6 +187,10 @@ Servidor (`node --test`): `resourceAuthority.test.js`, `worldRoom.test.js`, `Pre
 | Dos callbacks de completion → una liquidación | `completion depletes once, settles once…` (+ la entrada de la cola, 3 intentos → 1 grant) |
 | Nodo lejano → rechazo | `too-far` |
 | Pokémon ajeno → rechazo | `not-owner`, y SKILLS nunca es consultado |
+| (rev. 1) un request inválido en vuelo no bloquea a un jugador legítimo | `a request with someone else’s Pokémon, still in flight, never makes the node busy…` (ownership demorada: A adquiere mientras la de B sigue pendiente) · `an attempt SKILLS is about to refuse never makes the node busy either` |
+| (rev. 1) perdedor de la carrera, ya autorizado | recibe `busy`; SKILLS recibe `cancelWork` (`authorizedNotStarted`) |
+| (rev. 1) un intento en vuelo por jugador | `in-flight`, sin lectura de ownership extra |
+| (rev. 1) catálogo ilegible → sin salvajes, con diagnóstico | `no roster, no wild Pokémon: an unreadable catalog fails closed and says why, once` · `wild population never falls back to a local roll` · `an unavailable status clears the roster…` |
 | (extra) request id repetido | `duplicate-request`, sin segunda reserva |
 | (extra) liquidación que falla | el nodo no se agota; reintento transitorio → 1 grant con el mismo `actionId` |
 | (extra) duración de SKILLS | acotada (10 ms → 500 ms) |
@@ -213,7 +224,12 @@ Colisión: los actores con patrulla **no bloquean** al jugador ni a la ruta del 
 
 Cambios de comportamiento intencionales (documentados): el pool ya no "sigue" al jugador por el mapa — cada salvaje vive cerca de su casa, concentrados en torno al spawn de Pradera (radio de 3 chunks de 32); explorando lejos se ven menos. Es consecuencia directa de que un Pokémon es único.
 
-Fallback temporal: un servidor sin protocolo de mundo (o sin roster, p. ej. si falla la lectura del catálogo) deja la población local de 0.2. Quitarlo cuando todos los servidores hablen el protocolo (AGENTS §14).
+**Fail closed (rev. 1).** No existe fallback a una población tirada en el navegador: se eliminaron la población salvaje local de `population.ts`, el roll local de `usePlazaData.ts` y el wrapper `rollWildPool` del cliente (la regla vive y se prueba sólo en el servidor). Sin roster del servidor — servidor viejo, catálogo ilegible o todavía cargando — un área **no tiene Pokémon salvajes**. El diagnóstico es explícito: `wildStatus: 'loading' | 'ready' | 'unavailable'` en el snapshot de Pradera y `world:wild { wild: null, status: 'unavailable' }` en vivo; el servidor deja una línea de log por racha de fallas (sólo el código de estado) y la cuenta en `/metrics` (`world.wild.failures`, `lastFailure`). Una rotación que falla conserva el roster de la hora anterior: viejo, pero igual para todos.
+
+**Gaps deliberados del shared world** (registrados, no se resuelven en WORLD-1):
+- **Cristales locales**: el pickup de cristales sigue siendo por cliente ("demo, no se guarda").
+- **Colisión con NPC desactivada**: los actores con patrulla no bloquean ni al jugador ni al navegador (sólo los residentes estacionarios son sólidos). Así nunca hay geometría dinámica contradictoria entre clientes, a cambio de que se atraviesen.
+- (nota) Antes del primer mensaje de mundo — sin reloj del servidor — los NPC entrenadores y los wanderers de Ciudad usan el paseo local hasta que llega el reloj (su identidad es determinista; sólo la posición de esos segundos es local). Los salvajes no: no aparecen hasta que hay roster.
 
 ## 14. Métricas vs Playtest 0.2
 
@@ -288,28 +304,28 @@ En build de producción los internos no son inspeccionables; la paridad fina ent
 
 **Riesgos**
 
-1. **Reinicio del proceso realtime**: borra nodos agotados y corta acciones sin liquidar (nada se otorga ni se consume). Aceptable con respawns de 90 s; no para cultivos de horas (§8).
+1. **Reinicio del proceso realtime**: borra nodos agotados y corta acciones sin liquidar (nada se otorga ni se consume). Aceptable con respawns de 90 s; no para cultivos de horas. **Deuda WORLD-1.1** (§8).
 2. **Token del jugador**: la ownership se verifica con el token guardado al unirse. El token vence (~1 h): un jugador con la misma conexión por más de una hora recibe `not-owner`. Resolver antes del gameplay real de SKILLS (renovar el token por el socket o verificar desde el backend de SKILLS).
-3. **Lectura del catálogo** con la clave publishable: si RLS no la permite, no hay roster y los clientes vuelven a la población local (divergente). Visible en `/metrics` como `world.wild.failures`.
+3. **Lectura del catálogo** con la clave publishable: si RLS no la permite, no hay roster y Pradera queda **sin salvajes** (fail closed, rev. 1), con log, `/metrics` y `wildStatus: 'unavailable'` en los clientes. Verificar antes del deploy (gate humano).
 4. **Ownership dentro de la hora**: un salvaje comprado sigue en el roster hasta la hora siguiente; cada cliente lo oculta al ver su `slots` (converge, no es instantáneo).
 5. **Plaza**: la lista top-10 se sigue calculando en cada cliente desde `slots`; converge, pero puede diferir segundos.
 6. **Patrullas**: ignoran objetos colocados (banco, horno, entradas) porque cambian entre builds, así que pueden superponerse con uno; atraviesan al jugador (intencional). El reloj compartido difiere ±RTT/2 entre clientes (decenas de ms: menos de medio tile).
 7. **Distribución de salvajes**: concentrados en 3 chunks de 32 alrededor del spawn; explorando lejos se ven menos que en 0.2.
 8. **Un solo proceso**, como la presencia: sin réplicas ni Redis.
 9. **`game.ts` tiene 1 115 líneas** (+45): sigue por encima de la guía; los enganches son mínimos, pero extraer remotos/companions queda como deuda.
-10. **Cristales recogibles**: siguen siendo locales.
+10. **Gaps deliberados**: cristales locales y colisión con NPC desactivada (§13).
 11. `WORLD_DEMO_SKILLS` sólo se activa con `NODE_ENV !== 'production'`; aun mal configurado, la policy demo sólo cuenta en memoria y no escribe nada en ningún lado.
 
 **Preguntas abiertas (decidir antes de SKILLS-1 en producción)**
 
 - **OQ-1** Respawn: 90 s por tipo, de WORLD y provisional. ¿Tabla por variante/zona? ¿Quién la fija?
 - **OQ-2** Cristales y arbustos no son nodos de WORLD (el cristal es un pickup al pisarlo). ¿Minería de cristal? ¿Qué pasa con el pickup?
-- **OQ-3** ¿Quién escribe XP/drops y con qué credencial? El realtime no tiene service-role (AGENTS §3). Opciones: una RPC/Edge Function de SKILLS que acepte liquidaciones firmadas por el realtime (secreto sólo del servidor), o un credencial acotado para el realtime. Es progresión y economía: **resolver antes de implementar** (AGENTS §1).
-- **OQ-4** ¿Persistir el estado de nodos (sobrevivir reinicios) ya en WORLD-2 o recién con Agricultura?
+- **OQ-3** Settlement server-only de XP/drops: **en espera de la decisión del equipo tras revisar la rama de SKILLS.** WORLD-1 no agrega service-role ni credenciales ni elige mecanismo; sólo fija el puerto (§5).
+- **OQ-4** Persistencia de nodos: registrada como deuda WORLD-1.1 / integración (§8).
 
 ## 17. Integrar la rama de SKILLS
 
-1. **Servidor.** Implementar el adaptador `SkillPolicyPort` (p. ej. `services/realtime/src/world/skillsPolicy.js`): `authorizeWorkAttempt`, `settleWork` (idempotente por `actionId`, en la misma transacción que la XP y los drops) y opcionalmente `cancelWork`. Seleccionarlo en `worldConfig.js` en lugar de `unavailableSkillPolicy`. Resolver OQ-3 primero.
+1. **Servidor.** Implementar el adaptador `SkillPolicyPort` (p. ej. `services/realtime/src/world/skillsPolicy.js`): `authorizeWorkAttempt`, `settleWork` (idempotente por `actionId`, en la misma transacción que la XP y los drops) y opcionalmente `cancelWork`. Seleccionarlo en `worldConfig.js` en lugar de `unavailableSkillPolicy`. Sólo después de la decisión de settlement (OQ-3).
 2. **Qué recibe SKILLS de WORLD**: `node.resourceKind` (tree|rock), `variantId`, `zone`, `biome`, `workKind` (chop|mine), `pokemon {instanceId, speciesId}` ya verificado y `playerId` autenticado. Con eso decide skill, nivel, aptitud, duración y recompensa. Nuevas reglas no requieren cambiar WORLD.
 3. **Cliente.** La UI de SKILLS usa `SharedWorld` (instancia creada en `WildlandsView.vue`):
    - `requestWork(nodeId, pokemonInstanceId) → Promise<WorkResult>`, `cancelWork(actionId)`, `ownAction`, `onWorkDone(listener)` (trae el `summary` privado de SKILLS para el aviso);
@@ -329,7 +345,20 @@ fd0d6cc feat(world): WORLD-1C work actions, SkillPolicyPort and room integration
 33919f4 feat(world): client mirror, shared clock and visible work actions
 a3b5ea0 feat(world): WORLD-1D shared wild Pokemon, wanderers, plaza and sky
 a6f060c fix(world): forget tokens of closed sockets; keep the roster across reconnects; no cross-area workers
-(último) docs(world): WORLD-1E regression, metrics and report
+0b1df18 docs(world): WORLD-1E regression, metrics and report
+(rev. 1) fix(world): validate before acquiring; wild population fails closed
 ```
 
 No se desplegó nada; no hay merge ni PR. Para cuando se apruebe: el servidor (protocolo 3) puede desplegarse antes que el frontend, y un frontend nuevo contra un servidor viejo se comporta como 0.2 (fallback local).
+
+## 19. Revisión 1
+
+| Pedido | Hecho |
+|---|---|
+| 1. No reservar antes de validar ownership | `ResourceAuthority.requestWork`: físico → ownership → SKILLS sin tomar nada; después re-chequeo y adquisición síncrona de nodo, jugador y Pokémon. Un intento en vuelo por jugador. El perdedor ya autorizado recibe `busy` y SKILLS `cancelWork`. Tests nuevos que fallaban con el orden anterior. |
+| 2. Sin fallback a población local | Eliminadas la población salvaje local, el roll local y el wrapper del cliente. Sin roster: sin salvajes + `wildStatus` + log + métricas. Tests de servidor y cliente. |
+| 3. XP/drops y service-role | No se tocaron. Puerto documentado (§5); settlement en espera (OQ-3). |
+| 4. Persistencia | Deuda explícita WORLD-1.1 / integración (§8). |
+| Gaps deliberados | Cristales locales y colisión NPC desactivada, registrados (§13). |
+
+Gates tras la revisión: vitest 194/2021, realtime 109/109, typecheck OK, lint 0 errores / 9 warnings, build OK. Las mediciones de §14 no se repitieron: el orden de validación sólo cambia el camino de un intento de trabajo (no el de presencia), y en esas capturas la población salvaje ya corría en modo servidor.

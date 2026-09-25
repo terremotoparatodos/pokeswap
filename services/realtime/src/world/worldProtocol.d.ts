@@ -21,6 +21,14 @@ export interface WildEntity {
   readonly shiny: boolean
 }
 
+export type WildStatus = 'loading' | 'ready' | 'unavailable'
+
+export interface WildMessage {
+  readonly now: number
+  readonly wild: WildRoster | null
+  readonly status: WildStatus
+}
+
 export interface WildRoster {
   readonly areaId: string
   readonly epoch: number
@@ -48,6 +56,8 @@ export interface WorldSnapshot {
   readonly chunks: readonly string[]
   readonly nodes: readonly PublicNode[]
   readonly wild?: WildRoster
+  /** Procedural areas only. Without 'ready' there are no wild Pokémon (fail closed). */
+  readonly wildStatus?: WildStatus
   readonly ownAction?: { readonly actionId: string; readonly nodeId: string; readonly startedAt: number; readonly endsAt: number }
 }
 

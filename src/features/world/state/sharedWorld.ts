@@ -6,9 +6,10 @@
 
 import type { Actor } from '../../wildlands/engine/actors'
 import type { WorldLayer, WorldLayerContext } from '../../wildlands/engine/worldLayer'
-import type { WildRoster, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { WildMessage, WildRoster, WildStatus, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WorldSend, WorldTransportSink } from '../api/worldTransport'
+import { devWarn } from '../../../shared/utils/devTools'
 import { WorldClock } from '../domain/worldClock'
 import { WorldResourceMirror } from '../domain/worldResources'
 import { WorkerActors, type LoadPokemon, type PlaceholderPokemon } from '../render/workerActors'
@@ -36,6 +37,8 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   private own: OwnAction | null = null
   private readonly doneListeners = new Set<(done: WorkDone) => void>()
   private roster: WildRoster | null = null
+  /** Why there are (no) wild Pokémon here. Without 'ready' the world shows none: fail closed. */
+  wildStatus: WildStatus | null = null
   private readonly wildListeners = new Set<(roster: WildRoster | null) => void>()
 
   constructor(load: LoadPokemon, placeholder: PlaceholderPokemon) {
@@ -67,11 +70,22 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     this.resources.applySnapshot(snapshot)
     this.own = snapshot.ownAction ?? null
     this.setRoster(snapshot.wild ?? null)
+    this.setWildStatus(snapshot.wildStatus ?? null)
   }
 
-  wild(message: { now: number; wild: WildRoster }): void {
+  wild(message: WildMessage): void {
     this.clock.sample(message.now)
-    if (message.wild.areaId === this.resources.areaId) this.setRoster(message.wild)
+    if (message.wild && message.wild.areaId !== this.resources.areaId) return
+    this.setRoster(message.wild)
+    this.setWildStatus(message.status)
+  }
+
+  private setWildStatus(status: WildStatus | null): void {
+    if (status === this.wildStatus) return
+    this.wildStatus = status
+    // Diagnostic, not a fallback: the area stays without wild Pokémon. In
+    // production the server logs the cause and counts it in /metrics.
+    if (status === 'unavailable') devWarn('[world] the server has no shared wild population for this area; no wild Pokémon are shown')
   }
 
   /** The current area's wild roster, as the server sent it. */

@@ -5,7 +5,7 @@
 // a sink the adapter never declares `worldProtocol`, so the server sends no
 // world messages at all.
 
-import type { WildRoster, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { WildMessage, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 export type WorldSend = (type: string, payload: unknown) => void
 
@@ -18,6 +18,6 @@ export interface WorldTransportSink {
   batch(batch: WorldBatch): void
   workResult(result: WorkResult): void
   workDone(done: WorkDone): void
-  /** A new hour's wild roster for the viewer's area. */
-  wild(message: { now: number; wild: WildRoster }): void
+  /** A new hour's wild roster for the viewer's area, or the reason there is none. */
+  wild(message: WildMessage): void
 }

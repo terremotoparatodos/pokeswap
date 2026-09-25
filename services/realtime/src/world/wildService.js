@@ -8,14 +8,25 @@ export const WILD_RETRY_MS = 60_000
  * Keeps the current hour's wild roster for every procedural area (WORLD-1D).
  *
  * Two reads per hour, not per player and not per frame: the catalog and the
- * owned ids, at each epoch change. Until the first roster exists, areas have
- * none, and clients keep their legacy local population (rolling deploys).
+ * owned ids, at each epoch change.
+ *
+ * Fail closed: without a roster an area has **no** wild Pokémon, and every
+ * client is told why (`status`). Nothing ever falls back to a population rolled
+ * in each browser — that would be a divergent world presented as a shared one.
+ * A failed rotation keeps the previous hour's roster: stale, but the same for
+ * everyone.
+ *
+ * status: 'loading' (no roster yet) · 'ready' · 'unavailable' (no roster and
+ * the last read failed; retried every WILD_RETRY_MS).
  */
 export class WildService {
-  constructor({ catalog, now = Date.now, onRoster = () => {} }) {
+  constructor({ catalog, now = Date.now, onRoster = () => {}, onUnavailable = () => {}, log = message => console.warn(message) }) {
     this.catalog = catalog
     this.now = now
     this.onRoster = onRoster
+    this.onUnavailable = onUnavailable
+    this.log = log
+    this.lastFailure = null
     this.rosters = new Map()
     this.epoch = null
     this.loading = false
@@ -25,6 +36,11 @@ export class WildService {
 
   roster(areaId) {
     return this.rosters.get(areaId) ?? null
+  }
+
+  status(areaId) {
+    if (this.rosters.has(areaId)) return 'ready'
+    return this.catalog && this.lastFailure === null ? 'loading' : 'unavailable'
   }
 
   /** Server time at which the current roster rotates. */
@@ -45,15 +61,22 @@ export class WildService {
       const { pokemon, ownedIds } = await this.catalog.load()
       this.metrics.loads++
       this.epoch = epoch
+      this.lastFailure = null
       for (const area of Object.values(WORLD_AREAS)) {
         if (!area.procedural) continue
         const roster = wildRoster({ areaId: area.id, seed: area.seed, spawn: area.spawn, epoch, catalog: pokemon, ownedIds })
         this.rosters.set(area.id, roster)
         this.onRoster(roster)
       }
-    } catch {
+    } catch (error) {
       this.metrics.failures++
       this.retryAt = this.now() + WILD_RETRY_MS
+      const first = this.lastFailure === null
+      // Aggregate diagnostic only: the reason is a status code or "not configured", never a credential.
+      this.lastFailure = String(error?.message ?? 'error').slice(0, 60)
+      this.metrics.lastFailure = this.lastFailure
+      if (first) this.log(`[world] shared wild population unavailable (${this.lastFailure}); areas without a roster show no wild Pokémon`)
+      for (const area of Object.values(WORLD_AREAS)) if (area.procedural && !this.rosters.has(area.id)) this.onUnavailable(area.id)
     }
   }
 }

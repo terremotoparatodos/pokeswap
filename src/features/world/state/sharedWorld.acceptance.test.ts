@@ -118,3 +118,14 @@ describe('WORLD-1 shared resources, two clients', () => {
     expect(node.endsAt! - node.startedAt!).toBe(3_000)
   })
 })
+
+describe('WORLD-1 wild population fails closed', () => {
+  it('an unavailable status clears the roster and is kept as the reason', () => {
+    const world = new SharedWorld(async () => null, id => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo)
+    world.snapshot({ now: 1, areaId: 'pradera', chunks: [], nodes: [], wild: { areaId: 'pradera', epoch: 1, entities: [] }, wildStatus: 'ready' })
+    expect(world.wildRoster('pradera')).not.toBeNull()
+    world.wild({ now: 2, wild: null, status: 'unavailable' })
+    expect(world.wildRoster('pradera')).toBeNull()
+    expect(world.wildStatus).toBe('unavailable')
+  })
+})

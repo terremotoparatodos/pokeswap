@@ -7,7 +7,7 @@ import { readAuthorization, readSettlement } from './skillPolicy.js'
 
 /** A worker stands orthogonally beside the node, as the client's `isBeside` requires. */
 export const WORK_REACH = 1
-/** Ownership and authorization together; past this the attempt is refused and the claim released. */
+/** Ownership and authorization each; past this the attempt is refused (nothing was held). */
 export const AUTHORIZE_TIMEOUT_MS = 4_000
 /** Settlement retries after the first try (same actionId every time: SKILLS dedupes). */
 export const SETTLE_RETRY_DELAYS_MS = Object.freeze([1_000, 3_000, 9_000])
@@ -20,14 +20,19 @@ const beside = (actor, node) => Math.abs(actor.tx - node.tx) + Math.abs(actor.ty
  * (WORLD-1B/1C). Transport-free: the room feeds it actors and intents and
  * forwards what it emits.
  *
- * Atomicity. Node.js runs one handler at a time, so every check-and-write
- * below is atomic *until the first await*. The only awaits are the ownership
- * read and the SKILLS authorization, and before them the attempt takes a
- * synchronous **claim** on the node, the player and the Pokémon. A second
- * attempt on the same node — a second tab, another player one packet later —
- * is refused with `busy` without ever reaching SKILLS. After the awaits the
- * physical checks run again against the live actor before the node is
- * written. Exactly one attempt can win a node.
+ * Validate first, acquire last. An attempt runs every check that mutates
+ * nothing — the physical ones, then the Pokémon's ownership, then SKILLS'
+ * authorization — while holding nothing, so a request that is going to fail
+ * (someone else's Pokémon, a level SKILLS refuses) can never make a node look
+ * `busy` to a legitimate player. Only then, synchronously and with no await in
+ * between, it re-checks the live actor and the node and acquires the node, the
+ * player and the Pokémon in one step. Node.js runs one handler at a time, so
+ * that step is atomic: when two valid attempts race, the first to finish its
+ * awaits wins and the other is refused with `busy` (and SKILLS is told the
+ * authorization it granted was not used). Exactly one attempt can win a node.
+ *
+ * One attempt in flight per player: a second concurrent attempt from the same
+ * player is refused (`in-flight`) before it costs an ownership read.
  *
  * Exactly-once. A completion runs only for an action in phase `running` and
  * moves it to `settling` before its first await, so a duplicated timer entry,
@@ -45,11 +50,12 @@ export class ResourceAuthority {
   }) {
     Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone })
     this.actions = new Map()
-    this.claims = new Map()
+    /** Players with an attempt between its first check and its acquisition. */
+    this.attempting = new Set()
     this.byPlayer = new Map()
     this.byPokemon = new Map()
     this.recent = new Map()
-    this.metrics = { requested: 0, started: 0, rejected: {}, completed: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0 }
+    this.metrics = { requested: 0, started: 0, rejected: {}, completed: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0 }
   }
 
   /** A work intent from `actor`. Resolves with the reply sent to that player. */
@@ -59,51 +65,55 @@ export class ResourceAuthority {
     if (recent.has(intent.requestId)) return this.#reject(actor.id, intent, 'duplicate-request')
     recent.set(intent.requestId, true)
     if (recent.size > RECENT_REQUESTS) recent.delete(recent.keys().next().value)
+    if (this.attempting.has(actor.id)) return this.#reject(actor.id, intent, 'in-flight')
 
-    const check = this.#physicalCheck(actor, intent, null)
+    // 1 · Physical checks. Nothing is held yet.
+    const check = this.#physicalCheck(actor, intent)
     if (check.reason) return this.#reject(actor.id, intent, check.reason)
     const { node } = check
-
     const actionId = this.newActionId()
-    const action = { actionId, playerId: actor.id, node, pokemon: null, workKind: WORK_KIND[node.resourceKind], workedFrom: check.state, phase: 'claimed', authorized: false, startedAt: null, endsAt: null }
-    this.actions.set(actionId, action)
-    this.claims.set(node.id, actionId)
-    this.byPlayer.set(actor.id, actionId)
-    this.byPokemon.set(intent.pokemonInstanceId, actionId)
+    const workKind = WORK_KIND[node.resourceKind]
 
+    this.attempting.add(actor.id)
+    let authorized = false
     let reason = null
     try {
+      // 2 · Ownership, then 3 · SKILLS. Still nothing held.
       const pokemon = await this.#withTimeout(this.ownership.verify(actor.id, intent.pokemonInstanceId, credentials))
       if (!pokemon) reason = 'not-owner'
       else {
-        action.pokemon = pokemon
         const answer = readAuthorization(await this.#withTimeout(this.skills.authorizeWorkAttempt({
-          actionId, playerId: actor.id, pokemon, node: publicNodeFacts(node), workKind: action.workKind, requestedAt: this.now(),
+          actionId, playerId: actor.id, pokemon, node: publicNodeFacts(node), workKind, requestedAt: this.now(),
         })))
         if (!answer.ok) reason = answer.reason
         else {
-          action.authorized = true
+          authorized = true
+          // 4 · Re-check against the live world and acquire, with no await in between.
           const live = this.lookupActor(actor.id)
-          if (action.phase !== 'claimed') reason = 'cancelled'
-          else if (!live) reason = 'left'
-          else reason = this.#physicalCheck(live, intent, actionId).reason ?? null
-          if (!reason) return this.#start(action, answer.durationMs, intent.requestId)
+          const recheck = live ? this.#physicalCheck(live, intent) : { reason: 'left' }
+          if (recheck.reason) reason = recheck.reason
+          else {
+            const action = { actionId, playerId: actor.id, node, pokemon, workKind, workedFrom: recheck.state, phase: 'running', startedAt: null, endsAt: null }
+            return this.#start(action, answer.durationMs, intent.requestId)
+          }
         }
       }
     } catch {
       reason = 'unavailable'
+    } finally {
+      this.attempting.delete(actor.id)
     }
-    this.#release(action)
-    if (action.authorized) this.#notifyCancel(action, reason)
+    if (authorized) {
+      this.metrics.authorizedNotStarted++
+      this.#notifyCancel({ actionId, playerId: actor.id }, reason)
+    }
     return this.#reject(actor.id, intent, reason)
   }
 
   /** Cancels the player's own action. False when there is nothing (left) to cancel. */
   cancel(playerId, actionId, reason = 'cancelled') {
     const action = this.actions.get(actionId)
-    if (!action || action.playerId !== playerId) return false
-    if (action.phase === 'claimed') { action.phase = 'cancelled'; return true }
-    if (action.phase !== 'running') return false
+    if (!action || action.playerId !== playerId || action.phase !== 'running') return false
     const record = this.store.write(action.node, { state: action.workedFrom })
     this.#release(action)
     this.metrics.cancelled++
@@ -194,12 +204,14 @@ export class ResourceAuthority {
     this.onNode(next)
   }
 
+  /** Acquisition: node, player and Pokémon in one synchronous step. */
   #start(action, durationMs, requestId) {
     const startedAt = this.now()
-    action.phase = 'running'
     action.startedAt = startedAt
     action.endsAt = startedAt + durationMs
-    this.claims.delete(action.node.id)
+    this.actions.set(action.actionId, action)
+    this.byPlayer.set(action.playerId, action.actionId)
+    this.byPokemon.set(action.pokemon.instanceId, action.actionId)
     const record = this.store.write(action.node, {
       state: WORKING, workedFrom: action.workedFrom, actionId: action.actionId, workKind: action.workKind,
       worker: { playerId: action.playerId, pokemonInstanceId: action.pokemon.instanceId, speciesId: action.pokemon.speciesId },
@@ -211,29 +223,24 @@ export class ResourceAuthority {
     return this.#reply(action.playerId, { requestId, ok: true, actionId: action.actionId, nodeId: action.node.id, startedAt, endsAt: action.endsAt })
   }
 
-  #physicalCheck(actor, intent, ownActionId) {
+  /** Checks that mutate nothing. `state` is the node state an action would start from. */
+  #physicalCheck(actor, intent) {
     const node = resourceById(intent.nodeId)
     if (!node) return { reason: 'unknown-node' }
     if (actor.areaId !== node.areaId) return { reason: 'wrong-area' }
     if (!beside(actor, node)) return { reason: 'too-far' }
-    const heldBy = (map, key) => { const id = map.get(key); return id !== undefined && id !== ownActionId }
-    if (heldBy(this.claims, node.id)) return { reason: 'busy' }
     const lifecycle = lifecycleFor(node.resourceKind)
-    const record = this.store.get(node.id)
-    const state = record?.state ?? lifecycle.initial
-    if (ownActionId === null || record?.actionId !== ownActionId) {
-      if (state === WORKING) return { reason: 'busy' }
-      if (!canStartWork(lifecycle, state)) return { reason: state }
-    }
-    if (heldBy(this.byPlayer, actor.id)) return { reason: 'actor-busy' }
-    if (heldBy(this.byPokemon, intent.pokemonInstanceId)) return { reason: 'pokemon-busy' }
+    const state = this.store.get(node.id)?.state ?? lifecycle.initial
+    if (state === WORKING) return { reason: 'busy' }
+    if (!canStartWork(lifecycle, state)) return { reason: state }
+    if (this.byPlayer.has(actor.id)) return { reason: 'actor-busy' }
+    if (this.byPokemon.has(intent.pokemonInstanceId)) return { reason: 'pokemon-busy' }
     return { node, state }
   }
 
   #release(action) {
     action.phase = 'done'
     this.actions.delete(action.actionId)
-    if (this.claims.get(action.node.id) === action.actionId) this.claims.delete(action.node.id)
     if (this.byPlayer.get(action.playerId) === action.actionId) this.byPlayer.delete(action.playerId)
     for (const [instanceId, actionId] of this.byPokemon) if (actionId === action.actionId) this.byPokemon.delete(instanceId)
   }

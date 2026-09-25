@@ -25,7 +25,7 @@ export class WorldRoom {
     this.subscribers = new Map()
     this.credentials = new Map()
     this.metrics = { snapshots: 0, batches: 0, nodeDeltas: 0, chunkEnters: 0, chunkLeaves: 0, maxBatchBytes: 0, bytes: 0 }
-    this.wild = new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster) })
+    this.wild = new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
       skills, ownership, lookupActor, now,
       onNode: record => this.#nodeChanged(record),
@@ -63,10 +63,12 @@ export class WorldRoom {
     const chunks = worldArea(viewer.areaId)?.procedural ? chunksInView(viewer.tx, viewer.ty) : []
     for (const chunkId of chunks) nodes.push(...this.#subscribe(client, state, chunkId))
     const own = viewer.id ? this.authority.actionOf(viewer.id) : null
+    const procedural = worldArea(viewer.areaId)?.procedural === true
     const wild = this.wild.roster(viewer.areaId)
     this.#send(client, WORLD_MESSAGE.SNAPSHOT, {
       now: this.now(), areaId: viewer.areaId, chunks, nodes,
       ...(wild ? { wild } : {}),
+      ...(procedural ? { wildStatus: this.wild.status(viewer.areaId) } : {}),
       ...(own ? { ownAction: { actionId: own.actionId, nodeId: own.node.id, startedAt: own.startedAt, endsAt: own.endsAt } } : {}),
     })
     this.metrics.snapshots++
@@ -148,7 +150,15 @@ export class WorldRoom {
   #rosterChanged(roster) {
     const now = this.now()
     for (const [client, state] of this.clients) {
-      if (state.areaId === roster.areaId) this.#send(client, WORLD_MESSAGE.WILD, { now, wild: roster })
+      if (state.areaId === roster.areaId) this.#send(client, WORLD_MESSAGE.WILD, { now, wild: roster, status: 'ready' })
+    }
+  }
+
+  /** Fail closed, out loud: viewers of an area with no roster learn why they see no wild Pokémon. */
+  #wildUnavailable(areaId) {
+    const now = this.now()
+    for (const [client, state] of this.clients) {
+      if (state.areaId === areaId) this.#send(client, WORLD_MESSAGE.WILD, { now, wild: null, status: 'unavailable' })
     }
   }
 

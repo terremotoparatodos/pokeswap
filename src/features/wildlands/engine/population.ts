@@ -1,13 +1,11 @@
 // Wild population — WildLands prototype
 //
-// Chunks near the player are populated with wild Pokémon (picked by biome
-// type affinity from the real Pokédex rows) and wandering NPC trainers.
-//
-// WORLD-1D: once the realtime service shares its clock and wild roster, the
-// wild Pokémon are the server's (one entity per Pokémon, one home, the same
-// for everyone) and every wanderer follows a shared patrol. The local,
-// per-browser population below remains only as the fallback for a server that
-// does not speak the world protocol; remove it once every server does.
+// Wild Pokémon are the realtime service's (WORLD-1D): one entity per
+// Pokémon, one home, the same for everyone, drawn near the player. Without a
+// server roster there are none — never a population rolled in this browser.
+// Chunks near the player are populated with wandering NPC trainers, whose
+// identity is deterministic and whose walk is a shared patrol once the server
+// clock is known.
 
 import { createActor, type Actor, type PokemonInfo } from './actors'
 import { loadFrontFrames, loadOverworldFrames, type TrainerSprites } from './characters'
@@ -47,7 +45,6 @@ export function candidatesFor(biome: Biome, pokedex: readonly PokedexEntry[]): P
 
 export class Population {
   private readonly active = new Set<string>()
-  private readonly spawnedPokemonIds = new Set<number>()
   private wildPokemonIds: readonly number[] = []
   readonly actors: Actor[] = []
   private shared: SharedPopulace | null = null
@@ -72,7 +69,6 @@ export class Population {
     for (let i = this.actors.length - 1; i >= 0; i--) {
       const actor = this.actors[i]
       if (actor.wild && actor.pokemon && !allowed.has(actor.pokemon.id)) {
-        this.spawnedPokemonIds.delete(actor.pokemon.id)
         this.sharedWild.delete(actor.id)
         this.actors.splice(i, 1)
       }
@@ -110,19 +106,15 @@ export class Population {
     this.active.delete(key)
     for (let i = this.actors.length - 1; i >= 0; i--) {
       if (this.actors[i].id.startsWith(`${key}:`)) {
-        const actor = this.actors[i]
-        if (actor.wild && actor.pokemon) this.spawnedPokemonIds.delete(actor.pokemon.id)
         this.actors.splice(i, 1)
       }
     }
   }
 
-  /** Legacy ↔ shared, or a new hour: every wild actor goes, the chunks repopulate. */
+  /** A new hour, or no roster at all: every wild actor goes. */
   private switchRoster(roster: WildRoster | null): void {
     this.roster = roster
-    for (const key of [...this.active]) this.release(key)
     for (let i = this.actors.length - 1; i >= 0; i--) if (this.actors[i].wild) this.actors.splice(i, 1)
-    this.spawnedPokemonIds.clear()
     this.sharedWild.clear()
   }
 
@@ -166,33 +158,6 @@ export class Population {
 
   private populate(cx: number, cy: number, key: string): void {
     const seed = this.world.seed
-    const pokemonCount = this.roster ? 0 : 4 + Math.floor(hash2(cx, cy, seed + 900) * 4)
-    for (let i = 0; i < pokemonCount; i++) {
-      const tx = cx * CHUNK_TILES + Math.floor(hash2(cx * 31 + i, cy, seed + 901) * CHUNK_TILES)
-      const ty = cy * CHUNK_TILES + Math.floor(hash2(cx, cy * 31 + i, seed + 902) * CHUNK_TILES)
-      if (this.world.isSolid(tx, ty)) continue
-      const biome = this.world.biomeAt(tx + 0.5, ty + 0.5)
-      const water = this.world.isWater(tx, ty)
-      const allowed = new Set(this.wildPokemonIds)
-      const pool = candidatesFor(water ? 'ocean' : biome, this.pokedex)
-        .filter(entry => allowed.has(entry.id) && !this.spawnedPokemonIds.has(entry.id))
-      if (!pool.length) continue
-      const entry = pool[Math.floor(hash2(tx, ty, seed + 903) * pool.length)]
-      const shiny = hash2(tx, ty, seed + 904) < SHINY_ODDS
-      // Reserve before async art loads so two chunks cannot schedule the same species.
-      this.spawnedPokemonIds.add(entry.id)
-      void this.spriteFor(entry, shiny).then(info => {
-        if (!info || !this.active.has(key) || !this.wildPokemonIds.includes(entry.id)) {
-          this.spawnedPokemonIds.delete(entry.id)
-          return
-        }
-        this.actors.push(createActor({
-          id: `${key}:p${i}`, kind: 'pokemon', habitat: water ? 'water' : 'land', tx, ty,
-          speed: 3, pokemon: info, wild: true, dir: hash2(tx, ty, 3) < 0.5 ? 'left' : 'right',
-        }))
-      })
-    }
-
     const npcCount = Math.floor(hash2(cx, cy, seed + 950) * 3)
     for (let i = 0; i < npcCount; i++) {
       const tx = cx * CHUNK_TILES + Math.floor(hash2(cx * 17 + i, cy, seed + 951) * CHUNK_TILES)

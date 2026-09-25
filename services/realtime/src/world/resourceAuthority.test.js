@@ -8,7 +8,7 @@ import { manualClock, praderaNodesNearSpawn, settle } from './testing.js'
 
 const [{ node: TREE, stands: [SPOT_A, SPOT_B] }] = praderaNodesNearSpawn()
 
-function setup({ skills = createDemoSkillPolicy({ durationMs: 3_000 }), owned = { a: [25], b: [6] } } = {}) {
+function setup({ skills = createDemoSkillPolicy({ durationMs: 3_000 }), owned = { a: [25], b: [6] }, ownership = null } = {}) {
   const clock = manualClock()
   const actors = new Map([
     ['a', { id: 'a', areaId: 'pradera', ...SPOT_A }],
@@ -19,7 +19,7 @@ function setup({ skills = createDemoSkillPolicy({ durationMs: 3_000 }), owned = 
   const done = []
   let ids = 0
   const authority = new ResourceAuthority({
-    skills, ownership: createStaticOwnership(owned), lookupActor: id => actors.get(id) ?? null,
+    skills, ownership: ownership ?? createStaticOwnership(owned), lookupActor: id => actors.get(id) ?? null,
     now: clock.now, newActionId: () => `00000000-0000-4000-8000-${String(++ids).padStart(12, '0')}`, sleep: async () => {},
     onNode: record => nodes.push(record), onResult: (playerId, result) => results.push({ playerId, ...result }), onDone: (playerId, event) => done.push({ playerId, ...event }),
   })
@@ -40,7 +40,7 @@ test('the layout gives every node one stable id that resolves back to itself', (
 })
 
 test('A and B race for the same tree: exactly one reservation, a clean refusal for the other', async () => {
-  const { authority, actors, nodes, results } = setup()
+  const { authority, actors, nodes, results, skills } = setup()
   // Both intents are in flight before either await resolves.
   const [first, second] = await Promise.all([
     authority.requestWork(actors.get('a'), null, intent(1, 25)),
@@ -52,6 +52,10 @@ test('A and B race for the same tree: exactly one reservation, a clean refusal f
   assert.equal(nodes[0].state, 'working')
   assert.equal(nodes[0].worker.playerId, 'a')
   assert.equal(results.filter(r => r.ok).length, 1)
+  // The loser was authorized by SKILLS but never started: SKILLS is told so.
+  assert.equal(skills.cancelled.length, 1)
+  assert.equal(skills.cancelled[0].playerId, 'b')
+  assert.equal(authority.metrics.authorizedNotStarted, 1)
 })
 
 test('B asking for a tree A is already working is refused', async () => {
@@ -179,4 +183,50 @@ test('a duration from SKILLS is clamped, never trusted blindly', async () => {
   const { authority, actors } = setup({ skills })
   const started = await authority.requestWork(actors.get('a'), null, intent(1, 25))
   assert.equal(started.endsAt - started.startedAt, 500)
+})
+
+/** Ownership whose answer for `slowPlayer` waits until `release()` is called. */
+function gatedOwnership(owned, slowPlayer) {
+  let open
+  const gate = new Promise(resolve => { open = resolve })
+  const base = createStaticOwnership(owned)
+  return { release: () => open(), async verify(playerId, instanceId) { if (playerId === slowPlayer) await gate; return base.verify(playerId, instanceId) } }
+}
+
+test('a request with someone else’s Pokémon, still in flight, never makes the node busy for a legitimate player', async () => {
+  const ownership = gatedOwnership({ a: [25], b: [6] }, 'b')
+  const { authority, actors, nodes } = setup({ ownership })
+  const hostile = authority.requestWork(actors.get('b'), null, intent(1, 25)) // B does not own 25
+  const legit = await authority.requestWork(actors.get('a'), null, intent(1, 25))
+  assert.equal(legit.ok, true, 'A acquires the tree while B’s check is still pending')
+  ownership.release()
+  assert.equal((await hostile).reason, 'not-owner')
+  assert.equal(nodes.length, 1)
+  assert.equal(nodes[0].worker.playerId, 'a')
+})
+
+test('an attempt SKILLS is about to refuse never makes the node busy either', async () => {
+  let open
+  const gate = new Promise(resolve => { open = resolve })
+  const base = createDemoSkillPolicy()
+  const skills = { ...base, async authorizeWorkAttempt(attempt) { if (attempt.playerId === 'b') { await gate; return { ok: false, reason: 'level' } } return base.authorizeWorkAttempt(attempt) } }
+  const { authority, actors } = setup({ skills })
+  const refused = authority.requestWork(actors.get('b'), null, intent(1, 6))
+  assert.equal((await authority.requestWork(actors.get('a'), null, intent(1, 25))).ok, true)
+  open()
+  assert.equal((await refused).reason, 'level')
+})
+
+test('one attempt in flight per player: a concurrent second one costs no ownership read', async () => {
+  let reads = 0
+  const base = createStaticOwnership({ a: [25] })
+  const ownership = { async verify(...args) { reads++; return base.verify(...args) } }
+  const { authority, actors } = setup({ ownership })
+  const [first, second] = await Promise.all([
+    authority.requestWork(actors.get('a'), null, intent(1, 25)),
+    authority.requestWork(actors.get('a'), null, intent(2, 25)),
+  ])
+  assert.equal(first.ok, true)
+  assert.equal(second.reason, 'in-flight')
+  assert.equal(reads, 1)
 })
