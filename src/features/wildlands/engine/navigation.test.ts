@@ -99,3 +99,18 @@ describe('unproject', () => {
     expect(back.wy).toBeCloseTo(58, 6)
   })
 })
+
+describe('TapNavigator and trip tiles (INTEGRATION-1)', () => {
+  it('never crosses a portal or door on its way elsewhere, but still walks onto one that was tapped', () => {
+    const pad = { tx: 0, ty: -1 }
+    const isTransit = (tx: number, ty: number) => tx === pad.tx && ty === pad.ty
+    const player = createActor({ id: 'p', kind: 'player', habitat: 'any', tx: 0, ty: 0, speed: WALK_SPEED })
+    const nav = new TapNavigator({ isSolid: () => false, occupied: () => false, isTransit })
+    nav.goTo(player, { tile: { tx: 0, ty: -4 }, actor: null })
+    const through = pathTiles({ tx: 0, ty: 0 }, (nav as unknown as { path: import('./characters').Dir[] }).path)
+    expect(through.some(tile => isTransit(tile.tx, tile.ty))).toBe(false)
+    expect(through[through.length - 1]).toEqual({ tx: 0, ty: -4 })
+    nav.goTo(player, { tile: pad, actor: null })
+    expect(pathTiles({ tx: 0, ty: 0 }, (nav as unknown as { path: import('./characters').Dir[] }).path)).toEqual([pad])
+  })
+})

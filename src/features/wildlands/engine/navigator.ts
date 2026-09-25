@@ -21,6 +21,14 @@ export interface NavWorld {
   occupied(tx: number, ty: number): boolean
   /** Walkable tiles the player should stand beside and face, like props (e.g. resource nodes). */
   isInteractive?(tx: number, ty: number): boolean
+  /**
+   * Tiles that start a trip (area portals, building doors). A planned route
+   * never passes over one on its way somewhere else — only when it is the
+   * tile that was tapped. Walking there by hand is unchanged (INTEGRATION-1:
+   * a tap on the huerta north of the Pradera arrival used to cross the return
+   * pad and send the player back to town).
+   */
+  isTransit?(tx: number, ty: number): boolean
 }
 
 export class TapNavigator {
@@ -124,7 +132,8 @@ export class TapNavigator {
   }
 
   private plan(player: Actor, tile: Tile): boolean {
-    const blocked = (tx: number, ty: number) => this.world.isSolid(tx, ty) || this.world.occupied(tx, ty)
+    const transit = (tx: number, ty: number) => (tx !== tile.tx || ty !== tile.ty) && (this.world.isTransit?.(tx, ty) ?? false)
+    const blocked = (tx: number, ty: number) => this.world.isSolid(tx, ty) || this.world.occupied(tx, ty) || transit(tx, ty)
     // Solid props and actors can't be stood on: aim for a tile beside them instead.
     const beside = this.goalActor !== null || blocked(tile.tx, tile.ty) || this.interactive(tile)
     const isGoal = beside

@@ -143,6 +143,7 @@ export class WildlandsGame {
     occupied: (tx, ty) => this.populace.actors.some(a => !a.patrol && a.tx === tx && a.ty === ty),
     isInteractive: (tx, ty) => this.placedObjects.isInteractive(this.area.id, tx, ty)
       || (this.isWorldObject?.({ area: this.area, tx, ty }) ?? false),
+    isTransit: (tx, ty) => isPortalTile(this.area, tx, ty) || this.entrances.isDoor(this.area, tx, ty),
   })
   private overlay: SceneOverlay | null = null
   /** WORLD-1: shared world entities drawn over this client's scene. */
