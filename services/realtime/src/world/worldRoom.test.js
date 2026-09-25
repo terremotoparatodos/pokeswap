@@ -204,3 +204,16 @@ test('Pradera viewers get the same wild roster in their snapshot, and the new on
   assert.deepEqual(lastMessage(a, WORLD_MESSAGE.WILD).wild, lastMessage(b, WORLD_MESSAGE.WILD).wild)
   assert.equal(lastMessage(town, WORLD_MESSAGE.WILD), undefined)
 })
+
+test('a player token is forgotten when its socket leaves, but not when an older one does', () => {
+  const { world, join, sockets } = setup()
+  const a = join('a', SPOT_A)
+  assert.equal(world.credentials.has('a'), true)
+  const newer = fakeClient('a-newer')
+  sockets.set('a', newer)
+  world.join(newer, { worldProtocol: 1 }, { kind: 'player', userId: 'a', token: 'newer' })
+  world.leave(a.client)
+  assert.deepEqual(world.credentials.get('a'), { token: 'newer' })
+  world.leave(newer)
+  assert.equal(world.credentials.has('a'), false)
+})

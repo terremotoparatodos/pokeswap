@@ -37,7 +37,7 @@ export class WorldRoom {
   /** Registers a socket that declared the world protocol. Players also leave their token for ownership reads. */
   join(client, options, auth) {
     if (!(Number.isInteger(options?.worldProtocol) && options.worldProtocol >= WORLD_PROTOCOL)) return
-    this.clients.set(client, { areaId: null, chunks: new Set(), pending: null })
+    this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId: auth?.kind === 'player' ? auth.userId : null })
     if (auth?.kind === 'player') this.credentials.set(auth.userId, { token: auth.token ?? null })
   }
 
@@ -46,6 +46,10 @@ export class WorldRoom {
     if (!state) return
     this.#unsubscribeAll(client, state)
     this.clients.delete(client)
+    // The token is only kept while its socket is the player's current one; a
+    // replaced session leaves the newer socket's token in place.
+    const current = state.playerId === null ? null : this.clientForPlayer(state.playerId)
+    if (state.playerId !== null && (current === client || current === null)) this.credentials.delete(state.playerId)
   }
 
   /** Full reset for a viewer: on ready, on every area change and on every guest observe. */

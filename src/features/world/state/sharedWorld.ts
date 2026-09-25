@@ -32,7 +32,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   private send: WorldSend | null = null
   private nextRequestId = 1
   private readonly pending = new Map<number, { resolve: (result: WorkResult) => void; timer: ReturnType<typeof setTimeout> }>()
-  private workersRevision = -1
+  private workersKey = ''
   private own: OwnAction | null = null
   private readonly doneListeners = new Set<(done: WorkDone) => void>()
   private roster: WildRoster | null = null
@@ -53,7 +53,8 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     this.send = null
     this.resources.clear()
     this.own = null
-    this.setRoster(null)
+    // The roster stays: it is still this hour's truth, and dropping it would
+    // flash the legacy local population until the rejoin's snapshot.
     for (const [requestId, entry] of this.pending) {
       clearTimeout(entry.timer)
       entry.resolve({ requestId, ok: false, reason: 'disconnected' })
@@ -145,9 +146,11 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   update(_dt: number, context: WorldLayerContext): void {
     const now = this.clock.now()
     if (now === null) return
-    if (this.workersRevision !== this.resources.revision) {
-      this.workersRevision = this.resources.revision
-      this.workers.sync(context.area().id === this.resources.areaId ? this.resources.active() : [])
+    const areaId = context.area().id
+    const key = `${this.resources.revision}|${areaId}`
+    if (this.workersKey !== key) {
+      this.workersKey = key
+      this.workers.sync(areaId === this.resources.areaId ? this.resources.active() : [])
     }
     this.workers.update(now, id => context.playerTile(id), (tx, ty) => context.isSolid(tx, ty))
   }

@@ -34,3 +34,15 @@ La reconexión del cliente vuelve a entrar a una sala nueva con backoff acotado;
 - Harness determinista de reconciliación cliente/servidor: `scripts/presence-harness/run.sh` desde la raíz.
 - Deltas compactos: un cliente que se une con `presenceProtocol: 2` recibe los movimientos de actores que ya conoce como `{ type: 'step', actor: { id, tx, ty, dir, speed, moveSequence } }`; la identidad (username, personaje, acompañante, área) sólo viaja en `upsert` completos. Clientes sin esa opción siguen recibiendo `upsert`, así que el servidor puede desplegarse antes que el frontend. Soak de lógica (100 jugadores corriendo en la plaza): ~134 → ~72 KB/s por cliente (JSON estimado), mismo CPU.
 - Pasos apilados (PERF-2.3): los deltas se agrupan en ventanas de 50 ms con una entrada por actor. Si dos o más `step` del mismo actor caen en la misma ventana, el último conserva su forma y lleva los anteriores en `via: [{ tx, ty, dir, speed, moveSequence }, …]` (más viejo primero, como máximo 8). Antes sólo sobrevivía el último y el observador veía un salto de dos casillas. Un cliente que ignora `via` recibe exactamente lo mismo que antes. Con cadencia estable `via` no aparece (mismo ancho de banda); con movimientos de a dos por paquete, 30 jugadores: 10,6 → 16,2 KiB/s por cliente, sin pasos perdidos.
+
+## Mundo compartido (WORLD-1, protocolo de presencia 3)
+
+El mundo dinámico viaja por el mismo socket y el mismo tick de 50 ms que la presencia. Sólo lo reciben los clientes que declaran `worldProtocol: 1` al unirse; el resto no ve ningún cambio.
+
+- **Recursos** (`src/world/`): layout determinista compartido con el navegador (`terrain.js`, `resourceLayout.js`), estado mutable disperso en memoria (`resourceStore.js`), autoridad de acciones (`resourceAuthority.js`), interés por chunks de 16 casillas (`worldInterest.js`), transporte (`worldRoom.js`).
+- **Mensajes**: cliente → `world:work { nodeId, pokemonInstanceId, requestId }`, `world:cancel { actionId }`. Servidor → `world:snapshot`, `world:batch`, `world:work:result`, `world:work:done`, `world:wild`. Todos llevan `now` (reloj del servidor).
+- **SKILLS**: puerto `SkillPolicyPort` en `src/world/skillPolicy.js`. En producción la policy es `unavailable` (rechaza todo) hasta que SKILLS entregue su adaptador. `WORLD_DEMO_SKILLS=on` (sólo fuera de producción) activa la policy demo; `WORLD_DEMO_ACTION_MS` fija su duración.
+- **Salvajes**: el roster de la hora se calcula con dos lecturas por hora (`pokemon` y `slots` con dueño) usando la clave publishable. `WORLD_WILD_CATALOG=synthetic` usa un catálogo sintético (stacks locales sin Supabase).
+- **Persistencia**: ninguna. Un reinicio del proceso devuelve todos los nodos a su estado base y corta las acciones en curso sin liquidar (ver `docs/world/WORLD_1_REPORT.md` §8).
+- **Métricas**: `/metrics` (puerto interno) incluye `world` con contadores agregados, sin ids ni coordenadas.
+- **Carga**: `node scripts/benchmark-world.mjs --players 30 --duration 60 [--world off]` desde la raíz.
