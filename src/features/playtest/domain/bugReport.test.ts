@@ -4,7 +4,7 @@ import { buildBugReport, formatBugReport, MAX_REPORT_LENGTH, shortBrowser, type 
 const input = (over: Partial<BugReportInput> = {}): BugReportInput => ({
   category: 'BUG',
   text: 'la cueva no abre',
-  buildLabel: 'Community Playtest 0.1 · a1b2c3d',
+  buildLabel: 'Community Playtest 0.2 · a1b2c3d',
   area: 'pradera',
   tx: -5,
   ty: -69,
@@ -18,7 +18,7 @@ const input = (over: Partial<BugReportInput> = {}): BugReportInput => ({
 describe('buildBugReport', () => {
   it('names the build, the place and the tile', () => {
     const report = buildBugReport(input())
-    expect(report.build).toBe('Community Playtest 0.1 · a1b2c3d')
+    expect(report.build).toBe('Community Playtest 0.2 · a1b2c3d')
     expect(report.area).toBe('pradera (-5, -69)')
     expect(report.viewport).toBe('375×812')
   })

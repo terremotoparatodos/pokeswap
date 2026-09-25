@@ -11,7 +11,7 @@
       <!-- The full build id on a laptop; a short signal on a phone, where the
            long one reached across into the minimap. The card always has both. -->
       <span class="pt-banner-label">{{ label }}</span>
-      <span class="pt-banner-short">PLAYTEST 0.1</span>
+      <span class="pt-banner-short">PLAYTEST 0.2</span>
     </button>
 
     <div v-if="expanded" id="pt-banner-card" class="pt-banner-card" role="note">

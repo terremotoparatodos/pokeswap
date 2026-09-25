@@ -11,7 +11,11 @@
 import { supabase } from '../../../shared/api/supabase'
 import { parseGateConfig, type PlaytestGateConfig } from '../domain/playtestGate'
 
-/** The row this build looks at. Bumping the playtest means bumping this id. */
+/**
+ * The row this build looks at. Playtest 0.2 deliberately keeps the 0.1 row:
+ * the operator's open/closed switch and access code live there, and a new id
+ * without its row would leave every player on the gate screen.
+ */
 export const GATE_ID = 'community-0.1'
 
 /** How often an open client re-reads the gate, so CLOSED lands within a minute. */

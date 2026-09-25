@@ -23,7 +23,7 @@ beforeEach(() => store.reset())
 describe('a closed door', () => {
   it('says it is closed and why, instead of doing nothing', () => {
     const wrapper = open('swap')
-    expect(wrapper.text()).toContain('No disponible durante Community Playtest 0.1')
+    expect(wrapper.text()).toContain('No disponible durante Community Playtest 0.2')
     expect(wrapper.text()).toContain('Swap')
     expect(wrapper.find('.cp-title').text()).toBe('Silph Co.')
   })
