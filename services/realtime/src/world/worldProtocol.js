@@ -17,19 +17,29 @@ export const WORLD_MESSAGE = Object.freeze({
   WORK_RESULT: 'world:work:result',
   WORK_DONE: 'world:work:done',
   WILD: 'world:wild',
+  /** The session's own XP, materials and workable Pokémon (server → that player only). */
+  PLAYER_STATE: 'player:state',
 })
 
 const NODE_ID = /^[a-z][a-z0-9-]{0,31}:-?\d{1,6}:-?\d{1,6}:[a-z]{1,16}$/
 const ACTION_ID = /^[0-9a-f-]{8,64}$/
 
-/** `{ nodeId, pokemonInstanceId, requestId }` or null. */
+const CROP_ID = /^[a-z]{2,16}$/
+
+/**
+ * `{ nodeId, pokemonInstanceId, requestId, cropId? }` or null. `cropId` is only
+ * which crop the player *asks* to plant; SKILLS decides whether it may.
+ * Anything else in the payload (xp, reward, quantity, userId, duration…) is
+ * never read.
+ */
 export function workIntent(value) {
   if (!value || typeof value !== 'object') return null
-  const { nodeId, pokemonInstanceId, requestId } = value
+  const { nodeId, pokemonInstanceId, requestId, cropId } = value
   if (typeof nodeId !== 'string' || !NODE_ID.test(nodeId)) return null
   if (!Number.isSafeInteger(pokemonInstanceId) || pokemonInstanceId < 1) return null
   if (!Number.isSafeInteger(requestId) || requestId < 1) return null
-  return { nodeId, pokemonInstanceId, requestId }
+  if (cropId !== undefined && cropId !== null && (typeof cropId !== 'string' || !CROP_ID.test(cropId))) return null
+  return { nodeId, pokemonInstanceId, requestId, cropId: cropId ?? null }
 }
 
 export function cancelIntent(value) {
@@ -55,5 +65,9 @@ export function publicNode(record) {
     node.endsAt = record.actionEndsAt
   }
   if (record.respawnAt !== null) node.respawnAt = record.respawnAt
+  // A plot's crop is public: everyone sees what grows there, whose it is and when it is ready.
+  if (record.plot) {
+    node.plot = { cropId: record.plot.cropId, ownerId: record.plot.ownerId, plantedAt: record.plot.plantedAt, growingAt: record.plot.growingAt, readyAt: record.plot.readyAt, tended: record.plot.tended }
+  }
   return node
 }

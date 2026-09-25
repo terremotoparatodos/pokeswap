@@ -55,14 +55,40 @@ export const MIN_ACTION_MS = 500
 export const MAX_ACTION_MS = 5 * 60_000
 const REASON = /^[a-z0-9][a-z0-9-]{0,31}$/
 
-/** Normalizes an authorization answer; anything malformed is a refusal. */
+const MESSAGE_LIMIT = 120
+const DETAILS_LIMIT = 1024
+export const MIN_GROW_MS = 5_000
+export const MAX_GROW_MS = 7 * 24 * 60 * 60_000
+
+/** A bounded JSON value, or undefined. What SKILLS tells the requester about its own action. */
+function bounded(value, limit) {
+  try { return value === undefined || JSON.stringify(value).length > limit ? undefined : value } catch { return undefined }
+}
+
+/**
+ * Normalizes an authorization answer; anything malformed is a refusal.
+ * - `message`: player-facing text ("Requiere Talar 12"), to the requester only.
+ * - `details`: SKILLS' terms for the requester's own UI (XP, reward range…).
+ * - `plot`: for a plant, the crop and its grow time — SKILLS' rule, WORLD's clock.
+ */
 export function readAuthorization(answer) {
   if (!answer || typeof answer !== 'object') return { ok: false, reason: 'skills-invalid' }
+  const message = typeof answer.message === 'string' ? answer.message.slice(0, MESSAGE_LIMIT) : undefined
   if (answer.ok === true) {
     if (!Number.isFinite(answer.durationMs)) return { ok: false, reason: 'skills-invalid' }
-    return { ok: true, durationMs: Math.round(Math.min(MAX_ACTION_MS, Math.max(MIN_ACTION_MS, answer.durationMs))) }
+    const plot = answer.plot && typeof answer.plot.cropId === 'string' && /^[a-z]{2,16}$/.test(answer.plot.cropId) && Number.isFinite(answer.plot.growMs)
+      ? { cropId: answer.plot.cropId, growMs: Math.round(Math.min(MAX_GROW_MS, Math.max(MIN_GROW_MS, answer.plot.growMs))) }
+      : undefined
+    return {
+      ok: true, durationMs: Math.round(Math.min(MAX_ACTION_MS, Math.max(MIN_ACTION_MS, answer.durationMs))),
+      ...(plot ? { plot } : {}),
+      ...(bounded(answer.details, DETAILS_LIMIT) === undefined ? {} : { details: answer.details }),
+    }
   }
-  return { ok: false, reason: typeof answer.reason === 'string' && REASON.test(answer.reason) ? answer.reason : 'skills-denied' }
+  return {
+    ok: false, reason: typeof answer.reason === 'string' && REASON.test(answer.reason) ? answer.reason : 'skills-denied',
+    ...(message ? { message } : {}),
+  }
 }
 
 const SUMMARY_LIMIT = 2048

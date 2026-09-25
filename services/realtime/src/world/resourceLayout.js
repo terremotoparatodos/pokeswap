@@ -1,5 +1,7 @@
 import { WORLD_CHUNK_TILES, chunkOf, worldArea } from './areas.js'
 import { biomeAt, decorAt, hash2 } from './terrain.js'
+import { plotById } from './plots.js'
+export { RESPAWN_MS } from './worldTuning.js'
 
 /**
  * Where resource nodes are — the deterministic base layout (WORLD-1B).
@@ -19,7 +21,7 @@ import { biomeAt, decorAt, hash2 } from './terrain.js'
 export const RESOURCE_KIND = Object.freeze({ TREE: 'tree', ROCK: 'rock' })
 
 /** The physical verb a worker performs on each kind. */
-export const WORK_KIND = Object.freeze({ tree: 'chop', rock: 'mine' })
+export const WORK_KIND = Object.freeze({ tree: 'chop', rock: 'mine', plot: 'farm' })
 
 /**
  * Workable props. The variant is the prop the world already draws there; the
@@ -40,14 +42,6 @@ export const RESOURCE_VARIANTS = Object.freeze({
   boulder: Object.freeze({ kind: 'rock', density: 0.5 }),
   icerock: Object.freeze({ kind: 'rock', density: 0.4 }),
 })
-
-/**
- * How long a depleted node takes to come back. WORLD-owned pacing: it is how
- * fast the world regrows, not what a skill yields. Provisional numbers (the
- * shortest respawn the demo catalog had); SKILLS may ask for a per-variant
- * table, and it would land here.
- */
-export const RESPAWN_MS = Object.freeze({ tree: 90_000, rock: 90_000 })
 
 export const NODE_SALT = 31_031
 export const ZONE_RING_TILES = 96
@@ -96,6 +90,11 @@ export function resourceById(id) {
   if (!match) return null
   const node = resourceAt(match[1], Number(match[2]), Number(match[3]))
   return node && node.id === id ? node : null
+}
+
+/** Any workable thing by id: a derived resource node or a placed farm plot. */
+export function nodeById(id) {
+  return resourceById(id) ?? plotById(id)
 }
 
 /** Every node of one world chunk (tests, metrics and the load benchmark). */

@@ -205,15 +205,14 @@ test('Pradera viewers get the same wild roster in their snapshot, and the new on
   assert.equal(lastMessage(town, WORLD_MESSAGE.WILD), undefined)
 })
 
-test('a player token is forgotten when its socket leaves, but not when an older one does', () => {
-  const { world, join, sockets } = setup()
+test('a long session needs no player token: ownership is asked by user id, server-side', async () => {
+  // The room keeps no token at all; the ownership port only ever sees the
+  // authenticated user id. An hour later (or with the JWT long expired) the
+  // same player can still work.
+  const { world, clock, join } = setup()
   const a = join('a', SPOT_A)
-  assert.equal(world.credentials.has('a'), true)
-  const newer = fakeClient('a-newer')
-  sockets.set('a', newer)
-  world.join(newer, { worldProtocol: 1 }, { kind: 'player', userId: 'a', token: 'newer' })
-  world.leave(a.client)
-  assert.deepEqual(world.credentials.get('a'), { token: 'newer' })
-  world.leave(newer)
-  assert.equal(world.credentials.has('a'), false)
+  assert.equal('credentials' in world, false)
+  clock.advance(3 * 60 * 60_000)
+  await work(world, a.actor, 1, 25)
+  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT).ok, true)
 })

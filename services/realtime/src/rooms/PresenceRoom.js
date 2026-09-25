@@ -30,6 +30,7 @@ let chatSequence = 0
 // WORLD-1: resource nodes and work actions. Module-level like the maps above,
 // so the world survives a room dispose; it rides this room's socket and tick.
 let world = createWorld(worldDependencies())
+void world.start()
 
 function createWorld(dependencies) {
   const created = new WorldRoom({
@@ -44,6 +45,7 @@ function createWorld(dependencies) {
 /** Replaces the world's SKILLS/ownership adapters (tests and local tooling). Drops all world state. */
 export function configureWorld(dependencies) {
   world = createWorld(dependencies)
+  void world.start()
   return world
 }
 

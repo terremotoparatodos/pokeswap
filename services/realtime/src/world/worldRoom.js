@@ -17,13 +17,26 @@ import { WildService } from './wildService.js'
  * keeps the subscribers, so a node change costs O(viewers of that chunk), not
  * O(clients).
  */
+export const RESTORE_RETRY_MS = 5_000
+
 export class WorldRoom {
-  constructor({ skills, ownership, lookupActor, clientForPlayer, catalog = null, now = Date.now, authority = null }) {
+  /**
+   * `playerData` (optional): the PlayerDataAuthority. With it the world
+   * restores persisted node state before serving anyone, and sends each
+   * player its own XP, materials and Pokémon. Without it (tests, benchmarks
+   * of the transport alone) the world starts empty and ready.
+   */
+  constructor({ skills, ownership, lookupActor, clientForPlayer, catalog = null, playerData = null, now = Date.now, authority = null, log = message => console.warn(message) }) {
     this.now = now
     this.clientForPlayer = clientForPlayer
     this.clients = new Map()
     this.subscribers = new Map()
-    this.credentials = new Map()
+    this.playerData = playerData
+    this.skills = skills
+    this.log = log
+    /** False until persisted state is back: until then no world is served (fail closed). */
+    this.ready = playerData === null
+    this.waiting = new Map()
     this.metrics = { snapshots: 0, batches: 0, nodeDeltas: 0, chunkEnters: 0, chunkLeaves: 0, maxBatchBytes: 0, bytes: 0 }
     this.wild = new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
@@ -34,28 +47,62 @@ export class WorldRoom {
     })
   }
 
-  /** Registers a socket that declared the world protocol. Players also leave their token for ownership reads. */
+  /**
+   * Restores persisted node state (depleted trees, growing plots). Retries
+   * until the store answers; clients get their world snapshot only then, so a
+   * restart never shows a tree that is still depleted as available.
+   */
+  async start() {
+    if (this.ready || !this.playerData) return
+    for (;;) {
+      try {
+        this.authority.restore(await this.playerData.loadNodes(), this.now())
+        break
+      } catch (error) {
+        this.log(`[world] could not restore persisted world state (${String(error?.message ?? error).slice(0, 60)}); retrying`)
+        await new Promise(resolve => { const timer = setTimeout(resolve, RESTORE_RETRY_MS); timer.unref?.() })
+      }
+    }
+    this.ready = true
+    for (const [client, viewer] of this.waiting) if (this.clients.has(client)) this.snapshot(client, viewer)
+    this.waiting.clear()
+  }
+
+  /**
+   * Registers a socket that declared the world protocol. Nothing of the
+   * player's token is kept: after join the session is the authenticated user
+   * id, and every later check asks the server-side player data about that id.
+   */
   join(client, options, auth) {
     if (!(Number.isInteger(options?.worldProtocol) && options.worldProtocol >= WORLD_PROTOCOL)) return
-    this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId: auth?.kind === 'player' ? auth.userId : null })
-    if (auth?.kind === 'player') this.credentials.set(auth.userId, { token: auth.token ?? null })
+    const playerId = auth?.kind === 'player' ? auth.userId : null
+    this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId })
+    if (playerId !== null && this.playerData) void this.#sendPlayerState(client, playerId)
   }
 
   leave(client) {
     const state = this.clients.get(client)
+    this.waiting.delete(client)
     if (!state) return
     this.#unsubscribeAll(client, state)
     this.clients.delete(client)
-    // The token is only kept while its socket is the player's current one; a
-    // replaced session leaves the newer socket's token in place.
-    const current = state.playerId === null ? null : this.clientForPlayer(state.playerId)
-    if (state.playerId !== null && (current === client || current === null)) this.credentials.delete(state.playerId)
+  }
+
+  async #sendPlayerState(client, playerId) {
+    try {
+      const state = await this.playerData.playerState(playerId)
+      this.skills?.primePlayer?.(playerId, state)
+      if (this.clients.has(client)) this.#send(client, WORLD_MESSAGE.PLAYER_STATE, state)
+    } catch (error) {
+      this.log(`[world] player state unavailable (${String(error?.message ?? error).slice(0, 60)})`)
+    }
   }
 
   /** Full reset for a viewer: on ready, on every area change and on every guest observe. */
   snapshot(client, viewer) {
     const state = this.clients.get(client)
     if (!state) return
+    if (!this.ready) { this.waiting.set(client, { ...viewer }); return }
     this.#unsubscribeAll(client, state)
     state.pending = null
     state.areaId = viewer.areaId
@@ -106,7 +153,8 @@ export class WorldRoom {
   work(actor, payload) {
     const intent = workIntent(payload)
     if (!intent) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: null, ok: false, reason: 'invalid' })
-    return this.authority.requestWork(actor, this.credentials.get(actor.id) ?? null, intent)
+    if (!this.ready) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: intent.requestId, ok: false, reason: 'world-loading' })
+    return this.authority.requestWork(actor, intent)
   }
 
   cancel(actor, payload) {

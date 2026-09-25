@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { DueQueue } from './dueQueue.js'
-import { RESPAWN_MS, WORK_KIND, resourceById } from './resourceLayout.js'
+import { farmActionFor, nextPlotChange, plotAfterWork, plotStageAt, PLOT_KIND } from './plots.js'
+import { RESPAWN_MS, WORK_KIND, nodeById } from './resourceLayout.js'
 import { WORKING, afterTimer, afterWork, canStartWork, lifecycleFor } from './resourceLifecycle.js'
 import { ResourceStore } from './resourceStore.js'
 import { readAuthorization, readSettlement } from './skillPolicy.js'
@@ -9,37 +10,35 @@ import { readAuthorization, readSettlement } from './skillPolicy.js'
 export const WORK_REACH = 1
 /** Ownership and authorization each; past this the attempt is refused (nothing was held). */
 export const AUTHORIZE_TIMEOUT_MS = 4_000
-/** Settlement retries after the first try (same actionId every time: SKILLS dedupes). */
+/** Settlement retries after the first try (same actionId every time: the database dedupes). */
 export const SETTLE_RETRY_DELAYS_MS = Object.freeze([1_000, 3_000, 9_000])
 const RECENT_REQUESTS = 32
 
 const beside = (actor, node) => Math.abs(actor.tx - node.tx) + Math.abs(actor.ty - node.ty) === WORK_REACH
+const STAGE = { empty: 'EMPTY', planted: 'PLANTED', growing: 'GROWING', ready: 'READY' }
 
 /**
- * The server authority over resource nodes and the work actions on them
- * (WORLD-1B/1C). Transport-free: the room feeds it actors and intents and
- * forwards what it emits.
+ * The server authority over resource nodes, farm plots and the work actions on
+ * them (WORLD-1B/1C, INTEGRATION-1). Transport-free: the room feeds it actors
+ * and intents and forwards what it emits.
  *
  * Validate first, acquire last. An attempt runs every check that mutates
  * nothing — the physical ones, then the Pokémon's ownership, then SKILLS'
  * authorization — while holding nothing, so a request that is going to fail
- * (someone else's Pokémon, a level SKILLS refuses) can never make a node look
- * `busy` to a legitimate player. Only then, synchronously and with no await in
- * between, it re-checks the live actor and the node and acquires the node, the
- * player and the Pokémon in one step. Node.js runs one handler at a time, so
- * that step is atomic: when two valid attempts race, the first to finish its
- * awaits wins and the other is refused with `busy` (and SKILLS is told the
- * authorization it granted was not used). Exactly one attempt can win a node.
+ * can never make a node look `busy` to a legitimate player. Only then,
+ * synchronously and with no await in between, it re-checks the live actor and
+ * the node and acquires the node, the player and the Pokémon in one step.
  *
- * One attempt in flight per player: a second concurrent attempt from the same
- * player is refused (`in-flight`) before it costs an ownership read.
+ * Exactly-once, persisted. A completion runs only for an action in phase
+ * `running` and moves it to `settling` before its first await. WORLD computes
+ * the node's next physical state *first* and hands it to the settlement, which
+ * writes reward and node state in one database transaction (unique action_id).
+ * Only a confirmed commit changes the node in memory; a failed one puts the
+ * node back as it was. So there is never a reward with the tree still up, nor
+ * a stump without its reward — not even across a crash between the two.
  *
- * Exactly-once. A completion runs only for an action in phase `running` and
- * moves it to `settling` before its first await, so a duplicated timer entry,
- * a reconnect or a second callback finds it already taken. Settlement is
- * retried only with the same actionId, which SKILLS must dedupe. The node is
- * depleted only after SKILLS confirms; a settlement that finally fails puts
- * the node back as it was, so nothing is ever consumed without its reward.
+ * Identity. `actor.id` is the room's authenticated user id; ownership is asked
+ * of the server-side player data with that id, never with a client token.
  */
 export class ResourceAuthority {
   constructor({
@@ -55,11 +54,34 @@ export class ResourceAuthority {
     this.byPlayer = new Map()
     this.byPokemon = new Map()
     this.recent = new Map()
-    this.metrics = { requested: 0, started: 0, rejected: {}, completed: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0 }
+    this.metrics = { requested: 0, started: 0, rejected: {}, completed: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0, restored: 0 }
+  }
+
+  /**
+   * Puts persisted node state back after a restart. Trees and rocks still
+   * depleted stay depleted until their respawn instant; plots resume their
+   * stage from their server timestamps. Nothing here is guessed.
+   */
+  restore(overrides, now = this.now()) {
+    for (const row of overrides) {
+      const node = nodeById(row.nodeId)
+      if (!node) continue
+      if (node.resourceKind === PLOT_KIND) {
+        if (!row.plot) continue
+        const nextAt = nextPlotChange(row.plot, now)
+        const record = this.store.write(node, { state: plotStageAt(row.plot, now), plot: row.plot, respawnAt: nextAt })
+        if (nextAt !== null) this.queue.push(nextAt, { type: 'timer', nodeId: node.id, version: record.version })
+      } else {
+        if (row.respawnAt === null || row.respawnAt <= now) continue
+        const record = this.store.write(node, { state: row.state, respawnAt: row.respawnAt })
+        this.queue.push(row.respawnAt, { type: 'timer', nodeId: node.id, version: record.version })
+      }
+      this.metrics.restored++
+    }
   }
 
   /** A work intent from `actor`. Resolves with the reply sent to that player. */
-  async requestWork(actor, credentials, intent) {
+  async requestWork(actor, intent) {
     this.metrics.requested++
     const recent = this.#recentFor(actor.id)
     if (recent.has(intent.requestId)) return this.#reject(actor.id, intent, 'duplicate-request')
@@ -77,15 +99,18 @@ export class ResourceAuthority {
     this.attempting.add(actor.id)
     let authorized = false
     let reason = null
+    let message
     try {
       // 2 · Ownership, then 3 · SKILLS. Still nothing held.
-      const pokemon = await this.#withTimeout(this.ownership.verify(actor.id, intent.pokemonInstanceId, credentials))
+      const pokemon = await this.#withTimeout(this.ownership.verify(actor.id, intent.pokemonInstanceId))
       if (!pokemon) reason = 'not-owner'
       else {
         const answer = readAuthorization(await this.#withTimeout(this.skills.authorizeWorkAttempt({
           actionId, playerId: actor.id, pokemon, node: publicNodeFacts(node), workKind, requestedAt: this.now(),
+          ...(check.farm ? { farm: check.farm } : {}),
         })))
-        if (!answer.ok) reason = answer.reason
+        if (!answer.ok) { reason = answer.reason; message = answer.message }
+        else if (check.farm?.action === 'plant' && !answer.plot) reason = 'skills-invalid'
         else {
           authorized = true
           // 4 · Re-check against the live world and acquire, with no await in between.
@@ -93,8 +118,11 @@ export class ResourceAuthority {
           const recheck = live ? this.#physicalCheck(live, intent) : { reason: 'left' }
           if (recheck.reason) reason = recheck.reason
           else {
-            const action = { actionId, playerId: actor.id, node, pokemon, workKind, workedFrom: recheck.state, phase: 'running', startedAt: null, endsAt: null }
-            return this.#start(action, answer.durationMs, intent.requestId)
+            const action = {
+              actionId, playerId: actor.id, node, pokemon, workKind, workedFrom: recheck.state, plotBefore: recheck.plot ?? null,
+              farmAction: recheck.farm?.action ?? null, plotGrant: answer.plot ?? null, phase: 'running', startedAt: null, endsAt: null,
+            }
+            return this.#start(action, answer.durationMs, intent.requestId, answer.details)
           }
         }
       }
@@ -107,14 +135,14 @@ export class ResourceAuthority {
       this.metrics.authorizedNotStarted++
       this.#notifyCancel({ actionId, playerId: actor.id }, reason)
     }
-    return this.#reject(actor.id, intent, reason)
+    return this.#reject(actor.id, intent, reason, message)
   }
 
   /** Cancels the player's own action. False when there is nothing (left) to cancel. */
   cancel(playerId, actionId, reason = 'cancelled') {
     const action = this.actions.get(actionId)
     if (!action || action.playerId !== playerId || action.phase !== 'running') return false
-    const record = this.store.write(action.node, { state: action.workedFrom })
+    const record = this.store.write(action.node, this.#restingState(action))
     this.#release(action)
     this.metrics.cancelled++
     this.onNode(record)
@@ -152,9 +180,13 @@ export class ResourceAuthority {
     }
     action.phase = 'settling'
     const completedAt = this.now()
+    // WORLD decides the node's next physical state before anything is paid,
+    // and the settlement writes both together.
+    const next = this.#nextState(action, completedAt)
     const settlement = {
       actionId, playerId: action.playerId, pokemon: action.pokemon, node: publicNodeFacts(action.node),
       workKind: action.workKind, startedAt: action.startedAt, endsAt: action.endsAt, completedAt,
+      world: persistedNode(action.node, next),
     }
     let result = null
     for (let attempt = 0; attempt <= SETTLE_RETRY_DELAYS_MS.length; attempt++) {
@@ -163,17 +195,14 @@ export class ResourceAuthority {
       if (result.ok || !result.retryable) break
     }
 
-    const lifecycle = lifecycleFor(action.node.resourceKind)
     let record
     if (result.ok) {
-      const state = afterWork(lifecycle, action.workedFrom)
-      const timerMs = timerDuration(action.node, lifecycle, state)
-      record = this.store.write(action.node, { state, respawnAt: timerMs === null ? null : completedAt + timerMs })
+      record = this.store.write(action.node, next)
       if (record.respawnAt !== null) this.queue.push(record.respawnAt, { type: 'timer', nodeId: record.id, version: record.version })
       this.metrics.completed++
     } else {
-      // No depletion without a confirmed settlement.
-      record = this.store.write(action.node, { state: action.workedFrom })
+      // No change without a confirmed settlement.
+      record = this.store.write(action.node, this.#restingState(action))
       this.metrics.settleFailed++
     }
     this.#release(action)
@@ -190,22 +219,47 @@ export class ResourceAuthority {
     return action?.phase === 'running' || action?.phase === 'settling' ? action : null
   }
 
+  /** The node's state after a completed action: WORLD's decision, handed to the settlement. */
+  #nextState(action, now) {
+    if (action.node.resourceKind === PLOT_KIND) {
+      const plot = plotAfterWork(action.farmAction, action.plotBefore, { now, playerId: action.playerId, cropId: action.plotGrant?.cropId, growMs: action.plotGrant?.growMs })
+      if (!plot) return { state: 'empty' }
+      return { state: plotStageAt(plot, now), plot, respawnAt: nextPlotChange(plot, now) }
+    }
+    const lifecycle = lifecycleFor(action.node.resourceKind)
+    const state = afterWork(lifecycle, action.workedFrom)
+    return { state, respawnAt: afterTimer(lifecycle, state) === null ? null : now + RESPAWN_MS[action.node.resourceKind] }
+  }
+
+  /** Where an action that did not complete leaves the node: as it was. */
+  #restingState(action) {
+    if (action.node.resourceKind !== PLOT_KIND || !action.plotBefore) return { state: action.workedFrom }
+    const now = this.now()
+    return { state: plotStageAt(action.plotBefore, now), plot: action.plotBefore, respawnAt: nextPlotChange(action.plotBefore, now) }
+  }
+
   #timer(nodeId, version) {
     const record = this.store.get(nodeId)
-    if (!record || record.version !== version) return
-    const node = resourceById(nodeId)
-    const lifecycle = lifecycleFor(node.resourceKind)
-    const state = afterTimer(lifecycle, record.state)
-    if (state === null) return
-    const timerMs = timerDuration(node, lifecycle, state)
-    const next = this.store.write(node, { state, respawnAt: timerMs === null ? null : this.now() + timerMs })
-    if (next.respawnAt !== null) this.queue.push(next.respawnAt, { type: 'timer', nodeId, version: next.version })
-    this.metrics.respawned++
-    this.onNode(next)
+    if (!record || record.version !== version || record.actionId) return
+    const node = nodeById(nodeId)
+    const now = this.now()
+    let next
+    if (node.resourceKind === PLOT_KIND) {
+      if (!record.plot) return
+      next = { state: plotStageAt(record.plot, now), plot: record.plot, respawnAt: nextPlotChange(record.plot, now) }
+    } else {
+      const state = afterTimer(lifecycleFor(node.resourceKind), record.state)
+      if (state === null) return
+      next = { state }
+      this.metrics.respawned++
+    }
+    const written = this.store.write(node, next)
+    if (written.respawnAt !== null) this.queue.push(written.respawnAt, { type: 'timer', nodeId, version: written.version })
+    this.onNode(written)
   }
 
   /** Acquisition: node, player and Pokémon in one synchronous step. */
-  #start(action, durationMs, requestId) {
+  #start(action, durationMs, requestId, details) {
     const startedAt = this.now()
     action.startedAt = startedAt
     action.endsAt = startedAt + durationMs
@@ -215,27 +269,40 @@ export class ResourceAuthority {
     const record = this.store.write(action.node, {
       state: WORKING, workedFrom: action.workedFrom, actionId: action.actionId, workKind: action.workKind,
       worker: { playerId: action.playerId, pokemonInstanceId: action.pokemon.instanceId, speciesId: action.pokemon.speciesId },
-      actionStartedAt: startedAt, actionEndsAt: action.endsAt,
+      actionStartedAt: startedAt, actionEndsAt: action.endsAt, plot: action.plotBefore,
     })
     this.queue.push(action.endsAt, { type: 'complete', actionId: action.actionId })
     this.metrics.started++
     this.onNode(record)
-    return this.#reply(action.playerId, { requestId, ok: true, actionId: action.actionId, nodeId: action.node.id, startedAt, endsAt: action.endsAt })
+    return this.#reply(action.playerId, {
+      requestId, ok: true, actionId: action.actionId, nodeId: action.node.id, startedAt, endsAt: action.endsAt,
+      ...(action.farmAction ? { farmAction: action.farmAction } : {}),
+      ...(details === undefined ? {} : { details }),
+    })
   }
 
   /** Checks that mutate nothing. `state` is the node state an action would start from. */
   #physicalCheck(actor, intent) {
-    const node = resourceById(intent.nodeId)
+    const node = nodeById(intent.nodeId)
     if (!node) return { reason: 'unknown-node' }
     if (actor.areaId !== node.areaId) return { reason: 'wrong-area' }
     if (!beside(actor, node)) return { reason: 'too-far' }
     const lifecycle = lifecycleFor(node.resourceKind)
-    const state = this.store.get(node.id)?.state ?? lifecycle.initial
+    const record = this.store.get(node.id)
+    const state = record?.state ?? lifecycle.initial
     if (state === WORKING) return { reason: 'busy' }
     if (!canStartWork(lifecycle, state)) return { reason: state }
     if (this.byPlayer.has(actor.id)) return { reason: 'actor-busy' }
     if (this.byPokemon.has(intent.pokemonInstanceId)) return { reason: 'pokemon-busy' }
-    return { node, state }
+    if (node.resourceKind !== PLOT_KIND) return { node, state }
+    const plot = record?.plot ?? null
+    const farm = farmActionFor(state, plot, actor.id)
+    if (farm.reason) return { reason: farm.reason }
+    if (farm.action === 'plant' && !intent.cropId) return { reason: 'choose-crop' }
+    return {
+      node, state, plot,
+      farm: { action: farm.action, plotKind: node.plotKind, stage: STAGE[state], cropId: plot?.cropId ?? null, tended: plot?.tended ?? false, requestedCropId: intent.cropId ?? null },
+    }
   }
 
   #release(action) {
@@ -249,9 +316,9 @@ export class ResourceAuthority {
     try { void Promise.resolve(this.skills.cancelWork?.({ actionId: action.actionId, playerId: action.playerId, reason })).catch(() => undefined) } catch { /* a failing optional hook must not break the world */ }
   }
 
-  #reject(playerId, intent, reason) {
+  #reject(playerId, intent, reason, message) {
     this.metrics.rejected[reason] = (this.metrics.rejected[reason] ?? 0) + 1
-    return this.#reply(playerId, { requestId: intent.requestId, ok: false, reason })
+    return this.#reply(playerId, { requestId: intent.requestId, ok: false, reason, ...(message ? { message } : {}) })
   }
 
   #reply(playerId, result) {
@@ -279,8 +346,12 @@ function publicNodeFacts(node) {
   return { id: node.id, resourceKind: node.resourceKind, variantId: node.variantId, areaId: node.areaId, tx: node.tx, ty: node.ty, zone: node.zone, biome: node.biome }
 }
 
-/** How long a timed state lasts. Only depletion is timed for trees and rocks. */
-function timerDuration(node, lifecycle, state) {
-  if (afterTimer(lifecycle, state) === null) return null
-  return state === 'depleted' ? RESPAWN_MS[node.resourceKind] : null
+/** The node state the settlement persists with the reward (world_commit_work's p_node). */
+function persistedNode(node, next) {
+  const initial = lifecycleFor(node.resourceKind).initial
+  const base = next.state === initial && !next.plot
+  return {
+    nodeId: node.id, areaId: node.areaId, chunkId: node.chunkId, state: next.state,
+    respawnAt: next.respawnAt ?? null, plot: next.plot ?? null, base,
+  }
 }

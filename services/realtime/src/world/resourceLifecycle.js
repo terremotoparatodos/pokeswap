@@ -28,7 +28,18 @@ export const SIMPLE_LIFECYCLE = Object.freeze({
   timed: Object.freeze({ depleted: 'available' }),
 })
 
-const LIFECYCLES = Object.freeze({ tree: SIMPLE_LIFECYCLE, rock: SIMPLE_LIFECYCLE })
+/**
+ * Farm plots (INTEGRATION-1). Every stage can host a farm action (plant, tend,
+ * harvest — plots.js decides which, and whether this player may); the timed
+ * stages advance by server timestamps.
+ */
+export const PLOT_LIFECYCLE = Object.freeze({
+  initial: 'empty',
+  work: Object.freeze({ empty: 'planted', planted: 'planted', growing: 'growing', ready: 'empty' }),
+  timed: Object.freeze({ planted: 'growing', growing: 'ready' }),
+})
+
+const LIFECYCLES = Object.freeze({ tree: SIMPLE_LIFECYCLE, rock: SIMPLE_LIFECYCLE, plot: PLOT_LIFECYCLE })
 
 export function lifecycleFor(resourceKind) {
   return Object.hasOwn(LIFECYCLES, resourceKind) ? LIFECYCLES[resourceKind] : null
