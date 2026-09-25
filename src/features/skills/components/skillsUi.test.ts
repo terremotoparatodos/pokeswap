@@ -3,8 +3,8 @@ import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { RESOURCE_BY_ID } from '../domain/resources'
 import { SKILL_IDS, type SkillId } from '../domain/skills'
 import { totalXpForLevel } from '../domain/xpCurve'
-import { createManualClock } from '../service/memoryAdapters'
-import { createLocalSkillsSession } from '../local/localSkillsSession'
+import { createManualClock, createMemorySkillsStore } from '../service/memoryAdapters'
+import { createSkillsService } from '../service/skillsService'
 import SkillsBag from './SkillsBag.vue'
 import SkillsPanel from './SkillsPanel.vue'
 import WorkCard from './WorkCard.vue'
@@ -102,17 +102,19 @@ describe('WorkCard', () => {
   })
 
   it('shows +XP, +item and the level-up with what it unlocked', async () => {
+    // The SKILLS service as the server runs it; the card shows what it settled.
     const clock = createManualClock(0)
-    const session = createLocalSkillsSession({ clock })
-    session.seedXp('mining', totalXpForLevel(10) - 1)
-    const target = { nodeId: 'rock', resource: RESOURCE_BY_ID.get('stone_outcrop')!, biome: 'grassland' as const }
-    const begin = session.begin(target, { instanceId: 'g', speciesId: 74 })
+    const store = createMemorySkillsStore()
+    store.setXp('p', 'mining', totalXpForLevel(10) - 1)
+    const service = createSkillsService({ progress: store.progress, ledger: store.ledger, clock, random: () => 0.5 })
+    const begin = service.authorizeWorkAttempt({ actionId: 'a-1', playerId: 'p', worker: { instanceId: 'g', speciesId: 74 }, target: { kind: 'gather', resourceId: 'stone_outcrop' } })
     if (!begin.allowed) throw new Error(begin.message)
     clock.advance(begin.durationMs)
-    const result = session.complete(begin.actionId)
+    const result = service.settleWork('a-1', { outcome: 'completed' })
+    const resource = RESOURCE_BY_ID.get('stone_outcrop')!
 
     const wrapper = mount(WorkCard, {
-      props: { ...base, resource: target.resource, phase: 'result' as const, result, xp: session.xp(), workers: [{ instanceId: 'g', speciesId: 74 }] },
+      props: { ...base, resource, phase: 'result' as const, result, xp: store.progress.xpOf('p'), workers: [{ instanceId: 'g', speciesId: 74 }] },
     })
     expect(wrapper.get('.wc-levelup').text()).toBe('Minería 9 → 10')
     expect(wrapper.findAll('.wc-unlock').map(node => node.text())).toEqual(['Nuevo: Veta de carbón', 'Ritmo 1: todo trabajo 4 % más rápido'])

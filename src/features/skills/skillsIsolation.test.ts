@@ -12,7 +12,10 @@ import { describe, expect, it } from 'vitest'
 const ALL_SOURCES = import.meta.glob<string>('../../**/*.{ts,vue}', { query: '?raw', import: 'default', eager: true })
 
 // Vite keys files under this folder as './…' and everything else as '../../…'.
-const isSkills = (path: string) => path.startsWith('./') || path.startsWith('../../features/skills/')
+// worldSkills (INTEGRATION-1) is the WORLD × SKILLS layer: it lives on the
+// Skills side of the gate, reached only through SkillsWorldLayer (and bundled
+// for the server), so it counts as Skills here.
+const isSkills = (path: string) => path.startsWith('./') || path.startsWith('../../features/skills/') || path.startsWith('../worldSkills/') || path.startsWith('../../features/worldSkills/')
 const isTest = (path: string) => path.endsWith('.test.ts')
 
 /** Scans look for code, so comments are stripped first: prose may name what code must not do. */
@@ -38,7 +41,7 @@ describe('Skills isolation', () => {
     for (const [path, source] of Object.entries(ALL_SOURCES)) {
       if (isSkills(path) || isTest(path)) continue
       for (const line of code(source).split('\n')) {
-        if (!line.includes('/skills/')) continue
+        if (!line.includes('/skills/') && !line.includes('/worldSkills/')) continue
         expect(line, path).toMatch(/skills\/components\/SkillsWorldLayer\.vue/)
         expect(line, path).toMatch(BUILD_GATES)
       }

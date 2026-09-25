@@ -184,7 +184,7 @@ export function createSkillsWorldPolicy(options: SkillsWorldPolicyOptions) {
     async settleWork(settlement: WorldSettlement) {
       const result = service.settleWork(settlement.actionId, { outcome: 'completed' })
       if (result.status === 'too_early') return { ok: false, retryable: true, reason: 'too-early' }
-      if (result.status === 'unknown_action' || result.status === 'invalid_request') return { ok: false, retryable: false, reason: REASON(result.status) }
+      if (result.status !== 'settled' && result.status !== 'already_settled') return { ok: false, retryable: false, reason: REASON(result.status) }
       const paid = result.settlement
       if (paid.outcome !== 'completed') {
         // Expired authorization: SKILLS closed it without pay. Nothing to write; WORLD keeps the node.
@@ -218,7 +218,7 @@ export function createSkillsWorldPolicy(options: SkillsWorldPolicyOptions) {
         summary: {
           skillId: paid.skillId, xpGained: paid.xpGained, xpAfter: xpAfter ?? paid.xpAfter, rewards: paid.rewards,
           levelBefore: paid.levelBefore, levelAfter: paid.levelAfter, levelUpLine: levelUpLine(paid.skillId, paid.levelBefore, paid.levelAfter),
-          unlocks: unlocksBetween(paid.skillId, paid.levelBefore, paid.levelAfter).map(unlock => ({ level: unlock.level, title: unlock.title, detail: unlock.detail })),
+          unlocks: unlocksBetween(paid.skillId, paid.levelBefore, paid.levelAfter).map(unlock => ({ skillId: unlock.skillId, level: unlock.level, kind: unlock.kind, id: unlock.id, title: unlock.title, detail: unlock.detail })),
         },
       }
     },

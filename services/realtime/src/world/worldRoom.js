@@ -92,7 +92,7 @@ export class WorldRoom {
     try {
       const state = await this.playerData.playerState(playerId)
       this.skills?.primePlayer?.(playerId, state)
-      if (this.clients.has(client)) this.#send(client, WORLD_MESSAGE.PLAYER_STATE, state)
+      if (this.clients.has(client)) this.#send(client, WORLD_MESSAGE.PLAYER_STATE, { playerId, ...state })
     } catch (error) {
       this.log(`[world] player state unavailable (${String(error?.message ?? error).slice(0, 60)})`)
     }

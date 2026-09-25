@@ -4,7 +4,23 @@
 
     <SkillsBag v-if="bagOpen" :inventory="layer.inventory.value" :supplies="ownedSupplies" @close="bagOpen = false" />
 
-    <div v-if="card" class="swl-card">
+    <div v-if="farm.view.value" class="swl-card">
+      <FarmCard
+        :key="farm.view.value.plot.id"
+        :plot="farm.view.value"
+        :phase="farm.phase.value"
+        :duration-ms="farm.run.value?.durationMs ?? 0"
+        :result="farm.result.value"
+        :refusal="farm.refusal.value"
+        :xp="layer.xp.value"
+        :workers="crew"
+        :last-worker="farm.lastWorker.value"
+        @work="(worker, name, cropId) => farm.work(worker, name, cropId)"
+        @close="farm.close()"
+      />
+    </div>
+
+    <div v-else-if="card" class="swl-card">
       <WorkCard
         :key="card.nodeId"
         :resource="card.resource"
@@ -25,7 +41,13 @@
 
 <script setup lang="ts">
 import { computed, onUnmounted, ref, watch } from 'vue'
-import type { WorkerRef } from '../local/localSkillsSession'
+import type { WorkerRef } from '../ui/workerRef'
+import type { SharedWorld } from '../../world/state/sharedWorld'
+import { createWorldSkillsSession } from '../../worldSkills/client/worldSkillsSession'
+import { useFarmPlots } from '../../worldSkills/client/useFarmPlots'
+import { PlotOverlay } from '../../worldSkills/client/plotOverlay'
+import { CompositeOverlay } from '../../wildlands/engine/compositeOverlay'
+import FarmCard from './FarmCard.vue'
 import { useSkillsLayer, type SkillsGamePort, type WorldHit } from '../ui/useSkillsLayer'
 import SkillsBag from './SkillsBag.vue'
 import SkillsPanel from './SkillsPanel.vue'
@@ -36,21 +58,17 @@ import './skills.css'
 // build gate (development builds and the Community Playtest). A normal
 // production build mounts nothing.
 //
-// Talar and Minería are played on the rocks and trees the world already
-// draws; Agricultura has its rules, its roadmap and its tests, and waits for
-// WORLD-1 to put plots in the world. Local session only: no writes, no
-// network, no presence messages.
+// Talar and Minería are played on the shared world's rocks and trees
+// (INTEGRATION-1): the session sends intents to the realtime server, which
+// validates, lets SKILLS decide and persists the result. The crew is the
+// player's own Pokémon as the server read them; nothing here grants anything.
 const props = defineProps<{
   areaKind: 'town' | 'wild'
   game: SkillsGamePort | null
   /** Show the Skills panel. The playtest does; the dev demo too. */
   skills?: boolean
-  /**
-   * The player's own Pokémon (the playtest party). They do the work; there
-   * is no separate "work Pokémon". Without a host roster (dev build) a small
-   * fixture crew stands in.
-   */
-  workers?: readonly WorkerRef[]
+  /** The shared world: every answer in this layer is the server's (INTEGRATION-1). */
+  world: SharedWorld
   /** Consumables carried into a playtest dungeon, shown in the bag. */
   ownedSupplies?: Readonly<Record<string, number>>
 }>()
@@ -58,16 +76,13 @@ const props = defineProps<{
 // covering panel); this layer opens none, so it never emits it.
 const emit = defineEmits<{ overlay: [open: boolean]; panel: [panel: 'skills' | 'bag', open: boolean] }>()
 
-/** DEV ONLY: a crew that shows the range — a specialist per skill and a clumsy one. */
-const DEV_CREW: readonly WorkerRef[] = [
-  { instanceId: 'dev-machamp', speciesId: 68 },
-  { instanceId: 'dev-scyther', speciesId: 123 },
-  { instanceId: 'dev-bulbasaur', speciesId: 1 },
-  { instanceId: 'dev-magikarp', speciesId: 129 },
-]
-const crew = computed<readonly WorkerRef[]>(() => props.workers ?? DEV_CREW)
-
-const layer = useSkillsLayer(() => props.game)
+const session = createWorldSkillsSession(props.world)
+const layer = useSkillsLayer(() => props.game, session)
+/** Agricultura on the shared plots (INTEGRATION-1). */
+const farm = useFarmPlots(() => props.game, session, props.world)
+const overlay = new CompositeOverlay(layer.overlay, new PlotOverlay(props.world, () => props.world.playerData?.playerId ?? null))
+/** The player's own Pokémon, as the server read them (empty until it has). */
+const crew = computed<readonly WorkerRef[]>(() => layer.workers.value ?? [])
 const bagOpen = ref(false)
 watch(bagOpen, open => emit('panel', 'bag', open))
 const panelRef = ref<{ close: () => void } | null>(null)
@@ -79,28 +94,33 @@ const card = computed(() => {
 })
 
 watch(() => props.game, game => {
-  if (game) game.setSceneOverlay(layer.overlay)
+  if (game) game.setSceneOverlay(overlay)
 }, { immediate: true })
-onUnmounted(() => layer.detach())
+onUnmounted(() => { layer.detach(); farm.detach() })
 
 /** Engine probe: this layer places no objects of its own (stations were retired in SKILLS-1). */
 const placedObjects = (): readonly never[] => []
 
-const hint = computed(() => props.areaKind === 'wild' && !layer.open.value
-  ? { id: 'skills', badge: props.skills ? 'Skills' : 'Dev', tone: 'skills' as const, text: 'Acercate a un árbol o a una roca: elegí un Pokémon y que trabaje' }
+const hint = computed(() => props.areaKind === 'wild' && !layer.open.value && !farm.open.value
+  ? { id: 'skills', badge: props.skills ? 'Skills' : 'Dev', tone: 'skills' as const, text: 'Acercate a un árbol, una roca o la huerta: elegí un Pokémon y que trabaje' }
   : null)
+const actionOpen = computed(() => layer.open.value || farm.open.value)
 
 defineExpose({
-  inspect: (hit: WorldHit) => layer.inspect(hit),
-  isWorldObject: (hit: WorldHit) => layer.isWorldObject(hit),
+  inspect: (hit: WorldHit) => {
+    if (layer.inspect(hit)) { farm.close(); return true }
+    if (farm.inspect(hit)) { layer.close(); return true }
+    return false
+  },
+  isWorldObject: (hit: WorldHit) => layer.isWorldObject(hit) || farm.isWorldObject(hit),
   placedObjects,
-  overlay: layer.overlay,
-  closeTransient: () => { layer.close(); bagOpen.value = false },
+  overlay,
+  closeTransient: () => { layer.close(); farm.close(); bagOpen.value = false },
   toggleInventory: () => { bagOpen.value = !bagOpen.value },
   closeSkills: () => panelRef.value?.close(),
   closeBag: () => { bagOpen.value = false },
   hint,
-  actionOpen: layer.open,
+  actionOpen,
 })
 </script>
 

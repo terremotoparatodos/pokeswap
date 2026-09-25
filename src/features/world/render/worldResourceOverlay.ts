@@ -13,10 +13,21 @@ import type { WorldClock } from '../domain/worldClock'
 import type { WorldResourceMirror } from '../domain/worldResources'
 import { depletedSprite } from './depletedArt'
 
-const VERB: Readonly<Record<string, string>> = { chop: 'Talando', mine: 'Minando' }
+const VERB: Readonly<Record<string, string>> = { chop: 'Talando', mine: 'Minando', farm: 'Cultivando' }
 
 export class WorldResourceOverlay implements SceneOverlay {
-  constructor(private readonly mirror: WorldResourceMirror, private readonly clock: WorldClock) {}
+  constructor(
+    private readonly mirror: WorldResourceMirror,
+    private readonly clock: WorldClock,
+    /** The local player's id: its own action is drawn by its Skills layer, not twice. */
+    private readonly localPlayer: () => string | null = () => null,
+  ) {}
+
+  /** The local player's own gathering is drawn by its Skills layer; its farming is drawn here. */
+  private isOwn(node: { id: string; worker?: { playerId: string } }): boolean {
+    const own = this.localPlayer()
+    return own !== null && node.worker?.playerId === own && !node.id.endsWith(':plot')
+  }
 
   decor(decor: DecorInstance, area: Area): DecorStyle | null {
     if (this.mirror.activeNodes === 0 || !decor.kind || area.id !== this.mirror.areaId) return null
@@ -26,7 +37,7 @@ export class WorldResourceOverlay implements SceneOverlay {
       const sprite = depletedSprite(decor.kind)
       return sprite ? { sprite } : null
     }
-    if (node.actionId) {
+    if (node.actionId && !this.isOwn(node)) {
       const now = this.clock.now() ?? 0
       return { dx: (now % 600) < 90 ? ((Math.floor(now / 600) % 2) ? 1 : -1) : 0 }
     }
@@ -38,7 +49,7 @@ export class WorldResourceOverlay implements SceneOverlay {
     const now = this.clock.now()
     if (now === null) return
     for (const node of this.mirror.active()) {
-      if (!node.actionId || node.startedAt === undefined || node.endsAt === undefined) continue
+      if (!node.actionId || node.startedAt === undefined || node.endsAt === undefined || this.isOwn(node)) continue
       const [, tx, ty] = node.id.split(':').map(Number) as [number, number, number]
       const progress = Math.min(1, Math.max(0, (now - node.startedAt) / Math.max(1, node.endsAt - node.startedAt)))
       const cx = tx * TILE + TILE / 2 - x0
@@ -57,7 +68,7 @@ export class WorldResourceOverlay implements SceneOverlay {
     if (this.mirror.activeNodes === 0 || area.id !== this.mirror.areaId) return []
     const labels: OverlayLabel[] = []
     for (const node of this.mirror.active()) {
-      if (!node.actionId || !node.workKind) continue
+      if (!node.actionId || !node.workKind || this.isOwn(node)) continue
       const [, tx, ty] = node.id.split(':').map(Number) as [number, number, number]
       labels.push({ wx: tx * TILE + TILE / 2, wy: ty * TILE + TILE - 2, lift: 30, text: VERB[node.workKind] ?? 'Trabajando', color: '#ffd27a', alpha: 0.9 })
     }

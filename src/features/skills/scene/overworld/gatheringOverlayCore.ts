@@ -13,12 +13,12 @@
 
 import type { Area } from '../../../wildlands/engine/area'
 import type { OverlayLabel, OverlaySprite, SceneOverlay } from '../../../wildlands/engine/sceneOverlay'
-import { TILE, type World } from '../../../wildlands/engine/world'
+import { TILE, type Biome } from '../../../wildlands/engine/world'
 import { bubbleArt, glintArt, type BubbleKind } from '../art/miningFx'
 import { brighten, toSprite, type PixelArt } from '../art/pixelArt'
-import { RESOURCE_BY_ID } from '../../domain/resources'
 import type { ItemStack } from '../../domain/materials'
-import { nodeAt, worldNodePort, type NodeWorldPort } from '../../localWorld/nodePlacement'
+import { resourceAt } from '../../../../../services/realtime/src/world/resourceLayout.js'
+import { skillsResourceFor } from '../../../worldSkills/resourceMapping'
 import { RARITY_FEEDBACK, type DropRarity } from '../mining/miningRarity'
 import type { OverlayPlayer } from '../mining/miningOverlay'
 import type { NodeState, NodeStatus, NodeTarget } from '../nodeTarget'
@@ -53,7 +53,12 @@ export interface StartGathering<Timeline extends GatheringTimeline = GatheringTi
   /** The Pokémon doing the work, drawn beside the player. */
   readonly workerSpeciesId: number | null
   /** Settles the action when the timeline reaches its result; null when nothing was granted. */
-  readonly onResult: () => GatheringReward | null
+  /**
+   * The action's reward at the scene's result beat. `undefined` means the
+   * server has not settled yet: the scene holds on that beat and asks again
+   * next frame (up to RESULT_WAIT_MS), so the pops show what was really paid.
+   */
+  readonly onResult: () => GatheringReward | null | undefined
   readonly onDone: () => void
 }
 
@@ -103,6 +108,8 @@ export interface RingStyle {
   readonly strongStroke: string
 }
 
+/** How long the scene waits at its result beat for the server's settlement. */
+const RESULT_WAIT_MS = 8_000
 const VIEW_REFRESH_SECONDS = 0.2
 /** Rare nodes glint when the player is within this many tiles. */
 const GLINT_RADIUS = 8
@@ -115,7 +122,6 @@ export abstract class GatheringOverlayCore<
   View extends GatheringView,
   Visible extends VisibleNode<View>,
 > implements SceneOverlay {
-  private readonly ports = new Map<string, NodeWorldPort>()
   private readonly placements = new Map<string, NodeTarget | null>()
   private readonly views = new Map<string, { at: number; view: View }>()
   protected readonly flashes = new WeakMap<PixelArt, PixelArt>()
@@ -157,20 +163,18 @@ export abstract class GatheringOverlayCore<
     return this.action !== null
   }
 
-  /** Node of this profession hosted by a world tile, or null. Cached: nodes are deterministic. */
+  /**
+   * The node of this skill on a world tile, or null. Identity comes from WORLD
+   * (the same id the server validates), the resource from the shared mapping
+   * (INTEGRATION-1). Cached: both are deterministic.
+   */
   targetAt(area: Area, tx: number, ty: number): NodeTarget | null {
     if (area.kind !== 'wild') return null
     const key = `${area.id}:${tx}:${ty}`
     if (this.placements.has(key)) return this.placements.get(key)!
-    const world = (area as { world?: World }).world
-    let target: NodeTarget | null = null
-    if (world) {
-      let port = this.ports.get(area.id)
-      if (!port) this.ports.set(area.id, (port = worldNodePort(world)))
-      const placement = nodeAt(port, tx, ty)
-      const resource = placement ? RESOURCE_BY_ID.get(placement.resourceId) : undefined
-      if (placement && resource && this.ownsNode(resource.id)) target = { nodeId: placement.nodeId, resource, biome: placement.biome }
-    }
+    const node = resourceAt(area.id, tx, ty)
+    const resource = node ? skillsResourceFor(node) : null
+    const target = node && resource && this.ownsNode(resource.id) ? { nodeId: node.id, resource, biome: node.biome as Biome } : null
     this.placements.set(key, target)
     return target
   }
@@ -296,9 +300,14 @@ export abstract class GatheringOverlayCore<
     const y = action.ty * TILE + TILE - 3
     this.actionFrame(action, elapsed, x, y)
     if (!action.resultApplied && elapsed >= action.timeline.resultAtMs) {
+      const reward = action.onResult()
+      if (reward === undefined && elapsed < action.timeline.resultAtMs + RESULT_WAIT_MS) {
+        // The server's answer is on its way: hold the result beat.
+        action.lastMs = elapsed
+        return
+      }
       action.resultApplied = true
       this.views.delete(action.target.nodeId)
-      const reward = action.onResult()
       if (reward) {
         action.linger = RARITY_FEEDBACK[reward.rarity].lingerMs
         this.celebrationEffects(action, reward, x, y)

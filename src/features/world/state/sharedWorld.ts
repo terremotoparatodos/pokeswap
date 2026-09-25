@@ -6,7 +6,7 @@
 
 import type { Actor } from '../../wildlands/engine/actors'
 import type { WorldLayer, WorldLayerContext } from '../../wildlands/engine/worldLayer'
-import type { WildMessage, WildRoster, WildStatus, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { PlayerStateMessage, WildMessage, WildRoster, WildStatus, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WorldSend, WorldTransportSink } from '../api/worldTransport'
 import { devWarn } from '../../../shared/utils/devTools'
@@ -40,10 +40,30 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   /** Why there are (no) wild Pokémon here. Without 'ready' the world shows none: fail closed. */
   wildStatus: WildStatus | null = null
   private readonly wildListeners = new Set<(roster: WildRoster | null) => void>()
+  private player: PlayerStateMessage | null = null
+  private readonly playerListeners = new Set<(state: PlayerStateMessage) => void>()
 
   constructor(load: LoadPokemon, placeholder: PlaceholderPokemon) {
     this.workers = new WorkerActors(load, placeholder)
-    this.overlay = new WorldResourceOverlay(this.resources, this.clock)
+    // The local player's own action is drawn by its Skills layer; WORLD draws everyone else's.
+    this.overlay = new WorldResourceOverlay(this.resources, this.clock, () => this.player?.playerId ?? null)
+  }
+
+  playerState(message: PlayerStateMessage): void {
+    this.player = message
+    this.workersKey = ''
+    for (const listener of this.playerListeners) listener(message)
+  }
+
+  /** The session's own data as the server last sent it; null before the first message. */
+  get playerData(): PlayerStateMessage | null {
+    return this.player
+  }
+
+  onPlayerState(listener: (state: PlayerStateMessage) => void): () => void {
+    this.playerListeners.add(listener)
+    if (this.player) listener(this.player)
+    return () => this.playerListeners.delete(listener)
   }
 
   // ── Transport sink ───────────────────────────────────────────────────────
@@ -127,7 +147,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   // ── Intents (the SKILLS UI calls these) ──────────────────────────────────
 
   /** Asks the server to work a node with one of the player's Pokémon. The server decides. */
-  requestWork(nodeId: string, pokemonInstanceId: number): Promise<WorkResult> {
+  requestWork(nodeId: string, pokemonInstanceId: number, cropId: string | null = null): Promise<WorkResult> {
     const requestId = this.nextRequestId++
     if (!this.send) return Promise.resolve({ requestId, ok: false, reason: 'offline' })
     const send = this.send
@@ -137,7 +157,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
         resolve({ requestId, ok: false, reason: 'timeout' })
       }, INTENT_TIMEOUT_MS)
       this.pending.set(requestId, { resolve, timer })
-      send(WORLD_MESSAGE.WORK, { nodeId, pokemonInstanceId, requestId })
+      send(WORLD_MESSAGE.WORK, { nodeId, pokemonInstanceId, requestId, ...(cropId ? { cropId } : {}) })
     })
   }
 
@@ -164,7 +184,10 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     const key = `${this.resources.revision}|${areaId}`
     if (this.workersKey !== key) {
       this.workersKey = key
-      this.workers.sync(areaId === this.resources.areaId ? this.resources.active() : [])
+      const own = this.player?.playerId ?? null
+      // Own gathering is animated by the Skills layer; own farming has no such scene, so WORLD draws it.
+      const others = [...(areaId === this.resources.areaId ? this.resources.active() : [])].filter(node => node.worker?.playerId !== own || node.id.endsWith(':plot'))
+      this.workers.sync(others)
     }
     this.workers.update(now, id => context.playerTile(id), (tx, ty) => context.isSolid(tx, ty))
   }

@@ -1,16 +1,16 @@
 // The Skills layer inside WildLands: the scene overlays for rocks and trees,
-// the local session, and the one interaction the player learns —
+// and the one interaction the player learns —
 //
 //   walk up to a node → pick a Pokémon → it works → +XP, +item.
 //
-// Vue state only; every rule is the Skills service's, every picture is the
-// scene's. The local session plays WORLD's physical part until WORLD-1.
+// Vue state only; every rule and every result is the server's (INTEGRATION-1:
+// WORLD owns the node, SKILLS decides and pays, the database remembers), every
+// picture is the scene's. The session is the shared-world one.
 
 import { computed, ref, shallowRef } from 'vue'
 import type { Area } from '../../wildlands/engine/area'
 import { CompositeOverlay } from '../../wildlands/engine/compositeOverlay'
 import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
-import { createLocalSkillsSession, type LocalBegin, type LocalSkillsSession, type WorkerRef } from '../local/localSkillsSession'
 import type { SkillId } from '../domain/skills'
 import type { SettleResult } from '../service/skillsService'
 import { choppingTimeline } from '../scene/logging/choppingTimeline'
@@ -20,6 +20,8 @@ import { MiningOverlay, type OverlayPlayer } from '../scene/mining/miningOverlay
 import { rewardRarity } from '../scene/mining/miningRarity'
 import type { NodeTarget } from '../scene/nodeTarget'
 import { isBeside } from '../scene/overworld/workerPresence'
+import type { SkillsSession } from './skillsSession'
+import type { WorkerRef } from './workerRef'
 
 /** The part of WildlandsGame the layer needs. */
 export interface SkillsGamePort {
@@ -49,10 +51,11 @@ export interface WorkRun {
   readonly startedAt: number
 }
 
-export function useSkillsLayer(game: () => SkillsGamePort | null, session: LocalSkillsSession = createLocalSkillsSession()) {
-  /** Bumped on every change the session makes; views read through it. */
+export function useSkillsLayer(game: () => SkillsGamePort | null, session: SkillsSession) {
+  /** Bumped on every change the session reports; views read through it. */
   const version = ref(0)
   const touch = () => { version.value++ }
+  const unsubscribe = session.subscribe(touch)
 
   const selection = shallowRef<WorkSelection | null>(null)
   const phase = ref<WorkPhase>('idle')
@@ -63,7 +66,7 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Local
   const lastWorker = ref<Partial<Record<SkillId, string>>>({})
 
   const deps = {
-    nodeState: (target: NodeTarget) => session.nodeState(target),
+    nodeState: (target: NodeTarget) => session.nodeState(target.nodeId, target.resource),
     player: () => game()?.playerSnapshot() ?? null,
     targetId: () => selection.value?.target.nodeId ?? null,
   }
@@ -76,9 +79,10 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Local
 
   const xp = computed(() => { void version.value; return session.xp() })
   const inventory = computed(() => { void version.value; return session.inventory() })
+  const workers = computed(() => { void version.value; return session.workers() })
   const nodeState = computed(() => {
     void version.value
-    return selection.value ? session.nodeState(selection.value.target) : null
+    return selection.value ? session.nodeState(selection.value.target.nodeId, selection.value.target.resource) : null
   })
 
   function isWorldObject(hit: WorldHit): boolean {
@@ -105,12 +109,7 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Local
     refusal.value = null
   }
 
-  function refuse(begin: Extract<LocalBegin, { allowed: false }>): void {
-    refusal.value = begin.message
-    touch()
-  }
-
-  function work(worker: WorkerRef, workerName: string): boolean {
+  async function work(worker: WorkerRef, workerName: string): Promise<boolean> {
     const current = selection.value
     const host = game()
     if (!current || phase.value === 'working') return false
@@ -120,24 +119,30 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Local
       close()
       return false
     }
-    const begin = session.begin(current.target, worker)
+    phase.value = 'working'
+    refusal.value = null
+    result.value = null
+    host?.setInputLocked(true)
+    const begin = await session.begin(current.target.nodeId, worker)
     if (!begin.allowed) {
-      refuse(begin)
+      phase.value = 'idle'
+      refusal.value = begin.message
+      game()?.setInputLocked(false)
+      touch()
       return false
     }
     const skill = current.target.resource.skill
     lastWorker.value = { ...lastWorker.value, [skill]: worker.instanceId }
-    refusal.value = null
-    result.value = null
-    phase.value = 'working'
     run.value = { actionId: begin.actionId, workerName, durationMs: begin.durationMs, startedAt: Date.now() }
-    host?.setInputLocked(true)
 
+    // The scene reaches its "result" beat at the end of the work; the server
+    // settles right then. Until its answer arrives the scene holds (undefined).
     const onResult = () => {
-      const settled = session.complete(begin.actionId)
+      const settled = session.result(begin.actionId)
+      if (settled === undefined) return undefined
       result.value = settled
       touch()
-      if (settled.status !== 'settled' || settled.settlement.outcome !== 'completed') return null
+      if (!settled || (settled.status !== 'settled' && settled.status !== 'already_settled') || settled.settlement.outcome !== 'completed') return null
       const { rewards, xpGained } = settled.settlement
       return { stacks: rewards, xp: xpGained, rarity: rewardRarity(rewards) }
     }
@@ -147,13 +152,9 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Local
       game()?.setInputLocked(false)
     }
     const start = { target: current.target, tx: current.tx, ty: current.ty, workerSpeciesId: worker.speciesId, onResult, onDone }
-    if (skill === 'mining') {
-      mining.start({ ...start, timeline: miningTimeline(begin.durationMs) })
-    } else {
-      // The tree only gives way when this action takes its last charge.
-      const felling = session.nodeState(current.target).remainingCharges <= 1
-      logging.start({ ...start, timeline: choppingTimeline(begin.durationMs, felling) })
-    }
+    if (skill === 'mining') mining.start({ ...start, timeline: miningTimeline(begin.durationMs) })
+    // In the shared world one completed job depletes a node: the tree falls.
+    else logging.start({ ...start, timeline: choppingTimeline(begin.durationMs, true) })
     return true
   }
 
@@ -163,12 +164,13 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Local
     if (run.value) session.cancel(run.value.actionId)
     game()?.setSceneOverlay(null)
     game()?.setInputLocked(false)
+    unsubscribe()
   }
 
   const open = computed(() => selection.value !== null)
 
   return {
-    session, version, overlay, selection, phase, run, result, refusal, lastWorker, xp, inventory, nodeState, open,
+    session, version, overlay, selection, phase, run, result, refusal, lastWorker, xp, inventory, workers, nodeState, open,
     isWorldObject, inspect, close, work, detach,
   }
 }

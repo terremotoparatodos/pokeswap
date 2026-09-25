@@ -84,7 +84,7 @@
       :area-kind="hud.areaKind"
       :game="game"
       :skills="dungeonsInWorld"
-      :workers="playtestStore?.party.value"
+      :world="sharedWorld"
       :owned-supplies="playtestStore?.supplies.value"
       @overlay="(open: boolean) => (professionOpen = open)"
       @panel="onHudPanel"

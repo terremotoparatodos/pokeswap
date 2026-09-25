@@ -9,6 +9,7 @@ export declare const WORLD_MESSAGE: Readonly<{
   WORK_RESULT: 'world:work:result'
   WORK_DONE: 'world:work:done'
   WILD: 'world:wild'
+  PLAYER_STATE: 'player:state'
 }>
 
 export interface WildEntity {
@@ -48,6 +49,7 @@ export interface PublicNode {
   readonly startedAt?: number
   readonly endsAt?: number
   readonly respawnAt?: number
+  readonly plot?: PublicPlot
 }
 
 export interface WorldSnapshot {
@@ -69,8 +71,31 @@ export interface WorldBatch {
 }
 
 export type WorkResult =
-  | { readonly requestId: number; readonly ok: true; readonly actionId: string; readonly nodeId: string; readonly startedAt: number; readonly endsAt: number }
-  | { readonly requestId: number | null; readonly ok: false; readonly reason: string }
+  | {
+      readonly requestId: number; readonly ok: true; readonly actionId: string; readonly nodeId: string; readonly startedAt: number; readonly endsAt: number
+      readonly farmAction?: 'plant' | 'tend' | 'harvest'
+      /** SKILLS' terms for the requester's own UI. */
+      readonly details?: { readonly skillId: string; readonly xp: number; readonly reward: { readonly itemId: string; readonly min: number; readonly max: number } | null; readonly aptitude: number }
+    }
+  | { readonly requestId: number | null; readonly ok: false; readonly reason: string; readonly message?: string }
+
+/** A plot's public crop data. */
+export interface PublicPlot {
+  readonly cropId: string
+  readonly ownerId: string
+  readonly plantedAt: number
+  readonly growingAt: number
+  readonly readyAt: number
+  readonly tended: boolean
+}
+
+/** The session's own data, sent only to that player. */
+export interface PlayerStateMessage {
+  readonly playerId: string
+  readonly xp: Readonly<Record<string, number>>
+  readonly materials: Readonly<Record<string, number>>
+  readonly pokemon: readonly { readonly instanceId: number; readonly speciesId: number }[]
+}
 
 export type WorkDone =
   | { readonly actionId: string; readonly ok: true; readonly status: 'applied' | 'duplicate'; readonly summary?: unknown }

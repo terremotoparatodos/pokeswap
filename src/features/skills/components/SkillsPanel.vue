@@ -80,7 +80,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue'
 import { aptitudeStars, type Aptitude } from '../domain/aptitude/aptitudeScale'
 import type { SkillId } from '../domain/skills'
-import type { WorkerRef } from '../local/localSkillsSession'
+import type { WorkerRef } from '../ui/workerRef'
 import { bestWorker, skillRows, totalLevel } from '../ui/skillsView'
 import './skills.css'
 

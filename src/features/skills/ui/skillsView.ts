@@ -13,7 +13,7 @@ import { materialName } from '../domain/materials'
 import { RESOURCES, type ResourceDefinition } from '../domain/resources'
 import { SKILLS, SKILL_IDS, type SkillId } from '../domain/skills'
 import { levelProgress } from '../domain/xpCurve'
-import type { WorkerRef } from '../local/localSkillsSession'
+import type { WorkerRef } from './workerRef'
 import type { SettleResult } from '../service/skillsService'
 
 export interface SkillRowView {

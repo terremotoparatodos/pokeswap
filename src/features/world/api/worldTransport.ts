@@ -5,7 +5,7 @@
 // a sink the adapter never declares `worldProtocol`, so the server sends no
 // world messages at all.
 
-import type { WildMessage, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { PlayerStateMessage, WildMessage, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 export type WorldSend = (type: string, payload: unknown) => void
 
@@ -20,4 +20,6 @@ export interface WorldTransportSink {
   workDone(done: WorkDone): void
   /** A new hour's wild roster for the viewer's area, or the reason there is none. */
   wild(message: WildMessage): void
+  /** The session's own XP, materials and workable Pokémon (INTEGRATION-1). */
+  playerState(message: PlayerStateMessage): void
 }

@@ -7,9 +7,10 @@
 // Ids are the art ids the scene already draws, so WORLD, the art and Skills
 // all name a pine `pine_tree`.
 //
-// `world` is ADVISORY design data for WORLD-1 (where it should appear, how
+// `world` is ADVISORY design data for WORLD (where it should appear, how
 // many actions a node should last). Skills never reads it to decide anything;
-// the pre-WORLD local stand-in (localWorld/) does, until WORLD replaces it.
+// the WORLD × SKILLS mapping (src/features/worldSkills/resourceMapping.ts)
+// uses it to say which resource each physical node is.
 
 import type { Aptitude } from './aptitude/aptitudeScale'
 import type { MaterialId } from './materials'
