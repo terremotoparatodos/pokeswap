@@ -6,7 +6,7 @@
 // catalog's, not numbers invented here.
 
 import { describe, expect, it } from 'vitest'
-import { GATHERING_NODES } from '../../professions/domain/catalog/nodes'
+import { RESOURCES } from '../../skills/domain/resources'
 import { planDecor } from './decorPlan'
 import { generateFloor } from './floorPlan'
 import { buildFloorTiles, isWalkable, type FloorTiles } from './floorTiles'
@@ -158,19 +158,18 @@ describe('the rocks and trees already lying around', () => {
 
 // D1.2.4ter §1 — the level the dungeon quotes has to be the real one.
 describe('the profession level it asks for', () => {
-  const nodeOf = (id: string) => GATHERING_NODES.find(node => node.id === id)!
+  const nodeOf = (id: string) => RESOURCES.find(resource => resource.id === id)!
 
   it('quotes the production catalog exactly', () => {
-    // R31 keeps professions isolated, so the prototype copies these numbers
+    // Skills stays isolated from the prototype, so the prototype copies these numbers
     // instead of importing them. This is the test that keeps the copy honest:
     // it reads the real catalog and fails the day the two drift apart.
     for (const quoted of QUOTED_NODES) {
       const node = nodeOf(quoted.id)
       expect(node, quoted.id).toBeDefined()
       expect(node.requiredLevel, quoted.id).toBe(quoted.requiredLevel)
-      expect(node.minToolTier, quoted.id).toBe(quoted.minToolTier)
-      expect(node.profession).toBe(quoted.profession === 'mine' ? 'mining' : 'woodcutting')
-      for (const anchor of quoted.anchors) expect(node.anchors).toContain(anchor)
+      expect(node.skill).toBe(quoted.profession === 'mine' ? 'mining' : 'woodcutting')
+      for (const anchor of quoted.anchors) expect(node.world.anchors).toContain(anchor)
     }
   })
 
@@ -180,13 +179,12 @@ describe('the profession level it asks for', () => {
       const node = nodeOf(requirement.nodeId)
       expect(node, kind).toBeDefined()
       expect(requirement.level).toBe(node.requiredLevel)
-      expect(requirement.toolTier).toBe(node.minToolTier)
     }
   })
 
-  it('names the profession behind the tool', () => {
+  it('names the skill it asks for', () => {
     expect(requirementForObstacle('rockfall').profession).toBe('Minería')
-    expect(requirementForObstacle('timber').profession).toBe('Tala')
+    expect(requirementForObstacle('timber').profession).toBe('Talar')
     expect(requirementForProp('crystal')?.profession).toBe('Minería')
     expect(requirementForProp('torch')).toBeNull()
   })

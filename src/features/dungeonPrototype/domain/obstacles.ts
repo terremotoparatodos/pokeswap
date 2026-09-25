@@ -14,9 +14,9 @@
 // door you have not earned yet.
 //
 // None of it is a resource. Clearing one gives nothing but the ground it was
-// standing on. The tools exist here only to open ways, and professions are
-// untouched — the levels below are *read* from the production catalog so the
-// numbers the dungeon quotes are the numbers the profession actually asks for.
+// standing on, and Skills are untouched — the levels below are *read* from the
+// production catalog so the numbers the dungeon quotes are the numbers the
+// skill actually asks for.
 
 import { isSolidProp, planDecor, type CaveStyle, type PropKind } from './decorPlan'
 import { streamFor } from './rng'
@@ -31,7 +31,7 @@ export type ObstacleKind = 'rockfall' | 'crystal' | 'roots' | 'timber'
 /** The profession behind each skill, named the way the game names it. */
 export const SKILL_PROFESSION: Readonly<Record<ObstacleSkill, string>> = {
   mine: 'Minería',
-  chop: 'Tala',
+  chop: 'Talar',
 }
 
 export interface ObstacleDefinition {
@@ -40,17 +40,15 @@ export interface ObstacleDefinition {
   readonly label: string
   /** Seconds of work. PLAYTEST PARAMETER. */
   readonly seconds: number
-  /** What the prompt says you need. */
-  readonly tool: string
   /** The decor anchors this block is made of, for reading its level. */
   readonly anchors: readonly PropKind[]
 }
 
 export const OBSTACLES: Readonly<Record<ObstacleKind, ObstacleDefinition>> = {
-  rockfall: { kind: 'rockfall', skill: 'mine', label: 'Derrumbe', seconds: 2.2, tool: 'Pico', anchors: ['rock'] },
-  crystal: { kind: 'crystal', skill: 'mine', label: 'Cristal', seconds: 2.8, tool: 'Pico', anchors: ['crystal'] },
-  roots: { kind: 'roots', skill: 'chop', label: 'Raíces', seconds: 2, tool: 'Hacha', anchors: ['tree'] },
-  timber: { kind: 'timber', skill: 'chop', label: 'Tronco', seconds: 2.4, tool: 'Hacha', anchors: ['pine'] },
+  rockfall: { kind: 'rockfall', skill: 'mine', label: 'Derrumbe', seconds: 2.2, anchors: ['rock'] },
+  crystal: { kind: 'crystal', skill: 'mine', label: 'Cristal', seconds: 2.8, anchors: ['crystal'] },
+  roots: { kind: 'roots', skill: 'chop', label: 'Raíces', seconds: 2, anchors: ['tree'] },
+  timber: { kind: 'timber', skill: 'chop', label: 'Tronco', seconds: 2.4, anchors: ['pine'] },
 }
 
 /** Which two a biome uses, so a glacier is not full of roots. */
@@ -74,36 +72,32 @@ export interface SkillRequirement {
   readonly profession: string
   /** The level the production catalog asks for on this kind of material. */
   readonly level: number
-  /** The catalog node the number comes from, so it can be checked. */
+  /** The catalog resource the number comes from, so it can be checked. */
   readonly nodeId: string
-  /** Tool tier the catalog asks for, 0 being bare hands. */
-  readonly toolTier: number
 }
 
 /**
- * The gathering nodes these materials belong to, copied from the production
- * gathering catalog rather than imported: R31 keeps that feature isolated and
- * the prototype does not get to be the exception. `obstacles.test.ts` is a
- * test, so it may read the real catalog — and it does, failing the day these
- * numbers drift from it.
+ * The Skills resources these materials belong to, copied from the production
+ * catalog (`skills/domain/resources.ts`) rather than imported: the prototype
+ * stays isolated. `obstacles.test.ts` is a test, so it may read the real
+ * catalog — and it does, failing the day these numbers drift from it.
  */
 interface CatalogNode {
   readonly id: string
   readonly profession: ObstacleSkill
   readonly anchors: readonly PropKind[]
   readonly requiredLevel: number
-  readonly minToolTier: number
 }
 
 export const QUOTED_NODES: readonly CatalogNode[] = [
-  { id: 'stone_outcrop', profession: 'mine', anchors: ['rock'], requiredLevel: 1, minToolTier: 0 },
-  { id: 'coal_seam', profession: 'mine', anchors: ['rock', 'boulder'], requiredLevel: 5, minToolTier: 1 },
-  { id: 'iron_vein', profession: 'mine', anchors: ['boulder', 'icerock'], requiredLevel: 15, minToolTier: 1 },
-  { id: 'crystal_cluster', profession: 'mine', anchors: ['crystal'], requiredLevel: 20, minToolTier: 1 },
-  { id: 'gold_vein', profession: 'mine', anchors: ['boulder', 'icerock'], requiredLevel: 30, minToolTier: 2 },
-  { id: 'common_tree', profession: 'chop', anchors: ['tree'], requiredLevel: 1, minToolTier: 0 },
-  { id: 'pine_tree', profession: 'chop', anchors: ['pine'], requiredLevel: 8, minToolTier: 1 },
-  { id: 'hardwood_tree', profession: 'chop', anchors: ['tree'], requiredLevel: 15, minToolTier: 1 },
+  { id: 'stone_outcrop', profession: 'mine', anchors: ['rock'], requiredLevel: 1 },
+  { id: 'coal_seam', profession: 'mine', anchors: ['rock', 'boulder'], requiredLevel: 10 },
+  { id: 'iron_vein', profession: 'mine', anchors: ['boulder', 'icerock'], requiredLevel: 20 },
+  { id: 'gold_vein', profession: 'mine', anchors: ['boulder', 'icerock'], requiredLevel: 35 },
+  { id: 'crystal_cluster', profession: 'mine', anchors: ['crystal'], requiredLevel: 45 },
+  { id: 'common_tree', profession: 'chop', anchors: ['tree'], requiredLevel: 1 },
+  { id: 'pine_tree', profession: 'chop', anchors: ['pine'], requiredLevel: 12 },
+  { id: 'hardwood_tree', profession: 'chop', anchors: ['tree'], requiredLevel: 25 },
 ]
 
 /** Materials the catalog has no node of its own for, read as the nearest one. */
@@ -124,7 +118,6 @@ function requirementOf(skill: ObstacleSkill, kinds: readonly PropKind[]): SkillR
     profession: SKILL_PROFESSION[skill],
     level: node?.requiredLevel ?? 1,
     nodeId: node?.id ?? 'unknown',
-    toolTier: node?.minToolTier ?? 0,
   }
 }
 

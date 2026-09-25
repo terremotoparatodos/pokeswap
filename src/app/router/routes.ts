@@ -33,9 +33,6 @@ const PANEL_VIEWS: PanelViews | null = isPlaytest ? null : {
   caja: () => import('../../features/progression/components/MyBoxView.vue'),
 }
 
-// R31-B: internal profession playground. Development builds only; production has no such route.
-const professionPlayground: LazyView | null = import.meta.env.DEV ? () => import('../../features/professions/components/playground/ProfessionPlayground.vue') : null
-
 // D0: Dungeon/PvE prototype labs, same rule — production never registers the
 // route, so the chunk is unreachable and tree-shaken out of the bundle.
 const dungeonPrototype: LazyView | null = import.meta.env.DEV ? () => import('../../features/dungeonPrototype/components/DungeonPrototypeView.vue') : null
@@ -67,9 +64,6 @@ export const buildRoutes = (panels: PanelViews | null): RouteRecordRaw[] => [
   { path: '/wildlands', redirect: to => ({ path: '/', query: to.query }) },
   // Legacy map links now enter Ciudad Corazón.
   { path: '/map', redirect: to => ({ path: '/', query: to.query }) },
-  ...(professionPlayground
-    ? [{ path: '/dev/profesiones', name: 'dev-profesiones', component: professionPlayground, meta: { standalone: true } }]
-    : []),
   ...(dungeonPrototype
     ? [{ path: '/dev/dungeon', name: 'dev-dungeon', component: dungeonPrototype, meta: { standalone: true } }]
     : []),

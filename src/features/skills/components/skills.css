@@ -1,0 +1,20 @@
+/* Skills visual tokens: the WildLands HUD navy with a gold accent, one
+   colour per skill. Scoped by the .skx class every Skills surface carries. */
+
+.skx {
+  --skx-navy: #101a36;
+  --skx-navy-2: #17264d;
+  --skx-line: #3a5fb8;
+  --skx-gold: #ffd27a;
+  --skx-ink: #fff;
+  --skx-soft: #dfe8ff;
+  --skx-muted: #9fb2da;
+  --skx-good: #7fe38a;
+  --skx-warn: #ffb454;
+  --skx-rare: #d0a8ff;
+  --skx-woodcutting: #8bd17c;
+  --skx-mining: #c9a27a;
+  --skx-farming: #f2c94c;
+  color: var(--skx-ink);
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+}

@@ -5,9 +5,9 @@
 // for a build whose banner says the progress does not survive, and it is also
 // the reason none of this can corrupt a real account.
 //
-// It deliberately knows nothing about the professions feature. Tools are ids it
-// holds and `WildlandsView` hands down as a prop, so buying a pickaxe crosses
-// the feature boundary as data rather than as an import.
+// It deliberately knows nothing about the Skills feature. The party is handed
+// down by `WildlandsView` as a prop, so the Pokémon that work cross the
+// feature boundary as data rather than as an import.
 
 import { computed, readonly, ref, type ComputedRef, type Ref } from 'vue'
 import type { PokemonInstance } from '../../dungeonPrototype/domain/party'
@@ -27,8 +27,6 @@ import { PLAYTEST_START_COINS, buy, type ShopEntry } from '../domain/playtestSho
 const STARTING_SUPPLIES: Readonly<Record<string, number>> = { poke_ball: 6, potion: 2, revive: 1, ether: 2 }
 
 const coins = ref(PLAYTEST_START_COINS)
-const tools = ref<string[]>([])
-const purchased = ref<string[]>([])
 const supplies = ref<Record<string, number>>({ ...STARTING_SUPPLIES })
 /**
  * Empty until somebody asks for it.
@@ -44,9 +42,6 @@ let seeded = false
 
 export interface PlaytestStore {
   readonly coins: Readonly<Ref<number>>
-  /** Tool item ids owned, newest last. Handed to the professions surface as a prop. */
-  readonly tools: Readonly<Ref<string[]>>
-  readonly purchased: Readonly<Ref<string[]>>
   /** Dungeon consumables by prototype item id, including `poke_ball`. */
   readonly supplies: Readonly<Ref<Record<string, number>>>
   readonly party: ComputedRef<PokemonInstance[]>
@@ -69,7 +64,6 @@ export interface PlaytestStore {
 const REFUSAL_MESSAGE: Readonly<Record<string, string>> = {
   unknown: 'Eso no está a la venta.',
   poor: 'No te alcanzan las fichas.',
-  owned: 'Ya tenés esa herramienta.',
   full: 'El equipo ya tiene 6. Mandá uno a la caja primero.',
   'already-in-party': 'Ese ya está en el equipo.',
   'not-in-party': 'Ese no está en el equipo.',
@@ -83,8 +77,6 @@ export function usePlaytestStore(): PlaytestStore {
   }
   return {
     coins: readonly(coins) as Readonly<Ref<number>>,
-    tools: readonly(tools) as Readonly<Ref<string[]>>,
-    purchased: readonly(purchased) as Readonly<Ref<string[]>>,
     supplies: readonly(supplies) as Readonly<Ref<Record<string, number>>>,
     party: computed(() => partyMembers(roster.value)),
     box: computed(() => boxMembers(roster.value)),
@@ -99,17 +91,14 @@ export function usePlaytestStore(): PlaytestStore {
      * neither of them saw the other change.
      */
     purchase(entryId): { ok: boolean; entry?: ShopEntry; message: string } {
-      const result = buy({ entryId, coins: coins.value, owned: purchased.value })
+      const result = buy({ entryId, coins: coins.value })
       if (!result.ok) {
         notice.value = REFUSAL_MESSAGE[result.reason] ?? 'No se pudo.'
         return { ok: false, message: notice.value }
       }
       coins.value = result.coins
-      if (result.entry.once) purchased.value = [...purchased.value, result.entry.id]
       const effect = result.entry.effect
-      if (effect.kind === 'tool' && !tools.value.includes(effect.itemId)) {
-        tools.value = [...tools.value, effect.itemId]
-      } else if (effect.kind === 'ball') {
+      if (effect.kind === 'ball') {
         supplies.value = { ...supplies.value, poke_ball: (supplies.value.poke_ball ?? 0) + effect.quantity }
       } else if (effect.kind === 'consumable') {
         supplies.value = { ...supplies.value, [effect.itemId]: (supplies.value[effect.itemId] ?? 0) + effect.quantity }
@@ -149,8 +138,6 @@ export function usePlaytestStore(): PlaytestStore {
 
     reset(): void {
       coins.value = PLAYTEST_START_COINS
-      tools.value = []
-      purchased.value = []
       supplies.value = { ...STARTING_SUPPLIES }
       roster.value = createRoster()
       notice.value = null

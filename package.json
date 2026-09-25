@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write src/",
-    "sim:economy": "vite-node scripts/simulate-economy.ts --",
+    "skills:pacing": "vite-node scripts/skills/pacing.ts --",
     "catalog:fetch": "node scripts/battle-catalog/fetch.mjs",
     "catalog:build": "node scripts/battle-catalog/build.mjs",
     "catalog:sample": "node scripts/battle-catalog/sample.mjs",

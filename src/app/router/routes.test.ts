@@ -12,7 +12,6 @@ vi.mock('../../features/dungeon/components/DungeonView.vue', () => view)
 vi.mock('../../features/pokedex/components/PokedexView.vue', () => view)
 vi.mock('../../features/progression/components/ProfileView.vue', () => view)
 vi.mock('../../features/progression/components/MyBoxView.vue', () => view)
-vi.mock('../../features/professions/components/playground/ProfessionPlayground.vue', () => view)
 
 async function open(path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes })
@@ -52,12 +51,8 @@ describe('lobby routes', () => {
     expect(route.query).toEqual({ area: 'bosque' })
   })
 
-  it('opens the R31-B profession playground as a standalone dev page', async () => {
-    // Vitest runs with import.meta.env.DEV = true; production builds omit the route.
-    const route = await open('/dev/profesiones')
-    expect(route.name).toBe('dev-profesiones')
-    expect(route.matched).toHaveLength(1)
-    expect(route.meta.standalone).toBe(true)
+  it('no longer serves the retired R31 profession playground (SKILLS-1)', async () => {
+    expect((await open('/dev/profesiones')).name).toBe('lobby')
   })
 
   it('sends unknown paths to the city', async () => {

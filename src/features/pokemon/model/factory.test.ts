@@ -7,7 +7,7 @@
 import { beforeAll, describe, expect, it } from 'vitest'
 
 import { loadBattleCatalog, loadLearnsets } from '../../battle/catalog'
-import { createSeededRandom } from '../../professions/domain/rng'
+import { createSeededRandom } from '../../skills/domain/rng'
 import { createPokemonCatalogView } from './catalogView'
 import type { PokemonCatalogView } from './catalogView'
 import { experienceForLevel, levelForExperience } from './experience'

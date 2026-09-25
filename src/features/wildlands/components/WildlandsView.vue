@@ -84,8 +84,7 @@
       :area-kind="hud.areaKind"
       :game="game"
       :skills="dungeonsInWorld"
-      :fresh="isPlaytest"
-      :owned-tools="playtestStore?.tools.value"
+      :workers="playtestStore?.party.value"
       :owned-supplies="playtestStore?.supplies.value"
       @overlay="(open: boolean) => (professionOpen = open)"
       @panel="onHudPanel"
@@ -200,7 +199,7 @@ const perfCapture = shallowRef<PerfCapture | null>(null)
 // R31-B profession prototype: development builds, and Community Playtest 0.1,
 // where the same local session is what the Skills panel reads. A normal
 // production build still never mounts it.
-const ProfessionWorldDemo = import.meta.env.DEV || isPlaytest ? defineAsyncComponent(() => import('../../professions/components/world/ProfessionWorldDemo.vue')) : null
+const ProfessionWorldDemo = import.meta.env.DEV || isPlaytest ? defineAsyncComponent(() => import('../../skills/components/SkillsWorldLayer.vue')) : null
 // Dungeons appear physically in WildLands. Same two gates as the professions
 // above, for the same two reasons: a playtest build is where players meet them,
 // and a development build is where they are worked on. A normal production
