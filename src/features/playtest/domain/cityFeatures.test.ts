@@ -34,7 +34,7 @@ describe('the city during the playtest', () => {
   })
 
   it('never leaves a dead click: a closed door has a headline and a reason', () => {
-    expect(CLOSED_HEADLINE).toMatch(/Community Playtest 0\.1/)
+    expect(CLOSED_HEADLINE).toMatch(/Community Playtest 0\.2/)
     const closed = LOBBY_FEATURE_IDS.map(playtestSurfaceFor).filter(surface => surface.kind === 'closed')
     expect(closed.length).toBe(LOBBY_FEATURE_IDS.length - OPEN_FEATURES.length)
   })

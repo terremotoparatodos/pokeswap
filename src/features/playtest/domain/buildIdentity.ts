@@ -5,7 +5,7 @@
 // is fixed for this playtest; nothing here is derived from the session, so it
 // is safe to show and safe to copy.
 
-export const PLAYTEST_VERSION = 'Community Playtest 0.1'
+export const PLAYTEST_VERSION = 'Community Playtest 0.2'
 
 export interface BuildIdentity {
   readonly version: string
@@ -15,7 +15,7 @@ export interface BuildIdentity {
   readonly builtAt: string
 }
 
-/** `Community Playtest 0.1 · a1b2c3d` — what the banner and the reports show. */
+/** `Community Playtest 0.2 · a1b2c3d` — what the banner and the reports show. */
 export const buildLabel = (build: BuildIdentity): string => `${build.version} · ${build.commit}`
 
 export function createBuildIdentity(commit: unknown, builtAt: unknown): BuildIdentity {

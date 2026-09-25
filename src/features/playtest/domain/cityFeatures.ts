@@ -58,4 +58,4 @@ export const OPEN_FEATURES: readonly LobbyFeature[] = ['caja', 'mercado']
 export const isOpenDuringPlaytest = (feature: LobbyFeature): boolean => OPEN_FEATURES.includes(feature)
 
 /** The line every closed door shares, above its own reason. */
-export const CLOSED_HEADLINE = 'No disponible durante Community Playtest 0.1'
+export const CLOSED_HEADLINE = 'No disponible durante Community Playtest 0.2'

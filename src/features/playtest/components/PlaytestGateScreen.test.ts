@@ -58,7 +58,7 @@ describe('the gate screen', () => {
       { status: 'locked' as const, wrongCode: false },
     ]) {
       const wrapper = mount(PlaytestGateScreen, { props: { access } })
-      expect(wrapper.find('.pt-gate-kicker').text()).toContain('Community Playtest 0.1')
+      expect(wrapper.find('.pt-gate-kicker').text()).toContain('Community Playtest 0.2')
     }
   })
 })

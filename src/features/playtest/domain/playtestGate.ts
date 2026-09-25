@@ -44,7 +44,7 @@ export type PlaytestAccess =
   | { readonly status: 'open' }
 
 export const DEFAULT_CLOSED_MESSAGE =
-  'El Community Playtest 0.1 está cerrado. ¡Gracias por jugar! Volvé a probar en la próxima ventana.'
+  'El Community Playtest 0.2 está cerrado. ¡Gracias por jugar! Volvé a probar en la próxima ventana.'
 
 /** Shape of an open gate with no code; `parseGateConfig`'s fallback for fields it cannot read. */
 export const BUILD_DEFAULT_GATE: PlaytestGateConfig = {
