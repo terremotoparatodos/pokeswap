@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { createActor, RUN_SPEED, tryStep, WALK_SPEED, type Actor, type MoveRules } from './actors'
 import { WildlandsGame } from './game'
+import { KeyboardInput } from './keyboard'
 import { PresenceDiagnostics } from '../multiplayer/domain/presenceDiagnostics'
 
 type Sent = { dir: string; running: boolean; sequence: number }
@@ -44,5 +45,22 @@ describe('step announcement', () => {
     expect(player.speed).toBe(WALK_SPEED)
     // The gait sent is the nominal one either way: the server does not model water.
     expect(sent.map(s => s.running)).toEqual([false, false])
+  })
+})
+
+describe('touch run mode', () => {
+  it('latches the run gait and announces it exactly like Shift', () => {
+    const { g, sent, player, step } = game()
+    const noop = () => undefined
+    ;(g as unknown as { keys: KeyboardInput }).keys = new KeyboardInput({ cycleLens: noop, toggleGrid: noop, skipTime: noop, interact: noop })
+    const run = g as unknown as { setRunMode(on: boolean): void }
+    run.setRunMode(true)
+    step('right')
+    expect([player.speed, player.running]).toEqual([RUN_SPEED, true])
+    expect(sent[sent.length - 1]).toMatchObject({ dir: 'right', running: true })
+    run.setRunMode(false)
+    step('right')
+    expect([player.speed, player.running]).toEqual([WALK_SPEED, false])
+    expect(sent[sent.length - 1]).toMatchObject({ running: false })
   })
 })

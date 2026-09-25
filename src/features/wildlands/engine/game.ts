@@ -660,6 +660,11 @@ export class WildlandsGame {
     this.keys.sprinting = on
   }
 
+  /** The touch Correr toggle (MOBILE-1): same gait as Shift, applied from the next step. */
+  setRunMode(on: boolean): void {
+    this.keys.runMode = on
+  }
+
   /**
    * Tap/click at a CSS-pixel point on the canvas. Tapping an owned Pokémon or
    * the activity board inspects it; tapping another Pokémon, NPC or obstacle

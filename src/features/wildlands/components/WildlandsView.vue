@@ -65,6 +65,8 @@
 
     <LobbyHud :hud="hud" @home="game?.returnToLobby()" />
 
+    <RunToggle v-model:active="runMode" />
+
     <LobbyPlaza
       ref="plazaRef"
       :game="game"
@@ -160,6 +162,7 @@ import { useLobbyPanel } from '../lobby/useLobbyPanel'
 import type { LobbyFeature } from '../lobby/features'
 import { usePlayerIdentity } from '../identity/usePlayerIdentity'
 import LobbyHud from './LobbyHud.vue'
+import RunToggle from './RunToggle.vue'
 import LobbyMenu from './LobbyMenu.vue'
 import LobbyPanel from './LobbyPanel.vue'
 import LobbyPlaza from './LobbyPlaza.vue'
@@ -306,6 +309,10 @@ const dungeonRun = shallowRef<AreaEntrance | null>(null)
 // Every feature's hint in one tray above the area pill, out of the way while
 // the chat or a profession action card owns the bottom of the screen.
 const chatOpen = ref(false)
+// MOBILE-1: the touch Correr mode. It lives as long as this view: panels,
+// buildings, trips and reconnects keep it (the game object stays the same).
+const runMode = ref(false)
+watch(runMode, on => game.value?.setRunMode(on))
 const chatRef = ref<{ close: () => void } | null>(null)
 
 // MOBILE-1: Chat, Skills and the bag compete for the same space over the

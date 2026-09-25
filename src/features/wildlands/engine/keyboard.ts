@@ -1,7 +1,8 @@
 // Keyboard input — WildLands prototype
 //
 // Held arrow/WASD keys (last pressed wins), Shift to run, an on-screen d-pad
-// direction, and one-shot action keys.
+// direction, and one-shot action keys. Touch screens run through `runMode`, a
+// toggle that feeds the same gait as Shift (MOBILE-1).
 
 import type { Dir } from './characters'
 import { isDev } from '../../../shared/utils/devTools'
@@ -21,9 +22,24 @@ export interface KeyActions {
 export class KeyboardInput {
   readonly held: Dir[] = []
   virtualDir: Dir | null = null
-  sprinting = false
+  /** Shift held (or a scripted measurement run). Cleared with the other keys. */
+  private shiftHeld = false
+  /**
+   * The touch Correr toggle: a movement mode, not a held key, so losing focus,
+   * a panel or a trip does not end it. Only the toggle itself does.
+   */
+  runMode = false
 
   constructor(private readonly actions: KeyActions) {}
+
+  /** Walk or run for the next step: the one gait Shift and the touch toggle share. */
+  get sprinting(): boolean {
+    return this.shiftHeld || this.runMode
+  }
+
+  set sprinting(on: boolean) {
+    this.shiftHeld = on
+  }
 
   /** Direction currently requested: the d-pad first, then the last held key. */
   get direction(): Dir | null {
@@ -48,7 +64,7 @@ export class KeyboardInput {
 
   private readonly onKeyDown = (e: KeyboardEvent): void => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
-    if (e.key === 'Shift') this.sprinting = true
+    if (e.key === 'Shift') this.shiftHeld = true
     const dir = KEY_DIRS[e.code]
     if (dir) {
       e.preventDefault()
@@ -66,12 +82,12 @@ export class KeyboardInput {
   private readonly onKeyUp = (e: KeyboardEvent): void => {
     const index = this.held.indexOf(KEY_DIRS[e.code])
     if (index >= 0) this.held.splice(index, 1)
-    if (e.key === 'Shift') this.sprinting = false
+    if (e.key === 'Shift') this.shiftHeld = false
   }
 
   private readonly clear = (): void => {
     this.held.length = 0
     this.virtualDir = null
-    this.sprinting = false
+    this.shiftHeld = false
   }
 }
