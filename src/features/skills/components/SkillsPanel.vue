@@ -69,7 +69,7 @@
         </ul>
 
         <footer class="sk-foot">
-          <span class="sk-note">PLAYTEST · el progreso de esta build no se guarda</span>
+          <span class="sk-note">El servidor guarda tu XP y tus materiales</span>
         </footer>
       </div>
     </section>

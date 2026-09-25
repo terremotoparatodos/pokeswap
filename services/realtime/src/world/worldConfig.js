@@ -55,7 +55,12 @@ export function worldDependencies(env = process.env) {
 /** The dev database opens asynchronously; the world is built synchronously. */
 function lazyDevPlayerData(dataDir) {
   let opened = null
-  const data = () => (opened ??= import('./persistence/dev/devPlayerData.js').then(module => module.createDevPlayerData({ dataDir })))
+  const data = () => {
+    // A failed open is not cached: the next call (the world's restore retry) tries again.
+    opened ??= import('./persistence/dev/devPlayerData.js').then(module => module.createDevPlayerData({ dataDir }))
+      .catch(error => { opened = null; throw error })
+    return opened
+  }
   return {
     playerState: async userId => (await data()).playerState(userId),
     ownsPokemon: async (userId, instanceId) => (await data()).ownsPokemon(userId, instanceId),

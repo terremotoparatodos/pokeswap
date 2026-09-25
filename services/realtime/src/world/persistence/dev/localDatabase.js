@@ -1,4 +1,5 @@
-import { readFile } from 'node:fs/promises'
+import { mkdir, readFile } from 'node:fs/promises'
+import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 /**
@@ -18,6 +19,7 @@ const MIGRATION = new URL('../../../../../../supabase/migrations/20260926000001_
 
 export async function openLocalDatabase(dataDir = null) {
   const { PGlite } = await import('@electric-sql/pglite')
+  if (dataDir) await mkdir(dirname(dataDir), { recursive: true })
   const db = dataDir ? new PGlite(dataDir) : new PGlite()
   await db.exec(await readFile(fileURLToPath(STUBS), 'utf8'))
   await db.exec(await readFile(fileURLToPath(MIGRATION), 'utf8'))
