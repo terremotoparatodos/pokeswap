@@ -1,0 +1,26 @@
+{
+  "tool": "world-client-cost",
+  "node": "v24.19.0",
+  "results": [
+    {
+      "label": "buildPatrol (one actor spawn)",
+      "usPerCall": 55.32
+    },
+    {
+      "label": "followPatrol × 60 actors (one frame)",
+      "usPerCall": 2.4
+    },
+    {
+      "label": "overlay.decor × 300 props, 20 active nodes (one frame)",
+      "usPerCall": 30.85
+    },
+    {
+      "label": "overlay.ground + labels, 20 active nodes (one frame)",
+      "usPerCall": 10.9
+    },
+    {
+      "label": "mirror.applyBatch (10 node deltas)",
+      "usPerCall": 2.83
+    }
+  ]
+}

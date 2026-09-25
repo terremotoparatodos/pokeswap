@@ -1,0 +1,1662 @@
+{
+  "tool": "pokeswap-perf-headless-v1",
+  "label": "multi-pradera-10",
+  "capturedAt": "2026-09-25T08:07:33.606Z",
+  "captures": [
+    {
+      "url": "http://localhost:4173/?benchmarkId=m10-28569a&area=pradera&x=-5&y=-69",
+      "mode": "pradera-loop",
+      "pageErrors": [],
+      "tool": "pokeswap-perf-v1",
+      "label": "multi-pradera-10-pradera-loop",
+      "scenario": "pradera-loop",
+      "scenarioCompleted": true,
+      "capturedAt": "2026-09-25T08:07:33.598Z",
+      "durationS": 38.4,
+      "environment": {
+        "build": "normal",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+        "viewport": {
+          "width": 1264,
+          "height": 625,
+          "dpr": 1
+        },
+        "hardwareConcurrency": 20,
+        "zoom": 2.9296875,
+        "runner": "headless-chrome"
+      },
+      "pacing": {
+        "frames": 2151,
+        "cadence": {
+          "observedHz": 55.9,
+          "nominalHz": null,
+          "budgetMs": 17.900000000001455
+        },
+        "intervalMs": {
+          "n": 2151,
+          "mean": 17.75,
+          "p50": 17.9,
+          "p95": 18.1,
+          "p99": 18.1,
+          "max": 18.3
+        },
+        "lateFrames": 0,
+        "latePercent": 0,
+        "droppedVsyncs": 0,
+        "over33ms": 0,
+        "over50ms": 0,
+        "over100ms": 0,
+        "onTimeJitterMs": 0.36,
+        "updateMs": {
+          "n": 2152,
+          "mean": 0.16,
+          "p50": 0.1,
+          "p95": 0.3,
+          "p99": 1.5,
+          "max": 3.1
+        },
+        "renderMs": {
+          "n": 2152,
+          "mean": 1.27,
+          "p50": 1.2,
+          "p95": 1.9,
+          "p99": 2.1,
+          "max": 4.3
+        },
+        "tickMs": {
+          "n": 2152,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "workMs": {
+          "n": 2152,
+          "mean": 1.43,
+          "p50": 1.3,
+          "p95": 2.1,
+          "p99": 2.6,
+          "max": 4.7
+        },
+        "outsideEngineMs": {
+          "n": 2151,
+          "mean": 16.32,
+          "p50": 16.4,
+          "p95": 17.2,
+          "p99": 17.3,
+          "max": 17.4
+        }
+      },
+      "mainThread": {
+        "supported": {
+          "longtask": true,
+          "longAnimationFrame": true,
+          "memory": true
+        },
+        "longTasks": {
+          "count": 0,
+          "durationMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "longAnimationFrames": {
+          "count": 0,
+          "durationMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "blockingMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "topScripts": []
+        },
+        "heapMb": {
+          "n": 38,
+          "mean": 14.59,
+          "p50": 14.21,
+          "p95": 17.85,
+          "p99": 18.26,
+          "max": 18.26,
+          "first": 14.6,
+          "last": 15.8
+        }
+      },
+      "ui": {
+        "hudFlushMs": {
+          "n": 239,
+          "mean": 1.8,
+          "p50": 1.7,
+          "p95": 3.8,
+          "p99": 4.3,
+          "max": 4.8
+        }
+      },
+      "instrumentationMs": {
+        "n": 2152,
+        "mean": 0.02,
+        "p50": 0,
+        "p95": 0.1,
+        "p99": 0.1,
+        "max": 1.2
+      },
+      "motion": {
+        "movingFrames": 2029,
+        "cameraStepPx": [
+          0,
+          1044,
+          866,
+          119,
+          0
+        ],
+        "stalledFrames": 0,
+        "roundingErrorPx": {
+          "n": 2029,
+          "mean": 0.17,
+          "p50": 0.08,
+          "p95": 0.86,
+          "p99": 0.94,
+          "max": 0.98
+        },
+        "stepVariationPx": {
+          "n": 2014,
+          "mean": 0.19,
+          "p50": 0,
+          "p95": 1,
+          "p99": 1,
+          "max": 1
+        },
+        "unevenPercent": 19,
+        "exactStepVariationPx": {
+          "n": 2014,
+          "mean": 0.03,
+          "p50": 0.02,
+          "p95": 0.11,
+          "p99": 0.12,
+          "max": 0.14
+        },
+        "speedRatio": {
+          "n": 2029,
+          "mean": 1,
+          "p50": 0.93,
+          "p95": 1.4,
+          "p99": 1.87,
+          "max": 1.96
+        },
+        "cameraJumps": 0,
+        "zoom": 2.93
+      },
+      "remote": {
+        "receive": {
+          "updates": 2710,
+          "snapshots": 0,
+          "removals": 0,
+          "intervalMs": {
+            "n": 2700,
+            "mean": 140.58,
+            "p50": 125.2,
+            "p95": 188.7,
+            "p99": 190.9,
+            "max": 192.3
+          },
+          "tileDistance": {
+            "same": 0,
+            "one": 2700,
+            "two": 0,
+            "threeOrMore": 0
+          },
+          "sequenceGaps": 0
+        },
+        "lifecycle": {
+          "created": 11,
+          "destroyed": 0,
+          "recreated": 0,
+          "recreatedWithin2s": 0,
+          "maxConcurrent": 11,
+          "concurrentPerFrame": {
+            "n": 2152,
+            "mean": 11,
+            "p50": 11,
+            "p95": 11,
+            "p99": 11,
+            "max": 11
+          }
+        },
+        "sprites": {
+          "fallbackToSheet": 0,
+          "fallbackToSheetMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "sheetToFallback": 0,
+          "sheetToSheet": 0,
+          "stuckFallbackFrames": 0,
+          "runWithoutRunFrames": 15036,
+          "drawn": 23620,
+          "culled": 52,
+          "noArt": 0,
+          "sheetRequests": 0,
+          "sheetCacheHits": 0,
+          "sheetLoads": 0,
+          "sheetFailures": 0,
+          "sheetLoadMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "motion": {
+          "snaps": 0,
+          "maxSnapTiles": 0,
+          "stopAndGo": 30,
+          "stopAndGoMs": {
+            "n": 30,
+            "mean": 17.5,
+            "p50": 17.3,
+            "p95": 17.9,
+            "p99": 17.9,
+            "max": 17.9
+          }
+        },
+        "aoi": {
+          "enters": 11,
+          "exits": 0,
+          "entitiesThatLeft": 0,
+          "maxExitsPerEntity": 0,
+          "exitsPerEntityP95": 0,
+          "distanceAtExit": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "distanceAtEnter": {
+            "n": 11,
+            "mean": 3.09,
+            "p50": 4,
+            "p95": 4,
+            "p99": 4,
+            "max": 4
+          },
+          "gapMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "exitsPerMinute": 0
+        }
+      },
+      "npcExperiment": {
+        "population": "on"
+      },
+      "collisions": {
+        "npcBlocks": 0,
+        "pokemonBlocks": 0,
+        "terrainBlocks": 0,
+        "events": []
+      },
+      "remoteSnapEvents": [],
+      "presenceDiagnostics": {
+        "sent": 198,
+        "lastSent": 198,
+        "lastAcked": 198,
+        "rttMs": {
+          "p50": 2.1,
+          "p95": 3.4,
+          "p99": 5.3,
+          "max": 6.1,
+          "samples": 128
+        },
+        "reconciliations": 0,
+        "solidRecoveries": 0,
+        "placements": 0,
+        "staleAcksIgnored": 0,
+        "rejections": {
+          "rate": 0,
+          "replay": 0,
+          "other": 0
+        },
+        "disconnects": 0
+      },
+      "chunks": {
+        "requestIdleCallback": true,
+        "builds": {
+          "frame": 0,
+          "prefetch": 2,
+          "warm": 0
+        },
+        "buildMs": {
+          "frame": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "prefetch": {
+            "n": 2,
+            "mean": 8.45,
+            "p50": 8.4,
+            "p95": 8.5,
+            "p99": 8.5,
+            "max": 8.5
+          },
+          "warm": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "idleOverruns": 0,
+        "idleOverrunMs": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "evicted": 0,
+        "released": 0,
+        "framesWithInFrameBuild": 0
+      },
+      "entities": {
+        "populace": {
+          "n": 2152,
+          "mean": 33.62,
+          "p50": 34,
+          "p95": 34,
+          "p99": 34,
+          "max": 34
+        },
+        "drawables": {
+          "n": 2152,
+          "mean": 89.47,
+          "p50": 88,
+          "p95": 124,
+          "p99": 130,
+          "max": 132
+        }
+      },
+      "areasMs": {
+        "pradera": 38175
+      },
+      "driver": [
+        {
+          "at": 5539,
+          "kind": "leg",
+          "detail": "pradera → 5,-69 run (10 tiles)"
+        },
+        {
+          "at": 6989,
+          "kind": "arrived",
+          "detail": "pradera 5,-69"
+        },
+        {
+          "at": 7006,
+          "kind": "leg",
+          "detail": "pradera → 5,-60 walk (9 tiles)"
+        },
+        {
+          "at": 9524,
+          "kind": "arrived",
+          "detail": "pradera 5,-60"
+        },
+        {
+          "at": 9542,
+          "kind": "leg",
+          "detail": "pradera → -12,-60 run (19 tiles)"
+        },
+        {
+          "at": 12186,
+          "kind": "arrived",
+          "detail": "pradera -12,-60"
+        },
+        {
+          "at": 12205,
+          "kind": "leg",
+          "detail": "pradera → -12,-74 walk (16 tiles)"
+        },
+        {
+          "at": 16583,
+          "kind": "arrived",
+          "detail": "pradera -12,-74"
+        },
+        {
+          "at": 16600,
+          "kind": "leg",
+          "detail": "pradera → -5,-69 run (12 tiles)"
+        },
+        {
+          "at": 18311,
+          "kind": "arrived",
+          "detail": "pradera -5,-69"
+        },
+        {
+          "at": 18329,
+          "kind": "leg",
+          "detail": "pradera → 5,-69 run (10 tiles)"
+        },
+        {
+          "at": 19676,
+          "kind": "arrived",
+          "detail": "pradera 5,-69"
+        },
+        {
+          "at": 19695,
+          "kind": "leg",
+          "detail": "pradera → 5,-60 walk (9 tiles)"
+        },
+        {
+          "at": 22213,
+          "kind": "arrived",
+          "detail": "pradera 5,-60"
+        },
+        {
+          "at": 22231,
+          "kind": "leg",
+          "detail": "pradera → -12,-60 run (19 tiles)"
+        },
+        {
+          "at": 24872,
+          "kind": "arrived",
+          "detail": "pradera -12,-60"
+        },
+        {
+          "at": 24890,
+          "kind": "leg",
+          "detail": "pradera → -12,-74 walk (16 tiles)"
+        },
+        {
+          "at": 29262,
+          "kind": "arrived",
+          "detail": "pradera -12,-74"
+        },
+        {
+          "at": 29281,
+          "kind": "leg",
+          "detail": "pradera → -5,-69 run (12 tiles)"
+        },
+        {
+          "at": 31002,
+          "kind": "arrived",
+          "detail": "pradera -5,-69"
+        },
+        {
+          "at": 31020,
+          "kind": "leg",
+          "detail": "pradera → 5,-69 run (10 tiles)"
+        },
+        {
+          "at": 32365,
+          "kind": "arrived",
+          "detail": "pradera 5,-69"
+        },
+        {
+          "at": 32382,
+          "kind": "leg",
+          "detail": "pradera → 5,-60 walk (9 tiles)"
+        },
+        {
+          "at": 34899,
+          "kind": "arrived",
+          "detail": "pradera 5,-60"
+        },
+        {
+          "at": 34917,
+          "kind": "leg",
+          "detail": "pradera → -12,-60 run (19 tiles)"
+        },
+        {
+          "at": 37568,
+          "kind": "arrived",
+          "detail": "pradera -12,-60"
+        },
+        {
+          "at": 37585,
+          "kind": "leg",
+          "detail": "pradera → -12,-74 walk (16 tiles)"
+        },
+        {
+          "at": 41974,
+          "kind": "arrived",
+          "detail": "pradera -12,-74"
+        },
+        {
+          "at": 41992,
+          "kind": "leg",
+          "detail": "pradera → -5,-69 run (12 tiles)"
+        },
+        {
+          "at": 43712,
+          "kind": "arrived",
+          "detail": "pradera -5,-69"
+        },
+        {
+          "at": 43712,
+          "kind": "done",
+          "detail": "3 loops"
+        }
+      ],
+      "timeline": [
+        {
+          "t": 1,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 75,
+          "heapMb": 14.5
+        },
+        {
+          "t": 2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 83,
+          "heapMb": 12.9
+        },
+        {
+          "t": 3,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 93,
+          "heapMb": 14.5
+        },
+        {
+          "t": 4,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 93,
+          "heapMb": 13.2
+        },
+        {
+          "t": 5,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 110,
+          "heapMb": 16.4
+        },
+        {
+          "t": 6.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 119,
+          "heapMb": 13.8
+        },
+        {
+          "t": 7.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.2,
+          "remotes": 11,
+          "drawables": 125,
+          "heapMb": 12.3
+        },
+        {
+          "t": 8.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 109,
+          "heapMb": 14.1
+        },
+        {
+          "t": 9.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 96,
+          "heapMb": 14.4
+        },
+        {
+          "t": 10.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 71,
+          "heapMb": 15.1
+        },
+        {
+          "t": 11.1,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 51,
+          "heapMb": 11.9
+        },
+        {
+          "t": 12.1,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 67,
+          "heapMb": 14.6
+        },
+        {
+          "t": 13.1,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 74,
+          "heapMb": 12.7
+        },
+        {
+          "t": 14.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 15.7
+        },
+        {
+          "t": 15.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.3,
+          "remotes": 11,
+          "drawables": 79,
+          "heapMb": 12.4
+        },
+        {
+          "t": 16.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 92,
+          "heapMb": 12.1
+        },
+        {
+          "t": 17.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 104,
+          "heapMb": 16
+        },
+        {
+          "t": 18.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 111,
+          "heapMb": 13.3
+        },
+        {
+          "t": 19.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 123,
+          "heapMb": 16.8
+        },
+        {
+          "t": 20.2,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 115,
+          "heapMb": 13.6
+        },
+        {
+          "t": 21.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 100,
+          "heapMb": 14.4
+        },
+        {
+          "t": 22.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.2,
+          "remotes": 11,
+          "drawables": 84,
+          "heapMb": 13.2
+        },
+        {
+          "t": 23.2,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 65,
+          "heapMb": 15.2
+        },
+        {
+          "t": 24.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 65,
+          "heapMb": 14.5
+        },
+        {
+          "t": 25.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 17
+        },
+        {
+          "t": 26.2,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 77,
+          "heapMb": 18.3
+        },
+        {
+          "t": 27.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.2,
+          "remotes": 11,
+          "drawables": 75,
+          "heapMb": 15.1
+        },
+        {
+          "t": 28.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 87,
+          "heapMb": 15.5
+        },
+        {
+          "t": 29.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 94,
+          "heapMb": 15.8
+        },
+        {
+          "t": 30.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 108,
+          "heapMb": 14
+        },
+        {
+          "t": 31.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 116,
+          "heapMb": 13
+        },
+        {
+          "t": 32.3,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 130,
+          "heapMb": 13.4
+        },
+        {
+          "t": 33.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 109,
+          "heapMb": 17.6
+        },
+        {
+          "t": 34.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 93,
+          "heapMb": 18.5
+        },
+        {
+          "t": 35.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 75,
+          "heapMb": 14.9
+        },
+        {
+          "t": 36.3,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 60,
+          "heapMb": 16.4
+        },
+        {
+          "t": 37.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 64,
+          "heapMb": 14.5
+        }
+      ]
+    },
+    {
+      "url": "http://localhost:4173/?benchmarkId=m10-28569b&area=pradera&x=-5&y=-69",
+      "mode": "observe",
+      "pageErrors": [],
+      "tool": "pokeswap-perf-v1",
+      "label": "multi-pradera-10-observe",
+      "scenario": null,
+      "scenarioCompleted": null,
+      "capturedAt": "2026-09-25T08:07:33.604Z",
+      "durationS": 38.4,
+      "environment": {
+        "build": "normal",
+        "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/147.0.0.0 Safari/537.36",
+        "viewport": {
+          "width": 1264,
+          "height": 625,
+          "dpr": 1
+        },
+        "hardwareConcurrency": 20,
+        "zoom": 2.9296875,
+        "runner": "headless-chrome"
+      },
+      "pacing": {
+        "frames": 2163,
+        "cadence": {
+          "observedHz": 55.9,
+          "nominalHz": null,
+          "budgetMs": 17.900000000001455
+        },
+        "intervalMs": {
+          "n": 2163,
+          "mean": 17.75,
+          "p50": 17.9,
+          "p95": 18.1,
+          "p99": 18.1,
+          "max": 18.4
+        },
+        "lateFrames": 0,
+        "latePercent": 0,
+        "droppedVsyncs": 0,
+        "over33ms": 0,
+        "over50ms": 0,
+        "over100ms": 0,
+        "onTimeJitterMs": 0.36,
+        "updateMs": {
+          "n": 2164,
+          "mean": 0.11,
+          "p50": 0.1,
+          "p95": 0.2,
+          "p99": 0.3,
+          "max": 0.7
+        },
+        "renderMs": {
+          "n": 2164,
+          "mean": 1.27,
+          "p50": 1.2,
+          "p95": 1.9,
+          "p99": 2.1,
+          "max": 4.4
+        },
+        "tickMs": {
+          "n": 2164,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0.1,
+          "max": 0.1
+        },
+        "workMs": {
+          "n": 2164,
+          "mean": 1.38,
+          "p50": 1.3,
+          "p95": 2.1,
+          "p99": 2.2,
+          "max": 4.7
+        },
+        "outsideEngineMs": {
+          "n": 2163,
+          "mean": 16.37,
+          "p50": 16.4,
+          "p95": 17.2,
+          "p99": 17.3,
+          "max": 17.5
+        }
+      },
+      "mainThread": {
+        "supported": {
+          "longtask": true,
+          "longAnimationFrame": true,
+          "memory": true
+        },
+        "longTasks": {
+          "count": 0,
+          "durationMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "longAnimationFrames": {
+          "count": 0,
+          "durationMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "blockingMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "topScripts": []
+        },
+        "heapMb": {
+          "n": 38,
+          "mean": 13.59,
+          "p50": 13.11,
+          "p95": 16.98,
+          "p99": 17.6,
+          "max": 17.6,
+          "first": 13.1,
+          "last": 11.8
+        }
+      },
+      "ui": {
+        "hudFlushMs": {
+          "n": 240,
+          "mean": 1.58,
+          "p50": 1.5,
+          "p95": 2.3,
+          "p99": 2.6,
+          "max": 3
+        }
+      },
+      "instrumentationMs": {
+        "n": 2164,
+        "mean": 0.01,
+        "p50": 0,
+        "p95": 0.1,
+        "p99": 0.1,
+        "max": 0.6
+      },
+      "motion": {
+        "movingFrames": 0,
+        "cameraStepPx": [
+          0,
+          0,
+          0,
+          0,
+          0
+        ],
+        "stalledFrames": 0,
+        "roundingErrorPx": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "stepVariationPx": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "unevenPercent": 0,
+        "exactStepVariationPx": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "speedRatio": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "cameraJumps": 0,
+        "zoom": 2.93
+      },
+      "remote": {
+        "receive": {
+          "updates": 2928,
+          "snapshots": 0,
+          "removals": 0,
+          "intervalMs": {
+            "n": 2917,
+            "mean": 143.97,
+            "p50": 125.1,
+            "p95": 190.3,
+            "p99": 254.8,
+            "max": 439
+          },
+          "tileDistance": {
+            "same": 0,
+            "one": 2917,
+            "two": 0,
+            "threeOrMore": 0
+          },
+          "sequenceGaps": 0
+        },
+        "lifecycle": {
+          "created": 11,
+          "destroyed": 0,
+          "recreated": 0,
+          "recreatedWithin2s": 0,
+          "maxConcurrent": 11,
+          "concurrentPerFrame": {
+            "n": 2164,
+            "mean": 11,
+            "p50": 11,
+            "p95": 11,
+            "p99": 11,
+            "max": 11
+          }
+        },
+        "sprites": {
+          "fallbackToSheet": 0,
+          "fallbackToSheetMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "sheetToFallback": 0,
+          "sheetToSheet": 0,
+          "stuckFallbackFrames": 0,
+          "runWithoutRunFrames": 15127,
+          "drawn": 23804,
+          "culled": 0,
+          "noArt": 0,
+          "sheetRequests": 0,
+          "sheetCacheHits": 0,
+          "sheetLoads": 0,
+          "sheetFailures": 0,
+          "sheetLoadMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "motion": {
+          "snaps": 0,
+          "maxSnapTiles": 0,
+          "stopAndGo": 36,
+          "stopAndGoMs": {
+            "n": 36,
+            "mean": 41.77,
+            "p50": 17.7,
+            "p95": 124.8,
+            "p99": 142.7,
+            "max": 142.7
+          }
+        },
+        "aoi": {
+          "enters": 11,
+          "exits": 0,
+          "entitiesThatLeft": 0,
+          "maxExitsPerEntity": 0,
+          "exitsPerEntityP95": 0,
+          "distanceAtExit": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "distanceAtEnter": {
+            "n": 11,
+            "mean": 3.09,
+            "p50": 4,
+            "p95": 4,
+            "p99": 4,
+            "max": 4
+          },
+          "gapMs": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "exitsPerMinute": 0
+        }
+      },
+      "npcExperiment": {
+        "population": "on"
+      },
+      "collisions": {
+        "npcBlocks": 0,
+        "pokemonBlocks": 0,
+        "terrainBlocks": 0,
+        "events": []
+      },
+      "remoteSnapEvents": [],
+      "presenceDiagnostics": {
+        "sent": 0,
+        "lastSent": 0,
+        "lastAcked": 0,
+        "rttMs": {
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0,
+          "samples": 0
+        },
+        "reconciliations": 0,
+        "solidRecoveries": 0,
+        "placements": 0,
+        "staleAcksIgnored": 0,
+        "rejections": {
+          "rate": 0,
+          "replay": 0,
+          "other": 0
+        },
+        "disconnects": 0
+      },
+      "chunks": {
+        "requestIdleCallback": true,
+        "builds": {
+          "frame": 0,
+          "prefetch": 0,
+          "warm": 0
+        },
+        "buildMs": {
+          "frame": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "prefetch": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          },
+          "warm": {
+            "n": 0,
+            "mean": 0,
+            "p50": 0,
+            "p95": 0,
+            "p99": 0,
+            "max": 0
+          }
+        },
+        "idleOverruns": 0,
+        "idleOverrunMs": {
+          "n": 0,
+          "mean": 0,
+          "p50": 0,
+          "p95": 0,
+          "p99": 0,
+          "max": 0
+        },
+        "evicted": 0,
+        "released": 0,
+        "framesWithInFrameBuild": 0
+      },
+      "entities": {
+        "populace": {
+          "n": 2164,
+          "mean": 27,
+          "p50": 27,
+          "p95": 27,
+          "p99": 27,
+          "max": 27
+        },
+        "drawables": {
+          "n": 2164,
+          "mean": 72.97,
+          "p50": 73,
+          "p95": 73,
+          "p99": 73,
+          "max": 73
+        }
+      },
+      "areasMs": {
+        "pradera": 38388
+      },
+      "driver": [],
+      "timeline": [
+        {
+          "t": 1,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.7
+        },
+        {
+          "t": 2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.4
+        },
+        {
+          "t": 3,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.2,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 11.8
+        },
+        {
+          "t": 4,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14.3
+        },
+        {
+          "t": 5,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 13.1
+        },
+        {
+          "t": 6.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.2
+        },
+        {
+          "t": 7.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.3,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14.7
+        },
+        {
+          "t": 8.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.9
+        },
+        {
+          "t": 9.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14.8
+        },
+        {
+          "t": 10.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 13.3
+        },
+        {
+          "t": 11.1,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 11.9
+        },
+        {
+          "t": 12.1,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 13
+        },
+        {
+          "t": 13.1,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.6
+        },
+        {
+          "t": 14.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 11.8
+        },
+        {
+          "t": 15.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.4,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 13.8
+        },
+        {
+          "t": 16.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.9
+        },
+        {
+          "t": 17.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14.3
+        },
+        {
+          "t": 18.1,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 13.2
+        },
+        {
+          "t": 19.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12
+        },
+        {
+          "t": 20.2,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14
+        },
+        {
+          "t": 21.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.2,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.8
+        },
+        {
+          "t": 22.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14.2
+        },
+        {
+          "t": 23.2,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.5
+        },
+        {
+          "t": 24.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 13.9
+        },
+        {
+          "t": 25.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.3
+        },
+        {
+          "t": 26.2,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 17.7
+        },
+        {
+          "t": 27.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 72,
+          "heapMb": 15.3
+        },
+        {
+          "t": 28.2,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14.6
+        },
+        {
+          "t": 29.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 13.1
+        },
+        {
+          "t": 30.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.3
+        },
+        {
+          "t": 31.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 16.5
+        },
+        {
+          "t": 32.3,
+          "fps": 57,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14.9
+        },
+        {
+          "t": 33.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 13.4
+        },
+        {
+          "t": 34.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 17.5
+        },
+        {
+          "t": 35.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 16.1
+        },
+        {
+          "t": 36.3,
+          "fps": 57,
+          "p95IntervalMs": 18,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 15.2
+        },
+        {
+          "t": 37.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 14.2
+        },
+        {
+          "t": 38.3,
+          "fps": 56,
+          "p95IntervalMs": 18.1,
+          "maxIntervalMs": 18.1,
+          "remotes": 11,
+          "drawables": 73,
+          "heapMb": 12.4
+        }
+      ]
+    }
+  ]
+}

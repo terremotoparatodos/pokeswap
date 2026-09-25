@@ -1,0 +1,95 @@
+{
+  "benchmark": "world-1",
+  "players": 50,
+  "worldProtocol": true,
+  "seconds": 60,
+  "actionMs": 3000,
+  "targets": 132,
+  "perClientKiBps": {
+    "presence": {
+      "mean": 9.94,
+      "p95": 12.03
+    },
+    "world": {
+      "mean": 0.64,
+      "p95": 0.76
+    }
+  },
+  "worldMessagesPerClientPerSecond": {
+    "mean": 2.11,
+    "p95": 2.5
+  },
+  "worldSnapshotBytes": {
+    "p50": 2094,
+    "max": 2094
+  },
+  "worldBatchBytes": {
+    "p50": 220,
+    "p95": 868,
+    "max": 2089
+  },
+  "work": {
+    "results": {
+      "ok": 130
+    },
+    "completions": 130,
+    "requestToReplyMs": {
+      "p50": 1.49,
+      "p95": 4.08
+    }
+  },
+  "concurrentActions": {
+    "max": 22,
+    "mean": 6.68
+  },
+  "storedNodes": {
+    "max": 130
+  },
+  "subscribedChunks": {
+    "max": 114
+  },
+  "server": {
+    "world": {
+      "wild": {
+        "epoch": 497311,
+        "loads": 1,
+        "failures": 0
+      },
+      "clients": 50,
+      "subscribedChunks": 90,
+      "storedNodes": 130,
+      "runningActions": 0,
+      "queued": 130,
+      "actions": {
+        "requested": 130,
+        "started": 130,
+        "rejected": {},
+        "completed": 130,
+        "settleRetries": 0,
+        "settleFailed": 0,
+        "cancelled": 0,
+        "respawned": 0,
+        "staleCompletions": 0
+      },
+      "transport": {
+        "snapshots": 100,
+        "batches": 5964,
+        "nodeDeltas": 4755,
+        "chunkEnters": 4537,
+        "chunkLeaves": 4339,
+        "maxBatchBytes": 2080,
+        "bytes": 1891724
+      }
+    },
+    "eventLoopDelayMs": {
+      "p50": 31.03,
+      "p99": 33.36,
+      "max": 34.87
+    },
+    "memoryMb": {
+      "rss": 96,
+      "heapUsed": 30
+    },
+    "moves": 18440
+  }
+}
