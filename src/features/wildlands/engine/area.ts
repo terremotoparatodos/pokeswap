@@ -4,7 +4,8 @@
 // procedural world. The game loop, renderer and navigation only talk to this
 // interface, so travelling between them is just swapping the active area.
 
-import type { Actor } from './actors'
+import type { Actor, Habitat } from './actors'
+import type { WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WeatherKind } from './atmosphere'
 import type { Dir, TrainerSprites } from './characters'
 import type { ChunkMetrics, DecorInstance } from './chunks'
@@ -30,8 +31,22 @@ export interface Arrival extends Tile {
   dir: Dir
 }
 
+/**
+ * WORLD-1: what the shared world offers a populace. Until `serverNow()` is
+ * known, a populace keeps its legacy local wandering (old servers, offline).
+ */
+export interface SharedPopulace {
+  serverNow(): number | null
+  /** The server's wild roster for this area, or null when it has none. */
+  wildRoster(): WildRoster | null
+  /** Static walkability for a wanderer: terrain, props, gates and doors. Identical on every client. */
+  walkable(habitat: Habitat, tx: number, ty: number): boolean
+}
+
 /** Wandering actors that belong to an area. */
 export interface Populace {
+  /** WORLD-1: switch to shared identities and patrols when the server provides them. */
+  share?(shared: SharedPopulace): void
   readonly actors: Actor[]
   update(playerTx: number, playerTy: number): void
   /** Owned Pokémon that should stroll here (towns only). */

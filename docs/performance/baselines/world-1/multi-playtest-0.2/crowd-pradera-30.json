@@ -1,0 +1,69 @@
+{
+  "benchmark": "presence-websocket-v1",
+  "players": 30,
+  "area": "pradera",
+  "presenceProtocol": 2,
+  "warmupSeconds": 2,
+  "identityPrefix": "m30-17808",
+  "durationSeconds": 110.17,
+  "joinMs": 366.41,
+  "transport": "ws://localhost:2578",
+  "totals": {
+    "socketMessages": 50220,
+    "logicalUpdates": 686400,
+    "estimatedBytes": 84853860,
+    "socketMessagesPerSecond": 455.85,
+    "logicalUpdatesPerSecond": 6230.49,
+    "estimatedKiBPerSecond": 752.17,
+    "wireFrames": 50220,
+    "wireBytes": 70069438,
+    "wireKiBPerSecond": 621.12
+  },
+  "perClient": {
+    "wireKiBPerSecondP50": 20.71,
+    "wireKiBPerSecondP95": 20.72,
+    "wireKiBPerSecondMax": 20.72,
+    "messagesP50": 1674,
+    "messagesP95": 1674,
+    "messagesMax": 1674,
+    "updatesP50": 22880,
+    "updatesP95": 22880,
+    "updatesMax": 22880
+  },
+  "acknowledgementRttMs": {
+    "samples": 23460,
+    "p50": 1.13,
+    "p95": 2.14,
+    "p99": 2.84,
+    "max": 9.86
+  },
+  "driverEventLoopLagMs": {
+    "p95": 11.26,
+    "p99": 12.02,
+    "max": 12.24
+  },
+  "rejectedMoves": 0,
+  "movement": {
+    "gait": "run",
+    "stepMs": 133.33,
+    "burst": 1
+  },
+  "observed": {
+    "updates": 686280,
+    "tileDistance": {
+      "same": 0,
+      "one": 686280,
+      "two": 0,
+      "threeOrMore": 0
+    },
+    "multiTileShare": 0,
+    "sequenceGaps": 0,
+    "updateIntervalMs": {
+      "p50": 125.25,
+      "p95": 188.95,
+      "p99": 191.09,
+      "max": 3852.31
+    }
+  },
+  "serverBatching": null
+}

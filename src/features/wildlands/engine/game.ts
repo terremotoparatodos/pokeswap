@@ -6,7 +6,7 @@
 // no tokens, ownership or rewards are read or written.
 
 import {
-  actorPosition, advance, createActor, createWalkerState, DIRS, driveWalker, isMoving, RUN_SPEED, wander, WALK_SPEED,
+  actorPosition, advance, createActor, createWalkerState, DIRS, driveWalker, isMoving, RUN_SPEED, WALK_SPEED,
   type Actor, type MoveRules,
 } from './actors'
 import { isPortalTile, type Area, type AreaId, type Arrival, type Populace } from './area'
@@ -41,6 +41,9 @@ import { keepsPredictedStep, safeAuthoritativePosition } from '../multiplayer/do
 import { PresenceDiagnostics, type PresenceDiagnosticsSnapshot } from '../multiplayer/domain/presenceDiagnostics'
 import type { FrameProbe, RenderProbe } from './perfHooks'
 import { RemoteStepPlayback } from './remotePlayback'
+import type { WorldLayer, WorldLayerContext } from './worldLayer'
+import { driveWanderer } from './patrolMotion'
+import type { SharedPopulace } from './area'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
 
@@ -137,11 +140,25 @@ export class WildlandsGame {
   readonly placedObjects = new PlacedObjects()
   private readonly nav = new TapNavigator({
     isSolid: (tx, ty) => this.solidAt(tx, ty),
-    occupied: (tx, ty) => this.populace.actors.some(a => a.tx === tx && a.ty === ty),
+    occupied: (tx, ty) => this.populace.actors.some(a => !a.patrol && a.tx === tx && a.ty === ty),
     isInteractive: (tx, ty) => this.placedObjects.isInteractive(this.area.id, tx, ty)
       || (this.isWorldObject?.({ area: this.area, tx, ty }) ?? false),
   })
   private overlay: SceneOverlay | null = null
+  /** WORLD-1: shared world entities drawn over this client's scene. */
+  private worldLayer: WorldLayer | null = null
+  private readonly worldContext: WorldLayerContext = {
+    area: () => this.area,
+    playerTile: id => id === this.localPresenceActorId ? this.player : this.remoteActorsById.get(id) ?? null,
+    isSolid: (tx, ty) => this.solidAt(tx, ty),
+  }
+  /** Placed objects are left out on purpose: they differ between builds, the patrol must not. */
+  private readonly sharedPopulace: SharedPopulace = {
+    serverNow: () => this.worldLayer?.serverNow() ?? null,
+    wildRoster: () => this.worldLayer?.wildRoster(this.area.id) ?? null,
+    walkable: (habitat, tx, ty) => !this.area.isSolid(tx, ty) && !isPortalTile(this.area, tx, ty) && !this.entrances.isDoor(this.area, tx, ty)
+      && (habitat === 'any' || this.area.isWater(tx, ty) === (habitat === 'water')),
+  }
   private inputLocked = false
   private readonly travel = new AreaTravel()
   private readonly entrances: Entrances
@@ -184,6 +201,8 @@ export class WildlandsGame {
   private last = 0
   private seconds = 0
   private clock = 0.4
+  /** Local "skip time" (dev key) on top of the shared day, in day fractions. */
+  private clockShift = 0
   private camX = 0
   private camY = 0
   private lensName: LensName = 'handheld'
@@ -248,7 +267,9 @@ export class WildlandsGame {
     },
     occupied: (tx, ty, self) => {
       for (const a of [this.player, ...this.populace.actors]) {
-        if (a !== self && a.tx === tx && a.ty === ty) return true
+        // Shared wanderers never block: a player can never be stopped by one
+        // another player does not see in the same place (WORLD-1D).
+        if (a !== self && !a.patrol && a.tx === tx && a.ty === ty) return true
       }
       return false
     },
@@ -265,6 +286,7 @@ export class WildlandsGame {
     }
     this.area = area
     this.populace = area.createPopulace({ pokedex: this.pokedex, npcSprites: this.renderer.npcSprites })
+    this.populace.share?.(this.sharedPopulace)
     this.populace.setOwned?.(this.owned)
     this.populace.setWildPokemonIds?.(this.wildPokemonIds)
     const arrival = area.arrival(from)
@@ -627,6 +649,11 @@ export class WildlandsGame {
     companion.speed = remote.speed
   }
 
+  /** WORLD-1: the shared world's entities and clock; null removes them. */
+  setWorldLayer(layer: WorldLayer | null): void {
+    this.worldLayer = layer
+  }
+
   /** Prototype effects drawn with the scene; null removes them. */
   setSceneOverlay(overlay: SceneOverlay | null): void {
     this.overlay = overlay
@@ -776,6 +803,7 @@ export class WildlandsGame {
   }
 
   skipTime(): void {
+    this.clockShift = (this.clockShift + 0.125) % 1
     this.clock = (this.clock + 0.125) % 1
     this.say(`La hora avanza… (${lighting(this.clock).phase})`)
   }
@@ -852,7 +880,13 @@ export class WildlandsGame {
 
   private update(dt: number): void {
     this.seconds += dt
-    this.clock = (this.clock + dt / DAY_SECONDS) % 1
+    // WORLD-1: day and weather follow the server's clock once it is known, so
+    // two players standing together see the same hour and the same rain.
+    const serverNow = this.worldLayer?.serverNow() ?? null
+    const sharedSeconds = serverNow === null ? null : serverNow / 1000
+    this.clock = sharedSeconds === null
+      ? (this.clock + dt / DAY_SECONDS) % 1
+      : (sharedSeconds / DAY_SECONDS + 0.4 + this.clockShift) % 1
     if (this.lensBlend < 1) this.lensBlend = Math.min(1, this.lensBlend + dt * 1.8)
     this.travel.update(dt, (to, from) => {
       this.enterArea(to, from, null)
@@ -893,12 +927,13 @@ export class WildlandsGame {
 
     // Wanderers
     this.populace.update(player.tx, player.ty)
-    for (const actor of this.populace.actors) {
-      wander(actor, this.seconds, this.rules)
-      advance(actor, dt)
-    }
+    const worldNow = this.worldLayer?.serverNow() ?? null
+    // Frozen on their deterministic tile until the server clock arrives, then
+    // on their shared patrol: never a local random walk (WORLD-1).
+    for (const actor of this.populace.actors) driveWanderer(actor, worldNow)
     this.advanceRemoteActors(dt)
     for (const actor of this.remoteCompanions) advance(actor, dt)
+    this.worldLayer?.update(dt, this.worldContext)
 
     // Camera: locked to the player's whole-pixel position, like the handheld games.
     // Easing only kicks in after a large jump so the view never snaps across the map.
@@ -917,7 +952,7 @@ export class WildlandsGame {
     this.weatherCheck -= dt
     if (this.weatherCheck <= 0) {
       this.weatherCheck = 0.5
-      const w = this.area.weather(player.tx, player.ty, this.seconds)
+      const w = this.area.weather(player.tx, player.ty, sharedSeconds ?? this.seconds)
       if (w.kind !== 'clear') this.weather.kind = w.kind
       this.weather.target = w.intensity
     }
@@ -976,7 +1011,12 @@ export class WildlandsGame {
     actors.length = 0
     for (const actor of this.populace.actors) actors.push(actor)
     for (const actor of this.remoteActors) actors.push(actor)
-    for (const actor of this.remoteCompanions) actors.push(actor)
+    const world = this.worldLayer
+    for (const [ownerId, actor] of this.remoteCompanionsByOwnerId) {
+      if (!world?.hidesCompanion(ownerId, actor.pokemon?.id ?? -1)) actors.push(actor)
+    }
+    if (world) for (const actor of world.actors()) actors.push(actor)
+    const companion = this.companion.actor
     return {
       area: this.area,
       fade: this.reduceMotion ? 0 : this.travel.fade(),
@@ -987,7 +1027,7 @@ export class WildlandsGame {
       light: lighting(this.clock),
       weather: { kind: this.weather.kind, intensity: this.reduceMotion ? 0 : this.weather.intensity },
       player: this.player,
-      companion: this.companion.actor,
+      companion: companion && this.localPresenceActorId && world?.hidesCompanion(this.localPresenceActorId, companion.pokemon?.id ?? -1) ? null : companion,
       username: this.username,
       showPlayer: !this.spectator,
       actors,

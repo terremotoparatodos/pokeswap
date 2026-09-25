@@ -5,6 +5,7 @@
 // cosmetic random steps around a home tile; none of this is persisted.
 
 import type { Dir, PokemonFrames, TrainerSprites } from './characters'
+import type { Patrol } from '../../../../services/realtime/src/world/patrol.js'
 import { TILE } from './world'
 
 export type ActorKind = 'player' | 'remote' | 'npc' | 'pokemon'
@@ -54,6 +55,11 @@ export interface Actor {
   remote?: true
   /** Bounce offset for Pokémon hops, in world px. */
   hop: number
+  /**
+   * WORLD-1: a shared wandering loop sampled at server time. An actor with one
+   * is drawn where every other client draws it, and never blocks anyone.
+   */
+  patrol?: Patrol
 }
 
 export const DIRS: Record<Dir, [number, number]> = {

@@ -1,0 +1,8070 @@
+{
+  "tool": "remote-fidelity-v1",
+  "label": "a3b5ea0",
+  "results": [
+    {
+      "seed": 1,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 251,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 4.2,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 84,
+          "max": 84
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1,
+          "p95": 1.04
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 250,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 4.2,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 83,
+          "p95": 100,
+          "max": 100
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 250,
+          "p95": 301,
+          "max": 301
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 83,
+          "p95": 100,
+          "max": 100
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1,
+          "p95": 1.04
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 251,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 1.7,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 79,
+          "p95": 88,
+          "max": 88
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1,
+          "p95": 1.04
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 250,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 1.7,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 73,
+          "p95": 91,
+          "max": 91
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 250,
+          "p95": 301,
+          "max": 301
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 79,
+          "p95": 91,
+          "max": 91
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1,
+          "p95": 1.04
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 256,
+          "p95": 317,
+          "max": 317
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 4.2,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 250,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 253,
+          "p95": 316,
+          "max": 316
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 4.2,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 234,
+          "max": 234
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1.02,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 253,
+          "p95": 309,
+          "max": 309
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 234,
+          "max": 234
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 256,
+          "p95": 317,
+          "max": 317
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 219,
+          "p95": 258,
+          "max": 258
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 253,
+          "p95": 316,
+          "max": 316
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 1.7,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 243,
+          "max": 243
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1.01,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 253,
+          "p95": 309,
+          "max": 309
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 219,
+          "p95": 232,
+          "max": 232
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 251,
+          "p95": 329,
+          "max": 329
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 8.3,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 283,
+          "max": 283
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 0.99,
+          "p95": 1.27
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 237,
+          "p95": 553,
+          "max": 553
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 170.8,
+        "longestStallMs": 250,
+        "representationDelayMs": {
+          "p50": 233,
+          "p95": 434,
+          "max": 434
+        },
+        "pace": {
+          "p5": 0.85,
+          "p50": 1.08,
+          "p95": 1.44
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 260,
+          "p95": 450,
+          "max": 450
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 58.3,
+        "longestStallMs": 166.7,
+        "representationDelayMs": {
+          "p50": 266,
+          "p95": 400,
+          "max": 400
+        },
+        "pace": {
+          "p5": 0.78,
+          "p50": 1.01,
+          "p95": 1.26
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 251,
+          "p95": 329,
+          "max": 329
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 3,
+        "stallMsPerMovingSecond": 5.2,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 220,
+          "p95": 274,
+          "max": 274
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 1.01,
+          "p95": 1.26
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 237,
+          "p95": 553,
+          "max": 553
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 161.5,
+        "longestStallMs": 243.1,
+        "representationDelayMs": {
+          "p50": 230,
+          "p95": 421,
+          "max": 421
+        },
+        "pace": {
+          "p5": 0.83,
+          "p50": 1.06,
+          "p95": 1.41
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "A",
+      "name": "walk straight",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 266,
+        "p50": 267,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 260,
+          "p95": 450,
+          "max": 450
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 53.8,
+        "longestStallMs": 145.8,
+        "representationDelayMs": {
+          "p50": 264,
+          "p95": 395,
+          "max": 395
+        },
+        "pace": {
+          "p5": 0.78,
+          "p50": 1,
+          "p95": 1.25
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 16.7,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 66,
+          "p95": 67,
+          "max": 67
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 0.99,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 66,
+          "p95": 83,
+          "max": 83
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 84,
+          "max": 84
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 6.9,
+        "longestStallMs": 13.9,
+        "representationDelayMs": {
+          "p50": 73,
+          "p95": 82,
+          "max": 82
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.98,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 64,
+          "p95": 73,
+          "max": 73
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 79,
+          "max": 79
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 144,
+          "p95": 214,
+          "max": 214
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 8.3,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 250,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 0.98,
+          "p95": 1.1
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 139,
+          "p95": 235,
+          "max": 235
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 233,
+          "max": 233
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1,
+          "p95": 1.13
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 142,
+          "p95": 237,
+          "max": 237
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 8.3,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 234,
+          "max": 234
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.01,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 144,
+          "p95": 214,
+          "max": 214
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 3.5,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 211,
+          "p95": 246,
+          "max": 246
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 0.97,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 139,
+          "p95": 235,
+          "max": 235
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 208,
+          "p95": 236,
+          "max": 236
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1,
+          "p95": 1.11
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 142,
+          "p95": 237,
+          "max": 237
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 3.5,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 215,
+          "p95": 223,
+          "max": 223
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 129,
+          "p95": 232,
+          "max": 232
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 58.3,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 267,
+          "max": 267
+        },
+        "pace": {
+          "p5": 0.86,
+          "p50": 1.03,
+          "p95": 1.31
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 2,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 15,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 100,
+          "p95": 412,
+          "max": 412
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 383.3,
+        "longestStallMs": 283.3,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 450,
+          "max": 450
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1.27,
+          "p95": 1.58
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 121,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 100,
+        "longestStallMs": 150,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 367,
+          "max": 367
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.06,
+          "p95": 1.21
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 129,
+          "p95": 232,
+          "max": 232
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 48.6,
+        "longestStallMs": 34.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 257,
+          "max": 257
+        },
+        "pace": {
+          "p5": 0.88,
+          "p50": 1.05,
+          "p95": 1.31
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 2,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 15,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 100,
+          "p95": 412,
+          "max": 412
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 364.6,
+        "longestStallMs": 270.8,
+        "representationDelayMs": {
+          "p50": 257,
+          "p95": 454,
+          "max": 454
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1.24,
+          "p95": 1.57
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "B",
+      "name": "run straight",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 121,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 100.7,
+        "longestStallMs": 145.8,
+        "representationDelayMs": {
+          "p50": 247,
+          "p95": 376,
+          "max": 376
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.05,
+          "p95": 1.22
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 151,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 6.2,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 84,
+          "max": 84
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 0.99,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 6.2,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 83,
+          "p95": 100,
+          "max": 100
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 301,
+          "max": 301
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 83,
+          "p95": 84,
+          "max": 84
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 151,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 2.6,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 80,
+          "p95": 89,
+          "max": 89
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 2.6,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 71,
+          "p95": 91,
+          "max": 91
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 301,
+          "max": 301
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 71,
+          "p95": 85,
+          "max": 85
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 163,
+          "p95": 298,
+          "max": 298
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 250,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.97,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 151,
+          "p95": 316,
+          "max": 316
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 6.2,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 234,
+          "max": 234
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.02,
+          "p95": 1.09
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 157,
+          "p95": 309,
+          "max": 309
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 233,
+          "p95": 234,
+          "max": 234
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 163,
+          "p95": 298,
+          "max": 298
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 219,
+          "p95": 251,
+          "max": 251
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 0.98,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 151,
+          "p95": 316,
+          "max": 316
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 2.6,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 241,
+          "max": 241
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.01,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 157,
+          "p95": 309,
+          "max": 309
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 223,
+          "p95": 230,
+          "max": 230
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 186,
+          "p95": 309,
+          "max": 309
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 12.5,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 266,
+          "max": 266
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1.02,
+          "p95": 1.13
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 164,
+          "p95": 540,
+          "max": 540
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 225,
+        "longestStallMs": 216.7,
+        "representationDelayMs": {
+          "p50": 283,
+          "p95": 417,
+          "max": 417
+        },
+        "pace": {
+          "p5": 0.85,
+          "p50": 1.09,
+          "p95": 1.47
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 137,
+          "p95": 450,
+          "max": 450
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 87.5,
+        "longestStallMs": 166.7,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 367,
+          "max": 367
+        },
+        "pace": {
+          "p5": 0.78,
+          "p50": 1.05,
+          "p95": 1.26
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 186,
+          "p95": 309,
+          "max": 309
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 13,
+        "longestStallMs": 27.8,
+        "representationDelayMs": {
+          "p50": 223,
+          "p95": 255,
+          "max": 255
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.02,
+          "p95": 1.11
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 164,
+          "p95": 540,
+          "max": 540
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 216.1,
+        "longestStallMs": 222.2,
+        "representationDelayMs": {
+          "p50": 264,
+          "p95": 420,
+          "max": 420
+        },
+        "pace": {
+          "p5": 0.83,
+          "p50": 1.07,
+          "p95": 1.48
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "C",
+      "name": "walk then run",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 134,
+        "max": 267
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 137,
+          "p95": 450,
+          "max": 450
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 80.7,
+        "longestStallMs": 145.8,
+        "representationDelayMs": {
+          "p50": 241,
+          "p95": 361,
+          "max": 361
+        },
+        "pace": {
+          "p5": 0.77,
+          "p50": 1.03,
+          "p95": 1.29
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 1751,
+          "max": 1751
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 9.3,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 50,
+          "p95": 67,
+          "max": 67
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.98,
+          "p95": 1.04
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 1751,
+          "max": 1751
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 50,
+          "p95": 83,
+          "max": 83
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.97,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 1750,
+          "max": 1750
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 66,
+          "p95": 83,
+          "max": 83
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 1751,
+          "max": 1751
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 3.9,
+        "longestStallMs": 13.9,
+        "representationDelayMs": {
+          "p50": 62,
+          "p95": 77,
+          "max": 77
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.04
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 1751,
+          "max": 1751
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 53,
+          "p95": 73,
+          "max": 73
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.98,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 1750,
+          "max": 1750
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 55,
+          "p95": 73,
+          "max": 73
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 144,
+          "p95": 1759,
+          "max": 1759
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 13.9,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 250,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.88,
+          "p50": 1,
+          "p95": 1.1
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 139,
+          "p95": 1768,
+          "max": 1768
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 9.3,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 233,
+          "max": 233
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.01,
+          "p95": 1.13
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 141,
+          "p95": 1822,
+          "max": 1822
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 4.6,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 234,
+          "max": 234
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1.01,
+          "p95": 1.09
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 144,
+          "p95": 1759,
+          "max": 1759
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 7.7,
+        "longestStallMs": 20.8,
+        "representationDelayMs": {
+          "p50": 206,
+          "p95": 243,
+          "max": 243
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 0.98,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 139,
+          "p95": 1768,
+          "max": 1768
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 1.9,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 206,
+          "p95": 219,
+          "max": 219
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1,
+          "p95": 1.1
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 141,
+          "p95": 1822,
+          "max": 1822
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 1.9,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 212,
+          "p95": 243,
+          "max": 243
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1.02,
+          "p95": 1.12
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 129,
+          "p95": 1752,
+          "max": 1752
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 32.4,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 250,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.86,
+          "p50": 1.01,
+          "p95": 1.31
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 2,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 15,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 137,
+          "p95": 1535,
+          "max": 1535
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 5,
+        "stallMsPerMovingSecond": 231.5,
+        "longestStallMs": 233.3,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 450,
+          "max": 450
+        },
+        "pace": {
+          "p5": 0.83,
+          "p50": 1.05,
+          "p95": 1.58
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 121,
+          "p95": 1731,
+          "max": 1731
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 69.4,
+        "longestStallMs": 150,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 367,
+          "max": 367
+        },
+        "pace": {
+          "p5": 0.85,
+          "p50": 1,
+          "p95": 1.21
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 129,
+          "p95": 1752,
+          "max": 1752
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 28.9,
+        "longestStallMs": 34.7,
+        "representationDelayMs": {
+          "p50": 210,
+          "p95": 254,
+          "max": 254
+        },
+        "pace": {
+          "p5": 0.87,
+          "p50": 1.02,
+          "p95": 1.31
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 2,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 15,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 137,
+          "p95": 1535,
+          "max": 1535
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 5,
+        "stallMsPerMovingSecond": 219.9,
+        "longestStallMs": 236.1,
+        "representationDelayMs": {
+          "p50": 219,
+          "p95": 463,
+          "max": 463
+        },
+        "pace": {
+          "p5": 0.84,
+          "p50": 1.03,
+          "p95": 1.57
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "D",
+      "name": "run, stop, run",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 121,
+          "p95": 1731,
+          "max": 1731
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 65.6,
+        "longestStallMs": 145.8,
+        "representationDelayMs": {
+          "p50": 229,
+          "p95": 376,
+          "max": 376
+        },
+        "pace": {
+          "p5": 0.83,
+          "p50": 1,
+          "p95": 1.22
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 16.7,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 66,
+          "p95": 67,
+          "max": 67
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 66,
+          "p95": 83,
+          "max": 83
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 84,
+          "max": 84
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 6.9,
+        "longestStallMs": 13.9,
+        "representationDelayMs": {
+          "p50": 73,
+          "p95": 82,
+          "max": 82
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.98,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 64,
+          "p95": 73,
+          "max": 73
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 79,
+          "max": 79
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 0.99,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 144,
+          "p95": 214,
+          "max": 214
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 8.3,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 250,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 0.98,
+          "p95": 1.1
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 139,
+          "p95": 235,
+          "max": 235
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 233,
+          "max": 233
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1,
+          "p95": 1.13
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 142,
+          "p95": 237,
+          "max": 237
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 8.3,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 234,
+          "max": 234
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.01,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 144,
+          "p95": 214,
+          "max": 214
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 3.5,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 211,
+          "p95": 246,
+          "max": 246
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 0.97,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 139,
+          "p95": 235,
+          "max": 235
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 208,
+          "p95": 236,
+          "max": 236
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1,
+          "p95": 1.11
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 142,
+          "p95": 237,
+          "max": 237
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 3.5,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 215,
+          "p95": 223,
+          "max": 223
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 129,
+          "p95": 232,
+          "max": 232
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 58.3,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 267,
+          "max": 267
+        },
+        "pace": {
+          "p5": 0.86,
+          "p50": 1.03,
+          "p95": 1.31
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 2,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 15,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 100,
+          "p95": 412,
+          "max": 412
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 383.3,
+        "longestStallMs": 283.3,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 450,
+          "max": 450
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1.27,
+          "p95": 1.58
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 121,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 100,
+        "longestStallMs": 150,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 367,
+          "max": 367
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 1.06,
+          "p95": 1.21
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 129,
+          "p95": 232,
+          "max": 232
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 48.6,
+        "longestStallMs": 34.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 257,
+          "max": 257
+        },
+        "pace": {
+          "p5": 0.87,
+          "p50": 1.05,
+          "p95": 1.31
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 2,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 15,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 100,
+          "p95": 412,
+          "max": 412
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 364.6,
+        "longestStallMs": 270.8,
+        "representationDelayMs": {
+          "p50": 257,
+          "p95": 454,
+          "max": 454
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1.24,
+          "p95": 1.57
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "E",
+      "name": "run and reverse",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 121,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 100.7,
+        "longestStallMs": 145.8,
+        "representationDelayMs": {
+          "p50": 247,
+          "p95": 376,
+          "max": 376
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.05,
+          "p95": 1.22
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 16.7,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 66,
+          "p95": 67,
+          "max": 67
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 0.99,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 66,
+          "p95": 83,
+          "max": 83
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 84,
+          "max": 84
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 6.9,
+        "longestStallMs": 13.9,
+        "representationDelayMs": {
+          "p50": 73,
+          "p95": 82,
+          "max": 82
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.98,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 64,
+          "p95": 73,
+          "max": 73
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 149,
+          "p95": 151,
+          "max": 151
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 79,
+          "max": 79
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 144,
+          "p95": 214,
+          "max": 214
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 8.3,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 250,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 0.98,
+          "p95": 1.1
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 139,
+          "p95": 235,
+          "max": 235
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 233,
+          "max": 233
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1,
+          "p95": 1.13
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 142,
+          "p95": 237,
+          "max": 237
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 8.3,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 234,
+          "max": 234
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.01,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 144,
+          "p95": 214,
+          "max": 214
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 3.5,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 211,
+          "p95": 246,
+          "max": 246
+        },
+        "pace": {
+          "p5": 0.89,
+          "p50": 0.97,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 139,
+          "p95": 235,
+          "max": 235
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 208,
+          "p95": 236,
+          "max": 236
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1,
+          "p95": 1.11
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 142,
+          "p95": 237,
+          "max": 237
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 3.5,
+        "longestStallMs": 6.9,
+        "representationDelayMs": {
+          "p50": 215,
+          "p95": 223,
+          "max": 223
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 129,
+          "p95": 232,
+          "max": 232
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 58.3,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 267,
+          "max": 267
+        },
+        "pace": {
+          "p5": 0.86,
+          "p50": 1.03,
+          "p95": 1.31
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 2,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 15,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 100,
+          "p95": 412,
+          "max": 412
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 383.3,
+        "longestStallMs": 283.3,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 450,
+          "max": 450
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1.27,
+          "p95": 1.58
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 121,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 100,
+        "longestStallMs": 150,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 367,
+          "max": 367
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.06,
+          "p95": 1.21
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 129,
+          "p95": 232,
+          "max": 232
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 48.6,
+        "longestStallMs": 34.7,
+        "representationDelayMs": {
+          "p50": 216,
+          "p95": 257,
+          "max": 257
+        },
+        "pace": {
+          "p5": 0.88,
+          "p50": 1.05,
+          "p95": 1.31
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 2,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 15,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 100,
+          "p95": 412,
+          "max": 412
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 364.6,
+        "longestStallMs": 270.8,
+        "representationDelayMs": {
+          "p50": 257,
+          "p95": 454,
+          "max": 454
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1.24,
+          "p95": 1.57
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "F",
+      "name": "zig-zag running",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 17,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 121,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 2,
+        "stallMsPerMovingSecond": 100.7,
+        "longestStallMs": 145.8,
+        "representationDelayMs": {
+          "p50": 247,
+          "p95": 376,
+          "max": 376
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.05,
+          "p95": 1.22
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 233.3,
+        "longestStallMs": 100,
+        "representationDelayMs": {
+          "p50": 117,
+          "p95": 150,
+          "max": 150
+        },
+        "pace": {
+          "p5": 1.23,
+          "p50": 1.28,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 233.3,
+        "longestStallMs": 100,
+        "representationDelayMs": {
+          "p50": 134,
+          "p95": 167,
+          "max": 167
+        },
+        "pace": {
+          "p5": 1.23,
+          "p50": 1.28,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 233.3,
+        "longestStallMs": 100,
+        "representationDelayMs": {
+          "p50": 117,
+          "p95": 167,
+          "max": 167
+        },
+        "pace": {
+          "p5": 1.23,
+          "p50": 1.29,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 208.3,
+        "longestStallMs": 104.2,
+        "representationDelayMs": {
+          "p50": 125,
+          "p95": 162,
+          "max": 162
+        },
+        "pace": {
+          "p5": 1.22,
+          "p50": 1.28,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 204.9,
+        "longestStallMs": 104.2,
+        "representationDelayMs": {
+          "p50": 132,
+          "p95": 169,
+          "max": 169
+        },
+        "pace": {
+          "p5": 1.23,
+          "p50": 1.28,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 300,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 215.3,
+        "longestStallMs": 104.2,
+        "representationDelayMs": {
+          "p50": 115,
+          "p95": 169,
+          "max": 169
+        },
+        "pace": {
+          "p5": 1.23,
+          "p50": 1.29,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 314,
+          "max": 314
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 225,
+        "longestStallMs": 100,
+        "representationDelayMs": {
+          "p50": 266,
+          "p95": 317,
+          "max": 317
+        },
+        "pace": {
+          "p5": 1.25,
+          "p50": 1.27,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 339,
+          "max": 339
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 250,
+        "longestStallMs": 116.7,
+        "representationDelayMs": {
+          "p50": 267,
+          "p95": 316,
+          "max": 316
+        },
+        "pace": {
+          "p5": 1.21,
+          "p50": 1.28,
+          "p95": 1.36
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 337,
+          "max": 337
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 233.3,
+        "longestStallMs": 116.7,
+        "representationDelayMs": {
+          "p50": 267,
+          "p95": 317,
+          "max": 317
+        },
+        "pace": {
+          "p5": 1.21,
+          "p50": 1.26,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 314,
+          "max": 314
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 204.9,
+        "longestStallMs": 97.2,
+        "representationDelayMs": {
+          "p50": 271,
+          "p95": 319,
+          "max": 319
+        },
+        "pace": {
+          "p5": 1.23,
+          "p50": 1.26,
+          "p95": 1.34
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 339,
+          "max": 339
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 222.2,
+        "longestStallMs": 97.2,
+        "representationDelayMs": {
+          "p50": 272,
+          "p95": 309,
+          "max": 309
+        },
+        "pace": {
+          "p5": 1.22,
+          "p50": 1.28,
+          "p95": 1.35
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 337,
+          "max": 337
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 204.9,
+        "longestStallMs": 111.1,
+        "representationDelayMs": {
+          "p50": 265,
+          "p95": 315,
+          "max": 315
+        },
+        "pace": {
+          "p5": 1.21,
+          "p50": 1.27,
+          "p95": 1.35
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 332,
+          "max": 332
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 258.3,
+        "longestStallMs": 133.3,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 333,
+          "max": 333
+        },
+        "pace": {
+          "p5": 1.18,
+          "p50": 1.29,
+          "p95": 1.37
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 590,
+          "max": 590
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 5,
+        "stallMsPerMovingSecond": 425,
+        "longestStallMs": 416.7,
+        "representationDelayMs": {
+          "p50": 284,
+          "p95": 549,
+          "max": 549
+        },
+        "pace": {
+          "p5": 1.13,
+          "p50": 1.34,
+          "p95": 1.65
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 450,
+          "max": 450
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 5,
+        "stallMsPerMovingSecond": 308.3,
+        "longestStallMs": 250,
+        "representationDelayMs": {
+          "p50": 284,
+          "p95": 500,
+          "max": 500
+        },
+        "pace": {
+          "p5": 1.17,
+          "p50": 1.29,
+          "p95": 1.74
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 332,
+          "max": 332
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 6,
+        "stallMsPerMovingSecond": 232.6,
+        "longestStallMs": 111.1,
+        "representationDelayMs": {
+          "p50": 250,
+          "p95": 337,
+          "max": 337
+        },
+        "pace": {
+          "p5": 1.18,
+          "p50": 1.29,
+          "p95": 1.39
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 590,
+          "max": 590
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 5,
+        "stallMsPerMovingSecond": 402.8,
+        "longestStallMs": 395.8,
+        "representationDelayMs": {
+          "p50": 290,
+          "p95": 552,
+          "max": 552
+        },
+        "pace": {
+          "p5": 1.09,
+          "p50": 1.34,
+          "p95": 1.66
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "G",
+      "name": "run, two moves per uplink packet",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 17,
+        "stepStacked": 8,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 9,
+        "maxBatch": 1
+      },
+      "resyncs": 0,
+      "movers": 1,
+      "localTiles": 16,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 134
+      },
+      "receive": {
+        "updates": 17,
+        "intervalMs": {
+          "p50": 0,
+          "p95": 450,
+          "max": 450
+        },
+        "tileDistance": {
+          "one": 16,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 5,
+        "stallMsPerMovingSecond": 281.3,
+        "longestStallMs": 229.2,
+        "representationDelayMs": {
+          "p50": 299,
+          "p95": 507,
+          "max": 507
+        },
+        "pace": {
+          "p5": 1.12,
+          "p50": 1.28,
+          "p95": 1.73
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 350,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 299,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 8.4,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 67,
+          "p95": 83,
+          "max": 84
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 0.99,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 401,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 299,
+          "max": 301
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 6,
+        "stallMsPerMovingSecond": 7.2,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 83,
+          "p95": 100,
+          "max": 100
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "lan",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 370,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 299,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 8.4,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 83,
+          "p95": 100,
+          "max": 100
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 350,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 299,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 3.5,
+        "longestStallMs": 13.9,
+        "representationDelayMs": {
+          "p50": 74,
+          "p95": 85,
+          "max": 91
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 401,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 299,
+          "max": 301
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 6,
+        "stallMsPerMovingSecond": 4.5,
+        "longestStallMs": 20.8,
+        "representationDelayMs": {
+          "p50": 78,
+          "p95": 91,
+          "max": 98
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "lan",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 370,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 299,
+          "max": 300
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 5.2,
+        "longestStallMs": 20.8,
+        "representationDelayMs": {
+          "p50": 77,
+          "p95": 90,
+          "max": 98
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 0.99,
+          "p95": 1.05
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 360,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 146,
+          "p95": 287,
+          "max": 302
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 2.4,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 217,
+          "p95": 234,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 0.99,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 347,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 145,
+          "p95": 264,
+          "max": 301
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 1,
+        "stallMsPerMovingSecond": 0.6,
+        "longestStallMs": 16.7,
+        "representationDelayMs": {
+          "p50": 233,
+          "p95": 250,
+          "max": 250
+        },
+        "pace": {
+          "p5": 0.94,
+          "p50": 1,
+          "p95": 1.07
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "miami",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 361,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 265,
+          "max": 320
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 7,
+        "stallMsPerMovingSecond": 6,
+        "longestStallMs": 33.3,
+        "representationDelayMs": {
+          "p50": 233,
+          "p95": 250,
+          "max": 251
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 0.99,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 360,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 146,
+          "p95": 287,
+          "max": 302
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 4,
+        "stallMsPerMovingSecond": 1.5,
+        "longestStallMs": 13.9,
+        "representationDelayMs": {
+          "p50": 220,
+          "p95": 239,
+          "max": 246
+        },
+        "pace": {
+          "p5": 0.93,
+          "p50": 1,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 347,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 145,
+          "p95": 264,
+          "max": 301
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 0,
+        "stallMsPerMovingSecond": 0,
+        "longestStallMs": 0,
+        "representationDelayMs": {
+          "p50": 228,
+          "p95": 246,
+          "max": 248
+        },
+        "pace": {
+          "p5": 0.94,
+          "p50": 1,
+          "p95": 1.06
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "miami",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 0,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 361,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 150,
+          "p95": 265,
+          "max": 320
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 6,
+        "stallMsPerMovingSecond": 3.7,
+        "longestStallMs": 20.8,
+        "representationDelayMs": {
+          "p50": 225,
+          "p95": 249,
+          "max": 251
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 0.99,
+          "p95": 1.08
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 340,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 324,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 125,
+          "p95": 370,
+          "max": 463
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 45,
+        "stallMsPerMovingSecond": 189.6,
+        "longestStallMs": 233.3,
+        "representationDelayMs": {
+          "p50": 267,
+          "p95": 416,
+          "max": 467
+        },
+        "pace": {
+          "p5": 0.92,
+          "p50": 1.15,
+          "p95": 1.51
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 220,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 389,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 146,
+          "p95": 400,
+          "max": 450
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 46,
+        "stallMsPerMovingSecond": 166.3,
+        "longestStallMs": 333.3,
+        "representationDelayMs": {
+          "p50": 267,
+          "p95": 466,
+          "max": 467
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1.17,
+          "p95": 1.55
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "rough",
+      "observerHz": 60,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 230,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 315,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 132,
+          "p95": 354,
+          "max": 402
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 44,
+        "stallMsPerMovingSecond": 170.5,
+        "longestStallMs": 250,
+        "representationDelayMs": {
+          "p50": 284,
+          "p95": 434,
+          "max": 483
+        },
+        "pace": {
+          "p5": 0.86,
+          "p50": 1.13,
+          "p95": 1.36
+        }
+      }
+    },
+    {
+      "seed": 1,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 340,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 324,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 125,
+          "p95": 370,
+          "max": 463
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 48,
+        "stallMsPerMovingSecond": 185.4,
+        "longestStallMs": 229.2,
+        "representationDelayMs": {
+          "p50": 265,
+          "p95": 432,
+          "max": 475
+        },
+        "pace": {
+          "p5": 0.9,
+          "p50": 1.16,
+          "p95": 1.53
+        }
+      }
+    },
+    {
+      "seed": 2,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 220,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 389,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 146,
+          "p95": 400,
+          "max": 450
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 51,
+        "stallMsPerMovingSecond": 166,
+        "longestStallMs": 319.4,
+        "representationDelayMs": {
+          "p50": 267,
+          "p95": 457,
+          "max": 473
+        },
+        "pace": {
+          "p5": 0.91,
+          "p50": 1.17,
+          "p95": 1.59
+        }
+      }
+    },
+    {
+      "seed": 3,
+      "scenario": "H",
+      "name": "ten players running at once",
+      "network": "rough",
+      "observerHz": 144,
+      "serverBatching": {
+        "queued": 1945,
+        "stepStacked": 230,
+        "stepFoldedIntoUpsert": 0,
+        "replaced": 0,
+        "batches": 315,
+        "maxBatch": 10
+      },
+      "resyncs": 0,
+      "movers": 10,
+      "localTiles": 189,
+      "localStepMs": {
+        "min": 133,
+        "p50": 133,
+        "max": 267
+      },
+      "receive": {
+        "updates": 199,
+        "intervalMs": {
+          "p50": 132,
+          "p95": 354,
+          "max": 402
+        },
+        "tileDistance": {
+          "one": 189,
+          "two": 0,
+          "threeOrMore": 0,
+          "same": 0
+        },
+        "sequenceGaps": 0
+      },
+      "visual": {
+        "snaps": 0,
+        "maxSnapTiles": 0,
+        "tilesNeverShown": 0,
+        "stallEpisodes": 44,
+        "stallMsPerMovingSecond": 163.7,
+        "longestStallMs": 229.2,
+        "representationDelayMs": {
+          "p50": 291,
+          "p95": 439,
+          "max": 487
+        },
+        "pace": {
+          "p5": 0.87,
+          "p50": 1.12,
+          "p95": 1.37
+        }
+      }
+    }
+  ]
+}

@@ -7,7 +7,7 @@
 // Read-only (TRUST_BOUNDARY §2): it selects `slots` and `activity_feed` and
 // listens to Realtime. Nothing here writes to Supabase.
 
-import { computed, onMounted, onUnmounted, ref, shallowRef, watch, type Ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, shallowRef, type Ref } from 'vue'
 import { fetchRecentActivity, fetchSlots } from './api/plazaApi'
 import { mergeSlotPatch, topPricedIds, type SlotPatch } from './domain/ownedSlots'
 import { usePlazaRealtime } from './usePlazaRealtime'
@@ -16,7 +16,7 @@ import type { ActivityFeedEntry, Slot } from '../../../shared/types/database'
 import type { PlazaResident } from '../engine/plazaPokemon'
 import type { PokedexEntry } from '../engine/population'
 import { EMPTY_NOTICES, nextNotice, type NoticeState } from './plazaNotices'
-import { availableWildPool, rollWildPool, WILD_ROTATE_MS } from '../../pokemon/domain/wildPool'
+import { availableWildPool } from '../../pokemon/domain/wildPool'
 
 /** A swap touches two slots within milliseconds: apply them together. */
 export const PATCH_BATCH_MS = 250
@@ -38,9 +38,11 @@ export interface PlazaDataOptions {
   userId: Ref<string | null>
   /** True while a panel, the menu, sign-in or the board covers the town: toasts are dropped. */
   quiet: () => boolean
-  /** Injectable only for deterministic pool/rotation tests. */
-  now?: () => number
-  random?: () => number
+  /**
+   * WORLD-1D: the pool the realtime service rolled for everyone this hour.
+   * The only source of wild Pokémon: without it there are none (fail closed).
+   */
+  sharedWildPool?: Ref<readonly number[] | null>
 }
 
 export function usePlazaData(options: PlazaDataOptions) {
@@ -48,9 +50,6 @@ export function usePlazaData(options: PlazaDataOptions) {
   const loaded = ref(false)
   const loadError = ref(false)
   const notice = ref<string | null>(null)
-  const wildPool = ref<readonly number[]>([])
-  const wildRotateAt = ref(0)
-  const now = options.now ?? Date.now
 
   const nameOf = (id: number) => options.pokedex.value.find(p => p.id === id)?.name_es ?? `#${id}`
 
@@ -58,14 +57,8 @@ export function usePlazaData(options: PlazaDataOptions) {
     const me = options.userId.value
     return topPricedIds(slots.value).map(id => ({ pokemonId: id, mine: me !== null && slots.value[id].owner_id === me }))
   })
-  /** Pool membership is cosmetic; this extra filter follows server ownership immediately. */
-  const wildPokemonIds = computed(() => availableWildPool(wildPool.value, slots.value))
-
-  function rotateWildPool(): void {
-    if (!loaded.value || !options.pokedex.value.length) return
-    wildPool.value = rollWildPool(options.pokedex.value, slots.value, { random: options.random })
-    wildRotateAt.value = now() + WILD_ROTATE_MS
-  }
+  /** The server's pool, minus what this client already sees owned (ownership converges on `slots`). */
+  const wildPokemonIds = computed(() => availableWildPool(options.sharedWildPool?.value ?? [], slots.value))
 
   function card(pokemonId: number): PlazaCard {
     const slot = slots.value[pokemonId]
@@ -160,7 +153,6 @@ export function usePlazaData(options: PlazaDataOptions) {
       realtime.seedActivity(activity)
       loaded.value = true
       loadError.value = false
-      if (!wildPool.value.length || now() >= wildRotateAt.value) rotateWildPool()
     } catch (error) {
       devWarn('[plaza] slots unavailable', error)
       loadError.value = true
@@ -172,18 +164,9 @@ export function usePlazaData(options: PlazaDataOptions) {
   }
 
   onMounted(() => void refresh())
-  // The Pokédex arrives independently from slots on first load. Do not reroll
-  // merely because an area changes; only the initial catalog or the hour does.
-  watch(options.pokedex, () => {
-    if (loaded.value && (!wildPool.value.length || now() >= wildRotateAt.value)) rotateWildPool()
-  })
-  const rotationTimer = setInterval(() => {
-    if (now() >= wildRotateAt.value) rotateWildPool()
-  }, 30_000)
   onUnmounted(() => {
     if (batchTimer) clearTimeout(batchTimer)
     if (noticeTimer) clearTimeout(noticeTimer)
-    clearInterval(rotationTimer)
   })
 
   return {
@@ -195,8 +178,6 @@ export function usePlazaData(options: PlazaDataOptions) {
     loadError,
     notice,
     wildPokemonIds,
-    wildRotateAt,
-    rotateWildPool,
     nameOf,
     refresh,
   }

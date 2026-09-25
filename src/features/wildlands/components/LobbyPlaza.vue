@@ -35,6 +35,8 @@ const props = defineProps<{
   pokedex: readonly PokedexEntry[]
   /** A feature panel, the menu or sign-in covers the town. */
   covered: boolean
+  /** WORLD-1D: this hour's wild pool from the realtime service, null until it sends one. */
+  sharedWildPool?: readonly number[] | null
 }>()
 const emit = defineEmits<{ /** A card or the board is showing (the town pauses). */ overlay: [open: boolean]; market: []; feature: [feature: LobbyFeature] }>()
 
@@ -47,6 +49,7 @@ const plaza = usePlazaData({
   pokedex: toRef(props, 'pokedex'),
   userId: computed(() => user.value?.id ?? null),
   quiet: () => props.covered || boardOpen.value,
+  sharedWildPool: computed(() => props.sharedWildPool ?? null),
 })
 const card = computed(() => (cardId.value === null ? null : plaza.card(cardId.value)))
 const wildCard = computed(() => {

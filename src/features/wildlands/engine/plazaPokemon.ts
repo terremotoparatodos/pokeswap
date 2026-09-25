@@ -95,6 +95,8 @@ interface Member {
 
 export class PlazaPokemon {
   private readonly members = new Map<number, Member>()
+  /** WORLD-1D: gives an actor its shared patrol (set by the town once the server clock is known). */
+  patrol: ((actor: Actor) => void) | null = null
 
   /**
    * @param actors   The populace's actor list; plaza Pokémon are pushed into and spliced out of it.
@@ -126,14 +128,32 @@ export class PlazaPokemon {
       }
     }
 
+    // Homes are a function of the current list alone (WORLD-1D): assigned in
+    // id order every time, so two clients with the same list give every
+    // Pokémon the same home whatever order it arrived in.
+    const homes = new Map<number, Home>()
+    for (const id of [...wanted.keys()].sort((a, b) => a - b)) {
+      const home = assignHome(id, this.candidates, [...homes.values()])
+      if (home) homes.set(id, home)
+    }
+
     for (const id of kept) {
       const member = this.members.get(id)!
       member.mine = wanted.get(id)!.mine
+      const home = homes.get(id)
+      if (home && (home.tx !== member.home.tx || home.ty !== member.home.ty)) {
+        member.home = home
+        if (member.actor) {
+          member.actor.homeTx = home.tx
+          member.actor.homeTy = home.ty
+          if (member.actor.patrol) { member.actor.patrol = undefined; this.patrol?.(member.actor) }
+        }
+      }
       if (member.actor) member.actor.owned = { mine: member.mine }
     }
 
     for (const id of entered.sort((a, b) => a - b)) {
-      const home = assignHome(id, this.candidates, [...this.members.values()].map(m => m.home))
+      const home = homes.get(id)
       if (!home) continue
       const member: Member = { home, mine: wanted.get(id)!.mine, actor: null }
       this.members.set(id, member)
@@ -147,6 +167,7 @@ export class PlazaPokemon {
             id: `plaza:${id}`, kind: 'pokemon', habitat: 'land', tx: home.tx, ty: home.ty, speed: 2.5,
             pokemon: info ?? this.fallback(entry), owned: { mine: member.mine },
           })
+          this.patrol?.(member.actor)
           this.actors.push(member.actor)
         })
     }

@@ -12,6 +12,8 @@ export class PresenceMetrics {
     // Delta batching (50 ms window). Measurement only: see PresenceRoom.sendDelta.
     this.batching = { queued: 0, stepStacked: 0, stepFoldedIntoUpsert: 0, replaced: 0, batches: 0, maxBatch: 0 }
     this.loopDelay = loopDelay
+    /** WORLD-1 aggregate counters, installed by the room (no ids, no coordinates). */
+    this.world = null
   }
   joined(kind) { this.connections++; if (kind === 'guest') this.guests++; else this.players++ }
   left(kind) { this.connections = Math.max(0, this.connections - 1); if (kind === 'guest') this.guests = Math.max(0, this.guests - 1); else this.players = Math.max(0, this.players - 1) }
@@ -32,6 +34,7 @@ export class PresenceMetrics {
     const delay = this.loopDelay
     return {
       moves: this.moves, areaChanges: this.areaChanges, reconnectRestores: this.reconnectRestores, batching: { ...this.batching },
+      ...(this.world ? { world: this.world() } : {}),
       uptimeSeconds: Math.round(process.uptime()),
       memoryMb: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
       eventLoopDelayMs: { p50: ms(delay.percentile(50)), p99: ms(delay.percentile(99)), max: ms(delay.max) },
