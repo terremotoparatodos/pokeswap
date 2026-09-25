@@ -12,8 +12,8 @@ defineProps<{ text: string | null }>()
 <style scoped>
 .pn {
   position: absolute;
-  top: 4.5rem;
-  left: 1rem;
+  top: calc(4.5rem + var(--safe-top, 0px));
+  left: calc(1rem + var(--safe-left, 0px));
   z-index: 4;
   max-width: min(320px, calc(100% - 2rem));
   margin: 0;
@@ -36,10 +36,10 @@ defineProps<{ text: string | null }>()
   transform: translateX(-6px);
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   .pn {
-    top: 3.9rem;
-    left: 0.75rem;
+    top: calc(3.9rem + var(--safe-top, 0px));
+    left: calc(0.75rem + var(--safe-left, 0px));
     font-size: 0.8rem;
   }
 }

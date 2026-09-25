@@ -50,12 +50,17 @@ const COVERAGE = `(() => {
   }
   const visible = el => { for (let e = el; e && e !== document.documentElement; e = e.parentElement) { const cs = getComputedStyle(e); if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) < 0.05) return false } return true }
   const boxes = []
+  const offscreen = new Set()
   for (const el of document.body.querySelectorAll('*')) {
     if (el.classList?.contains('wl-canvas')) continue
     const cs = getComputedStyle(el)
     if (!paints(el, cs) || !visible(el)) continue
     const r = el.getBoundingClientRect()
     if (r.width < 1 || r.height < 1 || r.right <= 0 || r.bottom <= 0 || r.left >= W || r.top >= H) continue
+    // Anything that paints but pokes out of the screen (2 px tolerance).
+    // Content clipped by a scrolling ancestor is scrollable, not off screen.
+    const clipped = () => { for (let e = el.parentElement; e && e !== document.body; e = e.parentElement) { const o = getComputedStyle(e).overflowY; if (o === 'auto' || o === 'scroll' || o === 'hidden') { const p = e.getBoundingClientRect(); if (p.top >= -2 && p.bottom <= H + 2) return true } } return false }
+    if ((r.left < -2 || r.top < -2 || r.right > W + 2 || r.bottom > H + 2) && !clipped()) offscreen.add((el.className && typeof el.className === 'string' ? el.tagName.toLowerCase() + '.' + el.className.split(' ')[0] : el.tagName.toLowerCase()))
     // The game stage and page backgrounds are not HUD; a dialog scrim is.
     if (el.classList.contains('wl') || el.id === 'app') continue
     if (r.width * r.height >= 0.85 * W * H && !el.closest('[role=dialog],dialog,[aria-modal=true]')) continue
@@ -74,7 +79,7 @@ const COVERAGE = `(() => {
   const top = [...byOwner].sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, a]) => [k, Math.round(a / (W * H) * 1000) / 10])
   const page = { inner: [W, H], visual: visualViewport ? [visualViewport.width, visualViewport.height] : null,
     stage: (() => { const s = document.querySelector('.wl'); return s ? [s.clientWidth, s.clientHeight] : null })() }
-  return { uiPercent: Math.round(covered / grid.length * 1000) / 10, top, page }
+  return { uiPercent: Math.round(covered / grid.length * 1000) / 10, top, page, offscreen: [...offscreen].slice(0, 12) }
 })()`
 
 try {
@@ -103,7 +108,7 @@ try {
     page.close()
   }
   writeFileSync(join(out, `${label}.json`), JSON.stringify(results, null, 2))
-  for (const r of results) console.log(`[mobile] ${r.label} ${r.viewport} ${r.size}: UI ${r.uiPercent}% · ${r.top.map(([k, a]) => `${k} ${a}%`).join(' · ')}${r.evaluated !== undefined ? ` · eval ${JSON.stringify(r.evaluated)}` : ''}`)
+  for (const r of results) console.log(`[mobile] ${r.label} ${r.viewport} ${r.size}: UI ${r.uiPercent}% · ${r.top.map(([k, a]) => `${k} ${a}%`).join(' · ')}${r.evaluated !== undefined ? ` · eval ${JSON.stringify(r.evaluated)}` : ''}${r.offscreen?.length ? ` · OFFSCREEN ${r.offscreen.join(', ')}` : ''}`)
 } finally {
   browser.kill()
   await new Promise(done => { if (browser.exitCode !== null) done(); else browser.once('exit', done) })

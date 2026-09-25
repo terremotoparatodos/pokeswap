@@ -321,4 +321,16 @@ async function signOut(): Promise<void> {
     background: rgba(8, 12, 28, 0.35);
   }
 }
+
+/* A landscape phone is wide but short: the menu is a column on the left. */
+@media (min-width: 721px) and (max-height: 500px) {
+  .lm-sheet {
+    right: auto;
+    width: min(22rem, 48vw);
+    left: var(--safe-left, 0px);
+    max-height: calc(100dvh - 4rem - var(--safe-top, 0px));
+    border-width: 2px 2px 0 0;
+    border-radius: 0 18px 0 0;
+  }
+}
 </style>

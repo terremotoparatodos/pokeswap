@@ -1,0 +1,173 @@
+[
+  {
+    "label": "final-menu",
+    "viewport": "safari",
+    "size": "393x659",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-menu-safari.png",
+    "evaluated": true,
+    "uiPercent": 73.9,
+    "top": [
+      [
+        "nav.lm-sheet",
+        67.6
+      ],
+      [
+        "div.lm-session",
+        9.6
+      ],
+      [
+        "button.lm-item",
+        6.5
+      ],
+      [
+        "button.lm-item.lm-item--activity",
+        6.5
+      ],
+      [
+        "div.wl-minimap",
+        4.3
+      ],
+      [
+        "div.wl-hud",
+        4.1
+      ],
+      [
+        "button.lm-toggle",
+        1.5
+      ],
+      [
+        "button.wl-run",
+        1.5
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        659
+      ],
+      "visual": [
+        393,
+        659
+      ],
+      "stage": [
+        393,
+        659
+      ]
+    },
+    "offscreen": []
+  },
+  {
+    "label": "final-menu",
+    "viewport": "standalone",
+    "size": "393x852",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-menu-standalone.png",
+    "evaluated": true,
+    "uiPercent": 57,
+    "top": [
+      [
+        "nav.lm-sheet",
+        52.3
+      ],
+      [
+        "div.lm-session",
+        7.4
+      ],
+      [
+        "button.lm-item",
+        5
+      ],
+      [
+        "button.lm-item.lm-item--activity",
+        5
+      ],
+      [
+        "div.wl-minimap",
+        3.4
+      ],
+      [
+        "div.wl-hud",
+        3.2
+      ],
+      [
+        "button.lm-toggle",
+        1.2
+      ],
+      [
+        "button.wl-run",
+        1.1
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        852
+      ],
+      "visual": [
+        393,
+        852
+      ],
+      "stage": [
+        393,
+        852
+      ]
+    },
+    "offscreen": []
+  },
+  {
+    "label": "final-menu",
+    "viewport": "landscape",
+    "size": "852x353",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-menu-landscape.png",
+    "evaluated": true,
+    "uiPercent": 45.5,
+    "top": [
+      [
+        "nav.lm-sheet",
+        34.3
+      ],
+      [
+        "aside.wl-help",
+        17.9
+      ],
+      [
+        "button.lm-item",
+        5
+      ],
+      [
+        "div.wl-minimap",
+        3.7
+      ],
+      [
+        "div.wl-hud",
+        3.6
+      ],
+      [
+        "p.wl-help-title",
+        2.3
+      ],
+      [
+        "p.wl-help-perf",
+        2.3
+      ],
+      [
+        "button.lm-item.lm-item--activity",
+        2.1
+      ]
+    ],
+    "page": {
+      "inner": [
+        852,
+        353
+      ],
+      "visual": [
+        852,
+        353
+      ],
+      "stage": [
+        852,
+        353
+      ]
+    },
+    "offscreen": []
+  }
+]

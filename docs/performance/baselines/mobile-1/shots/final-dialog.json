@@ -1,0 +1,170 @@
+[
+  {
+    "label": "final-dialog",
+    "viewport": "safari",
+    "size": "393x659",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-dialog-safari.png",
+    "uiPercent": 62.2,
+    "top": [
+      [
+        "div.auth-modal",
+        48.1
+      ],
+      [
+        "button.auth-btn-google",
+        4.9
+      ],
+      [
+        "input.auth-input",
+        4.6
+      ],
+      [
+        "button.auth-btn",
+        4.6
+      ],
+      [
+        "div.wl-minimap",
+        4.3
+      ],
+      [
+        "div.wl-hud",
+        4.1
+      ],
+      [
+        "button.auth-link",
+        2.1
+      ],
+      [
+        "div.auth-divider",
+        2
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        659
+      ],
+      "visual": [
+        393,
+        659
+      ],
+      "stage": [
+        393,
+        659
+      ]
+    },
+    "offscreen": []
+  },
+  {
+    "label": "final-dialog",
+    "viewport": "standalone",
+    "size": "393x852",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-dialog-standalone.png",
+    "uiPercent": 48.4,
+    "top": [
+      [
+        "div.auth-modal",
+        37.2
+      ],
+      [
+        "button.auth-btn-google",
+        3.8
+      ],
+      [
+        "input.auth-input",
+        3.6
+      ],
+      [
+        "button.auth-btn",
+        3.6
+      ],
+      [
+        "div.wl-minimap",
+        3.4
+      ],
+      [
+        "div.wl-hud",
+        3.2
+      ],
+      [
+        "button.auth-link",
+        1.6
+      ],
+      [
+        "div.auth-divider",
+        1.5
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        852
+      ],
+      "visual": [
+        393,
+        852
+      ],
+      "stage": [
+        393,
+        852
+      ]
+    },
+    "offscreen": []
+  },
+  {
+    "label": "final-dialog",
+    "viewport": "landscape",
+    "size": "852x353",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-dialog-landscape.png",
+    "uiPercent": 61.5,
+    "top": [
+      [
+        "div.auth-modal",
+        43.2
+      ],
+      [
+        "aside.wl-help",
+        17.9
+      ],
+      [
+        "button.auth-btn-google",
+        4.4
+      ],
+      [
+        "input.auth-input",
+        4.2
+      ],
+      [
+        "button.auth-btn",
+        4.2
+      ],
+      [
+        "div.wl-minimap",
+        3.7
+      ],
+      [
+        "div.wl-hud",
+        3.6
+      ],
+      [
+        "p.wl-help-title",
+        2.3
+      ]
+    ],
+    "page": {
+      "inner": [
+        852,
+        353
+      ],
+      "visual": [
+        852,
+        353
+      ],
+      "stage": [
+        852,
+        353
+      ]
+    },
+    "offscreen": []
+  }
+]

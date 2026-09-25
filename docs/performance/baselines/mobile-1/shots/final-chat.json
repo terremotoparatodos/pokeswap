@@ -1,0 +1,173 @@
+[
+  {
+    "label": "final-chat",
+    "viewport": "safari",
+    "size": "393x659",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-chat-safari.png",
+    "evaluated": true,
+    "uiPercent": 48.1,
+    "top": [
+      [
+        "section.ch-panel",
+        35.2
+      ],
+      [
+        "form.ch-form",
+        8
+      ],
+      [
+        "header.ch-head",
+        6.9
+      ],
+      [
+        "input.ch-input",
+        4.7
+      ],
+      [
+        "div.wl-minimap",
+        4.3
+      ],
+      [
+        "div.wl-hud",
+        4.1
+      ],
+      [
+        "li.ch-empty",
+        2.5
+      ],
+      [
+        "button.lm-toggle",
+        1.5
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        659
+      ],
+      "visual": [
+        393,
+        659
+      ],
+      "stage": [
+        393,
+        659
+      ]
+    },
+    "offscreen": []
+  },
+  {
+    "label": "final-chat",
+    "viewport": "standalone",
+    "size": "393x852",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-chat-standalone.png",
+    "evaluated": true,
+    "uiPercent": 37.3,
+    "top": [
+      [
+        "section.ch-panel",
+        27.2
+      ],
+      [
+        "form.ch-form",
+        6.2
+      ],
+      [
+        "header.ch-head",
+        5.3
+      ],
+      [
+        "input.ch-input",
+        3.6
+      ],
+      [
+        "div.wl-minimap",
+        3.4
+      ],
+      [
+        "div.wl-hud",
+        3.2
+      ],
+      [
+        "li.ch-empty",
+        1.9
+      ],
+      [
+        "button.lm-toggle",
+        1.2
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        852
+      ],
+      "visual": [
+        393,
+        852
+      ],
+      "stage": [
+        393,
+        852
+      ]
+    },
+    "offscreen": []
+  },
+  {
+    "label": "final-chat",
+    "viewport": "landscape",
+    "size": "852x353",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\final-chat-landscape.png",
+    "evaluated": true,
+    "uiPercent": 32.6,
+    "top": [
+      [
+        "aside.wl-help",
+        17.9
+      ],
+      [
+        "section.ch-panel",
+        17.8
+      ],
+      [
+        "form.ch-form",
+        7.1
+      ],
+      [
+        "header.ch-head",
+        6.2
+      ],
+      [
+        "input.ch-input",
+        4.2
+      ],
+      [
+        "div.wl-minimap",
+        3.7
+      ],
+      [
+        "div.wl-hud",
+        3.6
+      ],
+      [
+        "p.wl-help-title",
+        2.3
+      ]
+    ],
+    "page": {
+      "inner": [
+        852,
+        353
+      ],
+      "visual": [
+        852,
+        353
+      ],
+      "stage": [
+        852,
+        353
+      ]
+    },
+    "offscreen": []
+  }
+]
