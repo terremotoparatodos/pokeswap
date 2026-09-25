@@ -349,12 +349,25 @@ defineExpose({ inspect, isWorldObject, placedObjects, overlay, closeTransient: c
 .pwd-supplies { display: flex; flex-wrap: wrap; gap: 0.3rem; }
 .pwd-supplies span { padding: 0.15rem 0.5rem; border: 1px solid rgba(255,255,255,.2); border-radius: 999px; color: var(--pf-soft); font-size: 0.72rem; }
 @media (max-width: 720px), (max-height: 500px) {
-  .pwd-mining { bottom: calc(4.4rem + var(--safe-bottom, 0px)); }
+  .pwd-mining { bottom: calc(0.75rem + 44px + 0.5rem + var(--safe-bottom, 0px)); max-height: calc(100dvh - 0.75rem - 44px - 0.5rem - 8rem - var(--safe-top, 0px) - var(--safe-bottom, 0px)); }
   .pwd-bag-panel {
     top: calc(4.2rem + var(--safe-top, 0px));
     left: calc(0.75rem + var(--safe-left, 0px));
     width: calc(100% - 1.5rem - var(--safe-left, 0px) - var(--safe-right, 0px));
     max-height: calc(100dvh - 8.5rem - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   }
+}
+/* A landscape phone is ~350 px tall: the action card gets the full height in
+   the middle of the screen, and the recipe list (which scrolls itself) is
+   shorter, so the header and the main action stay on screen. */
+@media (min-width: 721px) and (max-height: 500px) {
+  .pwd-mining {
+    top: calc(0.5rem + var(--safe-top, 0px));
+    bottom: calc(0.5rem + var(--safe-bottom, 0px));
+    align-content: start;
+    gap: 0.3rem;
+    max-height: none;
+  }
+  .pwd-mining :deep(.as-list) { max-height: 44px; }
 }
 </style>

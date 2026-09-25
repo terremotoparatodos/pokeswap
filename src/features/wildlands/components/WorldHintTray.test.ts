@@ -21,3 +21,27 @@ describe('WorldHintTray', () => {
     expect(wrapper.find('.wh').exists()).toBe(false)
   })
 })
+
+// MOBILE-1: guidance, not a band that cannot be dismissed.
+describe('WorldHintTray closing', () => {
+  it('has a title from its hints and closes from × or Entendido into a "?" that reopens it', async () => {
+    const wrapper = mount(WorldHintTray, { props: { hints: [dungeon, skills] } })
+    expect(wrapper.get('.wh-title').text()).toBe('Dungeon y Skills')
+    await wrapper.get('.wh-x').trigger('click')
+    expect(wrapper.find('.wh').exists()).toBe(false)
+    expect(wrapper.find('.wh-chip').exists()).toBe(true)
+    await wrapper.get('.wh-chip').trigger('click')
+    expect(wrapper.find('.wh').exists()).toBe(true)
+    await wrapper.get('.wh-ok').trigger('click')
+    expect(wrapper.find('.wh').exists()).toBe(false)
+  })
+
+  it('stays closed while the hints change, and shows nothing when there are none', async () => {
+    const wrapper = mount(WorldHintTray, { props: { hints: [dungeon, skills] } })
+    await wrapper.get('.wh-ok').trigger('click')
+    await wrapper.setProps({ hints: [skills] })
+    expect(wrapper.find('.wh').exists()).toBe(false)
+    await wrapper.setProps({ hints: [] })
+    expect(wrapper.find('.wh-chip').exists()).toBe(false)
+  })
+})

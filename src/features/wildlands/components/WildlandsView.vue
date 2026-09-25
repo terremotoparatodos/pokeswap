@@ -725,7 +725,8 @@ watch(user, () => {
 @media (max-width: 720px), (max-height: 500px) {
   .wl-toast {
     top: auto;
-    bottom: calc(4.75rem + var(--safe-bottom, 0px));
+    /* Above the bottom tab row. */
+    bottom: calc(0.75rem + 44px + 0.6rem + var(--safe-bottom, 0px));
     max-width: calc(100% - 2rem);
     white-space: normal;
     text-align: center;

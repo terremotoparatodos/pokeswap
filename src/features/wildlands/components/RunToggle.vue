@@ -30,8 +30,9 @@ const emit = defineEmits<{ 'update:active': [active: boolean] }>()
     position: absolute;
     /* Bottom right, in the thumb's reach, one row above the bug-report chip. */
     right: calc(0.6rem + var(--safe-right, 0px));
-    bottom: calc(4.6rem + 38px + 0.5rem + var(--safe-bottom, 0px));
-    z-index: 28;
+    bottom: calc(0.75rem + 38px + 0.5rem + var(--safe-bottom, 0px));
+    /* Under profession action cards (z 14): a temporary card covers the mode, never the reverse. */
+    z-index: 13;
     display: flex;
     align-items: center;
     gap: 0.3rem;

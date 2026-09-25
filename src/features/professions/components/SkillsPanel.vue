@@ -227,15 +227,15 @@ const energy = computed(() => energyView(state.value.energy, demoMaxEnergy(state
 @media (max-width: 720px), (max-height: 500px) {
   /* Beside the chat tab, not above it: two icon-sized chips in one row keep
      the bottom-left corner from turning into a tower of pills. */
-  .sk { left: calc(4.4rem + var(--safe-left, 0px)); bottom: calc(4.6rem + var(--safe-bottom, 0px)); }
+  .sk { left: calc(4.4rem + var(--safe-left, 0px)); bottom: calc(0.75rem + var(--safe-bottom, 0px)); }
   .sk-tab-text { display: none; }
   /* A large sheet across the phone, above the tab row so the same button closes it. */
   .sk-panel {
     left: calc(0.6rem + var(--safe-left, 0px));
     right: calc(0.6rem + var(--safe-right, 0px));
     width: auto;
-    bottom: calc(4.6rem + 40px + 0.5rem + var(--safe-bottom, 0px));
-    max-height: calc(100dvh - 4.6rem - 40px - 0.5rem - 7rem - var(--safe-top, 0px) - var(--safe-bottom, 0px));
+    bottom: calc(0.75rem + 40px + 0.5rem + var(--safe-bottom, 0px));
+    max-height: calc(100dvh - 0.75rem - 40px - 0.5rem - 7rem - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   }
 }
 

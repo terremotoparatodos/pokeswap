@@ -56,7 +56,7 @@
 import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
 import { MAX_CHAT_LENGTH, formatTime } from '../domain/chatLine'
 import { useChat } from '../state/useChat'
-import { trackKeyboardInset } from './keyboardInset'
+import { trackKeyboardInset } from '../../../shared/ui/keyboardInset'
 
 // A log, a box and Enter — the Habbo shape, not a social network. Every line on
 // screen came back from the server, including your own, so what you read is
@@ -284,9 +284,9 @@ onUnmounted(() => {
 }
 
 @media (max-width: 720px), (max-height: 500px) {
-  /* The lobby HUD owns the bottom centre and is nearly full width on a phone,
-     so the chat tab sits in a row above it rather than under it. */
-  .ch { left: calc(0.6rem + var(--safe-left, 0px)); bottom: calc(4.6rem + var(--safe-bottom, 0px)); }
+  /* The tab row sits at the bottom edge on a phone (the area indicator moved
+     under the minimap, MOBILE-1). */
+  .ch { left: calc(0.6rem + var(--safe-left, 0px)); bottom: calc(0.75rem + var(--safe-bottom, 0px)); }
   .ch-tab-text { display: none; }
   /* A sheet across the phone above the tab row, never more than about a third
      of the screen: the game is the thing. With the keyboard up it rides just
@@ -295,7 +295,7 @@ onUnmounted(() => {
     left: calc(0.6rem + var(--safe-left, 0px));
     right: calc(0.6rem + var(--safe-right, 0px));
     width: auto;
-    bottom: max(calc(4.6rem + 40px + 0.5rem + var(--safe-bottom, 0px)), calc(var(--keyboard-inset, 0px) + 0.4rem));
+    bottom: max(calc(0.75rem + 40px + 0.5rem + var(--safe-bottom, 0px)), calc(var(--keyboard-inset, 0px) + 0.4rem));
     height: min(15rem, 38dvh, calc(var(--visible-height, 100dvh) - 1rem));
   }
 }

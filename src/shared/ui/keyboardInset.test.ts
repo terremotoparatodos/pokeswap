@@ -39,3 +39,17 @@ describe('keyboard inset', () => {
     expect(() => stop()).not.toThrow()
   })
 })
+
+describe('keyboard inset with several surfaces', () => {
+  it('keeps publishing until the last one stops', () => {
+    const { target, root } = fakeWindow()
+    const chat = trackKeyboardInset(target)
+    const form = trackKeyboardInset(target)
+    chat()
+    expect(root.style.getPropertyValue('--keyboard-inset')).toBe('0px')
+    chat()
+    expect(root.style.getPropertyValue('--keyboard-inset')).toBe('0px')
+    form()
+    expect(root.style.getPropertyValue('--keyboard-inset')).toBe('')
+  })
+})

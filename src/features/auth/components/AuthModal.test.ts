@@ -85,3 +85,25 @@ describe('AuthModal — XSS rendering safety (R08)', () => {
     expect(errorEl.element.querySelector('img')).toBeNull()
   })
 })
+
+// MOBILE-1: tapping outside never throws away what was typed.
+describe('AuthModal — closing', () => {
+  it('closes from the backdrop only while the form is empty', async () => {
+    const wrapper = mount(AuthModal, { props: { open: true } })
+    await wrapper.get('.auth-overlay').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    await wrapper.findAll('input')[0].setValue('ash')
+    await wrapper.get('.auth-overlay').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    await wrapper.get('.auth-close').trigger('click')
+    expect(wrapper.emitted('close')).toHaveLength(2)
+    wrapper.unmount()
+  })
+
+  it('closes on Escape while open', async () => {
+    const wrapper = mount(AuthModal, { props: { open: true } })
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(wrapper.emitted('close')).toHaveLength(1)
+    wrapper.unmount()
+  })
+})

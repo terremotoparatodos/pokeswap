@@ -1,8 +1,7 @@
 <template>
-  <div class="wl-hud" aria-label="Estado de la exploración">
-    <span class="wl-place">
-      {{ hud.place }}<template v-if="hud.areaKind === 'wild'"> ({{ hud.tx }}, {{ hud.ty }})</template>
-    </span>
+  <div class="wl-hud" aria-label="Estado de la exploración" :title="summary">
+    <span class="wl-place">{{ hud.place }}</span>
+    <span v-if="hud.areaKind === 'wild'" class="wl-coords">({{ hud.tx }}, {{ hud.ty }})</span>
     <span class="wl-sep" />
     <span class="wl-weather" :title="WEATHER_LABEL[hud.weather]">
       <svg v-if="hud.weather === 'clear'" viewBox="0 0 20 20" aria-hidden="true">
@@ -15,34 +14,46 @@
         <path v-else d="M7 16h.01M10.5 17.5h.01M14 16h.01" stroke-width="2.4" />
       </svg>
     </span>
-    <span class="wl-sep" />
+    <span class="wl-sep wl-sep--phase" />
     <span class="wl-phase">{{ hud.phase }}</span>
     <template v-if="hud.areaKind === 'wild'">
-      <span class="wl-sep" />
+      <span class="wl-sep wl-sep--crystals" />
       <span class="wl-crystals">{{ hud.crystals }} cristales</span>
     </template>
     <span class="wl-sep" />
     <button
       class="wl-hud-btn wl-home"
       :disabled="hud.traveling"
-      :title="hud.areaKind === 'town' ? 'Reubicar en Ciudad Corazón' : 'Volver a Ciudad Corazón'"
+      :title="homeLabel"
+      :aria-label="homeLabel"
       @click="emit('home')"
     >
       <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 9.5 10 3.5l7 6M5 8.5V16h10V8.5M8.5 16v-4h3v4" /></svg>
-      Ciudad
+      <span class="wl-home-label">Ciudad</span>
     </button>
   </div>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { WeatherKind } from '../engine/atmosphere'
 import type { HudState } from '../engine/game'
 
-// Bottom status pill: where the player is, weather, time of day and (in worlds) the way home.
-defineProps<{ hud: HudState }>()
+// Status pill: where the player is, weather, time of day and the way home.
+// A bottom pill on desktops; on phones (MOBILE-1) a small indicator under the
+// minimap, keeping place, coordinates, weather and the way home. The time of
+// day (the world's light already shows it) and the demo crystal count move to
+// the tooltip, so nothing is lost.
+const props = defineProps<{ hud: HudState }>()
 const emit = defineEmits<{ home: [] }>()
 
 const WEATHER_LABEL: Record<WeatherKind, string> = { clear: 'Despejado', rain: 'Lluvia', snow: 'Nieve' }
+const homeLabel = computed(() => props.hud.areaKind === 'town' ? 'Reubicar en Ciudad Corazón' : 'Volver a Ciudad Corazón')
+const summary = computed(() => {
+  const h = props.hud
+  const where = h.areaKind === 'wild' ? `${h.place} (${h.tx}, ${h.ty})` : h.place
+  return [where, WEATHER_LABEL[h.weather], h.phase, h.areaKind === 'wild' ? `${h.crystals} cristales` : null].filter(Boolean).join(' · ')
+})
 </script>
 
 <style scoped>
@@ -109,7 +120,31 @@ const WEATHER_LABEL: Record<WeatherKind, string> = { clear: 'Despejado', rain: '
   font-weight: 600;
 }
 
+.wl-coords {
+  font-variant-numeric: tabular-nums;
+}
 @media (max-width: 720px), (max-height: 500px) {
-  .wl-hud { font-size: 0.8rem; gap: 0.5rem; padding: 0.45rem 0.9rem; }
+  /* A small indicator under the minimap, not a band across the bottom where
+     thumbs and the chat, Skills and Correr buttons live. */
+  .wl-hud {
+    top: calc(0.75rem + 96px + 0.4rem + var(--safe-top, 0px));
+    right: calc(0.75rem + var(--safe-right, 0px));
+    bottom: auto;
+    left: auto;
+    transform: none;
+    max-width: calc(100vw - 1.5rem - var(--safe-left, 0px) - var(--safe-right, 0px));
+    gap: 0.35rem;
+    padding: 0.15rem 0.2rem 0.15rem 0.55rem;
+    border-width: 1px;
+    background: rgba(16, 26, 54, 0.8);
+    box-shadow: none;
+    font-size: 0.72rem;
+  }
+  .wl-place { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .wl-coords { flex: none; color: #c7d0e6; }
+  .wl-hud svg { width: 15px; height: 15px; }
+  .wl-sep--phase, .wl-phase, .wl-sep--crystals, .wl-crystals, .wl-home-label { display: none; }
+  /* The way home stays a real touch target. */
+  .wl-home { justify-content: center; width: 30px; height: 30px; border-radius: 50%; }
 }
 </style>

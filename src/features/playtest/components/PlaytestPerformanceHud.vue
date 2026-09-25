@@ -174,7 +174,8 @@ onUnmounted(() => { if (timer) clearInterval(timer) })
 .ph--bad { border-left-color: #ef6b6b; }
 .ph--unknown { opacity: .72; }
 @media (max-width: 720px), (max-height: 500px) {
-  .ph { top: calc(7.4rem + var(--safe-top, 0px)); right: calc(.75rem + var(--safe-right, 0px)); min-width: 86px; padding: .32rem .45rem; font-size: .58rem; }
+  /* Under the minimap and the area indicator. */
+  .ph { top: calc(0.75rem + 96px + 0.4rem + 32px + 0.35rem + var(--safe-top, 0px)); right: calc(.75rem + var(--safe-right, 0px)); min-width: 86px; padding: .32rem .45rem; font-size: .58rem; }
   .ph--min { min-width: 0; }
 }
 </style>
