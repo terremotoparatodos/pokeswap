@@ -1,4 +1,4 @@
-// Seeded randomness for tests and the economy simulator.
+// Seeded randomness for tests and local (non-persistent) sessions.
 //
 // Resolvers never use unseeded global randomness: the caller injects `random`.
 // In production the server supplies it, because persistent RNG is server-owned
