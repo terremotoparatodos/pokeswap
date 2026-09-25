@@ -54,3 +54,9 @@ export const MATERIALS: readonly MaterialDefinition[] = [
 export const MATERIAL_BY_ID: ReadonlyMap<string, MaterialDefinition> = new Map(MATERIALS.map(entry => [entry.id, entry]))
 
 export const materialName = (id: string): string => MATERIAL_BY_ID.get(id)?.name ?? id
+
+/** An amount of one material. */
+export interface ItemStack {
+  readonly itemId: string
+  readonly quantity: number
+}

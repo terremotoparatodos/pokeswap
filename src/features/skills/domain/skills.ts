@@ -11,7 +11,9 @@ export interface SkillDefinition {
   readonly id: SkillId
   /** What the game calls it. */
   readonly name: string
-  /** A verb the feedback line can use: "Talando…". */
+  /** The button: "Talar con Scyther". */
+  readonly verb: string
+  /** The feedback line: "Scyther está talando…". */
   readonly working: string
   readonly icon: string
   /** One line. The world teaches the rest. */
@@ -20,15 +22,15 @@ export interface SkillDefinition {
 
 export const SKILLS: Readonly<Record<SkillId, SkillDefinition>> = {
   woodcutting: {
-    id: 'woodcutting', name: 'Talar', working: 'Talando', icon: '🌲',
+    id: 'woodcutting', name: 'Talar', verb: 'Talar', working: 'Talando', icon: '🌲',
     pitch: 'Tu Pokémon tala árboles y te trae madera.',
   },
   mining: {
-    id: 'mining', name: 'Minería', working: 'Minando', icon: '⛏',
+    id: 'mining', name: 'Minería', verb: 'Minar', working: 'Minando', icon: '⛏',
     pitch: 'Tu Pokémon rompe rocas y vetas y te trae minerales.',
   },
   farming: {
-    id: 'farming', name: 'Agricultura', working: 'Cultivando', icon: '🌱',
+    id: 'farming', name: 'Agricultura', verb: 'Cultivar', working: 'Cultivando', icon: '🌱',
     pitch: 'Tu Pokémon siembra, cuida y cosecha bayas y hierbas.',
   },
 }

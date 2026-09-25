@@ -1,7 +1,7 @@
 <template>
   <div class="sh">
     <header class="sh-top">
-      <p class="sh-lead">Herramientas básicas y Poké Balls malas. Lo justo para que nadie se quede afuera.</p>
+      <p class="sh-lead">Poké Balls malas y algo para curar. Lo justo para entrar a una Dungeon.</p>
       <p class="sh-purse">{{ store.coins.value }} <span>{{ COIN_NAME }}</span></p>
     </header>
 
@@ -17,10 +17,10 @@
         <button
           type="button"
           class="sh-buy"
-          :disabled="isOwned(entry.id) || store.coins.value < entry.price"
+          :disabled="store.coins.value < entry.price"
           @click="store.purchase(entry.id)"
         >
-          {{ isOwned(entry.id) ? 'Comprado' : 'Comprar' }}
+          Comprar
         </button>
       </li>
     </ul>
@@ -31,10 +31,6 @@
         <span v-for="(quantity, itemId) in store.supplies.value" :key="itemId" class="sh-chip">
           {{ SUPPLY_LABEL[itemId] ?? itemId }} ×{{ quantity }}
         </span>
-      </p>
-      <p class="sh-bag-line">
-        <span v-if="!store.tools.value.length" class="sh-none">Sin herramientas — podés recolectar a mano, más lento.</span>
-        <span v-for="itemId in store.tools.value" :key="itemId" class="sh-chip sh-chip--tool">{{ TOOL_LABEL[itemId] ?? itemId }}</span>
       </p>
     </section>
 
@@ -52,19 +48,13 @@ import { usePlaytestStore } from '../state/usePlaytestStore'
 
 // The safety net, and the one place a playtester spends anything. It is
 // deliberately not an economy: there is no way to earn, no stock and no
-// selling, because two hours of watching people mine is worth more than two
+// selling, because two hours of watching people play is worth more than two
 // hours of watching a market find its price.
 const store = usePlaytestStore()
 
 const SUPPLY_LABEL: Readonly<Record<string, string>> = {
   poke_ball: 'Poké Ball', potion: 'Poción', revive: 'Revivir', ether: 'Éter',
 }
-const TOOL_LABEL: Readonly<Record<string, string>> = {
-  stone_pickaxe: 'Pico de piedra', stone_axe: 'Hacha de piedra',
-  stone_sickle: 'Hoz de piedra', basic_rod: 'Caña básica',
-}
-
-const isOwned = (entryId: string): boolean => store.purchased.value.includes(entryId)
 
 onUnmounted(() => store.clearNotice())
 </script>
@@ -124,8 +114,6 @@ onUnmounted(() => store.clearNotice())
   border-radius: 999px;
   font-size: 0.72rem;
 }
-.sh-chip--tool { border-color: #f0b429; color: #f7d774; }
-.sh-none { font-size: 0.75rem; opacity: 0.5; }
 
 .sh-rule { margin: 0; font-size: 0.72rem; opacity: 0.45; line-height: 1.4; }
 

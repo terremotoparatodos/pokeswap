@@ -1,86 +1,48 @@
-// The PLAYTEST RULE that everything else leans on: level 1, empty hands.
+// The PLAYTEST RULE that everything else leans on: level 1, empty hands, the
+// party you start with.
 //
-// Two claims are being made in `ProfessionWorldDemo`'s `fresh` prop, and both
-// are the kind that is easy to assert and embarrassing to get wrong:
+// Two claims, both easy to assert and embarrassing to get wrong:
 //
-//   1. a player with **no tool** can still work a tier-1 node, so the Tienda is
-//      a safety net rather than a gate;
+//   1. the starting party can work the first rung of every skill — no tool,
+//      no shop visit, no "wrong type" (SKILLS-1: the Pokémon does the work);
 //   2. the first levels of the real curve are cheap enough that a two-hour
-//      session visibly moves the number, so nobody has to invent a multiplier.
+//      session visibly moves the number, so nobody invents a multiplier.
 
 import { describe, expect, it } from 'vitest'
-import { GATHERING_NODES } from '../../professions/domain/catalog/nodes'
-import { ENERGY_CONFIG } from '../../professions/domain/catalog/professions'
-import { previewGathering } from '../../professions/domain/gathering'
-import { levelForXp, totalXpForLevel } from '../../professions/domain/progression'
-import { PROFESSION_IDS, type GatheringContext } from '../../professions/domain/types'
+import { resolveAptitude } from '../../skills/domain/aptitude/aptitude'
+import { CROPS } from '../../skills/domain/farming'
+import { RESOURCES } from '../../skills/domain/resources'
+import { SKILL_IDS } from '../../skills/domain/skills'
+import { evaluateWork } from '../../skills/domain/workRules'
+import { levelForXp, totalXpForLevel } from '../../skills/domain/xpCurve'
+import { createRoster, partyMembers } from './playtestRoster'
 
-const nodeById = (id: string) => GATHERING_NODES.find(node => node.id === id)!
+const LEVEL_ONE = Object.fromEntries(SKILL_IDS.map(id => [id, 0])) as Record<(typeof SKILL_IDS)[number], number>
 
-const context = (nodeId: string, professionLevel: number): GatheringContext => {
-  const node = nodeById(nodeId)
-  return {
-    node,
-    professionLevel,
-    // The whole point: nothing equipped.
-    tool: null,
-    bonuses: {},
-    access: [],
-    homeBiomes: [],
-    biome: node.biomes[0],
-    availableEnergy: ENERGY_CONFIG.baseMax,
-    rested: false,
-    energyConfig: ENERGY_CONFIG,
-    random: () => 0,
-  }
-}
+describe('a fresh playtester', () => {
+  const party = partyMembers(createRoster())
 
-/** The cheapest node of each profession: what a level-1 player can reach. */
-const STARTER_NODES = ['stone_outcrop', 'common_tree', 'shore_spot', 'berry_bush'] as const
-
-describe('starting with nothing', () => {
-  it('has a level-1 node for every profession, so nobody starts locked out', () => {
-    const professions = STARTER_NODES.map(id => nodeById(id).profession)
-    expect(new Set(professions)).toEqual(new Set(PROFESSION_IDS))
-    for (const id of STARTER_NODES) expect(nodeById(id).requiredLevel, id).toBe(1)
+  it('can work every level-1 resource with any Pokémon of the starting party', () => {
+    const starters = RESOURCES.filter(resource => resource.requiredLevel === 1)
+    expect(new Set(starters.map(resource => resource.skill))).toEqual(new Set(['woodcutting', 'mining']))
+    for (const member of party) {
+      for (const resource of starters) {
+        const result = evaluateWork({ target: { kind: 'gather', resourceId: resource.id }, skillXp: LEVEL_ONE, workerSpeciesId: member.speciesId })
+        expect(result.ok, `${member.speciesId} on ${resource.id}`).toBe(true)
+      }
+    }
+    expect(CROPS[0].requiredLevel).toBe(1)
   })
 
-  it('lets a player with no tool work every one of them', () => {
-    for (const id of STARTER_NODES) {
-      const check = previewGathering(context(id, 1))
-      expect(check.ok, `${id} refused a bare-handed player`).toBe(true)
-      if (check.ok) {
-        expect(check.preview.bareHands, id).toBe(true)
-        expect(check.preview.xp, id).toBeGreaterThan(0)
-        // Slower without a tool, which is what makes the shop worth visiting.
-        expect(check.preview.actionSeconds, id).toBeGreaterThan(nodeById(id).baseActionSeconds * 0.9)
-      }
+  it('has someone able to reach even the top rung of every skill later (no deadlock)', () => {
+    for (const skill of SKILL_IDS) {
+      expect(party.some(member => resolveAptitude(member.speciesId, skill).value >= 2), skill).toBe(true)
     }
   })
 
-  it('refuses a node above the starting level, so the curve still means something', () => {
-    const check = previewGathering(context('iron_vein', 1))
-    expect(check.ok).toBe(false)
-    if (!check.ok) expect(check.reason).toBe('level_too_low')
-  })
-})
-
-describe('the real curve, at the levels a playtest actually sees', () => {
-  it('reaches level 2 in a couple of swings', () => {
-    const perSwing = nodeById('stone_outcrop').xp
-    expect(Math.ceil(totalXpForLevel(2) / perSwing)).toBeLessThanOrEqual(2)
-  })
-
-  it('moves several levels inside one session, unlike a mid-career start', () => {
-    const perSwing = nodeById('stone_outcrop').xp
-    // Energy is the real limit: a full bar buys this many actions.
-    const swings = Math.floor(ENERGY_CONFIG.baseMax / nodeById('stone_outcrop').energyCost)
-    const fromScratch = levelForXp(swings * perSwing)
-    expect(fromScratch).toBeGreaterThanOrEqual(5)
-
-    // The same effort on top of the dev demo's starting Minería (16) is barely
-    // half a level — which is exactly why the playtest starts at 1.
-    const midCareer = levelForXp(totalXpForLevel(16) + swings * perSwing)
-    expect(midCareer).toBeLessThanOrEqual(17)
+  it('moves a number within minutes: level 2 in four basic actions, level 5 in thirty', () => {
+    const basic = RESOURCES.find(resource => resource.id === 'common_tree')!
+    expect(levelForXp(basic.xp * 4)).toBeGreaterThanOrEqual(2)
+    expect(totalXpForLevel(5) / basic.xp).toBeLessThanOrEqual(30)
   })
 })

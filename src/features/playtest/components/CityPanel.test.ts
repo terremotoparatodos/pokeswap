@@ -2,7 +2,7 @@
 //
 // These are mounted rather than reasoned about because the interesting parts
 // are refusals: a seventh party member, an empty party, a purchase you cannot
-// afford, a second copy of a tool. A domain test proves the rule; mounting
+// afford. A domain test proves the rule; mounting
 // proves the button is actually wired to it and actually goes grey.
 
 import { mount } from '@vue/test-utils'
@@ -84,30 +84,17 @@ describe('the Tienda', () => {
   it('shows the purse and every entry', () => {
     const wrapper = open('mercado')
     expect(wrapper.find('.sh-purse').text()).toContain(String(PLAYTEST_START_COINS))
-    expect(wrapper.findAll('.sh-row').length).toBeGreaterThan(4)
+    expect(wrapper.findAll('.sh-row').length).toBeGreaterThanOrEqual(3)
+    // SKILLS-1: no profession tools for sale.
+    expect(wrapper.text()).not.toMatch(/Pico|Hacha|Hoz|Caña/)
   })
 
-  it('charges once and then marks the tool as owned', async () => {
+  it('charges each click exactly its price', async () => {
     const wrapper = open('mercado')
-    const row = wrapper.findAll('.sh-row').find(entry => entry.text().includes('Pico de piedra'))!
-    await row.find('.sh-buy').trigger('click')
-
-    expect(store.coins.value).toBe(PLAYTEST_START_COINS - 60)
-    expect(store.tools.value).toContain('stone_pickaxe')
-    await wrapper.vm.$nextTick()
-    expect(row.find('.sh-buy').text()).toBe('Comprado')
-    expect(row.find('.sh-buy').attributes('disabled')).toBeDefined()
-  })
-
-  it('cannot be double-clicked into a second copy or a second charge', async () => {
-    const wrapper = open('mercado')
-    const row = wrapper.findAll('.sh-row').find(entry => entry.text().includes('Caña básica'))!
+    const row = wrapper.findAll('.sh-row').find(entry => entry.text().includes('Poción'))!
     await row.find('.sh-buy').trigger('click')
     await row.find('.sh-buy').trigger('click')
-    await row.find('.sh-buy').trigger('click')
-
-    expect(store.coins.value).toBe(PLAYTEST_START_COINS - 70)
-    expect(store.tools.value.filter(id => id === 'basic_rod')).toHaveLength(1)
+    expect(store.coins.value).toBe(PLAYTEST_START_COINS - 90)
   })
 
   it('lets supplies be bought repeatedly, and stacks them', async () => {
