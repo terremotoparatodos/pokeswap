@@ -310,8 +310,8 @@ Verificado por mí en el navegador del escritorio (desktop y 375×812): pasos 1,
 
 ## 18. Pendiente para 0.3
 
-- [ ] Validación física PC + iPhone (§16).
-- [ ] Revisar la migración y aplicarla en un **branch o staging** de Supabase (no en prod), y confirmar la versión de PG.
+- [x] Validación física PC + iPhone (§16): aprobada por el usuario (talar y minar 10/10, carrera por nodo, agricultura compartida).
+- [x] Migración probada en un Supabase real de staging (local, PG 17.6) — ver §19. Falta un staging *hosted* antes de prod.
 - [ ] Crear el secreto y desplegar `world-authority` en staging:
   - `supabase secrets set WORLD_AUTHORITY_SECRET=…`
   - `supabase functions deploy world-authority --no-verify-jwt`
@@ -320,4 +320,151 @@ Verificado por mí en el navegador del escritorio (desktop y 375×812): pasos 1,
 - [ ] Decidir los OPEN QUESTIONS: tundra (§17.5), cargas (§17.6) y usos de materiales (§13).
 - [ ] Deuda de WORLD-1 que sigue: cristales locales y colisión de NPC deshabilitada (sin cambios, como pediste).
 - [ ] Decidir si el respawn provisorio de 90 s queda.
+- [ ] **Polish (deuda, no implementado):** al talar, minar o cultivar, componer la escena como el combate: recurso → Pokémon trabajador delante → entrenador un tile detrás. Las animaciones de trabajo vienen después.
 - [ ] Merge a playtest, release 0.3 y deploy: **no hechos**, a tu decisión.
+
+---
+
+## 19. RC-0.3 Security & Persistence Gate
+
+> Hecho sobre `805ae1b` (verificado: local = remoto, árbol limpio). **Sin cambios de gameplay**, ni en producción, sin deploy y sin secretos productivos.
+> A producción solo se hicieron **lecturas del catálogo** (esquema, grants, policies, funciones) y conteos agregados. No se escribió nada.
+
+### 19.1 Entorno de prueba
+
+- **Supabase branch: no disponible.** La org está en plan Free: no tiene branching y ya usa los dos proyectos activos que permite.
+- **Por decisión tuya, se usó un stack Supabase local real** (`supabase start`, CLI 2.114): Postgres, PostgREST, GoTrue (Auth), Kong y Edge Runtime reales, con los roles y privilegios default de Supabase.
+- **PostgreSQL probado: 17.6** (imagen `17.6.1.158`). **Producción corre 17.6** (`17.6.1.155`), la misma versión mayor y menor. Los tests anteriores con PGlite (PG 18) no dependían de nada propio de PG 18.
+- **Espejo de prod:** se reconstruyeron, desde el catálogo de producción, el esquema, RLS, policies, ACLs de tabla y columna, y las funciones que escriben `slots` (`scripts/integration/rc03-staging/`, runbook en su README). Se verificó que las ACLs de `slots`, `profiles` y las funciones del espejo son **idénticas** a las de prod. No se copió ningún dato de producción.
+- **Batería:** `services/realtime/src/world/persistence/staging.test.js`, 18 tests con **requests HTTP reales** como `anon`, como usuario con sesión real de Auth y como el servidor realtime a través de la Edge Function. Resultado: **18/18, tres corridas seguidas**. Se niega a correr contra una URL que no sea local.
+
+### 19.2 Estado de `slots` (auditoría)
+
+| Aspecto | Producción (catálogo) |
+|---|---|
+| RLS | activado |
+| Policies | una sola: `slots_read`, `SELECT USING (true)` para todos. **No hay policy de INSERT, UPDATE ni DELETE** |
+| Grants de tabla | anon y authenticated tienen el default de Supabase (`arwdDxtm`); RLS los neutraliza para INSERT, UPDATE y DELETE |
+| Triggers | ninguno |
+| Funciones que escriben `slots` | `claim_slot` y `confirm_payment`: **solo service_role** (SEC-1 vigente). `publish_market_listing`, `cancel_market_listing` y `buy_market_listing`: SECURITY DEFINER, ejecutables por anon y authenticated, y **todas validan con `auth.uid()`** |
+| Otros caminos | GraphQL (`pg_graphql`) respeta RLS; PostgREST no expone TRUNCATE |
+
+| ¿Puede…? | anon | authenticated |
+|---|---|---|
+| INSERT de un slot | **No** (401) | **No** (403) |
+| UPDATE de un slot, incluido cambiar `owner_id`, `is_locked` o `pokemon_id` | **No** (0 filas; fila releída sin cambios) | **No** (ídem) |
+| DELETE de un slot | **No** (ídem) | **No** (ídem) |
+| UPSERT sobre el slot de otro | **No** | **No** |
+| Asignarse un slot libre o ajeno vía `claim_slot` o `confirm_payment` | **No** (sin EXECUTE) | **No** (sin EXECUTE) |
+| Publicar en el mercado un Pokémon ajeno o libre | **No** | **No** (`not_owner`) |
+| Cancelar o comprar la publicación de otro sin pagar | **No** | **No** (`not_seller` / `insufficient_tokens`) |
+| Cambiar ownership por GraphQL | **No** | **No** |
+
+**Qué necesita un cliente legítimo sobre `slots`:** leer (lo usan la UI y la lectura del compañero en el join) y, a través de las funciones del mercado, publicar, cancelar o comprar **lo suyo**. Las dos cosas siguen funcionando y tienen test (`legitimate client`, `market functions`). No se rompió nada.
+
+**Endurecimiento recomendado, sin aplicar porque son cambios en prod:**
+- revocar a anon y authenticated los grants de tabla que no usan (INSERT, UPDATE, DELETE, TRUNCATE, TRIGGER, REFERENCES) en `slots` y tablas afines. Hoy están neutralizados por RLS o porque la API no los expone;
+- en las funciones del mercado, rechazar explícitamente la llamada sin sesión. Hoy el caso sin sesión termina en error, pero por un constraint y no por un chequeo explícito.
+
+Ninguna de las dos es explotable según estas pruebas.
+
+### 19.3 Permisos sobre las tablas y funciones nuevas
+
+| Rol | `player_skill_xp` / `player_materials` / `skill_work_settlements` | `world_node_overrides` | `world_*()` (4 funciones) |
+|---|---|---|---|
+| anon | nada: ni leer ni escribir (401) | nada | sin EXECUTE (401) |
+| authenticated | **solo SELECT de sus propias filas** (RLS) | nada | sin EXECUTE (403) |
+| service_role (solo dentro de la Edge Function) | lectura y escritura | lectura y escritura | EXECUTE |
+
+Probado con requests reales: insertar XP 999999, subir materiales, crear o modificar settlements (incluido cambiar `action_id` u `outcome`), cambiar `state` o `respawn_at` de un nodo, borrar filas propias o ajenas y llamar a `world_commit_work` directamente. **Todo denegado.** Después de cada intento, el estado se releyó y no había cambiado.
+
+### 19.4 Migración en Supabase real
+
+- `20260926000001_world_skills_authority.sql` se aplicó con `ON_ERROR_STOP` y `--single-transaction`: **0 errores y 0 warnings**. Solo aparecen 3 NOTICE benignos de `DROP POLICY IF EXISTS`.
+- **Re-aplicarla también funciona** (es idempotente).
+- `supabase db lint`: nada en la migración nueva. Los únicos avisos son de los *stand-ins* del espejo.
+- Constraints comprobados en la DB real: el CHECK de `state` de nodo, el de `material_id`, cantidad 1–100, XP ≤ 100 000, `skill_id` ∈ 3 skills y `action_id` PK.
+
+### 19.5 Settlement, idempotencia, concurrencia y atomicidad (DB real, vía Edge Function)
+
+- **Acción X:** +10 XP, +1 material, **un** settlement y el nodo persistido `depleted` con su `action_id`.
+- **X de nuevo:**
+  - idéntica → `applied:false`, sin XP ni material extra y sin segundo settlement;
+  - con otros números válidos (50 XP, 5 oro) → `applied:false`, y devuelve **el settlement guardado** (10 XP);
+  - con números fuera de rango (999999) → rechazada entera (500), sin cambios.
+- **Concurrencia:** la misma acción enviada **2 y 20 veces a la vez** → exactamente **una** aplicada; el ledger final es exacto (20 XP y 2 troncos para 2 acciones). El índice único de `action_id` serializa las copias y el resto ve `already settled`.
+- **Dos jugadores, el mismo nodo:** la autoridad del mundo lo otorga a uno solo; el otro recibe `busy` y hay un único settlement en la DB.
+- **Atomicidad**, revisada en la transacción SQL y forzada con fallos a mitad de camino:
+  1. un segundo reward inválido, con el primer reward, la XP y el settlement ya escritos en la misma transacción;
+  2. un `state` de nodo que viola su CHECK, con la XP y los materiales ya escritos;
+  3. un `material_id` inválido.
+
+  En los tres casos: **ni XP, ni material, ni settlement, ni cambio de nodo**. PostgREST ejecuta cada RPC en una transacción, y cualquier `RAISE` o violación de constraint revierte todo. **No hubo que cambiar la SQL.**
+
+### 19.6 Persistencia de WORLD en DB real
+
+El realtime usó el adaptador de producción (Edge Function) contra este Supabase.
+
+- **Depletion:** se taló el árbol y se reinició la sala. Mientras `respawnAt > now` sigue agotado y otro jugador recibe `depleted`.
+- **Respawn:** después de `respawnAt`, una sala nueva lo trae disponible y se puede talar. No se escribe AVAILABLE: el override vencido se ignora al restaurar, y `world_load_nodes()` lo borra.
+- **Agricultura:** se plantó y se reinició, y la parcela sigue `planted`, del mismo dueño, **sin reset**. Con el reloj en `readyAt`, otra sala la ve `ready`. B no puede cosechar (`not-your-plot`). A cosecha una vez (+25 XP y las bayas que se tiraron), la parcela queda vacía y un segundo intento es imposible.
+
+### 19.7 Pruebas adversariales
+
+| Cliente manda | Resultado (DB real) |
+|---|---|
+| `xp = 999999` | ignorado: 10 XP |
+| `materialQuantity`/`quantity = 999999`, `reward` inventado | ignorado: lo que tiró el servidor (1–2 troncos) |
+| `userId`/`playerId` = otra persona | ignorado: la otra persona no recibe nada |
+| `pokemonInstanceId` ajeno | `not-owner` |
+| `nodeId` real pero lejano | `too-far` |
+| `nodeId` inventado | `unknown-node` |
+| `actionId` propio en el intent | ignorado (lo genera el servidor) |
+| `actionId` ya liquidado (vía función) | no-op, devuelve el settlement guardado |
+| cosechar una parcela ajena | `not-your-plot` |
+| plantar sobre una parcela ajena | `not-your-plot` |
+| llamar a la Edge Function sin secreto, con secreto incorrecto, con la sesión de un usuario o con la service key como bearer | 401, sin tocar la DB |
+| operación inventada, `actionId` o userId mal formados, skill `fishing` | 400 |
+
+### 19.8 Identidad y sesión (cómo funciona hoy)
+
+1. **Join:** el cliente manda su access token. El realtime lo verifica **una vez**, contra GoTrue (`/auth/v1/user`).
+   - **FACT (stack real):** un token vivo da `player` con el `userId` canónico de Auth.
+   - Un token **con claims editados** es `guest`.
+   - Un token **vencido pero bien firmado** es `guest`. El control, el mismo token re-firmado con `exp` futuro, es aceptado, así que el rechazo se debe solo al vencimiento.
+2. **Después del join,** la identidad es la del socket autenticado. Skills no usa el token: ownership, estado y commit van server-to-server con el `userId`. Una sesión abierta **no se rompe a los 60 minutos** (test de 3 h).
+3. **Reconexión y recarga:** el cliente hace un join nuevo con `supabase.auth.getSession()`, que supabase-js mantiene refrescado. Un token viejo nunca sirve como identidad nueva.
+4. **No hizo falta re-auth interno:** no hay nada que refrescar del lado del servidor.
+
+Riesgo residual: una cuenta revocada durante una sesión abierta sigue conectada hasta desconectarse. La propiedad de cada Pokémon igual se re-chequea en el servidor (caché de 30 s).
+
+### 19.9 Límite de secretos
+
+- **Bundle final** (normal y playtest):
+  - ninguna aparición de `service_role`, `WORLD_AUTHORITY*`, `x-world-authority-secret` ni `world_commit_work`;
+  - el único JWT embebido es el `anon` (público);
+  - ni el secreto de la función ni la service key del staging aparecen en ningún archivo.
+  - El único match de `sb_secret_` es el código de supabase-js que valida prefijos de clave.
+- **Git:** no se agregó ningún secreto. Las claves locales del staging viven solo en el scratchpad.
+- **Logs:**
+  - la Edge Function no devuelve el mensaje de la DB (`authority_failed`) y en su log escribe solo el código;
+  - el realtime registra errores truncados, sin payloads ni credenciales;
+  - probado que la respuesta de error no contiene el secreto, la service key, `service_role` ni el SQL.
+
+### 19.10 Cambios realizados en esta fase
+
+- **Gameplay y código de producción: ninguno.** No hizo falta corregir ningún bug.
+- **Agregados:**
+  - la batería de staging `staging.test.js`, que se saltea sin las variables `RC03_*`;
+  - el espejo de prod y el runbook en `scripts/integration/rc03-staging/`;
+  - esta sección, y la deuda de polish (composición recurso → Pokémon → entrenador) en §18.
+- **Entorno de la máquina:** el disco de datos de Docker se movió a `D:\DockerDesktopWSL\disk`, con un *junction* desde su ruta original en C:, porque C: se había llenado con las imágenes.
+
+### 19.11 Riesgos residuales
+
+1. **Staging local, no hosted.** Es el mismo Postgres, PostgREST y GoTrue, pero no el proyecto real: la configuración del proyecto (por ejemplo, claves asimétricas o el pooler) puede diferir. **Antes de prod:** un staging hosted, o un branch con plan Pro, y un deploy de la función ahí.
+2. **Latencia real de la Edge Function hosted: sin medir.**
+3. **Endurecimientos recomendados de §19.2**, sin aplicar: grants de tabla amplios y un chequeo de sesión explícito en las funciones del mercado.
+4. **Un solo proceso realtime** (§17.1): la reserva de nodos vive en memoria.
+5. **El espejo cubre solo las tablas y funciones de ownership.** Otras tablas de prod no se re-auditaron en esta fase (SEC-1 las cubrió).
+6. Los riesgos de §17 que no son de seguridad siguen igual.
