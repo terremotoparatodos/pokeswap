@@ -6,7 +6,7 @@
 // no tokens, ownership or rewards are read or written.
 
 import {
-  actorPosition, advance, createActor, createWalkerState, DIRS, driveWalker, isMoving, RUN_SPEED, wander, WALK_SPEED,
+  actorPosition, advance, createActor, createWalkerState, DIRS, driveWalker, isMoving, RUN_SPEED, WALK_SPEED,
   type Actor, type MoveRules,
 } from './actors'
 import { isPortalTile, type Area, type AreaId, type Arrival, type Populace } from './area'
@@ -42,7 +42,7 @@ import { PresenceDiagnostics, type PresenceDiagnosticsSnapshot } from '../multip
 import type { FrameProbe, RenderProbe } from './perfHooks'
 import { RemoteStepPlayback } from './remotePlayback'
 import type { WorldLayer, WorldLayerContext } from './worldLayer'
-import { followPatrol } from './patrolMotion'
+import { driveWanderer } from './patrolMotion'
 import type { SharedPopulace } from './area'
 
 const PLAYER_SHEET = '/assets/trainers/protahombre.png'
@@ -928,14 +928,9 @@ export class WildlandsGame {
     // Wanderers
     this.populace.update(player.tx, player.ty)
     const worldNow = this.worldLayer?.serverNow() ?? null
-    for (const actor of this.populace.actors) {
-      if (actor.patrol && worldNow !== null) {
-        followPatrol(actor, worldNow)
-        continue
-      }
-      wander(actor, this.seconds, this.rules)
-      advance(actor, dt)
-    }
+    // Frozen on their deterministic tile until the server clock arrives, then
+    // on their shared patrol: never a local random walk (WORLD-1).
+    for (const actor of this.populace.actors) driveWanderer(actor, worldNow)
     this.advanceRemoteActors(dt)
     for (const actor of this.remoteCompanions) advance(actor, dt)
     this.worldLayer?.update(dt, this.worldContext)

@@ -26,3 +26,15 @@ export function followPatrol(actor: Actor, serverNow: number): void {
     actor.hop = 0
   }
 }
+
+/**
+ * One frame of a populace actor (NPC, wanderer, wild or plaza Pokémon).
+ *
+ * There is no local simulation any more: before the server clock is known the
+ * actor stays frozen on its deterministic starting tile (the same tile on every
+ * client), and once the clock is known it follows its shared patrol. A player
+ * never sees a wanderer somewhere another player does not.
+ */
+export function driveWanderer(actor: Actor, serverNow: number | null): void {
+  if (serverNow !== null && actor.patrol) followPatrol(actor, serverNow)
+}

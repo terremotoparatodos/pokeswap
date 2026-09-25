@@ -22,7 +22,7 @@ Criterio de éxito: *dos jugadores en el mismo lugar están realmente en el mism
 | Hora del día / clima | por sesión | reloj del servidor |
 | Performance | baseline | PERF-2 y TRANS-1 **idénticos**; costo de mundo medido en §14 |
 
-Tests: realtime 69 → 109 (+40); vitest 188/2002 → 194/2021; typecheck OK; lint 0 errores / 9 warnings (los mismos); build OK.
+Tests: realtime 69 → 109 (+40); vitest 188/2002 → 195/2023; typecheck OK; lint 0 errores / 9 warnings (los mismos); build OK.
 
 ## 2. Auditoría BEFORE
 
@@ -190,6 +190,7 @@ Servidor (`node --test`): `resourceAuthority.test.js`, `worldRoom.test.js`, `Pre
 | (rev. 1) un request inválido en vuelo no bloquea a un jugador legítimo | `a request with someone else’s Pokémon, still in flight, never makes the node busy…` (ownership demorada: A adquiere mientras la de B sigue pendiente) · `an attempt SKILLS is about to refuse never makes the node busy either` |
 | (rev. 1) perdedor de la carrera, ya autorizado | recibe `busy`; SKILLS recibe `cancelWork` (`authorizedNotStarted`) |
 | (rev. 1) un intento en vuelo por jugador | `in-flight`, sin lectura de ownership extra |
+| (rev. 2) antes del reloj, dos clientes no divergen; después, misma patrulla | `wandererClock.test.ts`: `before the clock, two clients do not diverge…` · `after the clock, both compute the same patrol, and it moves` |
 | (rev. 1) catálogo ilegible → sin salvajes, con diagnóstico | `no roster, no wild Pokémon: an unreadable catalog fails closed and says why, once` · `wild population never falls back to a local roll` · `an unavailable status clears the roster…` |
 | (extra) request id repetido | `duplicate-request`, sin segunda reserva |
 | (extra) liquidación que falla | el nodo no se agota; reintento transitorio → 1 grant con el mismo `actionId` |
@@ -229,7 +230,7 @@ Cambios de comportamiento intencionales (documentados): el pool ya no "sigue" al
 **Gaps deliberados del shared world** (registrados, no se resuelven en WORLD-1):
 - **Cristales locales**: el pickup de cristales sigue siendo por cliente ("demo, no se guarda").
 - **Colisión con NPC desactivada**: los actores con patrulla no bloquean ni al jugador ni al navegador (sólo los residentes estacionarios son sólidos). Así nunca hay geometría dinámica contradictoria entre clientes, a cambio de que se atraviesen.
-- (nota) Antes del primer mensaje de mundo — sin reloj del servidor — los NPC entrenadores y los wanderers de Ciudad usan el paseo local hasta que llega el reloj (su identidad es determinista; sólo la posición de esos segundos es local). Los salvajes no: no aparecen hasta que hay roster.
+- (rev. 2) Antes del primer mensaje de mundo — sin reloj del servidor — los NPC entrenadores, los wanderers de Ciudad y los Pokémon de plaza quedan **congelados en su tile determinista inicial**; con el reloj empiezan su patrulla compartida. Ya no existe paseo local (`wander()`) para el populace. Los salvajes no aparecen hasta que hay roster.
 
 ## 14. Métricas vs Playtest 0.2
 
@@ -346,7 +347,8 @@ fd0d6cc feat(world): WORLD-1C work actions, SkillPolicyPort and room integration
 a3b5ea0 feat(world): WORLD-1D shared wild Pokemon, wanderers, plaza and sky
 a6f060c fix(world): forget tokens of closed sockets; keep the roster across reconnects; no cross-area workers
 0b1df18 docs(world): WORLD-1E regression, metrics and report
-(rev. 1) fix(world): validate before acquiring; wild population fails closed
+705937e fix(world): validate before acquiring; wild population fails closed
+(rev. 2) fix(world): wanderers stay frozen until the server clock
 ```
 
 No se desplegó nada; no hay merge ni PR. Para cuando se apruebe: el servidor (protocolo 3) puede desplegarse antes que el frontend, y un frontend nuevo contra un servidor viejo se comporta como 0.2 (fallback local).
@@ -362,3 +364,11 @@ No se desplegó nada; no hay merge ni PR. Para cuando se apruebe: el servidor (p
 | Gaps deliberados | Cristales locales y colisión NPC desactivada, registrados (§13). |
 
 Gates tras la revisión: vitest 194/2021, realtime 109/109, typecheck OK, lint 0 errores / 9 warnings, build OK. Las mediciones de §14 no se repitieron: el orden de validación sólo cambia el camino de un intento de trabajo (no el de presencia), y en esas capturas la población salvaje ya corría en modo servidor.
+
+## 20. Revisión 2
+
+- Los actores dinámicos del populace (NPC de Pradera, wanderers y Pokémon de plaza) ya no se mueven con simulación local: `driveWanderer()` (`engine/patrolMotion.ts`) los deja quietos en su tile determinista hasta que llega el reloj del servidor y después sigue la patrulla compartida. `game.ts` delega en esa función (−6 líneas; `wander()` ya no se usa en el juego).
+- Sin tráfico nuevo: el reloj es el `now` que ya viaja en cada mensaje de mundo.
+- Tests: `wandererClock.test.ts` con dos clientes reales (`Population`): antes del reloj, mismas poses sin importar cuántos frames corra cada uno; después, la misma patrulla frame a frame, y hay movimiento.
+- Gates: vitest 195/2023, realtime 109/109, typecheck OK, lint 0 errores / 9 warnings, build OK.
+- Rama congelada tras este push. Próximo paso: INTEGRATION-1 (WORLD × SKILLS), a definir aparte.
