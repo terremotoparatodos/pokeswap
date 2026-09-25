@@ -65,6 +65,8 @@
 
     <LobbyHud :hud="hud" @home="game?.returnToLobby()" />
 
+    <RunToggle v-model:active="runMode" />
+
     <LobbyPlaza
       ref="plazaRef"
       :game="game"
@@ -85,6 +87,7 @@
       :owned-tools="playtestStore?.tools.value"
       :owned-supplies="playtestStore?.supplies.value"
       @overlay="(open: boolean) => (professionOpen = open)"
+      @panel="onHudPanel"
     />
 
     <component
@@ -107,7 +110,12 @@
 
     <WorldHintTray :hints="worldHints" />
 
-    <component :is="ChatPanel" v-if="ChatPanel && !dungeonRun && !playtestSurface" @open="(open: boolean) => (chatOpen = open)" />
+    <component
+      :is="ChatPanel"
+      v-if="ChatPanel && !dungeonRun && !playtestSurface"
+      ref="chatRef"
+      @open="(open: boolean) => { chatOpen = open; onHudPanel('chat', open) }"
+    />
 
     <component
       :is="CityPanel"
@@ -119,6 +127,7 @@
     <LobbyMenu
       v-model:open="menuOpen"
       :inventory="isPlaytest"
+      :inventory-open="hudPanel === 'bag'"
       :reduced-motion="reduceMotion"
       @select="feature => openFeature(feature, 'menu')"
       @activity="plazaRef?.openBoard()"
@@ -153,6 +162,7 @@ import { useLobbyPanel } from '../lobby/useLobbyPanel'
 import type { LobbyFeature } from '../lobby/features'
 import { usePlayerIdentity } from '../identity/usePlayerIdentity'
 import LobbyHud from './LobbyHud.vue'
+import RunToggle from './RunToggle.vue'
 import LobbyMenu from './LobbyMenu.vue'
 import LobbyPanel from './LobbyPanel.vue'
 import LobbyPlaza from './LobbyPlaza.vue'
@@ -278,6 +288,8 @@ const professionRef = ref<{
   overlay: SceneOverlay
   closeTransient: () => void
   toggleInventory: () => void
+  closeSkills: () => void
+  closeBag: () => void
   hint: WorldHint | null
   actionOpen: boolean
 } | null>(null)
@@ -297,6 +309,41 @@ const dungeonRun = shallowRef<AreaEntrance | null>(null)
 // Every feature's hint in one tray above the area pill, out of the way while
 // the chat or a profession action card owns the bottom of the screen.
 const chatOpen = ref(false)
+// MOBILE-1: the touch Correr mode. It lives as long as this view: panels,
+// buildings, trips and reconnects keep it (the game object stays the same).
+const runMode = ref(false)
+watch(runMode, on => game.value?.setRunMode(on))
+const chatRef = ref<{ close: () => void } | null>(null)
+
+// MOBILE-1: Chat, Skills and the bag compete for the same space over the
+// world, so they behave as one group: opening one closes the others, and each
+// opener closes its own panel again. Escape closes the open one, but only when
+// nothing sits above it (menu, a building's panel, a card or an action), whose
+// own Escape handlers win.
+type HudPanel = 'chat' | 'skills' | 'bag'
+const hudPanel = ref<HudPanel | null>(null)
+function onHudPanel(which: HudPanel, open: boolean): void {
+  if (!open) {
+    if (hudPanel.value === which) hudPanel.value = null
+    return
+  }
+  hudPanel.value = which
+  if (which !== 'chat') chatRef.value?.close()
+  if (which !== 'skills') professionRef.value?.closeSkills()
+  if (which !== 'bag') professionRef.value?.closeBag()
+}
+function closeHudPanel(): void {
+  if (hudPanel.value === 'chat') chatRef.value?.close()
+  else if (hudPanel.value === 'skills') professionRef.value?.closeSkills()
+  else if (hudPanel.value === 'bag') professionRef.value?.closeBag()
+}
+// Capture phase: this runs before the menu's own handler closes the menu, so
+// one Escape never closes two things.
+const onHudEscape = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || !hudPanel.value) return
+  if (covered.value || plazaOpen.value || professionOpen.value || professionRef.value?.actionOpen) return
+  closeHudPanel()
+}
 const worldHints = computed(() => visibleWorldHints(
   [dungeonRef.value?.hint, professionRef.value?.hint],
   { chatOpen: chatOpen.value, actionOpen: professionRef.value?.actionOpen ?? false },
@@ -507,12 +554,14 @@ onMounted(async () => {
 })
 
 onMounted(() => {
+  window.addEventListener('keydown', onHudEscape, true)
   motionMedia.addEventListener('change', onMotionChange)
   document.addEventListener('visibilitychange', onVisibilityChange)
 })
 
 onUnmounted(() => {
   disposed = true
+  window.removeEventListener('keydown', onHudEscape, true)
   motionMedia.removeEventListener('change', onMotionChange)
   document.removeEventListener('visibilitychange', onVisibilityChange)
   perfCapture.value?.detach()
@@ -541,7 +590,8 @@ watch(user, () => {
   position: relative;
   height: 100vh;
   height: 100dvh;
-  min-height: 420px;
+  /* A landscape phone is ~350 px tall: a taller floor pushed the bottom HUD off screen. */
+  min-height: 300px;
   overflow: hidden;
   background: #0f1a33;
   user-select: none;
@@ -577,7 +627,7 @@ watch(user, () => {
 
 .wl-toast {
   position: absolute;
-  top: 4.5rem;
+  top: calc(4.5rem + var(--safe-top, 0px));
   left: 50%;
   transform: translateX(-50%);
   margin: 0;
@@ -608,8 +658,8 @@ watch(user, () => {
 
 .wl-minimap {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: calc(1rem + var(--safe-top, 0px));
+  right: calc(1rem + var(--safe-right, 0px));
   width: 132px;
   height: 132px;
   padding: 3px;
@@ -671,14 +721,21 @@ watch(user, () => {
   opacity: 0.7;
 }
 
-@media (max-width: 720px) {
+/* Phones, portrait or landscape. */
+@media (max-width: 720px), (max-height: 500px) {
   .wl-toast {
     top: auto;
-    bottom: 4.75rem;
+    /* Above the bottom tab row. */
+    bottom: calc(0.75rem + 44px + 0.6rem + var(--safe-bottom, 0px));
     max-width: calc(100% - 2rem);
     white-space: normal;
     text-align: center;
   }
-  .wl-minimap { top: 0.75rem; right: 0.75rem; width: 96px; height: 96px; }
+  .wl-minimap {
+    top: calc(0.75rem + var(--safe-top, 0px));
+    right: calc(0.75rem + var(--safe-right, 0px));
+    width: 96px;
+    height: 96px;
+  }
 }
 </style>

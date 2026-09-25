@@ -34,3 +34,34 @@ describe('keyboard input lifecycle', () => {
     keys.detach()
   })
 })
+
+// MOBILE-1: the touch Correr toggle feeds the same gait as Shift.
+describe('run mode (touch Correr)', () => {
+  it('runs while on, walks when off, and is the same flag Shift sets', () => {
+    const keys = input()
+    keys.attach()
+    expect(keys.sprinting).toBe(false)
+    keys.runMode = true
+    expect(keys.sprinting).toBe(true)
+    // Shift on top changes nothing; releasing it does not end the mode.
+    key('keydown', 'ShiftLeft', 'Shift')
+    key('keyup', 'ShiftLeft', 'Shift')
+    expect(keys.sprinting).toBe(true)
+    keys.runMode = false
+    expect(keys.sprinting).toBe(false)
+    key('keydown', 'ShiftLeft', 'Shift')
+    expect(keys.sprinting).toBe(true)
+    keys.detach()
+  })
+
+  it('survives a panel, a hidden tab or a lost focus, unlike a held key', () => {
+    const keys = input()
+    keys.attach()
+    keys.runMode = true
+    keys.detach()
+    window.dispatchEvent(new Event('blur'))
+    keys.attach()
+    expect(keys.sprinting).toBe(true)
+    keys.detach()
+  })
+})

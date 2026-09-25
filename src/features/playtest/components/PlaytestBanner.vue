@@ -62,7 +62,7 @@ onMounted(() => {
 <style scoped>
 .pt-banner {
   position: fixed;
-  top: 0.5rem;
+  top: calc(0.5rem + var(--safe-top, 0px));
   left: 50%;
   /* Under the panels (city 35, dungeon 40) and over the world. The pill is a
      standing reminder, not something that should sit on a panel's title. The
@@ -130,8 +130,8 @@ onMounted(() => {
 
 .pt-banner-short { display: none; }
 
-@media (max-width: 720px) {
-  .pt-banner { top: 0.4rem; }
+@media (max-width: 720px), (max-height: 500px) {
+  .pt-banner { top: calc(0.4rem + var(--safe-top, 0px)); }
   .pt-banner-pill { font-size: 0.65rem; min-height: 24px; }
   .pt-banner-label { display: none; }
   .pt-banner-short { display: inline; }

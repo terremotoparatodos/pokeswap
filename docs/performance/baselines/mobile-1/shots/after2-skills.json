@@ -1,0 +1,179 @@
+[
+  {
+    "label": "after2-skills",
+    "viewport": "safari",
+    "size": "393x659",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after2-skills-safari.png",
+    "evaluated": {
+      "chat": false,
+      "skills": true
+    },
+    "uiPercent": 74.2,
+    "top": [
+      [
+        "section.sk-panel.pf",
+        62
+      ],
+      [
+        "header.sk-head",
+        7.3
+      ],
+      [
+        "div.wl-minimap",
+        4.3
+      ],
+      [
+        "div.wl-hud",
+        4.1
+      ],
+      [
+        "footer.sk-foot",
+        3.2
+      ],
+      [
+        "span.sk-name",
+        1.8
+      ],
+      [
+        "span.sk-xp",
+        1.7
+      ],
+      [
+        "span.sk-next",
+        1.7
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        659
+      ],
+      "visual": [
+        393,
+        659
+      ],
+      "stage": [
+        393,
+        659
+      ]
+    }
+  },
+  {
+    "label": "after2-skills",
+    "viewport": "standalone",
+    "size": "393x852",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after2-skills-standalone.png",
+    "evaluated": {
+      "chat": false,
+      "skills": true
+    },
+    "uiPercent": 58.9,
+    "top": [
+      [
+        "section.sk-panel.pf",
+        48.9
+      ],
+      [
+        "header.sk-head",
+        5.7
+      ],
+      [
+        "div.wl-minimap",
+        3.4
+      ],
+      [
+        "div.wl-hud",
+        3.2
+      ],
+      [
+        "footer.sk-foot",
+        2.5
+      ],
+      [
+        "span.sk-name",
+        1.4
+      ],
+      [
+        "span.sk-xp",
+        1.3
+      ],
+      [
+        "span.sk-next",
+        1.3
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        852
+      ],
+      "visual": [
+        393,
+        852
+      ],
+      "stage": [
+        393,
+        852
+      ]
+    }
+  },
+  {
+    "label": "after2-skills",
+    "viewport": "landscape",
+    "size": "852x353",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\after2-skills-landscape.png",
+    "evaluated": {
+      "chat": false,
+      "skills": true
+    },
+    "uiPercent": 38.3,
+    "top": [
+      [
+        "aside.wl-help",
+        17.9
+      ],
+      [
+        "section.sk-panel.pf",
+        15.9
+      ],
+      [
+        "header.sk-head",
+        6.6
+      ],
+      [
+        "div.wl-minimap",
+        3.7
+      ],
+      [
+        "div.wl-hud",
+        3.6
+      ],
+      [
+        "p.wl-help-title",
+        2.3
+      ],
+      [
+        "p.wl-help-perf",
+        2.3
+      ],
+      [
+        "span.sk-name",
+        1.7
+      ]
+    ],
+    "page": {
+      "inner": [
+        852,
+        353
+      ],
+      "visual": [
+        852,
+        353
+      ],
+      "stage": [
+        852,
+        353
+      ]
+    }
+  }
+]

@@ -1,0 +1,167 @@
+[
+  {
+    "label": "before-perf",
+    "viewport": "safari",
+    "size": "393x659",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\before-perf-safari.png",
+    "uiPercent": 38.1,
+    "top": [
+      [
+        "aside.ph.ph--good",
+        18.8
+      ],
+      [
+        "aside.pp",
+        13.2
+      ],
+      [
+        "div.wl-minimap",
+        4.3
+      ],
+      [
+        "div.wl-hud",
+        4.1
+      ],
+      [
+        "button.lm-toggle",
+        1.5
+      ],
+      [
+        "div.row",
+        1.4
+      ],
+      [
+        "span.wl-place",
+        0.6
+      ],
+      [
+        "button.wl-hud-btn.wl-home",
+        0.5
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        659
+      ],
+      "visual": [
+        393,
+        659
+      ],
+      "stage": [
+        377,
+        659
+      ]
+    }
+  },
+  {
+    "label": "before-perf",
+    "viewport": "standalone",
+    "size": "393x852",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\before-perf-standalone.png",
+    "uiPercent": 29.5,
+    "top": [
+      [
+        "aside.ph.ph--good",
+        14.6
+      ],
+      [
+        "aside.pp",
+        10.2
+      ],
+      [
+        "div.wl-minimap",
+        3.4
+      ],
+      [
+        "div.wl-hud",
+        3.2
+      ],
+      [
+        "button.lm-toggle",
+        1.2
+      ],
+      [
+        "div.row",
+        1.1
+      ],
+      [
+        "span.wl-place",
+        0.5
+      ],
+      [
+        "button.wl-hud-btn.wl-home",
+        0.4
+      ]
+    ],
+    "page": {
+      "inner": [
+        393,
+        852
+      ],
+      "visual": [
+        393,
+        852
+      ],
+      "stage": [
+        377,
+        852
+      ]
+    }
+  },
+  {
+    "label": "before-perf",
+    "viewport": "landscape",
+    "size": "852x353",
+    "file": "docs\\performance\\baselines\\mobile-1\\shots\\before-perf-landscape.png",
+    "uiPercent": 22.2,
+    "top": [
+      [
+        "aside.ph.ph--good",
+        10.2
+      ],
+      [
+        "div.wl-minimap",
+        6.7
+      ],
+      [
+        "aside.pp",
+        3.8
+      ],
+      [
+        "button.lm-toggle",
+        1.5
+      ],
+      [
+        "span.",
+        0.3
+      ],
+      [
+        "header.",
+        0.2
+      ],
+      [
+        "div.row",
+        0.2
+      ],
+      [
+        "span.wl-minimap-n",
+        0.1
+      ]
+    ],
+    "page": {
+      "inner": [
+        852,
+        353
+      ],
+      "visual": [
+        852,
+        353
+      ],
+      "stage": [
+        836,
+        420
+      ]
+    }
+  }
+]

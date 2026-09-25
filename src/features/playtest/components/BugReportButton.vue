@@ -1,17 +1,19 @@
 <template>
   <div class="pt-bug">
+    <!-- MOBILE-1: the chip that opens the form also closes it; × is the alternative. -->
     <button
-      v-if="!open"
       type="button"
       class="pt-bug-fab"
-      aria-label="Reportar un bug o algo confuso"
-      @click="openForm"
+      :class="{ 'pt-bug-fab--on': open }"
+      :aria-label="open ? 'Cerrar el reporte' : 'Reportar un bug o algo confuso'"
+      :aria-expanded="open"
+      @click="open ? (open = false) : openForm()"
     >
       <span aria-hidden="true">🐞</span>
       <span class="pt-bug-fab-text">Reportar</span>
     </button>
 
-    <div v-else class="pt-bug-card" role="dialog" aria-label="Reportar">
+    <div v-if="open" class="pt-bug-card" role="dialog" aria-label="Reportar">
       <div class="pt-bug-head">
         <strong>Contanos qué pasó</strong>
         <button type="button" class="pt-bug-x" aria-label="Cerrar" @click="open = false">×</button>
@@ -49,7 +51,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { trackKeyboardInset } from '../../../shared/ui/keyboardInset'
 import {
   BUG_CATEGORIES, CATEGORY_LABEL, MAX_REPORT_LENGTH, buildBugReport, formatBugReport, type BugCategory,
 } from '../domain/bugReport'
@@ -77,6 +80,23 @@ function openForm(): void {
   open.value = true
   copied.value = false
 }
+
+// The form rides above the iOS keyboard (shared with the chat); Escape closes it.
+const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') open.value = false }
+let stopKeyboard: (() => void) | null = null
+watch(open, isOpen => {
+  if (isOpen) {
+    stopKeyboard ??= trackKeyboardInset()
+    window.addEventListener('keydown', onKeyDown)
+  } else {
+    stopKeyboard?.(); stopKeyboard = null
+    window.removeEventListener('keydown', onKeyDown)
+  }
+})
+onUnmounted(() => {
+  stopKeyboard?.()
+  window.removeEventListener('keydown', onKeyDown)
+})
 
 async function copy(): Promise<void> {
   const report = buildBugReport({
@@ -107,8 +127,8 @@ async function copy(): Promise<void> {
 <style scoped>
 .pt-bug {
   position: fixed;
-  right: 1rem;
-  bottom: 1rem;
+  right: calc(1rem + var(--safe-right, 0px));
+  bottom: calc(1rem + var(--safe-bottom, 0px));
   z-index: 60;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
@@ -129,9 +149,20 @@ async function copy(): Promise<void> {
   cursor: pointer;
 }
 
+/* Open: the chip reads as pressed, and pressing it again closes. */
+.pt-bug-fab--on {
+  border-color: #8fb0ff;
+  background: #3a5fb8;
+  color: #fff;
+}
+
+/* The card opens above the chip, which stays where it is. */
 .pt-bug-card {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 0.5rem);
   width: min(22rem, calc(100vw - 1.5rem));
-  max-height: calc(100dvh - 2rem);
+  max-height: calc(100dvh - 5rem - var(--safe-top, 0px) - var(--safe-bottom, 0px));
   overflow-y: auto;
   padding: 0.85rem;
   border: 2px solid #3a5fb8;
@@ -143,9 +174,9 @@ async function copy(): Promise<void> {
 }
 .pt-bug-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem; }
 .pt-bug-x {
-  width: 30px;
-  height: 30px;
-  border: 0;
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 8px;
   background: transparent;
   color: #dfe8ff;
@@ -192,11 +223,31 @@ async function copy(): Promise<void> {
   cursor: pointer;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   /* The lobby HUD is nearly full width on a phone and reaches this corner, so
      the button joins the row above it rather than sitting on top of it. */
-  .pt-bug { right: 0.6rem; bottom: 4.6rem; }
+  .pt-bug { right: calc(0.6rem + var(--safe-right, 0px)); bottom: calc(0.75rem + var(--safe-bottom, 0px)); }
   .pt-bug-fab-text { display: none; }
   .pt-bug-fab { min-height: 38px; width: 38px; justify-content: center; padding: 0; }
+}
+
+/* iOS zooms the page into any focused field under 16 px. */
+@media (pointer: coarse) {
+  .pt-bug-text { font-size: 16px; }
+}
+/* Phones: a sheet across the screen above the chip, and above the keyboard while typing. */
+@media (max-width: 720px), (max-height: 500px) {
+  .pt-bug-card {
+    position: fixed;
+    left: calc(0.6rem + var(--safe-left, 0px));
+    right: calc(0.6rem + var(--safe-right, 0px));
+    bottom: max(calc(0.75rem + 38px + 0.5rem + var(--safe-bottom, 0px)), calc(var(--keyboard-inset, 0px) + 0.4rem));
+    width: auto;
+    max-height: calc(var(--visible-height, 100dvh) - 1rem - var(--safe-top, 0px));
+    box-sizing: border-box;
+  }
+}
+@media (min-width: 721px) and (max-height: 500px) {
+  .pt-bug-card { left: auto; width: min(22rem, 48vw); }
 }
 </style>

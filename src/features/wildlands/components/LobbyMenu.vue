@@ -10,7 +10,7 @@
         <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 5.5h14M3 10h14M3 14.5h14" /></svg>
         Menú
       </button>
-      <button v-if="inventory" type="button" class="lm-toggle lm-inventory" @click="emit('inventory')">
+      <button v-if="inventory" type="button" class="lm-toggle lm-inventory" :class="{ 'lm-inventory--on': inventoryOpen }" :aria-pressed="inventoryOpen" @click="emit('inventory')">
         🎒 Mochila
       </button>
       <span v-if="profile" class="lm-tokens" :title="`${formatTokens(profile.tokens)} tokens`">
@@ -69,9 +69,10 @@ import { HEARTHOME } from '../areas/atlas'
 import { LOBBY_FEATURE_IDS, LOBBY_FEATURES, type LobbyFeature } from '../lobby/features'
 
 // Shortcut to every PokeSwap function, plus the session. Tokens are shown read-only.
-const props = withDefaults(defineProps<{ open: boolean; reducedMotion?: boolean; inventory?: boolean }>(), {
+const props = withDefaults(defineProps<{ open: boolean; reducedMotion?: boolean; inventory?: boolean; inventoryOpen?: boolean }>(), {
   reducedMotion: false,
   inventory: false,
+  inventoryOpen: false,
 })
 const emit = defineEmits<{
   'update:open': [open: boolean]
@@ -131,8 +132,8 @@ async function signOut(): Promise<void> {
 <style scoped>
 .lm-bar {
   position: absolute;
-  top: 1rem;
-  left: 1rem;
+  top: calc(1rem + var(--safe-top, 0px));
+  left: calc(1rem + var(--safe-left, 0px));
   z-index: 5;
   display: flex;
   align-items: center;
@@ -163,6 +164,8 @@ async function signOut(): Promise<void> {
   background: #1d2c58;
 }
 .lm-inventory { border-color: #d79b32; color: #ffe0a0; }
+/* The bag's button also closes it, and shows when it is open (MOBILE-1). */
+.lm-inventory--on { background: #d79b32; color: #101a36; }
 .lm-toggle svg {
   width: 18px;
   height: 18px;
@@ -200,8 +203,8 @@ async function signOut(): Promise<void> {
 
 .lm-sheet {
   position: absolute;
-  top: 4.25rem;
-  left: 1rem;
+  top: calc(4.25rem + var(--safe-top, 0px));
+  left: calc(1rem + var(--safe-left, 0px));
   width: 280px;
   max-height: calc(100% - 5.5rem);
   overflow-y: auto;
@@ -292,10 +295,10 @@ async function signOut(): Promise<void> {
   opacity: 0.5;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   .lm-bar {
-    top: 0.75rem;
-    left: 0.75rem;
+    top: calc(0.75rem + var(--safe-top, 0px));
+    left: calc(0.75rem + var(--safe-left, 0px));
   }
   .lm-toggle,
   .lm-tokens {
@@ -316,6 +319,18 @@ async function signOut(): Promise<void> {
   }
   .lm-backdrop {
     background: rgba(8, 12, 28, 0.35);
+  }
+}
+
+/* A landscape phone is wide but short: the menu is a column on the left. */
+@media (min-width: 721px) and (max-height: 500px) {
+  .lm-sheet {
+    right: auto;
+    width: min(22rem, 48vw);
+    left: var(--safe-left, 0px);
+    max-height: calc(100dvh - 4rem - var(--safe-top, 0px));
+    border-width: 2px 2px 0 0;
+    border-radius: 0 18px 0 0;
   }
 }
 </style>

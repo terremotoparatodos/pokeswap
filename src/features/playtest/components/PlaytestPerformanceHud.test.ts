@@ -51,3 +51,44 @@ describe('PlaytestPerformanceHud', () => {
     expect(wrapper.text()).toContain('0/0/0 rech ritmo/replay/otro')
   })
 })
+
+describe('PlaytestPerformanceHud on a phone', () => {
+  const props = {
+    fps: 60, frameMs: 2, frameP95Ms: 2.9, frameP99Ms: 4, frameMaxMs: 5, longFramePercent: 0,
+    remoteActors: 11, remoteUpdatesPerSecond: 0, groundComposeMs: 0, groundProjectMs: 0, actorCollectMs: 0,
+    actorSortMs: 0, spriteDrawMs: 0, lightingMs: 0, loadedChunks: 0, generatedChunks: 0, evictedChunks: 0,
+    lastChunkBuildMs: 0, maxChunkBuildMs: 0,
+  }
+  const phone = (matches: boolean) => {
+    localStorage.clear()
+    window.matchMedia = ((query: string) => ({ matches, media: query, addEventListener() {}, removeEventListener() {} })) as unknown as typeof window.matchMedia
+  }
+
+  it('starts as one line and opens every metric when tapped, then folds back', async () => {
+    phone(true)
+    const wrapper = mount(PlaytestPerformanceHud, { props })
+    expect(wrapper.text()).toContain('PERF · 60 fps · 2.9 ms · 11 rem')
+    expect(wrapper.text()).not.toContain('ms proyección')
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.text()).toContain('ms proyección')
+    expect(wrapper.text()).toContain('11 remotos')
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.text()).not.toContain('ms proyección')
+    wrapper.unmount()
+  })
+
+  it('remembers the choice, and a desktop starts open', async () => {
+    phone(true)
+    const first = mount(PlaytestPerformanceHud, { props })
+    await first.get('button').trigger('click')
+    first.unmount()
+    const again = mount(PlaytestPerformanceHud, { props })
+    expect(again.text()).toContain('ms proyección')
+    again.unmount()
+
+    phone(false)
+    const desktop = mount(PlaytestPerformanceHud, { props })
+    expect(desktop.text()).toContain('ms proyección')
+    desktop.unmount()
+  })
+})

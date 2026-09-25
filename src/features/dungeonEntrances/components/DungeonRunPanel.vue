@@ -69,6 +69,8 @@ function leave(): void {
 .dr {
   position: fixed;
   inset: 0;
+  /* Full screen: its bar and body stay clear of the notch and home indicator. */
+  padding: var(--safe-top, 0px) var(--safe-right, 0px) var(--safe-bottom, 0px) var(--safe-left, 0px);
   z-index: 40;
   display: flex;
   flex-direction: column;
@@ -112,7 +114,7 @@ function leave(): void {
 
 .dr-body { position: relative; flex: 1; min-height: 0; overflow: hidden; }
 
-@media (max-width: 720px) {
+@media (max-width: 720px), (max-height: 500px) {
   .dr-warn { display: none; }
 }
 </style>

@@ -1,0 +1,11 @@
+{
+  "name": "PokeSwap",
+  "short_name": "PokeSwap",
+  "lang": "es",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f1a33",
+  "theme_color": "#0f1a33"
+}

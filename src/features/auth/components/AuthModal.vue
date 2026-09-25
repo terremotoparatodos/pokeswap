@@ -1,5 +1,5 @@
 <template>
-  <div v-if="open" class="auth-overlay" @click.self="emit('close')">
+  <div v-if="open" class="auth-overlay" @click.self="onBackdrop">
     <div class="auth-modal" role="dialog" aria-modal="true" aria-label="Autenticación">
 
       <button class="auth-close" @click="emit('close')" aria-label="Cerrar">✕</button>
@@ -101,7 +101,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
+import { trackKeyboardInset } from '../../../shared/ui/keyboardInset'
 import { loginWithEmail, loginWithGoogle, signUp, resetPassword } from '../api/authApi'
 import { validateUsername, normalizeUsernameInput } from '../utils/username'
 
@@ -134,6 +135,29 @@ function onUsernameInput(e: Event) {
 
 // Reset
 const resetEmail = ref('')
+
+// MOBILE-1: tapping outside must not throw away what was typed. With the form
+// empty it closes; otherwise only ×, Escape or finishing does.
+function onBackdrop(): void {
+  const typed = [loginField, loginPassword, signupUsername, signupEmail, signupPassword, resetEmail].some(field => field.value.trim())
+  if (!typed) emit('close')
+}
+const onKeyDown = (event: KeyboardEvent) => { if (event.key === 'Escape') emit('close') }
+// The form rides above the iOS keyboard (shared with the chat).
+let stopKeyboard: (() => void) | null = null
+watch(() => props.open, isOpen => {
+  if (isOpen) {
+    stopKeyboard ??= trackKeyboardInset()
+    window.addEventListener('keydown', onKeyDown)
+  } else {
+    stopKeyboard?.(); stopKeyboard = null
+    window.removeEventListener('keydown', onKeyDown)
+  }
+}, { immediate: true })
+onUnmounted(() => {
+  stopKeyboard?.()
+  window.removeEventListener('keydown', onKeyDown)
+})
 
 async function handleGoogle() {
   try {
@@ -202,6 +226,9 @@ async function handleReset() {
 .auth-overlay {
   position: fixed;
   inset: 0;
+  /* Centred in what the keyboard leaves visible, inside the safe areas. */
+  box-sizing: border-box;
+  padding: calc(0.5rem + var(--safe-top, 0px)) calc(0.5rem + var(--safe-right, 0px)) max(calc(0.5rem + var(--safe-bottom, 0px)), var(--keyboard-inset, 0px)) calc(0.5rem + var(--safe-left, 0px));
   background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
@@ -216,6 +243,10 @@ async function handleReset() {
   border-radius: 12px;
   padding: 28px 24px 24px;
   width: min(360px, 92vw);
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -224,14 +255,17 @@ async function handleReset() {
 
 .auth-close {
   position: absolute;
-  top: 10px;
-  right: 12px;
+  top: 6px;
+  right: 6px;
+  width: 40px;
+  height: 40px;
   background: none;
   border: none;
+  border-radius: 8px;
   color: var(--text-dim, #888);
-  font-size: 16px;
+  font-size: 18px;
   cursor: pointer;
-  padding: 4px 8px;
+  padding: 0;
 }
 
 .auth-btn-google {
@@ -336,5 +370,10 @@ async function handleReset() {
   font-size: 11px;
   color: #e08080;
   margin: 0;
+}
+
+/* iOS zooms the page into any focused field under 16 px. */
+@media (pointer: coarse) {
+  .auth-input { font-size: 16px; }
 }
 </style>

@@ -43,6 +43,9 @@ const dungeonPrototype: LazyView | null = import.meta.env.DEV ? () => import('..
 // City Mapping Lab: edits a working copy of Ciudad Corazón and exports a patch. Same DEV-only rule.
 const cityLab: LazyView | null = import.meta.env.DEV ? () => import('../../features/cityLab/components/CityLabView.vue') : null
 
+// MOBILE-1: the playtest's building and dungeon surfaces over the real world, for phone layout checks. DEV only.
+const surfaceGallery: LazyView | null = import.meta.env.DEV ? () => import('../../features/devSurfaces/components/SurfaceGallery.vue') : null
+
 /** Null panels is the playtest table: every feature URL lands in the town, no view loads. */
 export const buildRoutes = (panels: PanelViews | null): RouteRecordRaw[] => [
   {
@@ -72,6 +75,9 @@ export const buildRoutes = (panels: PanelViews | null): RouteRecordRaw[] => [
     : []),
   ...(cityLab
     ? [{ path: '/dev/city-lab', name: 'dev-city-lab', component: cityLab, meta: { standalone: true } }]
+    : []),
+  ...(surfaceGallery
+    ? [{ path: '/dev/superficies', name: 'dev-superficies', component: surfaceGallery, meta: { standalone: true } }]
     : []),
   { path: '/:pathMatch(.*)*', redirect: '/' },
 ]
