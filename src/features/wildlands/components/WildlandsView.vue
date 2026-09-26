@@ -176,7 +176,7 @@ import { useAuth } from '../../auth/composables/useAuth'
 import { composeWorldProbes } from '../engine/worldProbes'
 import { CompositeOverlay } from '../engine/compositeOverlay'
 import { SharedWorld } from '../../world/state/sharedWorld'
-import { loadPokemonInfo } from '../engine/population'
+import { loadWorkerPokemonInfo } from '../engine/population'
 import { pokeballInfo } from '../engine/pokeball'
 import { isPlaytest } from '../../playtest/playtestBuild'
 import { usePlaytestContext } from '../../playtest/state/playtestContext'
@@ -287,9 +287,9 @@ const pokedex = shallowRef<readonly PokedexEntry[]>([])
  * actions). Rides the presence socket; a server without it just never sends.
  */
 const sharedWorld = new SharedWorld(
-  // Workers, the local player's own included (WORLD VISUAL-1): the bundled overworld
-  // sheet needs only the species id, as the retired Skills companion did.
-  id => loadPokemonInfo(pokedex.value.find(pokemon => pokemon.id === id) ?? { id, name_es: String(id), sprite_url: null }, false),
+  // Workers, the local player's own included (WORLD VISUAL-1): before the Pokédex
+  // loads, the bundled sheet by id, kept out of the shared info cache.
+  id => loadWorkerPokemonInfo(pokedex.value, id),
   id => pokeballInfo({ id, name_es: pokedex.value.find(pokemon => pokemon.id === id)?.name_es ?? String(id) }),
 )
 /** The hour's shared wild pool (WORLD-1D); null keeps the plaza's local fallback. */
