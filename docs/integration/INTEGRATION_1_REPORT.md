@@ -641,3 +641,121 @@ Ya existían: requests de trabajo, rechazos por motivo, completados, reintentos 
 3. Preexistente, fuera de alcance: vistas SECURITY DEFINER, `handle_new_user()` ejecutable por anon, y tablas con grants por defecto amplios (neutralizados por RLS).
 4. Un solo proceso realtime (§17.1).
 5. Polish, cargas, balance, sinks, crafting, cristales compartidos y dungeons: **no implementados** (registrados en §18).
+
+---
+
+## 21. RC-0.3 Dark Validation (Supabase hosted + realtime aislado local)
+
+> 2026-09-26, sobre `3980834`. **Sin cambios de código.** Gate global cerrado todo el tiempo. No se tocó el realtime público 0.2 ni se mergeó nada.
+
+### 21.1 Entorno (qué es hosted y qué no)
+
+| Pieza | Dónde corre |
+|---|---|
+| Supabase (Postgres, PostgREST, Auth) | **hosted real**, proyecto de producción |
+| Edge Function `world-authority` | **hosted real** (v1) |
+| Realtime 0.3 (`3980834`, protocolo 3) | **NO hosted.** Proceso local en la PC del usuario (puertos 2567/2568), expuesto por un **túnel temporal gratuito de Cloudflare** (`wss://…trycloudflare.com`). No es una segunda instancia de Colyseus Cloud. |
+| Cliente oscuro (`3980834-dark`) | **NO es un build de producción**: es el **servidor de desarrollo de Vite** (puerto 5173) detrás de otro túnel temporal |
+| Público | Playtest 0.2 intacto: `pokeswap.lol` (`dc6dc70`) + realtime Colyseus Cloud (`be360fd`) |
+
+Los túneles duran hasta ~15:17 (hora de Buenos Aires) del 2026-09-26.
+
+### 21.2 Pre-flight
+
+- `integration/world-skills-0.3` = `3980834`, local = remoto.
+- `playtest/community-0.1` y el tag `playtest-0.2` → `dc6dc70`, sin cambios.
+- `world_skills_gate.enabled = false`; testers: **exactamente** `rodriguti17` y `terremototw`.
+- Tablas de WORLD × SKILLS vacías al empezar.
+- `/version` oscuro → `3980834` (protocolo 3); público → `be360fd` (protocolo 2).
+
+### 21.3 Bundle del cliente oscuro
+
+Se recorrió el grafo de módulos que baja el navegador (385 módulos, 7,7 MB).
+- Variables inyectadas: solo `VITE_BUILD_ID`, `VITE_PLAYTEST`, `VITE_REALTIME_URL` (el túnel oscuro), `VITE_SUPABASE_URL` y `VITE_SUPABASE_ANON_KEY`.
+- JWT embebidos: solo con rol `anon`.
+- `WORLD_AUTHORITY_SECRET` (el valor), `WORLD_AUTHORITY`, `x-world-authority-secret`, `world_commit_work`, la ruta de la función, `SERVICE_ROLE` y `sb_secret_…`: **0 apariciones**.
+- `service_role` aparece solo en comentarios de documentación de supabase-js.
+
+**Por ser un dev server:** expone el **código fuente** del workspace (el mismo que ya es público en el repo), pero `.env` → **403** (`fs.deny` de Vite) y rutas fuera del workspace → 403. El secreto **no está en ningún archivo** de los proyectos (búsqueda local): vive solo en el entorno del proceso realtime. Riesgo aceptable para una ventana de horas. Para una prueba más larga conviene un build estático (`vite build` + `vite preview`).
+
+### 21.4 Settlement hosted (harness server-side → `world-authority`, tester `terremototw`)
+
+| Prueba | Resultado |
+|---|---|
+| Acción X (mining, 10 XP, 1 stone, nodo `rc03-probe-*`) | `applied:true`, `xp_after 10`, 697 ms |
+| X otra vez, con 50 XP y 5 oro | `applied:false`; devuelve el settlement guardado (10 XP) |
+| Misma acción nueva ×2 simultáneas | 200 ×2, **1 aplicada** |
+| Misma acción nueva ×20 simultáneas | 200 ×20, **1 aplicada** (p50 1098 ms, máx 1558 ms con 20 en vuelo) |
+| Resultado | XP mining **30** y stone **3**, exactamente 3 acciones |
+| Base de datos | 1 fila para X; XP en tabla = suma de `xp_gained` de settlements; piedra en tabla = suma de rewards de settlements |
+
+**Atomicidad hosted** (fallos forzados *dentro* de la transacción; sin tocar infraestructura):
+- el 2.º reward inválido, con XP, el 1.er reward y el settlement ya escritos → 500;
+- `material_id` inválido → 500;
+- `state` de nodo que viola su CHECK → 500.
+
+En los 3 casos: **0 filas de settlement**, XP y materiales sin cambios, y ningún override del nodo roto. Nunca hubo XP sin material ni material sin settlement.
+
+**Gate:** commit *completed* de un usuario que no es tester → **403 `world_skills_closed`**.
+
+### 21.5 Latencias hosted
+
+| Medición | p50 | p95 | máx |
+|---|---|---|---|
+| Escritura `commit_work` (20 settlements secuenciales que no pagan) | 413 ms | 452 ms | 828 ms |
+| Commit ×20 concurrente (la misma acción) | 1098 ms | — | 1558 ms |
+| Inicio de trabajo (autorización + ownership vía la función) hasta `WORK_RESULT` | 403 ms | | |
+| Fin de la acción hasta `WORK_DONE` (liquidación hosted) | 628 ms | | |
+| Arranque del realtime oscuro (`loadNodes`, en frío) | 1758 ms | | |
+
+Medido desde la PC de desarrollo (Argentina → `us-west-2`); la red hasta Oregon domina (~250 ms). En juego, el aviso de recompensa llega ~0,6 s después de terminar la barra de trabajo.
+
+### 21.6 Persistencia hosted ("reinicio" sin tocar el proceso oscuro)
+
+No se reinició el realtime de los puertos 2567/2568 (pedido explícito). En su lugar se levantaron **instancias nuevas, en memoria y sin puertos**, del mismo código `3980834`, contra la Edge Function hosted. Cada instancia nueva equivale a un reinicio: arranca vacía y restaura desde la base.
+
+- **Minería** (roca real `pradera:8:-79:rock`, Pokémon #33 de `terremototw`): +10 XP y 1 stone → instancia nueva: **sigue `depleted`** y trabajarla da `depleted` → pasado `respawnAt`, otra instancia: **disponible**.
+- **Agricultura** (`pradera:-7:-73:plot`, oran): plantar → instancia nueva: **`planted`, dueño = tester, sin reset** → con el reloj en `readyAt`: **`ready`** → cosecha +25 XP y 3 oran (bonus) → segunda cosecha imposible (`choose-crop`). La fila de la parcela desaparece al cosechar.
+- Ledger final de `terremototw`: mining 40, farming 33 (= suma de settlements, 73), stone 4, oran_berry 3.
+
+El reinicio real del proceso oscuro queda para la prueba humana, si el usuario lo quiere hacer (§21.9).
+
+### 21.7 Negativos en vivo (realtime oscuro)
+
+- **Invitado** que manda `world:work` (incluso con `xp: 999999`) → `presence:error` `invalid-intent / world denied`; ningún `WORK_RESULT`; la autoridad ni se entera (`/metrics`: `requested 0`).
+- **Token falsificado** que nombra a un tester → tratado como invitado (sin `player:state`) y trabajo denegado; el `userId` del payload se ignora.
+- **Credencial interna** ausente o incorrecta → 401 (§20.9, repetido hoy vía el harness).
+- **No tester** → sin Pokémon trabajadores y 403 al liquidar (§21.4). Con una cuenta real no tester, en vivo: no se probó (no hay una tercera cuenta autorizada).
+- **El cliente no otorga XP ni materiales:** no existe ninguna ruta de escritura de cliente (§20.10: todo 401), y los payloads hostiles se ignoran (§19.7 y arriba).
+
+### 21.8 0.2 pública después de todo
+
+- `pokeswap.lol`: banner `COMMUNITY PLAYTEST 0.2 · DC6DC70`; lecturas `playtest_gate`, `slots`, `pokemon`, `leaderboard_count`, `market_listings`, `profiles` → 200.
+- Realtime público: `be360fd`, matchmake 200, WebSocket abierto con `JOIN_ROOM`.
+- Logs de Supabase de las últimas 3 h: los únicos 3 5xx son las 3 fallas de atomicidad forzadas (el log de la función guarda solo `P0001` / `23514`, sin SQL ni secretos). Sin otros errores.
+
+### 21.9 Matriz
+
+| Ítem | Estado |
+|---|---|
+| Pre-flight (rama, SHA, 0.2, tag, gate, testers) | PASS |
+| Bundle sin secreto, service role ni credenciales privilegiadas | PASS (dev server: el código fuente es visible, `.env` no) |
+| Settlement completo: XP, material, nodo | PASS |
+| Mismo `actionId` ×1 / ×2 / ×20 → una recompensa | PASS |
+| Atomicidad (3 fallos forzados) | PASS |
+| Latencia de escritura | MEDIDA (p50 413 ms) |
+| Tiempo hasta feedback visible | MEDIDO en harness (inicio 403 ms, recompensa 628 ms); **falta en el cliente real** |
+| Persistencia tras "reinicio" (instancias nuevas) | PASS |
+| Reinicio del proceso oscuro real | NO HECHO (pedido explícito de no tocarlo) |
+| Invitado no inicia Skills | PASS |
+| Token falsificado | PASS |
+| Credencial interna ausente o incorrecta | PASS |
+| No tester rechazado | PASS (a nivel función); en vivo con cuenta real: NO PROBADO |
+| Talar, Minería por UI, Agricultura y ownership, carrera por nodo, agotamiento y respawn compartidos | **PRUEBA HUMANA** |
+| Reload / reconexión con sesión | **PRUEBA HUMANA** |
+| Sesión larga / refresh de token | **PRUEBA HUMANA** (opcional en esta ventana) |
+| Smoke 0.2 + logs | PASS |
+
+### 21.10 Datos de prueba que quedaron en prod
+
+Solo en `terremototw`: mining 40 XP, farming 33 XP, stone 4, oran_berry 3, 26 settlements (6 que pagan y 20 cancelados de latencia, con `rules_version` `rc03-hosted*` o las de SKILLS). Los overrides `rc03-probe-*` y el de la roca vencen solos (se borran en el próximo `world_load_nodes`). No se tocó `rodriguti17` ni a ningún otro jugador.
