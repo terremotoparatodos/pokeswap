@@ -93,7 +93,7 @@ Porcentaje = tiempo trabajando, jugadores repartidos mitad y mitad. El límite s
 
 Nuevos:
 - `services/realtime/src/world/resourceZones.test.js`: 1:1 prop↔nodo por zona; ningún nodo fuera; ids únicos que resuelven a sí mismos y conjunto congelado (`134:327f12ac`); la capa solo toca terreno planificado; llegada, portal, huerta y reservas libres con la separación de 3; corredores de 2 despejados, sin copas encima, conectados; VISUAL-2: todo nodo tiene lado trabajable, esperas nunca en portal/nodo/parcela/sólido, `no-room` ≤ 1,6 %; determinismo.
-- `src/features/world/domain/zoneParity.test.ts`: cliente y servidor idénticos casilla por casilla (decor y colisión, radio 64); `World` sin área = generador puro; **cuevas sin desplazamiento**; el fondo nunca es copia exacta del recurso.
+- `src/features/world/domain/zoneParity.test.ts`: cliente y servidor idénticos casilla por casilla (decor y colisión, radio 64); `World` sin área = generador puro; **cuevas sin desplazamiento**; con las cuevas reales y el `workPlacement` real, **ni el Pokémon ni la casilla de espera del entrenador pisan una cueva** en ningún lado alcanzable; el fondo nunca es copia exacta del recurso.
 - `resourceMapping.test.ts`: una sola asignación por aspecto en cada zona (árbol → común 1, pino → pino 12, roca → roca 1).
 
 Ajustados:
@@ -111,7 +111,20 @@ Ajustados:
 | capa determinista (`zone-layout.ts --check`) | OK |
 | huella `worldFingerprint.test.ts` | sin cambios |
 
-## 5. Riesgos restantes
+## 5. Decisión de producto: hierro y carbón retirados temporalmente
+
+**Aprobado junto con MAP-2:** hierro y carbón salen, por ahora, de la distribución común de Pradera.
+
+- **Antes de MAP-2** eran nodos dispersos por tirada aleatoria sobre props idénticos a los decorativos. En la ventana auditada había 6 vetas de hierro (Minería 20) en rocas de hielo de la zona nevada (`(-50,-115)`, `(3,-113)`, `(4,-111)`, `(-31,-104)`, `(-40,-95)`, `(-42,-91)`) y 1 veta de carbón (Minería 10) en una roca común (`(8,-99)`). Oro no aparecía en la ventana.
+- **Después de MAP-2** no queda ninguno. Pradera tiene recursos solo dentro de las zonas, y la cantera está dedicada únicamente a **roca básica abundante**.
+- **No se reincorporan en esta fase.** Nada del catálogo de SKILLS cambió: `coal_seam`, `iron_vein` y sus requisitos, tiempos y recompensas siguen definidos. Simplemente ninguna casilla de Pradera los asigna hoy (`resourceMapping.ts` solo mapea árbol, pino y roca dentro de las zonas).
+- **Intención:** recuperarlos en una **futura zona o subzona de minerales avanzados**. El candidato natural es la reserva `reserva-minerales` (`-14..1 · -91..-78`, hacia la nieve, hoy vacía). Condiciones:
+  - apariencia claramente distinta de la roca básica (variante existente, p. ej. roca de hielo o peñasco, o tinte);
+  - menor abundancia que la cantera;
+  - requisitos de nivel visibles en la ficha, igual que el Pino.
+- **Qué hay que tocar cuando vuelvan:** una zona nueva en `resourceZones.js`, su capa regenerada con `zone-layout.ts`, su entrada en `ZONE_RESOURCES` y los tests de 1:1, paridad y colocación. La regla "igual aspecto → igual comportamiento" obliga a que la veta tenga un aspecto propio.
+
+## 6. Riesgos restantes
 
 1. **IDs:** los nodos dispersos de antes dejan de existir. Sus overrides en base de datos se ignoran al restaurar y vencen solos. Los settlements históricos no se tocan. Sin migración.
 2. **Cambiar la capa es cambiar el mapa:** el test de ids congelados obliga a hacerlo a sabiendas.
