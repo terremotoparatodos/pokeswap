@@ -194,3 +194,20 @@ export function loadPokemonInfo(entry: Pick<PokedexEntry, 'id' | 'name_es' | 'sp
   }
   return pending
 }
+
+/**
+ * Info for a species the Pokédex has not delivered yet: the bundled overworld
+ * sheet by id, with a placeholder name. Never cached, so it cannot stand in
+ * for the real entry in `loadPokemonInfo`'s shared cache.
+ */
+export function loadProvisionalPokemonInfo(id: number): Promise<PokemonInfo | null> {
+  return loadOverworldFrames(id, false)
+    .then(frames => ({ id, name: String(id), shiny: false, frames }))
+    .catch(() => null)
+}
+
+/** A worker's info (WORLD VISUAL-1): the real entry when the Pokédex has it, otherwise the uncached provisional one. */
+export function loadWorkerPokemonInfo(pokedex: readonly Pick<PokedexEntry, 'id' | 'name_es' | 'sprite_url'>[], id: number): Promise<PokemonInfo | null> {
+  const entry = pokedex.find(pokemon => pokemon.id === id)
+  return entry ? loadPokemonInfo(entry, false) : loadProvisionalPokemonInfo(id)
+}

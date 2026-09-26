@@ -110,12 +110,9 @@ export class MiningOverlay extends GatheringOverlayCore<StartMining, ActiveActio
     return { sprite: toSprite(art), dx }
   }
 
-  sprites(area: Area, seconds: number): readonly OverlaySprite[] {
+  sprites(_area: Area, seconds: number): readonly OverlaySprite[] {
     const out: OverlaySprite[] = []
-    this.summonWorker(area)
     this.pushMarkers(out, seconds, node => ({ special: node.target.resource.id === 'crystal_cluster', heightRatio: 0.6 }))
-
-    out.push(...this.companion.sprites(seconds))
 
     for (const p of this.particles) {
       const fade = 1 - p.age / p.life

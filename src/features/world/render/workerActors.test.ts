@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { workerSpot } from './workerActors'
+import type { PokemonInfo } from '../../wildlands/engine/actors'
+import type { NodeView } from '../domain/worldResources'
+import { WorkerActors, workerSpot } from './workerActors'
 
-describe('workerSpot', () => {
+describe('workerSpot (fallback without worker.stand)', () => {
   const open = () => false
   it('stands on the open side of the node nearest the trainer, never on the trainer', () => {
     const spot = workerSpot({ tx: 0, ty: 0 }, { tx: 0, ty: 1 }, open)
@@ -16,5 +18,53 @@ describe('workerSpot', () => {
     const a = workerSpot({ tx: 5, ty: 5 }, { tx: 4, ty: 5 }, (tx) => tx === 6)
     const b = workerSpot({ tx: 5, ty: 5 }, { tx: 4, ty: 5 }, (tx) => tx === 6)
     expect(a).toEqual(b)
+  })
+})
+
+describe('WorkerActors', () => {
+  const placeholder = (id: number) => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo
+  const make = () => new WorkerActors(async () => null, placeholder)
+  const STAND = { tx: 11, ty: 20, dir: 'left' as const }
+  const working = (stand: typeof STAND | undefined = STAND): NodeView => ({
+    id: 'pradera:10:20:tree', state: 'working', version: 3, actionId: 'act-1', workKind: 'chop', startedAt: 1_000, endsAt: 4_000,
+    worker: { playerId: 'a', pokemonInstanceId: 123, speciesId: 123, ...(stand ? { stand } : {}) },
+  })
+  const tile = (workers: WorkerActors) => workers.actors().map(actor => ({ tx: actor.fromTx, ty: actor.fromTy, dir: actor.dir }))
+
+  it('places the worker on the server stand, whatever the trainer does or wherever it is', () => {
+    const workers = make()
+    workers.sync([working()])
+    for (const trainer of [{ tx: 10, ty: 21 }, { tx: 9, ty: 20 }, null]) {
+      workers.update(2_000, () => trainer, () => false)
+      expect(tile(workers)).toEqual([STAND])
+    }
+  })
+
+  it('two clients with the same node and the same server time draw the same actor', () => {
+    const [one, two] = [make(), make()]
+    for (const workers of [one, two]) workers.sync([working()])
+    one.update(2_345, () => ({ tx: 10, ty: 21 }), () => false)
+    two.update(2_345, () => null, () => true)
+    const pick = (w: WorkerActors) => { const { fromTx, fromTy, tx, ty, progress, dir, hop, walkClock } = w.actors()[0]; return { fromTx, fromTy, tx, ty, progress, dir, hop, walkClock } }
+    expect(pick(one)).toEqual(pick(two))
+  })
+
+  it('an older server without worker.stand: the previous per-client placement', () => {
+    const workers = make()
+    workers.sync([working(undefined)])
+    workers.update(2_000, () => ({ tx: 10, ty: 21 }), () => false)
+    const expected = workerSpot({ tx: 10, ty: 20 }, { tx: 10, ty: 21 }, () => false)
+    expect(tile(workers)).toEqual([expected])
+  })
+
+  it('one actor per action, and it goes away with the action', () => {
+    const workers = make()
+    workers.sync([working(), working()])
+    expect(workers.actors()).toHaveLength(1)
+    expect(workers.isWorking('a', 123)).toBe(true)
+    // Complete, cancel and cancel-by-movement all reach the client the same way: the node stops working.
+    workers.sync([{ id: 'pradera:10:20:tree', state: 'available', version: 4 }])
+    expect(workers.actors()).toHaveLength(0)
+    expect(workers.isWorking('a', 123)).toBe(false)
   })
 })

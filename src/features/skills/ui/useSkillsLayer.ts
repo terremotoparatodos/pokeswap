@@ -151,7 +151,8 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Skill
       run.value = null
       game()?.setInputLocked(false)
     }
-    const start = { target: current.target, tx: current.tx, ty: current.ty, workerSpeciesId: worker.speciesId, onResult, onDone }
+    // The Pokémon itself is WORLD's to draw (worker.stand): the scene only animates the node.
+    const start = { target: current.target, tx: current.tx, ty: current.ty, onResult, onDone }
     if (skill === 'mining') mining.start({ ...start, timeline: miningTimeline(begin.durationMs) })
     // In the shared world one completed job depletes a node: the tree falls.
     else logging.start({ ...start, timeline: choppingTimeline(begin.durationMs, true) })

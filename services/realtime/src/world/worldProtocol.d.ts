@@ -1,4 +1,5 @@
 import type { WorkKind } from './resourceLayout.js'
+import type { WorkerStand } from './workerStand.js'
 
 export declare const WORLD_PROTOCOL: 1
 export declare const WORLD_MESSAGE: Readonly<{
@@ -45,7 +46,13 @@ export interface PublicNode {
   readonly base?: true
   readonly actionId?: string
   readonly workKind?: WorkKind
-  readonly worker?: { readonly playerId: string; readonly pokemonInstanceId: number; readonly speciesId: number }
+  readonly worker?: {
+    readonly playerId: string
+    readonly pokemonInstanceId: number
+    readonly speciesId: number
+    /** Where the Pokémon stands, fixed by the server when the work started. Absent from older servers. */
+    readonly stand?: WorkerStand
+  }
   readonly startedAt?: number
   readonly endsAt?: number
   readonly respawnAt?: number
