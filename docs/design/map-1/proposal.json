@@ -1,0 +1,93 @@
+{
+ "forest": {
+  "center": {
+   "tx": -8,
+   "ty": -45
+  },
+  "w": 22,
+  "h": 18,
+  "props": 35,
+  "basicToday": 4,
+  "open": 0.8,
+  "conflicts": 0,
+  "steps": 29,
+  "box": [
+   {
+    "tx": -19,
+    "ty": -54
+   },
+   {
+    "tx": 2,
+    "ty": -37
+   }
+  ],
+  "pines": 34,
+  "plantable": 171
+ },
+ "quarry": {
+  "center": {
+   "tx": 11,
+   "ty": -69
+  },
+  "w": 16,
+  "h": 14,
+  "props": 1,
+  "basicToday": 1,
+  "open": 0.94,
+  "conflicts": 0,
+  "steps": 16,
+  "box": [
+   {
+    "tx": 3,
+    "ty": -76
+   },
+   {
+    "tx": 18,
+    "ty": -63
+   }
+  ]
+ },
+ "reserve": {
+  "center": {
+   "tx": -6,
+   "ty": -84
+  },
+  "w": 16,
+  "h": 14,
+  "props": 0,
+  "basicToday": 0,
+  "open": 0.96,
+  "conflicts": 0,
+  "steps": 16,
+  "box": [
+   {
+    "tx": -14,
+    "ty": -91
+   },
+   {
+    "tx": 1,
+    "ty": -78
+   }
+  ]
+ },
+ "huertaReserve": [
+  {
+   "tx": -12,
+   "ty": -75
+  },
+  {
+   "tx": -8,
+   "ty": -70
+  }
+ ],
+ "arrivalClear": [
+  {
+   "tx": -9,
+   "ty": -73
+  },
+  {
+   "tx": -1,
+   "ty": -65
+  }
+ ]
+}
