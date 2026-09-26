@@ -20,7 +20,7 @@ test('the server knows exactly three skills and no fishing anywhere', async () =
   }
   assert.doesNotMatch(bundle, /\bfishing\b|shore_spot|coastal_spot|reef_spot|basic_rod/)
 
-  const migration = await readFile(new URL('../../../../supabase/migrations/20260926000001_world_skills_authority.sql', import.meta.url), 'utf8')
+  const migration = await readFile(new URL('../../../../supabase/migrations/20260926002154_world_skills_authority.sql', import.meta.url), 'utf8')
   for (const check of migration.matchAll(/skill_id IN \(([^)]*)\)/g)) assert.equal(check[1], "'woodcutting', 'mining', 'farming'")
   assert.doesNotMatch(migration, /fishing/)
 

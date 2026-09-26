@@ -54,7 +54,7 @@ export class ResourceAuthority {
     this.byPlayer = new Map()
     this.byPokemon = new Map()
     this.recent = new Map()
-    this.metrics = { requested: 0, started: 0, rejected: {}, completed: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0, restored: 0 }
+    this.metrics = { requested: 0, started: 0, rejected: {}, completed: 0, duplicateSettlements: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0, restored: 0 }
   }
 
   /**
@@ -209,6 +209,7 @@ export class ResourceAuthority {
       record = this.store.write(action.node, next)
       if (record.respawnAt !== null) this.queue.push(record.respawnAt, { type: 'timer', nodeId: record.id, version: record.version })
       this.metrics.completed++
+      if (result.status === 'duplicate') this.metrics.duplicateSettlements++
     } else {
       // No change without a confirmed settlement.
       record = this.store.write(action.node, this.#restingState(action))

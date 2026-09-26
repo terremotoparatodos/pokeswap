@@ -173,7 +173,7 @@ export class WorldRoom {
     const authority = this.authority
     return {
       wild: { epoch: this.wild.epoch, ...this.wild.metrics },
-      clients: this.clients.size, subscribedChunks: this.subscribers.size, storedNodes: authority.store.size,
+      clients: this.clients.size, subscribedChunks: this.subscribers.size, storedNodes: authority.store.size, nodesByState: authority.store.countByState(),
       runningActions: authority.actions.size, queued: authority.queue.size,
       actions: { ...authority.metrics, rejected: { ...authority.metrics.rejected } }, transport: { ...this.metrics },
       playerData: this.playerData?.metrics?.() ?? null,

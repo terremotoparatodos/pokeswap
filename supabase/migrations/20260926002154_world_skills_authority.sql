@@ -1,4 +1,4 @@
--- INTEGRATION-1 — WORLD × SKILLS server authority (PREPARED, NOT APPLIED TO PRODUCTION)
+-- INTEGRATION-1 — WORLD × SKILLS server authority (applied to production in RC-0.3 dark launch)
 --
 -- What this adds, and why each piece exists:
 --

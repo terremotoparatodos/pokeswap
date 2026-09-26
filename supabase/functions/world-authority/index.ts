@@ -1,4 +1,4 @@
-// world-authority Edge Function (INTEGRATION-1). PREPARED, NOT DEPLOYED.
+// world-authority Edge Function (INTEGRATION-1). Deployed in the RC-0.3 dark launch.
 //
 // Deploy only after review, with the secret set first:
 //   supabase secrets set WORLD_AUTHORITY_SECRET=<48+ random chars>

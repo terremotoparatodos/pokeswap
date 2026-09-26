@@ -10,7 +10,8 @@ import { createEdgePlayerData } from './playerData.js'
 
 const HANDLER = new URL('../../../../../supabase/functions/world-authority/handler.ts', import.meta.url)
 const SECRET = 's'.repeat(48)
-const USER = '11111111-1111-4111-8111-111111111111'
+const USER = '11111111-1111-4111-8111-111111111111' // a WORLD x SKILLS tester
+const CLOSED = '22222222-2222-4222-8222-222222222222' // an ordinary player, gate closed
 
 async function loadHandler() {
   try { return await import(HANDLER.href) } catch { return null }
@@ -20,7 +21,8 @@ test('realtime → Edge Function handler → SQL: settle once, read back, refuse
   const handler = await loadHandler()
   if (!handler) return t.skip('this Node cannot load TypeScript; covered by `deno test supabase/functions/world-authority/`')
   const db = await openLocalDatabase()
-  await db.exec(`INSERT INTO auth.users VALUES ('${USER}'); INSERT INTO public.slots VALUES (68, '${USER}', false);`)
+  await db.exec(`INSERT INTO auth.users VALUES ('${USER}'), ('${CLOSED}'); INSERT INTO public.slots VALUES (68, '${USER}', false), (69, '${CLOSED}', false);
+    INSERT INTO public.world_skills_testers (user_id) VALUES ('${USER}');`)
   const query = serviceQuery(db)
   // supabase-js `rpc(fn, namedArgs)`, reproduced over SQL.
   const rpc = async (fn, args) => {
@@ -51,6 +53,12 @@ test('realtime → Edge Function handler → SQL: settle once, read back, refuse
   assert.equal(state.xp.mining, 10)
   assert.deepEqual(state.materials, { stone: 1 })
   assert.equal((await data.loadNodes())[0].nodeId, 'pradera:-5:-77:rock')
+
+  // The feature gate, through the real handler and SQL: closed means no worker and no pay.
+  assert.equal(await data.ownsPokemon(CLOSED, 69), null)
+  assert.deepEqual((await data.playerState(CLOSED)).pokemon, [])
+  await assert.rejects(data.commitWork({ ...commit, actionId: '00000000-0000-4000-8000-00000000abce', userId: CLOSED }), /403/)
+  assert.deepEqual((await data.playerState(CLOSED)).xp, { woodcutting: 0, mining: 0, farming: 0 })
 
   const stranger = createEdgePlayerData({ url: 'x', secret: 'not-the-secret-but-long-enough-to-pass-length', publishableKey: 'anon', fetcher: async (_u, init) => handler.handleWorldAuthority(new Request('https://local/x', init), { secret: SECRET, rpc }) })
   await assert.rejects(stranger.playerState(USER), /401/)

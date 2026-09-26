@@ -72,13 +72,16 @@ async function users() {
     assert.equal(session.status, 200, session.text)
     return { id: created.body.id, jwt: session.body.access_token, email, password }
   }
-  const [a, b] = [await make('a'), await make('b')]
+  const [a, b, c] = [await make('a'), await make('b'), await make('c')]
   const profiles = await asService('/rest/v1/profiles', {
     method: 'POST', prefer: 'return=minimal',
-    body: [{ id: a.id, username: `rc03a${a.id.slice(0, 6)}`, tokens: 0 }, { id: b.id, username: `rc03b${b.id.slice(0, 6)}`, tokens: 0 }],
+    body: [a, b, c].map((user, i) => ({ id: user.id, username: `rc03${'abc'[i]}${user.id.slice(0, 6)}`, tokens: 0 })),
   })
   assert.equal(profiles.status, 201, profiles.text)
-  fixture = { a, b }
+  // A and B are WORLD x SKILLS testers; C is an ordinary player behind the closed gate.
+  const testers = await asService('/rest/v1/world_skills_testers', { method: 'POST', prefer: 'return=minimal', body: [{ user_id: a.id }, { user_id: b.id }] })
+  assert.equal(testers.status, 201, testers.text)
+  fixture = { a, b, c }
   return fixture
 }
 
@@ -99,7 +102,7 @@ async function reset() {
   ]
   const seeded = await asService('/rest/v1/slots', { method: 'POST', body: rows, prefer: 'return=minimal' })
   assert.equal(seeded.status, 201, seeded.text)
-  return { a, b }
+  return fixture
 }
 
 // ── 1. slots: what a client can and cannot do ─────────────────────────────
@@ -136,6 +139,31 @@ test('slots: the privileged ownership functions are not callable by clients', { 
     assert.ok(denied(confirm.status), `confirm_payment → ${confirm.status}`)
   }
   assert.equal((await slot(PINSIR)).owner_id, b.id)
+})
+
+test('market: no session is an explicit refusal before anything is read or locked', { skip }, async () => {
+  const { b } = await reset()
+  const listing = await http('/rest/v1/rpc/publish_market_listing', { method: 'POST', jwt: b.jwt, body: { p_pokemon_id: PINSIR, p_price_tokens: 5 } })
+  assert.equal(listing.status, 200, listing.text)
+  const calls = [
+    ['publish_market_listing', { p_pokemon_id: UNOWNED, p_price_tokens: 1 }],
+    ['cancel_market_listing', { p_listing_id: listing.body.listing_id }],
+    ['buy_market_listing', { p_listing_id: listing.body.listing_id }],
+  ]
+  for (const [fn, args] of calls) {
+    // anon: no EXECUTE at all.
+    const anon = await http(`/rest/v1/rpc/${fn}`, { method: 'POST', body: args })
+    assert.ok(denied(anon.status), `anon ${fn} -> ${anon.status}`)
+    assert.equal(anon.body?.code, '42501', `anon ${fn}: ${anon.text}`)
+    // A caller that has EXECUTE but no user (the service key): the body's own check.
+    const sessionless = await asService(`/rest/v1/rpc/${fn}`, { method: 'POST', body: args })
+    assert.ok(sessionless.status >= 400, `sessionless ${fn} -> ${sessionless.status}`)
+    assert.equal(sessionless.body?.message, 'not_authenticated', `sessionless ${fn}: ${sessionless.text}`)
+  }
+  assert.deepEqual(await slot(UNOWNED), { pokemon_id: UNOWNED, owner_id: null, is_locked: false })
+  assert.deepEqual(await slot(PINSIR), { pokemon_id: PINSIR, owner_id: b.id, is_locked: true }, 'listing untouched')
+  const cancelled = await http('/rest/v1/rpc/cancel_market_listing', { method: 'POST', jwt: b.jwt, body: { p_listing_id: listing.body.listing_id } })
+  assert.equal(cancelled.status, 200, cancelled.text)
 })
 
 test('slots: the market functions only let the real owner list, and nobody buys without paying', { skip }, async () => {
@@ -363,6 +391,42 @@ test('ownership through the function follows slots, and a listed (locked) Pokém
   await http('/rest/v1/rpc/publish_market_listing', { method: 'POST', jwt: b.jwt, body: { p_pokemon_id: PINSIR, p_price_tokens: 5 } })
   assert.equal(await owns(b.id, PINSIR), false)
   assert.deepEqual((await edge('player_state', { userId: b.id })).body.state.pokemon, [BELLOSSOM])
+})
+
+test('feature gate: closed users cannot work or settle; testers can; opening the gate opens it to all', { skip }, async () => {
+  const { a, c } = await reset()
+  await asService('/rest/v1/slots', { method: 'POST', prefer: 'return=minimal', body: [{ pokemon_id: 7, owner_id: c.id, is_locked: false }] })
+  const access = async user => (await edge('access', { userId: user.id })).body.access
+  assert.equal(await access(a), 'tester')
+  assert.equal(await access(c), 'closed')
+  const closedState = (await edge('player_state', { userId: c.id })).body
+  assert.equal(closedState.access, 'closed')
+  assert.deepEqual(closedState.state.pokemon, [], 'a closed player has no workable Pokemon')
+  assert.equal((await edge('owns_pokemon', { userId: c.id, instanceId: 7 })).body.owns, false)
+  const refused = await commit(c.id, { actionId: randomUUID() })
+  assert.equal(refused.status, 403)
+  assert.deepEqual(refused.body, { error: 'world_skills_closed' })
+  assert.equal((await asService(`/rest/v1/player_skill_xp?select=xp&user_id=eq.${c.id}`)).body.length, 0)
+  // The gate row and the testers list are invisible and unwritable for clients.
+  for (const jwt of [null, c.jwt]) {
+    assert.ok(denied((await http('/rest/v1/world_skills_gate?select=enabled', { jwt })).status))
+    assert.ok(denied((await http('/rest/v1/world_skills_testers', { method: 'POST', jwt, body: { user_id: c.id } })).status))
+    assert.ok(denied((await http('/rest/v1/world_skills_gate?id=eq.world-skills', { method: 'PATCH', jwt, body: { enabled: true } })).status))
+    assert.ok(denied((await http('/rest/v1/rpc/world_skills_access', { method: 'POST', jwt, body: { p_user_id: c.id } })).status))
+  }
+  assert.equal(await access(c), 'closed')
+  // Operator opens it: everyone; closes it again: back to testers only.
+  const setGate = enabled => asService('/rest/v1/world_skills_gate?id=eq.world-skills', { method: 'PATCH', body: { enabled } })
+  try {
+    assert.ok((await setGate(true)).status < 300)
+    assert.equal(await access(c), 'open')
+    assert.deepEqual((await edge('player_state', { userId: c.id })).body.state.pokemon, [7])
+    assert.equal((await commit(c.id, { actionId: randomUUID() })).status, 200)
+  } finally {
+    assert.ok((await setGate(false)).status < 300)
+  }
+  assert.equal(await access(c), 'closed')
+  assert.equal(await access(a), 'tester')
 })
 
 // ── 4. The realtime world on the real database (production adapter) ──────

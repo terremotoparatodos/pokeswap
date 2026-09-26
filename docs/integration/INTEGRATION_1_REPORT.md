@@ -468,3 +468,176 @@ Riesgo residual: una cuenta revocada durante una sesión abierta sigue conectada
 4. **Un solo proceso realtime** (§17.1): la reserva de nodos vive en memoria.
 5. **El espejo cubre solo las tablas y funciones de ownership.** Otras tablas de prod no se re-auditaron en esta fase (SEC-1 las cubrió).
 6. Los riesgos de §17 que no son de seguridad siguen igual.
+
+> Actualización: los puntos 2 y 3 se resolvieron en §20 (latencia medida; ambos endurecimientos aplicados en prod).
+
+---
+
+## 20. RC-0.3 Hosted / Dark Launch
+
+> Sobre `8f37ad4`. **El público sigue en Playtest 0.2** (`dc6dc70`, tag `playtest-0.2`, realtime `be360fd`): no se tocó ni el frontend ni el realtime públicos. Nada se anunció ni se mergeó a playtest.
+> Estado: **backend hosted listo y en modo oscuro (gate cerrado)**. Faltan el realtime y el cliente de prueba aislados, y los tests hosted que necesitan cuentas de prueba (§20.12).
+
+### 20.1 Pre-flight
+
+| Chequeo | Resultado |
+|---|---|
+| `integration/world-skills-0.3` | `8f37ad4`, local = remoto, árbol limpio |
+| `playtest/community-0.1` (pública) | `dc6dc70` |
+| tag `playtest-0.2` | → `dc6dc70` |
+| hotfixes sin integrar | ninguno: `dc6dc70` es ancestro de `8f37ad4`; `main` no tiene commits fuera de integration |
+
+### 20.2 Cambios reales en producción
+
+Proyecto `qsufableozmyugcrhcai`, **PostgreSQL 17.6** (`17.6.1.155`, aarch64). Cuatro migraciones, aditivas o de reducción de permisos; ninguna destructiva ni de datos.
+
+| Versión en prod | Qué hace |
+|---|---|
+| `20260926001322_slots_client_write_revoke` | `slots`: anon/authenticated quedan **solo con SELECT** (se revocan INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN). |
+| `20260926001502_market_require_session` | `publish/cancel/buy_market_listing`: `not_authenticated` (42501) **antes de leer o bloquear nada**; EXECUTE revocado a anon/PUBLIC; authenticated y service_role lo conservan. |
+| `20260926002154_world_skills_authority` | La migración de RC-0.3 (4 tablas, 4 funciones, RLS, grants, 2 índices), sin cambios de contenido. |
+| `20260926002207_world_skills_gate` | Feature gate: `world_skills_gate` (1 fila, **cerrada**), `world_skills_testers`, `world_skills_access()`. Solo service_role. |
+
+Además:
+- **Edge Function** `world-authority` **v1**, `verify_jwt=false` (se autentica con su propio secreto), ACTIVE.
+- **Secreto nuevo:** `WORLD_AUTHORITY_SECRET` (64 caracteres, generado localmente). Solo en los secretos de funciones de Supabase; no está en el repo, ni en variables `VITE_*`, ni en logs, ni en este documento.
+- **No se tocó:** ningún dato; `slots` (197 filas / 36 con dueño / 5 bloqueadas, igual antes y después); otras tablas o funciones; Auth; el realtime; el frontend.
+
+### 20.3 Backup y punto de rollback
+
+Antes de migrar se guardó fuera del repo (scratchpad de la sesión):
+- snapshot del catálogo afectado (ACLs de tablas y funciones, policies, historial de migraciones);
+- las **definiciones originales** de las tres funciones del mercado, verificadas **byte a byte** contra prod (md5 del cuerpo idéntico: `478a543f…`, `19682882…`, `658898b6…`);
+- después de aplicar, se verificó que cada cuerpo nuevo **menos el bloque agregado** tiene exactamente el md5 original.
+
+Plan Free: sin PITR ni backups descargables; el rollback es por SQL (§20.13).
+
+### 20.4 Hardening de `slots`
+
+Dependencias confirmadas antes de revocar: el cliente solo **lee** `slots` (`pokemonApi`, `plazaApi`); las escrituras legítimas pasan por funciones SECURITY DEFINER (mercado) o por Edge Functions con service role (`pokeswap-swap`, `free-claim`); las 4 vistas (leaderboards, `global_stats`) solo leen; no hay triggers.
+
+Resultado en prod:
+- catálogo: anon y authenticated tienen **solo SELECT**; service_role intacto;
+- HTTP real como anon: INSERT, PATCH y DELETE → **401 / 42501**;
+- lecturas legítimas intactas: `slots`, `leaderboard_count/spent/types`, `global_stats` → 200.
+
+### 20.5 Hardening del mercado
+
+- anon llamando a las 3 funciones por HTTP → **401, `permission denied`** (el cuerpo ni se ejecuta);
+- con EXECUTE pero sin usuario → `not_authenticated` antes de tocar nada (requests reales en staging; en prod ver §20.12);
+- dueño válido → publica y cancela; otro usuario → `not_owner` / `not_seller` (staging, 20/20);
+- las Edge Functions `market-publish/cancel/buy` llaman con el JWT del usuario (rol authenticated): el flujo legítimo no cambia.
+
+### 20.6 Feature gate WORLD × SKILLS
+
+| Quién | Qué ve |
+|---|---|
+| Público | **0.2 sin cambios**: sigue en el cliente y el realtime 0.2, que no tienen WORLD × SKILLS. |
+| No tester en un stack 0.3 | `access = closed`: su progreso se ve, pero **no tiene Pokémon trabajadores** y **no puede liquidar trabajo completado** (403). |
+| Testers (`world_skills_testers`) | 0.3 completo. |
+| `enabled = true` | Abierto a todos: eso sería el release, y **no** se hace ahora. |
+
+Decisiones:
+- **Server-side y fail-closed:** lo aplica la Edge Function, junto a los datos; una respuesta ausente o rara cuenta como cerrado. Un realtime mal configurado no puede pagarle a un no tester.
+- **Cancelar siempre liquida** (paga 0), para que una acción cortada por el gate no quede colgada.
+- **Sin ids ni emails en el código:** los testers son filas que agrega el operador.
+- **Independiente** de `playtest_gate` (`community-0.1`), que sigue controlando el acceso a la web.
+- Mientras el público no entre a un stack 0.3, una sola bandera global (cerrada) alcanzaría; la lista de testers se agregó porque la prueba humana hosted necesita dejar entrar a cuentas concretas sin abrirlo a todos.
+
+### 20.7 Migración hosted vs staging
+
+- 4 migraciones aplicadas sin errores y registradas en el historial de prod.
+- En staging local, las mismas 4 en el mismo orden: 0 errores; solo los 3 NOTICE benignos de `DROP POLICY IF EXISTS`; re-aplicarlas funciona.
+- **Comparación de catálogo** (tablas + RLS, grants por rol, policies, constraints, índices, cuerpo y permisos de cada función): **62 líneas, md5 idéntico en prod y en staging** (`4708cba4…`).
+- Advisors de Supabase: lo nuevo aparece solo como esperado (tablas server-only sin policies = INFO; mercado ejecutable por authenticated = intencional). Preexistente y fuera de alcance: 4 vistas SECURITY DEFINER y `handle_new_user()` ejecutable por anon.
+
+### 20.8 Límite de secretos
+
+- `WORLD_AUTHORITY_SECRET` solo existe en los secretos de funciones de Supabase y en un archivo local fuera del repo.
+- Commit: 0 apariciones del secreto y 0 tokens tipo JWT o `sb_secret_` en las líneas agregadas.
+- Bundles normal y playtest (§19.9): sin service role, sin `WORLD_AUTHORITY*`; el único JWT es el anon. Esta fase no toca el cliente.
+- La función devuelve errores genéricos (`authority_failed`); su log guarda solo el código SQL.
+
+### 20.9 Edge Function hosted: pruebas directas
+
+| Request | Resultado |
+|---|---|
+| sin headers | 401 |
+| anon key sin secreto | 401 |
+| secreto incorrecto | 401 |
+| secreto correcto + 1 carácter | 401 |
+| GET con secreto | 405 |
+| secreto correcto, `load_nodes` | 200 `{"nodes":[]}` |
+| secreto correcto, `access` de un usuario cualquiera | 200 `closed` |
+| op inventada / commit mal formado | 400 |
+| commit **completed** de un usuario cerrado (XP 999999) | **403 `world_skills_closed`**, nada escrito |
+
+### 20.10 Security negatives hosted (HTTP real, anon)
+
+- Sobre `player_skill_xp`, `player_materials`, `skill_work_settlements`, `world_node_overrides`, `world_skills_gate` y `world_skills_testers`: leer, insertar, modificar y borrar → **401 / 42501** en todos los casos. Se usaron payloads válidos para que el único freno sea el permiso.
+- RPC `world_commit_work`, `world_player_state`, `world_owns_pokemon`, `world_load_nodes`, `world_skills_access`, `claim_slot` y `confirm_payment` → **401 / 42501**.
+- GraphQL no está habilitado en prod (`pg_graphql` off).
+- Después: tablas nuevas vacías, gate cerrado, `slots` sin cambios.
+
+Rol authenticated en hosted: verificado por **catálogo** (solo SELECT de filas propias en XP, materiales y settlements; nada en nodos ni gate; sin EXECUTE en funciones del mundo). Con requests reales, solo en staging (20/20), porque en prod requiere una sesión de una cuenta de prueba (§20.12).
+
+### 20.11 Latencia hosted (Edge Function, solo lecturas)
+
+50 requests secuenciales por operación, desde la PC de desarrollo (Argentina) a `us-west-2`:
+
+| Operación | p50 | p95 | máx |
+|---|---|---|---|
+| `load_nodes` | 428 ms | 1438 ms (el 1.º request, arranque en frío) | 1801 ms |
+| `access` | 431 ms | 834 ms | 888 ms |
+| `player_state` | 425 ms | 803 ms | 827 ms |
+
+Referencia: un GET REST trivial al mismo proyecto tarda ~247 ms (domina la red hasta Oregon); la función suma ~180 ms. En local eran ~3 ms. **No afecta el juego:** la liquidación es asíncrona y ocurre al terminar una acción que dura ≥ 1,2 s; solo retrasa el aviso de recompensa. `commit_work` (escritura) queda por medir con cuentas de prueba.
+
+### 20.12 Pendiente para completar el dark launch
+
+1. **Cuentas de prueba.** Crear cuentas o iniciar sesión en un servicio hosted queda fuera de lo que puedo hacer. Con dos cuentas designadas como testers se completan:
+   - settlement hosted (XP, material, settlement, nodo), el mismo `actionId` repetido, 2 y 20 envíos concurrentes, y la latencia de `commit_work`;
+   - atomicidad hosted, forzando un reward inválido (falla dentro de la transacción; no toca infraestructura);
+   - persistencia: agotado → reinicio de un proceso realtime de prueba → sigue agotado; `respawnAt` vencido → disponible; cultivo por timestamps.
+2. **Realtime 0.3 aislado:** Colyseus Cloud se configura desde su dashboard (no hay CLI ni credenciales acá). **No se reemplazó** la instancia pública; hace falta una segunda aplicación.
+3. **Cliente oscuro:** puede publicarse como *preview* de Cloudflare Pages, sin tocar `pokeswap.lol`, pero necesita la URL del realtime 0.3. Sin él, el cliente 0.3 caería en el realtime público y eso afectaría a los viewers.
+4. Negativos de authenticated y de "sin sesión" del mercado con emulación de rol en prod: el clasificador de permisos de la sesión los bloqueó (incluso dentro de una transacción revertida). Quedan cubiertos por catálogo + staging + md5 de los cuerpos.
+
+### 20.13 Rollback / apagado
+
+**Apagar WORLD × SKILLS (instantáneo, sin deploy):**
+```sql
+UPDATE public.world_skills_gate SET enabled = false, updated_at = now() WHERE id = 'world-skills';
+DELETE FROM public.world_skills_testers;
+```
+**Edge Function:** borrarla (`supabase functions delete world-authority`) o rotar `WORLD_AUTHORITY_SECRET`. Cualquiera de las dos deja al realtime 0.3 sin acceso, y falla cerrado (sin recompensas).
+
+**Hardening de `slots`** (volver a los defaults anteriores):
+```sql
+GRANT INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON TABLE public.slots TO anon, authenticated;
+```
+**Mercado:** re-aplicar las definiciones originales del backup (verificadas por md5) y `GRANT EXECUTE … TO PUBLIC, anon`.
+
+**Tablas y funciones nuevas:** forward-fix, no rollback destructivo. Si hiciera falta retirarlas: `REVOKE` a service_role y dejarlas vacías; borrarlas solo con una decisión explícita.
+
+### 20.14 0.2 sigue sana (smoke post-cambios)
+
+Desde `https://pokeswap.lol` (contexto de la página, como invitado):
+- página y banner `COMMUNITY PLAYTEST 0.2 · DC6DC70`, sin errores de consola;
+- lecturas de Supabase que usa 0.2: `playtest_gate`, `slots`, `pokemon`, `leaderboard_count`, `market_listings`, `profiles` → 200;
+- realtime público: `/version` → `be360fd` (sin cambios), matchmake 200, WebSocket abierto con `JOIN_ROOM` del servidor;
+- logs de Supabase de las 2 horas del cambio: 0 respuestas 5xx y 0 errores en Postgres o funciones.
+
+No verificado en vivo: login, movimiento, edificios y Ciudad ↔ Pradera con una cuenta (requiere código de acceso y sesión). El realtime y el cliente públicos no cambiaron, y los únicos objetos de BD que usa 0.2 y cambiaron (`slots`, mercado) conservan todo lo que 0.2 necesita.
+
+### 20.15 Observabilidad (realtime `/metrics`, puerto de salud interno)
+
+Ya existían: requests de trabajo, rechazos por motivo, completados, reintentos y fallos de liquidación, acciones activas, cancelaciones, respawns, y latencia y fallos por operación hacia la Edge Function (p50/p95/máx). Agregado en esta fase: **settlements duplicados** (`duplicateSettlements`) y **nodos por estado** (`nodesByState`, p. ej. `{ depleted: 3, planted: 1 }`). Son solo agregados: sin ids, tokens, secretos ni datos personales.
+
+### 20.16 Riesgos residuales
+
+1. Sin medir todavía: la latencia de escritura (`commit_work`) hosted y la del realtime en Miami → Oregon.
+2. Faltan la prueba humana hosted (PC + iPhone) y el realtime aislado.
+3. Preexistente, fuera de alcance: vistas SECURITY DEFINER, `handle_new_user()` ejecutable por anon, y tablas con grants por defecto amplios (neutralizados por RLS).
+4. Un solo proceso realtime (§17.1).
+5. Polish, cargas, balance, sinks, crafting, cristales compartidos y dungeons: **no implementados** (registrados en §18).

@@ -93,6 +93,7 @@ test('Talar: A chops with its Pokémon, B sees it, B is refused, ONE settlement 
   const saved = await s.data.playerState(A)
   assert.equal(saved.xp.woodcutting, 10)
   assert.ok(saved.materials.common_log >= 1)
+  assert.deepEqual(s.world.stats().nodesByState, { depleted: 1 })
   const persisted = await s.data.loadNodes()
   assert.equal(persisted.find(n => n.nodeId === TREE.node.id).state, 'depleted')
 
@@ -267,7 +268,9 @@ test('exactly once: duplicate completions, and a retry after the store timed out
   await quiet(s.world)
   const saved = await real.playerState(A)
   assert.equal(saved.xp.woodcutting, 10, 'one reward')
-  assert.equal(saved.materials.common_log, 1)
+  // One roll paid once: base 1 log, +1 when the specialist's aptitude bonus rolls.
+  assert.ok([1, 2].includes(saved.materials.common_log), `one drop, got ${saved.materials.common_log}`)
   assert.equal(messagesOf(a.client, WORLD_MESSAGE.WORK_DONE).length, 1)
+  assert.equal(s.world.stats().actions.duplicateSettlements, 1, 'the retry found the settlement already stored')
   await real.close()
 })

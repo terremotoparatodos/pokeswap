@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 /**
  * LOCAL/TEST ONLY: an embedded Postgres (PGlite) with the Supabase stubs and
- * the real WORLD × SKILLS migration applied.
+ * the real WORLD × SKILLS migrations (tables + feature gate) applied.
  *
  * Used by the realtime tests and by the LAN test stack, so settlement,
  * idempotency, RLS and restarts run against the same SQL production will run,
@@ -15,14 +15,18 @@ import { fileURLToPath } from 'node:url'
  * outside production (see worldConfig.js).
  */
 const STUBS = new URL('./supabaseStubs.sql', import.meta.url)
-const MIGRATION = new URL('../../../../../../supabase/migrations/20260926000001_world_skills_authority.sql', import.meta.url)
+// In order: the WORLD x SKILLS tables and functions, then its feature gate.
+const MIGRATIONS = [
+  new URL('../../../../../../supabase/migrations/20260926002154_world_skills_authority.sql', import.meta.url),
+  new URL('../../../../../../supabase/migrations/20260926002207_world_skills_gate.sql', import.meta.url),
+]
 
 export async function openLocalDatabase(dataDir = null) {
   const { PGlite } = await import('@electric-sql/pglite')
   if (dataDir) await mkdir(dirname(dataDir), { recursive: true })
   const db = dataDir ? new PGlite(dataDir) : new PGlite()
   await db.exec(await readFile(fileURLToPath(STUBS), 'utf8'))
-  await db.exec(await readFile(fileURLToPath(MIGRATION), 'utf8'))
+  for (const migration of MIGRATIONS) await db.exec(await readFile(fileURLToPath(migration), 'utf8'))
   return db
 }
 

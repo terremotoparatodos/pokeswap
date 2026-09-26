@@ -23,9 +23,12 @@ cp ../scripts/integration/rc03-staging/01_prod_mirror.sql supabase/migrations/20
 cp ../scripts/integration/rc03-staging/02_prod_mirror_functions.sql supabase/migrations/20260101000001_prod_mirror_functions.sql
 supabase start -x studio,imgproxy,vector,logflare,mailpit,realtime,storage-api,postgres-meta,supavisor
 
-# 2. The migration under test, applied explicitly (errors stop it; NOTICEs are printed).
-docker exec -i supabase_db_stage psql -U postgres -v ON_ERROR_STOP=1 --single-transaction -f - \
-  < ../supabase/migrations/20260926000001_world_skills_authority.sql
+# 2. The migrations under test, in production order (errors stop them; NOTICEs are printed).
+for m in 20260926001322_slots_client_write_revoke 20260926001502_market_require_session \
+         20260926002154_world_skills_authority 20260926002207_world_skills_gate; do
+  docker exec -i supabase_db_stage psql -U postgres -v ON_ERROR_STOP=1 --single-transaction -f - \
+    < ../supabase/migrations/$m.sql
+done
 
 # 3. The function with a throwaway secret.
 node -e "console.log('WORLD_AUTHORITY_SECRET='+require('crypto').randomBytes(36).toString('base64url'))" > functions.env

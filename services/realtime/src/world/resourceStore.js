@@ -76,6 +76,13 @@ export class ResourceStore {
   get size() {
     return this.#records.size
   }
+
+  /** How many stored (non-base) records are in each state, e.g. `{ depleted: 3, planted: 1 }`. */
+  countByState() {
+    const counts = {}
+    for (const record of this.#records.values()) counts[record.state] = (counts[record.state] ?? 0) + 1
+    return counts
+  }
 }
 
 export function chunkKey(areaId, chunkId) {
