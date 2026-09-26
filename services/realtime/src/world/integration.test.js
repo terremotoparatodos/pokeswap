@@ -11,7 +11,6 @@ import { createSkillsWorldPolicy, skillsResourceFor } from './skills/skills.gene
 import { fakeClient, lastMessage, manualClock, messagesOf, praderaNodesNearSpawn, settle } from './testing.js'
 import { WORLD_MESSAGE } from './worldProtocol.js'
 import { WorldRoom } from './worldRoom.js'
-import { hiddenBehindCanopy, standableTile, workerStand } from './workerStand.js'
 
 // INTEGRATION-1 end to end on the server: WORLD's room and authority, the
 // real SKILLS rules (the generated bundle), and the real migration on an
@@ -79,7 +78,7 @@ test('Talar: A chops with its Pokémon, B sees it, B is refused, ONE settlement 
   assert.equal(started.details.skillId, 'woodcutting')
   s.world.flush()
   assert.deepEqual(nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH), TREE.node.id).worker, {
-    playerId: A, pokemonInstanceId: SCYTHER, speciesId: SCYTHER, stand: workerStand(TREE.node, TREE.stands[0], standableTile('pradera'), hiddenBehindCanopy('pradera')),
+    playerId: A, pokemonInstanceId: SCYTHER, speciesId: SCYTHER, stand: { ...TREE.stands[0], dir: nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH), TREE.node.id).worker.stand.dir },
   })
 
   await s.world.work(b.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 1 })
@@ -192,6 +191,8 @@ test('Agricultura: plant → both see it growing → restart → ready by server
     await again.finish(harvesting.endsAt - harvesting.startedAt)
     const harvest = lastMessage(a2.client, WORLD_MESSAGE.WORK_DONE)
     assert.equal(harvest.summary.rewards[0].itemId, 'oran_berry')
+    // The trainer waited a tile back (WORLD VISUAL-2) and stays there: step up to the plot again.
+    Object.assign(a2.actor, PLOT_STAND)
     // A second harvest of the same plot is physically impossible now: it is empty.
     await again.world.work(a2.actor, { nodeId: PLOT.id, pokemonInstanceId: MILTANK, requestId: 2 })
     assert.equal(lastMessage(a2.client, WORLD_MESSAGE.WORK_RESULT).reason, 'choose-crop')

@@ -152,6 +152,7 @@ export class WildlandsGame {
     area: () => this.area,
     playerTile: id => id === this.localPresenceActorId ? this.player : this.remoteActorsById.get(id) ?? null,
     isSolid: (tx, ty) => this.solidAt(tx, ty),
+    reduceMotion: () => this.reduceMotion,
   }
   /** Placed objects are left out on purpose: they differ between builds, the patrol must not. */
   private readonly sharedPopulace: SharedPopulace = {
@@ -504,6 +505,9 @@ export class WildlandsGame {
     // A local prediction may be one or more steps ahead while the server is
     // processing prior input. Never rewind it to an older acknowledgement.
     if (actor.moveSequence < this.nextMoveSequence) return
+    // A move the server made itself (WORLD VISUAL-2: stepping aside for a
+    // worker) advances the sequence; number the next step after it.
+    this.nextMoveSequence = actor.moveSequence
     if (this.area.id !== actor.areaId) {
       this.enterArea(actor.areaId, null, { tx: actor.tx, ty: actor.ty, dir: actor.dir })
       this.player.speed = actor.speed
@@ -515,7 +519,15 @@ export class WildlandsGame {
     // It is not a server disagreement; reconciling it would cancel click-paths
     // and make running restart every tile.
     const differs = player.tx !== actor.tx || player.ty !== actor.ty
-    if (differs) {
+    if (differs && !this.reduceMotion && !isMoving(player) && Math.abs(player.tx - actor.tx) + Math.abs(player.ty - actor.ty) === 1) {
+      // One tile (the server stepping the trainer aside): a short step, not a jump.
+      this.presenceDiagnostics.reconciled()
+      this.nav.cancel()
+      player.fromTx = player.tx; player.fromTy = player.ty
+      player.tx = actor.tx; player.ty = actor.ty
+      player.progress = 0
+      player.dir = actor.dir
+    } else if (differs) {
       this.presenceDiagnostics.reconciled()
       this.placePlayer({ tx: actor.tx, ty: actor.ty, dir: actor.dir })
     }

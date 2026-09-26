@@ -25,6 +25,7 @@ const REFUSAL: Readonly<Record<string, string>> = {
   busy: 'Otro Pokémon ya está trabajando acá.',
   depleted: 'Agotado. Vuelve en un rato.',
   'too-far': 'Acercate un poco más.',
+  'no-room': 'No hay lugar para que tu Pokémon trabaje desde acá. Probá desde otro lado.',
   'wrong-area': 'Eso está en otra zona.',
   'not-owner': 'Ese Pokémon no es tuyo.',
   'actor-busy': 'Ya estás trabajando en algo.',
