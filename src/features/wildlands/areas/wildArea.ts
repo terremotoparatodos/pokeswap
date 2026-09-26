@@ -34,7 +34,8 @@ export class WildArea implements Area {
     this.id = def.id
     this.name = def.name
     this.lens = def.lens ?? 'handheld'
-    this.world = new World(def.seed)
+    // Shared areas draw the same authored resource-zone layer the server validates (MAP-2).
+    this.world = new World(def.seed, def.id)
     this.chunks = new ChunkStore(this.world)
     const spawn = this.world.findSpawn(def.prefer)
     this.start = { ...spawn, dir: 'down' }

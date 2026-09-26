@@ -55,6 +55,14 @@ function baseRock(recipe: BlobRecipe): Uint32Array {
   return shade(recipe.w, recipe.h, ellipses(recipe.shape), { tones: recipe.tones, outline: recipe.outline })
 }
 
+/** The rock exactly as the world draws it, with no nuggets: what a backdrop rock is made from (MAP-2). */
+export function plainRockArt(anchor: RockAnchor): PixelArt {
+  return memo(`plain|${anchor}`, () => {
+    const recipe = ROCK_RECIPES[anchor]
+    return pixelArt(recipe.w, recipe.h, baseRock(recipe), recipe.w / 2, recipe.h - 1)
+  })
+}
+
 /** Deterministic nugget spots on the lit upper half of the volume, at least 3px apart. */
 function nuggetSpots(pixels: Uint32Array, w: number, h: number, outline: number, count: number, salt: number): [number, number][] {
   const candidates: [number, number, number][] = []

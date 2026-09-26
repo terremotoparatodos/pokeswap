@@ -8,6 +8,7 @@ import {
   biomeAt, decorAt, findSpawn, isSolidDecor as sharedIsSolidDecor, isSolidTile, isWaterTerrain as sharedIsWaterTerrain,
   isWaterTile, T as SHARED_T, tileTerrain, vertexTerrain,
 } from '../../../../services/realtime/src/world/terrain.js'
+import { decorAtArea, isSolidAtArea } from '../../../../services/realtime/src/world/resourceZones.js'
 
 export const TILE = 16
 
@@ -43,9 +44,16 @@ export function isWaterTerrain(t: Terrain): boolean {
  */
 export class World {
   readonly seed: number
+  /**
+   * MAP-2: the shared area whose authored resource-zone layer (cleared tiles,
+   * planted trees, quarry rocks) sits on top of the generator. Null draws the
+   * pure procedural world (the fingerprint test, tools, other wild areas).
+   */
+  readonly areaId: string | null
 
-  constructor(seed: number) {
+  constructor(seed: number, areaId: string | null = null) {
     this.seed = seed
+    this.areaId = areaId
   }
 
   /** Biome at a (fractional) vertex coordinate. */
@@ -67,10 +75,12 @@ export class World {
    * props never float over an autotile edge.
    */
   decorAt(tx: number, ty: number, corners?: readonly Terrain[]): DecorKind | null {
+    if (this.areaId) return decorAtArea(this.areaId, this.seed, tx, ty, corners) as DecorKind | null
     return decorAt(this.seed, tx, ty, corners)
   }
 
   isSolid(tx: number, ty: number): boolean {
+    if (this.areaId) return isSolidAtArea(this.areaId, this.seed, tx, ty)
     return isSolidTile(this.seed, tx, ty)
   }
 

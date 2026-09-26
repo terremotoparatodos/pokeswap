@@ -6,6 +6,7 @@ import type { WorldProbeTarget } from '../../wildlands/engine/worldProbes'
 import { toneForBiome, type CaveTone } from '../art/caveEntranceArt'
 import { areaEntrances, COMMUNITY_PLAYTEST_MINUTES, type AreaEntrance } from '../domain/entranceSpawns'
 import { CaveOverlay } from '../world/caveOverlay'
+import { isPlannedTile } from '../../../../services/realtime/src/world/resourceZones.js'
 
 // The physical presence of Dungeons in WildLands, and nothing else: it derives
 // the caves of the area the player is in, hands them to the engine as solid
@@ -75,7 +76,8 @@ function placedObjects(area: Area): readonly PlacedObjectSpec[] {
     port: {
       isSolid: (tx, ty) => area.isSolid(tx, ty),
       isWater: (tx, ty) => area.isWater(tx, ty),
-      isTaken: (tx, ty) => isPortal(area, tx, ty) || (taken?.(area, tx, ty) ?? false),
+      // Resource zones, their routes and reserves are planned ground (MAP-2): no cave lands there.
+      isTaken: (tx, ty) => isPortal(area, tx, ty) || isPlannedTile(area.id, tx, ty) || (taken?.(area, tx, ty) ?? false),
     },
   })
   tone.value = toneForBiome(TONE_BY_AREA[area.id] ?? 'grassland')

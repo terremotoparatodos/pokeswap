@@ -1,6 +1,7 @@
 import { WORLD_CHUNK_TILES, chunkOf, worldArea } from './areas.js'
-import { biomeAt, decorAt, hash2 } from './terrain.js'
+import { biomeAt, hash2 } from './terrain.js'
 import { plotById } from './plots.js'
+import { decorAtArea, hasResourceZones, resourceZoneAt } from './resourceZones.js'
 export { RESPAWN_MS } from './worldTuning.js'
 
 /**
@@ -58,13 +59,20 @@ export function resourceId(areaId, tx, ty, variantId) {
 /**
  * The node on a tile, or null. O(1): this is what the service evaluates when a
  * client names a node, and what a client evaluates for a prop it draws.
+ *
+ * MAP-2: in an area with resource zones (`resourceZones.js`) the prop comes
+ * from the zone layer, and every prop a zone lists is a node there — none
+ * outside the zones. Areas without zones keep the density roll.
  */
 export function resourceAt(areaId, tx, ty) {
   const area = worldArea(areaId)
   if (!area?.procedural || !Number.isInteger(tx) || !Number.isInteger(ty)) return null
-  const variantId = decorAt(area.seed, tx, ty)
+  const variantId = decorAtArea(areaId, area.seed, tx, ty)
   const variant = variantId ? RESOURCE_VARIANTS[variantId] : undefined
-  if (!variant || hash2(tx, ty, area.seed + NODE_SALT) >= variant.density) return null
+  if (!variant) return null
+  if (hasResourceZones(areaId)) {
+    if (!resourceZoneAt(areaId, tx, ty)?.nodes.includes(variantId)) return null
+  } else if (hash2(tx, ty, area.seed + NODE_SALT) >= variant.density) return null
   return Object.freeze({
     id: resourceId(areaId, tx, ty, variantId),
     resourceKind: variant.kind,

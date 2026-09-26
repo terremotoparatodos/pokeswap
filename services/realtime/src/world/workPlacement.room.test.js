@@ -81,16 +81,21 @@ test('the server’s own move keeps the action; the trainer walking off the wait
 })
 
 test('no free tile for the trainer: a clean refusal before anything is authorized or held', async () => {
+  // MAP-2 zones leave every node a free side on terrain alone; the tiles taken by a
+  // running action (its Pokémon and its waiting trainer) are what can box one in.
   const { world, join, skills, placed } = setup()
-  const rock = resourceById('pradera:-46:-124:icerock')
-  const from = { tx: -46, ty: -123 }
-  assert.equal(workPlacement(rock, from, isOpen), null, 'fixture: boxed in on real terrain')
+  const tree = resourceById('pradera:-16:-54:tree')
+  const pine = resourceById('pradera:-15:-54:pine')
+  const b = join('b', { tx: -16, ty: -53 })
+  assert.equal((await work(world, b.actor, tree.id, 6)).ok, true)
+  assert.deepEqual({ tx: b.actor.tx, ty: b.actor.ty }, { tx: -16, ty: -52 }, 'fixture: B waits south of its Pokémon')
+  const from = { tx: -15, ty: -53 }
   const a = join('a', from)
-  const reply = await work(world, a.actor, rock.id)
+  const reply = await work(world, a.actor, pine.id)
   assert.deepEqual({ ok: reply.ok, reason: reply.reason }, { ok: false, reason: 'no-room' })
-  assert.equal(world.authority.store.get(rock.id), null)
+  assert.equal(world.authority.store.get(pine.id), null)
   assert.equal(skills.cancelled.length, 0)
-  assert.deepEqual(placed, [])
+  assert.deepEqual(placed.map(p => p.id), ['b'], 'only B was ever moved')
   assert.deepEqual({ tx: a.actor.tx, ty: a.actor.ty }, from, 'the trainer was not moved')
 })
 
