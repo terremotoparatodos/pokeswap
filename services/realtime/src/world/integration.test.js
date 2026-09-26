@@ -11,6 +11,7 @@ import { createSkillsWorldPolicy, skillsResourceFor } from './skills/skills.gene
 import { fakeClient, lastMessage, manualClock, messagesOf, praderaNodesNearSpawn, settle } from './testing.js'
 import { WORLD_MESSAGE } from './worldProtocol.js'
 import { WorldRoom } from './worldRoom.js'
+import { hiddenBehindCanopy, standableTile, workerStand } from './workerStand.js'
 
 // INTEGRATION-1 end to end on the server: WORLD's room and authority, the
 // real SKILLS rules (the generated bundle), and the real migration on an
@@ -77,7 +78,9 @@ test('Talar: A chops with its Pokémon, B sees it, B is refused, ONE settlement 
   assert.equal(started.ok, true, JSON.stringify(started))
   assert.equal(started.details.skillId, 'woodcutting')
   s.world.flush()
-  assert.deepEqual(nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH), TREE.node.id).worker, { playerId: A, pokemonInstanceId: SCYTHER, speciesId: SCYTHER })
+  assert.deepEqual(nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH), TREE.node.id).worker, {
+    playerId: A, pokemonInstanceId: SCYTHER, speciesId: SCYTHER, stand: workerStand(TREE.node, TREE.stands[0], standableTile('pradera'), hiddenBehindCanopy('pradera')),
+  })
 
   await s.world.work(b.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 1 })
   assert.equal(lastMessage(b.client, WORLD_MESSAGE.WORK_RESULT).reason, 'busy')

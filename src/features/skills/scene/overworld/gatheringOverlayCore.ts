@@ -2,7 +2,8 @@
 // inside the WildLands renderer — which tiles host their nodes, the cached
 // visual state of each visible node, the life of one action (start, result,
 // linger, done, cancel), the selection rings, the proximity bubbles and rare
-// glints, the working Pokémon and the reward pops.
+// glints and the reward pops. The working Pokémon itself is drawn by WORLD
+// (`world/render/workerActors`), the same for its owner and for everyone else.
 //
 // Each skill keeps what makes it look like itself: its art, its timeline and
 // pose, its particles, how it restyles the host prop, the falling tree.
@@ -23,8 +24,6 @@ import { RARITY_FEEDBACK, type DropRarity } from '../mining/miningRarity'
 import type { OverlayPlayer } from '../mining/miningOverlay'
 import type { NodeState, NodeStatus, NodeTarget } from '../nodeTarget'
 import { RewardPops } from './rewardPops'
-import { WorkerCompanion } from './workerCompanion'
-import { openGround, summonWorkerOnce } from './workerSummon'
 
 export interface GatheringOverlayDeps {
   /** The node's state from whoever owns nodes (pre-WORLD stand-in, then WORLD-1). */
@@ -50,8 +49,6 @@ export interface StartGathering<Timeline extends GatheringTimeline = GatheringTi
   readonly tx: number
   readonly ty: number
   readonly timeline: Timeline
-  /** The Pokémon doing the work, drawn beside the player. */
-  readonly workerSpeciesId: number | null
   /** Settles the action when the timeline reaches its result; null when nothing was granted. */
   /**
    * The action's reward at the scene's result beat. `undefined` means the
@@ -67,8 +64,6 @@ export type ActiveGathering<Start extends StartGathering = StartGathering> = Sta
   lastMs: number
   resultApplied: boolean
   linger: number
-  /** The worker spot is chosen on the first drawn frame, when the area is known. */
-  summoned: boolean
 }
 
 /** What every node visual state shares. */
@@ -125,7 +120,6 @@ export abstract class GatheringOverlayCore<
   private readonly placements = new Map<string, NodeTarget | null>()
   private readonly views = new Map<string, { at: number; view: View }>()
   protected readonly flashes = new WeakMap<PixelArt, PixelArt>()
-  protected readonly companion = new WorkerCompanion()
   protected readonly pops = new RewardPops()
   protected visible = new Map<string, Visible>()
   private previous = new Map<string, Visible>()
@@ -154,7 +148,7 @@ export abstract class GatheringOverlayCore<
 
   /** The running action's record; professions with extra per-action state extend it. */
   protected activate(options: Start): Action {
-    return { ...options, startedAt: this.seconds, lastMs: 0, resultApplied: false, linger: 0, summoned: false } as Action
+    return { ...options, startedAt: this.seconds, lastMs: 0, resultApplied: false, linger: 0 } as Action
   }
 
   // ── Public surface (unchanged from the per-profession overlays) ───────
@@ -182,19 +176,12 @@ export abstract class GatheringOverlayCore<
   start(options: Start): void {
     this.action = this.activate(options)
     this.views.delete(options.target.nodeId)
-    if (options.workerSpeciesId !== null) this.companion.preload(options.workerSpeciesId)
   }
 
-  /** Warms a worker sheet ahead of the first action. */
-  preloadWorker(speciesId: number): void {
-    this.companion.preload(speciesId)
-  }
-
-  /** Stops any running action immediately (e.g. the view unmounts); the worker fades out. */
+  /** Stops any running action immediately (e.g. the view unmounts). */
   cancel(): void {
     const action = this.action
     this.action = null
-    this.companion.dismiss(this.seconds)
     if (action && !action.resultApplied) action.onDone()
   }
 
@@ -267,14 +254,6 @@ export abstract class GatheringOverlayCore<
     }
   }
 
-  /** Places the worker beside the player once per action: never on a node, water or solid tiles. */
-  protected summonWorker(area: Area): void {
-    const action = this.action
-    const player = this.deps.player()
-    if (!action || !player) return
-    summonWorkerOnce(this.companion, action, player, action, openGround(area, (tx, ty) => this.targetAt(area, tx, ty) !== null))
-  }
-
   // ── Lifecycle ──────────────────────────────────────────────────────────
 
   /** A new game restarts the scene clock, so cached frames must be dropped. */
@@ -317,7 +296,6 @@ export abstract class GatheringOverlayCore<
     action.lastMs = elapsed
     if (elapsed >= action.timeline.totalMs + action.linger) {
       this.action = null
-      this.companion.dismiss(seconds)
       action.onDone()
     }
   }

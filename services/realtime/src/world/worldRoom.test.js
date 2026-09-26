@@ -55,7 +55,7 @@ test('A works a tree, B sees it working, B is refused, A finishes, B sees it dep
   const seen = nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH))
   assert.deepEqual(
     { state: seen.state, worker: seen.worker, workKind: seen.workKind, startedAt: seen.startedAt, endsAt: seen.endsAt },
-    { state: 'working', worker: { playerId: 'a', pokemonInstanceId: 25, speciesId: 25 }, workKind: 'chop', startedAt: started.startedAt, endsAt: started.endsAt },
+    { state: 'working', worker: { playerId: 'a', pokemonInstanceId: 25, speciesId: 25, stand: seen.worker.stand }, workKind: 'chop', startedAt: started.startedAt, endsAt: started.endsAt },
   )
   // The node only carries what everyone may know: no reward, no summary.
   assert.equal('summary' in seen, false)

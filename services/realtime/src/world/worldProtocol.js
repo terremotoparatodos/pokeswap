@@ -61,6 +61,9 @@ export function publicNode(record) {
     node.actionId = record.actionId
     node.workKind = record.workKind
     node.worker = { playerId: record.worker.playerId, pokemonInstanceId: record.worker.pokemonInstanceId, speciesId: record.worker.speciesId }
+    // Additive and visual (WORLD VISUAL-1): a client that does not read it keeps its own placement.
+    const stand = record.worker.stand
+    if (stand) node.worker.stand = { tx: stand.tx, ty: stand.ty, dir: stand.dir }
     node.startedAt = record.actionStartedAt
     node.endsAt = record.actionEndsAt
   }

@@ -287,10 +287,9 @@ const pokedex = shallowRef<readonly PokedexEntry[]>([])
  * actions). Rides the presence socket; a server without it just never sends.
  */
 const sharedWorld = new SharedWorld(
-  id => {
-    const entry = pokedex.value.find(pokemon => pokemon.id === id)
-    return entry ? loadPokemonInfo(entry, false) : Promise.resolve(null)
-  },
+  // Workers, the local player's own included (WORLD VISUAL-1): the bundled overworld
+  // sheet needs only the species id, as the retired Skills companion did.
+  id => loadPokemonInfo(pokedex.value.find(pokemon => pokemon.id === id) ?? { id, name_es: String(id), sprite_url: null }, false),
   id => pokeballInfo({ id, name_es: pokedex.value.find(pokemon => pokemon.id === id)?.name_es ?? String(id) }),
 )
 /** The hour's shared wild pool (WORLD-1D); null keeps the plaza's local fallback. */

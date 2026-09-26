@@ -140,12 +140,9 @@ export class LoggingOverlay extends GatheringOverlayCore<StartLogging, ActiveAct
     return { sprite: toSprite(art), dx, dy }
   }
 
-  sprites(area: Area, seconds: number): readonly OverlaySprite[] {
+  sprites(_area: Area, seconds: number): readonly OverlaySprite[] {
     const out: OverlaySprite[] = []
-    this.summonWorker(area)
     this.pushMarkers(out, seconds, () => ({ special: false, heightRatio: 0.55 }))
-
-    out.push(...this.companion.sprites(seconds))
 
     const barkTone = WOOD_TIERS.common.streak
     for (const p of this.particles) {

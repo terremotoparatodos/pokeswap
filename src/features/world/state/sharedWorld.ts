@@ -45,7 +45,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
 
   constructor(load: LoadPokemon, placeholder: PlaceholderPokemon) {
     this.workers = new WorkerActors(load, placeholder)
-    // The local player's own action is drawn by its Skills layer; WORLD draws everyone else's.
+    // Node effects of the local player's own gathering are its Skills layer's; the worker itself is always WORLD's.
     this.overlay = new WorldResourceOverlay(this.resources, this.clock, () => this.player?.playerId ?? null)
   }
 
@@ -184,10 +184,8 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     const key = `${this.resources.revision}|${areaId}`
     if (this.workersKey !== key) {
       this.workersKey = key
-      const own = this.player?.playerId ?? null
-      // Own gathering is animated by the Skills layer; own farming has no such scene, so WORLD draws it.
-      const others = [...(areaId === this.resources.areaId ? this.resources.active() : [])].filter(node => node.worker?.playerId !== own || node.id.endsWith(':plot'))
-      this.workers.sync(others)
+      // Every worker, the local player's own included: one representation for owner and observers.
+      this.workers.sync(areaId === this.resources.areaId ? this.resources.active() : [])
     }
     this.workers.update(now, id => context.playerTile(id), (tx, ty) => context.isSolid(tx, ty))
   }

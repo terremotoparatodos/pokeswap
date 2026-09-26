@@ -5,6 +5,7 @@ import { RESPAWN_MS, WORK_KIND, nodeById } from './resourceLayout.js'
 import { WORKING, afterTimer, afterWork, canStartWork, lifecycleFor } from './resourceLifecycle.js'
 import { ResourceStore } from './resourceStore.js'
 import { readAuthorization, readSettlement } from './skillPolicy.js'
+import { hiddenBehindCanopy, standableTile, workerStand } from './workerStand.js'
 
 /** A worker stands orthogonally beside the node, as the client's `isBeside` requires. */
 export const WORK_REACH = 1
@@ -121,6 +122,8 @@ export class ResourceAuthority {
             const action = {
               actionId, playerId: actor.id, node, pokemon, workKind, workedFrom: recheck.state, plotBefore: recheck.plot ?? null,
               farmAction: recheck.farm?.action ?? null, plotGrant: answer.plot ?? null, phase: 'running', startedAt: null, endsAt: null,
+              // Visual only, decided once from the validated tile: never recomputed (WORLD VISUAL-1).
+              stand: workerStand(node, live, standableTile(node.areaId), hiddenBehindCanopy(node.areaId)),
             }
             return this.#start(action, answer.durationMs, intent.requestId, answer.details)
           }
@@ -278,7 +281,7 @@ export class ResourceAuthority {
     this.byPokemon.set(action.pokemon.instanceId, action.actionId)
     const record = this.store.write(action.node, {
       state: WORKING, workedFrom: action.workedFrom, actionId: action.actionId, workKind: action.workKind,
-      worker: { playerId: action.playerId, pokemonInstanceId: action.pokemon.instanceId, speciesId: action.pokemon.speciesId },
+      worker: { playerId: action.playerId, pokemonInstanceId: action.pokemon.instanceId, speciesId: action.pokemon.speciesId, stand: action.stand },
       actionStartedAt: startedAt, actionEndsAt: action.endsAt, plot: action.plotBefore,
     })
     this.queue.push(action.endsAt, { type: 'complete', actionId: action.actionId })
