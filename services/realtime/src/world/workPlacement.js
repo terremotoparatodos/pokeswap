@@ -1,7 +1,8 @@
 import { worldArea } from './areas.js'
 import { PLOTS } from './plots.js'
 import { resourceAt } from './resourceLayout.js'
-import { isSolidTile, isWaterTile } from './terrain.js'
+import { isWaterTile } from './terrain.js'
+import { isSolidAtArea } from './resourceZones.js'
 
 /**
  * Where the worker and its trainer stand while a node is worked (WORLD VISUAL-2).
@@ -47,6 +48,6 @@ export function workPlacement(node, trainer, isOpen) {
 export function standableTile(areaId) {
   const area = worldArea(areaId)
   if (!area?.procedural) return () => false
-  return (tx, ty) => !isSolidTile(area.seed, tx, ty) && !isWaterTile(area.seed, tx, ty)
+  return (tx, ty) => !isSolidAtArea(areaId, area.seed, tx, ty) && !isWaterTile(area.seed, tx, ty)
     && !resourceAt(areaId, tx, ty) && !PLOTS.some(plot => plot.areaId === areaId && plot.tx === tx && plot.ty === ty)
 }

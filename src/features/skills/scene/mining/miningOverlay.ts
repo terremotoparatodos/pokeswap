@@ -18,7 +18,8 @@ import type { DecorStyle, OverlaySprite } from '../../../wildlands/engine/sceneO
 import { createSeededRandom } from '../../domain/rng'
 import { chipArt, dustArt, glintArt, RARITY_CHIP_TONES, sparkArt } from '../art/miningFx'
 import { resourceIconArt } from '../art/miningItems'
-import { isMiningAnchor, isMiningNodeId, miningNodeArt, RESPAWN_FRAMES } from '../art/miningNodes'
+import { isMiningAnchor, isMiningNodeId, miningNodeArt, RESPAWN_FRAMES, type RockAnchor } from '../art/miningNodes'
+import { backdropRockArt } from '../art/backdropArt'
 import { toSprite } from '../art/pixelArt'
 import {
   GatheringOverlayCore,
@@ -96,7 +97,7 @@ export class MiningOverlay extends GatheringOverlayCore<StartMining, ActiveActio
   decor(decor: DecorInstance, area: Area): DecorStyle | null {
     if (!isMiningAnchor(decor.kind)) return null
     const target = this.targetAt(area, decor.tx, decor.ty)
-    if (!target || !isMiningNodeId(target.resource.id)) return null
+    if (!target || !isMiningNodeId(target.resource.id)) return decor.kind === 'crystal' ? null : this.backdrop(decor.kind, area, () => backdropRockArt(decor.kind as RockAnchor))
     const view = this.viewFor(target, decor.tx, decor.ty)
     let art = miningNodeArt(target.resource.id, decor.kind, view.art, respawnFrame(view.respawnProgress, RESPAWN_FRAMES))
     let dx = 0

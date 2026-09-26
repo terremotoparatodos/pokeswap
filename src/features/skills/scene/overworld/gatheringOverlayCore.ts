@@ -19,6 +19,9 @@ import { bubbleArt, glintArt, type BubbleKind } from '../art/miningFx'
 import { brighten, toSprite, type PixelArt } from '../art/pixelArt'
 import type { ItemStack } from '../../domain/materials'
 import { resourceAt } from '../../../../../services/realtime/src/world/resourceLayout.js'
+import { RESOURCE_ZONES, hasResourceZones } from '../../../../../services/realtime/src/world/resourceZones.js'
+import type { DecorStyle } from '../../../wildlands/engine/sceneOverlay'
+import type { Sprite } from '../../../wildlands/engine/sprite'
 import { skillsResourceFor } from '../../../worldSkills/resourceMapping'
 import { RARITY_FEEDBACK, type DropRarity } from '../mining/miningRarity'
 import type { OverlayPlayer } from '../mining/miningOverlay'
@@ -110,6 +113,9 @@ const VIEW_REFRESH_SECONDS = 0.2
 const GLINT_RADIUS = 8
 const SOFT_FILL = 'rgba(255, 255, 255, 0.1)'
 const SOFT_STROKE = 'rgba(255, 255, 255, 0.7)'
+/** Props that are resources somewhere: outside the zones they must not look like the ones that work (MAP-2). */
+const LOOKALIKE_KINDS: ReadonlySet<string> = new Set(RESOURCE_ZONES.flatMap(zone => zone.nodes))
+const backdropSprites = new Map<string, Sprite>()
 
 export abstract class GatheringOverlayCore<
   Start extends StartGathering,
@@ -229,6 +235,18 @@ export abstract class GatheringOverlayCore<
     })
     this.views.set(target.nodeId, { at: this.seconds, view })
     return view
+  }
+
+  /**
+   * A prop that looks like a resource of an area with resource zones but is
+   * not a node there (it lies outside every zone) is drawn as backdrop, so
+   * two props that look the same always behave the same (MAP-2).
+   */
+  protected backdrop(kind: string | null, area: Area, art: () => PixelArt): DecorStyle | null {
+    if (!kind || !LOOKALIKE_KINDS.has(kind) || area.kind !== 'wild' || !hasResourceZones(area.id)) return null
+    let sprite = backdropSprites.get(kind)
+    if (!sprite) backdropSprites.set(kind, (sprite = toSprite(art())))
+    return { sprite }
   }
 
   /** The art a node shows on a hit frame: a brightened copy, cached per art. */

@@ -1,4 +1,5 @@
-import { biomeAt, hash2, isSolidTile, isWaterTile } from './terrain.js'
+import { biomeAt, hash2, isWaterTile } from './terrain.js'
+import { isSolidAtArea } from './resourceZones.js'
 
 /**
  * Wild Pokémon — identity, species, home and lifecycle decided once, by the
@@ -102,14 +103,17 @@ export function fitsBiome(biome, entry) {
   return types.includes(normaliseType(entry.type1)) || types.includes(normaliseType(entry.type2) ?? '')
 }
 
-/** The browser's historic spawn tiles of one 32-tile chunk (`Population.populate`). */
-export function wildSpawnTiles(seed, cx, cy) {
+/**
+ * The browser's historic spawn tiles of one 32-tile chunk (`Population.populate`).
+ * Solidity includes the area's authored resource-zone layer (MAP-2), as the browser's.
+ */
+export function wildSpawnTiles(seed, cx, cy, areaId = null) {
   const tiles = []
   const count = 4 + Math.floor(hash2(cx, cy, seed + 900) * 4)
   for (let i = 0; i < count; i++) {
     const tx = cx * WILD_CHUNK_TILES + Math.floor(hash2(cx * 31 + i, cy, seed + 901) * WILD_CHUNK_TILES)
     const ty = cy * WILD_CHUNK_TILES + Math.floor(hash2(cx, cy * 31 + i, seed + 902) * WILD_CHUNK_TILES)
-    if (isSolidTile(seed, tx, ty)) continue
+    if (isSolidAtArea(areaId, seed, tx, ty)) continue
     const water = isWaterTile(seed, tx, ty)
     tiles.push({ tx, ty, water, biome: water ? 'ocean' : biomeAt(seed, tx + 0.5, ty + 0.5) })
   }
@@ -132,7 +136,7 @@ function chunksBySpawnDistance(spawn, radius) {
 export function wildRoster({ areaId, seed, spawn, epoch, catalog, ownedIds }) {
   const pool = rollWildPool(catalog, ownedIds, seededRandom(Math.imul(epoch, 0x9e3779b1) ^ seed))
   const byId = new Map(catalog.map(entry => [entry.id, entry]))
-  const tiles = chunksBySpawnDistance(spawn, WILD_HOME_RADIUS_CHUNKS).flatMap(({ cx, cy }) => wildSpawnTiles(seed, cx, cy))
+  const tiles = chunksBySpawnDistance(spawn, WILD_HOME_RADIUS_CHUNKS).flatMap(({ cx, cy }) => wildSpawnTiles(seed, cx, cy, areaId))
   const used = new Set()
   const entities = []
   for (const pokemonId of pool) {

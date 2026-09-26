@@ -1203,12 +1203,58 @@ function worldArea(areaId) {
   return Object.hasOwn(WORLD_AREAS, areaId) ? WORLD_AREAS[areaId] : null;
 }
 
+// services/realtime/src/world/resourceZones.js
+var box = (x0, y0, x1, y1) => Object.freeze({ x0, y0, x1, y1 });
+var inBox = (b, tx, ty) => tx >= b.x0 && tx <= b.x1 && ty >= b.y0 && ty <= b.y1;
+var RESOURCE_ZONES = Object.freeze([
+  Object.freeze({
+    id: "bosque",
+    areaId: "pradera",
+    label: "Bosque \xB7 Talar",
+    box: box(-19, -54, 2, -37),
+    nodes: Object.freeze(["tree", "pine"]),
+    lanes: Object.freeze([box(-5, -54, -4, -37), box(-19, -47, 2, -46)]),
+    buffers: Object.freeze([box(-19, -45, 2, -45)]),
+    entry: Object.freeze({ tx: -5, ty: -54 })
+  }),
+  Object.freeze({
+    id: "cantera",
+    areaId: "pradera",
+    label: "Cantera \xB7 Miner\xEDa",
+    box: box(3, -76, 18, -63),
+    nodes: Object.freeze(["rock"]),
+    lanes: Object.freeze([box(10, -76, 11, -63), box(3, -70, 18, -69)]),
+    buffers: Object.freeze([]),
+    entry: Object.freeze({ tx: 3, ty: -70 })
+  })
+]);
+var RESERVED_AREAS = Object.freeze([
+  Object.freeze({ id: "reserva-minerales", areaId: "pradera", box: box(-14, -91, 1, -78) }),
+  Object.freeze({ id: "reserva-huerta", areaId: "pradera", box: box(-12, -75, -8, -70) })
+]);
+var ARRIVAL_CLEARANCE = Object.freeze({ areaId: "pradera", box: box(-9, -73, -1, -65), margin: 3 });
+var ROUTES = Object.freeze([
+  Object.freeze({ id: "al-bosque", areaId: "pradera", to: "bosque", box: box(-5, -64, -4, -55) }),
+  Object.freeze({ id: "a-la-cantera", areaId: "pradera", to: "cantera", box: box(0, -70, 2, -69) })
+]);
+var ZONE_AREAS = new Set(RESOURCE_ZONES.map((zone) => zone.areaId));
+function resourceZoneAt(areaId, tx, ty) {
+  for (const zone of RESOURCE_ZONES) if (zone.areaId === areaId && inBox(zone.box, tx, ty)) return zone;
+  return null;
+}
+
 // src/features/worldSkills/resourceMapping.ts
 var RESOURCE_SALT = 31031 + 1;
 var MAX_SKILLS_RING = 2;
+var ZONE_RESOURCES = {
+  bosque: { tree: "common_tree", pine: "pine_tree" },
+  cantera: { rock: "stone_outcrop" }
+};
 function skillsResourceFor(node) {
   const area = worldArea(node.areaId);
   if (!area?.procedural || area.seed === null) return null;
+  const zone = resourceZoneAt(node.areaId, node.tx, node.ty);
+  if (zone) return RESOURCE_BY_ID.get(ZONE_RESOURCES[zone.id]?.[node.variantId] ?? "") ?? null;
   const anchor = node.variantId;
   const ring = Math.min(MAX_SKILLS_RING, node.zone);
   const candidates = RESOURCES.filter((resource) => resource.world.anchors.includes(anchor) && resource.world.habitats.includes(node.biome) && resource.world.minRing <= ring);

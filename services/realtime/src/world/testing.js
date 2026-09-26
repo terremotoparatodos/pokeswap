@@ -1,4 +1,5 @@
-import { isSolidTile, isWaterTile } from './terrain.js'
+import { isWaterTile } from './terrain.js'
+import { isSolidAtArea } from './resourceZones.js'
 import { resourceAt } from './resourceLayout.js'
 import { WORLD_AREAS } from './areas.js'
 
@@ -7,7 +8,7 @@ import { WORLD_AREAS } from './areas.js'
 /** Resource nodes around Pradera's spawn, each with the open tiles a worker can stand on. */
 export function praderaNodesNearSpawn(radius = 20) {
   const { seed, spawn } = WORLD_AREAS.pradera
-  const open = (tx, ty) => !isSolidTile(seed, tx, ty) && !isWaterTile(seed, tx, ty) && !resourceAt('pradera', tx, ty)
+  const open = (tx, ty) => !isSolidAtArea('pradera', seed, tx, ty) && !isWaterTile(seed, tx, ty) && !resourceAt('pradera', tx, ty)
   const nodes = []
   for (let ty = spawn.ty - radius; ty <= spawn.ty + radius; ty++) {
     for (let tx = spawn.tx - radius; tx <= spawn.tx + radius; tx++) {
@@ -17,7 +18,8 @@ export function praderaNodesNearSpawn(radius = 20) {
       if (stands.length >= 2) nodes.push({ node, stands })
     }
   }
-  return nodes
+  // Trees first (fixtures call the first one TREE), each kind in scan order.
+  return [...nodes.filter(entry => entry.node.resourceKind === 'tree'), ...nodes.filter(entry => entry.node.resourceKind !== 'tree')]
 }
 
 export function manualClock(start = 1_000_000) {

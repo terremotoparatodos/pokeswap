@@ -13,6 +13,7 @@ import type { WorldClock } from '../domain/worldClock'
 import type { WorldResourceMirror } from '../domain/worldResources'
 import { depletedSprite } from './depletedArt'
 import { isImpact } from './workerPose'
+import { drawTrail, trailTiles, zoneLabels } from './zoneMarks'
 
 const VERB: Readonly<Record<string, string>> = { chop: 'Talando', mine: 'Minando', farm: 'Cultivando' }
 
@@ -48,6 +49,9 @@ export class WorldResourceOverlay implements SceneOverlay {
   }
 
   ground(g: CanvasRenderingContext2D, area: Area, x0: number, y0: number): void {
+    // MAP-2: the way to the forest and the quarry, drawn for everyone in the area.
+    const trail = area.kind === 'wild' ? trailTiles(area.id) : []
+    if (trail.length) drawTrail(g, trail, x0, y0, g.canvas.width, g.canvas.height)
     if (this.mirror.activeNodes === 0 || area.id !== this.mirror.areaId) return
     const now = this.clock.now()
     if (now === null) return
@@ -68,8 +72,9 @@ export class WorldResourceOverlay implements SceneOverlay {
   }
 
   labels(area: Area): readonly OverlayLabel[] {
-    if (this.mirror.activeNodes === 0 || area.id !== this.mirror.areaId) return []
-    const labels: OverlayLabel[] = []
+    const names = area.kind === 'wild' ? zoneLabels(area.id) : []
+    if (this.mirror.activeNodes === 0 || area.id !== this.mirror.areaId) return names
+    const labels: OverlayLabel[] = [...names]
     for (const node of this.mirror.active()) {
       if (!node.actionId || !node.workKind || this.isOwn(node)) continue
       const [, tx, ty] = node.id.split(':').map(Number) as [number, number, number]

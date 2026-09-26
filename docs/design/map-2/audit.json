@@ -1,0 +1,1708 @@
+{
+ "window": {
+  "center": {
+   "tx": -5,
+   "ty": -69
+  },
+  "radius": 48,
+  "tiles": 9409,
+  "x": [
+   -53,
+   43
+  ],
+  "y": [
+   -117,
+   -21
+  ]
+ },
+ "arrival": {
+  "tx": -5,
+  "ty": -69,
+  "dir": "down"
+ },
+ "portal": {
+  "tx": -5,
+  "ty": -70
+ },
+ "ringBoundary": {
+  "tiles": 96,
+  "spawnDistanceToOrigin": 69
+ },
+ "viewRadius": 24,
+ "terrain": {
+  "snow": 1361,
+  "sand": 137,
+  "water": 738,
+  "deep": 421,
+  "grass": 4331,
+  "tall": 2421
+ },
+ "waterTiles": 1159,
+ "tallGrassTiles": 2421,
+ "solidPropTiles": 1006,
+ "walkableReachable": 8345,
+ "roads": "none: the procedural world has no path tiles",
+ "plots": [
+  {
+   "id": "pradera:-7:-73:plot",
+   "tx": -7,
+   "ty": -73,
+   "steps": 5
+  },
+  {
+   "id": "pradera:-6:-73:plot",
+   "tx": -6,
+   "ty": -73,
+   "steps": 4
+  },
+  {
+   "id": "pradera:-7:-72:plot",
+   "tx": -7,
+   "ty": -72,
+   "steps": 4
+  },
+  {
+   "id": "pradera:-6:-72:plot",
+   "tx": -6,
+   "ty": -72,
+   "steps": 3
+  }
+ ],
+ "caves": [
+  {
+   "anchor": {
+    "tx": -26,
+    "ty": -74
+   },
+   "footprint": 6,
+   "approach": {
+    "tx": -25,
+    "ty": -73
+   },
+   "steps": 24
+  },
+  {
+   "anchor": {
+    "tx": 7,
+    "ty": -59
+   },
+   "footprint": 6,
+   "approach": {
+    "tx": 8,
+    "ty": -58
+   },
+   "steps": 28
+  },
+  {
+   "anchor": {
+    "tx": -24,
+    "ty": -43
+   },
+   "footprint": 6,
+   "approach": {
+    "tx": -23,
+    "ty": -42
+   },
+   "steps": 47
+  },
+  {
+   "anchor": {
+    "tx": 19,
+    "ty": -58
+   },
+   "footprint": 6,
+   "approach": {
+    "tx": 20,
+    "ty": -57
+   },
+   "steps": 37
+  },
+  {
+   "anchor": {
+    "tx": -30,
+    "ty": -85
+   },
+   "footprint": 6,
+   "approach": {
+    "tx": -29,
+    "ty": -84
+   },
+   "steps": 39
+  },
+  {
+   "anchor": {
+    "tx": 16,
+    "ty": -49
+   },
+   "footprint": 6,
+   "approach": {
+    "tx": 17,
+    "ty": -48
+   },
+   "steps": 43
+  }
+ ],
+ "densities": {
+  "tree": {
+   "kind": "tree",
+   "density": 0.12
+  },
+  "pine": {
+   "kind": "tree",
+   "density": 0.1
+  },
+  "snowpine": {
+   "kind": "tree",
+   "density": 0.1
+  },
+  "palm": {
+   "kind": "tree",
+   "density": 0.2
+  },
+  "rock": {
+   "kind": "rock",
+   "density": 0.35
+  },
+  "boulder": {
+   "kind": "rock",
+   "density": 0.5
+  },
+  "icerock": {
+   "kind": "rock",
+   "density": 0.4
+  }
+ },
+ "trees": {
+  "tree": {
+   "visible": 364,
+   "nodes": 60,
+   "basic": 60,
+   "gated": 0,
+   "unmapped": 0
+  },
+  "pine": {
+   "visible": 303,
+   "nodes": 29,
+   "basic": 0,
+   "gated": 29,
+   "unmapped": 0
+  },
+  "snowpine": {
+   "visible": 87,
+   "nodes": 0,
+   "basic": 0,
+   "gated": 0,
+   "unmapped": 0
+  },
+  "palm": {
+   "visible": 0,
+   "nodes": 0,
+   "basic": 0,
+   "gated": 0,
+   "unmapped": 0
+  }
+ },
+ "rocks": {
+  "rock": {
+   "visible": 61,
+   "nodes": 45,
+   "basic": 45,
+   "gated": 0,
+   "unmapped": 0
+  },
+  "boulder": {
+   "visible": 0,
+   "nodes": 0,
+   "basic": 0,
+   "gated": 0,
+   "unmapped": 0
+  },
+  "icerock": {
+   "visible": 21,
+   "nodes": 0,
+   "basic": 0,
+   "gated": 0,
+   "unmapped": 0
+  }
+ },
+ "otherProps": {
+  "bush": 166,
+  "cactus": 0,
+  "drybush": 0,
+  "crystal": 5,
+  "shell": 0,
+  "coral": 5,
+  "searock": 4
+ },
+ "ratios": {
+  "treesBasicShare": 0.08,
+  "commonLookingTreesBasicShare": 0.165,
+  "rocksBasicShare": 0.549,
+  "rockKindBasicShare": 0.738
+ },
+ "nearestBasicTrees": [
+  {
+   "id": "pradera:-2:-52:tree",
+   "tx": -2,
+   "ty": -52,
+   "steps": 19
+  },
+  {
+   "id": "pradera:-3:-51:tree",
+   "tx": -3,
+   "ty": -51,
+   "steps": 19
+  },
+  {
+   "id": "pradera:1:-54:tree",
+   "tx": 1,
+   "ty": -54,
+   "steps": 20
+  },
+  {
+   "id": "pradera:0:-53:tree",
+   "tx": 0,
+   "ty": -53,
+   "steps": 20
+  },
+  {
+   "id": "pradera:-7:-52:tree",
+   "tx": -7,
+   "ty": -52,
+   "steps": 20
+  }
+ ],
+ "nearestBasicRocks": [
+  {
+   "id": "pradera:3:-68:rock",
+   "tx": 3,
+   "ty": -68,
+   "steps": 8
+  },
+  {
+   "id": "pradera:5:-68:rock",
+   "tx": 5,
+   "ty": -68,
+   "steps": 10
+  },
+  {
+   "id": "pradera:4:-67:rock",
+   "tx": 4,
+   "ty": -67,
+   "steps": 10
+  },
+  {
+   "id": "pradera:3:-66:rock",
+   "tx": 3,
+   "ty": -66,
+   "steps": 10
+  },
+  {
+   "id": "pradera:4:-73:rock",
+   "tx": 4,
+   "ty": -73,
+   "steps": 12
+  }
+ ],
+ "spacing": {
+  "trees": {
+   "median": 2,
+   "p25": 2,
+   "p75": 2
+  },
+  "rocks": {
+   "median": 2,
+   "p25": 2,
+   "p75": 2
+  }
+ },
+ "reachableBasic": {
+  "12": {
+   "trees": 0,
+   "rocks": 6
+  },
+  "24": {
+   "trees": 19,
+   "rocks": 37
+  },
+  "36": {
+   "trees": 47,
+   "rocks": 45
+  },
+  "48": {
+   "trees": 58,
+   "rocks": 45
+  }
+ },
+ "capacity": {
+  "respawnS": 90,
+  "actionS": {
+   "chop": 3,
+   "mine": 3.2
+  },
+  "overheadS": 2.5,
+  "walkTilesPerS": 3.75
+ },
+ "zoneCandidates": {
+  "forest": [
+   {
+    "center": {
+     "tx": -8,
+     "ty": -45
+    },
+    "w": 22,
+    "h": 18,
+    "props": 60,
+    "basicToday": 60,
+    "open": 0.76,
+    "conflicts": 0,
+    "steps": 29
+   },
+   {
+    "center": {
+     "tx": -24,
+     "ty": -58
+    },
+    "w": 22,
+    "h": 18,
+    "props": 31,
+    "basicToday": 5,
+    "open": 0.8,
+    "conflicts": 0,
+    "steps": 30
+   },
+   {
+    "center": {
+     "tx": 3,
+     "ty": -49
+    },
+    "w": 22,
+    "h": 18,
+    "props": 30,
+    "basicToday": 21,
+    "open": 0.86,
+    "conflicts": 0,
+    "steps": 28
+   },
+   {
+    "center": {
+     "tx": 0,
+     "ty": -86
+    },
+    "w": 22,
+    "h": 18,
+    "props": 10,
+    "basicToday": 0,
+    "open": 0.96,
+    "conflicts": 0,
+    "steps": 22
+   }
+  ],
+  "quarry": [
+   {
+    "center": {
+     "tx": -6,
+     "ty": -84
+    },
+    "w": 16,
+    "h": 14,
+    "props": 0,
+    "basicToday": 0,
+    "open": 0.96,
+    "conflicts": 0,
+    "steps": 16
+   },
+   {
+    "center": {
+     "tx": 5,
+     "ty": -84
+    },
+    "w": 16,
+    "h": 14,
+    "props": 1,
+    "basicToday": 0,
+    "open": 0.95,
+    "conflicts": 0,
+    "steps": 25
+   }
+  ]
+ },
+ "backdrop": {
+  "total": 594,
+  "byKind": {
+   "tree": 304,
+   "pine": 274,
+   "rock": 16
+  }
+ },
+ "workSides": {
+  "sides": 446,
+  "noRoom": 0,
+  "share": 0
+ },
+ "aoi": {
+  "chunksInWindow": 49,
+  "propsInWindow": 1016,
+  "propsInWindowBase": 969,
+  "maxNodesPerChunk": 38,
+  "maxPropsPerChunk": 61,
+  "maxPropsPerChunkBase": 63,
+  "worstChunkSnapshotBytes": 4180
+ },
+ "zones": [
+  {
+   "id": "bosque",
+   "box": {
+    "x0": -19,
+    "y0": -54,
+    "x1": 2,
+    "y1": -37
+   },
+   "entry": {
+    "tx": -5,
+    "ty": -54
+   },
+   "entrySteps": 17,
+   "nodes": 89
+  },
+  {
+   "id": "cantera",
+   "box": {
+    "x0": 3,
+    "y0": -76,
+    "x1": 18,
+    "y1": -63
+   },
+   "entry": {
+    "tx": 3,
+    "ty": -70
+   },
+   "entrySteps": 9,
+   "nodes": 45
+  }
+ ],
+ "nodes": [
+  {
+   "id": "pradera:3:-76:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 14
+  },
+  {
+   "id": "pradera:5:-76:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 16
+  },
+  {
+   "id": "pradera:15:-76:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 26
+  },
+  {
+   "id": "pradera:17:-76:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 30
+  },
+  {
+   "id": "pradera:8:-75:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 18
+  },
+  {
+   "id": "pradera:12:-75:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:14:-75:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 26
+  },
+  {
+   "id": "pradera:18:-75:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 28
+  },
+  {
+   "id": "pradera:9:-74:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 18
+  },
+  {
+   "id": "pradera:13:-74:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:15:-74:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 30
+  },
+  {
+   "id": "pradera:17:-74:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 28
+  },
+  {
+   "id": "pradera:4:-73:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 12
+  },
+  {
+   "id": "pradera:8:-73:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 16
+  },
+  {
+   "id": "pradera:14:-73:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:7:-72:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 14
+  },
+  {
+   "id": "pradera:9:-72:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 16
+  },
+  {
+   "id": "pradera:13:-72:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 20
+  },
+  {
+   "id": "pradera:15:-72:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:17:-72:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 24
+  },
+  {
+   "id": "pradera:16:-71:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:3:-68:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 8
+  },
+  {
+   "id": "pradera:5:-68:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 10
+  },
+  {
+   "id": "pradera:9:-68:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 14
+  },
+  {
+   "id": "pradera:13:-68:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 18
+  },
+  {
+   "id": "pradera:15:-68:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 20
+  },
+  {
+   "id": "pradera:17:-68:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:4:-67:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 10
+  },
+  {
+   "id": "pradera:16:-67:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:3:-66:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 10
+  },
+  {
+   "id": "pradera:5:-66:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 14
+  },
+  {
+   "id": "pradera:7:-66:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 14
+  },
+  {
+   "id": "pradera:9:-66:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 16
+  },
+  {
+   "id": "pradera:15:-66:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:17:-66:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 26
+  },
+  {
+   "id": "pradera:12:-65:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 20
+  },
+  {
+   "id": "pradera:3:-64:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 12
+  },
+  {
+   "id": "pradera:5:-64:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 14
+  },
+  {
+   "id": "pradera:7:-64:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 16
+  },
+  {
+   "id": "pradera:9:-64:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 18
+  },
+  {
+   "id": "pradera:13:-64:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:15:-64:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 24
+  },
+  {
+   "id": "pradera:17:-64:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 26
+  },
+  {
+   "id": "pradera:6:-63:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 16
+  },
+  {
+   "id": "pradera:12:-63:rock",
+   "kind": "rock",
+   "cls": "basic",
+   "resource": "stone_outcrop",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:-17:-54:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 28
+  },
+  {
+   "id": "pradera:-16:-54:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 27
+  },
+  {
+   "id": "pradera:-15:-54:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 28
+  },
+  {
+   "id": "pradera:-14:-54:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 23
+  },
+  {
+   "id": "pradera:-12:-54:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 21
+  },
+  {
+   "id": "pradera:-8:-54:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 21
+  },
+  {
+   "id": "pradera:1:-54:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 20
+  },
+  {
+   "id": "pradera:-19:-53:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 29
+  },
+  {
+   "id": "pradera:-14:-53:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 24
+  },
+  {
+   "id": "pradera:-11:-53:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 23
+  },
+  {
+   "id": "pradera:0:-53:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 20
+  },
+  {
+   "id": "pradera:2:-53:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:-19:-52:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 30
+  },
+  {
+   "id": "pradera:-15:-52:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 32
+  },
+  {
+   "id": "pradera:-13:-52:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 24
+  },
+  {
+   "id": "pradera:-11:-52:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 24
+  },
+  {
+   "id": "pradera:-9:-52:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:-7:-52:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 20
+  },
+  {
+   "id": "pradera:-2:-52:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 19
+  },
+  {
+   "id": "pradera:-19:-51:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 35
+  },
+  {
+   "id": "pradera:-18:-51:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 30
+  },
+  {
+   "id": "pradera:-15:-51:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 33
+  },
+  {
+   "id": "pradera:-14:-51:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 28
+  },
+  {
+   "id": "pradera:-11:-51:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 25
+  },
+  {
+   "id": "pradera:-8:-51:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:-3:-51:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 19
+  },
+  {
+   "id": "pradera:0:-51:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:2:-51:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 24
+  },
+  {
+   "id": "pradera:-15:-50:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 30
+  },
+  {
+   "id": "pradera:-12:-50:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 27
+  },
+  {
+   "id": "pradera:-11:-50:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 26
+  },
+  {
+   "id": "pradera:-7:-50:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 22
+  },
+  {
+   "id": "pradera:1:-50:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 24
+  },
+  {
+   "id": "pradera:-12:-49:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 28
+  },
+  {
+   "id": "pradera:-9:-49:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 27
+  },
+  {
+   "id": "pradera:-6:-49:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:-1:-49:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 23
+  },
+  {
+   "id": "pradera:2:-49:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 26
+  },
+  {
+   "id": "pradera:-17:-48:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 34
+  },
+  {
+   "id": "pradera:-10:-48:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 27
+  },
+  {
+   "id": "pradera:-8:-48:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 27
+  },
+  {
+   "id": "pradera:-7:-48:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 24
+  },
+  {
+   "id": "pradera:-3:-48:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 22
+  },
+  {
+   "id": "pradera:-19:-44:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 40
+  },
+  {
+   "id": "pradera:-12:-44:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 33
+  },
+  {
+   "id": "pradera:-1:-44:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 28
+  },
+  {
+   "id": "pradera:0:-44:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 29
+  },
+  {
+   "id": "pradera:-12:-43:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 36
+  },
+  {
+   "id": "pradera:-11:-43:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 33
+  },
+  {
+   "id": "pradera:-10:-43:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 32
+  },
+  {
+   "id": "pradera:-1:-43:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 29
+  },
+  {
+   "id": "pradera:2:-43:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 32
+  },
+  {
+   "id": "pradera:-18:-42:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 41
+  },
+  {
+   "id": "pradera:-14:-42:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 37
+  },
+  {
+   "id": "pradera:-11:-42:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 34
+  },
+  {
+   "id": "pradera:-7:-42:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 30
+  },
+  {
+   "id": "pradera:-2:-42:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 29
+  },
+  {
+   "id": "pradera:-15:-41:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 39
+  },
+  {
+   "id": "pradera:-13:-41:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 37
+  },
+  {
+   "id": "pradera:-12:-41:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 36
+  },
+  {
+   "id": "pradera:-9:-41:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 33
+  },
+  {
+   "id": "pradera:-2:-41:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 30
+  },
+  {
+   "id": "pradera:-1:-41:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 35
+  },
+  {
+   "id": "pradera:1:-41:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 33
+  },
+  {
+   "id": "pradera:-19:-40:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 44
+  },
+  {
+   "id": "pradera:-17:-40:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 42
+  },
+  {
+   "id": "pradera:-12:-40:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 45
+  },
+  {
+   "id": "pradera:-11:-40:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 36
+  },
+  {
+   "id": "pradera:-2:-40:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 31
+  },
+  {
+   "id": "pradera:-1:-40:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 34
+  },
+  {
+   "id": "pradera:1:-40:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 36
+  },
+  {
+   "id": "pradera:-16:-39:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 42
+  },
+  {
+   "id": "pradera:-14:-39:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 44
+  },
+  {
+   "id": "pradera:-10:-39:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 36
+  },
+  {
+   "id": "pradera:-8:-39:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 34
+  },
+  {
+   "id": "pradera:-18:-38:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 45
+  },
+  {
+   "id": "pradera:-15:-38:pine",
+   "kind": "pine",
+   "cls": "gated",
+   "resource": "pine_tree",
+   "level": 12,
+   "steps": 44
+  },
+  {
+   "id": "pradera:-13:-38:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 46
+  },
+  {
+   "id": "pradera:-9:-38:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 36
+  },
+  {
+   "id": "pradera:-6:-38:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 33
+  },
+  {
+   "id": "pradera:-2:-38:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 33
+  },
+  {
+   "id": "pradera:1:-38:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 36
+  },
+  {
+   "id": "pradera:-17:-37:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 47
+  },
+  {
+   "id": "pradera:-15:-37:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 55
+  },
+  {
+   "id": "pradera:-12:-37:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 48
+  },
+  {
+   "id": "pradera:-10:-37:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 50
+  },
+  {
+   "id": "pradera:-8:-37:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 36
+  },
+  {
+   "id": "pradera:-3:-37:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 33
+  },
+  {
+   "id": "pradera:0:-37:tree",
+   "kind": "tree",
+   "cls": "basic",
+   "resource": "common_tree",
+   "level": 1,
+   "steps": 36
+  }
+ ],
+ "today": {
+  "label": "zonas MAP-2",
+  "trees": 60,
+  "rocks": 45,
+  "chop": {
+   "cycleS": 6,
+   "playersBusy": 3.9,
+   "nodesPerPlayer": 16
+  },
+  "mine": {
+   "cycleS": 6.2,
+   "playersBusy": 3,
+   "nodesPerPlayer": 15
+  },
+  "busyShare": {
+   "2": {
+    "allChop": 1,
+    "allMine": 1,
+    "halfEach": 1
+   },
+   "5": {
+    "allChop": 0.78,
+    "allMine": 0.6,
+    "halfEach": 1
+   },
+   "10": {
+    "allChop": 0.39,
+    "allMine": 0.3,
+    "halfEach": 0.6
+   },
+   "30": {
+    "allChop": 0.13,
+    "allMine": 0.1,
+    "halfEach": 0.2
+   }
+  }
+ },
+ "alternatives": [
+  {
+   "label": "minimal",
+   "trees": 24,
+   "rocks": 18,
+   "chop": {
+    "cycleS": 6.3,
+    "playersBusy": 1.6,
+    "nodesPerPlayer": 15
+   },
+   "mine": {
+    "cycleS": 6.5,
+    "playersBusy": 1.3,
+    "nodesPerPlayer": 15
+   },
+   "busyShare": {
+    "2": {
+     "allChop": 0.8,
+     "allMine": 0.65,
+     "halfEach": 1
+    },
+    "5": {
+     "allChop": 0.32,
+     "allMine": 0.26,
+     "halfEach": 0.52
+    },
+    "10": {
+     "allChop": 0.16,
+     "allMine": 0.13,
+     "halfEach": 0.26
+    },
+    "30": {
+     "allChop": 0.05,
+     "allMine": 0.04,
+     "halfEach": 0.09
+    }
+   }
+  },
+  {
+   "label": "recommended",
+   "trees": 60,
+   "rocks": 45,
+   "chop": {
+    "cycleS": 6.2,
+    "playersBusy": 4,
+    "nodesPerPlayer": 16
+   },
+   "mine": {
+    "cycleS": 6.4,
+    "playersBusy": 3.1,
+    "nodesPerPlayer": 15
+   },
+   "busyShare": {
+    "2": {
+     "allChop": 1,
+     "allMine": 1,
+     "halfEach": 1
+    },
+    "5": {
+     "allChop": 0.8,
+     "allMine": 0.62,
+     "halfEach": 1
+    },
+    "10": {
+     "allChop": 0.4,
+     "allMine": 0.31,
+     "halfEach": 0.62
+    },
+    "30": {
+     "allChop": 0.13,
+     "allMine": 0.1,
+     "halfEach": 0.21
+    }
+   }
+  },
+  {
+   "label": "dense",
+   "trees": 120,
+   "rocks": 90,
+   "chop": {
+    "cycleS": 6,
+    "playersBusy": 7.8,
+    "nodesPerPlayer": 16
+   },
+   "mine": {
+    "cycleS": 6.2,
+    "playersBusy": 6,
+    "nodesPerPlayer": 15
+   },
+   "busyShare": {
+    "2": {
+     "allChop": 1,
+     "allMine": 1,
+     "halfEach": 1
+    },
+    "5": {
+     "allChop": 1,
+     "allMine": 1,
+     "halfEach": 1
+    },
+    "10": {
+     "allChop": 0.78,
+     "allMine": 0.6,
+     "halfEach": 1
+    },
+    "30": {
+     "allChop": 0.26,
+     "allMine": 0.2,
+     "halfEach": 0.4
+    }
+   }
+  }
+ ]
+}

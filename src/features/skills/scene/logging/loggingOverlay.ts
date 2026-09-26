@@ -20,6 +20,8 @@ import { barkFlakeArt, leafArt, sawdustArt, splinterArt } from '../art/loggingFx
 import { LEAF_PARTICLE_TONES, loggingResourceIconArt } from '../art/loggingItems'
 import { WOOD_TIERS } from '../art/loggingPalette'
 import { isLoggingNodeId, isTreeKind, loggingTreeArt } from '../art/loggingTrees'
+import { backdropTreeArt } from '../art/backdropArt'
+import type { TreeKind } from '../../../wildlands/engine/props'
 import { glintArt } from '../art/miningFx'
 import { resourceIconArt } from '../art/miningItems'
 import { toSprite } from '../art/pixelArt'
@@ -110,7 +112,7 @@ export class LoggingOverlay extends GatheringOverlayCore<StartLogging, ActiveAct
   decor(decor: DecorInstance, area: Area): DecorStyle | null {
     if (!isTreeKind(decor.kind)) return null
     const target = this.targetAt(area, decor.tx, decor.ty)
-    if (!target || !isLoggingNodeId(target.resource.id)) return null
+    if (!target || !isLoggingNodeId(target.resource.id)) return this.backdrop(decor.kind, area, () => backdropTreeArt(decor.kind as TreeKind))
     const view = this.viewFor(target, decor.tx, decor.ty)
     let art = loggingTreeArt(target.resource.id, decor.kind, view.art)
     let dx = 0

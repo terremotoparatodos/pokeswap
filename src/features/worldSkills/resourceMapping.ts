@@ -13,6 +13,7 @@
 
 import { hash2 } from '../../../services/realtime/src/world/terrain.js'
 import { worldArea } from '../../../services/realtime/src/world/areas.js'
+import { resourceZoneAt } from '../../../services/realtime/src/world/resourceZones.js'
 import { RESOURCES, RESOURCE_BY_ID, type ResourceAnchor, type ResourceDefinition } from '../skills/domain/resources'
 
 /** The physical facts WORLD publishes about a node (its public node facts). */
@@ -30,10 +31,22 @@ export interface WorldNodeFacts {
 const RESOURCE_SALT = 31_031 + 1
 const MAX_SKILLS_RING = 2
 
+/**
+ * What each prop of a WORLD resource zone is (MAP-2): one resource per look,
+ * so two props that look the same always work the same. Levels, durations
+ * and rewards stay those of the SKILLS catalog.
+ */
+const ZONE_RESOURCES: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+  bosque: { tree: 'common_tree', pine: 'pine_tree' },
+  cantera: { rock: 'stone_outcrop' },
+}
+
 /** The SKILLS resource a WORLD node is, or null when no resource fits it. */
 export function skillsResourceFor(node: WorldNodeFacts): ResourceDefinition | null {
   const area = worldArea(node.areaId)
   if (!area?.procedural || area.seed === null) return null
+  const zone = resourceZoneAt(node.areaId, node.tx, node.ty)
+  if (zone) return RESOURCE_BY_ID.get(ZONE_RESOURCES[zone.id]?.[node.variantId] ?? '') ?? null
   const anchor = node.variantId as ResourceAnchor
   const ring = Math.min(MAX_SKILLS_RING, node.zone)
   const candidates = RESOURCES.filter(resource => resource.world.anchors.includes(anchor)

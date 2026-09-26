@@ -50,7 +50,8 @@ function stage() {
 
 describe('WORLD-1 shared resources, two clients', () => {
   it('both clients derive the same node ids from the tiles they draw', () => {
-    const world = new World(208)
+    // The world as the browser draws Pradera: the generator plus the zone layer (MAP-2).
+    const world = new World(208, 'pradera')
     for (let ty = TREE.ty - 10; ty <= TREE.ty + 10; ty++) {
       for (let tx = TREE.tx - 10; tx <= TREE.tx + 10; tx++) {
         const node = resourceAt('pradera', tx, ty)
