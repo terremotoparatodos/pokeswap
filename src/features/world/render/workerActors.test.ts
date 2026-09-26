@@ -67,4 +67,17 @@ describe('WorkerActors', () => {
     expect(workers.actors()).toHaveLength(0)
     expect(workers.isWorking('a', 123)).toBe(false)
   })
+
+  it('each worker animates to its own node’s task, the same for every client', () => {
+    const kinds = ['chop', 'mine', 'farm'] as const
+    const draw = () => {
+      const workers = make()
+      workers.sync(kinds.map((workKind, i) => ({ ...working(), id: `pradera:${10 + i * 5}:20:x`, actionId: `act-${workKind}`, workKind: workKind as NodeView['workKind'] })))
+      workers.update(1_260, () => null, () => false)
+      return workers.actors().map(actor => ({ progress: actor.progress, hop: actor.hop, walkClock: actor.walkClock }))
+    }
+    const [one, two] = [draw(), draw()]
+    expect(one).toEqual(two)
+    expect(new Set(one.map(pose => JSON.stringify(pose))).size).toBe(3)
+  })
 })

@@ -17,6 +17,8 @@ export interface WorldLayerContext {
   playerTile(playerId: string): Tile | null
   /** Terrain, props and placed objects. */
   isSolid(tx: number, ty: number): boolean
+  /** The player asked for less motion (cosmetic animations only). */
+  reduceMotion?(): boolean
 }
 
 export interface WorldLayer {

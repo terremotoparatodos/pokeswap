@@ -39,6 +39,8 @@ interface Worker {
   playerId: string
   pokemonId: number
   startedAt: number
+  /** The node's authoritative task: which beat the Pokémon works to. */
+  workKind: string | undefined
   /** From the server; null only with an older server (see `workerSpot`). */
   stand: WorkerStandTile | null
 }
@@ -65,7 +67,7 @@ export class WorkerActors {
       const actor = createActor({ id: `world-worker:${node.actionId}`, kind: 'pokemon', habitat: 'any', tx, ty: ty + 1, remote: true, pokemon: this.placeholder(pokemonId) })
       const worker: Worker = {
         actor, nodeTx: tx, nodeTy: ty, playerId: node.worker.playerId, pokemonId: node.worker.pokemonInstanceId,
-        startedAt: node.startedAt ?? 0, stand: node.worker.stand ?? null,
+        startedAt: node.startedAt ?? 0, workKind: node.workKind, stand: node.worker.stand ?? null,
       }
       this.workers.set(node.actionId, worker)
       void this.load(pokemonId).then(info => { if (info && this.workers.get(node.actionId!) === worker) actor.pokemon = info }).catch(() => undefined)
@@ -76,10 +78,10 @@ export class WorkerActors {
   }
 
   /** Places and animates every worker at `serverNow`. The trainer and terrain only matter without a stand. */
-  update(serverNow: number, trainerTile: (playerId: string) => Tile | null, isSolid: (tx: number, ty: number) => boolean): void {
+  update(serverNow: number, trainerTile: (playerId: string) => Tile | null, isSolid: (tx: number, ty: number) => boolean, reduceMotion = false): void {
     for (const worker of this.workers.values()) {
       const stand = worker.stand ?? workerSpot({ tx: worker.nodeTx, ty: worker.nodeTy }, trainerTile(worker.playerId), isSolid)
-      Object.assign(worker.actor, workerPose(stand, worker.startedAt, serverNow))
+      Object.assign(worker.actor, workerPose(stand, worker.workKind, worker.startedAt, serverNow, reduceMotion))
     }
   }
 

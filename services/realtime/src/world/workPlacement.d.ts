@@ -1,17 +1,16 @@
+export type PlacementDir = 'up' | 'down' | 'left' | 'right'
+
 export interface WorkerStand {
   readonly tx: number
   readonly ty: number
   /** Facing toward the worked node. */
-  readonly dir: 'up' | 'down' | 'left' | 'right'
+  readonly dir: PlacementDir
 }
 
-export declare function workerStand(
+export declare function workPlacement(
   node: { readonly tx: number; readonly ty: number },
   trainer: { readonly tx: number; readonly ty: number },
   isOpen: (tx: number, ty: number) => boolean,
-  isHidden?: (tx: number, ty: number) => boolean,
-): WorkerStand
+): { stand: WorkerStand; wait: WorkerStand } | null
 
 export declare function standableTile(areaId: string): (tx: number, ty: number) => boolean
-
-export declare function hiddenBehindCanopy(areaId: string): (tx: number, ty: number) => boolean

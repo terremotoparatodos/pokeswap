@@ -5,9 +5,9 @@ import { RESPAWN_MS, WORK_KIND, nodeById } from './resourceLayout.js'
 import { WORKING, afterTimer, afterWork, canStartWork, lifecycleFor } from './resourceLifecycle.js'
 import { ResourceStore } from './resourceStore.js'
 import { readAuthorization, readSettlement } from './skillPolicy.js'
-import { hiddenBehindCanopy, standableTile, workerStand } from './workerStand.js'
+import { standableTile, workPlacement } from './workPlacement.js'
 
-/** A worker stands orthogonally beside the node, as the client's `isBeside` requires. */
+/** A trainer asks for work orthogonally beside the node, as the client's `isBeside` requires. */
 export const WORK_REACH = 1
 /** Ownership and authorization each; past this the attempt is refused (nothing was held). */
 export const AUTHORIZE_TIMEOUT_MS = 4_000
@@ -16,6 +16,8 @@ export const SETTLE_RETRY_DELAYS_MS = Object.freeze([1_000, 3_000, 9_000])
 const RECENT_REQUESTS = 32
 
 const beside = (actor, node) => Math.abs(actor.tx - node.tx) + Math.abs(actor.ty - node.ty) === WORK_REACH
+/** While working, the trainer's reference tile is its waiting tile; older actions without one keep the reach rule. */
+const atAnchor = (actor, action) => (action.anchor ? actor.tx === action.anchor.tx && actor.ty === action.anchor.ty : beside(actor, action.node))
 const STAGE = { empty: 'EMPTY', planted: 'PLANTED', growing: 'GROWING', ready: 'READY' }
 
 /**
@@ -40,6 +42,12 @@ const STAGE = { empty: 'EMPTY', planted: 'PLANTED', growing: 'GROWING', ready: '
  *
  * Identity. `actor.id` is the room's authenticated user id; ownership is asked
  * of the server-side player data with that id, never with a client token.
+ *
+ * Placement (WORLD VISUAL-2). On acquisition the worker Pokémon takes the
+ * trainer's validated tile and the trainer is moved, by the server, to a
+ * waiting tile (`workPlacement`). That tile becomes the action's anchor: the
+ * anchor is set before the move, so the server's own move never reads as the
+ * trainer walking away; leaving the anchor afterwards still cancels.
  */
 export class ResourceAuthority {
   constructor({
@@ -47,8 +55,10 @@ export class ResourceAuthority {
     now = Date.now, newActionId = randomUUID, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
     store = new ResourceStore(), queue = new DueQueue(),
     onNode = () => {}, onResult = () => {}, onDone = () => {},
+    /** Moves a trainer authoritatively (presence publishes it). Default: the looked-up actor object only. */
+    placeActor = (playerId, place) => { const actor = lookupActor(playerId); if (actor) Object.assign(actor, place) },
   }) {
-    Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone })
+    Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone, placeActor })
     this.actions = new Map()
     /** Players with an attempt between its first check and its acquisition. */
     this.attempting = new Set()
@@ -122,8 +132,8 @@ export class ResourceAuthority {
             const action = {
               actionId, playerId: actor.id, node, pokemon, workKind, workedFrom: recheck.state, plotBefore: recheck.plot ?? null,
               farmAction: recheck.farm?.action ?? null, plotGrant: answer.plot ?? null, phase: 'running', startedAt: null, endsAt: null,
-              // Visual only, decided once from the validated tile: never recomputed (WORLD VISUAL-1).
-              stand: workerStand(node, live, standableTile(node.areaId), hiddenBehindCanopy(node.areaId)),
+              // Decided once, from the live validated tile: the Pokémon takes it, the trainer waits at `anchor`.
+              stand: recheck.placement.stand, anchor: recheck.placement.wait,
             }
             return this.#start(action, answer.durationMs, intent.requestId, answer.details)
           }
@@ -168,7 +178,7 @@ export class ResourceAuthority {
     const actionId = this.byPlayer.get(actor.id)
     const action = actionId ? this.actions.get(actionId) : null
     if (action?.phase !== 'running') return
-    if (actor.areaId !== action.node.areaId || !beside(actor, action.node)) this.cancel(actor.id, actionId, 'moved')
+    if (actor.areaId !== action.node.areaId || !atAnchor(actor, action)) this.cancel(actor.id, actionId, 'moved')
   }
 
   /** Runs everything due. Called from the room's fixed tick. */
@@ -287,6 +297,8 @@ export class ResourceAuthority {
     this.queue.push(action.endsAt, { type: 'complete', actionId: action.actionId })
     this.metrics.started++
     this.onNode(record)
+    // After the anchor exists: the move this triggers is reconciled against it and keeps the action.
+    this.placeActor(action.playerId, { ...action.anchor })
     return this.#reply(action.playerId, {
       requestId, ok: true, actionId: action.actionId, nodeId: action.node.id, startedAt, endsAt: action.endsAt,
       ...(action.farmAction ? { farmAction: action.farmAction } : {}),
@@ -307,15 +319,28 @@ export class ResourceAuthority {
     if (!canStartWork(lifecycle, state)) return { reason: state }
     if (this.byPlayer.has(actor.id)) return { reason: 'actor-busy' }
     if (this.byPokemon.has(intent.pokemonInstanceId)) return { reason: 'pokemon-busy' }
-    if (node.resourceKind !== PLOT_KIND) return { node, state }
+    const placement = this.#placement(actor, node)
+    if (!placement) return { reason: 'no-room' }
+    if (node.resourceKind !== PLOT_KIND) return { node, state, placement }
     const plot = record?.plot ?? null
     const farm = farmActionFor(state, plot, actor.id)
     if (farm.reason) return { reason: farm.reason }
     if (farm.action === 'plant' && !intent.cropId) return { reason: 'choose-crop' }
     return {
-      node, state, plot,
+      node, state, plot, placement,
       farm: { action: farm.action, plotKind: node.plotKind, stage: STAGE[state], cropId: plot?.cropId ?? null, tended: plot?.tended ?? false, requestedCropId: intent.cropId ?? null },
     }
+  }
+
+  /** Where the worker and the trainer would stand: free terrain, not taken by another running action. */
+  #placement(actor, node) {
+    const terrain = standableTile(node.areaId)
+    const taken = new Set()
+    for (const other of this.actions.values()) {
+      if (other.node.areaId !== node.areaId) continue
+      for (const tile of [other.stand, other.anchor]) if (tile) taken.add(`${tile.tx},${tile.ty}`)
+    }
+    return workPlacement(node, actor, (tx, ty) => terrain(tx, ty) && !taken.has(`${tx},${ty}`))
   }
 
   #release(action) {

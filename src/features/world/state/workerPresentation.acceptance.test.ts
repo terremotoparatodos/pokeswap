@@ -1,17 +1,18 @@
-// WORLD VISUAL-1 acceptance: two real clients (SharedWorld) against the real
+// WORLD VISUAL-1/2 acceptance: two real clients (SharedWorld) against the real
 // server core (WorldRoom). The owner and an observer draw the same single
-// worker on the same server-chosen tile, for the whole life of the action.
+// worker on the tile the trainer worked from, for the whole life of the
+// action, while the server keeps the trainer one tile aside.
 
 import { describe, expect, it } from 'vitest'
 import { WorldRoom } from '../../../../services/realtime/src/world/worldRoom.js'
 import { createDemoSkillPolicy } from '../../../../services/realtime/src/world/demoSkillPolicy.js'
 import { createStaticOwnership } from '../../../../services/realtime/src/world/pokemonOwnership.js'
 import { praderaNodesNearSpawn } from '../../../../services/realtime/src/world/testing.js'
-import { hiddenBehindCanopy, standableTile, workerStand } from '../../../../services/realtime/src/world/workerStand.js'
+import { standableTile, workPlacement } from '../../../../services/realtime/src/world/workPlacement.js'
 import type { PokemonInfo } from '../../wildlands/engine/actors'
 import { SharedWorld } from './sharedWorld'
 
-const [{ node: TREE, stands: [SPOT_A, SPOT_B, SPOT_C] }] = praderaNodesNearSpawn().filter(entry => entry.stands.length >= 3)
+const [{ node: TREE, stands: [SPOT_A, SPOT_B] }] = praderaNodesNearSpawn().filter(({ node, stands }) => stands.length >= 2 && workPlacement(node, stands[0], standableTile('pradera')))
 
 function stage() {
   let now = 5_000_000
@@ -54,16 +55,19 @@ function stage() {
   return { server, skills, actors, connect, advance, workersOf }
 }
 
-const expectedStand = (trainer: { tx: number; ty: number }) => workerStand(TREE, trainer, standableTile('pradera'), hiddenBehindCanopy('pradera'))
+const expected = (trainer: { tx: number; ty: number }) => workPlacement(TREE, trainer, standableTile('pradera'))!
 
-describe('WORLD VISUAL-1: one authoritative worker', () => {
+describe('WORLD VISUAL-1/2: one authoritative worker', () => {
   it('owner and observer draw exactly one worker, on the same server stand', async () => {
     const s = stage()
     const a = s.connect('a', SPOT_A)
     const b = s.connect('b', SPOT_B)
     await a.world.requestWork(TREE.id, 123)
     s.server.flush()
-    const stand = expectedStand(SPOT_A)
+    const { stand, wait } = expected(SPOT_A)
+    // The Pokémon takes exactly the tile the trainer worked from; the trainer is moved aside by the server.
+    expect({ tx: stand.tx, ty: stand.ty }).toEqual(SPOT_A)
+    expect({ tx: a.actor.tx, ty: a.actor.ty }).toEqual({ tx: wait.tx, ty: wait.ty })
     expect(a.world.resources.node(TREE.id)?.worker?.stand).toEqual(stand)
     expect(b.world.resources.node(TREE.id)?.worker?.stand).toEqual(stand)
     const drawn = { pokemon: 123, tx: stand.tx, ty: stand.ty, dir: stand.dir }
@@ -75,18 +79,18 @@ describe('WORLD VISUAL-1: one authoritative worker', () => {
     expect(b.world.hidesCompanion('a', 123)).toBe(true)
   })
 
-  it('the trainer moving around the node or disconnecting never moves the worker; it stays until paid', async () => {
+  it('the server’s move of the trainer or a disconnect never moves the worker; it stays until paid', async () => {
     const s = stage()
     const a = s.connect('a', SPOT_A)
     const b = s.connect('b', SPOT_B)
     await a.world.requestWork(TREE.id, 123)
     s.server.flush()
     const before = s.workersOf(b.world)
-    // Step to another side of the tree: still within reach, the action runs on.
-    a.actor.tx = SPOT_C.tx; a.actor.ty = SPOT_C.ty
+    // Presence reports the trainer on its waiting tile (the server's own move): the action runs on.
     s.server.viewerMoved(a.socket, a.actor)
     s.server.flush()
     expect(s.workersOf(b.world)).toEqual(before)
+    expect(b.world.resources.node(TREE.id)?.state).toBe('working')
     // Disconnect: the presence actor is gone, so a trainer-relative placement would jump.
     a.world.detach()
     s.server.leave(a.socket)
@@ -112,6 +116,7 @@ describe('WORLD VISUAL-1: one authoritative worker', () => {
       else { a.actor.tx += 3; s.server.viewerMoved(a.socket, a.actor); s.server.flush() }
       expect(s.workersOf(a.world), end).toEqual([])
       expect(s.workersOf(b.world), end).toEqual([])
+      if (end !== 'moved') expect({ tx: a.actor.tx, ty: a.actor.ty }, `${end}: the trainer stays aside`).toEqual({ tx: expected(SPOT_A).wait.tx, ty: expected(SPOT_A).wait.ty })
       expect(a.world.hidesCompanion('a', 123), end).toBe(false)
     }
   })

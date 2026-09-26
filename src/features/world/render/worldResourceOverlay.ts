@@ -12,6 +12,7 @@ import { TILE } from '../../wildlands/engine/world'
 import type { WorldClock } from '../domain/worldClock'
 import type { WorldResourceMirror } from '../domain/worldResources'
 import { depletedSprite } from './depletedArt'
+import { isImpact } from './workerPose'
 
 const VERB: Readonly<Record<string, string>> = { chop: 'Talando', mine: 'Minando', farm: 'Cultivando' }
 
@@ -38,8 +39,10 @@ export class WorldResourceOverlay implements SceneOverlay {
       return sprite ? { sprite } : null
     }
     if (node.actionId && !this.isOwn(node)) {
+      // The node shivers when its worker's blow lands (same beat as the Pokémon, see workerPose).
       const now = this.clock.now() ?? 0
-      return { dx: (now % 600) < 90 ? ((Math.floor(now / 600) % 2) ? 1 : -1) : 0 }
+      const start = node.startedAt ?? 0
+      return { dx: isImpact(node.workKind, start, now) ? (Math.floor((now - start) / 500) % 2 ? 1 : -1) : 0 }
     }
     return null
   }

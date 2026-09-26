@@ -81,3 +81,35 @@ describe('presence reconciliation around area requests', () => {
     expect(sent).toEqual([{ kind: 'area', value: 'ciudad-corazon' }])
   })
 })
+
+describe('a move the server made (WORLD VISUAL-2: the trainer steps aside for its worker)', () => {
+  const settled = (g: Harness) => {
+    g.setAuthoritativeActor(self({ tx: 31, ty: 20, moveSequence: 4 }), 'snapshot')
+    g.nextMoveSequence = 4
+  }
+
+  it('steps one tile to the server’s tile and numbers the next move after the server’s', () => {
+    const { g, sent } = game()
+    settled(g)
+    g.setAuthoritativeActor(self({ tx: 31, ty: 21, dir: 'up', moveSequence: 5 }), 'self')
+    expect([g.player.tx, g.player.ty, g.player.dir]).toEqual([31, 21, 'up'])
+    // A short step from the old tile, not a jump.
+    expect([g.player.fromTx, g.player.fromTy, g.player.progress]).toEqual([31, 20, 0])
+    expect(g.nextMoveSequence).toBe(5)
+    Object.assign(g, { keys: { sprinting: false } })
+    ;(g as unknown as { startStep(actor: Actor): void }).startStep(g.player)
+    expect(sent[sent.length - 1]).toEqual({ kind: 'move', value: 'up', sequence: 6 })
+  })
+
+  it('with reduced motion, or farther than a tile, it is placed at once', () => {
+    const { g } = game()
+    settled(g)
+    Object.assign(g, { reduceMotion: true })
+    g.setAuthoritativeActor(self({ tx: 31, ty: 21, moveSequence: 5 }), 'self')
+    expect([g.player.tx, g.player.ty, g.player.progress]).toEqual([31, 21, 1])
+    const far = game()
+    settled(far.g)
+    far.g.setAuthoritativeActor(self({ tx: 33, ty: 20, moveSequence: 5 }), 'self')
+    expect([far.g.player.tx, far.g.player.ty, far.g.player.progress]).toEqual([33, 20, 1])
+  })
+})

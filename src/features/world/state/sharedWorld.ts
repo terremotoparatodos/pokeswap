@@ -187,7 +187,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
       // Every worker, the local player's own included: one representation for owner and observers.
       this.workers.sync(areaId === this.resources.areaId ? this.resources.active() : [])
     }
-    this.workers.update(now, id => context.playerTile(id), (tx, ty) => context.isSolid(tx, ty))
+    this.workers.update(now, id => context.playerTile(id), (tx, ty) => context.isSolid(tx, ty), context.reduceMotion?.() ?? false)
   }
 
   actors(): readonly Actor[] {

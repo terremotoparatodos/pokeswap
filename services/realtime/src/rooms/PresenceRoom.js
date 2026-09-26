@@ -29,6 +29,8 @@ const chatLog = new ChatLog()
 let chatSequence = 0
 // WORLD-1: resource nodes and work actions. Module-level like the maps above,
 // so the world survives a room dispose; it rides this room's socket and tick.
+/** The live room, for moves the world makes on a player's behalf (WORLD VISUAL-2). */
+let presenceRoom = null
 let world = createWorld(worldDependencies())
 void world.start()
 
@@ -37,6 +39,11 @@ function createWorld(dependencies) {
     ...dependencies,
     lookupActor: id => actors.get(id) ?? null,
     clientForPlayer: id => clientsByActor.get(id) ?? null,
+    placeActor: (id, place) => {
+      const actor = actors.get(id)
+      if (actor && presenceRoom) presenceRoom.placeActor(actor, place)
+      else if (actor) Object.assign(actor, place)
+    },
   })
   metrics.world = () => created.stats()
   return created
@@ -62,6 +69,7 @@ export class PresenceRoom extends Room {
   }
 
   onCreate() {
+    presenceRoom = this
     this.deltaBatching = true
     this.setSimulationInterval(() => { world.tick(); this.flushDeltaBatches(); world.flush() }, 50)
     this.onMessage(MESSAGE.READY, client => this.ready(client))
@@ -145,7 +153,9 @@ export class PresenceRoom extends Room {
     if (rejection) {
       this.reject(client, rejection === 'replay' ? 'movement replay denied' : 'movement rate denied', rejection)
       // A refused step must still be answered with authority (see applyMove).
-      if (rejection === 'rate' && intent.sequence !== null) this.sendSelf(client, actor)
+      // A replay too: after a server-made move (WORLD VISUAL-2) an older
+      // client's next number is already taken, and this resyncs it.
+      if ((rejection === 'rate' || rejection === 'replay') && intent.sequence !== null) this.sendSelf(client, actor)
       return
     }
     metrics.moved()
@@ -224,6 +234,22 @@ export class PresenceRoom extends Room {
   cancelWork(client, payload) {
     const actor = actors.get(client.userData?.actorId)
     if (actor) world.cancel(actor, payload)
+  }
+
+  /**
+   * WORLD VISUAL-2: the server steps a trainer aside so its Pokémon can work.
+   * Published like any step; the sequence advances so every viewer applies it
+   * and the owner adopts it (its next move is numbered after this one).
+   */
+  placeActor(actor, place) {
+    actor.tx = place.tx; actor.ty = place.ty; actor.dir = place.dir
+    actor.moveSequence = (Number.isInteger(actor.moveSequence) ? actor.moveSequence : 0) + 1
+    this.publish(actor, stepActor(actor))
+    const client = clientsByActor.get(actor.id)
+    if (!client) return
+    this.syncVisibility(client, actor)
+    world.viewerMoved(client, actor)
+    this.sendSelf(client, actor)
   }
 
   /** `step` is given only for a pure move: identity is unchanged, so viewers that know the actor need just the step. */
