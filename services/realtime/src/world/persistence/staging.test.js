@@ -523,6 +523,11 @@ test('WORLD on Supabase: farming survives a restart and only the planter harvest
   assert.equal(harvesting.farmAction, 'harvest')
   await ready.finish(privateDuration(ready.room.authority, harvesting.actionId))
   const paid = lastMessage(pa3.client, WORLD_MESSAGE.WORK_DONE).summary.rewards[0].quantity
+  // WORLD VISUAL-2 left the trainer on its waiting tile: step back beside the plot.
+  Object.assign(pa3.actor, {
+    tx: PLOT.tx - 1,
+    ty: PLOT.ty,
+  })
   await ready.room.work(pa3.actor, { nodeId: PLOT.id, pokemonInstanceId: MILTANK, requestId: 2 })
   assert.equal(result(pa3.client).reason, 'choose-crop', 'harvested: empty again')
   const saved = await ready.data.playerState(a.id)

@@ -59,7 +59,7 @@ test('world messages ride the presence socket only for clients that declare the 
   // SKILLS PROB-2: a socket without the current world protocol cannot start work, whatever it sends.
   room.work(legacy, { nodeId: target.node.id, pokemonInstanceId: 25, requestId: 9 })
   await settle()
-  assert.deepEqual(lastMessage(legacy, WORLD_MESSAGE.WORK_RESULT), { requestId: 9, ok: false, reason: 'client-outdated' })
+  assert.deepEqual(lastMessage(legacy, WORLD_MESSAGE.WORK_RESULT), { requestId: 9, ok: false, reason: 'client-outdated', message: 'Actualizá la página para seguir trabajando.' })
   assert.equal(world.stats().transport.outdatedWork, 1)
 
   // A guest has no actor to stand beside anything.

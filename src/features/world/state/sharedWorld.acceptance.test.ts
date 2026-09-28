@@ -134,7 +134,7 @@ describe('SKILLS PROB-2: world protocol 2', () => {
     const old = s.connect('a', SPOT_A, 1)
     expect(old.world.resources.node(TREE.id)).toBeNull()
     const reply = await old.world.requestWork(TREE.id, 123)
-    expect(reply).toEqual({ requestId: 1, ok: false, reason: 'client-outdated' })
+    expect(reply).toEqual({ requestId: 1, ok: false, reason: 'client-outdated', message: 'Actualizá la página para seguir trabajando.' })
     expect(s.skills.authorized).toHaveLength(0)
     expect(s.server.authority.store.get(TREE.id)).toBeNull()
   })

@@ -254,11 +254,16 @@ test('a client that declares an older world protocol (or none) cannot start anyt
     const old = s.join('old', TREE.stands[0], protocol)
     assert.equal(old.client.messages.length, 0, 'no world state for an outdated client')
     const reply = await work(s.world, old.actor, 3)
-    assert.deepEqual(reply, { requestId: 3, ok: false, reason: 'client-outdated' })
+    assert.deepEqual(reply, { requestId: 3, ok: false, reason: 'client-outdated', message: 'Actualizá la página para seguir trabajando.' })
+    assert.equal(reply.reason, 'client-outdated')
+    assert.equal(reply.message, 'Actualizá la página para seguir trabajando.')
     assert.deepEqual(lastMessage(old.client, WORLD_MESSAGE.WORK_RESULT), reply)
     assert.equal(s.authorizations(), 0, 'nothing was checked or asked')
     assert.equal(s.world.authority.store.get(TREE.node.id), null, 'nothing was held')
     assert.equal(s.world.stats().transport.outdatedWork, 1)
+    // Its only world message is the refusal: no snapshot, no batch, no player state.
+    s.world.flush()
+    assert.deepEqual(old.client.messages.map(entry => entry.type), [WORLD_MESSAGE.WORK_RESULT])
     // The current protocol still works.
     const current = s.join('a', TREE.stands[1])
     assert.equal((await work(s.world, current.actor, 1)).ok, true)

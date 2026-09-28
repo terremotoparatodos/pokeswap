@@ -167,7 +167,8 @@ export class WorldRoom {
   work(actor, payload, client = this.clientForPlayer(actor.id)) {
     if (!client || !this.clients.has(client)) {
       this.metrics.outdatedWork++
-      const reply = { requestId: Number.isSafeInteger(payload?.requestId) ? payload.requestId : null, ok: false, reason: 'client-outdated' }
+      // `message` is what an old client shows as is (it prefers a server message to its own words).
+      const reply = { requestId: Number.isSafeInteger(payload?.requestId) ? payload.requestId : null, ok: false, reason: 'client-outdated', message: 'Actualizá la página para seguir trabajando.' }
       client?.send(WORLD_MESSAGE.WORK_RESULT, reply)
       return reply
     }
