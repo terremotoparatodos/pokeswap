@@ -25,7 +25,7 @@ supabase start -x studio,imgproxy,vector,logflare,mailpit,realtime,storage-api,p
 
 # 2. The migrations under test, in production order (errors stop them; NOTICEs are printed).
 for m in 20260926001322_slots_client_write_revoke 20260926001502_market_require_session \
-         20260926002154_world_skills_authority 20260926002207_world_skills_gate; do
+         20260926002154_world_skills_authority 20260926002207_world_skills_gate 20260928120000_world_multi_yield; do
   docker exec -i supabase_db_stage psql -U postgres -v ON_ERROR_STOP=1 --single-transaction -f - \
     < ../supabase/migrations/$m.sql
 done
