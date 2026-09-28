@@ -26,7 +26,7 @@ export const SKILLS: Readonly<Record<SkillId, SkillDefinition>> = {
     pitch: 'Tu Pokémon tala árboles y te trae madera.',
   },
   mining: {
-    id: 'mining', name: 'Minería', verb: 'Minar', working: 'Minando', icon: '⛏',
+    id: 'mining', name: 'Minería', verb: 'Minar', working: 'Picando', icon: '⛏',
     pitch: 'Tu Pokémon rompe rocas y vetas y te trae minerales.',
   },
   farming: {

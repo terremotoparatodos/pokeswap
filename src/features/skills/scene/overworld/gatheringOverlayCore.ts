@@ -41,18 +41,36 @@ export interface GatheringReward {
   readonly rarity: DropRarity
 }
 
-/** The two moments of a timeline the lifecycle needs; the rest is profession art. */
+/**
+ * The moments of a timeline the lifecycle needs; the rest is profession art.
+ * SKILLS PROB-2: a timeline starts `open` (one blow per work tick, no end) and
+ * the profession closes it when the server's answer arrives.
+ */
 export interface GatheringTimeline {
+  readonly open: boolean
   readonly resultAtMs: number
   readonly totalMs: number
 }
+
+/** What the server has said about the running action so far. */
+export type GatheringOutcome = 'pending' | 'success' | 'failed'
 
 export interface StartGathering<Timeline extends GatheringTimeline = GatheringTimeline> {
   readonly target: NodeTarget
   readonly tx: number
   readonly ty: number
   readonly timeline: Timeline
-  /** Settles the action when the timeline reaches its result; null when nothing was granted. */
+  /**
+   * Whether the server has answered (PROB-2): polled every frame while the
+   * timeline is open; the first answer closes it. Must be cheap and pure.
+   */
+  readonly outcome: () => GatheringOutcome
+  /**
+   * How far into the action the server clock already is (serverNow −
+   * startedAt), so the owner's blows land on the same beat as the worker
+   * everyone sees. 0 when unknown.
+   */
+  readonly elapsedMs?: number
   /**
    * The action's reward at the scene's result beat. `undefined` means the
    * server has not settled yet: the scene holds on that beat and asks again
@@ -151,10 +169,13 @@ export abstract class GatheringOverlayCore<
   protected abstract actionFrame(action: Action, elapsedMs: number, x: number, y: number): void
   /** The profession's burst when the result lands; pops are added by the core. */
   protected abstract celebrationEffects(action: Action, reward: GatheringReward, x: number, y: number): void
+  /** The profession's closed timeline: the blow in progress finishes, then the ending (a success or not). */
+  protected abstract closeTimeline(elapsedMs: number, success: boolean): Start['timeline']
 
   /** The running action's record; professions with extra per-action state extend it. */
   protected activate(options: Start): Action {
-    return { ...options, startedAt: this.seconds, lastMs: 0, resultApplied: false, linger: 0 } as Action
+    const elapsed = Math.max(0, options.elapsedMs ?? 0)
+    return { ...options, startedAt: this.seconds - elapsed / 1000, lastMs: elapsed, resultApplied: false, linger: 0 } as Action
   }
 
   // ── Public surface (unchanged from the per-profession overlays) ───────
@@ -295,6 +316,11 @@ export abstract class GatheringOverlayCore<
     const elapsed = (seconds - action.startedAt) * 1000
     const x = action.tx * TILE + TILE / 2
     const y = action.ty * TILE + TILE - 3
+    if (action.timeline.open) {
+      // No end is known until the server says so; then the scene finishes the blow and ends.
+      const outcome = action.outcome()
+      if (outcome !== 'pending') (action as { timeline: GatheringTimeline }).timeline = this.closeTimeline(elapsed, outcome === 'success')
+    }
     this.actionFrame(action, elapsed, x, y)
     if (!action.resultApplied && elapsed >= action.timeline.resultAtMs) {
       const reward = action.onResult()

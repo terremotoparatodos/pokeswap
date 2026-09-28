@@ -42,6 +42,8 @@ const REFUSAL: Readonly<Record<string, string>> = {
   offline: 'Sin conexión con el mundo.',
   timeout: 'El servidor no respondió. Probá de nuevo.',
   disconnected: 'Se cortó la conexión.',
+  'client-outdated': 'Actualizá la página para seguir trabajando.',
+  'rate-limited': 'Más despacio: esperá un momento.',
 }
 
 export const refusalText = (reason: string, message?: string): string => message ?? REFUSAL[reason] ?? 'No se pudo trabajar.'
@@ -104,7 +106,7 @@ export function createWorldSkillsSession(world: SharedWorld, clock: () => number
     async begin(nodeId, worker, cropId = null) {
       const reply = await world.requestWork(nodeId, Number(worker.instanceId), cropId)
       if (!reply.ok) return { allowed: false, message: refusalText(reply.reason, reply.message) }
-      return { allowed: true, actionId: reply.actionId, durationMs: reply.endsAt - reply.startedAt }
+      return { allowed: true, actionId: reply.actionId, startedAt: reply.startedAt }
     },
     result: actionId => (results.has(actionId) ? results.get(actionId)! : undefined),
     cancel: actionId => world.cancelWork(actionId),

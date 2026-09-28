@@ -7,7 +7,6 @@
 import { resolveAptitude } from '../domain/aptitude/aptitude'
 import { speciesDisplayName } from '../domain/aptitude/speciesFacts'
 import type { Aptitude } from '../domain/aptitude/aptitudeScale'
-import { workDuration } from '../domain/workRules'
 import { nextUnlock, roadmap, type RoadmapEntry, type Unlock } from '../domain/roadmap'
 import { materialName } from '../domain/materials'
 import { RESOURCES, type ResourceDefinition } from '../domain/resources'
@@ -49,11 +48,14 @@ export interface WorkerOption {
   readonly aptitude: Aptitude
   /** Below the resource's minimum aptitude. */
   readonly unable: boolean
-  readonly seconds: number
 }
 
-/** The party as seen from one resource: who can do it and how fast. Best first, ties in party order. */
-export function workerOptions(workers: readonly WorkerRef[], resource: ResourceDefinition, playerLevel: number): readonly WorkerOption[] {
+/**
+ * The party as seen from one resource: who can do it, and how apt. Best first,
+ * ties in party order. No time: since PROB-2 an action lasts until an attempt
+ * succeeds, and the card never promises a duration.
+ */
+export function workerOptions(workers: readonly WorkerRef[], resource: ResourceDefinition): readonly WorkerOption[] {
   return workers
     .map((worker, index) => {
       const aptitude = resolveAptitude(worker.speciesId, resource.skill).value
@@ -62,7 +64,6 @@ export function workerOptions(workers: readonly WorkerRef[], resource: ResourceD
         option: {
           instanceId: worker.instanceId, speciesId: worker.speciesId, name: speciesDisplayName(worker.speciesId), aptitude,
           unable: aptitude < resource.minAptitude,
-          seconds: Math.round(workDuration(resource.baseDurationMs, aptitude, playerLevel) / 100) / 10,
         },
       }
     })

@@ -1,31 +1,40 @@
-// Mining action timeline: a few pickaxe swings, then the reward.
+// Mining action timeline (SKILLS PROB-2): one pickaxe swing per WORLD work
+// tick while the action runs, then the reward once the server has answered.
 //
 // Pure and time-based so the overlay, the panel and tests agree on when a
-// strike lands and when the result is revealed. The server-side action time
-// (actionSeconds) only chooses how many swings the animation shows.
+// strike lands and when the result is revealed. Nobody on the client knows
+// how long an action lasts: the timeline starts OPEN (swings forever) and is
+// CLOSED by the result — the swing in progress finishes, then the reward.
 
-export const SWING_MS = { windup: 220, strike: 90, recoil: 190 } as const
+import { WORK_TICK_MS } from '../../../../../services/realtime/src/world/worldProtocol.js'
+
+/** One swing per attempt: windup + strike + recoil = WORK_TICK_MS. The strike lands with the worker's blow (workerPose). */
+export const SWING_MS = { windup: 264, strike: 90, recoil: WORK_TICK_MS - 354 } as const
 export const SWING_TOTAL_MS = SWING_MS.windup + SWING_MS.strike + SWING_MS.recoil
 export const REWARD_MS = 950
-export const MIN_SWINGS = 2
 
 export type MiningPhase = 'windup' | 'strike' | 'recoil' | 'reward' | 'done'
 
 export interface MiningTimeline {
+  /** True until the server's answer arrives: swings repeat and nothing ends. */
+  readonly open: boolean
+  /** Swings played (Infinity while open). */
   readonly swings: number
   /** When the result is applied (end of the last swing). */
   readonly resultAtMs: number
   readonly totalMs: number
 }
 
-/**
- * As many blows as fit the authorized duration, rounded up so the result
- * never lands before the Skills service would accept it.
- */
-export function miningTimeline(durationMs: number): MiningTimeline {
-  const swings = Math.max(MIN_SWINGS, Math.ceil(durationMs / SWING_TOTAL_MS))
+/** A running action: swing after swing, one per tick, until `closeMining`. */
+export function miningTimeline(): MiningTimeline {
+  return { open: true, swings: Infinity, resultAtMs: Infinity, totalMs: Infinity }
+}
+
+/** The server answered at `elapsedMs`: finish the swing in progress, then the result. */
+export function closeMining(elapsedMs: number): MiningTimeline {
+  const swings = Math.max(1, Math.floor(Math.max(0, elapsedMs) / SWING_TOTAL_MS) + 1)
   const resultAtMs = swings * SWING_TOTAL_MS
-  return { swings, resultAtMs, totalMs: resultAtMs + REWARD_MS }
+  return { open: false, swings, resultAtMs, totalMs: resultAtMs + REWARD_MS }
 }
 
 export interface MiningPose {
@@ -58,7 +67,9 @@ export function miningPose(timeline: MiningTimeline, elapsedMs: number): MiningP
 /** Swing indices whose strike begins in (fromMs, toMs]: when to spawn impact effects. */
 export function strikesBetween(timeline: MiningTimeline, fromMs: number, toMs: number): number[] {
   const hits: number[] = []
-  for (let swing = 0; swing < timeline.swings; swing++) {
+  const first = Math.max(0, Math.floor((fromMs - SWING_MS.windup) / SWING_TOTAL_MS))
+  const last = Math.min(timeline.swings, Math.floor((toMs - SWING_MS.windup) / SWING_TOTAL_MS) + 1)
+  for (let swing = first; swing < last; swing++) {
     const at = swing * SWING_TOTAL_MS + SWING_MS.windup
     if (at > fromMs && at <= toMs) hits.push(swing)
   }

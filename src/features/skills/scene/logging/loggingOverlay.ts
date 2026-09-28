@@ -31,7 +31,7 @@ import {
   type ActiveGathering, type GatheringOverlayDeps, type GatheringReward, type RingStyle, type StartGathering,
   type ViewInput, type VisibleNode,
 } from '../overworld/gatheringOverlayCore'
-import { bitesBetween, choppingPose, type ChoppingTimeline } from './choppingTimeline'
+import { bitesBetween, choppingPose, closeChopping, type ChoppingTimeline } from './choppingTimeline'
 import { leafAlpha, leafFrame, spawnLeaves, stepLeaves, type Leaf } from './leaves'
 import { treeVisual, type TreeVisualView } from './treeVisualState'
 
@@ -97,6 +97,11 @@ export class LoggingOverlay extends GatheringOverlayCore<StartLogging, ActiveAct
       // The canopy lets go all at once.
       this.leaves = spawnLeaves(this.leaves, { x, y, z: 30, count: 8, tones: LEAF_PARTICLE_TONES, random: this.random })
     }
+  }
+
+  /** In the shared world a success always takes the tree: it falls. A refusal or cancel leaves it standing. */
+  protected closeTimeline(elapsedMs: number, success: boolean): ChoppingTimeline {
+    return closeChopping(elapsedMs, success)
   }
 
   protected celebrationEffects(action: ActiveAction, reward: GatheringReward, x: number, y: number): void {

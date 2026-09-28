@@ -2,6 +2,8 @@ import type { WorkKind } from './resourceLayout.js'
 import type { WorkerStand } from './workPlacement.js'
 
 export declare const WORLD_PROTOCOL: 1
+/** One attempt of a work action and one swing of the worker (SKILLS PROB-2). */
+export declare const WORK_TICK_MS: 600
 export declare const WORLD_MESSAGE: Readonly<{
   WORK: 'world:work'
   CANCEL: 'world:cancel'

@@ -11,7 +11,9 @@ import type { SettleResult } from '../service/skillsService'
 import type { WorkerRef } from './workerRef'
 
 export type SessionBegin =
-  | { readonly allowed: true; readonly actionId: string; readonly durationMs: number }
+  // SKILLS PROB-2: no duration. The server alone knows when the action ends;
+  // `startedAt` (server clock) only puts the animation on the shared beat.
+  | { readonly allowed: true; readonly actionId: string; readonly startedAt: number }
   | { readonly allowed: false; readonly message: string }
 
 export interface SkillsSession {

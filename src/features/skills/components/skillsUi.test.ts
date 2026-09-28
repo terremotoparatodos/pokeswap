@@ -7,6 +7,7 @@ import { createManualClock, createMemorySkillsStore } from '../service/memoryAda
 import { createSkillsService } from '../service/skillsService'
 import SkillsBag from './SkillsBag.vue'
 import SkillsPanel from './SkillsPanel.vue'
+import FarmCard from './FarmCard.vue'
 import WorkCard from './WorkCard.vue'
 
 // jsdom has no 2D canvas; icons fall back to a letter.
@@ -77,13 +78,29 @@ describe('WorkCard', () => {
     expect(wrapper.find('.wc-go').exists()).toBe(false)
   })
 
-  it('lists the party best-first with aptitude and time, and preselects the best', () => {
+  it('lists the party best-first with aptitude (no time: PROB-2), and preselects the best', () => {
     const wrapper = mount(WorkCard, { props: { ...base, xp: xpAt({ woodcutting: 12 }) } })
     const names = wrapper.findAll('.wc-worker-name').map(node => node.text())
     expect(names[0]).toBe('Scyther')
     expect(wrapper.get('.wc-worker--on').text()).toContain('Scyther')
     expect(wrapper.get('.wc-go').text()).toBe('Talar con Scyther')
     expect(wrapper.text()).not.toMatch(/hacha|herramienta|energía/i)
+    // SKILLS PROB-2: the card never promises a duration.
+    expect(wrapper.text()).not.toMatch(/\d+([.,]\d+)?\s*s\b|segundo|%/)
+  })
+
+  it('shows no progress bar, percentage or countdown while the Pokémon works (PROB-2)', () => {
+    const run = { actionId: 'a-1', workerName: 'Scyther', startedAt: 1_000 }
+    const wrapper = mount(WorkCard, { props: { ...base, xp: xpAt({ woodcutting: 12 }), phase: 'working' as const, run } })
+    expect(wrapper.get('.wc-working').text()).toBe('Scyther está talando…')
+    expect(wrapper.find('.wc-progress').exists()).toBe(false)
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(wrapper.find('[style*="animation"]').exists()).toBe(false)
+    expect(wrapper.html()).not.toMatch(/progress|animationDuration|%|\d\s*s\b/)
+    for (const [resourceId, verb] of [['stone_outcrop', 'picando'], ['common_tree', 'talando']] as const) {
+      const card = mount(WorkCard, { props: { ...base, resource: RESOURCE_BY_ID.get(resourceId)!, xp: xpAt(), phase: 'working' as const, run } })
+      expect(card.get('.wc-working').text()).toContain(verb)
+    }
   })
 
   it('greys out a Pokémon below the rung\'s minimum aptitude, never the whole node', () => {
@@ -128,5 +145,30 @@ describe('SkillsBag', () => {
     const wrapper = mount(SkillsBag, { props: { inventory: { coal: 3, common_log: 2 } } })
     expect(wrapper.findAll('.bag-name').map(node => node.text())).toEqual(['Tronco común', 'Carbón'])
     expect(wrapper.text()).toContain('Combustible')
+  })
+})
+
+describe('FarmCard', () => {
+  const plot = { stage: 'empty' as const, cropId: null, mine: false, readyInMs: 0, action: 'plant' as const }
+  const props = { plot, phase: 'idle' as const, result: null, refusal: null, xp: xpAt(), workers: [{ instanceId: 'm', speciesId: 241 }], lastWorker: null }
+
+  it('offers the worker without a time estimate', () => {
+    const wrapper = mount(FarmCard, { props })
+    expect(wrapper.get('.fc-worker').text()).toContain('Miltank')
+    expect(wrapper.get('.fc-workers').text()).not.toMatch(/\d+([.,]\d+)?\s*s\b/)
+  })
+
+  it('shows no progress bar, percentage or countdown while the Pokémon farms (PROB-2)', () => {
+    const wrapper = mount(FarmCard, { props: { ...props, phase: 'working' as const } })
+    expect(wrapper.get('.fc-working').text()).toBe('Tu Pokémon está cultivando…')
+    expect(wrapper.find('.fc-progress').exists()).toBe(false)
+    expect(wrapper.find('[role="progressbar"]').exists()).toBe(false)
+    expect(wrapper.html()).not.toMatch(/progress|animationDuration|%/)
+  })
+
+  it('still says when a growing crop will be ready: growth is a clock, not an attempt', () => {
+    const growing = { ...plot, stage: 'growing' as const, cropId: 'oran', mine: true, readyInMs: 45_000, action: null }
+    const wrapper = mount(FarmCard, { props: { ...props, plot: growing } })
+    expect(wrapper.get('.fc-stage').text()).toBe('Creciendo · lista en 45 s')
   })
 })

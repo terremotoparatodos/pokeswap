@@ -124,7 +124,7 @@ var SKILLS = {
     id: "mining",
     name: "Miner\xEDa",
     verb: "Minar",
-    working: "Minando",
+    working: "Picando",
     icon: "\u26CF",
     pitch: "Tu Pok\xE9mon rompe rocas y vetas y te trae minerales."
   },
