@@ -16,7 +16,7 @@
   - Talar rinde **1,42×** unidades y XP por hora (644 → 917) y Minería **1,28×** (630 → 807).
   - En nivel 50 llega a 2,1× y 1,7×.
   - La oferta de las zonas sube 2,8× en el bosque y 1,9× en la cantera. Con 10 jugadores se pasa de 72/55 % a 100/83 % del tiempo trabajando.
-- **Hallazgo: el pacing actual ya supone varias unidades por nodo.** Toma las `charges` advisory, 3–5 por árbol. El mundo real entrega 1, así que el tiempo real hasta nivel 50 de Talar es ~28,7 h y no las 12,9 h que muestra la herramienta. La propuesta acelera sobre todo el juego temprano (Nv 25: 2,24 → 1,18 h). Los niveles altos casi no cambian, porque los recursos avanzados siguen dando 1 unidad.
+- **Hallazgo: el pacing actual ya supone varias unidades por nodo.** Toma las `charges` advisory, 3–5 por árbol. El mundo real entrega 1, así que el tiempo real hasta nivel 50 de Talar es ~28,7 h (29,66 h con la latencia de commit de 0,4 s, §11 C7) y no las 12,9 h que muestra la herramienta. La propuesta acelera sobre todo el juego temprano (Nv 25: 2,24 → 1,18 h). Los niveles altos casi no cambian, porque los recursos avanzados siguen dando 1 unidad.
 - **Bloqueantes:**
   - el cliente no puede saber el stock: `publicNode` hoy filtraría `respawnAt` de un nodo parcial;
   - se necesita el protocolo 3;
@@ -267,8 +267,10 @@ Parámetros:
 | | Talar | Minería |
 |---|---|---|
 | Lo que muestra hoy `pacing.ts` (supone las `charges` advisory del catálogo, 3–6 por nodo) | 0,22 / 1,11 / 4,51 / 12,86 | 0,23 / 1,18 / 5,67 / 18,28 |
-| **Mundo real hoy** (1 unidad por nodo) | 0,43 / 2,24 / 9,49 / **28,70** | 0,44 / 2,18 / 10,13 / **31,23** |
-| **Propuesta** (k̄ de arriba; overhead y walk por nodo) | 0,21 / 1,18 / 8,43 / **27,64** | 0,27 / 2,01 / 9,96 / **31,07** |
+| **Mundo real hoy** (1 unidad por nodo; sin latencia de commit) | 0,43 / 2,24 / 9,49 / **28,70** | 0,44 / 2,18 / 10,13 / **31,23** |
+| **Propuesta** (k̄ de arriba; overhead y walk por nodo; sin latencia de commit) | 0,21 / 1,18 / 8,43 / **27,64** | 0,27 / 2,01 / 9,96 / **31,07** |
+
+> Esta tabla no incluye la latencia del commit. Las cifras vigentes, con commit de 0,4 s y 1,5 s, son las de §11 C7 (implementadas y fijadas en YIELD-2).
 
 **Lectura:**
 - **Juego temprano:** la propuesta lo duplica en velocidad (Nv 25 en ~1,2 h en lugar de ~2,2 h). El tramo 25→50 casi no cambia, porque los recursos que lo dominan (madera dura, boreal, hierro, oro, cristal) siguen en 1 unidad.

@@ -119,7 +119,8 @@ La escena (`skills/scene/`) sólo necesita `nodeState(target) → { status, rema
 
 ## 7. Datos que SKILLS publica para WORLD (consultivos)
 
-- `RESOURCES[].world`: hábitats, anillo mínimo, anclas de decor, peso, cargas `[min,max]`, respawn.
+- `RESOURCES[].world`: hábitats, anillo mínimo, anclas de decor, peso, respawn. (Las cargas `[min,max]` advisory se eliminaron en RESOURCE YIELD-2.)
+- `RESOURCES[].stock` **no es consultivo**: es una regla (RESOURCE YIELD-2). SKILLS la entrega a WORLD en la autorización (`stock: { min, max }`, privado) y WORLD sortea con ella el stock oculto de una generación nueva del nodo.
 - `PLOT_WORLD_HINTS`: dónde van las parcelas y cuántas por jugador.
 - `CROPS[].growMs`.
 
