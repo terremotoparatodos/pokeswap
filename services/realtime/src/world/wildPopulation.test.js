@@ -93,7 +93,7 @@ test('the synthetic catalog places a full roster for local stacks', async () => 
 test('no roster, no wild Pokémon: an unreadable catalog fails closed and says why, once', async () => {
   const { WorldRoom } = await import('./worldRoom.js')
   const { fakeClient, lastMessage } = await import('./testing.js')
-  const { WORLD_MESSAGE } = await import('./worldProtocol.js')
+  const { WORLD_MESSAGE, WORLD_PROTOCOL } = await import('./worldProtocol.js')
   const logs = []
   const unavailable = []
   let now = 490_000 * WILD_ROTATE_MS
@@ -113,7 +113,7 @@ test('no roster, no wild Pokémon: an unreadable catalog fails closed and says w
   const room = new WorldRoom({ skills: {}, ownership: {}, catalog: { async load() { throw new Error('catalog 503') } }, now: () => roomNow, lookupActor: () => null, clientForPlayer: () => null })
   room.wild.log = () => {}
   const viewer = fakeClient('v')
-  room.join(viewer, { worldProtocol: 1 }, { kind: 'guest' })
+  room.join(viewer, { worldProtocol: WORLD_PROTOCOL }, { kind: 'guest' })
   room.snapshot(viewer, { areaId: 'pradera', tx: -5, ty: -69 })
   assert.equal(lastMessage(viewer, WORLD_MESSAGE.SNAPSHOT).wildStatus, 'loading')
   room.tick(); await new Promise(r => setImmediate(r))

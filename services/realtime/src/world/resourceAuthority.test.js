@@ -4,7 +4,7 @@ import { createDemoSkillPolicy } from './demoSkillPolicy.js'
 import { createStaticOwnership } from './pokemonOwnership.js'
 import { ResourceAuthority, SETTLE_RETRY_DELAYS_MS } from './resourceAuthority.js'
 import { RESPAWN_MS, resourceAt, resourceById } from './resourceLayout.js'
-import { manualClock, praderaNodesNearSpawn, settle } from './testing.js'
+import { manualClock, praderaNodesNearSpawn, privateDuration, settle } from './testing.js'
 
 const [{ node: TREE, stands: [SPOT_A, SPOT_B] }] = praderaNodesNearSpawn()
 
@@ -182,7 +182,8 @@ test('a duration from SKILLS is clamped, never trusted blindly', async () => {
   const skills = createDemoSkillPolicy({ durationMs: 10 })
   const { authority, actors } = setup({ skills })
   const started = await authority.requestWork(actors.get('a'), intent(1, 25))
-  assert.equal(started.endsAt - started.startedAt, 600, "one work tick, the shortest action")
+  assert.equal(privateDuration(authority, started.actionId), 600, 'one work tick, the shortest action')
+  assert.equal('endsAt' in started, false, 'and the requester is never told')
 })
 
 /** Ownership whose answer for `slowPlayer` waits until `release()` is called. */

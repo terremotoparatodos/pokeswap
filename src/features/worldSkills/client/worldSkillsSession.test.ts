@@ -34,7 +34,7 @@ describe('the shared-world Skills session', () => {
     const { world, session, sent } = setup()
     const pending = session.begin('pradera:-6:-64:tree', { instanceId: '123', speciesId: 123 })
     expect(sent[sent.length - 1]).toEqual({ type: 'world:work', payload: { nodeId: 'pradera:-6:-64:tree', pokemonInstanceId: 123, requestId: 1 } })
-    world.workResult({ requestId: 1, ok: true, actionId: 'act-1', nodeId: 'pradera:-6:-64:tree', startedAt: 1_000, endsAt: 4_000 })
+    world.workResult({ requestId: 1, ok: true, actionId: 'act-1', nodeId: 'pradera:-6:-64:tree', startedAt: 1_000 })
     // No duration reaches the UI (SKILLS PROB-2): only the server-clock start, for the animation phase.
     expect(await pending).toEqual({ allowed: true, actionId: 'act-1', startedAt: 1_000 })
     void session.begin('pradera:-7:-73:plot', { instanceId: '241', speciesId: 241 }, 'oran')

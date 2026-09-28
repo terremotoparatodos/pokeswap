@@ -11,8 +11,11 @@ import { execFileSync } from 'node:child_process'
  *   3 — WORLD-1: clients declaring `worldProtocol: 1` get shared resource
  *       nodes (world:snapshot / world:batch) and may send world:work intents;
  *       everything else is unchanged for clients that do not declare it
+ *   4 — SKILLS PROB-2: world protocol 2. Work is probabilistic; no message
+ *       carries an action's end. Clients declaring an older world protocol
+ *       (or none) get no world state and `client-outdated` for work
  */
-export const PRESENCE_PROTOCOL_REVISION = 3
+export const PRESENCE_PROTOCOL_REVISION = 4
 
 const COMMIT = /^[0-9a-f]{7,40}$/
 

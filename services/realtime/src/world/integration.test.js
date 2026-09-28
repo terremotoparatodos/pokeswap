@@ -8,8 +8,8 @@ import { ownershipFromPlayerData } from './pokemonOwnership.js'
 import { PLOTS } from './plots.js'
 import { RESPAWN_MS } from './resourceLayout.js'
 import { createSkillsWorldPolicy, skillsResourceFor } from './skills/skills.generated.js'
-import { fakeClient, lastMessage, manualClock, messagesOf, praderaNodesNearSpawn, settle } from './testing.js'
-import { WORLD_MESSAGE } from './worldProtocol.js'
+import { fakeClient, lastMessage, manualClock, messagesOf, praderaNodesNearSpawn, privateDuration, scriptedRandom, settle } from './testing.js'
+import { WORLD_MESSAGE, WORLD_PROTOCOL } from './worldProtocol.js'
 import { WorldRoom } from './worldRoom.js'
 
 // INTEGRATION-1 end to end on the server: WORLD's room and authority, the
@@ -29,11 +29,16 @@ const ROCK = firstOf('stone_outcrop')
 const PLOT = PLOTS[0]
 const PLOT_STAND = { tx: PLOT.tx - 1, ty: PLOT.ty }
 
-async function stage({ dataDir = null, playerData = null, clock = manualClock(Date.now()) } = {}) {
+/**
+ * `random` drives SKILLS' secret attempt draw and the drops. Deterministic by
+ * default (0.5: every attempt of a level-1 player fails until the cap, drops
+ * roll mid-range, no aptitude bonus), so no test depends on luck.
+ */
+async function stage({ dataDir = null, playerData = null, clock = manualClock(Date.now()), random = scriptedRandom() } = {}) {
   const data = playerData ?? await createDevPlayerData({ dataDir })
   const actors = new Map()
   const sockets = new Map()
-  const skills = createSkillsWorldPolicy({ store: data, now: clock.now, growScale: 0.001 })
+  const skills = createSkillsWorldPolicy({ store: data, now: clock.now, growScale: 0.001, random })
   const world = new WorldRoom({
     skills, ownership: ownershipFromPlayerData(data, clock.now), playerData: data, now: clock.now, log: () => {},
     lookupActor: id => actors.get(id) ?? null, clientForPlayer: id => sockets.get(id) ?? null,
@@ -43,7 +48,7 @@ async function stage({ dataDir = null, playerData = null, clock = manualClock(Da
     const client = fakeClient(id)
     const actor = { id, areaId: 'pradera', tx: spot.tx, ty: spot.ty }
     actors.set(id, actor); sockets.set(id, client)
-    world.join(client, { worldProtocol: 1 }, { kind: 'player', userId: id, token: null })
+    world.join(client, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: id, token: null })
     world.snapshot(client, actor)
     await settle(); await settle()
     return { client, actor }
@@ -84,7 +89,7 @@ test('Talar: A chops with its Pokémon, B sees it, B is refused, ONE settlement 
   await s.world.work(b.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 1 })
   assert.equal(lastMessage(b.client, WORLD_MESSAGE.WORK_RESULT).reason, 'busy')
 
-  await s.finish(started.endsAt - started.startedAt)
+  await s.finish(privateDuration(s.world.authority, started.actionId))
   const done = lastMessage(a.client, WORLD_MESSAGE.WORK_DONE)
   assert.equal(done.ok, true, JSON.stringify(done))
   assert.equal(done.summary.xpGained, 10)
@@ -116,7 +121,7 @@ test('a realtime restart keeps a depleted tree depleted until its respawn instan
     const a = await first.join(A, TREE.stands[0])
     await first.world.work(a.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
     const started = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
-    await first.finish(started.endsAt - started.startedAt)
+    await first.finish(privateDuration(first.world.authority, started.actionId))
     await first.data.close()
 
     // New process, same database: still a stump, and still not workable.
@@ -141,7 +146,7 @@ test('Minería: the same loop on a real rock — Minería XP and stone', async (
   await s.world.work(a.actor, { nodeId: ROCK.node.id, pokemonInstanceId: DIGLETT, requestId: 1 })
   const started = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
   assert.equal(started.details.skillId, 'mining')
-  await s.finish(started.endsAt - started.startedAt)
+  await s.finish(privateDuration(s.world.authority, started.actionId))
   assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_DONE).summary.rewards[0].itemId, 'stone')
   const saved = await s.data.playerState(A)
   assert.equal(saved.xp.mining, 10)
@@ -164,7 +169,7 @@ test('Agricultura: plant → both see it growing → restart → ready by server
     await first.world.work(a.actor, { nodeId: PLOT.id, pokemonInstanceId: MILTANK, requestId: 3, cropId: 'oran' })
     const planting = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
     assert.equal(planting.ok, true, JSON.stringify(planting))
-    await first.finish(planting.endsAt - planting.startedAt)
+    await first.finish(privateDuration(first.world.authority, planting.actionId))
     const planted = nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH), PLOT.id)
     assert.equal(planted.state, 'planted')
     assert.equal(planted.plot.cropId, 'oran')
@@ -188,7 +193,7 @@ test('Agricultura: plant → both see it growing → restart → ready by server
     await again.world.work(a2.actor, { nodeId: PLOT.id, pokemonInstanceId: MILTANK, requestId: 1 })
     const harvesting = lastMessage(a2.client, WORLD_MESSAGE.WORK_RESULT)
     assert.equal(harvesting.farmAction, 'harvest')
-    await again.finish(harvesting.endsAt - harvesting.startedAt)
+    await again.finish(privateDuration(again.world.authority, harvesting.actionId))
     const harvest = lastMessage(a2.client, WORLD_MESSAGE.WORK_DONE)
     assert.equal(harvest.summary.rewards[0].itemId, 'oran_berry')
     // The trainer waited a tile back (WORLD VISUAL-2) and stays there: step up to the plot again.
@@ -215,9 +220,9 @@ test('hostile payloads: xp, reward, quantity and userId in the intent are never 
   })
   const started = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
   assert.equal(started.ok, true)
-  const duration = started.endsAt - started.startedAt
+  const duration = privateDuration(s.world.authority, started.actionId)
   assert.ok(duration >= 600 && duration % 600 === 0, 'duration is SKILLS’ draw in whole ticks, not the payload’s')
-  await s.finish(started.endsAt - started.startedAt)
+  await s.finish(privateDuration(s.world.authority, started.actionId))
   const saved = await s.data.playerState(A)
   assert.equal(saved.xp.woodcutting, 10)
   assert.deepEqual(Object.keys(saved.materials), ['common_log'])
@@ -250,7 +255,7 @@ test('A and B race for the same tree with real rules: one reservation, one rewar
   assert.deepEqual(results.map(r => r.ok).sort(), [false, true])
   assert.equal(results.find(r => !r.ok).reason, 'busy')
   const winner = results.find(r => r.ok)
-  await s.finish(winner.endsAt - winner.startedAt)
+  await s.finish(privateDuration(s.world.authority, winner.actionId))
   const total = (await s.data.playerState(A)).xp.woodcutting + (await s.data.playerState(B)).xp.woodcutting
   assert.equal(total, 10)
   await s.data.close()
@@ -267,7 +272,7 @@ test('exactly once: duplicate completions, and a retry after the store timed out
   const a = await s.join(A, TREE.stands[0])
   await s.world.work(a.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
   const started = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
-  clock.advance(started.endsAt - started.startedAt)
+  clock.advance(privateDuration(s.world.authority, started.actionId))
   await Promise.all([s.world.authority.complete(started.actionId), s.world.authority.complete(started.actionId)])
   s.world.tick()
   await quiet(s.world)
@@ -278,4 +283,89 @@ test('exactly once: duplicate completions, and a retry after the store timed out
   assert.equal(messagesOf(a.client, WORLD_MESSAGE.WORK_DONE).length, 1)
   assert.equal(s.world.stats().actions.duplicateSettlements, 1, 'the retry found the settlement already stored')
   await real.close()
+})
+
+// ── SKILLS PROB-2: restarts, the draw and Agricultura's clocks ────────────────
+
+test('a restart while the Pokémon works loses the action: nothing is paid, the tree is free, the next action pays once', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'world-prob-restart-'))
+  try {
+    const clock = manualClock(Date.now())
+    const first = await stage({ dataDir: dir, clock })
+    const a = await first.join(A, TREE.stands[0])
+    await first.world.work(a.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
+    const lost = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
+    assert.equal(lost.ok, true)
+    // Two ticks in, the process dies: the action lived only in memory.
+    clock.advance(1_200)
+    await first.data.close()
+
+    const again = await stage({ dataDir: dir, clock, random: scriptedRandom([0]) })
+    const a2 = await again.join(A, TREE.stands[0])
+    assert.equal(nodeIn(lastMessage(a2.client, WORLD_MESSAGE.SNAPSHOT), TREE.node.id), undefined, 'never persisted as working: available')
+    assert.equal(lastMessage(a2.client, WORLD_MESSAGE.SNAPSHOT).ownAction, undefined)
+    assert.equal((await again.data.playerState(A)).xp.woodcutting, 0, 'the lost action paid nothing')
+    // Settling the lost action now is impossible: this process never authorized it.
+    const replay = await again.world.skills.settleWork({ actionId: lost.actionId, playerId: A, world: null })
+    assert.equal(replay.ok, false)
+    await again.world.work(a2.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
+    const next = lastMessage(a2.client, WORLD_MESSAGE.WORK_RESULT)
+    assert.equal(next.ok, true)
+    assert.equal(privateDuration(again.world.authority, next.actionId), 600, 'a fresh draw (scripted: first tick)')
+    await again.finish(600)
+    assert.equal((await again.data.playerState(A)).xp.woodcutting, 10)
+    await again.data.close()
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('a restart after the commit never settles twice: the same action id is a no-op for the database', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'world-prob-commit-'))
+  try {
+    const clock = manualClock(Date.now())
+    const first = await stage({ dataDir: dir, clock })
+    const a = await first.join(A, TREE.stands[0])
+    await first.world.work(a.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
+    const started = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
+    await first.finish(privateDuration(first.world.authority, started.actionId))
+    assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_DONE).ok, true)
+    await first.data.close()
+
+    const again = await stage({ dataDir: dir, clock })
+    // The new process knows nothing of the action; the database does, and refuses to apply it twice.
+    const replay = await again.data.commitWork({
+      actionId: started.actionId, userId: A, skillId: 'woodcutting', outcome: 'completed', xpGained: 10,
+      rewards: [{ itemId: 'common_log', quantity: 1, bonus: false }], levelBefore: 1, levelAfter: 1, rulesVersion: 'skills-1.1', node: null,
+    })
+    assert.equal(replay.applied, false)
+    const saved = await again.data.playerState(A)
+    assert.equal(saved.xp.woodcutting, 10, 'one settlement')
+    assert.equal(saved.materials.common_log, 1)
+    assert.equal(nodeIn(lastMessage((await again.join(B, TREE.stands[1])).client, WORLD_MESSAGE.SNAPSHOT), TREE.node.id).state, 'depleted')
+    await again.data.close()
+  } finally {
+    await rm(dir, { recursive: true, force: true })
+  }
+})
+
+test('Agricultura: planting is an attempt (harvest too, above); growth keeps its own clock whatever the draw', async () => {
+  const grow = []
+  for (const random of [scriptedRandom([0]), scriptedRandom([], 0.9999999)]) {
+    const s = await stage({ random })
+    const a = await s.join(A, PLOT_STAND)
+    await s.world.work(a.actor, { nodeId: PLOT.id, pokemonInstanceId: MILTANK, requestId: 1, cropId: 'oran' })
+    const planting = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
+    assert.equal(planting.farmAction, 'plant')
+    const duration = privateDuration(s.world.authority, planting.actionId)
+    assert.ok(duration >= 600 && duration % 600 === 0)
+    await s.finish(duration)
+    const plot = s.world.authority.store.get(PLOT.id).plot
+    // Planted when the planting succeeded; ready growMs later (5 s floor in this scaled test stack).
+    assert.equal(plot.plantedAt, planting.startedAt + duration)
+    grow.push(plot.readyAt - plot.plantedAt)
+    await s.data.close()
+  }
+  assert.equal(grow[0], grow[1], 'the draw never changes how long a crop grows')
+  assert.equal(grow[0], 5_000)
 })

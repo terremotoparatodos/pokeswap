@@ -30,6 +30,8 @@ export class WorldRoom {
     this.now = now
     this.clientForPlayer = clientForPlayer
     this.clients = new Map()
+    /** Sockets that declared an older world protocol (or none): no world state, no work (PROB-2). */
+    this.outdated = new WeakSet()
     this.subscribers = new Map()
     this.playerData = playerData
     this.skills = skills
@@ -37,7 +39,7 @@ export class WorldRoom {
     /** False until persisted state is back: until then no world is served (fail closed). */
     this.ready = playerData === null
     this.waiting = new Map()
-    this.metrics = { snapshots: 0, batches: 0, nodeDeltas: 0, chunkEnters: 0, chunkLeaves: 0, maxBatchBytes: 0, bytes: 0 }
+    this.metrics = { snapshots: 0, batches: 0, nodeDeltas: 0, chunkEnters: 0, chunkLeaves: 0, maxBatchBytes: 0, bytes: 0, outdatedJoins: 0, outdatedWork: 0 }
     this.wild = new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
       skills, ownership, lookupActor, now, placeActor,
@@ -74,7 +76,11 @@ export class WorldRoom {
    * id, and every later check asks the server-side player data about that id.
    */
   join(client, options, auth) {
-    if (!(Number.isInteger(options?.worldProtocol) && options.worldProtocol >= WORLD_PROTOCOL)) return
+    if (!(Number.isInteger(options?.worldProtocol) && options.worldProtocol >= WORLD_PROTOCOL)) {
+      this.outdated.add(client)
+      this.metrics.outdatedJoins++
+      return
+    }
     const playerId = auth?.kind === 'player' ? auth.userId : null
     this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId })
     if (playerId !== null) this.authority.newConnection(playerId)
@@ -117,7 +123,8 @@ export class WorldRoom {
       now: this.now(), areaId: viewer.areaId, chunks, nodes,
       ...(wild ? { wild } : {}),
       ...(procedural ? { wildStatus: this.wild.status(viewer.areaId) } : {}),
-      ...(own ? { ownAction: { actionId: own.actionId, nodeId: own.node.id, startedAt: own.startedAt, endsAt: own.endsAt } } : {}),
+      // Who, what and since when: never the end (PROB-2).
+      ...(own ? { ownAction: { actionId: own.actionId, nodeId: own.node.id, startedAt: own.startedAt } } : {}),
     })
     this.metrics.snapshots++
   }
@@ -151,14 +158,27 @@ export class WorldRoom {
     this.authority.reconcileActor(actor)
   }
 
-  work(actor, payload) {
+  /**
+   * A work intent. `client` is the socket it came from (the room passes it);
+   * without it, the player's current socket. A socket that did not declare
+   * this world protocol cannot start anything: it is told `client-outdated`
+   * directly (it has no world subscription) and nothing is checked or held.
+   */
+  work(actor, payload, client = this.clientForPlayer(actor.id)) {
+    if (!client || !this.clients.has(client)) {
+      this.metrics.outdatedWork++
+      const reply = { requestId: Number.isSafeInteger(payload?.requestId) ? payload.requestId : null, ok: false, reason: 'client-outdated' }
+      client?.send(WORLD_MESSAGE.WORK_RESULT, reply)
+      return reply
+    }
     const intent = workIntent(payload)
     if (!intent) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: null, ok: false, reason: 'invalid' })
     if (!this.ready) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: intent.requestId, ok: false, reason: 'world-loading' })
     return this.authority.requestWork(actor, intent)
   }
 
-  cancel(actor, payload) {
+  cancel(actor, payload, client = this.clientForPlayer(actor.id)) {
+    if (!client || !this.clients.has(client)) return
     const intent = cancelIntent(payload)
     if (intent) this.authority.cancel(actor.id, intent.actionId, 'cancelled')
   }

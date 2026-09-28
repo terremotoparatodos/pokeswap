@@ -228,12 +228,12 @@ export class PresenceRoom extends Room {
   work(client, payload) {
     const actor = actors.get(client.userData?.actorId)
     if (!actor) return this.reject(client, 'world denied', 'invalid')
-    void world.work(actor, payload)
+    void world.work(actor, payload, client)
   }
 
   cancelWork(client, payload) {
     const actor = actors.get(client.userData?.actorId)
-    if (actor) world.cancel(actor, payload)
+    if (actor) world.cancel(actor, payload, client)
   }
 
   /**

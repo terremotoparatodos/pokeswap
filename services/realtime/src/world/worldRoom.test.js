@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createDemoSkillPolicy } from './demoSkillPolicy.js'
 import { createStaticOwnership } from './pokemonOwnership.js'
 import { RESPAWN_MS } from './resourceLayout.js'
-import { WORLD_MESSAGE } from './worldProtocol.js'
+import { WORLD_MESSAGE, WORLD_PROTOCOL } from './worldProtocol.js'
 import { WORLD_RETAIN_TILES } from './worldInterest.js'
 import { WorldRoom } from './worldRoom.js'
 import { fakeClient, lastMessage, manualClock, messagesOf, praderaNodesNearSpawn, settle } from './testing.js'
@@ -23,7 +23,7 @@ function setup() {
     const client = fakeClient(id)
     const actor = { id, areaId: 'pradera', tx: spot.tx, ty: spot.ty }
     actors.set(id, actor); sockets.set(id, client)
-    world.join(client, { worldProtocol: 1 }, { kind: 'player', userId: id, token: null })
+    world.join(client, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: id, token: null })
     world.snapshot(client, actor)
     return { client, actor }
   }
@@ -54,9 +54,12 @@ test('A works a tree, B sees it working, B is refused, A finishes, B sees it dep
   world.flush()
   const seen = nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH))
   assert.deepEqual(
-    { state: seen.state, worker: seen.worker, workKind: seen.workKind, startedAt: seen.startedAt, endsAt: seen.endsAt },
-    { state: 'working', worker: { playerId: 'a', pokemonInstanceId: 25, speciesId: 25, stand: seen.worker.stand }, workKind: 'chop', startedAt: started.startedAt, endsAt: started.endsAt },
+    { state: seen.state, worker: seen.worker, workKind: seen.workKind, startedAt: seen.startedAt },
+    { state: 'working', worker: { playerId: 'a', pokemonInstanceId: 25, speciesId: 25, stand: seen.worker.stand }, workKind: 'chop', startedAt: started.startedAt },
   )
+  // SKILLS PROB-2: the end is the server's secret — not in the node, not in the reply.
+  assert.equal('endsAt' in seen, false)
+  assert.equal('endsAt' in started, false)
   // The node only carries what everyone may know: no reward, no summary.
   assert.equal('summary' in seen, false)
 
@@ -149,11 +152,11 @@ test('a reconnecting worker gets its running action and the node state back', as
   world.leave(a.client)
   const again = fakeClient('a-again')
   sockets.set('a', again)
-  world.join(again, { worldProtocol: 1 }, { kind: 'player', userId: 'a', token: null })
+  world.join(again, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: 'a', token: null })
   world.snapshot(again, a.actor)
   const snapshot = lastMessage(again, WORLD_MESSAGE.SNAPSHOT)
   assert.equal(nodeIn(snapshot).state, 'working')
-  assert.deepEqual(snapshot.ownAction, { actionId: started.actionId, nodeId: TREE.id, startedAt: started.startedAt, endsAt: started.endsAt })
+  assert.deepEqual(snapshot.ownAction, { actionId: started.actionId, nodeId: TREE.id, startedAt: started.startedAt })
 })
 
 test('a client without the world protocol never receives world messages', async () => {
@@ -178,7 +181,7 @@ test('malformed intents are refused before any lookup', async () => {
     if (payload?.reward) {
       // Extra fields are not an error, they are simply never read.
       assert.equal(result.ok, true)
-      assert.equal(result.endsAt - result.startedAt, 3_000)
+      assert.equal(world.authority.actionOf('a').endsAt - result.startedAt, 3_000, 'the duration is SKILLS’ (server-side only)')
     } else assert.equal(result.reason, 'invalid')
   }
 })
@@ -191,7 +194,7 @@ test('Pradera viewers get the same wild roster in their snapshot, and the new on
   const world = new WorldRoom({ skills: createDemoSkillPolicy(), ownership: createStaticOwnership({}), catalog, now: () => now, lookupActor: () => null, clientForPlayer: () => null })
   world.tick(); await settle()
   const a = fakeClient('a'); const b = fakeClient('b'); const town = fakeClient('t')
-  for (const c of [a, b, town]) world.join(c, { worldProtocol: 1 }, { kind: 'guest' })
+  for (const c of [a, b, town]) world.join(c, { worldProtocol: WORLD_PROTOCOL }, { kind: 'guest' })
   world.snapshot(a, { areaId: 'pradera', ...SPOT_A })
   world.snapshot(b, { areaId: 'pradera', ...SPOT_B })
   world.snapshot(town, { areaId: 'ciudad-corazon', tx: 31, ty: 20 })
@@ -225,7 +228,7 @@ test('a reloaded page counts request ids from 1 again and is not refused as a du
   world.leave(a.client)
   const reloaded = fakeClient('a-reloaded')
   sockets.set('a', reloaded)
-  world.join(reloaded, { worldProtocol: 1 }, { kind: 'player', userId: 'a', token: null })
+  world.join(reloaded, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: 'a', token: null })
   const [, other] = praderaNodesNearSpawn()
   a.actor.tx = other.stands[0].tx; a.actor.ty = other.stands[0].ty
   await world.work(a.actor, { nodeId: other.node.id, pokemonInstanceId: 25, requestId: 1 })

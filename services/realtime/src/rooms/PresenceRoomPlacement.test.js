@@ -6,7 +6,7 @@ import { ARRIVALS } from '../protocol/arrival.js'
 import { createDemoSkillPolicy } from '../world/demoSkillPolicy.js'
 import { createStaticOwnership } from '../world/pokemonOwnership.js'
 import { standableTile, workPlacement } from '../world/workPlacement.js'
-import { WORLD_MESSAGE } from '../world/worldProtocol.js'
+import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../world/worldProtocol.js'
 import { fakeClient, lastMessage, messagesOf, praderaNodesNearSpawn, settle } from '../world/testing.js'
 
 // WORLD VISUAL-2 inside the presence room: the server's own move of a trainer
@@ -39,8 +39,8 @@ test('the server moves the trainer: observers get a newer step, the owner its ti
   const owner = fakeClient('place-a-session')
   const viewer = fakeClient('place-b-session')
   try {
-    await room.onJoin(owner, { worldProtocol: 1, presenceProtocol: 2 }, { kind: 'player', userId: 'place-a', username: 'A', token: null })
-    await room.onJoin(viewer, { worldProtocol: 1, presenceProtocol: 2 }, { kind: 'player', userId: 'place-b', username: 'B', token: null })
+    await room.onJoin(owner, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId: 'place-a', username: 'A', token: null })
+    await room.onJoin(viewer, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId: 'place-b', username: 'B', token: null })
     for (const client of [owner, viewer]) { room.ready(client); room.changeArea(client, { areaId: 'pradera' }) }
     const target = reachable()
     target.moves.forEach((direction, i) => room.move(owner, { direction, running: false, sequence: i + 1 }))
@@ -88,8 +88,8 @@ test('an older 0.3 client that does not adopt the new sequence: one replay, one 
   const owner = fakeClient('legacy-a-session')
   const viewer = fakeClient('legacy-b-session')
   try {
-    await room.onJoin(owner, { worldProtocol: 1, presenceProtocol: 2 }, { kind: 'player', userId: 'legacy-a', username: 'A', token: null })
-    await room.onJoin(viewer, { worldProtocol: 1, presenceProtocol: 2 }, { kind: 'player', userId: 'legacy-b', username: 'B', token: null })
+    await room.onJoin(owner, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId: 'legacy-a', username: 'A', token: null })
+    await room.onJoin(viewer, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId: 'legacy-b', username: 'B', token: null })
     for (const client of [owner, viewer]) { room.ready(client); room.changeArea(client, { areaId: 'pradera' }) }
     const target = reachable()
     target.moves.forEach((direction, i) => room.move(owner, { direction, running: false, sequence: i + 1 }))

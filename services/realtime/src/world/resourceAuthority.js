@@ -44,6 +44,11 @@ const STAGE = { empty: 'EMPTY', planted: 'PLANTED', growing: 'GROWING', ready: '
  * Identity. `actor.id` is the room's authenticated user id; ownership is asked
  * of the server-side player data with that id, never with a client token.
  *
+ * Secret end (SKILLS PROB-2). `durationMs` is attempts × tick from SKILLS'
+ * secret draw. `action.endsAt` lives only here, in the private action and the
+ * due queue: the node record, every reply and every broadcast carry the start
+ * alone. Losing it (a restart) loses the action, never pays it twice.
+ *
  * Placement (WORLD VISUAL-2). On acquisition the worker Pokémon takes the
  * trainer's validated tile and the trainer is moved, by the server, to a
  * waiting tile (`workPlacement`). That tile becomes the action's anchor: the
@@ -293,7 +298,7 @@ export class ResourceAuthority {
     const record = this.store.write(action.node, {
       state: WORKING, workedFrom: action.workedFrom, actionId: action.actionId, workKind: action.workKind,
       worker: { playerId: action.playerId, pokemonInstanceId: action.pokemon.instanceId, speciesId: action.pokemon.speciesId, stand: action.stand },
-      actionStartedAt: startedAt, actionEndsAt: action.endsAt, plot: action.plotBefore,
+      actionStartedAt: startedAt, plot: action.plotBefore,
     })
     this.queue.push(action.endsAt, { type: 'complete', actionId: action.actionId })
     this.metrics.started++
@@ -301,7 +306,7 @@ export class ResourceAuthority {
     // After the anchor exists: the move this triggers is reconciled against it and keeps the action.
     this.placeActor(action.playerId, { ...action.anchor })
     return this.#reply(action.playerId, {
-      requestId, ok: true, actionId: action.actionId, nodeId: action.node.id, startedAt, endsAt: action.endsAt,
+      requestId, ok: true, actionId: action.actionId, nodeId: action.node.id, startedAt,
       ...(action.farmAction ? { farmAction: action.farmAction } : {}),
       ...(details === undefined ? {} : { details }),
     })

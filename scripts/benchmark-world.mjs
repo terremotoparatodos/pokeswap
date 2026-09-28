@@ -20,6 +20,7 @@ import { performance } from 'node:perf_hooks'
 import { Client } from '@colyseus/sdk'
 import { praderaNodesNearSpawn } from '../services/realtime/src/world/testing.js'
 import { ARRIVALS } from '../services/realtime/src/protocol/arrival.js'
+import { WORLD_PROTOCOL } from '../services/realtime/src/world/worldProtocol.js'
 
 const option = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : fallback }
 const players = Math.max(1, Math.min(100, Number(option('players', 30))))
@@ -63,7 +64,7 @@ try {
   const clients = []
   for (let i = 0; i < players; i++) {
     const room = await new Client(externalUrl ?? `ws://127.0.0.1:${port}`).joinOrCreate('presence', {
-      benchmark: { id: `${prefix}-${i}`, username: `Carga ${i}`, area: 'pradera' }, presenceProtocol: 2, ...(worldOn ? { worldProtocol: 1 } : {}),
+      benchmark: { id: `${prefix}-${i}`, username: `Carga ${i}`, area: 'pradera' }, presenceProtocol: 2, ...(worldOn ? { worldProtocol: WORLD_PROTOCOL } : {}),
     })
     room.reconnection.enabled = false
     const state = { room, i, tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty, sequence: 0, bytes: { presence: 0, world: 0, chat: 0 }, messages: { presence: 0, world: 0 },
@@ -92,7 +93,7 @@ try {
         count(type, payload)
         if (type === 'world:work:done' && state.pending?.actionId === payload.actionId) {
           state.done++
-          if (payload.ok) { state.settled++; state.settleLag.push(Date.now() - state.pending.endsAt) } else state.worker++
+          if (payload.ok) { state.settled++; state.settleLag.push(Date.now() - state.pending.acceptedAt) } else state.worker++
           state.pending = null
         }
         if (type === 'world:snapshot') { state.busy.clear(); learn(payload.nodes) }
@@ -105,7 +106,8 @@ try {
       state.results[payload.ok ? 'ok' : payload.reason] = (state.results[payload.ok ? 'ok' : payload.reason] ?? 0) + 1
       if (state.pending?.requestId === payload.requestId) {
         state.latency.push(performance.now() - state.pending.sentAt)
-        state.pending = payload.ok ? { actionId: payload.actionId, endsAt: payload.endsAt } : null
+        // PROB-2: the end is secret, so this measures accepted → done (the drawn work time plus settlement).
+        state.pending = payload.ok ? { actionId: payload.actionId, acceptedAt: Date.now() } : null
         // A node this player cannot work yet is skipped for good; a refusal about
         // the worker (aptitude, missing Pokémon) tries the next Pokémon next time.
         if (!payload.ok && ['not-a-resource', 'level-too-low'].includes(payload.reason)) state.never.add(state.lastNode)
@@ -166,7 +168,7 @@ try {
     worldSnapshotBytes: { p50: percentile(snapshotBytes, 0.5), max: Math.max(0, ...snapshotBytes) },
     worldBatchBytes: { p50: percentile(batchBytes, 0.5), p95: percentile(batchBytes, 0.95), max: Math.max(0, ...batchBytes) },
     work: { results, completions: clients.reduce((a, s) => a + s.done, 0), settled: clients.reduce((a, s) => a + s.settled, 0),
-      settleLagMs: { p50: round(percentile(clients.flatMap(s => s.settleLag), 0.5)), p95: round(percentile(clients.flatMap(s => s.settleLag), 0.95)), max: round(Math.max(0, ...clients.flatMap(s => s.settleLag))) }, requestToReplyMs: { p50: round(percentile(clients.flatMap(s => s.latency), 0.5)), p95: round(percentile(clients.flatMap(s => s.latency), 0.95)) } },
+      acceptedToDoneMs: { p50: round(percentile(clients.flatMap(s => s.settleLag), 0.5)), p95: round(percentile(clients.flatMap(s => s.settleLag), 0.95)), max: round(Math.max(0, ...clients.flatMap(s => s.settleLag))) }, requestToReplyMs: { p50: round(percentile(clients.flatMap(s => s.latency), 0.5)), p95: round(percentile(clients.flatMap(s => s.latency), 0.95)) } },
     concurrentActions: { max: Math.max(0, ...samples.map(s => s?.runningActions ?? 0)), mean: round(samples.reduce((a, s) => a + (s?.runningActions ?? 0), 0) / Math.max(1, samples.length)) },
     storedNodes: { max: Math.max(0, ...samples.map(s => s?.storedNodes ?? 0)) },
     subscribedChunks: { max: Math.max(0, ...samples.map(s => s?.subscribedChunks ?? 0)) },
