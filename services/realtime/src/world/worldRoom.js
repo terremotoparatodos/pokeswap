@@ -26,7 +26,7 @@ export class WorldRoom {
    * player its own XP, materials and Pokémon. Without it (tests, benchmarks
    * of the transport alone) the world starts empty and ready.
    */
-  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, log = message => console.warn(message) }) {
+  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, log = message => console.warn(message) }) {
     this.now = now
     this.clientForPlayer = clientForPlayer
     this.clients = new Map()
@@ -43,9 +43,11 @@ export class WorldRoom {
     this.wild = new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
       skills, ownership, lookupActor, now, placeActor, log,
+      ...(stockRandom ? { random: stockRandom } : {}),
       onNode: record => this.#nodeChanged(record),
       onResult: (playerId, result) => this.#sendToPlayer(playerId, WORLD_MESSAGE.WORK_RESULT, result),
       onDone: (playerId, done) => this.#sendToPlayer(playerId, WORLD_MESSAGE.WORK_DONE, done),
+      onYield: (playerId, unit) => this.#sendToPlayer(playerId, WORLD_MESSAGE.WORK_YIELD, unit),
     })
   }
 
@@ -91,6 +93,9 @@ export class WorldRoom {
     const state = this.clients.get(client)
     this.waiting.delete(client)
     if (!state) return
+    // The owner's socket is gone (not replaced by a newer one): the unit in
+    // progress finishes and settles, then the worker retires (YIELD-2).
+    if (state.playerId !== null && this.clientForPlayer?.(state.playerId) === client) this.authority.ownerLeft(state.playerId)
     this.#unsubscribeAll(client, state)
     this.clients.delete(client)
   }

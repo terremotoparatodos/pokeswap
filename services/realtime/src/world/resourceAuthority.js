@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { DueQueue } from './dueQueue.js'
+import { MAX_UNITS, cryptoRandom, drawStock, generationAt, isPartial, settlementIdOf, stockedUnit } from './nodeStock.js'
 import { farmActionFor, nextPlotChange, plotAfterWork, plotStageAt, PLOT_KIND } from './plots.js'
 import { RESPAWN_MS, WORK_KIND, nodeById } from './resourceLayout.js'
 import { WORKING, afterTimer, afterWork, canStartWork, lifecycleFor } from './resourceLifecycle.js'
@@ -13,7 +14,7 @@ import { WORK_TICK_MS } from './worldProtocol.js'
 export const WORK_REACH = 1
 /** Ownership and authorization each; past this the attempt is refused (nothing was held). */
 export const AUTHORIZE_TIMEOUT_MS = 4_000
-/** Settlement retries after the first try (same actionId every time: the database dedupes). */
+/** Settlement retries after the first try (same settlement id every time: the database dedupes). */
 export const SETTLE_RETRY_DELAYS_MS = Object.freeze([1_000, 3_000, 9_000])
 const RECENT_REQUESTS = 32
 /** At most one rate-limit log line per this window, with totals (bounded log). */
@@ -25,9 +26,9 @@ const atAnchor = (actor, action) => (action.anchor ? actor.tx === action.anchor.
 const STAGE = { empty: 'EMPTY', planted: 'PLANTED', growing: 'GROWING', ready: 'READY' }
 
 /**
- * The server authority over resource nodes, farm plots and the work actions on
- * them (WORLD-1B/1C, INTEGRATION-1). Transport-free: the room feeds it actors
- * and intents and forwards what it emits.
+ * The server authority over resource nodes, farm plots and the work on them
+ * (WORLD-1B/1C, INTEGRATION-1). Transport-free: the room feeds it actors and
+ * intents and forwards what it emits.
  *
  * Validate first, acquire last. An attempt runs every check that mutates
  * nothing — the physical ones, then the Pokémon's ownership, then SKILLS'
@@ -36,27 +37,36 @@ const STAGE = { empty: 'EMPTY', planted: 'PLANTED', growing: 'GROWING', ready: '
  * synchronously and with no await in between, it re-checks the live actor and
  * the node and acquires the node, the player and the Pokémon in one step.
  *
- * Exactly-once, persisted. A completion runs only for an action in phase
- * `running` and moves it to `settling` before its first await. WORLD computes
- * the node's next physical state *first* and hands it to the settlement, which
- * writes reward and node state in one database transaction (unique action_id).
- * Only a confirmed commit changes the node in memory; a failed one puts the
- * node back as it was. So there is never a reward with the tree still up, nor
- * a stump without its reward — not even across a crash between the two.
+ * Sequences (RESOURCE YIELD-2). One reservation of a node is a SEQUENCE with a
+ * private base `actionId`. A tree or rock yields units until its hidden stock
+ * runs out (a farm plot is a sequence of one): each unit has its own SKILLS
+ * authorization and secret attempt draw, and its own exactly-once settlement
+ * under `settlementId = <actionId>-<hex2 index>`, which also carries the node's
+ * next stock and the CAS the database checks (nodeStock.js).
  *
- * Identity. `actor.id` is the room's authenticated user id; ownership is asked
- * of the server-side player data with that id, never with a client token.
+ * Pipeline. When unit i's attempts end it enters `settling` and unit i+1's
+ * attempts start at once, on the same tick grid, so hosted commit latency never
+ * pauses the worker. Commits run strictly in order on a per-sequence chain;
+ * `onYield` for a unit fires only after its commit is confirmed; a unit whose
+ * commit fails for good (or is `stale_node`) aborts every later unit, unpaid.
  *
- * Secret end (SKILLS PROB-2). `durationMs` is attempts × tick from SKILLS'
- * secret draw. `action.endsAt` lives only here, in the private action and the
- * due queue: the node record, every reply and every broadcast carry the start
- * alone. Losing it (a restart) loses the action, never pays it twice.
+ * Stopping. Walking away or cancelling drops the unit still attempting (never
+ * paid) and lets the units already settling finish. A disconnect lets the unit
+ * in progress finish and settle (`stopAfterCurrent`); a disconnected player
+ * never starts another unit, and a reconnection at the waiting tile before that
+ * unit ends continues the sequence. The node stays reserved until every
+ * pending commit resolves, then `onDone` reports the reason and the total.
+ *
+ * Secret end (SKILLS PROB-2). A unit's end lives only here and in the due
+ * queue: the node record, every reply and every broadcast carry the
+ * sequence's start alone. Losing the process loses the unit in progress,
+ * never pays twice; settled units and the partial stock are in the database.
  *
  * Placement (WORLD VISUAL-2). On acquisition the worker Pokémon takes the
  * trainer's validated tile and the trainer is moved, by the server, to a
- * waiting tile (`workPlacement`). That tile becomes the action's anchor: the
- * anchor is set before the move, so the server's own move never reads as the
- * trainer walking away; leaving the anchor afterwards still cancels.
+ * waiting tile (`workPlacement`). That tile becomes the sequence's anchor:
+ * the anchor is set before the move, so the server's own move never reads as
+ * the trainer walking away; leaving the anchor afterwards still cancels.
  */
 export class ResourceAuthority {
   constructor({
@@ -64,13 +74,17 @@ export class ResourceAuthority {
     now = Date.now, newActionId = randomUUID, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)),
     store = new ResourceStore(), queue = new DueQueue(),
     onNode = () => {}, onResult = () => {}, onDone = () => {},
+    /** One confirmed unit of a sequence, for its owner (YIELD-2). */
+    onYield = () => {},
     /** Moves a trainer authoritatively (presence publishes it). Default: the looked-up actor object only. */
     placeActor = (playerId, place) => { const actor = lookupActor(playerId); if (actor) Object.assign(actor, place) },
     /** Per-player pacing of work intents (workRateLimit.js). */
     rateLimit = new WorkRateLimiter(),
+    /** Draws new generations' stock. Server randomness; tests inject a script. */
+    random = cryptoRandom,
     log = () => {},
   }) {
-    Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone, placeActor, rateLimit, log })
+    Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone, onYield, placeActor, rateLimit, random, log })
     this.rateLog = { lastLogAt: null, intents: 0, players: new Set() }
     this.actions = new Map()
     /** Players with an attempt between its first check and its acquisition. */
@@ -78,13 +92,19 @@ export class ResourceAuthority {
     this.byPlayer = new Map()
     this.byPokemon = new Map()
     this.recent = new Map()
-    this.metrics = { requested: 0, rateLimited: 0, started: 0, rejected: {}, completed: 0, duplicateSettlements: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0, restored: 0 }
+    this.metrics = {
+      requested: 0, rateLimited: 0, started: 0, rejected: {}, completed: 0, duplicateSettlements: 0, settleRetries: 0, settleFailed: 0,
+      cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0, restored: 0,
+      units: 0, staleNodes: 0, refilled: 0, disconnectedStops: 0,
+    }
   }
 
   /**
    * Puts persisted node state back after a restart. Trees and rocks still
-   * depleted stay depleted until their respawn instant; plots resume their
-   * stage from their server timestamps. Nothing here is guessed.
+   * depleted stay depleted until their respawn instant; partial nodes keep
+   * their stock and token until their refill instant (expired ones are full
+   * again: they are skipped); plots resume their stage from their server
+   * timestamps. Nothing here is guessed.
    */
   restore(overrides, now = this.now()) {
     for (const row of overrides) {
@@ -97,7 +117,11 @@ export class ResourceAuthority {
         if (nextAt !== null) this.queue.push(nextAt, { type: 'timer', nodeId: node.id, version: record.version })
       } else {
         if (row.respawnAt === null || row.respawnAt <= now) continue
-        const record = this.store.write(node, { state: row.state, respawnAt: row.respawnAt })
+        const partial = row.state === 'available' && Number.isInteger(row.stockRemaining)
+        if (row.state === 'available' && !partial) continue
+        const record = this.store.write(node, partial
+          ? { state: 'available', stock: row.stockRemaining, token: row.actionId, respawnAt: row.respawnAt }
+          : { state: row.state, respawnAt: row.respawnAt, token: row.actionId ?? null })
         this.queue.push(row.respawnAt, { type: 'timer', nodeId: node.id, version: record.version })
       }
       this.metrics.restored++
@@ -123,6 +147,7 @@ export class ResourceAuthority {
     if (check.reason) return this.#reject(actor.id, intent, check.reason)
     const { node } = check
     const actionId = this.newActionId()
+    const settlementId = settlementIdOf(actionId, 0)
     const workKind = WORK_KIND[node.resourceKind]
 
     this.attempting.add(actor.id)
@@ -130,12 +155,12 @@ export class ResourceAuthority {
     let reason = null
     let message
     try {
-      // 2 · Ownership, then 3 · SKILLS. Still nothing held.
+      // 2 · Ownership, then 3 · SKILLS (unit 0 is authorized under its settlement id). Still nothing held.
       const pokemon = await this.#withTimeout(this.ownership.verify(actor.id, intent.pokemonInstanceId))
       if (!pokemon) reason = 'not-owner'
       else {
         const answer = readAuthorization(await this.#withTimeout(this.skills.authorizeWorkAttempt({
-          actionId, playerId: actor.id, pokemon, node: publicNodeFacts(node), workKind, requestedAt: this.now(), attemptMs: WORK_TICK_MS,
+          actionId: settlementId, playerId: actor.id, pokemon, node: publicNodeFacts(node), workKind, requestedAt: this.now(), attemptMs: WORK_TICK_MS,
           ...(check.farm ? { farm: check.farm } : {}),
         })))
         if (!answer.ok) { reason = answer.reason; message = answer.message }
@@ -147,11 +172,26 @@ export class ResourceAuthority {
           const recheck = live ? this.#physicalCheck(live, intent) : { reason: 'left' }
           if (recheck.reason) reason = recheck.reason
           else {
+            const gather = node.resourceKind !== PLOT_KIND
+            const reservedAt = this.now()
+            // The node's generation at the reservation instant (rule B): a live partial's
+            // token and stock, or a new generation whose hidden stock is drawn now.
+            const before = gather ? this.store.get(node.id) : null
+            const generation = gather ? generationAt(before, reservedAt) : null
             const action = {
               actionId, playerId: actor.id, node, pokemon, workKind, workedFrom: recheck.state, plotBefore: recheck.plot ?? null,
               farmAction: recheck.farm?.action ?? null, plotGrant: answer.plot ?? null, phase: 'running', startedAt: null, endsAt: null,
               // Decided once, from the live validated tile: the Pokémon takes it, the trainer waits at `anchor`.
               stand: recheck.placement.stand, anchor: recheck.placement.wait,
+              // The sequence (YIELD-2).
+              gather, reservedAt, index: 0, settlementId, unitStartedAt: null, authorizing: false,
+              expectedToken: generation?.expectedToken ?? null,
+              stockBefore: gather ? (generation.fresh ? drawStock(answer.stock ?? null, this.random) : generation.stockBefore) : null,
+              restingBefore: gather && !generation.fresh ? { stock: before.stock, token: before.token, respawnAt: before.respawnAt } : null,
+              committed: null, pending: 0, chain: Promise.resolve(), abortCommits: false,
+              stop: null, stopAfterCurrent: false, disconnected: false, refusal: null,
+              total: { units: 0, xpGained: 0, rewards: new Map() },
+              working: null,
             }
             return this.#start(action, answer.durationMs, intent.requestId, answer.details)
           }
@@ -164,22 +204,36 @@ export class ResourceAuthority {
     }
     if (authorized) {
       this.metrics.authorizedNotStarted++
-      this.#notifyCancel({ actionId, playerId: actor.id }, reason)
+      this.#notifyCancel(settlementId, actor.id, reason)
     }
     return this.#reject(actor.id, intent, reason, message)
   }
 
-  /** Cancels the player's own action. False when there is nothing (left) to cancel. */
+  /**
+   * Stops the player's own sequence: the unit still attempting is dropped
+   * (never paid); units already settling finish, then the node is released.
+   * False when there is nothing (left) to stop.
+   */
   cancel(playerId, actionId, reason = 'cancelled') {
     const action = this.actions.get(actionId)
     if (!action || action.playerId !== playerId || action.phase !== 'running') return false
-    const record = this.store.write(action.node, this.#restingState(action))
-    this.#release(action)
+    this.#dropCurrent(action, reason)
+    action.stop ??= reason
     this.metrics.cancelled++
-    this.onNode(record)
-    this.#notifyCancel(action, reason)
-    this.onDone(playerId, { actionId, ok: false, reason })
+    this.#maybeFinish(action)
     return true
+  }
+
+  /**
+   * The owner's socket is gone: the unit in progress may finish and settle,
+   * then the worker retires. A disconnected player never starts another unit.
+   */
+  ownerLeft(playerId) {
+    const action = this.actions.get(this.byPlayer.get(playerId))
+    if (!action || action.phase === 'done') return
+    action.stopAfterCurrent = true
+    action.disconnected = true
+    this.metrics.disconnectedStops++
   }
 
   /**
@@ -191,12 +245,21 @@ export class ResourceAuthority {
     this.recent.delete(playerId)
   }
 
-  /** Physical consistency after the actor moved, changed area or rejoined. */
+  /**
+   * Physical consistency after the actor moved, changed area or rejoined.
+   * Back at the waiting tile after a disconnect, before the unit in progress
+   * ends: the sequence continues.
+   */
   reconcileActor(actor) {
     const actionId = this.byPlayer.get(actor.id)
     const action = actionId ? this.actions.get(actionId) : null
     if (action?.phase !== 'running') return
-    if (actor.areaId !== action.node.areaId || !atAnchor(actor, action)) this.cancel(actor.id, actionId, 'moved')
+    const inPlace = actor.areaId === action.node.areaId && atAnchor(actor, action)
+    if (!inPlace) { this.cancel(actor.id, actionId, 'moved'); return }
+    if (action.disconnected && !action.stop) {
+      action.disconnected = false
+      action.stopAfterCurrent = false
+    }
   }
 
   /** Runs everything due. Called from the room's fixed tick. */
@@ -207,10 +270,16 @@ export class ResourceAuthority {
     }
   }
 
-  /** Completes a running action. Safe to call any number of times: only the first does anything. */
+  /**
+   * Ends the attempts of the sequence's current unit: it enters `settling`, its
+   * commit joins the ordered chain, and — stock, stop flags and the unit guard
+   * permitting — the next unit's attempts start right away. Resolves once this
+   * unit's commit is done. Safe to call any number of times: only the first
+   * call for a unit does anything.
+   */
   async complete(actionId) {
     const action = this.actions.get(actionId)
-    if (!action || action.phase !== 'running' || this.store.get(action.node.id)?.actionId !== actionId) {
+    if (!action || action.phase !== 'running' || action.authorizing || this.store.get(action.node.id)?.actionId !== actionId) {
       this.metrics.staleCompletions++
       return false
     }
@@ -220,13 +289,84 @@ export class ResourceAuthority {
     }
     action.phase = 'settling'
     const completedAt = this.now()
+    const unit = { index: action.index, settlementId: action.settlementId, startedAt: action.unitStartedAt, endsAt: action.endsAt }
     // WORLD decides the node's next physical state before anything is paid,
     // and the settlement writes both together.
-    const next = this.#nextState(action, completedAt)
+    let next
+    let world
+    if (action.gather) {
+      ({ next, world } = stockedUnit(action.node, {
+        settlementId: unit.settlementId, before: action.stockBefore, expectedToken: action.expectedToken, reservedAt: action.reservedAt, endsAt: unit.endsAt,
+      }))
+      // What the next unit's commit will expect, if this one is confirmed.
+      action.expectedToken = unit.settlementId
+      action.stockBefore = next.stock ?? 0
+    } else {
+      next = this.#nextState(action, completedAt)
+      world = persistedNode(action.node, next)
+    }
     const settlement = {
-      actionId, playerId: action.playerId, pokemon: action.pokemon, node: publicNodeFacts(action.node),
-      workKind: action.workKind, startedAt: action.startedAt, endsAt: action.endsAt, completedAt,
-      world: persistedNode(action.node, next),
+      actionId: unit.settlementId, playerId: action.playerId, pokemon: action.pokemon, node: publicNodeFacts(action.node),
+      workKind: action.workKind, startedAt: unit.startedAt, endsAt: unit.endsAt, completedAt, world,
+    }
+    action.pending++
+    const committed = action.chain.then(() => this.#commitUnit(action, unit, settlement, next))
+    action.chain = committed
+
+    // Pipeline: the next unit starts now, on the tick grid, while this one settles.
+    const more = action.gather && action.stockBefore > 0 && action.index + 1 < MAX_UNITS
+    if (more && !action.stop && !action.stopAfterCurrent) void this.#nextUnit(action, unit.endsAt)
+    else if (more && action.stopAfterCurrent && action.disconnected) action.stop ??= 'disconnected'
+    else if (action.gather && action.stockBefore > 0 && !more) action.stop ??= 'limit'
+    await committed
+    return true
+  }
+
+  /** The player's sequence, for a client that reconnects mid-sequence. */
+  actionOf(playerId) {
+    const action = this.actions.get(this.byPlayer.get(playerId))
+    return action && action.phase !== 'done' ? action : null
+  }
+
+  /** Authorizes and starts unit `index + 1`, its attempts counted from `startAt` (the previous unit's end). */
+  async #nextUnit(action, startAt) {
+    action.index++
+    const settlementId = settlementIdOf(action.actionId, action.index)
+    Object.assign(action, { phase: 'running', authorizing: true, settlementId, unitStartedAt: startAt, endsAt: null })
+    let answer
+    try {
+      answer = readAuthorization(await this.#withTimeout(this.skills.authorizeWorkAttempt({
+        actionId: settlementId, playerId: action.playerId, pokemon: action.pokemon, node: publicNodeFacts(action.node),
+        workKind: action.workKind, requestedAt: this.now(), attemptMs: WORK_TICK_MS,
+      })))
+    } catch {
+      answer = { ok: false, reason: 'unavailable' }
+    }
+    if (action.settlementId !== settlementId || action.phase !== 'running') {
+      // Dropped while SKILLS answered (walked away, cancelled, an earlier commit failed).
+      if (answer.ok) this.#notifyCancel(settlementId, action.playerId, 'dropped')
+      return
+    }
+    action.authorizing = false
+    if (!answer.ok) {
+      action.stop ??= 'refused'
+      action.refusal = answer.message ?? null
+      action.phase = 'settling'
+      this.#maybeFinish(action)
+      return
+    }
+    action.endsAt = startAt + answer.durationMs
+    this.queue.push(action.endsAt, { type: 'complete', actionId: action.actionId })
+  }
+
+  /** One unit's settlement, strictly after the previous unit's. */
+  async #commitUnit(action, unit, settlement, next) {
+    if (action.abortCommits) {
+      // An earlier unit failed for good: this one is never paid.
+      this.#notifyCancel(unit.settlementId, action.playerId, 'aborted')
+      action.pending--
+      this.#maybeFinish(action)
+      return
     }
     let result = null
     for (let attempt = 0; attempt <= SETTLE_RETRY_DELAYS_MS.length; attempt++) {
@@ -234,33 +374,87 @@ export class ResourceAuthority {
       try { result = readSettlement(await this.skills.settleWork(settlement)) } catch { result = { ok: false, retryable: true, reason: 'skills-error' } }
       if (result.ok || !result.retryable) break
     }
-
-    let record
     if (result.ok) {
-      record = this.store.write(action.node, next)
-      if (record.respawnAt !== null) this.queue.push(record.respawnAt, { type: 'timer', nodeId: record.id, version: record.version })
+      action.committed = next
       this.metrics.completed++
+      this.metrics.units++
       if (result.status === 'duplicate') this.metrics.duplicateSettlements++
+      this.#addToTotal(action, result.summary)
+      if (action.gather && next.state === 'depleted') action.stop ??= 'depleted'
+      // A flash for everyone watching (the worker is still on the node).
+      if (action.working && this.store.get(action.node.id)?.actionId === action.actionId) {
+        this.onNode(this.store.write(action.node, { ...action.working, lastYieldAt: this.now() }))
+      }
+      this.onYield(action.playerId, { actionId: action.actionId, index: unit.index, ...(result.summary === undefined ? {} : { summary: result.summary }) })
     } else {
-      // No change without a confirmed settlement.
-      record = this.store.write(action.node, this.#restingState(action))
+      // Never paid, and neither is anything after it.
+      action.abortCommits = true
+      action.stop = 'error'
+      action.errorReason = result.reason
       this.metrics.settleFailed++
+      if (result.reason === 'stale-node') this.metrics.staleNodes++
+      if (action.phase === 'running') this.#dropCurrent(action, 'aborted')
     }
+    action.pending--
+    this.#maybeFinish(action)
+  }
+
+  /** Drops the unit still attempting (or being authorized): never paid. */
+  #dropCurrent(action, reason) {
+    if (action.phase !== 'running') return
+    // A unit still being authorized is closed by #nextUnit when SKILLS answers (once).
+    if (!action.authorizing) this.#notifyCancel(action.settlementId, action.playerId, reason)
+    action.phase = 'settling'
+    action.authorizing = false
+  }
+
+  /** Ends the sequence once nothing is attempting and no commit is pending. */
+  #maybeFinish(action) {
+    if (action.phase === 'running' || action.phase === 'done' || action.pending > 0) return
+    this.#finish(action)
+  }
+
+  #finish(action) {
+    const reason = action.stop ?? (action.gather ? 'depleted' : 'completed')
+    const now = this.now()
+    let record
+    if (action.gather) {
+      const settled = action.committed
+      const resting = settled ?? action.restingBefore
+      if (settled?.state === 'depleted') {
+        record = this.store.write(action.node, { state: 'depleted', respawnAt: settled.respawnAt, token: settled.token })
+      } else if (resting && resting.respawnAt > now) {
+        // Partial: private stock and token, refill 90 s after its last settled unit.
+        // A cancellation writes the partial back as it was: no timestamp moves.
+        record = this.store.write(action.node, { state: 'available', stock: resting.stock, token: resting.token, respawnAt: resting.respawnAt })
+      } else {
+        // Nothing settled on a fresh node, or the partial expired while reserved: full again.
+        record = this.store.write(action.node, { state: action.workedFrom })
+      }
+    } else {
+      record = this.store.write(action.node, action.committed ?? this.#restingState(action))
+    }
+    if (record.respawnAt !== null && !record.base) this.queue.push(record.respawnAt, { type: 'timer', nodeId: record.id, version: record.version })
     this.#release(action)
     this.onNode(record)
-    this.onDone(action.playerId, result.ok
-      ? { actionId, ok: true, status: result.status, ...(result.summary === undefined ? {} : { summary: result.summary }) }
-      : { actionId, ok: false, reason: result.reason })
-    return true
+    this.onDone(action.playerId, {
+      actionId: action.actionId, ok: action.total.units > 0, reason,
+      total: { units: action.total.units, xpGained: action.total.xpGained, rewards: [...action.total.rewards].map(([itemId, quantity]) => ({ itemId, quantity })) },
+      ...(action.refusal ? { message: action.refusal } : {}),
+    })
   }
 
-  /** The player's running action, for a client that reconnects mid-action. */
-  actionOf(playerId) {
-    const action = this.actions.get(this.byPlayer.get(playerId))
-    return action?.phase === 'running' || action?.phase === 'settling' ? action : null
+  #addToTotal(action, summary) {
+    const total = action.total
+    total.units++
+    if (!summary || typeof summary !== 'object') return
+    if (Number.isFinite(summary.xpGained)) total.xpGained += summary.xpGained
+    for (const reward of Array.isArray(summary.rewards) ? summary.rewards : []) {
+      if (typeof reward?.itemId === 'string' && Number.isInteger(reward.quantity)) total.rewards.set(reward.itemId, (total.rewards.get(reward.itemId) ?? 0) + reward.quantity)
+    }
   }
 
-  /** The node's state after a completed action: WORLD's decision, handed to the settlement. */
+  /** A plot's state after a completed action: WORLD's decision, handed to the settlement. */
   #nextState(action, now) {
     if (action.node.resourceKind === PLOT_KIND) {
       const plot = plotAfterWork(action.farmAction, action.plotBefore, { now, playerId: action.playerId, cropId: action.plotGrant?.cropId, growMs: action.plotGrant?.growMs })
@@ -272,7 +466,7 @@ export class ResourceAuthority {
     return { state, respawnAt: afterTimer(lifecycle, state) === null ? null : now + RESPAWN_MS[action.node.resourceKind] }
   }
 
-  /** Where an action that did not complete leaves the node: as it was. */
+  /** Where a plot action that did not complete leaves the plot: as it was. */
   #restingState(action) {
     if (action.node.resourceKind !== PLOT_KIND || !action.plotBefore) return { state: action.workedFrom }
     const now = this.now()
@@ -284,6 +478,11 @@ export class ResourceAuthority {
     if (!record || record.version !== version || record.actionId) return
     const node = nodeById(nodeId)
     const now = this.now()
+    if (isPartial(record)) {
+      // A partial refills silently: to every viewer it was already a full node.
+      if (record.respawnAt <= now) { this.store.forget(node); this.metrics.refilled++ }
+      return
+    }
     let next
     if (node.resourceKind === PLOT_KIND) {
       if (!record.plot) return
@@ -303,19 +502,22 @@ export class ResourceAuthority {
   #start(action, durationMs, requestId, details) {
     const startedAt = this.now()
     action.startedAt = startedAt
+    action.unitStartedAt = startedAt
     action.endsAt = startedAt + durationMs
     this.actions.set(action.actionId, action)
     this.byPlayer.set(action.playerId, action.actionId)
     this.byPokemon.set(action.pokemon.instanceId, action.actionId)
-    const record = this.store.write(action.node, {
+    // The public working record. Private stock and token never go in it.
+    action.working = {
       state: WORKING, workedFrom: action.workedFrom, actionId: action.actionId, workKind: action.workKind,
       worker: { playerId: action.playerId, pokemonInstanceId: action.pokemon.instanceId, speciesId: action.pokemon.speciesId, stand: action.stand },
       actionStartedAt: startedAt, plot: action.plotBefore,
-    })
+    }
+    const record = this.store.write(action.node, action.working)
     this.queue.push(action.endsAt, { type: 'complete', actionId: action.actionId })
     this.metrics.started++
     this.onNode(record)
-    // After the anchor exists: the move this triggers is reconciled against it and keeps the action.
+    // After the anchor exists: the move this triggers is reconciled against it and keeps the sequence.
     this.placeActor(action.playerId, { ...action.anchor })
     return this.#reply(action.playerId, {
       requestId, ok: true, actionId: action.actionId, nodeId: action.node.id, startedAt,
@@ -350,7 +552,7 @@ export class ResourceAuthority {
     }
   }
 
-  /** Where the worker and the trainer would stand: free terrain, not taken by another running action. */
+  /** Where the worker and the trainer would stand: free terrain, not taken by another running sequence. */
   #placement(actor, node) {
     const terrain = standableTile(node.areaId)
     const taken = new Set()
@@ -368,8 +570,9 @@ export class ResourceAuthority {
     for (const [instanceId, actionId] of this.byPokemon) if (actionId === action.actionId) this.byPokemon.delete(instanceId)
   }
 
-  #notifyCancel(action, reason) {
-    try { void Promise.resolve(this.skills.cancelWork?.({ actionId: action.actionId, playerId: action.playerId, reason })).catch(() => undefined) } catch { /* a failing optional hook must not break the world */ }
+  /** Closes a unit's SKILLS authorization without pay (optional hook). */
+  #notifyCancel(settlementId, playerId, reason) {
+    try { void Promise.resolve(this.skills.cancelWork?.({ actionId: settlementId, playerId, reason })).catch(() => undefined) } catch { /* a failing optional hook must not break the world */ }
   }
 
   #reject(playerId, intent, reason, message) {
@@ -414,7 +617,7 @@ function publicNodeFacts(node) {
   return { id: node.id, resourceKind: node.resourceKind, variantId: node.variantId, areaId: node.areaId, tx: node.tx, ty: node.ty, zone: node.zone, biome: node.biome }
 }
 
-/** The node state the settlement persists with the reward (world_commit_work's p_node). */
+/** A plot's state the settlement persists with the reward (world_commit_work's p_node, previous contract). */
 function persistedNode(node, next) {
   const initial = lifecycleFor(node.resourceKind).initial
   const base = next.state === initial && !next.plot

@@ -142,8 +142,9 @@ test('walking away cancels the action and gives the node back to everyone', asyn
   actors.get('a').tx += 3
   authority.reconcileActor(actors.get('a'))
   assert.equal(nodes.at(-1).state, 'available')
-  assert.deepEqual(skills.cancelled.map(c => c.actionId), [started.actionId])
-  assert.deepEqual(done.at(-1), { playerId: 'a', actionId: started.actionId, ok: false, reason: 'moved' })
+  // SKILLS authorized unit 0 under its settlement id; that is what is closed.
+  assert.deepEqual(skills.cancelled.map(c => c.actionId), [`${started.actionId}-00`])
+  assert.deepEqual(done.at(-1), { playerId: 'a', actionId: started.actionId, ok: false, reason: 'moved', total: { units: 0, xpGained: 0, rewards: [] } })
   assert.equal(await authority.complete(started.actionId), false)
   assert.equal(skills.grants, 0)
 })
@@ -174,7 +175,7 @@ test('a transient settlement failure is retried with the same action id and gran
   clock.advance(3_000)
   await authority.complete(started.actionId)
   assert.equal(skills.grants, 1)
-  assert.deepEqual([...skills.settled.keys()], [started.actionId])
+  assert.deepEqual([...skills.settled.keys()], [`${started.actionId}-00`])
   assert.equal(nodes.at(-1).state, 'depleted')
 })
 

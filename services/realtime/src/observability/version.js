@@ -14,8 +14,11 @@ import { execFileSync } from 'node:child_process'
  *   4 — SKILLS PROB-2: world protocol 2. Work is probabilistic; no message
  *       carries an action's end. Clients declaring an older world protocol
  *       (or none) get no world state and `client-outdated` for work
+ *   5 — RESOURCE YIELD-2: world protocol 3. Trees and rocks yield several
+ *       units per reservation (hidden stock); `world:work:yield` per unit,
+ *       `world:work:done` with reason and total; older clients are outdated
  */
-export const PRESENCE_PROTOCOL_REVISION = 4
+export const PRESENCE_PROTOCOL_REVISION = 5
 
 const COMMIT = /^[0-9a-f]{7,40}$/
 

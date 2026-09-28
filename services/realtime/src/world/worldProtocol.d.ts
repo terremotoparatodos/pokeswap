@@ -1,7 +1,7 @@
 import type { WorkKind } from './resourceLayout.js'
 import type { WorkerStand } from './workPlacement.js'
 
-export declare const WORLD_PROTOCOL: 2
+export declare const WORLD_PROTOCOL: 3
 /** One attempt of a work action and one swing of the worker (SKILLS PROB-2). */
 export declare const WORK_TICK_MS: 600
 export declare const WORLD_MESSAGE: Readonly<{
@@ -11,6 +11,7 @@ export declare const WORLD_MESSAGE: Readonly<{
   BATCH: 'world:batch'
   WORK_RESULT: 'world:work:result'
   WORK_DONE: 'world:work:done'
+  WORK_YIELD: 'world:work:yield'
   WILD: 'world:wild'
   PLAYER_STATE: 'player:state'
 }>
@@ -57,6 +58,8 @@ export interface PublicNode {
   }
   /** When the running action started (server clock): the animation phase. Its end is never published (PROB-2). */
   readonly startedAt?: number
+  /** When the worker's last unit was confirmed (server clock): a flash, never a count (YIELD-2). */
+  readonly yieldAt?: number
   readonly respawnAt?: number
   readonly plot?: PublicPlot
 }
@@ -106,9 +109,28 @@ export interface PlayerStateMessage {
   readonly pokemon: readonly { readonly instanceId: number; readonly speciesId: number }[]
 }
 
-export type WorkDone =
-  | { readonly actionId: string; readonly ok: true; readonly status: 'applied' | 'duplicate'; readonly summary?: unknown }
-  | { readonly actionId: string; readonly ok: false; readonly reason: string }
+/** One confirmed unit of the owner's sequence (YIELD-2). No stock, no settlement id, no timing. */
+export interface WorkYield {
+  readonly actionId: string
+  readonly index: number
+  readonly summary?: unknown
+}
+
+/** Why a sequence ended. */
+export type WorkDoneReason = 'depleted' | 'completed' | 'cancelled' | 'moved' | 'disconnected' | 'refused' | 'error' | 'limit'
+
+/** The end of a sequence: `ok` when at least one unit was confirmed. */
+export interface WorkDone {
+  readonly actionId: string
+  readonly ok: boolean
+  readonly reason: WorkDoneReason | string
+  readonly total: {
+    readonly units: number
+    readonly xpGained: number
+    readonly rewards: readonly { readonly itemId: string; readonly quantity: number }[]
+  }
+  readonly message?: string
+}
 
 export declare function workIntent(value: unknown): { nodeId: string; pokemonInstanceId: number; requestId: number } | null
 export declare function cancelIntent(value: unknown): { actionId: string } | null

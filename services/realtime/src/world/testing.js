@@ -46,7 +46,8 @@ export const settle = () => new Promise(resolve => setImmediate(resolve))
 export function privateDuration(authority, actionId) {
   const action = authority.actions.get(actionId)
   if (!action) throw new Error(`no running action ${actionId}`)
-  return action.endsAt - action.startedAt
+  // The sequence's current unit (YIELD-2): unit 0 starts with the sequence.
+  return action.endsAt - (action.unitStartedAt ?? action.startedAt)
 }
 
 /** A random source that returns `values` in order, then `rest` forever (tests only). */

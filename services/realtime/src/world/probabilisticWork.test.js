@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { createDemoSkillPolicy } from './demoSkillPolicy.js'
 import { createStaticOwnership } from './pokemonOwnership.js'
 import { RESPAWN_MS } from './resourceLayout.js'
+import { settlementIdOf } from './nodeStock.js'
 import { createSkillsWorldPolicy, skillsResourceFor } from './skills/skills.generated.js'
 import {
   fakeClient, keysDeep, lastMessage, manualClock, messagesOf, numbersDeep, praderaNodesNearSpawn, privateDuration, scriptedRandom, settle,
@@ -14,6 +15,8 @@ import { WorldRoom } from './worldRoom.js'
 // SKILLS PROB-2 through the real room and the real SKILLS rules (the bundle):
 // the server draws how many attempts an action takes, keeps the end to
 // itself, and settles exactly once. Every random value is scripted.
+// RESOURCE YIELD-2: a common tree now yields 2–4 units; these tests pin the
+// attempt mechanics of each unit, with the stock drawn at its minimum (2).
 
 const isOpen = standableTile('pradera')
 const TREE = praderaNodesNearSpawn(20).find(({ node, stands }) => skillsResourceFor(node)?.id === 'common_tree' && stands.length >= 2 && workPlacement(node, stands[0], isOpen))
@@ -43,7 +46,9 @@ function memoryStore({ xp = {} } = {}) {
   }
 }
 
-function setup({ random = scriptedRandom(), xp = {}, skills = null } = {}) {
+const unit0 = actionId => settlementIdOf(actionId, 0)
+
+function setup({ random = scriptedRandom(), xp = {}, skills = null, stockRandom = () => 0 } = {}) {
   const clock = manualClock()
   const actors = new Map()
   const sockets = new Map()
@@ -53,7 +58,7 @@ function setup({ random = scriptedRandom(), xp = {}, skills = null } = {}) {
   const counted = { ...policy, authorizeWorkAttempt: attempt => { authorizations++; return policy.authorizeWorkAttempt(attempt) } }
   const world = new WorldRoom({
     skills: counted, ownership: createStaticOwnership({ a: [SCYTHER], b: [PINSIR], old: [SCYTHER] }), now: clock.now,
-    lookupActor: id => actors.get(id) ?? null, clientForPlayer: id => sockets.get(id) ?? null,
+    lookupActor: id => actors.get(id) ?? null, clientForPlayer: id => sockets.get(id) ?? null, stockRandom,
     placeActor: (id, place) => {
       const actor = actors.get(id)
       if (!actor) return
@@ -125,9 +130,12 @@ test('the drawn end never reaches any client: owner, observer, guest, a reconnec
   assert.deepEqual(Object.keys(seen).sort(), ['actionId', 'id', 'startedAt', 'state', 'version', 'workKind', 'worker'])
 
   await s.advance(WORK_TICK_MS)
-  const done = lastMessage(again, WORLD_MESSAGE.WORK_DONE)
-  assert.equal(done.ok, true)
-  for (const key of FORBIDDEN) assert.equal(keysDeep(done).has(key), false, `work:done carries ${key}`)
+  // The first unit: a yield, not the end of the sequence (the tree has stock left).
+  const unit = lastMessage(again, WORLD_MESSAGE.WORK_YIELD)
+  assert.deepEqual(Object.keys(unit).sort(), ['actionId', 'index', 'summary'])
+  assert.equal(unit.index, 0)
+  assert.equal(lastMessage(again, WORLD_MESSAGE.WORK_DONE), undefined)
+  for (const key of FORBIDDEN) assert.equal(keysDeep(unit).has(key), false, `work:yield carries ${key}`)
 })
 
 test('owner and observers get the same start and the same stand: the animation phase is shared', async () => {
@@ -156,9 +164,9 @@ test('Talar at level 50 with the best roll: done on the very first tick, not bef
   const started = await work(s.world, a.actor)
   assert.equal(privateDuration(s.world.authority, started.actionId), WORK_TICK_MS)
   s.clock.advance(WORK_TICK_MS - 1); s.world.tick(); await settle()
-  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_DONE), undefined)
+  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_YIELD), undefined)
   s.clock.advance(1); s.world.tick(); await settle(); await settle()
-  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_DONE).ok, true)
+  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_YIELD).index, 0)
   assert.equal(s.store.settlements.size, 1)
 })
 
@@ -169,15 +177,15 @@ test('a beginner with the worst luck stops at the cap: ⌈1.5/p⌉ ticks, never 
   // Common tree, level 1, Scyther (aptitude 5): p = 1 − 0.84^1.25 ≈ 0.1958 → cap ⌈1.5/p⌉ = 8 (was ⌈3/p⌉ = 16).
   assert.equal(privateDuration(s.world.authority, started.actionId), 8 * WORK_TICK_MS)
   await s.advance(8 * WORK_TICK_MS - 1)
-  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_DONE), undefined, 'not one tick early')
+  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_YIELD), undefined, 'not one tick early')
   // The due tick, plus duplicate completions racing it: the last attempt is paid once.
   s.clock.advance(1)
   await Promise.all([s.world.authority.complete(started.actionId), s.world.authority.complete(started.actionId)])
   s.world.tick(); await settle(); await settle(); s.world.flush()
-  assert.deepEqual(messagesOf(a.client, WORLD_MESSAGE.WORK_DONE).map(done => done.ok), [true])
+  assert.deepEqual(messagesOf(a.client, WORLD_MESSAGE.WORK_YIELD).map(unit => unit.index), [0])
   assert.equal(s.store.settlements.size, 1)
   // XP and reward are the resource's, untouched by the cap.
-  const paid = s.store.settlements.get(started.actionId)
+  const paid = s.store.settlements.get(unit0(started.actionId))
   assert.equal(paid.xpGained, 10)
   assert.equal(paid.rewards[0].itemId, 'common_log')
   assert.ok([1, 2].includes(paid.rewards[0].quantity))
@@ -220,7 +228,7 @@ test('walking away before the success cancels it: nothing paid', async () => {
   assert.equal(s.store.settlements.size, 0)
 })
 
-test('disconnecting: the Pokémon keeps working in view, it pays once at the secret end; a return later finds no action', async () => {
+test('disconnecting: the unit in progress keeps working in view and pays once; then the worker retires, the rest of the stock stays', async () => {
   const s = setup({ random: SEVEN_ATTEMPTS() })
   const a = s.join('a', TREE.stands[0])
   const b = s.join('b', TREE.stands[1])
@@ -233,11 +241,16 @@ test('disconnecting: the Pokémon keeps working in view, it pays once at the sec
   assert.equal(s.store.settlements.size, 0)
   await s.advance(WORK_TICK_MS)
   assert.equal(s.store.settlements.size, 1)
-  assert.equal(nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH)).state, 'depleted')
+  // No second unit for a disconnected player: the tree (stock 2 → 1) is partial, and looks full to everyone.
+  await s.advance(20 * WORK_TICK_MS)
+  assert.equal(s.store.settlements.size, 1)
+  const seen = nodeIn(lastMessage(b.client, WORLD_MESSAGE.BATCH))
+  assert.deepEqual(seen, { id: TREE.node.id, state: 'available', version: seen.version, base: true })
+  assert.equal(s.world.authority.store.get(TREE.node.id).stock, 1)
   // Back after the end: nothing running, the reward is already in the store.
   const back = s.join('a', TREE.stands[0])
   assert.equal(lastMessage(back.client, WORLD_MESSAGE.SNAPSHOT).ownAction, undefined)
-  assert.equal(s.store.settlements.get(started.actionId).xpGained, 10)
+  assert.equal(s.store.settlements.get(unit0(started.actionId)).xpGained, 10)
 })
 
 test('one action id completed 1, 2 or 20 times pays exactly once', async () => {
@@ -250,7 +263,7 @@ test('one action id completed 1, 2 or 20 times pays exactly once', async () => {
     s.world.tick(); await settle(); await settle()
     assert.equal(results.filter(Boolean).length, 1, `${times}×`)
     assert.equal(s.store.settlements.size, 1, `${times}×`)
-    assert.equal(messagesOf(a.client, WORLD_MESSAGE.WORK_DONE).length, 1, `${times}×`)
+    assert.equal(messagesOf(a.client, WORLD_MESSAGE.WORK_YIELD).length, 1, `${times}×`)
   }
 })
 
@@ -264,7 +277,8 @@ test('twenty intents with the same request id start one action', async () => {
 })
 
 test('a client that declares an older world protocol (or none) cannot start anything: client-outdated', async () => {
-  for (const protocol of [1, null]) {
+  // Protocol 2 (single-unit work, before YIELD-2) is outdated too.
+  for (const protocol of [1, 2, null]) {
     const s = setup({ random: SEVEN_ATTEMPTS() })
     const old = s.join('old', TREE.stands[0], protocol)
     assert.equal(old.client.messages.length, 0, 'no world state for an outdated client')
@@ -285,13 +299,17 @@ test('a client that declares an older world protocol (or none) cannot start anyt
   }
 })
 
-test('depletion and respawn do not depend on the draw: respawn 90 s after the success', async () => {
+test('depletion and respawn do not depend on the draw: respawn 90 s after the last unit', async () => {
   for (const random of [() => 0, SEVEN_ATTEMPTS()]) {
     const s = setup({ random })
     const a = s.join('a', TREE.stands[0])
     const started = await work(s.world, a.actor)
-    const end = started.startedAt + privateDuration(s.world.authority, started.actionId)
-    await s.advance(end - started.startedAt)
+    let end = null
+    for (let guard = 0; guard < 100 && !lastMessage(a.client, WORLD_MESSAGE.WORK_DONE); guard++) {
+      end = s.world.authority.actions.get(started.actionId)?.endsAt ?? end
+      await s.advance(WORK_TICK_MS)
+    }
+    assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_DONE).total.units, 2)
     const depleted = s.world.authority.store.get(TREE.node.id)
     assert.equal(depleted.state, 'depleted')
     assert.equal(depleted.respawnAt, end + RESPAWN_MS.tree)
@@ -326,16 +344,17 @@ test('move and success in the same tick — success confirmed first: settled onc
   s.clock.advance(privateDuration(s.world.authority, started.actionId))
   // The due tick runs first: the action enters `settling` before any await.
   s.world.tick()
-  assert.equal(s.world.authority.actionOf('a').phase, 'settling')
-  // The move lands while the settlement is in flight: it cannot cancel it.
+  // Unit 0 is settling; unit 1's attempts already started (pipeline).
+  assert.equal(s.world.authority.actionOf('a').index, 1)
+  // The move lands while unit 0's settlement is in flight: it cannot cancel it, only unit 1.
   a.actor.tx += 3
   s.world.viewerMoved(a.client, a.actor)
   await settle(); await settle(); s.world.flush()
   assert.equal(s.store.settlements.size, 1)
-  assert.equal(s.world.authority.metrics.cancelled, 0)
+  assert.deepEqual(messagesOf(a.client, WORLD_MESSAGE.WORK_YIELD).map(unit => unit.index), [0])
   const done = messagesOf(a.client, WORLD_MESSAGE.WORK_DONE)
-  assert.deepEqual(done.map(event => event.ok), [true], 'one work:done, the success')
-  assert.equal(s.world.authority.store.get(TREE.node.id).state, 'depleted')
+  assert.deepEqual(done.map(event => [event.ok, event.reason, event.total.units]), [[true, 'moved', 1]], 'one work:done, after the paid unit')
+  assert.equal(s.world.authority.store.get(TREE.node.id).stock, 1, 'the rest of the stock stays, privately')
 })
 
 test('move and success in the same tick — move accepted first: cancelled, and the due completion is a no-op', async () => {
@@ -354,4 +373,21 @@ test('move and success in the same tick — move accepted first: cancelled, and 
   const done = messagesOf(a.client, WORLD_MESSAGE.WORK_DONE)
   assert.deepEqual(done.map(event => event.reason ?? 'ok'), ['moved'], 'one work:done, the cancellation')
   assert.equal(s.world.authority.store.get(TREE.node.id), null, 'the tree was never depleted')
+})
+
+// ── RESOURCE YIELD-2: the room's side of a disconnect ────────────────────────
+
+test('a reload (the new socket joins before the old one closes) does not stop the sequence; a real disconnect does', async () => {
+  const s = setup({ random: () => 0 })
+  const a = s.join('a', TREE.stands[0])
+  const started = await work(s.world, a.actor)
+  const again = fakeClient('a-again')
+  s.sockets.set('a', again)
+  s.world.join(again, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: 'a', token: null })
+  s.world.leave(a.client)
+  assert.equal(s.world.authority.actionOf('a').stopAfterCurrent, false, 'the replaced socket is not the owner any more')
+  await s.advance(2 * WORK_TICK_MS)
+  assert.equal(s.store.settlements.size, 2)
+  assert.deepEqual(messagesOf(again, WORLD_MESSAGE.WORK_YIELD).map(unit => unit.actionId), [started.actionId, started.actionId])
+  assert.equal(lastMessage(again, WORLD_MESSAGE.WORK_DONE).reason, 'depleted')
 })

@@ -12,8 +12,17 @@
  * the animation phase on the shared clock and WORK_TICK_MS); its end is the
  * node change and `world:work:done`. A client that declares an older protocol
  * (or none) gets no world state and `client-outdated` for any work intent.
+ *
+ * Protocol 3 (RESOURCE YIELD-2): a tree or rock gives several units before it
+ * depletes; its stock is hidden. One reservation is a SEQUENCE of units: each
+ * confirmed unit reaches its owner as `world:work:yield { actionId, index,
+ * summary }` and everyone sees `yieldAt` change on the working node (a flash);
+ * the sequence ends with `world:work:done { actionId, ok, reason, total }`.
+ * No message carries the stock, the stock left, the settlement id, the next
+ * success, a duration, attempts, the chance, or a partial node's refill time;
+ * a partially worked node looks exactly like a full one.
  */
-export const WORLD_PROTOCOL = 2
+export const WORLD_PROTOCOL = 3
 
 /**
  * WORLD's work tick (SKILLS PROB-2): one attempt of a work action, and one
@@ -32,6 +41,8 @@ export const WORLD_MESSAGE = Object.freeze({
   BATCH: 'world:batch',
   WORK_RESULT: 'world:work:result',
   WORK_DONE: 'world:work:done',
+  /** One confirmed unit of the owner's sequence (YIELD-2, owner only). */
+  WORK_YIELD: 'world:work:yield',
   WILD: 'world:wild',
   /** The session's own XP, materials and workable Pokémon (server → that player only). */
   PLAYER_STATE: 'player:state',
@@ -71,6 +82,11 @@ export function cancelIntent(value) {
  * id). Rewards and summaries never enter this projection.
  */
 export function publicNode(record) {
+  // A partial node (available, stock left, not reserved) is private (YIELD-2):
+  // every viewer sees a base node. No stock, no token, no refill time.
+  if (record.stock !== null && record.stock !== undefined && !record.actionId) {
+    return { id: record.id, state: 'available', version: record.version, base: true }
+  }
   const node = { id: record.id, state: record.state, version: record.version }
   if (record.base) node.base = true
   if (record.actionId) {
@@ -82,6 +98,8 @@ export function publicNode(record) {
     if (stand) node.worker.stand = { tx: stand.tx, ty: stand.ty, dir: stand.dir }
     // The start only: the end is the server's secret draw (PROB-2).
     node.startedAt = record.actionStartedAt
+    // When the last unit was confirmed (YIELD-2): a flash for owner and observers, never a count.
+    if (record.lastYieldAt !== null && record.lastYieldAt !== undefined) node.yieldAt = record.lastYieldAt
   }
   if (record.respawnAt !== null) node.respawnAt = record.respawnAt
   // A plot's crop is public: everyone sees what grows there, whose it is and when it is ready.

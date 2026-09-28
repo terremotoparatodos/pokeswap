@@ -1,3 +1,4 @@
+import { isPartial } from './nodeStock.js'
 import { lifecycleFor } from './resourceLifecycle.js'
 
 /**
@@ -46,12 +47,19 @@ export class ResourceStore {
       actionStartedAt: mutable.actionStartedAt ?? null,
       respawnAt: mutable.respawnAt ?? null,
       plot: mutable.plot ?? null,
+      // YIELD-2, PRIVATE (never projected): units left on a partial node and its
+      // generation token (the last settlement id applied to it).
+      stock: mutable.stock ?? null,
+      token: mutable.token ?? null,
+      // YIELD-2, public while working: when the worker's last unit was confirmed (a flash for everyone).
+      lastYieldAt: mutable.lastYieldAt ?? null,
       version: ++this.revision,
     }
     const key = chunkKey(node.areaId, node.chunkId)
     // Back to base: the record goes away and viewers are told so explicitly,
-    // so no client has to know which state is "base" for which kind.
-    record.base = record.state === lifecycle.initial && record.actionId === null && record.plot === null
+    // so no client has to know which state is "base" for which kind. A partial
+    // node (available + stock) is NOT base: its stock is kept, privately.
+    record.base = record.state === lifecycle.initial && record.actionId === null && record.plot === null && record.stock === null
     if (record.base) {
       this.#records.delete(node.id)
       const ids = this.#byChunk.get(key)
@@ -66,10 +74,26 @@ export class ResourceStore {
     return record
   }
 
-  /** Non-base records of one chunk: what a client entering it must be told. */
+  /**
+   * Non-base records of one chunk: what a client entering it must be told.
+   * Partial nodes are private (YIELD-2): to a viewer they are base, so they
+   * are left out — listing them would reveal that a node has stock taken.
+   */
   inChunk(areaId, chunkId) {
     const ids = this.#byChunk.get(chunkKey(areaId, chunkId))
-    return ids ? [...ids].map(id => this.#records.get(id)) : []
+    return ids ? [...ids].map(id => this.#records.get(id)).filter(record => !isPartial(record)) : []
+  }
+
+  /**
+   * Drops a record without a new version and without anything to publish: a
+   * partial node refilling (YIELD-2). To every viewer it was already base.
+   */
+  forget(node) {
+    const key = chunkKey(node.areaId, node.chunkId)
+    this.#records.delete(node.id)
+    const ids = this.#byChunk.get(key)
+    ids?.delete(node.id)
+    if (ids?.size === 0) this.#byChunk.delete(key)
   }
 
   get size() {
