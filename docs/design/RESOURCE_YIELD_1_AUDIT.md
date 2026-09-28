@@ -8,7 +8,7 @@
 
 - **Hoy, una acción es una unidad y un éxito agota el nodo.** Está codificado en cuatro lugares: la acción de WORLD (un `actionId`, una liquidación, `complete()` libera todo), el ciclo de vida `available → depleted` de `SIMPLE_LIFECYCLE`, la liquidación de SKILLS (una tirada de `rollDrop` por `actionId`) y la tabla `skill_work_settlements` (PK `action_id`). Las `charges` del catálogo son *advisory* y nadie las usa en el mundo.
 - **Recomendación: stock oculto, sorteado en el servidor al primer toque del nodo** dentro de un rango por recurso (árbol común 2–4, pino 2–3, roca 1–3, avanzados 1). Se guarda en memoria y se persiste junto con cada unidad liquidada.
-  - Una **secuencia** reserva el nodo como hoy y produce N unidades. Cada unidad es una autorización y liquidación independiente de SKILLS, con su propio sorteo de intentos (el tope de PROB-2 se aplica por unidad), y un `yieldId` derivado del `actionId` en el servidor.
+  - Una **secuencia** reserva el nodo como hoy y produce N unidades. Cada unidad es una autorización y liquidación independiente de SKILLS, con su propio sorteo de intentos (el tope de PROB-2 se aplica por unidad), y un `settlementId` derivado del `actionId` en el servidor.
   - El nodo se agota con la última unidad y el respawn empieza ahí.
   - Un nodo abandonado a medias se "rellena" solo a los 90 s sin trabajo.
 - **Sin nuevas tablas ni cambios en la Edge Function.** Alcanza con una columna `stock` en `world_node_overrides` y un `CREATE OR REPLACE` de `world_commit_work` (migración aditiva). Protocolo de mundo 3, con un mensaje nuevo `world:work:yield`.
@@ -99,7 +99,7 @@ sequenceDiagram
 ### 3.1 Conceptos
 
 - **Secuencia**: una reserva de WORLD, como la acción de hoy, con un `actionId`. Dura mientras el nodo tenga stock y el jugador siga al lado, conectado y sin moverse.
-- **Unidad**: cada éxito dentro de la secuencia. Tiene su propio `yieldId`, su propia autorización y sorteo de SKILLS (tope ⌈1,5/p⌉ **por unidad**) y su propia liquidación exactly-once, que incluye el nuevo stock del nodo.
+- **Unidad**: cada éxito dentro de la secuencia. Tiene su propio `settlementId`, su propia autorización y sorteo de SKILLS (tope ⌈1,5/p⌉ **por unidad**) y su propia liquidación exactly-once, que incluye el nuevo stock del nodo.
 - **Stock**: unidades que le quedan al nodo. Es privado del servidor.
 
 ### 3.2 Cuándo y dónde se determina el stock
@@ -107,7 +107,7 @@ sequenceDiagram
 - **Rango:** es regla de SKILLS. Pasa a ser dato normativo del catálogo; hoy es `world.charges`, que es advisory. SKILLS lo devuelve en la parte **privada** de la autorización (como `durationMs`), por ejemplo `yield: { min, max }`.
 - **Sorteo:** es estado físico de WORLD. WORLD sortea el stock con su RNG del servidor (cripto, inyectable en tests) **la primera vez que un nodo en estado base recibe una secuencia**. Un nodo parcial usa su stock guardado.
 - **Memoria:** el stock vive en el registro privado del nodo en `ResourceStore` y nunca en `publicNode`.
-- **Base de datos:** en `world_node_overrides.stock`, escrito en la misma transacción que cada unidad.
+- **Base de datos:** en `world_node_overrides.stock_remaining` (1–3; sólo nodos parciales), escrito en la misma transacción que cada unidad con CAS (§11, C1–C3).
 - **Restantes:** un nodo con restante `k > 0` queda como `available` + `stock = k` + `respawn_at = ahora + 90 s` (el temporizador de "rellenado", §3.4). Con `k = 0` queda como `depleted` + `respawn_at = ahora + 90 s`, igual que hoy.
 - **Re-sorteo:** si el proceso se reinicia antes de la primera unidad liquidada, el stock no llegó a persistirse y se vuelve a sortear. No da ventaja, porque nadie lo vio y no se consumió nada.
 
@@ -134,26 +134,26 @@ sequenceDiagram
   participant S as SKILLS
   participant D as Postgres
   C->>W: world:work {nodeId, pokemon, requestId}
-  W->>S: authorize(yieldId₀, attemptMs)
+  W->>S: authorize(settlementId₀, attemptMs)
   S-->>W: durationMs₀ (secreto) · yield {min,max} (privado)
   W->>W: stock = guardado ?? sortear(min..max)
   W-->>C: work:result {actionId, startedAt}
   loop mientras stock > 0 y el jugador sigue (al lado, conectado, sin moverse)
     W->>W: tick: complete(unidad i) → settling
-    W->>S: settleWork(yieldIdᵢ)
-    S->>D: world_commit_work(yieldIdᵢ, XP, +1 material, nodo {stock-1 | depleted})
+    W->>S: settleWork(settlementIdᵢ)
+    S->>D: world_commit_work(settlementIdᵢ, XP, +1 material, nodo {stock-1 | depleted})
     W-->>C: world:work:yield {actionId, index i, summary}
-    W->>S: authorize(yieldIdᵢ₊₁) (nivel recalculado; nuevo sorteo)
+    W->>S: authorize(settlementIdᵢ₊₁) (nivel recalculado; nuevo sorteo)
   end
   W-->>C: world:work:done {actionId, reason: depleted | moved | disconnected | refused | error}
   W-->>C: batch: nodo depleted (o base si quedó parcial)
 ```
 
-### 3.6 `yieldId`: exactly-once por unidad
+### 3.6 `settlementId`: exactly-once por unidad (C5)
 
-- `yieldId = actionId + '-' + hex2(index)`, por ejemplo `…-00`, `…-01`, hasta `…-13` (20 unidades como máximo). Tiene 39 caracteres, así que cumple `^[0-9a-f-]{8,64}$` (`playerData.js`, `handler.ts`) y el CHECK de `skill_work_settlements.action_id` (8–64).
+- `settlementId = actionId + '-' + hex2(index)`, por ejemplo `…-00`, `…-01`, hasta `…-13` (20 unidades como máximo). Tiene 39 caracteres, así que cumple `^[0-9a-f-]{8,64}$` (`playerData.js`, `handler.ts`) y el CHECK de `skill_work_settlements.action_id` (8–64).
 - **Lo deriva el servidor**, nunca el cliente. `index` es el contador de la secuencia en memoria. No hay campo de protocolo para `yieldIndex`, así que no se puede manipular.
-- **Reintentos:** reusan el mismo `yieldId`. La DB devuelve `applied: false` y no toca el nodo. SKILLS responde `already_settled`.
+- **Reintentos:** reusan el mismo `settlementId`. La DB devuelve `applied: false` y no toca el nodo. SKILLS responde `already_settled`.
 - **Serialización:** WORLD liquida las unidades de a una (espera el commit de la unidad i, con sus reintentos, antes de autorizar la i+1). Un commit viejo nunca pisa el stock de uno nuevo.
 - **Dónde se decide el stock:** en WORLD, antes del commit (como `#nextState` hoy), y viaja en `p_node`. La transacción escribe la liquidación y el stock juntos, o nada.
 
@@ -219,10 +219,10 @@ sequenceDiagram
 
 | Objeto | Cambio | Tipo |
 |---|---|---|
-| `world_node_overrides` | `ADD COLUMN stock smallint NULL CHECK (stock BETWEEN 1 AND 20)` | aditivo |
-| `world_commit_work` | `CREATE OR REPLACE`: escribe `stock` desde `p_node ->> 'stock'` en el upsert; misma firma | reemplazo compatible |
+| `world_node_overrides` | `ADD COLUMN stock_remaining smallint NULL CHECK (stock_remaining BETWEEN 1 AND 3)` (C3; `action_id` pasa a ser el token de generación, C2) | aditivo |
+| `world_commit_work` | `CREATE OR REPLACE`, misma firma: lock por nodo, dedupe primero, CAS por token/stock/`reservedAt` y `rejected: 'stale_node'` sin excepción (C1, C4) | reemplazo compatible |
 | `world_load_nodes` | sin cambios (`SELECT *` ya trae la columna; los rellenados vencidos se borran por `respawn_at`) | — |
-| `skill_work_settlements` | sin cambios (`action_id` guarda el `yieldId`; `node_id` ya existe). Opcional: índice por prefijo de secuencia para auditoría | — |
+| `skill_work_settlements` | sin cambios (`action_id` guarda el `settlementId`; `node_id` ya existe). Opcional: índice por prefijo de secuencia para auditoría | — |
 | Edge Function `world-authority` | **sin cambios** (`commitArgs` pasa `p_node` opaco) | — |
 | Gate / testers | sin cambios | — |
 
@@ -230,7 +230,7 @@ sequenceDiagram
 - una fila parcial (`available` + `respawn_at`) se restaura como base, o sea llena;
 - lo peor que puede pasar es un rellenado anticipado, con inflación mínima y acotada;
 - la columna puede quedar, porque es nula y compatible;
-- las liquidaciones con `yieldId` son filas normales.
+- las liquidaciones con `settlementId` son filas normales.
 
 No hay rollback de datos que haga falta.
 
@@ -279,7 +279,7 @@ Parámetros:
 
 | Vector | Mitigación en el diseño |
 |---|---|
-| Duplicación por reintentos | `yieldId` estable por unidad; PK en `skill_work_settlements`; ledger `already_settled`; WORLD serializa las unidades |
+| Duplicación por reintentos | `settlementId` estable por unidad; PK en `skill_work_settlements`; ledger `already_settled`; WORLD serializa las unidades |
 | Settlement repetido | igual; `complete()` sólo en `running`; cola de temporizadores idempotente |
 | Última carga consumida por dos jugadores | reserva exclusiva por nodo; decremento dentro del commit de la unidad |
 | Reinicio para regenerar stock | stock persistido con cada unidad; sin unidades tomadas, re-sortear no da ventaja porque es oculto |
@@ -307,9 +307,9 @@ Parámetros:
 ## 7. Plan de implementación (commits pequeños)
 
 1. **skills: stock ranges as rules.** `yield {min,max}` normativo por recurso (reemplaza el uso advisory de `charges`); devuelto en la parte privada de la autorización; `rules_version skills-1.3`; tests.
-2. **db: `world_node_overrides.stock`** + `world_commit_work` que lo escribe (migración aditiva, PGlite + staging).
+2. **db: `world_node_overrides.stock_remaining`** + `world_commit_work` con CAS transaccional (migración aditiva, PGlite + staging).
 3. **world: stock and partial nodes.** `ResourceStore` con `stock` privado; `restore()` lo lee; rellenado por `respawn_at`; `publicNode` proyecta un parcial como base; tests de no-fuga.
-4. **world: sequences.** `yieldId`, bucle unidad a unidad en `complete()`, serialización, fin por agotamiento; `done.reason`; métricas.
+4. **world: sequences.** `settlementId`, bucle unidad a unidad en `complete()`, serialización, fin por agotamiento; `done.reason`; métricas.
 5. **world: stop rules.** Movimiento en `settling` ⇒ pago y fin; `stopAfterCurrent` al desconectarse; reanudación al reconectar (según D3).
 6. **world: protocol 3.** `world:work:yield`, `done.total`, `client-outdated` para v2 (según D5).
 7. **client: continuous work.** Pops por unidad, sonido, la timeline sigue abierta entre unidades y se cierra con `done`; la caída sólo con `depleted`; tarjeta con el total.
@@ -349,6 +349,87 @@ Parámetros:
 | D6 | Feedback a observadores por unidad | **golpe + destello genérico** · nada · pop público sin cantidades | golpe + destello |
 | D7 | Rangos y sumideros | los propuestos (2–4 / 2–3 / 1–3 / 1) · otros; ¿sumideros antes de abrir? | propuestos; medir por `rules_version` antes de ampliar |
 | D8 | Pacing | actualizar `pacing.ts` al `k̄` normativo en YIELD-1 · aparte | en YIELD-1 (hoy ya está desalineado con el mundo real) |
+
+## 11. Correcciones aprobadas en la revisión arquitectónica (C1–C7)
+
+Esta sección **manda** sobre cualquier redacción anterior del documento que la contradiga.
+
+### C1 — CAS transaccional en `world_commit_work`
+
+Una sola transacción, misma firma y `p_node` JSON:
+
+1. `pg_advisory_xact_lock(hashtext(node_id))`, aunque todavía no exista fila del nodo.
+2. **Dedupe primero:** si ya existe `skill_work_settlements.action_id = settlementId`, devuelve la liquidación guardada con `applied: false` y no toca XP, material, nodo, stock ni timestamps.
+3. Lee la fila actual del nodo.
+4. **Generación nueva** (`expectedToken = NULL`): acepta sólo si no hay fila, o si hay una fila no-plot con `respawn_at <= reservedAt`. Una fila vigente al instante de la reserva se rechaza.
+5. **Nodo parcial** (`expectedToken = T`): acepta sólo si `action_id = T`, `state = 'available'`, `stock_remaining = stock.before` y `respawn_at > reservedAt`. **Nunca** se compara con `now()`.
+6. **Cualquier diferencia:** `{ applied: false, rejected: 'stale_node' }`, **sin `RAISE`**. No inserta liquidación, no paga y no modifica el nodo.
+7. **Si el CAS pasa**, en la misma transacción: liquidación (`ON CONFLICT DO NOTHING` como defensa), XP, material, `rules_version = skills-1.3`, y el nodo con `stock_remaining = NULLIF(after, 0)`, estado `available`/`depleted`, `respawn_at = fin de la unidad + 90 s` y `action_id = settlementId`.
+
+**Campos de stock en `p_node`:** `stock.before` en [1, 4], `stock.after = before - 1` en [0, 3], `expectedToken`, `reservedAt`, `state` y `respawnAt`. `reservedAt` y `respawnAt` salen del mismo reloj de WORLD.
+
+### C2 — Token de generación
+
+`world_node_overrides.action_id` es el **token de generación**: el último `settlementId` aplicado sobre el nodo. No hace falta otra tabla ni una columna de versión.
+
+Cubre el caso **ABA**: la generación T1 con stock 2 vence y vuelve a base; la generación T2 casualmente también queda en stock 2; un commit tardío que espera T1 recibe `stale_node`, porque el token difiere aunque el stock coincida.
+
+### C3 — Stock parcial privado
+
+- **Semántica de filas:**
+  - sin fila: nodo lleno o nunca trabajado;
+  - `available` + `stock_remaining`: parcial;
+  - `depleted` + `stock_remaining NULL`: agotado;
+  - parcelas: sin cambios.
+- **Proyección pública:** un parcial se ve **idéntico a un nodo base**. No aparece en snapshots ni en la entrada a un chunk, no publica `stock_remaining` ni su `respawn_at`, y su rellenado no emite nada. Un `depleted` conserva su comportamiento público.
+- **`ResourceStore`:**
+  - no descarta un parcial;
+  - restaura `stock_remaining`, token y `respawn_at`;
+  - descarta parciales vencidos al restaurar;
+  - no aplica el vencimiento mientras el nodo está reservado;
+  - al liberar, si ya venció, vuelve a base;
+  - una cancelación no escribe ni extiende timestamps.
+
+### C4 — Regla temporal B (reserva contra vencimiento)
+
+- **Base de la validez:** la validez de una reserva se decide con **`reservedAt`**, el instante de WORLD en que se reservó el nodo, y no con la hora del commit.
+- **Vencimiento durante una unidad:** si la reserva ocurrió antes de `respawn_at` y el commit llega después, con token, stock y `reservedAt` coincidentes, la unidad se liquida y **renueva** el reloj.
+- **Reserva posterior al vencimiento:** WORLD la trata como generación nueva (`expectedToken = NULL`) y la fila vencida cuenta como ausente.
+- **Rellenado:** el reloj de un parcial es **90 s desde la última unidad liquidada**. Una cancelación no lo extiende.
+
+### C5 — `settlementId`
+
+- **Qué es:** cada unidad se liquida con `settlementId = actionId + '-' + hex2(index)`, con índice desde 0 y guardia `index < 20`.
+  - Tiene 39 caracteres, compatible con `^[0-9a-f-]{8,64}$` y con el CHECK de 8–64.
+  - Es estable para reintentos, lo deriva el servidor y nunca lo manda el cliente.
+- **Nombres:** en código y documentación se llama `settlementId`. La columna SQL sigue siendo `action_id`.
+- **Qué ve el cliente:** el `actionId` base y el índice sólo sirven para feedback; el cliente no controla el `settlementId`.
+
+### C6 — Pipeline de commits y latencia hosted
+
+- **Arranque inmediato:** cuando termina el intento de la unidad i, WORLD empieza **enseguida** los intentos de la i+1, si el stock predicho es > 0 y nadie pidió detener. Así la latencia del commit hosted (0,4 s típica, 1,5 s mala) no genera una pausa visual.
+- **Orden estricto:** el commit de i+1 nunca se ejecuta antes de confirmar el de i.
+- **`world:work:yield` de i:** sale sólo después de confirmar el commit de i.
+- **Fallo definitivo o `stale_node` en i:** se cancela la i+1 preparada, que no paga, y la secuencia termina con `done { reason: 'error' }`.
+- **Último stock:** con `stock.after = 0` no se prepara otra unidad.
+- **Costo de latencia:** la latencia se paga **una vez por nodo** (el último commit), no por unidad.
+
+### C7 — Cifras reales de pacing
+
+- **El error:** las horas que mostraba `pacing.ts` (y que citaban PROB-2 y CANCEL-1) suponían las `charges` advisory del catálogo, es decir, varias unidades por nodo, en un mundo que entregaba una.
+- **La corrección:** YIELD-2 reemplaza esas cargas por el **stock medio normativo** (árbol común 3, pino 2,5, roca 2, avanzados 1), agrega la latencia del commit (0,4 s) y cobra overhead, desplazamiento y latencia **una vez por nodo**.
+- **Horas hasta Nv 10 / 25 / 40 / 50** (aptitud 3, overhead 1,5 s, walk 8 s):
+
+| Modelo | Talar | Minería |
+|---|---|---|
+| Estimación del catálogo (`pacing.ts` hasta YIELD-1; sin latencia) | 0,22 / 1,11 / 4,51 / 12,86 | 0,23 / 1,18 / 5,67 / 18,28 |
+| **Juego real anterior** (1 unidad por nodo; commit 0,4 s) | 0,45 / 2,32 / 9,80 / **29,66** | 0,45 / 2,24 / 10,44 / **32,22** |
+| **Multi-yield** (stock normativo; commit 0,4 s, pipeline) | 0,22 / 1,21 / 8,70 / **28,55** | 0,28 / 2,07 / 10,26 / **32,05** |
+| Multi-yield con commit malo (1,5 s) | 0,23 / 1,29 / 9,44 / 31,08 | 0,30 / 2,23 / 11,10 / 34,75 |
+
+### Requisito previo al lanzamiento público
+
+**Los sumideros de materiales son obligatorios antes de abrir el gate al público.** Multi-yield multiplica la oferta de materiales básicos (bosque x2,8, cantera x1,9 a nivel 1) y hoy no hay dónde gastarlos. Quedan fuera de YIELD-2.
 
 ## 10. Recomendación final
 
