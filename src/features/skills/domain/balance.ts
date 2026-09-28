@@ -64,25 +64,27 @@ export const MIN_ACTION_MS = 1200
  *   p    = min(chanceCap, 1 − (1 − b)^(1 / APTITUDE_DURATION[aptitude]))
  *   cap  = clamp(⌈capFactor / p⌉, minAttempts, maxAttempts)
  *
- * - `unlockSlowdown`: at the unlock level an aptitude-3 worker averages
- *   1.25 × the catalog's base duration (a basic resource: ~3.6 s at level 1,
- *   3.0–4.6 s over aptitudes 5..1).
+ * - `unlockSlowdown`: before the cap, an aptitude-3 worker at the unlock level
+ *   averages 1.25 × the catalog's base duration. With the cap (below) a basic
+ *   resource at level 1 averages ~3.1 s (2.5–3.8 s over aptitudes 5..1).
  * - `curveGamma` 2 keeps the first levels close to the old pace; the big
  *   gains come in the second half.
  * - Aptitude acts as "that many rolls per attempt": a specialist still works
  *   ~1.6× as fast as a clumsy worker, and p never exceeds 1.
- * - `cap`: the attempt that always succeeds, so nobody waits ~3× the mean.
- *   `maxAttempts` only binds for a cúmulo cristalino worked at level 45–46
- *   with an aptitude-2 worker (⌈3/p⌉ = 42 → 40).
+ * - `cap`: the attempt that always succeeds, so nobody waits more than ~1.5×
+ *   the uncapped mean (WORK CANCEL-1 halved it from ⌈3/p⌉ in [3, 40]: the
+ *   longest wait went from 24 s to 12 s). `maxAttempts` only binds for a
+ *   cúmulo cristalino at level 45–46 with an aptitude-2 worker (⌈1.5/p⌉ =
+ *   21 → 20); `minAttempts` never binds while p ≤ chanceCap.
  */
 export const ATTEMPTS = {
   unlockSlowdown: 1.25,
   curveGamma: 2,
   maxRequiredChance: 0.5,
   chanceCap: 0.98,
-  capFactor: 3,
-  minAttempts: 3,
-  maxAttempts: 40,
+  capFactor: 1.5,
+  minAttempts: 2,
+  maxAttempts: 20,
   /** WORLD's work tick (the attempt length) must stay inside these bounds. */
   minTickMs: 400,
   maxTickMs: 1200,
@@ -107,4 +109,4 @@ export const SETTLE_EARLY_TOLERANCE_MS = 250
 export const AUTHORIZATION_TTL_MS = 10 * 60 * 1000
 
 /** Bumped whenever a rule or a number above changes meaning. Stored with each settlement. */
-export const SKILLS_RULES_VERSION = 'skills-1.1'
+export const SKILLS_RULES_VERSION = 'skills-1.2'

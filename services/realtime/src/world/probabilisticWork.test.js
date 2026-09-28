@@ -162,14 +162,29 @@ test('Talar at level 50 with the best roll: done on the very first tick, not bef
   assert.equal(s.store.settlements.size, 1)
 })
 
-test('a beginner with the worst luck stops at the cap: ⌈3/p⌉ ticks, never more', async () => {
+test('a beginner with the worst luck stops at the cap: ⌈1.5/p⌉ ticks, never more; the forced success settles exactly once', async () => {
   const s = setup({ random: () => 0.9999999 })
   const a = s.join('a', TREE.stands[0])
   const started = await work(s.world, a.actor)
-  // Common tree, level 1, Scyther (aptitude 5): p = 1 − 0.84^1.25 ≈ 0.1958 → cap ⌈3/p⌉ = 16.
-  assert.equal(privateDuration(s.world.authority, started.actionId), 16 * WORK_TICK_MS)
-  await s.advance(16 * WORK_TICK_MS)
-  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_DONE).ok, true)
+  // Common tree, level 1, Scyther (aptitude 5): p = 1 − 0.84^1.25 ≈ 0.1958 → cap ⌈1.5/p⌉ = 8 (was ⌈3/p⌉ = 16).
+  assert.equal(privateDuration(s.world.authority, started.actionId), 8 * WORK_TICK_MS)
+  await s.advance(8 * WORK_TICK_MS - 1)
+  assert.equal(lastMessage(a.client, WORLD_MESSAGE.WORK_DONE), undefined, 'not one tick early')
+  // The due tick, plus duplicate completions racing it: the last attempt is paid once.
+  s.clock.advance(1)
+  await Promise.all([s.world.authority.complete(started.actionId), s.world.authority.complete(started.actionId)])
+  s.world.tick(); await settle(); await settle(); s.world.flush()
+  assert.deepEqual(messagesOf(a.client, WORLD_MESSAGE.WORK_DONE).map(done => done.ok), [true])
+  assert.equal(s.store.settlements.size, 1)
+  // XP and reward are the resource's, untouched by the cap.
+  const paid = s.store.settlements.get(started.actionId)
+  assert.equal(paid.xpGained, 10)
+  assert.equal(paid.rewards[0].itemId, 'common_log')
+  assert.ok([1, 2].includes(paid.rewards[0].quantity))
+})
+
+test('no action waits more than 12 s: the 20-tick maximum (cúmulo cristalino at its unlock, aptitude 2)', async () => {
+  assert.equal(20 * WORK_TICK_MS, 12_000)
 })
 
 test('cancelling before the success pays nothing, frees the tree, and the next action draws again', async () => {

@@ -18,11 +18,11 @@ import { totalXpForLevel } from './xpCurve'
 // file fails.
 
 describe('the canonical constants (change them here on purpose, or not at all)', () => {
-  it('tick 600 ms, γ 2, unlock ×1.25, cap ⌈3/p⌉ in [3, 40], p ≤ 0.98, pMax by tier', () => {
+  it('tick 600 ms, γ 2, unlock ×1.25, cap ⌈1.5/p⌉ in [2, 20], p ≤ 0.98, pMax by tier', () => {
     expect(WORK_TICK_MS).toBe(600)
     expect(isValidAttemptMs(WORK_TICK_MS)).toBe(true)
     expect({ ...ATTEMPTS }).toEqual({
-      unlockSlowdown: 1.25, curveGamma: 2, maxRequiredChance: 0.5, chanceCap: 0.98, capFactor: 3, minAttempts: 3, maxAttempts: 40, minTickMs: 400, maxTickMs: 1200,
+      unlockSlowdown: 1.25, curveGamma: 2, maxRequiredChance: 0.5, chanceCap: 0.98, capFactor: 1.5, minAttempts: 2, maxAttempts: 20, minTickMs: 400, maxTickMs: 1200,
     })
     expect({ ...TIER_MAX_CHANCE }).toEqual({ 'muy básico': 0.95, básico: 0.85, intermedio: 0.72, avanzado: 0.58, especializado: 0.48 })
   })
@@ -44,8 +44,8 @@ describe('the pacing tool uses the canonical model, not a copy', () => {
   it('defaults to the protocol’s tick', () => {
     const tree = RESOURCE_BY_ID.get('common_tree')!
     expect(gatherActionMs(tree, 1, 3)).toBe(gatherActionMs(tree, 1, 3, WORK_TICK_MS))
-    expect(gatherActionMs(tree, 1, 3)).toBeCloseTo(3_613.4, 1)
-    expect(gatherActionMs(tree, 50, 3)).toBeCloseTo(631.6, 1)
+    expect(gatherActionMs(tree, 1, 3)).toBeCloseTo(3_094.1, 1)
+    expect(gatherActionMs(tree, 50, 3)).toBeCloseTo(630, 1)
   })
 
   it('Agricultura: plant, tend and harvest use the crop’s tier and FARM_ACTION_MS', () => {
@@ -63,9 +63,9 @@ describe('the pacing tool uses the canonical model, not a copy', () => {
       expect(table.get(10)!.hours).toBeLessThan(table.get(50)!.hours)
     }
     // Pinned so a model change is a visible diff (SKILLS_PROB_2_REPORT.md §12).
-    expect(gatherPacing('woodcutting', DEFAULT_PACING).get(50)!.hours).toBeCloseTo(13.78, 2)
-    expect(gatherPacing('mining', DEFAULT_PACING).get(50)!.hours).toBeCloseTo(19.66, 2)
-    expect(farmingPacing(DEFAULT_PACING).get(50)!.hours).toBeCloseTo(19.08, 2)
+    expect(gatherPacing('woodcutting', DEFAULT_PACING).get(50)!.hours).toBeCloseTo(12.86, 2)
+    expect(gatherPacing('mining', DEFAULT_PACING).get(50)!.hours).toBeCloseTo(18.28, 2)
+    expect(farmingPacing(DEFAULT_PACING).get(50)!.hours).toBeCloseTo(19.05, 2)
   })
 })
 

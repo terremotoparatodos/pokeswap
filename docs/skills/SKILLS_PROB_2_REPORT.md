@@ -21,7 +21,7 @@ x    = clamp((L − Lreq) / (50 − Lreq), 0, 1)                 (Lreq = 50 ⇒ 
 pReq = min(0,5, tick / (1,25 · baseMs))                       baseMs: baseDurationMs del recurso, FARM_ACTION_MS de la acción agrícola
 b    = pReq + (pMax[tier] − pReq) · x²                         γ = 2
 p    = min(0,98, 1 − (1 − b)^(1 / APTITUDE_DURATION[aptitud]))
-cap  = clamp(⌈3 / p⌉, 3, 40)
+cap  = clamp(⌈1,5 / p⌉, 2, 20)                                 (WORK CANCEL-1; antes ⌈3/p⌉ en [3, 40], ver §16)
 N    = primer intento k < cap con random() < p; si no, cap      (una tirada por intento; el tope acierta sin tirar)
 durationMs = N · tick,  tick = WORK_TICK_MS = 600
 ```
@@ -29,18 +29,18 @@ durationMs = N · tick,  tick = WORK_TICK_MS = 600
 - `pMax` por tier: muy básico 0,95 · básico 0,85 · intermedio 0,72 · avanzado 0,58 · especializado 0,48.
 - Cultivos por peldaño: Aranja muy básico, Medicinal básico, Zanama intermedio, Zidra avanzado, Revivir especializado.
 - `p ∈ (0; 0,98]` para todo recurso, nivel 1–60, aptitud 1–5 y tick 400–1200 (test exhaustivo).
-- El tope 40 sólo se aplica en un caso real: cúmulo cristalino en nivel 45–46 con aptitud 2 (⌈3/p⌉ = 42 → 40).
+- El tope 20 (12 s) sólo se aplica en un caso real: cúmulo cristalino en nivel 45–46 con aptitud 2 (⌈1,5/p⌉ = 21 → 20). El mínimo 2 nunca se aplica mientras p ≤ 0,98.
 
-Valores verificados en `attempts.test.ts` (idénticos a la tabla de la auditoría):
+Valores verificados en `attempts.test.ts`. `p` es idéntica a la tabla de la auditoría; tiempos y topes con el tope reducido de §16 (entre paréntesis, el tope anterior):
 
 | Caso (aptitud 3 salvo indicación) | p | E[t] | p90 | tope |
 |---|---|---|---|---|
-| Árbol común Nv 1 | 0,160 | 3,61 s | 8,4 s | 19 (11,4 s) |
-| Árbol común Nv 1, aptitud 1 / 5 | 0,126 / 0,196 | 4,59 / 2,97 s | — | 24 / 16 |
-| Roca Nv 1 | 0,150 | 3,85 s | 9,0 s | 20 |
-| Árbol común Nv 50 | 0,950 | 0,63 s | 0,6 s (primer tick) | 4 |
-| Pino Nv 12 → 50 | 0,133 → 0,850 | 4,33 → 0,71 s | — | 23 → 4 |
-| Cúmulo cristalino Nv 45 → 50 | 0,080 → 0,480 | 7,18 → 1,24 s | — | 38 → 7 |
+| Árbol común Nv 1 | 0,160 | 3,09 s (3,61) | 6,0 s | 10 = 6,0 s (19 = 11,4 s) |
+| Árbol común Nv 1, aptitud 1 / 5 | 0,126 / 0,196 | 3,82 / 2,53 s (4,59 / 2,97) | — | 12 / 8 (24 / 16) |
+| Roca Nv 1 | 0,150 | 3,21 s (3,85) | 6,0 s | 10 (20) |
+| Árbol común Nv 50 | 0,950 | 0,63 s | 0,6 s (primer tick) | 2 (4) |
+| Pino Nv 12 → 50 | 0,133 → 0,850 | 3,69 → 0,69 s (4,33 → 0,71) | — | 12 → 2 (23 → 4) |
+| Cúmulo cristalino Nv 45 → 50 | 0,080 → 0,480 | 5,96 → 1,16 s (7,18 → 1,24) | — | 19 → 4 (38 → 7) |
 
 **Métrica a observar:** con γ = 2, las acciones por hora de un nivel 50 sobre recursos básicos pueden llegar a ~1,56× las de hoy (con ~2,5 s de desplazamiento por ciclo). Se acepta sin compensar, como se decidió. `SKILLS_RULES_VERSION` = `skills-1.1` queda en cada liquidación, así que se puede comparar XP y materiales por hora antes y después usando `skill_work_settlements`.
 
@@ -265,7 +265,7 @@ Mismas condiciones en las tres corridas: `node scripts/benchmark-world.mjs --pla
 
 **Guardia anti-drift** (`src/features/skills/domain/pacing.test.ts`, 15 tests):
 
-- **Constantes fijadas:** tick 600, γ 2, desbloqueo 1,25, tope ⌈3/p⌉ en [3, 40], p ≤ 0,98, `pMax` por tier y límites del tick.
+- **Constantes fijadas:** tick 600, γ 2, desbloqueo 1,25, tope ⌈1,5/p⌉ en [2, 20] (antes ⌈3/p⌉ en [3, 40], §16), p ≤ 0,98, `pMax` por tier y límites del tick.
 - **Pacing = modelo:** el tiempo del pacing es Σ n·P(n)·tick de la distribución exacta, para todo recurso, nivel y aptitud.
 - **Servidor = fuente:** a partir del **bundle del realtime** se recupera `p` por bisección sobre su `random` inyectado (un tick ⇔ roll < p) y se verifica el tope con el peor roll. Tiene que coincidir con la fuente TypeScript en árbol común, pino, roca y en plantar, cuidar y cosechar de los cinco tiers de cultivo, con aptitudes 2 y 5 y varios niveles.
 - **Tick fuera de rango:** el bundle rechaza ticks fuera de [400, 1200].
@@ -300,3 +300,68 @@ Talar a Nv 50 queda ~19 % más rápido que con la duración fija, Minería ~10 %
 - **Pacing:** `pacing.ts` pasó del modelo de duración fija al modelo probabilístico canónico, con guardia anti-drift (§14). El riesgo 3 anterior ("pacing sigue modelando duraciones fijas") se reemplazó por la simplificación de desplazamiento que todavía queda.
 - **Gates:** realtime 184 → **185** pass (nuevo test del tick WORLD → SKILLS); Vitest 1788 → **1803** (`pacing.test.ts`).
 - **Comentarios:** los de `balance.ts` y `workRules.ts` ya no dicen que el pacing usa `workDuration`, y las horas de referencia de `XP_CURVE` son las del pacing probabilístico.
+
+## 16. Tope reducido a la mitad (WORK CANCEL-1)
+
+La prueba humana mostró que el peor caso era demasiado largo. **Sólo cambió el tope:** `clamp(⌈3/p⌉, 3, 40)` → **`clamp(⌈1,5/p⌉, 2, 20)`**. El máximo absoluto baja de 24 s a **12 s**.
+
+- **Sin cambios:** la probabilidad `p` de cada intento, γ = 2, `pMax`, el factor de desbloqueo, el tick de 600 ms, XP, recompensas, respawn, requisitos y animación.
+- **`SKILLS_RULES_VERSION`** pasa a `skills-1.2`, para poder separar en `skill_work_settlements` las acciones de uno y otro tope.
+
+### Impacto medido
+
+Cálculo exacto con las funciones canónicas, aptitud 3 salvo indicación. Acciones por hora con el ciclo de §2 (tiempo esperado + 2,5 s de desplazamiento).
+
+| Recurso | Nv | apt | p | Media antes → ahora | p95 antes → ahora | Máx antes → ahora | Acciones/h antes → ahora |
+|---|---|---|---|---|---|---|---|
+| Árbol común | 1 | 3 | 0,160 | 3,61 → 3,09 s | 10,8 → 6,0 s | 11,4 → 6,0 s | 589 → 644 (1,09×) |
+| Árbol común | 1 | 1 | 0,126 | 4,59 → 3,82 s | 13,8 → 7,2 s | 14,4 → 7,2 s | 508 → 569 (1,12×) |
+| Árbol común | 1 | 5 | 0,196 | 2,97 → 2,53 s | 8,4 → 4,8 s | 9,6 → 4,8 s | 658 → 716 (1,09×) |
+| Roca | 1 | 3 | 0,150 | 3,84 → 3,21 s | 11,4 → 6,0 s | 12,0 → 6,0 s | 567 → 630 (1,11×) |
+| Pino | 12 | 3 | 0,133 | 4,33 → 3,69 s | 12,6 → 7,2 s | 13,8 → 7,2 s | 527 → 581 (1,10×) |
+| Veta de carbón | 10 | 3 | 0,126 | 4,56 → 3,81 s | 13,8 → 7,2 s | 14,4 → 7,2 s | 510 → 570 (1,12×) |
+| Madera dura | 25 | 3 | 0,109 | 5,28 → 4,41 s | 15,6 → 8,4 s | 16,8 → 8,4 s | 463 → 521 (1,13×) |
+| Veta de hierro | 20 | 3 | 0,109 | 5,28 → 4,41 s | 15,6 → 8,4 s | 16,8 → 8,4 s | 463 → 521 (1,13×) |
+| Veta de oro | 35 | 3 | 0,092 | 6,23 → 5,25 s | 18,6 → 10,2 s | 19,8 → 10,2 s | 412 → 465 (1,13×) |
+| Pino boreal | 40 | 2 | 0,083 | 6,95 → 5,84 s | 21,0 → 11,4 s | 22,2 → 11,4 s | 381 → 432 (1,13×) |
+| Cúmulo cristalino | 45 | 2 | 0,072 | 7,94 → 6,48 s | 24,0 → 12,0 s | 24,0 → 12,0 s | 345 → 401 (1,16×) |
+| Cúmulo cristalino | 45 | 3 | 0,080 | 7,18 → 5,96 s | 21,6 → 11,4 s | 22,8 → 11,4 s | 372 → 425 (1,14×) |
+| Árbol común | 50 | 3 | 0,950 | 0,63 → 0,63 s | 0,6 → 0,6 s | 2,4 → 1,2 s | 1150 → 1150 (1,00×) |
+| Cúmulo cristalino | 50 | 3 | 0,480 | 1,24 → 1,16 s | 3,0 → 2,4 s | 4,2 → 2,4 s | 963 → 984 (1,02×) |
+
+**Lectura:**
+- **Peor caso:** se reduce a la mitad (0,45–0,55× en recursos básicos, test incluido).
+- **Masa en el tope:** truncar a ⌈1,5/p⌉ concentra en el intento garantizado ~21 % de las acciones de un principiante (árbol común Nv 1: P(N = 10) = 0,84⁹ ≈ 0,208). En tiers altos el p95 coincide con el máximo.
+- **Media y acciones por hora:** bajan un 13–18 % en los niveles de desbloqueo, con **+9 a +16 % de acciones y materiales por hora**. En nivel 50 prácticamente no cambian.
+- **Principiantes:** el rango de "3–5 s" del brief original deja de cumplirse para aptitud ≥ 4. Nivel 1 en recurso básico promedia ahora 2,5–4,1 s según aptitud (3,1 s con aptitud 3).
+
+**Tiempo estimado de nivel 1 a 50** (pacing, aptitud 3, overhead 1,5 s, walk 8 s, 4 parcelas):
+
+| Habilidad | Nv 10 | Nv 25 | Nv 40 | Nv 50 |
+|---|---|---|---|---|
+| Talar | 0,24 → 0,22 h | 1,20 → 1,11 h | 4,86 → 4,51 h | 13,78 → **12,86 h** (−6,7 %) |
+| Minería | 0,25 → 0,23 h | 1,29 → 1,18 h | 6,18 → 5,67 h | 19,66 → **18,28 h** (−7,0 %) |
+| Agricultura | 0,27 → 0,26 h | 1,17 → 1,16 h | 5,40 → 5,38 h | 19,08 → **19,05 h** (−0,2 %) |
+
+No se reajustó ningún otro valor para compensar. Las cifras quedan para decidir después.
+
+### Tests y guardias
+
+- **`attempts.test.ts`:**
+  - topes exactos por recurso y nivel;
+  - mínimo 2 y máximo 20, con el único caso real que toca el 20;
+  - ningún caso del catálogo (recursos y cultivos) supera 12 s;
+  - peor caso de recursos básicos ≈ la mitad del anterior;
+  - distribución truncada exacta (masa del tope y media);
+  - el mínimo de 2 igual permite acertar en el primer intento;
+  - `p` sin cambios (misma tabla).
+- **`pacing.test.ts`:** constantes y horas nuevas fijadas. La bisección servidor = fuente valida el tope nuevo directamente contra el bundle.
+- **`probabilisticWork.test.js`:**
+  - con el peor sorteo, el tope es 8 ticks (4,8 s) y no termina un tick antes;
+  - el éxito forzado en el último intento se liquida **exactamente una vez**, aun con completions duplicadas;
+  - XP (10) y recompensa (tronco común) sin cambios;
+  - 20 ticks = 12 s.
+
+**Mutation check.** Restaurar el tope anterior en la fuente (`balance.ts`) hace fallar 36 tests: `attempts`, `pacing` y el drift del bundle. Restaurarlo sólo en el bundle del servidor hace fallar el guardia servidor = fuente de `pacing.test.ts`, el drift del bundle y el test de tope del realtime. En ambos casos el archivo quedó restaurado.
+
+**Benchmarks:** las corridas de 10/30/100 jugadores de §10 son anteriores a este cambio y no se repitieron. Con el tope reducido, `accepted→done` debería bajar en proporción a las medias de la tabla anterior.

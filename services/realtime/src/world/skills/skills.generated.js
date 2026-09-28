@@ -12,9 +12,9 @@ var ATTEMPTS = {
   curveGamma: 2,
   maxRequiredChance: 0.5,
   chanceCap: 0.98,
-  capFactor: 3,
-  minAttempts: 3,
-  maxAttempts: 40,
+  capFactor: 1.5,
+  minAttempts: 2,
+  maxAttempts: 20,
   /** WORLD's work tick (the attempt length) must stay inside these bounds. */
   minTickMs: 400,
   maxTickMs: 1200
@@ -28,7 +28,7 @@ var TIER_MAX_CHANCE = {
 };
 var SETTLE_EARLY_TOLERANCE_MS = 250;
 var AUTHORIZATION_TTL_MS = 10 * 60 * 1e3;
-var SKILLS_RULES_VERSION = "skills-1.1";
+var SKILLS_RULES_VERSION = "skills-1.2";
 
 // src/features/skills/domain/farming.ts
 var FARM_ACTION_MS = { plant: 3e3, tend: 2e3, harvest: 2600 };
