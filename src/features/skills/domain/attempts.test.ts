@@ -26,21 +26,22 @@ const script = (...values: number[]) => () => {
 
 describe('chance per attempt: the audit table, γ = 2, tick 600 ms, aptitude 3', () => {
   const table: [string, number, number, number][] = [
-    // resource, level, p, cap
-    ['common_tree', 1, 0.16, 19],
-    ['common_tree', 10, 0.186651, 17],
-    ['common_tree', 20, 0.27878, 11],
-    ['common_tree', 30, 0.436714, 7],
-    ['common_tree', 40, 0.660454, 5],
-    ['common_tree', 50, 0.95, 4],
-    ['stone_outcrop', 1, 0.15, 20],
-    ['pine_tree', 12, 0.133333, 23],
-    ['pine_tree', 50, 0.85, 4],
-    ['hardwood_tree', 25, 0.109091, 28],
-    ['iron_vein', 50, 0.72, 5],
-    ['gold_vein', 35, 0.092308, 33],
-    ['crystal_cluster', 45, 0.08, 38],
-    ['crystal_cluster', 50, 0.48, 7],
+    // resource, level, p (unchanged by WORK CANCEL-1), cap ⌈1.5/p⌉
+    // (with ⌈3/p⌉ they were 19 17 11 7 5 4 20 23 4 28 5 33 38 7)
+    ['common_tree', 1, 0.16, 10],
+    ['common_tree', 10, 0.186651, 9],
+    ['common_tree', 20, 0.27878, 6],
+    ['common_tree', 30, 0.436714, 4],
+    ['common_tree', 40, 0.660454, 3],
+    ['common_tree', 50, 0.95, 2],
+    ['stone_outcrop', 1, 0.15, 10],
+    ['pine_tree', 12, 0.133333, 12],
+    ['pine_tree', 50, 0.85, 2],
+    ['hardwood_tree', 25, 0.109091, 14],
+    ['iron_vein', 50, 0.72, 3],
+    ['gold_vein', 35, 0.092308, 17],
+    ['crystal_cluster', 45, 0.08, 19],
+    ['crystal_cluster', 50, 0.48, 4],
   ]
   for (const [id, level, p, cap] of table) {
     it(`${id} at level ${level}: p ≈ ${p}, cap ${cap}`, () => {
@@ -116,43 +117,86 @@ describe('chance per attempt: shape and bounds', () => {
 })
 
 describe('what a player feels (expected time, aptitude 3 unless said)', () => {
-  it('a beginner on a basic resource averages 3–5 s, whatever the Pokémon', () => {
+  it('a beginner on a basic resource averages 2.5–4.1 s over aptitudes 5..1 (3.1 s with aptitude 3), never waiting past 7.8 s', () => {
+    // WORK CANCEL-1: the halved cap shortens the mean too (aptitude 3: 3.61 → 3.09 s).
     for (const id of ['common_tree', 'stone_outcrop']) {
       for (const aptitude of [1, 2, 3, 4, 5] as Aptitude[]) {
-        const ms = meanMs(chanceOf(id, 1, aptitude))
-        expect(ms, `${id} aptitude ${aptitude}`).toBeGreaterThanOrEqual(2_950)
-        expect(ms, `${id} aptitude ${aptitude}`).toBeLessThanOrEqual(5_000)
+        const chance = chanceOf(id, 1, aptitude)
+        const ms = meanMs(chance)
+        expect(ms, `${id} aptitude ${aptitude}`).toBeGreaterThanOrEqual(2_500)
+        expect(ms, `${id} aptitude ${aptitude}`).toBeLessThanOrEqual(4_150)
+        expect(attemptCap(chance) * TICK, `${id} aptitude ${aptitude}`).toBeLessThanOrEqual(7_800)
       }
     }
-    expect(meanMs(chanceOf('common_tree', 1))).toBeCloseTo(3_613.4, 0)
+    expect(meanMs(chanceOf('common_tree', 1))).toBeCloseTo(3_094.1, 0)
   })
 
   it('a level-50 player usually succeeds on the very first tick of a basic resource', () => {
     const chance = chanceOf('common_tree', 50)
     expect(attemptDistribution(chance, attemptCap(chance))[0]).toBeCloseTo(0.95, 10)
     expect(attemptQuantile(chance, attemptCap(chance), 0.9)).toBe(1)
-    expect(meanMs(chance)).toBeCloseTo(631.6, 0)
+    expect(meanMs(chance)).toBeCloseTo(630, 0)
   })
 
-  it('nobody waits past the cap: the worst case is ⌈3/p⌉ ticks', () => {
+  it('nobody waits past the cap: the worst case is ⌈1.5/p⌉ ticks', () => {
     const chance = chanceOf('common_tree', 1)
-    expect(attemptCap(chance) * TICK).toBe(11_400)
-    expect(attemptQuantile(chance, attemptCap(chance), 0.99)).toBe(19)
+    expect(attemptCap(chance) * TICK).toBe(6_000)
+    expect(attemptQuantile(chance, attemptCap(chance), 0.99)).toBe(10)
+  })
+
+  it('basic resources wait about half as long in the worst case as with ⌈3/p⌉', () => {
+    const oldCap = (p: number) => Math.min(40, Math.max(3, Math.ceil(3 / p)))
+    for (const [id, level] of [['common_tree', 1], ['stone_outcrop', 1], ['pine_tree', 12], ['coal_seam', 10]] as const) {
+      for (const aptitude of [1, 3, 5] as Aptitude[]) {
+        const chance = chanceOf(id, level, aptitude)
+        const ratio = attemptCap(chance) / oldCap(chance)
+        expect(ratio, `${id} Nv ${level} aptitude ${aptitude}`).toBeGreaterThanOrEqual(0.45)
+        expect(ratio, `${id} Nv ${level} aptitude ${aptitude}`).toBeLessThanOrEqual(0.55)
+      }
+    }
+    // 11.4 → 6.0 s (tree), 12.0 → 6.0 s (rock), 13.8 → 7.2 s (pine at its unlock).
+    expect([chanceOf('common_tree', 1), chanceOf('stone_outcrop', 1), chanceOf('pine_tree', 12)].map(p => attemptCap(p) * TICK)).toEqual([6_000, 6_000, 7_200])
+  })
+
+  it('no action anywhere in the catalog can take more than 12 s (20 ticks)', () => {
+    for (const resource of RESOURCES) {
+      for (let level = resource.requiredLevel; level <= 50; level++) {
+        for (const aptitude of [1, 2, 3, 4, 5] as Aptitude[]) {
+          if (aptitude < resource.minAptitude) continue
+          expect(attemptCap(chanceOf(resource.id, level, aptitude)) * TICK).toBeLessThanOrEqual(12_000)
+        }
+      }
+    }
+    for (const crop of CROPS) {
+      for (const action of ['plant', 'tend', 'harvest'] as const) {
+        const chance = attemptChance({ level: crop.requiredLevel, requiredLevel: crop.requiredLevel, baseMs: FARM_ACTION_MS[action], tier: crop.tier, aptitude: crop.minAptitude, attemptMs: TICK })
+        expect(attemptCap(chance) * TICK).toBeLessThanOrEqual(12_000)
+      }
+    }
   })
 })
 
-describe('the cap: ⌈3 / p⌉, inside [3, 40]', () => {
-  it('is ⌈3/p⌉ in the normal range', () => {
-    for (const p of [0.08, 0.1, 0.16, 0.3, 0.5, 0.75]) expect(attemptCap(p)).toBe(Math.ceil(3 / p))
+describe('the cap: ⌈1.5 / p⌉, inside [2, 20] (WORK CANCEL-1)', () => {
+  it('is ⌈1.5/p⌉ in the normal range', () => {
+    expect({ capFactor: ATTEMPTS.capFactor, minAttempts: ATTEMPTS.minAttempts, maxAttempts: ATTEMPTS.maxAttempts }).toEqual({ capFactor: 1.5, minAttempts: 2, maxAttempts: 20 })
+    for (const p of [0.08, 0.1, 0.16, 0.3, 0.5, 0.74]) expect(attemptCap(p)).toBe(Math.ceil(1.5 / p))
   })
 
-  it('never goes below 3 nor above 40', () => {
-    expect(attemptCap(0.98)).toBe(4)
+  it('never goes below 2 nor above 20', () => {
+    expect(attemptCap(0.98)).toBe(2)
     expect(attemptCap(1)).toBe(ATTEMPTS.minAttempts)
     expect(attemptCap(0.01)).toBe(ATTEMPTS.maxAttempts)
-    // The one real case where 40 binds: a cúmulo cristalino at its unlock with an aptitude-2 worker.
-    expect(Math.ceil(3 / chanceOf('crystal_cluster', 45, 2))).toBe(42)
-    expect(attemptCap(chanceOf('crystal_cluster', 45, 2))).toBe(40)
+    expect(attemptCap(0.074)).toBe(20)
+    // The one real case where 20 binds: a cúmulo cristalino at its unlock with an aptitude-2 worker.
+    expect(Math.ceil(1.5 / chanceOf('crystal_cluster', 45, 2))).toBe(21)
+    expect(attemptCap(chanceOf('crystal_cluster', 45, 2))).toBe(20)
+  })
+
+  it('the minimum of 2 still allows a first-attempt success: the cap is only the guaranteed attempt', () => {
+    const p = chanceOf('common_tree', 50, 5)
+    expect(attemptCap(p)).toBe(2)
+    expect(drawAttempts(p, attemptCap(p), script(0))).toBe(1)
+    expect(drawAttempts(p, attemptCap(p), script(0.99999))).toBe(2)
   })
 })
 
@@ -191,6 +235,20 @@ describe('the secret draw (scripted randomness)', () => {
 })
 
 describe('the distribution, exactly', () => {
+  it('with the halved cap: a level-1 common tree is 10 attempts at most, and ~21 % of actions end on the guaranteed one', () => {
+    const p = 0.16
+    const cap = attemptCap(p)
+    expect(cap).toBe(10)
+    const distribution = attemptDistribution(p, cap)
+    expect(distribution).toHaveLength(10)
+    expect(distribution[0]).toBeCloseTo(0.16, 12)
+    expect(distribution[8]).toBeCloseTo(0.84 ** 8 * 0.16, 12)
+    expect(distribution[9]).toBeCloseTo(0.84 ** 9, 12)
+    expect(distribution[9]).toBeCloseTo(0.2082, 4)
+    expect(distribution.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 12)
+    expect(expectedAttempts(p, cap) * TICK).toBeCloseTo(600 * (1 - 0.84 ** 10) / 0.16, 6)
+  })
+
   it('is the capped geometric: P(n) = (1−p)^(n−1)·p, and the cap takes the rest', () => {
     const p = 0.16
     const cap = attemptCap(p)

@@ -317,9 +317,19 @@ export abstract class GatheringOverlayCore<
     const x = action.tx * TILE + TILE / 2
     const y = action.ty * TILE + TILE - 3
     if (action.timeline.open) {
-      // No end is known until the server says so; then the scene finishes the blow and ends.
+      // No end is known until the server says so. A success finishes the blow and
+      // plays the ending; anything else (walked away, cancelled, refused) ends the
+      // scene at once — no blow, no fall, no pops, nothing left running (WORK CANCEL-1).
       const outcome = action.outcome()
-      if (outcome !== 'pending') (action as { timeline: GatheringTimeline }).timeline = this.closeTimeline(elapsed, outcome === 'success')
+      if (outcome === 'failed') {
+        this.action = null
+        this.views.delete(action.target.nodeId)
+        action.resultApplied = true
+        action.onResult()
+        action.onDone()
+        return
+      }
+      if (outcome === 'success') (action as { timeline: GatheringTimeline }).timeline = this.closeTimeline(elapsed, true)
     }
     this.actionFrame(action, elapsed, x, y)
     if (!action.resultApplied && elapsed >= action.timeline.resultAtMs) {
