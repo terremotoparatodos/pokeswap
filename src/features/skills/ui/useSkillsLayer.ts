@@ -126,15 +126,16 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Skill
       close()
       return false
     }
+    // WORK CANCEL-1: input is never locked while the Pokémon works. Walking is
+    // how a player stops: the move reaches the server, which cancels the action
+    // (`moved`) and answers; the scene then ends at once (outcome 'failed').
     phase.value = 'working'
     refusal.value = null
     result.value = null
-    host?.setInputLocked(true)
     const begin = await session.begin(current.target.nodeId, worker)
     if (!begin.allowed) {
       phase.value = 'idle'
       refusal.value = begin.message
-      game()?.setInputLocked(false)
       touch()
       return false
     }
@@ -162,7 +163,9 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Skill
     const onDone = () => {
       phase.value = result.value ? 'result' : 'idle'
       run.value = null
-      game()?.setInputLocked(false)
+      // Walked away (the usual reason an action ends without a result): the card goes too.
+      const player = game()?.playerSnapshot()
+      if (!result.value && player && !isBeside(player, current)) close()
     }
     // The Pokémon itself is WORLD's to draw (worker.stand): the scene only animates the node.
     const now = serverNow()

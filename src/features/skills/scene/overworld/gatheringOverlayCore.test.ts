@@ -92,12 +92,16 @@ describe('the server answers', () => {
     expect(closed.totalMs - closed.fellAtMs).toBe(FELL_MS + REWARD_MS)
   })
 
-  it('a refusal or cancellation closes without a fall and without pops', () => {
+  it('a refusal or cancellation (walking away) ends the scene at once: no blow, no fall, no pops, nothing left running', () => {
     const scene = run(t => (t >= 1 ? 'failed' : 'pending'), { rewardValue: null })
-    scene.step(1.05)
-    expect(scene.probe.closes[0].success).toBe(false)
-    expect(scene.probe.timeline()!.felling).toBe(false)
+    scene.step(1.02)
+    // The very frame the answer is seen: done, and nothing more to play.
+    expect(scene.done()).toBe(1)
+    expect(scene.probe.busy).toBe(false)
+    expect(scene.probe.closes).toHaveLength(0)
+    const frames = scene.probe.frames.length
     scene.step(5)
+    expect(scene.probe.frames.length).toBe(frames)
     expect(scene.done()).toBe(1)
   })
 })

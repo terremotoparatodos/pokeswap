@@ -43,7 +43,10 @@ export function useFarmPlots(game: () => SkillsGamePort | null, session: SkillsS
     result.value = settled
     phase.value = settled ? 'result' : 'idle'
     run.value = null
-    game()?.setInputLocked(false)
+    // Walked away (the server cancelled with `moved`): the card goes too.
+    const player = game()?.playerSnapshot()
+    const plot = selection.value
+    if (!settled && player && plot && Math.abs(player.tx - plot.tx) + Math.abs(player.ty - plot.ty) !== 1) close()
   })
 
   const plotAt = (hit: WorldHit): PlotDef | null =>
@@ -93,15 +96,15 @@ export function useFarmPlots(game: () => SkillsGamePort | null, session: SkillsS
   async function work(worker: WorkerRef, workerName: string, cropId: string | null): Promise<void> {
     const plot = selection.value
     if (!plot || phase.value === 'working') return
+    // WORK CANCEL-1: input stays free while the Pokémon works; walking away is how
+    // a player stops it (the server cancels with `moved`).
     phase.value = 'working'
     refusal.value = null
     result.value = null
-    game()?.setInputLocked(true)
     const begin = await session.begin(plot.id, worker, cropId)
     if (!begin.allowed) {
       phase.value = 'idle'
       refusal.value = begin.message
-      game()?.setInputLocked(false)
       return
     }
     lastWorker.value = worker.instanceId
