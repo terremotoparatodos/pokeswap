@@ -36,14 +36,65 @@ export const APTITUDE_DURATION: Readonly<Record<Aptitude, number>> = { 1: 1.3, 2
 export const APTITUDE_BONUS_CHANCE: Readonly<Record<Aptitude, number>> = { 1: 0, 2: 0.05, 3: 0.1, 4: 0.18, 5: 0.25 }
 
 /**
- * "Ritmo": the player's own mastery. Every milestone level shaves a flat
- * fraction off every action's duration in that skill. Shown in the roadmap,
- * so there is always a reason to keep going between resource unlocks.
+ * "Ritmo": the player's own mastery, shown in the roadmap every `everyLevels`
+ * so there is always a milestone between resource unlocks. Since PROB-2 the
+ * level itself raises the chance of every attempt (ATTEMPTS, `curveGamma`);
+ * Ritmo absorbed into that curve and only names the milestones. `reduction`
+ * is the pre-PROB-2 fixed-duration discount (`workDuration`, scripts only).
  */
 export const RHYTHM = { everyLevels: 10, reduction: 0.04 } as const
 
-/** No action is ever shorter than this, whatever stacks. */
+/**
+ * Pre-PROB-2 floor of the fixed-duration model (`workDuration`, kept for the
+ * pacing and MAP-1 scripts). Work no longer uses it: an action lasts a whole
+ * number of attempts (see ATTEMPTS).
+ */
 export const MIN_ACTION_MS = 1200
+
+/**
+ * Probabilistic work (SKILLS PROB-2, docs/design/SKILLS_PROB_1_AUDIT.md §2.4).
+ *
+ * An action is a run of attempts, one per WORLD work tick. Each attempt
+ * succeeds with the same chance `p`; the first success completes the action.
+ *
+ *   x    = (level − requiredLevel) / (MAX_SKILL_LEVEL − requiredLevel), in [0, 1]
+ *   pReq = min(maxRequiredChance, tick / (unlockSlowdown · baseMs))
+ *   b    = pReq + (pMax[tier] − pReq) · x^curveGamma
+ *   p    = min(chanceCap, 1 − (1 − b)^(1 / APTITUDE_DURATION[aptitude]))
+ *   cap  = clamp(⌈capFactor / p⌉, minAttempts, maxAttempts)
+ *
+ * - `unlockSlowdown`: at the unlock level an aptitude-3 worker averages
+ *   1.25 × the catalog's base duration (a basic resource: ~3.6 s at level 1,
+ *   3.0–4.6 s over aptitudes 5..1).
+ * - `curveGamma` 2 keeps the first levels close to the old pace; the big
+ *   gains come in the second half.
+ * - Aptitude acts as "that many rolls per attempt": a specialist still works
+ *   ~1.6× as fast as a clumsy worker, and p never exceeds 1.
+ * - `cap`: the attempt that always succeeds, so nobody waits ~3× the mean.
+ *   `maxAttempts` only binds for a cúmulo cristalino worked at level 45–46
+ *   with an aptitude-2 worker (⌈3/p⌉ = 42 → 40).
+ */
+export const ATTEMPTS = {
+  unlockSlowdown: 1.25,
+  curveGamma: 2,
+  maxRequiredChance: 0.5,
+  chanceCap: 0.98,
+  capFactor: 3,
+  minAttempts: 3,
+  maxAttempts: 40,
+  /** WORLD's work tick (the attempt length) must stay inside these bounds. */
+  minTickMs: 400,
+  maxTickMs: 1200,
+} as const
+
+/** Chance per attempt at MAX_SKILL_LEVEL (before aptitude), by ladder tier. */
+export const TIER_MAX_CHANCE = {
+  'muy básico': 0.95,
+  básico: 0.85,
+  intermedio: 0.72,
+  avanzado: 0.58,
+  especializado: 0.48,
+} as const
 
 /**
  * How early WORLD may settle a completed action relative to the authorized
@@ -55,4 +106,4 @@ export const SETTLE_EARLY_TOLERANCE_MS = 250
 export const AUTHORIZATION_TTL_MS = 10 * 60 * 1000
 
 /** Bumped whenever a rule or a number above changes meaning. Stored with each settlement. */
-export const SKILLS_RULES_VERSION = 'skills-1.0'
+export const SKILLS_RULES_VERSION = 'skills-1.1'

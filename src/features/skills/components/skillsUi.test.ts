@@ -107,7 +107,7 @@ describe('WorkCard', () => {
     const store = createMemorySkillsStore()
     store.setXp('p', 'mining', totalXpForLevel(10) - 1)
     const service = createSkillsService({ progress: store.progress, ledger: store.ledger, clock, random: () => 0.5 })
-    const begin = service.authorizeWorkAttempt({ actionId: 'a-1', playerId: 'p', worker: { instanceId: 'g', speciesId: 74 }, target: { kind: 'gather', resourceId: 'stone_outcrop' } })
+    const begin = service.authorizeWorkAttempt({ actionId: 'a-1', playerId: 'p', worker: { instanceId: 'g', speciesId: 74 }, target: { kind: 'gather', resourceId: 'stone_outcrop' }, attemptMs: 600 })
     if (!begin.allowed) throw new Error(begin.message)
     clock.advance(begin.durationMs)
     const result = service.settleWork('a-1', { outcome: 'completed' })
@@ -117,7 +117,7 @@ describe('WorkCard', () => {
       props: { ...base, resource, phase: 'result' as const, result, xp: store.progress.xpOf('p'), workers: [{ instanceId: 'g', speciesId: 74 }] },
     })
     expect(wrapper.get('.wc-levelup').text()).toBe('Minería 9 → 10')
-    expect(wrapper.findAll('.wc-unlock').map(node => node.text())).toEqual(['Nuevo: Veta de carbón', 'Ritmo 1: todo trabajo 4 % más rápido'])
+    expect(wrapper.findAll('.wc-unlock').map(node => node.text())).toEqual(['Nuevo: Veta de carbón', 'Ritmo 1: tus golpes aciertan más seguido'])
     expect(wrapper.get('.wc-gains').text()).toContain('+10 XP Minería')
     expect(wrapper.get('.wc-gains').text()).toContain('Piedra')
   })

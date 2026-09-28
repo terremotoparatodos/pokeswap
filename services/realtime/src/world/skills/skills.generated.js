@@ -7,10 +7,28 @@ var XP_CURVE = { linear: 20, base: 15, growth: 1.19 };
 var APTITUDE_DURATION = { 1: 1.3, 2: 1.12, 3: 1, 4: 0.9, 5: 0.8 };
 var APTITUDE_BONUS_CHANCE = { 1: 0, 2: 0.05, 3: 0.1, 4: 0.18, 5: 0.25 };
 var RHYTHM = { everyLevels: 10, reduction: 0.04 };
-var MIN_ACTION_MS = 1200;
+var ATTEMPTS = {
+  unlockSlowdown: 1.25,
+  curveGamma: 2,
+  maxRequiredChance: 0.5,
+  chanceCap: 0.98,
+  capFactor: 3,
+  minAttempts: 3,
+  maxAttempts: 40,
+  /** WORLD's work tick (the attempt length) must stay inside these bounds. */
+  minTickMs: 400,
+  maxTickMs: 1200
+};
+var TIER_MAX_CHANCE = {
+  "muy b\xE1sico": 0.95,
+  b\u00E1sico: 0.85,
+  intermedio: 0.72,
+  avanzado: 0.58,
+  especializado: 0.48
+};
 var SETTLE_EARLY_TOLERANCE_MS = 250;
 var AUTHORIZATION_TTL_MS = 10 * 60 * 1e3;
-var SKILLS_RULES_VERSION = "skills-1.0";
+var SKILLS_RULES_VERSION = "skills-1.1";
 
 // src/features/skills/domain/farming.ts
 var FARM_ACTION_MS = { plant: 3e3, tend: 2e3, harvest: 2600 };
@@ -21,6 +39,7 @@ var CROPS = [
     id: "oran",
     name: "Baya Aranja",
     requiredLevel: 1,
+    tier: "muy b\xE1sico",
     minAptitude: 1,
     plotKinds: ["town", "fertile"],
     growMs: 1.5 * MIN,
@@ -31,6 +50,7 @@ var CROPS = [
     id: "medicinal",
     name: "Hierba medicinal",
     requiredLevel: 10,
+    tier: "b\xE1sico",
     minAptitude: 1,
     plotKinds: ["town", "fertile"],
     growMs: 3 * MIN,
@@ -41,6 +61,7 @@ var CROPS = [
     id: "leppa",
     name: "Baya Zanama",
     requiredLevel: 20,
+    tier: "intermedio",
     minAptitude: 1,
     plotKinds: ["town", "fertile"],
     growMs: 5 * MIN,
@@ -51,6 +72,7 @@ var CROPS = [
     id: "sitrus",
     name: "Baya Zidra",
     requiredLevel: 30,
+    tier: "avanzado",
     minAptitude: 1,
     plotKinds: ["fertile"],
     growMs: 8 * MIN,
@@ -61,6 +83,7 @@ var CROPS = [
     id: "revival",
     name: "Hierba Revivir",
     requiredLevel: 42,
+    tier: "especializado",
     minAptitude: 2,
     plotKinds: ["fertile"],
     growMs: 12 * MIN,
@@ -297,9 +320,6 @@ var WHERE = {
   gold_vein: "Lo m\xE1s lejano del Desierto y la Tundra, y cuevas",
   crystal_cluster: "Cuevas y la Tundra profunda"
 };
-function rhythmPercent(level) {
-  return Math.round(Math.floor(level / RHYTHM.everyLevels) * RHYTHM.reduction * 100);
-}
 function buildUnlocks() {
   const list = [];
   for (const resource of RESOURCES) {
@@ -324,7 +344,7 @@ function buildUnlocks() {
         kind: "rhythm",
         id: `rhythm-${level}`,
         title: `Ritmo ${level / RHYTHM.everyLevels}`,
-        detail: `Todo trabajo ${rhythmPercent(level)} % m\xE1s r\xE1pido`
+        detail: "Tus golpes aciertan m\xE1s seguido"
       });
     }
   }
@@ -337,6 +357,32 @@ function unlocksOf(skillId) {
 }
 function unlocksBetween(skillId, from, to) {
   return unlocksOf(skillId).filter((unlock) => unlock.level > from && unlock.level <= to);
+}
+
+// src/features/skills/domain/attempts.ts
+var clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+function isValidAttemptMs(attemptMs) {
+  return Number.isInteger(attemptMs) && attemptMs >= ATTEMPTS.minTickMs && attemptMs <= ATTEMPTS.maxTickMs;
+}
+function levelProgress(level, requiredLevel) {
+  if (requiredLevel >= MAX_SKILL_LEVEL) return level >= requiredLevel ? 1 : 0;
+  return clamp((level - requiredLevel) / (MAX_SKILL_LEVEL - requiredLevel), 0, 1);
+}
+function attemptChance(input) {
+  const required = Math.min(ATTEMPTS.maxRequiredChance, input.attemptMs / (ATTEMPTS.unlockSlowdown * input.baseMs));
+  const top = Math.max(required, TIER_MAX_CHANCE[input.tier]);
+  const base = required + (top - required) * levelProgress(input.level, input.requiredLevel) ** ATTEMPTS.curveGamma;
+  const withAptitude = 1 - (1 - base) ** (1 / APTITUDE_DURATION[input.aptitude]);
+  return Math.min(ATTEMPTS.chanceCap, withAptitude);
+}
+function attemptCap(chance) {
+  return clamp(Math.ceil(ATTEMPTS.capFactor / chance), ATTEMPTS.minAttempts, ATTEMPTS.maxAttempts);
+}
+function drawAttempts(chance, cap, random) {
+  for (let attempt = 1; attempt < cap; attempt++) {
+    if (random() < chance) return attempt;
+  }
+  return cap;
 }
 
 // src/features/skills/domain/aptitude/aptitudeScale.ts
@@ -988,13 +1034,6 @@ function cappedGain(current, gain) {
 }
 
 // src/features/skills/domain/workRules.ts
-function rhythmMultiplier(level) {
-  const steps = Math.floor(Math.max(0, Math.min(MAX_SKILL_LEVEL, level)) / RHYTHM.everyLevels);
-  return 1 - steps * RHYTHM.reduction;
-}
-function workDuration(baseMs, aptitude, level) {
-  return Math.max(MIN_ACTION_MS, Math.round(baseMs * APTITUDE_DURATION[aptitude] * rhythmMultiplier(level)));
-}
 function subjectOf(target) {
   if (target.kind === "gather") {
     const resource = RESOURCE_BY_ID.get(target.resourceId);
@@ -1006,6 +1045,7 @@ function subjectOf(target) {
         subjectId: resource.id,
         subjectName: resource.name,
         requiredLevel: resource.requiredLevel,
+        tier: resource.tier,
         minAptitude: resource.minAptitude,
         baseMs: resource.baseDurationMs,
         xp: resource.xp,
@@ -1026,6 +1066,7 @@ function subjectOf(target) {
       subjectId: crop.id,
       subjectName: crop.name,
       requiredLevel: crop.requiredLevel,
+      tier: crop.tier,
       minAptitude: crop.minAptitude,
       baseMs: FARM_ACTION_MS[target.action],
       xp: crop.xp[target.action],
@@ -1052,6 +1093,14 @@ function evaluateWork(input) {
   });
   if (playerLevel < subject.requiredLevel) return refusal("level_too_low");
   if (aptitude < subject.minAptitude) return refusal("aptitude_too_low");
+  const chance = attemptChance({
+    level: playerLevel,
+    requiredLevel: subject.requiredLevel,
+    baseMs: subject.baseMs,
+    tier: subject.tier,
+    aptitude,
+    attemptMs: input.attemptMs
+  });
   return {
     ok: true,
     terms: {
@@ -1063,7 +1112,9 @@ function evaluateWork(input) {
       playerLevel,
       aptitude,
       minAptitude: subject.minAptitude,
-      durationMs: workDuration(subject.baseMs, aptitude, playerLevel),
+      attemptMs: input.attemptMs,
+      chance,
+      maxAttempts: attemptCap(chance),
       xp: subject.xp,
       drop: subject.drop ? { ...subject.drop, bonusChance: APTITUDE_BONUS_CHANCE[aptitude] } : null
     }
@@ -1079,7 +1130,7 @@ function rollDrop(drop, random) {
 // src/features/skills/service/skillsService.ts
 var isNonEmptyId = (value) => typeof value === "string" && value.length > 0 && value.length <= 128;
 function validInput(input) {
-  return !!input && isNonEmptyId(input.actionId) && isNonEmptyId(input.playerId) && !!input.worker && isNonEmptyId(input.worker.instanceId) && Number.isInteger(input.worker.speciesId) && !!input.target && typeof input.target === "object";
+  return !!input && isNonEmptyId(input.actionId) && isNonEmptyId(input.playerId) && !!input.worker && isNonEmptyId(input.worker.instanceId) && Number.isInteger(input.worker.speciesId) && !!input.target && typeof input.target === "object" && isValidAttemptMs(input.attemptMs);
 }
 function createSkillsService(ports) {
   const { progress, ledger, clock, random } = ports;
@@ -1099,27 +1150,30 @@ function createSkillsService(ports) {
     });
     if (!validInput(input)) return refuse("invalid_request");
     if (ledger.authorization(actionId) || ledger.settlement(actionId)) return refuse("duplicate_action");
-    const evaluation = evaluateWork({ target: input.target, skillXp: progress.xpOf(input.playerId), workerSpeciesId: input.worker.speciesId });
+    const evaluation = evaluateWork({ target: input.target, skillXp: progress.xpOf(input.playerId), workerSpeciesId: input.worker.speciesId, attemptMs: input.attemptMs });
     if (!evaluation.ok) {
       const { reason, skillId, requiredLevel, playerLevel, minAptitude, aptitude } = evaluation;
       return refuse(reason, { skillId, requiredLevel, playerLevel, minAptitude, aptitude });
     }
     const now = clock.now();
+    const { terms } = evaluation;
+    const attempts = drawAttempts(terms.chance, terms.maxAttempts, random);
     const work = {
       actionId,
       playerId: input.playerId,
       workerInstanceId: input.worker.instanceId,
       workerSpeciesId: input.worker.speciesId,
-      terms: evaluation.terms,
-      authorizedAt: now
+      terms,
+      authorizedAt: now,
+      attempts,
+      durationMs: attempts * terms.attemptMs
     };
     if (!ledger.recordAuthorization(work)) return refuse("duplicate_action");
-    const { terms } = evaluation;
     return {
       allowed: true,
       actionId,
       skillId: terms.skillId,
-      durationMs: terms.durationMs,
+      durationMs: work.durationMs,
       requiredLevel: terms.requiredLevel,
       playerLevel: terms.playerLevel,
       aptitude: terms.aptitude,
@@ -1144,7 +1198,7 @@ function createSkillsService(ports) {
     const now = clock.now();
     const elapsed = now - work.authorizedAt;
     const expired = elapsed > AUTHORIZATION_TTL_MS;
-    if (context.outcome === "completed" && !expired && elapsed < work.terms.durationMs - SETTLE_EARLY_TOLERANCE_MS) {
+    if (context.outcome === "completed" && !expired && elapsed < work.durationMs - SETTLE_EARLY_TOLERANCE_MS) {
       return { status: "too_early" };
     }
     const { skillId } = work.terms;
@@ -1342,11 +1396,14 @@ function createSkillsWorldPolicy(options) {
         actionId: attempt.actionId,
         playerId: attempt.playerId,
         worker: { instanceId: String(attempt.pokemon.instanceId), speciesId: attempt.pokemon.speciesId },
-        target
+        target,
+        attemptMs: attempt.attemptMs
       });
       if (!answer.allowed) return { ok: false, reason: REASON(answer.reason), message: answer.message };
       const crop = target.kind === "farm" && target.action === "plant" && target.cropId ? CROP_BY_ID.get(target.cropId) : void 0;
       return {
+        // durationMs is the secret draw (attempts × tick): WORLD keeps it private.
+        // `details` goes to the requester and must never carry it, nor the chance.
         ok: true,
         durationMs: answer.durationMs,
         details: { skillId: answer.skillId, xp: answer.xp, reward: answer.reward, aptitude: answer.aptitude, requiredLevel: answer.requiredLevel, playerLevel: answer.playerLevel },

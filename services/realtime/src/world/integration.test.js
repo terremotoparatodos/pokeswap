@@ -215,7 +215,8 @@ test('hostile payloads: xp, reward, quantity and userId in the intent are never 
   })
   const started = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
   assert.equal(started.ok, true)
-  assert.ok(started.endsAt - started.startedAt >= 1200, 'duration is SKILLS’, not the payload’s')
+  const duration = started.endsAt - started.startedAt
+  assert.ok(duration >= 600 && duration % 600 === 0, 'duration is SKILLS’ draw in whole ticks, not the payload’s')
   await s.finish(started.endsAt - started.startedAt)
   const saved = await s.data.playerState(A)
   assert.equal(saved.xp.woodcutting, 10)

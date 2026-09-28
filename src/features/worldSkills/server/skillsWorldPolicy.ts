@@ -3,7 +3,7 @@
 // This file only translates: WORLD's physical facts → a SKILLS WorkTarget,
 // SKILLS' answers → WORLD's port shapes, and SKILLS' settlement → one
 // database commit that also carries WORLD's new node state. It decides
-// nothing: levels, aptitude, duration, XP and rewards are the SKILLS service
+// nothing: levels, aptitude, chance, XP and rewards are the SKILLS service
 // (`createSkillsService`, unchanged); node state and timers are WORLD's.
 //
 // Bundled for the realtime service by scripts/integration/bundle-skills.mjs
@@ -55,6 +55,8 @@ export interface WorldAttempt {
   readonly node: WorldNode
   readonly workKind: string
   readonly requestedAt: number
+  /** WORLD's work tick: one attempt (PROB-2). */
+  readonly attemptMs: number
   readonly farm?: WorldFarmFacts | null
 }
 
@@ -88,6 +90,7 @@ export interface SettlementStore {
 export interface SkillsWorldPolicyOptions {
   readonly store: SettlementStore
   readonly now?: () => number
+  /** Tests only: a deterministic source. Production leaves it unset (crypto). */
   readonly random?: () => number
   /** Local/test stacks only: multiplies crop growth (never set in production). */
   readonly growScale?: number
@@ -96,7 +99,7 @@ export interface SkillsWorldPolicyOptions {
 const REASON = (value: string) => value.replace(/_/g, '-').slice(0, 32)
 const EMPTY_XP: Record<SkillId, number> = { woodcutting: 0, mining: 0, farming: 0 }
 
-/** Server randomness for rewards (AGENTS §11). */
+/** Server randomness for the attempt draw and the rewards (AGENTS §11). Unpredictable to any client. */
 function cryptoRandom(): number {
   const buffer = new Uint32Array(1)
   globalThis.crypto.getRandomValues(buffer)
@@ -171,10 +174,13 @@ export function createSkillsWorldPolicy(options: SkillsWorldPolicyOptions) {
       const answer = service.authorizeWorkAttempt({
         actionId: attempt.actionId, playerId: attempt.playerId,
         worker: { instanceId: String(attempt.pokemon.instanceId), speciesId: attempt.pokemon.speciesId }, target,
+        attemptMs: attempt.attemptMs,
       })
       if (!answer.allowed) return { ok: false, reason: REASON(answer.reason), message: answer.message }
       const crop = target.kind === 'farm' && target.action === 'plant' && target.cropId ? CROP_BY_ID.get(target.cropId) : undefined
       return {
+        // durationMs is the secret draw (attempts × tick): WORLD keeps it private.
+        // `details` goes to the requester and must never carry it, nor the chance.
         ok: true, durationMs: answer.durationMs,
         details: { skillId: answer.skillId, xp: answer.xp, reward: answer.reward, aptitude: answer.aptitude, requiredLevel: answer.requiredLevel, playerLevel: answer.playerLevel },
         ...(crop ? { plot: { cropId: crop.id, growMs: Math.round(crop.growMs * growScale) } } : {}),

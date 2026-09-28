@@ -18,6 +18,7 @@
 
 import type { Aptitude } from './aptitude/aptitudeScale'
 import type { MaterialId } from './materials'
+import type { ResourceTier } from './resources'
 
 export type CropId = 'oran' | 'medicinal' | 'leppa' | 'sitrus' | 'revival'
 
@@ -33,6 +34,8 @@ export interface CropDefinition {
   readonly id: CropId
   readonly name: string
   readonly requiredLevel: number
+  /** Rung on the Agricultura ladder: sets the chance per attempt at level 50 (TIER_MAX_CHANCE). */
+  readonly tier: ResourceTier
   readonly minAptitude: Aptitude
   readonly plotKinds: readonly PlotKind[]
   /** From planting to READY. WORLD runs the clock; this is the rule it runs. */
@@ -41,7 +44,11 @@ export interface CropDefinition {
   readonly harvest: { readonly itemId: MaterialId; readonly min: number; readonly max: number }
 }
 
-/** Base duration of each farm action for an aptitude-3 worker with no Ritmo. */
+/**
+ * Base duration of each active farm action (plant, tend, harvest). Since
+ * PROB-2 it sets the chance per attempt at the crop's unlock level; growth
+ * (`growMs`) is a separate clock and is not probabilistic.
+ */
 export const FARM_ACTION_MS: Readonly<Record<FarmAction, number>> = { plant: 3000, tend: 2000, harvest: 2600 }
 
 /** Units a tended crop adds at harvest. */
@@ -51,23 +58,23 @@ const MIN = 60_000
 
 export const CROPS: readonly CropDefinition[] = [
   {
-    id: 'oran', name: 'Baya Aranja', requiredLevel: 1, minAptitude: 1, plotKinds: ['town', 'fertile'],
+    id: 'oran', name: 'Baya Aranja', requiredLevel: 1, tier: 'muy básico', minAptitude: 1, plotKinds: ['town', 'fertile'],
     growMs: 1.5 * MIN, xp: { plant: 8, tend: 4, harvest: 25 }, harvest: { itemId: 'oran_berry', min: 2, max: 3 },
   },
   {
-    id: 'medicinal', name: 'Hierba medicinal', requiredLevel: 10, minAptitude: 1, plotKinds: ['town', 'fertile'],
+    id: 'medicinal', name: 'Hierba medicinal', requiredLevel: 10, tier: 'básico', minAptitude: 1, plotKinds: ['town', 'fertile'],
     growMs: 3 * MIN, xp: { plant: 25, tend: 12, harvest: 100 }, harvest: { itemId: 'medicinal_herb', min: 2, max: 3 },
   },
   {
-    id: 'leppa', name: 'Baya Zanama', requiredLevel: 20, minAptitude: 1, plotKinds: ['town', 'fertile'],
+    id: 'leppa', name: 'Baya Zanama', requiredLevel: 20, tier: 'intermedio', minAptitude: 1, plotKinds: ['town', 'fertile'],
     growMs: 5 * MIN, xp: { plant: 60, tend: 30, harvest: 240 }, harvest: { itemId: 'leppa_berry', min: 2, max: 4 },
   },
   {
-    id: 'sitrus', name: 'Baya Zidra', requiredLevel: 30, minAptitude: 1, plotKinds: ['fertile'],
+    id: 'sitrus', name: 'Baya Zidra', requiredLevel: 30, tier: 'avanzado', minAptitude: 1, plotKinds: ['fertile'],
     growMs: 8 * MIN, xp: { plant: 140, tend: 70, harvest: 550 }, harvest: { itemId: 'sitrus_berry', min: 2, max: 4 },
   },
   {
-    id: 'revival', name: 'Hierba Revivir', requiredLevel: 42, minAptitude: 2, plotKinds: ['fertile'],
+    id: 'revival', name: 'Hierba Revivir', requiredLevel: 42, tier: 'especializado', minAptitude: 2, plotKinds: ['fertile'],
     growMs: 12 * MIN, xp: { plant: 280, tend: 130, harvest: 1120 }, harvest: { itemId: 'revival_herb', min: 1, max: 2 },
   },
 ]
