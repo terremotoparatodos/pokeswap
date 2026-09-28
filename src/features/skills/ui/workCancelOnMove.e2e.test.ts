@@ -146,8 +146,6 @@ async function stage({ random = () => 0.9999999 }: { random?: () => number } = {
     canvas.width = 480
     canvas.height = 320
     const session = createWorldSkillsSession(shared)
-    let layer: ReturnType<typeof useSkillsLayer>
-    let farm: ReturnType<typeof useFarmPlots>
     const game = new WildlandsGame(canvas, {
       pokedex: [], onHud() {}, startArea: 'pradera', spawn: { tx: spot.tx, ty: spot.ty, dir: 'down' },
       onWorldObject: hit => farm.inspect(hit) || layer.inspect(hit),
@@ -161,8 +159,8 @@ async function stage({ random = () => 0.9999999 }: { random?: () => number } = {
     game.setPresenceAccess('player')
     game.setAuthoritativeActor(remote(actor), 'snapshot')
     game.setWorldLayer(shared)
-    layer = useSkillsLayer(() => game, session, () => shared.serverNow())
-    farm = useFarmPlots(() => game, session, shared)
+    const layer = useSkillsLayer(() => game, session, () => shared.serverNow())
+    const farm = useFarmPlots(() => game, session, shared)
     game.setSceneOverlay(layer.overlay)
     const internals = game as unknown as { keys: { attach(): void; detach(): void }; update(dt: number): void; renderer: { render(scene: unknown, dt: number): void; pick(x: number, y: number): { tile: { tx: number; ty: number } | null } }; scene(): unknown; area: { id: string; kind: string; tick(): void }; player: { tx: number; ty: number } }
     internals.keys.attach()

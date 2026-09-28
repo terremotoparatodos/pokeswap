@@ -333,7 +333,7 @@ Cálculo exacto con las funciones canónicas, aptitud 3 salvo indicación. Accio
 - **Peor caso:** se reduce a la mitad (0,45–0,55× en recursos básicos, test incluido).
 - **Masa en el tope:** truncar a ⌈1,5/p⌉ concentra en el intento garantizado ~21 % de las acciones de un principiante (árbol común Nv 1: P(N = 10) = 0,84⁹ ≈ 0,208). En tiers altos el p95 coincide con el máximo.
 - **Media y acciones por hora:** bajan un 13–18 % en los niveles de desbloqueo, con **+9 a +16 % de acciones y materiales por hora**. En nivel 50 prácticamente no cambian.
-- **Principiantes:** el rango de "3–5 s" del brief original deja de cumplirse para aptitud ≥ 4. Nivel 1 en recurso básico promedia ahora 2,5–4,1 s según aptitud (3,1 s con aptitud 3).
+- **Principiantes:** el rango de "3–5 s" del brief original deja de cumplirse para aptitud ≥ 4. Nivel 1 en recurso básico promedia ahora 2,5–3,8 s según aptitud (3,1 s con aptitud 3).
 
 **Tiempo estimado de nivel 1 a 50** (pacing, aptitud 3, overhead 1,5 s, walk 8 s, 4 parcelas):
 
