@@ -168,9 +168,10 @@ Cada mutación se aplicó con un script, se corrieron los tests relevantes (toda
 | Gate | Resultado |
 |---|---|
 | Tests enfocados | ✓ |
-| Realtime completo (`node --test`, Node 24.21 portable) | ✓ 184 pass · 0 fail · 20 skipped (staging) |
+| Realtime completo (`node --test`, Node 24.21 portable) | ✓ 185 pass · 0 fail · 20 skipped (staging) |
 | Integración / PGlite | ✓ (`integration.test.js` 11, `database.test.js`, `edgePath.test.js` incluidos arriba) |
-| Vitest completo | ✓ 182 archivos · 1788 tests |
+| Vitest completo | ✓ 183 archivos · 1803 tests |
+| Pacing y drift del modelo (`pacing.test.ts`, 15) | ✓ |
 | Typecheck (`vue-tsc`) | ✓ |
 | Lint | ✓ 0 errores · 9 warnings (los mismos de antes, `AuthModal.vue`) |
 | Build | ✓ |
@@ -182,12 +183,25 @@ Cada mutación se aplicó con un script, se corrieron los tests relevantes (toda
 
 ### Carga (`scripts/benchmark-world.mjs --skills real`, 60 s, PGlite en memoria)
 
-| Jugadores | Acciones pagadas | accepted→done p50 / p95 / máx | commit p95 | Mundo KiB/s/cliente | rate-limited | duplicados |
-|---|---|---|---|---|---|---|
-| 10 | 19 | 2,46 / 8,46 / 8,46 s | 9,8 ms | 0,30 | 0 | 0 |
-| 30 | 55 | 3,61 / 10,23 / 14,44 s | 4,0 ms | 0,55 | 0 | 0 |
+Mismas condiciones en las tres corridas: `node scripts/benchmark-world.mjs --players N --duration 60 --skills real`, Node 24.21, SKILLS real sobre PGlite en memoria, 129 nodos objetivo en Pradera, bots que caminan a paso de carrera y trabajan.
 
-`accepted→done` reemplaza al viejo `settleLagMs`, que se medía desde el `endsAt` público y ahora no existe. La mediana de 30 jugadores (3,61 s) coincide con la media teórica de un nivel 1. No se corrieron 100 jugadores ni una comparación contra la base en esta sesión.
+| Jugadores | Pedidos | Acciones pagadas | accepted→done p50 / p95 / máx | rate-limited | Duplicados | Fallos de settlement / PlayerData | commit p95 | Mundo KiB/s/cliente | msgs mundo/s/cliente | Memoria RSS / heap | Event loop p99 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 10 | 206 | 19 | 2,46 / 8,46 / 8,46 s | 0 | 0 | 0 / 0 | 9,8 ms | 0,30 | 1,49 | 315 / 30 MB | 34,3 ms |
+| 30 | 347 | 55 | 3,61 / 10,23 / 14,44 s | 0 | 0 | 0 / 0 | 4,0 ms | 0,55 | 2,25 | 336 / 36 MB | 34,3 ms |
+| 100 | 23 655 | 100 | 3,01 / 9,61 / 13,86 s | **16 244** | 0 | 0 / 0 | 9,8 ms | 1,04 | 6,15 | 328 / 30 MB | 38,6 ms |
+
+- `accepted→done` reemplaza al viejo `settleLagMs`, que se medía desde el `endsAt` público y ahora no existe. Las medianas (2,5–3,6 s) están en el rango de la media teórica de nivel 1 (3,0–4,6 s según aptitud) y ningún máximo supera el tope más su commit.
+- **CPU:** el benchmark no la mide (su salida no trae contador de CPU del proceso) y no se agregó uno; se usa el event loop p99 como indicador. El p50 ≈ 31 ms de las tres corridas es la granularidad del medidor en Windows; el máximo de ~1,3 s corresponde al arranque de PGlite (`loadNodes` 1,7–3,2 s).
+- **Los 16 244 `rate-limited` de 100 jugadores no son una degradación.** Lo verifiqué con un A/B: el mismo benchmark de 100 jugadores sobre `db38aaa` (el commit anterior al rate limit), en un worktree temporal que después borré:
+
+  | 100 jugadores | Pedidos | Pagadas | accepted→done p50 / p95 | too-far | no-room | rate-limited | RSS |
+  |---|---|---|---|---|---|---|---|
+  | sin limiter (`db38aaa`) | 23 713 | 102 | 3,04 / 10,83 s | 14 920 | 8 352 | — | 451 MB |
+  | con limiter (esta rama) | 23 655 | 100 | 3,01 / 9,61 s | 4 380 | 2 636 | 16 244 | 328 MB |
+
+  El volumen de pedidos es el mismo con o sin limiter. Lo generan los bots: el servidor aparta al entrenador (WORLD VISUAL-2), el bot no sigue esa posición y reintenta a 7,5 Hz pedidos que el servidor ya rechazaba gratis (`too-far`, `no-room`). El limiter sólo cambia el motivo de rechazo de ~2/3 de ese spam. Las acciones pagadas (100 contra 102) están topadas por la oferta de nodos: se agotaron 100–102 nodos y el respawn de 90 s no llega a ocurrir dentro de los 60 s de corrida. Con 30 jugadores hubo 0 pedidos limitados. El cliente real no reintenta así: bloquea el input mientras trabaja y cada pedido es un toque.
+- **Sin errores:** 0 fallos de settlement, 0 reintentos, 0 fallos de PlayerData y 0 duplicados en las tres corridas.
 
 ## 11. Diferencias respecto de la auditoría
 
@@ -200,18 +214,19 @@ Cada mutación se aplicó con un script, se corrieron los tests relevantes (toda
 - **Ritmo absorbido** (recomendación D3) y cambio de texto en el roadmap.
 - "Minando" → "Picando".
 - El anillo de observadores late en vez de quedar estático.
-- `workDuration`/`MIN_ACTION_MS` se conservan sólo para `scripts/skills/pacing.ts` y `scripts/map/audit-pradera.ts`.
+- `workDuration`/`MIN_ACTION_MS` se conservan sólo para `scripts/map/audit-pradera.ts` (auditoría MAP-1 histórica). `scripts/skills/pacing.ts` ya usa el modelo probabilístico (§14).
 
 ## 12. Riesgos pendientes
 
 1. **Staging RC-0.3 y Deno sin ejecutar en esta máquina** (§10). Hay que correrlos antes de publicar.
 2. **Ritmo de XP**: hasta ~1,56× acciones/materiales por hora en nivel alto. Se observa con `rules_version = 'skills-1.1'`.
-3. **`scripts/skills/pacing.ts` sigue modelando duraciones fijas**, así que sus tiempos a Nv 10/25/40/50 ya no describen el juego.
+3. **Pacing: simplificación de desplazamiento.** `pacing.ts` ya usa el modelo probabilístico canónico (§14), pero sigue cobrando el desplazamiento como `walk / charges` (cargas advisory del catálogo), aunque en el mundo compartido cada éxito agota el nodo. Es una simplificación anterior a PROB-2 que no cambié para no mezclar dos efectos. Si se quiere reflejarla, subiría por igual los tiempos de todas las habilidades de recolección.
 4. **Un reinicio sigue perdiendo las acciones en curso** (igual que antes). Nunca paga dos veces, pero el jugador tiene que volver a pedir.
 5. **El éxito visible llega una latencia de commit después del tick ganador.** En el benchmark, el commit p95 fue de 4–10 ms en PGlite; con la edge function real será mayor.
 6. **Los navegadores con el bundle viejo en cache** reciben `client-outdated` hasta recargar. El texto dice "Actualizá la página para seguir trabajando".
 7. **El rate limit vive en memoria por proceso**: un reinicio lo vacía. Con una sola instancia de realtime alcanza.
-8. **Event loop del benchmark**: p50 ≈ 31 ms en Windows (granularidad del medidor) y máx ≈ 1,3 s al arrancar PGlite. No hay referencia comparable medida hoy.
+8. **Event loop del benchmark**: p50 ≈ 31 ms en Windows (granularidad del medidor) y máx ≈ 1,3 s al arrancar PGlite. El benchmark no mide CPU.
+9. **Bots del benchmark desincronizados**: con 100 jugadores generan ~390 pedidos/s de spam que el servidor rechaza (§10). No afecta el resultado, pero infla `requested` y `rate-limited`. Si se quiere medir contención real, el bot debería seguir la posición autoritativa.
 
 ## 13. Prueba humana posterior
 
@@ -239,3 +254,49 @@ Cada mutación se aplicó con un script, se corrieron los tests relevantes (toda
 7. **Rate limit:** pedir trabajo muchas veces seguidas rápido. Aparece "Más despacio: esperá un momento." y no se paga nada extra.
 8. **Cliente viejo:** abrir un build anterior (protocolo 1) contra este servidor. No ve el mundo compartido y al trabajar recibe "Actualizá la página para seguir trabajando".
 9. **DevTools → Network → WS:** confirmar que ningún frame `world:*` contiene `endsAt`, `durationMs`, `attempts` ni `chance`.
+
+## 14. Pacing (`scripts/skills/pacing.ts`)
+
+**Estado final.** El modelo vive ahora en `src/features/skills/domain/pacing.ts`; el script quedó sólo como línea de comandos.
+
+- **Sin fórmula propia.** Cada acción cuesta su tiempo esperado exacto bajo el sorteo del servidor, `WORK_TICK_MS × expectedAttempts(attemptChance(…), attemptCap(…))`, con las funciones y constantes canónicas de `attempts.ts` y `balance.ts` y el tick del contrato de protocolo.
+- **Agricultura:** plantar, cuidar y cosechar se calculan igual, con el tier de cada cultivo. El crecimiento sigue siendo `growMs`.
+- **Sin cambios:** los supuestos de overhead, walk y parcelas.
+
+**Guardia anti-drift** (`src/features/skills/domain/pacing.test.ts`, 15 tests):
+
+- **Constantes fijadas:** tick 600, γ 2, desbloqueo 1,25, tope ⌈3/p⌉ en [3, 40], p ≤ 0,98, `pMax` por tier y límites del tick.
+- **Pacing = modelo:** el tiempo del pacing es Σ n·P(n)·tick de la distribución exacta, para todo recurso, nivel y aptitud.
+- **Servidor = fuente:** a partir del **bundle del realtime** se recupera `p` por bisección sobre su `random` inyectado (un tick ⇔ roll < p) y se verifica el tope con el peor roll. Tiene que coincidir con la fuente TypeScript en árbol común, pino, roca y en plantar, cuidar y cosechar de los cinco tiers de cultivo, con aptitudes 2 y 5 y varios niveles.
+- **Tick fuera de rango:** el bundle rechaza ticks fuera de [400, 1200].
+- **WORLD → SKILLS:** un test del realtime verifica que WORLD pasa a SKILLS exactamente `WORK_TICK_MS`.
+
+**Mutation checks del guardia** (todas detectadas y restauradas):
+
+| Mutación | Detectada por |
+|---|---|
+| γ del bundle 2 → 1,9 | `pacing.test.ts` (servidor ≠ fuente) |
+| Desbloqueo del bundle 1,25 → 1,2 | `pacing.test.ts` |
+| Tope del bundle ⌈3/p⌉ → ⌈4/p⌉ | `pacing.test.ts` |
+| `pMax` especializado del bundle 0,48 → 0,5 | `pacing.test.ts` |
+| Tick 600 → 650 | `pacing.test.ts` (constantes) |
+| Pacing de vuelta a duración fija | `pacing.test.ts` |
+| γ de la fuente cambiado sin regenerar el bundle | `pacing.test.ts` + `serverBundle.test.ts` |
+| WORLD pasando otro tick a SKILLS | `probabilisticWork.test.js` |
+
+**Resultado del pacing** (aptitud 3, overhead 1,5 s, walk 8 s, 4 parcelas), en horas de juego activo:
+
+| Habilidad | Nv 10 | Nv 25 | Nv 40 | Nv 50 (antes → ahora) |
+|---|---|---|---|---|
+| Talar | 0,24 h | 1,20 h | 4,86 h | 17,10 → **13,78 h** |
+| Minería | 0,25 h | 1,29 h | 6,18 h | 21,83 → **19,66 h** |
+| Agricultura | 0,27 h | 1,17 h | 5,40 h | 19,10 → **19,08 h** |
+
+Talar a Nv 50 queda ~19 % más rápido que con la duración fija, Minería ~10 % y Agricultura igual (la domina el crecimiento). Es la consecuencia esperada de γ = 2 y del aumento de acciones por hora en niveles altos (§2). No se tocó el balance.
+
+## 15. Cambios respecto de la versión anterior de este informe
+
+- **Benchmark:** se agregó la corrida de **100 jugadores** y el A/B contra el commit sin rate limit (§10). Las cifras de 10 y 30 no cambian.
+- **Pacing:** `pacing.ts` pasó del modelo de duración fija al modelo probabilístico canónico, con guardia anti-drift (§14). El riesgo 3 anterior ("pacing sigue modelando duraciones fijas") se reemplazó por la simplificación de desplazamiento que todavía queda.
+- **Gates:** realtime 184 → **185** pass (nuevo test del tick WORLD → SKILLS); Vitest 1788 → **1803** (`pacing.test.ts`).
+- **Comentarios:** los de `balance.ts` y `workRules.ts` ya no dicen que el pacing usa `workDuration`, y las horas de referencia de `XP_CURVE` son las del pacing probabilístico.
