@@ -7,6 +7,14 @@
  */
 export const WORLD_PROTOCOL = 1
 
+/**
+ * WORLD's work tick (SKILLS PROB-2): one attempt of a work action, and one
+ * swing of the worker's animation. The single definition: the authority
+ * passes it to SKILLS as the attempt length, and every client derives the
+ * animation phase from it and the server clock (`serverNow − startedAt`).
+ */
+export const WORK_TICK_MS = 600
+
 export const WORLD_MESSAGE = Object.freeze({
   // client → server
   WORK: 'world:work',

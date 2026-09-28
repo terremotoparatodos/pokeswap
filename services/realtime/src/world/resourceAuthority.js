@@ -6,6 +6,7 @@ import { WORKING, afterTimer, afterWork, canStartWork, lifecycleFor } from './re
 import { ResourceStore } from './resourceStore.js'
 import { readAuthorization, readSettlement } from './skillPolicy.js'
 import { standableTile, workPlacement } from './workPlacement.js'
+import { WORK_TICK_MS } from './worldProtocol.js'
 
 /** A trainer asks for work orthogonally beside the node, as the client's `isBeside` requires. */
 export const WORK_REACH = 1
@@ -117,7 +118,7 @@ export class ResourceAuthority {
       if (!pokemon) reason = 'not-owner'
       else {
         const answer = readAuthorization(await this.#withTimeout(this.skills.authorizeWorkAttempt({
-          actionId, playerId: actor.id, pokemon, node: publicNodeFacts(node), workKind, requestedAt: this.now(),
+          actionId, playerId: actor.id, pokemon, node: publicNodeFacts(node), workKind, requestedAt: this.now(), attemptMs: WORK_TICK_MS,
           ...(check.farm ? { farm: check.farm } : {}),
         })))
         if (!answer.ok) { reason = answer.reason; message = answer.message }

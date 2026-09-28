@@ -182,7 +182,7 @@ test('a duration from SKILLS is clamped, never trusted blindly', async () => {
   const skills = createDemoSkillPolicy({ durationMs: 10 })
   const { authority, actors } = setup({ skills })
   const started = await authority.requestWork(actors.get('a'), intent(1, 25))
-  assert.equal(started.endsAt - started.startedAt, 500)
+  assert.equal(started.endsAt - started.startedAt, 600, "one work tick, the shortest action")
 })
 
 /** Ownership whose answer for `slowPlayer` waits until `release()` is called. */
