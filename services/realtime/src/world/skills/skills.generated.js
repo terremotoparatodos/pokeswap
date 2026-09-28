@@ -207,7 +207,7 @@ var RESOURCES = [
     baseDurationMs: 3e3,
     drop: { itemId: "common_log", min: 1, max: 1 },
     stock: [2, 4],
-    world: { habitats: ["grassland", "forest", "beach"], minRing: 0, anchors: ["tree", "palm"], spawnWeight: 6, charges: [3, 5], respawnSeconds: 30 }
+    world: { habitats: ["grassland", "forest", "beach"], minRing: 0, anchors: ["tree", "palm"], spawnWeight: 6, respawnSeconds: 30 }
   },
   {
     id: "pine_tree",
@@ -220,7 +220,7 @@ var RESOURCES = [
     baseDurationMs: 3600,
     drop: { itemId: "pine_log", min: 1, max: 1 },
     stock: [2, 3],
-    world: { habitats: ["forest", "tundra"], minRing: 0, anchors: ["pine"], spawnWeight: 5, charges: [4, 6], respawnSeconds: 45 }
+    world: { habitats: ["forest", "tundra"], minRing: 0, anchors: ["pine"], spawnWeight: 5, respawnSeconds: 45 }
   },
   {
     id: "hardwood_tree",
@@ -233,7 +233,7 @@ var RESOURCES = [
     baseDurationMs: 4400,
     drop: { itemId: "hardwood_log", min: 1, max: 1 },
     stock: [1, 1],
-    world: { habitats: ["forest"], minRing: 1, anchors: ["tree"], spawnWeight: 3, charges: [4, 6], respawnSeconds: 75 }
+    world: { habitats: ["forest"], minRing: 1, anchors: ["tree"], spawnWeight: 3, respawnSeconds: 75 }
   },
   {
     id: "boreal_tree",
@@ -246,7 +246,7 @@ var RESOURCES = [
     baseDurationMs: 5200,
     drop: { itemId: "boreal_log", min: 1, max: 1 },
     stock: [1, 1],
-    world: { habitats: ["tundra"], minRing: 2, anchors: ["snowpine"], spawnWeight: 3, charges: [5, 7], respawnSeconds: 120 }
+    world: { habitats: ["tundra"], minRing: 2, anchors: ["snowpine"], spawnWeight: 3, respawnSeconds: 120 }
   },
   // ── Minería ──────────────────────────────────────────────────────────────
   {
@@ -260,7 +260,7 @@ var RESOURCES = [
     baseDurationMs: 3200,
     drop: { itemId: "stone", min: 1, max: 1 },
     stock: [1, 3],
-    world: { habitats: ["grassland", "forest", "desert", "beach"], minRing: 0, anchors: ["rock"], spawnWeight: 6, charges: [3, 5], respawnSeconds: 30 }
+    world: { habitats: ["grassland", "forest", "desert", "beach"], minRing: 0, anchors: ["rock"], spawnWeight: 6, respawnSeconds: 30 }
   },
   {
     id: "coal_seam",
@@ -273,7 +273,7 @@ var RESOURCES = [
     baseDurationMs: 3800,
     drop: { itemId: "coal", min: 1, max: 1 },
     stock: [1, 1],
-    world: { habitats: ["forest", "desert", "grassland"], minRing: 1, anchors: ["rock", "boulder"], spawnWeight: 4, charges: [3, 5], respawnSeconds: 45 }
+    world: { habitats: ["forest", "desert", "grassland"], minRing: 1, anchors: ["rock", "boulder"], spawnWeight: 4, respawnSeconds: 45 }
   },
   {
     id: "iron_vein",
@@ -286,7 +286,7 @@ var RESOURCES = [
     baseDurationMs: 4400,
     drop: { itemId: "iron_ore", min: 1, max: 1 },
     stock: [1, 1],
-    world: { habitats: ["desert", "tundra", "cave"], minRing: 1, anchors: ["boulder", "icerock"], spawnWeight: 4, charges: [3, 5], respawnSeconds: 75 }
+    world: { habitats: ["desert", "tundra", "cave"], minRing: 1, anchors: ["boulder", "icerock"], spawnWeight: 4, respawnSeconds: 75 }
   },
   {
     id: "gold_vein",
@@ -299,7 +299,7 @@ var RESOURCES = [
     baseDurationMs: 5200,
     drop: { itemId: "gold_ore", min: 1, max: 1 },
     stock: [1, 1],
-    world: { habitats: ["desert", "tundra", "cave"], minRing: 2, anchors: ["boulder", "icerock"], spawnWeight: 2, charges: [2, 4], respawnSeconds: 150 }
+    world: { habitats: ["desert", "tundra", "cave"], minRing: 2, anchors: ["boulder", "icerock"], spawnWeight: 2, respawnSeconds: 150 }
   },
   {
     id: "crystal_cluster",
@@ -312,7 +312,7 @@ var RESOURCES = [
     baseDurationMs: 6e3,
     drop: { itemId: "crystal", min: 1, max: 1 },
     stock: [1, 1],
-    world: { habitats: ["cave", "tundra"], minRing: 2, anchors: ["crystal"], spawnWeight: 1, charges: [2, 3], respawnSeconds: 300 }
+    world: { habitats: ["cave", "tundra"], minRing: 2, anchors: ["crystal"], spawnWeight: 1, respawnSeconds: 300 }
   }
 ];
 var RESOURCE_BY_ID = new Map(RESOURCES.map((entry) => [entry.id, entry]));

@@ -8,10 +8,20 @@
 //
 // Model (deliberately simple, stated so it can be argued with):
 //   Talar / Minería  the player always works the best resource unlocked, with
-//                    one worker of the given aptitude; every action costs its
-//                    expected time plus `overhead` seconds (walking, picking,
-//                    the card), and a depleted node costs `walk / charges`
-//                    more seconds (the catalog's advisory charges).
+//                    one worker of the given aptitude. RESOURCE YIELD-2: one
+//                    reservation of a node yields k units (k = the mean of the
+//                    resource's normative stock range, `resource.stock`); the
+//                    units' attempts run back to back (the commit pipeline),
+//                    and `overhead` (picking, the card) and `walk` (to the next
+//                    node) are paid ONCE PER NODE. Commits are strictly
+//                    ordered, one `commit` of latency each: the sequence ends
+//                    one latency after the last unit, plus whatever the
+//                    commits fall behind the attempts when `commit` > t.
+//                    Per unit:
+//                        t + (overhead + walk + commit + (k − 1)·max(0, commit − t)) / k
+//                    (multiYield.test.js measures the same end with simulated
+//                    0.4 s and 1.5 s commits). `stock: 'single'` gives the
+//                    world before YIELD-2 (k = 1).
 //   Agricultura      `plots` plots in parallel on the best crop unlocked; each
 //                    cycle is grow time + expected plant/tend/harvest time +
 //                    `walk` seconds.
@@ -35,9 +45,25 @@ export interface PacingOptions {
   readonly plots: number
   /** WORLD's work tick; defaults to the protocol's (tests may vary it within SKILLS' bounds). */
   readonly attemptMs?: number
+  /** Seconds of the hosted commit that ends a sequence (0.4 typical, 1.5 bad). */
+  readonly commit: number
+  /** 'normative': k = the resource's mean stock (YIELD-2). 'single': one unit per node (before YIELD-2). */
+  readonly stock: 'normative' | 'single'
 }
 
-export const DEFAULT_PACING: PacingOptions = { aptitude: 3, overhead: 1.5, walk: 8, plots: PLOT_WORLD_HINTS.town.perPlayer }
+export const DEFAULT_PACING: PacingOptions = { aptitude: 3, overhead: 1.5, walk: 8, plots: PLOT_WORLD_HINTS.town.perPlayer, commit: 0.4, stock: 'normative' }
+
+/** Units one reservation of `resource` yields on average: the mean of its normative stock range. */
+export function unitsPerNode(resource: ResourceDefinition, stock: PacingOptions['stock'] = 'normative'): number {
+  return stock === 'single' ? 1 : (resource.stock[0] + resource.stock[1]) / 2
+}
+
+/** Seconds one unit costs in active play: its expected attempts plus its share of the per-node costs. */
+export function gatherUnitSeconds(resource: ResourceDefinition, level: number, options: PacingOptions = DEFAULT_PACING): number {
+  const k = unitsPerNode(resource, options.stock)
+  const t = gatherActionMs(resource, level, options.aptitude, options.attemptMs) / 1000
+  return t + (options.overhead + options.walk + options.commit + (k - 1) * Math.max(0, options.commit - t)) / k
+}
 
 export const PACING_MARKS = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50] as const
 
@@ -69,8 +95,7 @@ export function gatherPacing(skill: 'woodcutting' | 'mining', options: PacingOpt
   while (levelForXp(xp) < MAX_SKILL_LEVEL) {
     const level = levelForXp(xp)
     const resource = [...ladder].reverse().find(entry => entry.requiredLevel <= level && entry.minAptitude <= options.aptitude)!
-    const charges = (resource.world.charges[0] + resource.world.charges[1]) / 2
-    seconds += gatherActionMs(resource, level, options.aptitude, options.attemptMs) / 1000 + options.overhead + options.walk / charges
+    seconds += gatherUnitSeconds(resource, level, options)
     xp += resource.xp
     const reached = levelForXp(xp)
     if (reached > level && (PACING_MARKS as readonly number[]).includes(reached)) out.set(reached, { hours: seconds / 3600, subject: resource.name })

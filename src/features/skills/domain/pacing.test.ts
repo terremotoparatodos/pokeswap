@@ -8,7 +8,7 @@ import type { Aptitude } from './aptitude/aptitudeScale'
 import { attemptCap, attemptChance, attemptDistribution, isValidAttemptMs } from './attempts'
 import { ATTEMPTS, TIER_MAX_CHANCE } from './balance'
 import { CROP_BY_ID, FARM_ACTION_MS, type FarmAction } from './farming'
-import { DEFAULT_PACING, expectedActionMs, farmActionMs, farmingPacing, gatherActionMs, gatherPacing } from './pacing'
+import { DEFAULT_PACING, expectedActionMs, farmActionMs, farmingPacing, gatherActionMs, gatherPacing, gatherUnitSeconds, unitsPerNode } from './pacing'
 import { RESOURCES, RESOURCE_BY_ID, type ResourceTier } from './resources'
 import { totalXpForLevel } from './xpCurve'
 
@@ -62,10 +62,50 @@ describe('the pacing tool uses the canonical model, not a copy', () => {
       expect(top.hours).toBeLessThan(40)
       expect(table.get(10)!.hours).toBeLessThan(table.get(50)!.hours)
     }
-    // Pinned so a model change is a visible diff (SKILLS_PROB_2_REPORT.md §12).
-    expect(gatherPacing('woodcutting', DEFAULT_PACING).get(50)!.hours).toBeCloseTo(12.86, 2)
-    expect(gatherPacing('mining', DEFAULT_PACING).get(50)!.hours).toBeCloseTo(18.28, 2)
+    // Pinned so a model change is a visible diff (RESOURCE_YIELD_2_REPORT.md §8; the audit's C7).
+    expect(gatherPacing('woodcutting', DEFAULT_PACING).get(50)!.hours).toBeCloseTo(28.55, 2)
+    expect(gatherPacing('mining', DEFAULT_PACING).get(50)!.hours).toBeCloseTo(32.05, 2)
     expect(farmingPacing(DEFAULT_PACING).get(50)!.hours).toBeCloseTo(19.05, 2)
+  })
+})
+
+// ── RESOURCE YIELD-2: units per node and commit latency ──────────────────────
+
+const hours = (options: Partial<typeof DEFAULT_PACING>) => (skill: 'woodcutting' | 'mining') =>
+  [10, 25, 40, 50].map(mark => Number(gatherPacing(skill, { ...DEFAULT_PACING, ...options }).get(mark)!.hours.toFixed(2)))
+
+describe('pacing with the normative stock and the commit latency', () => {
+  it('k is the mean of the rule’s stock range: common tree 3, pine 2.5, rock 2, every advanced resource 1', () => {
+    expect(Object.fromEntries(RESOURCES.map(resource => [resource.id, unitsPerNode(resource)]))).toEqual({
+      common_tree: 3, pine_tree: 2.5, hardwood_tree: 1, boreal_tree: 1, stone_outcrop: 2, coal_seam: 1, iron_vein: 1, gold_vein: 1, crystal_cluster: 1,
+    })
+    for (const resource of RESOURCES) expect(unitsPerNode(resource, 'single')).toBe(1)
+    // No second source of units: the advisory catalog charges are gone.
+    for (const resource of RESOURCES) expect('charges' in resource.world).toBe(false)
+  })
+
+  it('one formula: t + (overhead + walk + commit + (k − 1)·max(0, commit − t)) / k', () => {
+    const tree = RESOURCE_BY_ID.get('common_tree')!
+    for (const level of [1, 25, 50]) {
+      for (const commit of [0.4, 1.5]) {
+        const t = gatherActionMs(tree, level, 3) / 1000
+        expect(gatherUnitSeconds(tree, level, { ...DEFAULT_PACING, commit })).toBeCloseTo(t + (1.5 + 8 + commit + 2 * Math.max(0, commit - t)) / 3, 9)
+      }
+    }
+  })
+
+  it('hours to Nv 10 / 25 / 40 / 50: multi-yield at 0.4 s and 1.5 s, and the single-unit world before it', () => {
+    expect(hours({})('woodcutting')).toEqual([0.22, 1.21, 8.7, 28.55])
+    expect(hours({})('mining')).toEqual([0.28, 2.07, 10.26, 32.05])
+    expect(hours({ commit: 1.5 })('woodcutting')).toEqual([0.23, 1.29, 9.44, 31.08])
+    expect(hours({ commit: 1.5 })('mining')).toEqual([0.3, 2.23, 11.1, 34.75])
+    expect(hours({ stock: 'single' })('woodcutting')).toEqual([0.45, 2.32, 9.8, 29.66])
+    expect(hours({ stock: 'single' })('mining')).toEqual([0.45, 2.24, 10.44, 32.22])
+  })
+
+  it('Agricultura is untouched by stock and commit latency', () => {
+    const base = farmingPacing(DEFAULT_PACING).get(50)!.hours
+    expect(farmingPacing({ ...DEFAULT_PACING, commit: 1.5, stock: 'single' }).get(50)!.hours).toBe(base)
   })
 })
 
