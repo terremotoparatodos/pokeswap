@@ -301,3 +301,42 @@ test('WORLD asks SKILLS with the protocol’s tick: every attempt is WORK_TICK_M
   assert.deepEqual(seen, [WORK_TICK_MS])
   assert.equal(WORK_TICK_MS, 600)
 })
+
+// ── WORK CANCEL-1: a move and the success on the same tick ──────────────────
+
+test('move and success in the same tick — success confirmed first: settled once, the move is just a move', async () => {
+  const s = setup({ random: SEVEN_ATTEMPTS() })
+  const a = s.join('a', TREE.stands[0])
+  const started = await work(s.world, a.actor)
+  s.clock.advance(privateDuration(s.world.authority, started.actionId))
+  // The due tick runs first: the action enters `settling` before any await.
+  s.world.tick()
+  assert.equal(s.world.authority.actionOf('a').phase, 'settling')
+  // The move lands while the settlement is in flight: it cannot cancel it.
+  a.actor.tx += 3
+  s.world.viewerMoved(a.client, a.actor)
+  await settle(); await settle(); s.world.flush()
+  assert.equal(s.store.settlements.size, 1)
+  assert.equal(s.world.authority.metrics.cancelled, 0)
+  const done = messagesOf(a.client, WORLD_MESSAGE.WORK_DONE)
+  assert.deepEqual(done.map(event => event.ok), [true], 'one work:done, the success')
+  assert.equal(s.world.authority.store.get(TREE.node.id).state, 'depleted')
+})
+
+test('move and success in the same tick — move accepted first: cancelled, and the due completion is a no-op', async () => {
+  const s = setup({ random: SEVEN_ATTEMPTS() })
+  const a = s.join('a', TREE.stands[0])
+  const started = await work(s.world, a.actor)
+  s.clock.advance(privateDuration(s.world.authority, started.actionId))
+  // The move is handled before the room's tick drains the due completion.
+  a.actor.tx += 3
+  s.world.viewerMoved(a.client, a.actor)
+  s.world.tick()
+  await settle(); await settle(); s.world.flush()
+  assert.equal(s.store.settlements.size, 0)
+  assert.equal(s.world.authority.metrics.cancelled, 1)
+  assert.equal(s.world.authority.metrics.staleCompletions, 1, 'the queued completion found nothing to do')
+  const done = messagesOf(a.client, WORLD_MESSAGE.WORK_DONE)
+  assert.deepEqual(done.map(event => event.reason ?? 'ok'), ['moved'], 'one work:done, the cancellation')
+  assert.equal(s.world.authority.store.get(TREE.node.id), null, 'the tree was never depleted')
+})
