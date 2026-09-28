@@ -430,6 +430,7 @@ test('feature gate: closed users cannot work or settle; testers can; opening the
 })
 
 // ── 4. The realtime world on the real database (production adapter) ──────
+// RESOURCE YIELD-2: the stock is drawn at its minimum (common tree 2, rock 1).
 
 const TREE = praderaNodesNearSpawn(20).find(({ node }) => skillsResourceFor(node)?.id === 'common_tree')
 const ROCK = praderaNodesNearSpawn(20).find(({ node }) => skillsResourceFor(node)?.id === 'stone_outcrop')
@@ -443,6 +444,7 @@ async function world(clock) {
     // Deterministic SKILLS draw (0.5 → every attempt of a level-1 player fails until the cap).
     skills: createSkillsWorldPolicy({ store: data, now: clock.now, growScale: 0.001, random: scriptedRandom() }), ownership: ownershipFromPlayerData(data, clock.now),
     playerData: data, now: clock.now, log: () => {}, lookupActor: id => actors.get(id) ?? null, clientForPlayer: id => sockets.get(id) ?? null,
+    stockRandom: () => 0,
   })
   await room.start()
   const join = async (id, spot) => {
@@ -456,16 +458,21 @@ async function world(clock) {
   }
   const quiet = async () => {
     await settle()
-    for (let i = 0; i < 400 && [...room.authority.actions.values()].some(a => a.phase === 'settling'); i++) await new Promise(r => setTimeout(r, 25))
+    for (let i = 0; i < 400 && [...room.authority.actions.values()].some(a => a.phase === 'settling' || a.pending > 0 || a.authorizing); i++) await new Promise(r => setTimeout(r, 25))
     await settle()
   }
   const finish = async ms => { clock.advance(ms); room.tick(); await quiet(); room.flush() }
-  return { room, data, join, finish, quiet }
+  /** Runs a sequence unit by unit until its worker retires (YIELD-2). */
+  const untilDone = async actionId => {
+    for (let i = 0; i < 20 && room.authority.actions.has(actionId); i++) await finish(privateDuration(room.authority, actionId))
+    assert.equal(room.authority.actions.has(actionId), false, 'the sequence ended')
+  }
+  return { room, data, join, finish, quiet, untilDone }
 }
 const result = client => lastMessage(client, WORLD_MESSAGE.WORK_RESULT)
 const nodeIn = (payload, id) => payload?.nodes?.find(node => node.id === id)
 
-test('WORLD on Supabase: chop → one settlement → restart keeps the stump → respawn after respawnAt', { skip }, async () => {
+test('WORLD on Supabase: chop to depletion → one settlement per unit → restart keeps the stump → respawn after respawnAt', { skip }, async () => {
   const { a, b } = await reset()
   const clock = manualClock(Date.now())
   const first = await world(clock)
@@ -473,9 +480,11 @@ test('WORLD on Supabase: chop → one settlement → restart keeps the stump →
   await first.room.work(pa.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
   const started = result(pa.client)
   assert.equal(started.ok, true, JSON.stringify(started))
-  await first.finish(privateDuration(first.room.authority, started.actionId))
-  assert.equal(lastMessage(pa.client, WORLD_MESSAGE.WORK_DONE).ok, true)
-  assert.deepEqual((await first.data.playerState(a.id)).xp.woodcutting, 10)
+  await first.untilDone(started.actionId)
+  const done = lastMessage(pa.client, WORLD_MESSAGE.WORK_DONE)
+  assert.deepEqual([done.ok, done.reason, done.total.units], [true, 'depleted', 2])
+  assert.deepEqual((await first.data.playerState(a.id)).xp.woodcutting, 20)
+  assert.equal((await asService('/rest/v1/skill_work_settlements?select=action_id')).body.length, 2)
 
   // Restart: a new room on the same database. While respawnAt > now the tree is a stump.
   const again = await world(clock)
@@ -522,7 +531,7 @@ test('WORLD on Supabase: farming survives a restart and only the planter harvest
   const harvesting = result(pa3.client)
   assert.equal(harvesting.farmAction, 'harvest')
   await ready.finish(privateDuration(ready.room.authority, harvesting.actionId))
-  const paid = lastMessage(pa3.client, WORLD_MESSAGE.WORK_DONE).summary.rewards[0].quantity
+  const paid = lastMessage(pa3.client, WORLD_MESSAGE.WORK_YIELD).summary.rewards[0].quantity
   // WORLD VISUAL-2 left the trainer on its waiting tile: step back beside the plot.
   Object.assign(pa3.actor, {
     tx: PLOT.tx - 1,
@@ -558,7 +567,7 @@ test('WORLD on Supabase: hostile intents are ignored or refused', { skip }, asyn
   assert.notEqual(started.actionId, chosenId, 'the server names the action, not the client')
   await w.finish(privateDuration(w.room.authority, started.actionId))
   // What the server rolled (base 1, +1 on an aptitude bonus) — never the payload's 999999.
-  const paid = lastMessage(pa.client, WORLD_MESSAGE.WORK_DONE).summary.rewards
+  const paid = lastMessage(pa.client, WORLD_MESSAGE.WORK_YIELD).summary.rewards
   assert.deepEqual(paid.map(r => r.itemId), ['common_log'])
   assert.ok(paid[0].quantity <= 2)
   assert.deepEqual((await w.data.playerState(a.id)).xp, { woodcutting: 10, mining: 0, farming: 0 })
@@ -583,6 +592,40 @@ test('WORLD on Supabase: A and B race for one tree — one reservation, one rewa
   const total = (await w.data.playerState(a.id)).xp.woodcutting + (await w.data.playerState(b.id)).xp.woodcutting
   assert.equal(total, 10)
   assert.equal((await asService('/rest/v1/skill_work_settlements?select=action_id')).body.length, 1)
+})
+
+test('WORLD on Supabase: a partial node survives a restart; an instance that does not know it gets stale_node and pays nothing', { skip }, async () => {
+  const { a, b } = await reset()
+  const clock = manualClock(Date.now())
+  const one = await world(clock)
+  const two = await world(clock) // started before the partial exists: its memory is empty
+  const pa = await one.join(a.id, TREE.stands[0])
+  await one.room.work(pa.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
+  const first = result(pa.client)
+  await one.finish(privateDuration(one.room.authority, first.actionId))
+  one.room.cancel(pa.actor, { actionId: first.actionId })
+  await one.finish(0)
+  const rows = (await asService(`/rest/v1/world_node_overrides?select=state,stock_remaining,action_id&node_id=eq.${encodeURIComponent(TREE.node.id)}`)).body
+  assert.deepEqual(rows, [{ state: 'available', stock_remaining: 1, action_id: `${first.actionId}-00` }])
+
+  // The stale instance: its CAS (no token) is refused by the database through the Edge Function.
+  const pb = await two.join(b.id, TREE.stands[1])
+  await two.room.work(pb.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 1 })
+  const stale = result(pb.client)
+  await two.finish(privateDuration(two.room.authority, stale.actionId))
+  assert.deepEqual([lastMessage(pb.client, WORLD_MESSAGE.WORK_DONE).reason, lastMessage(pb.client, WORLD_MESSAGE.WORK_DONE).total.units], ['error', 0])
+  assert.equal((await two.data.playerState(b.id)).xp.woodcutting ?? 0, 0)
+
+  // A restarted instance restores the partial and settles its last unit.
+  const three = await world(clock)
+  const pb2 = await three.join(b.id, TREE.stands[1])
+  assert.equal(nodeIn(lastMessage(pb2.client, WORLD_MESSAGE.SNAPSHOT), TREE.node.id), undefined, 'a partial looks full')
+  await three.room.work(pb2.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 2 })
+  const last = result(pb2.client)
+  assert.equal(last.ok, true, JSON.stringify(last))
+  await three.untilDone(last.actionId)
+  assert.deepEqual([lastMessage(pb2.client, WORLD_MESSAGE.WORK_DONE).reason, lastMessage(pb2.client, WORLD_MESSAGE.WORK_DONE).total.units], ['depleted', 1])
+  assert.equal((await three.data.playerState(a.id)).xp.woodcutting + (await three.data.playerState(b.id)).xp.woodcutting, 20)
 })
 
 // ── 5. Identity: an expired or forged token is not an identity ────────────
