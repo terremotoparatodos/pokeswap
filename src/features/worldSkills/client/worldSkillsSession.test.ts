@@ -18,6 +18,10 @@ function setup() {
 }
 
 const TREE = RESOURCE_BY_ID.get('common_tree')!
+const unitSummary = (xpAfter: number, logs: number) => ({
+  skillId: 'woodcutting', xpGained: 10, xpAfter, rewards: [{ itemId: 'common_log', quantity: logs, bonus: false }],
+  levelBefore: 1, levelAfter: 1, levelUpLine: null, unlocks: [],
+})
 const PINE = RESOURCE_BY_ID.get('pine_tree')!
 
 describe('the shared-world Skills session', () => {
@@ -51,20 +55,40 @@ describe('the shared-world Skills session', () => {
     expect(refusalText('rate-limited')).toBe('Más despacio: esperá un momento.')
   })
 
-  it('shows the settled result and updates XP and materials from it', () => {
+  it('each confirmed unit updates XP and materials at once; only the end closes the sequence, with the total', () => {
     const { world, session } = setup()
     world.playerState({ playerId: 'me', xp: {}, materials: {}, pokemon: [] })
     expect(session.result('act-1')).toBeUndefined()
-    world.workDone({ actionId: 'act-1', ok: true, status: 'applied', summary: {
-      skillId: 'woodcutting', xpGained: 10, xpAfter: 10, rewards: [{ itemId: 'common_log', quantity: 1, bonus: false }],
-      levelBefore: 1, levelAfter: 1, levelUpLine: null, unlocks: [],
-    } })
-    const result = session.result('act-1')
-    expect(result && 'settlement' in result ? result.settlement.xpGained : null).toBe(10)
+    world.workYield({ actionId: 'act-1', index: 0, summary: unitSummary(10, 1) })
+    expect(session.result('act-1'), 'a unit is not the end').toBeUndefined()
+    expect(session.units('act-1')).toHaveLength(1)
     expect(session.xp().woodcutting).toBe(10)
     expect(session.inventory()).toEqual({ common_log: 1 })
-    world.workDone({ actionId: 'act-2', ok: false, reason: 'moved' })
+    world.workYield({ actionId: 'act-1', index: 1, summary: unitSummary(20, 2) })
+    world.workYield({ actionId: 'act-1', index: 1, summary: unitSummary(20, 2) })
+    expect(session.units('act-1'), 'a repeated unit counts once').toHaveLength(2)
+    expect(session.inventory()).toEqual({ common_log: 3 })
+    world.workDone({ actionId: 'act-1', ok: true, reason: 'depleted', total: { units: 2, xpGained: 20, rewards: [{ itemId: 'common_log', quantity: 3 }] } })
+    const result = session.result('act-1')
+    expect(result && 'settlement' in result ? [result.settlement.xpGained, result.settlement.xpAfter, result.settlement.rewards] : null)
+      .toEqual([20, 20, [{ itemId: 'common_log', quantity: 3, bonus: false }]])
+    expect(session.endReason('act-1')).toBe('depleted')
+    // Late: a unit after the end changes nothing.
+    world.workYield({ actionId: 'act-1', index: 2, summary: unitSummary(30, 1) })
+    expect([session.xp().woodcutting, session.units('act-1').length]).toEqual([20, 2])
+    world.workDone({ actionId: 'act-2', ok: false, reason: 'moved', total: { units: 0, xpGained: 0, rewards: [] } })
     expect(session.result('act-2')).toBeNull()
+    expect(session.endReason('act-2')).toBe('moved')
+  })
+
+  it('walking away after a paid unit: the sequence ends with what was paid', () => {
+    const { world, session } = setup()
+    world.playerState({ playerId: 'me', xp: {}, materials: {}, pokemon: [] })
+    world.workYield({ actionId: 'act-3', index: 0, summary: unitSummary(10, 2) })
+    world.workDone({ actionId: 'act-3', ok: true, reason: 'moved', total: { units: 1, xpGained: 10, rewards: [{ itemId: 'common_log', quantity: 2 }] } })
+    const result = session.result('act-3')
+    expect(result && 'settlement' in result ? result.settlement.xpGained : null).toBe(10)
+    expect(session.endReason('act-3')).toBe('moved')
   })
 
   it('node state: depleted from the WORLD mirror, locked from the player’s level', () => {

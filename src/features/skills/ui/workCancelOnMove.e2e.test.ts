@@ -20,6 +20,8 @@ import { useSkillsLayer } from './useSkillsLayer'
 // layer and SharedWorld, against the real WorldRoom, the real SKILLS bundle
 // and the presence movement rules. Nothing is injected past the client: a
 // cancellation only happens if the engine really sends the move.
+// RESOURCE YIELD-2: a common tree now holds 2–4 units, a basic rock 1–3; the
+// stock is drawn at its minimum here (tree 2, rock 1).
 
 const BUNDLE = '../../../../services/realtime/src/world/skills/skills.generated.js'
 const SCYTHER = 123
@@ -84,7 +86,7 @@ function placeholderPokemon(pid: number): PokemonInfo {
 
 const flushPromises = () => new Promise(resolve => setTimeout(resolve, 0))
 
-async function stage({ random = () => 0.9999999 }: { random?: () => number } = {}) {
+async function stage({ random = () => 0.9999999, stockRandom = () => 0 }: { random?: () => number; stockRandom?: () => number } = {}) {
   let now = 50_000_000
   const { createSkillsWorldPolicy } = (await import(/* @vite-ignore */ BUNDLE)) as { createSkillsWorldPolicy: (options: unknown) => unknown }
   const store = memoryStore()
@@ -96,6 +98,7 @@ async function stage({ random = () => 0.9999999 }: { random?: () => number } = {
     skills: createSkillsWorldPolicy({ store, now: () => now, random }),
     ownership: createStaticOwnership({ owner: [SCYTHER, DIGLETT, MILTANK], viewer: [] }),
     now: () => now,
+    stockRandom,
     lookupActor: (id: string) => actors.get(id) ?? null,
     clientForPlayer: (id: string) => sockets.get(id) ?? null,
     // What presence does: move the actor, reconcile the world, ack the owner.
@@ -126,7 +129,7 @@ async function stage({ random = () => 0.9999999 }: { random?: () => number } = {
     const socket: Socket = {
       send: (type, payload) => {
         const sink = shared as unknown as Record<string, (value: unknown) => void>
-        const handler = ({ 'world:snapshot': 'snapshot', 'world:batch': 'batch', 'world:work:result': 'workResult', 'world:work:done': 'workDone', 'world:wild': 'wild' } as Record<string, string>)[type]
+        const handler = ({ 'world:snapshot': 'snapshot', 'world:batch': 'batch', 'world:work:result': 'workResult', 'world:work:yield': 'workYield', 'world:work:done': 'workDone', 'world:wild': 'wild' } as Record<string, string>)[type]
         if (handler) sink[handler](payload)
       },
     }
@@ -394,7 +397,7 @@ describe('WORK CANCEL-1: walking cancels the work, through the real client', { t
     await expectCancelled(s, owner, viewer, TREE.node.id, before)
   })
 
-  it('moving right after the success does not undo it: one settlement, the tree stays depleted, then the trainer walks', async () => {
+  it('moving right after a unit’s success does not undo it: one settlement, only the next unit is dropped, the rest of the stock stays private', async () => {
     const s = await stage({ random: () => 0 })
     const owner = s.connect('owner', TREE.stands[0], true) as Owner
     const area = owner.internals.area as never
@@ -412,9 +415,48 @@ describe('WORK CANCEL-1: walking cancels the work, through the real client', { t
     release(dir)
     await s.run(2_000, [owner])
     expect(s.sent.length).toBeGreaterThan(before)
-    expect(s.authority.metrics.cancelled).toBe(0)
+    // The walk stopped unit 1 (still attempting), never unit 0 (already settled).
+    expect(s.authority.metrics.cancelled).toBe(1)
     expect(s.store.settlements.size).toBe(1)
-    expect(s.authority.store.get(TREE.node.id)?.state).toBe('depleted')
+    expect(s.authority.store.get(TREE.node.id)).toMatchObject({ state: 'available', stock: 1 })
+    expect(owner.shared.resources.node(TREE.node.id), 'to the client the partial tree is a full one').toBeNull()
+    // The owner's card shows what was paid; the scene is over.
+    expect(owner.layer.phase.value).toBe('result')
+    const shown = owner.layer.result.value
+    expect(shown && 'settlement' in shown ? shown.settlement.xpGained : null).toBe(10)
+  })
+
+  it('YIELD-2: each unit pops while the Pokémon keeps working; only the end closes the scene; the observer sees each unit flash', async () => {
+    const s = await stage({ random: () => 0 })
+    const owner = s.connect('owner', TREE.stands[0], true) as Owner
+    const viewer = s.connect('viewer', TREE.stands[1] ?? TREE.stands[0], false)
+    const area = owner.internals.area as never
+    owner.layer.inspect({ area, tx: TREE.node.tx, ty: TREE.node.ty })
+    const started = owner.layer.work({ instanceId: String(SCYTHER), speciesId: SCYTHER }, 'Scyther')
+    await s.run(64, [owner])
+    await started
+    const actionId = owner.layer.run.value!.actionId
+    // Unit 0 settles on the first tick: +1, and the work goes on.
+    await s.run(WORK_TICK_MS + 50, [owner])
+    expect(s.store.settlements.size).toBe(1)
+    expect(owner.layer.session.units(actionId)).toHaveLength(1)
+    expect(owner.layer.phase.value).toBe('working')
+    expect(owner.layer.run.value?.actionId).toBe(actionId)
+    expect(owner.layer.result.value).toBeNull()
+    expect(owner.layer.xp.value.woodcutting).toBe(10)
+    const seen = viewer.shared.resources.node(TREE.node.id)
+    expect(seen?.state).toBe('working')
+    expect(typeof seen?.yieldAt).toBe('number')
+    expect(Object.keys(seen ?? {})).not.toContain('stock')
+    // Unit 1, the last: the tree falls, the scene ends, the card shows the whole sequence.
+    await s.run(WORK_TICK_MS + 50, [owner])
+    await s.run(3_000, [owner])
+    expect(s.store.settlements.size).toBe(2)
+    expect(owner.layer.session.endReason(actionId)).toBe('depleted')
+    expect(owner.layer.phase.value).toBe('result')
+    const shown = owner.layer.result.value
+    expect(shown && 'settlement' in shown ? shown.settlement.xpGained : null).toBe(20)
+    expect(viewer.shared.resources.node(TREE.node.id)?.state).toBe('depleted')
   })
 
   it('reconnecting after the cancellation finds no action and the tree free', async () => {

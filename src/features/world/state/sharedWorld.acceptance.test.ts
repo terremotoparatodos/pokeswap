@@ -126,7 +126,8 @@ describe('WORLD-1 shared resources, two clients', () => {
 
 describe('SKILLS PROB-2: world protocol 2', () => {
   it('this client declares the current protocol', () => {
-    expect(WORLD_PROTOCOL).toBe(2)
+    // RESOURCE YIELD-2: protocol 3 (units and sequences); a protocol-2 client is outdated.
+    expect(WORLD_PROTOCOL).toBe(3)
   })
 
   it('a client of the previous protocol gets no world and cannot start work: client-outdated', async () => {

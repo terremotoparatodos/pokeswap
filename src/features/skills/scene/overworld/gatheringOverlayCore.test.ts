@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { WORK_TICK_MS } from '../../../../../services/realtime/src/world/worldProtocol.js'
 import { TASK_BEATS, isImpact } from '../../../world/render/workerPose'
 import { CHOP_MS, FELL_MS, REWARD_MS, choppingPose, choppingTimeline, closeChopping, type ChoppingTimeline } from '../logging/choppingTimeline'
@@ -36,7 +36,7 @@ const G = {} as CanvasRenderingContext2D
 const target = { nodeId: 'pradera:1:1:tree', resource: {} as never, biome: 'grassland' as const }
 const reward: GatheringReward = { stacks: [], xp: 10, rarity: 'common' }
 
-function run(outcomeAt: (seconds: number) => GatheringOutcome, { elapsedMs = 0, rewardValue = reward as GatheringReward | null } = {}) {
+function run(outcomeAt: (seconds: number) => GatheringOutcome, { elapsedMs = 0, rewardValue = reward as GatheringReward | null, unitsAt = null as ((seconds: number) => readonly GatheringReward[]) | null } = {}) {
   const probe = new Probe({ nodeState: () => ({ status: 'available', remainingCharges: 1, respawnInSeconds: 0 }), player: () => null, targetId: () => null })
   let seconds = 100
   let results = 0
@@ -47,6 +47,7 @@ function run(outcomeAt: (seconds: number) => GatheringOutcome, { elapsedMs = 0, 
     outcome: () => outcomeAt(seconds - 100),
     onResult: () => { results++; return rewardValue },
     onDone: () => { done++ },
+    ...(unitsAt ? { units: () => unitsAt(seconds - 100) } : {}),
   })
   const step = (untilSeconds: number) => {
     while (seconds < 100 + untilSeconds) { seconds = Math.round((seconds + 0.016) * 1000) / 1000; probe.ground(G, {} as never, 0, 0, seconds) }
@@ -103,6 +104,38 @@ describe('the server answers', () => {
     scene.step(5)
     expect(scene.probe.frames.length).toBe(frames)
     expect(scene.done()).toBe(1)
+  })
+})
+
+describe('RESOURCE YIELD-2: units while the Pokémon keeps working', () => {
+  const unit: GatheringReward = { stacks: [{ itemId: 'common_log', quantity: 1 }] as never, xp: 10, rarity: 'common' }
+  const spyPops = (scene: ReturnType<typeof run>) => vi.spyOn((scene.probe as unknown as { pops: { pushGathered(...args: unknown[]): void } }).pops, 'pushGathered')
+
+  it('each confirmed unit pops its +1 at once; the scene stays open until the end', () => {
+    const scene = run(() => 'pending', { unitsAt: t => (t >= 2 ? [unit, unit] : t >= 1 ? [unit] : []) })
+    const pushed = spyPops(scene)
+    scene.step(0.9)
+    expect(pushed).toHaveBeenCalledTimes(0)
+    scene.step(1.05)
+    expect(pushed).toHaveBeenCalledTimes(1)
+    expect(pushed.mock.calls[0].slice(0, 2)).toEqual([unit.stacks, 10])
+    scene.step(2.05)
+    expect(pushed).toHaveBeenCalledTimes(2)
+    expect(scene.probe.timeline()?.open, 'a unit never closes the timeline').toBe(true)
+    expect(scene.done()).toBe(0)
+    expect(scene.results()).toBe(0)
+    expect(scene.probe.busy).toBe(true)
+  })
+
+  it('at the end the units already shown are not popped again', () => {
+    const scene = run(t => (t >= 1.5 ? 'success' : 'pending'), { unitsAt: t => (t >= 1 ? [unit] : []) })
+    const pushed = spyPops(scene)
+    scene.step(1.6)
+    const closed = scene.probe.timeline()!
+    expect(closed.open).toBe(false)
+    scene.step(closed.resultAtMs / 1000 + 0.05)
+    expect(scene.results()).toBe(1)
+    expect(pushed, 'the unit once, nothing more from the final result').toHaveBeenCalledTimes(1)
   })
 })
 

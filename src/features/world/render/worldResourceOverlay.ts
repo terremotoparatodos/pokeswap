@@ -3,8 +3,9 @@
 // Only what the server said: a node away from its base state. A depleted tree
 // is a stump for everyone, a node being worked shakes in time with its worker
 // on the shared clock, and a ring marks it as busy. SKILLS PROB-2: no progress
-// is drawn — nobody but the server knows when an action ends. Nothing here
-// decides a state; it reads the mirror.
+// is drawn — nobody but the server knows when an action ends. RESOURCE YIELD-2:
+// each confirmed unit (`yieldAt`) flashes the ring once — a hit, never a count.
+// Nothing here decides a state; it reads the mirror.
 
 import type { Area } from '../../wildlands/engine/area'
 import type { DecorInstance } from '../../wildlands/engine/chunks'
@@ -17,6 +18,15 @@ import { isImpact } from './workerPose'
 import { drawTrail, trailTiles, zoneLabels } from './zoneMarks'
 
 const VERB: Readonly<Record<string, string>> = { chop: 'Talando', mine: 'Picando', farm: 'Cultivando' }
+/** How long a confirmed unit lights the ring (YIELD-2). */
+export const YIELD_FLASH_MS = 450
+
+/** 1 → 0 over YIELD_FLASH_MS after a unit was confirmed; 0 otherwise (or with no unit yet). */
+export function yieldFlash(yieldAt: number | undefined, now: number): number {
+  if (yieldAt === undefined) return 0
+  const age = now - yieldAt
+  return age >= 0 && age < YIELD_FLASH_MS ? 1 - age / YIELD_FLASH_MS : 0
+}
 
 export class WorldResourceOverlay implements SceneOverlay {
   constructor(
@@ -69,6 +79,13 @@ export class WorldResourceOverlay implements SceneOverlay {
       g.beginPath(); g.ellipse(cx, cy, 9, 4.5, 0, 0, Math.PI * 2); g.stroke()
       g.strokeStyle = `rgba(255, 210, 122, ${beat})`
       g.beginPath(); g.ellipse(cx, cy, 9, 4.5, 0, 0, Math.PI * 2); g.stroke()
+      // A unit was just confirmed: a white burst that widens and fades.
+      const flash = yieldFlash(node.yieldAt, now)
+      if (flash > 0) {
+        g.lineWidth = 2
+        g.strokeStyle = `rgba(255, 255, 255, ${flash})`
+        g.beginPath(); g.ellipse(cx, cy, 9 + (1 - flash) * 5, 4.5 + (1 - flash) * 2.5, 0, 0, Math.PI * 2); g.stroke()
+      }
       g.restore()
     }
   }

@@ -14,7 +14,7 @@ import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
 import type { SkillId } from '../domain/skills'
 import type { SettleResult } from '../service/skillsService'
 import { choppingTimeline } from '../scene/logging/choppingTimeline'
-import type { GatheringOutcome } from '../scene/overworld/gatheringOverlayCore'
+import type { GatheringOutcome, GatheringReward } from '../scene/overworld/gatheringOverlayCore'
 import { LoggingOverlay } from '../scene/logging/loggingOverlay'
 import { miningTimeline } from '../scene/mining/miningAction'
 import { MiningOverlay, type OverlayPlayer } from '../scene/mining/miningOverlay'
@@ -144,12 +144,25 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Skill
     run.value = { actionId: begin.actionId, workerName, startedAt: begin.startedAt }
 
     // The scene swings once per work tick for as long as the server has not
-    // answered (it alone knows when the action ends). The answer closes the
-    // scene's timeline: the blow in progress finishes, then the ending.
+    // ended the sequence (it alone knows when). Each confirmed unit pops its +1
+    // and the work goes on (YIELD-2); only the end closes the timeline: a
+    // depleted node plays its ending (the tree falls), anything else — walked
+    // away, cancelled, disconnected, an error — ends the scene at once.
     const outcome = (): GatheringOutcome => {
       const settled = session.result(begin.actionId)
       if (settled === undefined) return 'pending'
-      return settled && (settled.status === 'settled' || settled.status === 'already_settled') && settled.settlement.outcome === 'completed' ? 'success' : 'failed'
+      const paid = !!settled && (settled.status === 'settled' || settled.status === 'already_settled') && settled.settlement.outcome === 'completed'
+      return paid && session.endReason(begin.actionId) === 'depleted' ? 'success' : 'failed'
+    }
+    let unitRewards: GatheringReward[] = []
+    const units = (): readonly GatheringReward[] => {
+      const confirmed = session.units(begin.actionId)
+      if (confirmed.length === unitRewards.length) return unitRewards
+      unitRewards = confirmed.map(unit => {
+        const rewards = 'settlement' in unit ? unit.settlement.rewards : []
+        return { stacks: rewards, xp: 'settlement' in unit ? unit.settlement.xpGained : 0, rarity: rewardRarity(rewards) }
+      })
+      return unitRewards
     }
     const onResult = () => {
       const settled = session.result(begin.actionId)
@@ -170,9 +183,9 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Skill
     // The Pokémon itself is WORLD's to draw (worker.stand): the scene only animates the node.
     const now = serverNow()
     const elapsedMs = now === null ? 0 : Math.max(0, now - begin.startedAt)
-    const start = { target: current.target, tx: current.tx, ty: current.ty, onResult, onDone, outcome, elapsedMs }
+    const start = { target: current.target, tx: current.tx, ty: current.ty, onResult, onDone, outcome, units, elapsedMs }
     if (skill === 'mining') mining.start({ ...start, timeline: miningTimeline() })
-    // In the shared world a success depletes the node: the tree falls then.
+    // In the shared world the last unit depletes the node: the tree falls then.
     else logging.start({ ...start, timeline: choppingTimeline() })
     return true
   }
