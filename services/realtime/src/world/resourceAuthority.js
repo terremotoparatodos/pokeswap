@@ -6,6 +6,7 @@ import { WORKING, afterTimer, afterWork, canStartWork, lifecycleFor } from './re
 import { ResourceStore } from './resourceStore.js'
 import { readAuthorization, readSettlement } from './skillPolicy.js'
 import { standableTile, workPlacement } from './workPlacement.js'
+import { WorkRateLimiter } from './workRateLimit.js'
 import { WORK_TICK_MS } from './worldProtocol.js'
 
 /** A trainer asks for work orthogonally beside the node, as the client's `isBeside` requires. */
@@ -15,6 +16,8 @@ export const AUTHORIZE_TIMEOUT_MS = 4_000
 /** Settlement retries after the first try (same actionId every time: the database dedupes). */
 export const SETTLE_RETRY_DELAYS_MS = Object.freeze([1_000, 3_000, 9_000])
 const RECENT_REQUESTS = 32
+/** At most one rate-limit log line per this window, with totals (bounded log). */
+export const RATE_LOG_WINDOW_MS = 60_000
 
 const beside = (actor, node) => Math.abs(actor.tx - node.tx) + Math.abs(actor.ty - node.ty) === WORK_REACH
 /** While working, the trainer's reference tile is its waiting tile; older actions without one keep the reach rule. */
@@ -63,15 +66,19 @@ export class ResourceAuthority {
     onNode = () => {}, onResult = () => {}, onDone = () => {},
     /** Moves a trainer authoritatively (presence publishes it). Default: the looked-up actor object only. */
     placeActor = (playerId, place) => { const actor = lookupActor(playerId); if (actor) Object.assign(actor, place) },
+    /** Per-player pacing of work intents (workRateLimit.js). */
+    rateLimit = new WorkRateLimiter(),
+    log = () => {},
   }) {
-    Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone, placeActor })
+    Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone, placeActor, rateLimit, log })
+    this.rateLog = { lastLogAt: null, intents: 0, players: new Set() }
     this.actions = new Map()
     /** Players with an attempt between its first check and its acquisition. */
     this.attempting = new Set()
     this.byPlayer = new Map()
     this.byPokemon = new Map()
     this.recent = new Map()
-    this.metrics = { requested: 0, started: 0, rejected: {}, completed: 0, duplicateSettlements: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0, restored: 0 }
+    this.metrics = { requested: 0, rateLimited: 0, started: 0, rejected: {}, completed: 0, duplicateSettlements: 0, settleRetries: 0, settleFailed: 0, cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0, restored: 0 }
   }
 
   /**
@@ -100,6 +107,11 @@ export class ResourceAuthority {
   /** A work intent from `actor`. Resolves with the reply sent to that player. */
   async requestWork(actor, intent) {
     this.metrics.requested++
+    // 0 · Pacing, before anything is read or held (a refused intent costs nothing).
+    if (!this.rateLimit.take(actor.id, this.now())) {
+      this.#noteRateLimited(actor.id)
+      return this.#reject(actor.id, intent, 'rate-limited')
+    }
     const recent = this.#recentFor(actor.id)
     if (recent.has(intent.requestId)) return this.#reject(actor.id, intent, 'duplicate-request')
     recent.set(intent.requestId, true)
@@ -368,6 +380,18 @@ export class ResourceAuthority {
   #reply(playerId, result) {
     this.onResult(playerId, result)
     return result
+  }
+
+  /** Counts and, at most once per RATE_LOG_WINDOW_MS, logs totals only (no ids). */
+  #noteRateLimited(playerId) {
+    this.metrics.rateLimited++
+    const now = this.now()
+    const log = this.rateLog
+    log.intents++
+    if (log.players.size < 1_000) log.players.add(playerId)
+    if (log.lastLogAt !== null && now - log.lastLogAt < RATE_LOG_WINDOW_MS) return
+    this.log(`[world] rate-limited ${log.intents} work intent(s) from ${log.players.size} player(s)${log.lastLogAt === null ? '' : ' in the last minute'}`)
+    this.rateLog = { lastLogAt: now, intents: 0, players: new Set() }
   }
 
   #recentFor(playerId) {

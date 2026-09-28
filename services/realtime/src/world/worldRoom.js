@@ -42,7 +42,7 @@ export class WorldRoom {
     this.metrics = { snapshots: 0, batches: 0, nodeDeltas: 0, chunkEnters: 0, chunkLeaves: 0, maxBatchBytes: 0, bytes: 0, outdatedJoins: 0, outdatedWork: 0 }
     this.wild = new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
-      skills, ownership, lookupActor, now, placeActor,
+      skills, ownership, lookupActor, now, placeActor, log,
       onNode: record => this.#nodeChanged(record),
       onResult: (playerId, result) => this.#sendToPlayer(playerId, WORLD_MESSAGE.WORK_RESULT, result),
       onDone: (playerId, done) => this.#sendToPlayer(playerId, WORLD_MESSAGE.WORK_DONE, done),
