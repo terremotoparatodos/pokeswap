@@ -109,4 +109,4 @@ export const SETTLE_EARLY_TOLERANCE_MS = 250
 export const AUTHORIZATION_TTL_MS = 10 * 60 * 1000
 
 /** Bumped whenever a rule or a number above changes meaning. Stored with each settlement. */
-export const SKILLS_RULES_VERSION = 'skills-1.2'
+export const SKILLS_RULES_VERSION = 'skills-1.3'

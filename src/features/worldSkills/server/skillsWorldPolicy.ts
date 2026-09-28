@@ -75,6 +75,8 @@ export interface PlayerState {
 
 export interface CommitResult {
   readonly applied: boolean
+  /** YIELD-2: 'stale_node' when the node's generation token or stock no longer matched. Nothing was written. */
+  readonly rejected?: string
   readonly settlement: { readonly xp_after?: number; readonly xp_gained?: number; readonly rewards?: unknown } | null
 }
 
@@ -181,7 +183,8 @@ export function createSkillsWorldPolicy(options: SkillsWorldPolicyOptions) {
       return {
         // durationMs is the secret draw (attempts × tick): WORLD keeps it private.
         // `details` goes to the requester and must never carry it, nor the chance.
-        ok: true, durationMs: answer.durationMs,
+        // stock (YIELD-2) is also WORLD-private: the range a node's hidden stock is drawn from.
+        ok: true, durationMs: answer.durationMs, stock: answer.stock,
         details: { skillId: answer.skillId, xp: answer.xp, reward: answer.reward, aptitude: answer.aptitude, requiredLevel: answer.requiredLevel, playerLevel: answer.playerLevel },
         ...(crop ? { plot: { cropId: crop.id, growMs: Math.round(crop.growMs * growScale) } } : {}),
       }
@@ -208,6 +211,13 @@ export function createSkillsWorldPolicy(options: SkillsWorldPolicyOptions) {
       } catch {
         staged.delete(paid.actionId)
         return { ok: false, retryable: true, reason: 'store-unavailable' }
+      }
+      if (stored.rejected === 'stale_node') {
+        // The node changed under this unit (token, stock or expiry): nothing was
+        // written or paid. Un-stage — the ledger must not look settled — and let
+        // WORLD end the sequence; retrying cannot succeed.
+        staged.delete(paid.actionId)
+        return { ok: false, retryable: false, reason: 'stale-node' }
       }
       staged.delete(paid.actionId)
       committed.set(paid.actionId, paid)

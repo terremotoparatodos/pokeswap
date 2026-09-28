@@ -26,3 +26,13 @@ test('readAuthorization keeps SKILLS’ draw, tick-aligned, and refuses a malfor
   assert.equal(readAuthorization({ ok: true, durationMs: Number.NaN }).reason, 'skills-invalid')
   assert.equal(readAuthorization({ ok: true }).reason, 'skills-invalid')
 })
+
+test('YIELD-2: the stock range from SKILLS is read strictly (integers, 1 <= min <= max <= 4) or ignored', async () => {
+  const { readStockRange, MAX_NODE_STOCK } = await import('./skillPolicy.js')
+  assert.equal(MAX_NODE_STOCK, 4)
+  assert.deepEqual(readAuthorization({ ok: true, durationMs: 600, stock: { min: 2, max: 4 } }).stock, { min: 2, max: 4 })
+  for (const bad of [null, {}, { min: 0, max: 2 }, { min: 3, max: 2 }, { min: 1, max: 5 }, { min: 1.5, max: 2 }, { min: '1', max: 2 }]) {
+    assert.equal(readStockRange(bad), null)
+    assert.equal('stock' in readAuthorization({ ok: true, durationMs: 600, stock: bad }), false)
+  }
+})
