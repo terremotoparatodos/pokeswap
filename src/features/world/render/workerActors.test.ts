@@ -26,7 +26,7 @@ describe('WorkerActors', () => {
   const make = () => new WorkerActors(async () => null, placeholder)
   const STAND = { tx: 11, ty: 20, dir: 'left' as const }
   const working = (stand: typeof STAND | undefined = STAND): NodeView => ({
-    id: 'pradera:10:20:tree', state: 'working', version: 3, actionId: 'act-1', workKind: 'chop', startedAt: 1_000, endsAt: 4_000,
+    id: 'pradera:10:20:tree', state: 'working', version: 3, actionId: 'act-1', workKind: 'chop', startedAt: 1_000,
     worker: { playerId: 'a', pokemonInstanceId: 123, speciesId: 123, ...(stand ? { stand } : {}) },
   })
   const tile = (workers: WorkerActors) => workers.actors().map(actor => ({ tx: actor.fromTx, ty: actor.fromTy, dir: actor.dir }))

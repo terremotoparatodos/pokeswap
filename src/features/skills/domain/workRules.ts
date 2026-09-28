@@ -1,8 +1,8 @@
 // The rules of one piece of work, as pure functions.
 //
 //   Skill level  →  may the player work this at all?        (the only hard gate)
-//   Aptitude     →  how well does this Pokémon do it?       (speed, bonus units)
-//   Ritmo        →  how practised is the player?            (speed, per 10 levels)
+//                   and how often does an attempt succeed?  (chance, PROB-2)
+//   Aptitude     →  how well does this Pokémon do it?       (chance, bonus units)
 //
 // Level gates, aptitude does not — except the top rung of each ladder, which
 // asks for aptitude 2 so that a specialist resource feels specialised. Every
@@ -13,6 +13,7 @@
 // A specialist earns more XP per hour only because it finishes sooner.
 
 import { APTITUDE_BONUS_CHANCE, APTITUDE_DURATION, MAX_SKILL_LEVEL, MIN_ACTION_MS, RHYTHM } from './balance'
+import { attemptCap, attemptChance } from './attempts'
 import { resolveAptitude } from './aptitude/aptitude'
 import type { Aptitude } from './aptitude/aptitudeScale'
 import {
@@ -20,7 +21,7 @@ import {
   type CropId, type FarmAction, type PlotRejection, type PlotSnapshot,
 } from './farming'
 import type { MaterialId } from './materials'
-import { RESOURCE_BY_ID } from './resources'
+import { RESOURCE_BY_ID, type ResourceTier } from './resources'
 import type { SkillId } from './skills'
 import { levelForXp } from './xpCurve'
 
@@ -41,7 +42,12 @@ export interface WorkTerms {
   readonly playerLevel: number
   readonly aptitude: Aptitude
   readonly minAptitude: Aptitude
-  readonly durationMs: number
+  /** Length of one attempt: WORLD's work tick, as WORLD reported it. */
+  readonly attemptMs: number
+  /** Chance that one attempt succeeds (PROB-2). */
+  readonly chance: number
+  /** The attempt that always succeeds. */
+  readonly maxAttempts: number
   readonly xp: number
   /** Items on completion; null for actions that only teach (plant, tend). */
   readonly drop: WorkDrop | null
@@ -75,9 +81,16 @@ export interface WorkInput {
   readonly skillXp: Readonly<Record<SkillId, number>>
   /** Species of the PokemonInstance doing the work. */
   readonly workerSpeciesId: number
+  /** WORLD's work tick (the length of one attempt); validated by the service. */
+  readonly attemptMs: number
 }
 
-/** 1 − reduction per full RHYTHM.everyLevels of skill level. Level 10 → 0.96, 50 → 0.80. */
+/**
+ * Pre-PROB-2 fixed-duration model, kept only for the MAP-1 audit script
+ * (scripts/map/audit-pradera.ts). Work and pacing use `attempts.ts`.
+ * Work no longer uses it: see `attempts.ts`.
+ * 1 − reduction per full RHYTHM.everyLevels of skill level. Level 10 → 0.96, 50 → 0.80.
+ */
 export function rhythmMultiplier(level: number): number {
   const steps = Math.floor(Math.max(0, Math.min(MAX_SKILL_LEVEL, level)) / RHYTHM.everyLevels)
   return 1 - steps * RHYTHM.reduction
@@ -92,6 +105,7 @@ interface Subject {
   readonly subjectId: string
   readonly subjectName: string
   readonly requiredLevel: number
+  readonly tier: ResourceTier
   readonly minAptitude: Aptitude
   readonly baseMs: number
   readonly xp: number
@@ -108,7 +122,7 @@ function subjectOf(target: WorkTarget): SubjectLookup {
       ok: true,
       subject: {
         skillId: resource.skill, subjectId: resource.id, subjectName: resource.name,
-        requiredLevel: resource.requiredLevel, minAptitude: resource.minAptitude,
+        requiredLevel: resource.requiredLevel, tier: resource.tier, minAptitude: resource.minAptitude,
         baseMs: resource.baseDurationMs, xp: resource.xp,
         drop: { ...resource.drop, guaranteedBonus: 0 },
       },
@@ -124,7 +138,7 @@ function subjectOf(target: WorkTarget): SubjectLookup {
     ok: true,
     subject: {
       skillId: 'farming', subjectId: crop.id, subjectName: crop.name,
-      requiredLevel: crop.requiredLevel, minAptitude: crop.minAptitude,
+      requiredLevel: crop.requiredLevel, tier: crop.tier, minAptitude: crop.minAptitude,
       baseMs: FARM_ACTION_MS[target.action], xp: crop.xp[target.action],
       drop: harvest ? { ...crop.harvest, guaranteedBonus: target.plot.tended ? TEND_BONUS_UNITS : 0 } : null,
     },
@@ -150,12 +164,15 @@ export function evaluateWork(input: WorkInput): WorkEvaluation {
   })
   if (playerLevel < subject.requiredLevel) return refusal('level_too_low')
   if (aptitude < subject.minAptitude) return refusal('aptitude_too_low')
+  const chance = attemptChance({
+    level: playerLevel, requiredLevel: subject.requiredLevel, baseMs: subject.baseMs, tier: subject.tier, aptitude, attemptMs: input.attemptMs,
+  })
   return {
     ok: true,
     terms: {
       skillId: subject.skillId, target: input.target, subjectId: subject.subjectId, subjectName: subject.subjectName,
       requiredLevel: subject.requiredLevel, playerLevel, aptitude, minAptitude: subject.minAptitude,
-      durationMs: workDuration(subject.baseMs, aptitude, playerLevel),
+      attemptMs: input.attemptMs, chance, maxAttempts: attemptCap(chance),
       xp: subject.xp,
       drop: subject.drop ? { ...subject.drop, bonusChance: APTITUDE_BONUS_CHANCE[aptitude] } : null,
     },

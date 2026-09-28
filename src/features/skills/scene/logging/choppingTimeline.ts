@@ -1,23 +1,30 @@
-// Chopping timeline (R31-C3): a few axe bites and, when the tree runs out of
-// wood, the moment it gives way.
+// Chopping timeline (R31-C3, SKILLS PROB-2): one axe bite per WORLD work tick
+// while the action runs and, once the server has answered, the moment the
+// tree gives way.
 //
 // Pure and time-based, so the overlay, the card and tests agree on when a bite
-// lands, when the tree falls and when the reward shows. The server-side action
-// time only chooses how many bites the animation plays.
+// lands, when the tree falls and when the reward shows. Since PROB-2 nobody on
+// the client knows how long an action lasts: the timeline starts OPEN (bites
+// forever) and is CLOSED when the result arrives — the current bite finishes,
+// then the tree falls (only on a success) and the reward shows.
 
-/** Slower and heavier than the pickaxe: wood answers late. */
-export const CHOP_MS = { windup: 260, bite: 100, recoil: 220 } as const
+import { WORK_TICK_MS } from '../../../../../services/realtime/src/world/worldProtocol.js'
+
+/** One bite per attempt: windup + bite + recoil = WORK_TICK_MS. The bite lands with the worker's blow (workerPose). */
+export const CHOP_MS = { windup: 270, bite: 100, recoil: WORK_TICK_MS - 370 } as const
 export const CHOP_TOTAL_MS = CHOP_MS.windup + CHOP_MS.bite + CHOP_MS.recoil
 /** The tree leans, the canopy lets go, the trunk drops to a stump. */
 export const FELL_MS = 420
 export const REWARD_MS = 950
-export const MIN_CHOPS = 2
 
 export type ChopPhase = 'windup' | 'bite' | 'recoil' | 'fell' | 'reward' | 'done'
 
 export interface ChoppingTimeline {
+  /** True until the server's answer arrives: bites repeat and nothing ends. */
+  readonly open: boolean
+  /** Bites played (Infinity while open). */
   readonly chops: number
-  /** True when this action takes the tree's last charge. */
+  /** True when this action takes the tree down (a success). */
   readonly felling: boolean
   /** When the tree starts giving way (equals resultAtMs when it does not fall). */
   readonly fellAtMs: number
@@ -26,12 +33,20 @@ export interface ChoppingTimeline {
   readonly totalMs: number
 }
 
-/** As many bites as fit the authorized duration, rounded up (see miningTimeline). */
-export function choppingTimeline(durationMs: number, felling: boolean): ChoppingTimeline {
-  const chops = Math.max(MIN_CHOPS, Math.ceil(durationMs / CHOP_TOTAL_MS))
+/** A running action: bite after bite, one per tick, until `closeChopping`. */
+export function choppingTimeline(): ChoppingTimeline {
+  return { open: true, chops: Infinity, felling: false, fellAtMs: Infinity, resultAtMs: Infinity, totalMs: Infinity }
+}
+
+/**
+ * The server answered at `elapsedMs`: finish the bite in progress, then fall
+ * (only when `felling`: a success) and show the result.
+ */
+export function closeChopping(elapsedMs: number, felling: boolean): ChoppingTimeline {
+  const chops = Math.max(1, Math.floor(Math.max(0, elapsedMs) / CHOP_TOTAL_MS) + 1)
   const fellAtMs = chops * CHOP_TOTAL_MS
   const resultAtMs = fellAtMs + (felling ? FELL_MS : 0)
-  return { chops, felling, fellAtMs, resultAtMs, totalMs: resultAtMs + REWARD_MS }
+  return { open: false, chops, felling, fellAtMs, resultAtMs, totalMs: resultAtMs + REWARD_MS }
 }
 
 export interface ChopPose {
@@ -72,7 +87,9 @@ export function choppingPose(timeline: ChoppingTimeline, elapsedMs: number): Cho
 /** Chop indices whose bite begins in (fromMs, toMs]: when to spawn splinters. */
 export function bitesBetween(timeline: ChoppingTimeline, fromMs: number, toMs: number): number[] {
   const hits: number[] = []
-  for (let chop = 0; chop < timeline.chops; chop++) {
+  const first = Math.max(0, Math.floor((fromMs - CHOP_MS.windup) / CHOP_TOTAL_MS))
+  const last = Math.min(timeline.chops, Math.floor((toMs - CHOP_MS.windup) / CHOP_TOTAL_MS) + 1)
+  for (let chop = first; chop < last; chop++) {
     const at = chop * CHOP_TOTAL_MS + CHOP_MS.windup
     if (at > fromMs && at <= toMs) hits.push(chop)
   }

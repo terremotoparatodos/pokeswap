@@ -4,8 +4,24 @@
  * Clients send intents and nothing else: which node, which of their Pokémon,
  * a correlation id. Duration, reward, resulting state, respawn time and node
  * position are never read from a client — there is no field for them.
+ *
+ * Protocol 2 (SKILLS PROB-2): work is a run of attempts whose number the
+ * server draws in secret, so NO message tells a client when an action will
+ * end — no `endsAt`, no duration, no attempt count, no chance. A running
+ * action is public as who works what, where, and since when (`startedAt`, for
+ * the animation phase on the shared clock and WORK_TICK_MS); its end is the
+ * node change and `world:work:done`. A client that declares an older protocol
+ * (or none) gets no world state and `client-outdated` for any work intent.
  */
-export const WORLD_PROTOCOL = 1
+export const WORLD_PROTOCOL = 2
+
+/**
+ * WORLD's work tick (SKILLS PROB-2): one attempt of a work action, and one
+ * swing of the worker's animation. The single definition: the authority
+ * passes it to SKILLS as the attempt length, and every client derives the
+ * animation phase from it and the server clock (`serverNow − startedAt`).
+ */
+export const WORK_TICK_MS = 600
 
 export const WORLD_MESSAGE = Object.freeze({
   // client → server
@@ -64,8 +80,8 @@ export function publicNode(record) {
     // Additive and visual (WORLD VISUAL-1): a client that does not read it keeps its own placement.
     const stand = record.worker.stand
     if (stand) node.worker.stand = { tx: stand.tx, ty: stand.ty, dir: stand.dir }
+    // The start only: the end is the server's secret draw (PROB-2).
     node.startedAt = record.actionStartedAt
-    node.endsAt = record.actionEndsAt
   }
   if (record.respawnAt !== null) node.respawnAt = record.respawnAt
   // A plot's crop is public: everyone sees what grows there, whose it is and when it is ready.

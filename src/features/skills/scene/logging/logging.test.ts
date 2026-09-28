@@ -1,32 +1,39 @@
 import { describe, expect, it } from 'vitest'
 import { createSeededRandom } from '../../domain/rng'
+import { WORK_TICK_MS } from '../../../../../services/realtime/src/world/worldProtocol.js'
 import {
-  bitesBetween, CHOP_MS, CHOP_TOTAL_MS, choppingPose, choppingTimeline, FELL_MS, MIN_CHOPS, REWARD_MS,
+  bitesBetween, CHOP_MS, CHOP_TOTAL_MS, choppingPose, choppingTimeline, closeChopping, FELL_MS, REWARD_MS,
 } from './choppingTimeline'
 import { leafAlpha, leafFrame, MAX_LEAVES, spawnLeaves, stepLeaves } from './leaves'
 import { treeVisual, type TreeVisualInput } from './treeVisualState'
 
-describe('chopping timeline', () => {
-  it('fills the authorized duration with bites and never resolves early', () => {
-    expect(choppingTimeline(100, false).chops).toBe(MIN_CHOPS)
-    expect(choppingTimeline(1160, false).chops).toBe(2)
-    for (const durationMs of [1200, 3000, 5200]) expect(choppingTimeline(durationMs, false).resultAtMs).toBeGreaterThanOrEqual(durationMs)
-    const timeline = choppingTimeline(1740, false)
-    expect(timeline.resultAtMs).toBe(timeline.chops * CHOP_TOTAL_MS)
-    expect(timeline.totalMs).toBe(timeline.resultAtMs + REWARD_MS)
+describe('chopping timeline (SKILLS PROB-2: one bite per tick until the server answers)', () => {
+  it('bites once per work tick for as long as the action is open: no end, no duration', () => {
+    expect(CHOP_TOTAL_MS).toBe(WORK_TICK_MS)
+    const open = choppingTimeline()
+    expect(open).toMatchObject({ open: true, felling: false, resultAtMs: Infinity, totalMs: Infinity })
+    for (const tick of [0, 9, 100]) expect(choppingPose(open, tick * WORK_TICK_MS + CHOP_MS.windup).phase).toBe('bite')
+    expect(choppingPose(open, 10 * WORK_TICK_MS + 5)).toMatchObject({ phase: 'windup', chop: 10 })
   })
 
-  it('only makes the tree give way when the action takes its last charge', () => {
-    const standing = choppingTimeline(1740, false)
-    const felling = choppingTimeline(1740, true)
-    expect(felling.resultAtMs - felling.fellAtMs).toBe(FELL_MS)
+  it('closing finishes the bite in progress, then (on a success) the tree falls and the reward shows', () => {
+    const closed = closeChopping(2 * WORK_TICK_MS + 100, true)
+    expect(closed).toMatchObject({ open: false, chops: 3, felling: true, fellAtMs: 3 * CHOP_TOTAL_MS })
+    expect(closed.resultAtMs).toBe(closed.fellAtMs + FELL_MS)
+    expect(closed.totalMs).toBe(closed.resultAtMs + REWARD_MS)
+    expect(closeChopping(0, true).chops).toBe(1)
+  })
+
+  it('a refusal or cancellation leaves the tree standing', () => {
+    const standing = closeChopping(1_000, false)
+    const felling = closeChopping(1_000, true)
     expect(standing.resultAtMs).toBe(standing.fellAtMs)
-    expect(felling.totalMs - standing.totalMs).toBe(FELL_MS)
-    expect(choppingPose(standing, standing.fellAtMs - 1).phase).not.toBe('fell')
+    expect(felling.resultAtMs - felling.fellAtMs).toBe(FELL_MS)
+    expect(choppingPose(standing, standing.fellAtMs + 10).phase).not.toBe('fell')
   })
 
   it('walks windup → bite → recoil, then the fall and the reward', () => {
-    const timeline = choppingTimeline(1160, true)
+    const timeline = closeChopping(WORK_TICK_MS + 10, true)
     expect(choppingPose(timeline, 0)).toMatchObject({ phase: 'windup', chop: 0, toolFrame: 0 })
     expect(choppingPose(timeline, CHOP_MS.windup)).toMatchObject({ phase: 'bite', toolFrame: 2 })
     expect(choppingPose(timeline, CHOP_MS.windup).trunkShake).not.toBe(0)
@@ -39,15 +46,22 @@ describe('chopping timeline', () => {
     expect(choppingPose(timeline, timeline.totalMs).phase).toBe('done')
   })
 
-  it('reports each bite exactly once across frame boundaries', () => {
-    const timeline = choppingTimeline(1740, true)
+  it('reports each bite exactly once across frame boundaries, open or closed', () => {
+    const open = choppingTimeline()
     let last = 0
     const hits: number[] = []
-    for (let t = 16; t <= timeline.totalMs; t += 16) {
-      hits.push(...bitesBetween(timeline, last, t))
+    for (let t = 16; t <= 3 * WORK_TICK_MS; t += 16) {
+      hits.push(...bitesBetween(open, last, t))
       last = t
     }
     expect(hits).toEqual([0, 1, 2])
+    const closed = closeChopping(2 * WORK_TICK_MS + 10, true)
+    const after: number[] = []
+    for (let t = last + 16; t <= closed.totalMs; t += 16) {
+      after.push(...bitesBetween(closed, last, t))
+      last = t
+    }
+    expect(after).toEqual([])
   })
 })
 

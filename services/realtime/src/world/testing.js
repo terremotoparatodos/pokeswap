@@ -37,3 +37,35 @@ export const messagesOf = (client, type) => client.messages.filter(entry => entr
 
 /** Lets every pending promise continuation run (ownership and SKILLS are async). */
 export const settle = () => new Promise(resolve => setImmediate(resolve))
+
+/**
+ * The server's PRIVATE duration of a running action (SKILLS PROB-2): attempts ×
+ * tick from the secret draw. Tests read it from the authority; no client ever
+ * receives it.
+ */
+export function privateDuration(authority, actionId) {
+  const action = authority.actions.get(actionId)
+  if (!action) throw new Error(`no running action ${actionId}`)
+  return action.endsAt - action.startedAt
+}
+
+/** A random source that returns `values` in order, then `rest` forever (tests only). */
+export function scriptedRandom(values = [], rest = 0.5) {
+  const queue = [...values]
+  return () => (queue.length ? queue.shift() : rest)
+}
+
+/** Every key, at any depth, of a message payload. */
+export function keysDeep(value, out = new Set()) {
+  if (Array.isArray(value)) for (const item of value) keysDeep(item, out)
+  else if (value && typeof value === 'object') for (const [key, inner] of Object.entries(value)) { out.add(key); keysDeep(inner, out) }
+  return out
+}
+
+/** Every number, at any depth, of a message payload. */
+export function numbersDeep(value, out = []) {
+  if (Array.isArray(value)) for (const item of value) numbersDeep(item, out)
+  else if (value && typeof value === 'object') for (const inner of Object.values(value)) numbersDeep(inner, out)
+  else if (typeof value === 'number') out.push(value)
+  return out
+}

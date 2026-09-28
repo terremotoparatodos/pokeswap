@@ -10,6 +10,7 @@
 // when the splinters and sparks fly. Agricultura has no scene: its beat is
 // its own, slower and lower.
 
+import { WORK_TICK_MS } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { DIRS } from '../../wildlands/engine/actors'
 import type { Dir } from '../../wildlands/engine/characters'
 import { TILE } from '../../wildlands/engine/world'
@@ -29,16 +30,18 @@ export interface TaskBeat {
 }
 
 /**
- * - chop: 580 ms like CHOP_MS — a short run-up, a push into the trunk at the
- *   bite (260 ms), an easy return;
- * - mine: 500 ms like SWING_MS — a sharp snap at the strike (220 ms), then a
- *   small bounce back off the rock;
- * - farm: 900 ms — a soft, low dip toward the soil, no impact.
+ * SKILLS PROB-2: every task repeats its gesture ONCE PER WORK TICK — one
+ * gesture is one attempt, for the owner and for every observer.
+ * - chop: like CHOP_MS — a short run-up, a push into the trunk at the bite
+ *   (270 ms), an easy return;
+ * - mine: like SWING_MS — a sharp snap at the strike (264 ms), then a small
+ *   bounce back off the rock;
+ * - farm: a soft, low dip toward the soil, no impact.
  */
 export const TASK_BEATS: Readonly<Record<WorkKind, TaskBeat>> = {
-  chop: { periodMs: 580, impactMs: 260, steps: 2, keys: [[0, 0, 0], [150, -1, 0], [260, 4, 1], [360, 3, 0.5], [580, 0, 0]] },
-  mine: { periodMs: 500, impactMs: 220, steps: 2, keys: [[0, 0, 0], [180, -1.5, 0], [220, 4, 0], [310, 4, 0], [370, -1.5, 2], [440, 0.5, 0.5], [500, 0, 0]] },
-  farm: { periodMs: 900, impactMs: 450, steps: 1, keys: [[0, 0, 0], [450, 2, -1.5], [900, 0, 0]] },
+  chop: { periodMs: WORK_TICK_MS, impactMs: 270, steps: 2, keys: [[0, 0, 0], [155, -1, 0], [270, 4, 1], [372, 3, 0.5], [WORK_TICK_MS, 0, 0]] },
+  mine: { periodMs: WORK_TICK_MS, impactMs: 264, steps: 2, keys: [[0, 0, 0], [216, -1.5, 0], [264, 4, 0], [372, 4, 0], [444, -1.5, 2], [528, 0.5, 0.5], [WORK_TICK_MS, 0, 0]] },
+  farm: { periodMs: WORK_TICK_MS, impactMs: 300, steps: 1, keys: [[0, 0, 0], [300, 2, -1.5], [WORK_TICK_MS, 0, 0]] },
 }
 
 export interface WorkerStandTile {

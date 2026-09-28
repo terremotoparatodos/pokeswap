@@ -18,11 +18,11 @@ import { WorldResourceOverlay } from '../render/worldResourceOverlay'
 /** Past this, an unanswered intent is given up locally (the server still decides). */
 const INTENT_TIMEOUT_MS = 8_000
 
+/** The local player's running action. No end: only the server knows it (SKILLS PROB-2). */
 export interface OwnAction {
   readonly actionId: string
   readonly nodeId: string
   readonly startedAt: number
-  readonly endsAt: number
 }
 
 export class SharedWorld implements WorldTransportSink, WorldLayer {
@@ -88,7 +88,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   snapshot(snapshot: WorldSnapshot): void {
     this.clock.sample(snapshot.now)
     this.resources.applySnapshot(snapshot)
-    this.own = snapshot.ownAction ?? null
+    this.own = snapshot.ownAction ? { actionId: snapshot.ownAction.actionId, nodeId: snapshot.ownAction.nodeId, startedAt: snapshot.ownAction.startedAt } : null
     this.setRoster(snapshot.wild ?? null)
     this.setWildStatus(snapshot.wildStatus ?? null)
   }
@@ -130,7 +130,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   }
 
   workResult(result: WorkResult): void {
-    if (result.ok) this.own = { actionId: result.actionId, nodeId: result.nodeId, startedAt: result.startedAt, endsAt: result.endsAt }
+    if (result.ok) this.own = { actionId: result.actionId, nodeId: result.nodeId, startedAt: result.startedAt }
     if (result.requestId === null) return
     const entry = this.pending.get(result.requestId)
     if (!entry) return

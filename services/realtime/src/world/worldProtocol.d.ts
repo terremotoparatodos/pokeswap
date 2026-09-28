@@ -1,7 +1,9 @@
 import type { WorkKind } from './resourceLayout.js'
 import type { WorkerStand } from './workPlacement.js'
 
-export declare const WORLD_PROTOCOL: 1
+export declare const WORLD_PROTOCOL: 2
+/** One attempt of a work action and one swing of the worker (SKILLS PROB-2). */
+export declare const WORK_TICK_MS: 600
 export declare const WORLD_MESSAGE: Readonly<{
   WORK: 'world:work'
   CANCEL: 'world:cancel'
@@ -53,8 +55,8 @@ export interface PublicNode {
     /** Where the Pokémon stands (the trainer's tile when the work started), fixed by the server. Absent from older servers. */
     readonly stand?: WorkerStand
   }
+  /** When the running action started (server clock): the animation phase. Its end is never published (PROB-2). */
   readonly startedAt?: number
-  readonly endsAt?: number
   readonly respawnAt?: number
   readonly plot?: PublicPlot
 }
@@ -67,7 +69,7 @@ export interface WorldSnapshot {
   readonly wild?: WildRoster
   /** Procedural areas only. Without 'ready' there are no wild Pokémon (fail closed). */
   readonly wildStatus?: WildStatus
-  readonly ownAction?: { readonly actionId: string; readonly nodeId: string; readonly startedAt: number; readonly endsAt: number }
+  readonly ownAction?: { readonly actionId: string; readonly nodeId: string; readonly startedAt: number }
 }
 
 export interface WorldBatch {
@@ -79,7 +81,7 @@ export interface WorldBatch {
 
 export type WorkResult =
   | {
-      readonly requestId: number; readonly ok: true; readonly actionId: string; readonly nodeId: string; readonly startedAt: number; readonly endsAt: number
+      readonly requestId: number; readonly ok: true; readonly actionId: string; readonly nodeId: string; readonly startedAt: number
       readonly farmAction?: 'plant' | 'tend' | 'harvest'
       /** SKILLS' terms for the requester's own UI. */
       readonly details?: { readonly skillId: string; readonly xp: number; readonly reward: { readonly itemId: string; readonly min: number; readonly max: number } | null; readonly aptitude: number }

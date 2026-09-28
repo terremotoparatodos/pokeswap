@@ -3,6 +3,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { WorldRoom } from '../../../../services/realtime/src/world/worldRoom.js'
+import { WORLD_PROTOCOL } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { createDemoSkillPolicy } from '../../../../services/realtime/src/world/demoSkillPolicy.js'
 import { createStaticOwnership } from '../../../../services/realtime/src/world/pokemonOwnership.js'
 import { RESPAWN_MS, resourceAt } from '../../../../services/realtime/src/world/resourceLayout.js'
@@ -23,7 +24,7 @@ function stage() {
     lookupActor: (id: string) => actors.get(id) ?? null, clientForPlayer: (id: string) => sockets.get(id) ?? null,
   })
   const placeholder = (id: number) => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo
-  const connect = (id: string, spot: { tx: number; ty: number }) => {
+  const connect = (id: string, spot: { tx: number; ty: number }, protocol: number = WORLD_PROTOCOL) => {
     const world = new SharedWorld(async () => null, placeholder)
     const socket = {
       send: (type: string, payload: unknown) => {
@@ -34,10 +35,10 @@ function stage() {
     }
     const actor = { id, areaId: 'pradera', tx: spot.tx, ty: spot.ty }
     actors.set(id, actor); sockets.set(id, socket)
-    server.join(socket, { worldProtocol: 1 }, { kind: 'player', userId: id, token: null })
+    server.join(socket, { worldProtocol: protocol }, { kind: 'player', userId: id, token: null })
     world.attach((type, payload) => {
-      if (type === 'world:work') void server.work(actor, payload)
-      if (type === 'world:cancel') server.cancel(actor, payload)
+      if (type === 'world:work') void server.work(actor, payload, socket)
+      if (type === 'world:cancel') server.cancel(actor, payload, socket)
     })
     server.snapshot(socket, actor)
     return { world, actor, socket }
@@ -107,7 +108,7 @@ describe('WORLD-1 shared resources, two clients', () => {
     expect(again.world.ownAction?.actionId).toBe(started.ok ? started.actionId : 'missing')
   })
 
-  it('the server clock is shared: both clients agree on the progress of an action', async () => {
+  it('the server clock is shared: both clients agree on the phase of an action, and neither learns its end (PROB-2)', async () => {
     const s = stage()
     const a = s.connect('a', SPOT_A)
     const b = s.connect('b', SPOT_B)
@@ -116,7 +117,26 @@ describe('WORLD-1 shared resources, two clients', () => {
     const node = b.world.resources.node(TREE.id)!
     const skew = Math.abs((a.world.serverNow() ?? 0) - (b.world.serverNow() ?? 0))
     expect(skew).toBeLessThan(50)
-    expect(node.endsAt! - node.startedAt!).toBe(3_000)
+    const own = a.world.ownAction!
+    expect(node.startedAt).toBe(own.startedAt)
+    expect(node).not.toHaveProperty('endsAt')
+    expect(own).not.toHaveProperty('endsAt')
+  })
+})
+
+describe('SKILLS PROB-2: world protocol 2', () => {
+  it('this client declares the current protocol', () => {
+    expect(WORLD_PROTOCOL).toBe(2)
+  })
+
+  it('a client of the previous protocol gets no world and cannot start work: client-outdated', async () => {
+    const s = stage()
+    const old = s.connect('a', SPOT_A, 1)
+    expect(old.world.resources.node(TREE.id)).toBeNull()
+    const reply = await old.world.requestWork(TREE.id, 123)
+    expect(reply).toEqual({ requestId: 1, ok: false, reason: 'client-outdated', message: 'Actualizá la página para seguir trabajando.' })
+    expect(s.skills.authorized).toHaveLength(0)
+    expect(s.server.authority.store.get(TREE.id)).toBeNull()
   })
 })
 

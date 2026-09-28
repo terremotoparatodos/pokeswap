@@ -4,11 +4,14 @@
 //   ─────                                   ──────
 //   node exists, same area, distance,
 //   availability, owns the Pokémon,
-//   no concurrent work              ──▶  authorizeWorkAttempt(input)
+//   no concurrent work, its tick    ──▶  authorizeWorkAttempt(input)
 //                                         level? aptitude? plot transition?
+//                                         chance per attempt; SECRET draw of
+//                                         how many attempts (PROB-2)
 //                                   ◀──  allowed + durationMs + terms   | refused + reason
-//   worker animates for durationMs
-//   (others see it: WORLD's job)
+//   worker swings once per tick;
+//   ends at durationMs = attempts × tick
+//   (never told to any client)
 //   node charge consumed (WORLD)    ──▶  settleWork(actionId, context)
 //                                         XP + items, exactly once per actionId
 //                                   ◀──  settlement + level-up + unlocks
@@ -22,6 +25,7 @@ import type { Aptitude } from '../domain/aptitude/aptitudeScale'
 import { levelUpLine, refusalMessage } from '../domain/messages'
 import { unlocksBetween, type Unlock } from '../domain/roadmap'
 import type { SkillId } from '../domain/skills'
+import { drawAttempts, isValidAttemptMs } from '../domain/attempts'
 import { evaluateWork, rollDrop, type WorkRejection, type WorkTarget } from '../domain/workRules'
 import { cappedGain, levelForXp } from '../domain/xpCurve'
 import type { AuthorizedWork, SettlementOutcome, SkillsServicePorts, WorkSettlement } from './ports'
@@ -33,6 +37,8 @@ export interface WorkAttemptInput {
   /** The player's own PokemonInstance, already ownership-checked by WORLD. */
   readonly worker: { readonly instanceId: string; readonly speciesId: number }
   readonly target: WorkTarget
+  /** WORLD's work tick: the length of one attempt (ATTEMPTS.minTickMs..maxTickMs). */
+  readonly attemptMs: number
 }
 
 export type AuthorizationRefusal = WorkRejection | 'invalid_request' | 'duplicate_action'
@@ -42,6 +48,10 @@ export type WorkAuthorization =
       readonly allowed: true
       readonly actionId: string
       readonly skillId: SkillId
+      /**
+       * attempts × attemptMs: when WORLD completes the action. SERVER-ONLY —
+       * it reveals the secret draw, so it must never reach a client.
+       */
       readonly durationMs: number
       readonly requiredLevel: number
       readonly playerLevel: number
@@ -92,7 +102,7 @@ const isNonEmptyId = (value: unknown): value is string => typeof value === 'stri
 function validInput(input: WorkAttemptInput): boolean {
   return !!input && isNonEmptyId(input.actionId) && isNonEmptyId(input.playerId)
     && !!input.worker && isNonEmptyId(input.worker.instanceId) && Number.isInteger(input.worker.speciesId)
-    && !!input.target && typeof input.target === 'object'
+    && !!input.target && typeof input.target === 'object' && isValidAttemptMs(input.attemptMs)
 }
 
 export function createSkillsService(ports: SkillsServicePorts): SkillsService {
@@ -107,21 +117,23 @@ export function createSkillsService(ports: SkillsServicePorts): SkillsService {
     if (!validInput(input)) return refuse('invalid_request')
     if (ledger.authorization(actionId) || ledger.settlement(actionId)) return refuse('duplicate_action')
 
-    const evaluation = evaluateWork({ target: input.target, skillXp: progress.xpOf(input.playerId), workerSpeciesId: input.worker.speciesId })
+    const evaluation = evaluateWork({ target: input.target, skillXp: progress.xpOf(input.playerId), workerSpeciesId: input.worker.speciesId, attemptMs: input.attemptMs })
     if (!evaluation.ok) {
       const { reason, skillId, requiredLevel, playerLevel, minAptitude, aptitude } = evaluation
       return refuse(reason, { skillId, requiredLevel, playerLevel, minAptitude, aptitude })
     }
 
     const now = clock.now()
+    const { terms } = evaluation
+    // The secret draw: the server's randomness, once per action, kept in the ledger.
+    const attempts = drawAttempts(terms.chance, terms.maxAttempts, random)
     const work: AuthorizedWork = {
       actionId, playerId: input.playerId, workerInstanceId: input.worker.instanceId, workerSpeciesId: input.worker.speciesId,
-      terms: evaluation.terms, authorizedAt: now,
+      terms, authorizedAt: now, attempts, durationMs: attempts * terms.attemptMs,
     }
     if (!ledger.recordAuthorization(work)) return refuse('duplicate_action')
-    const { terms } = evaluation
     return {
-      allowed: true, actionId, skillId: terms.skillId, durationMs: terms.durationMs,
+      allowed: true, actionId, skillId: terms.skillId, durationMs: work.durationMs,
       requiredLevel: terms.requiredLevel, playerLevel: terms.playerLevel, aptitude: terms.aptitude, xp: terms.xp,
       reward: terms.drop ? { itemId: terms.drop.itemId, min: terms.drop.min + terms.drop.guaranteedBonus, max: terms.drop.max + terms.drop.guaranteedBonus + (terms.drop.bonusChance > 0 ? 1 : 0) } : null,
       expiresAt: now + AUTHORIZATION_TTL_MS, rulesVersion: SKILLS_RULES_VERSION,
@@ -145,7 +157,7 @@ export function createSkillsService(ports: SkillsServicePorts): SkillsService {
     const now = clock.now()
     const elapsed = now - work.authorizedAt
     const expired = elapsed > AUTHORIZATION_TTL_MS
-    if (context.outcome === 'completed' && !expired && elapsed < work.terms.durationMs - SETTLE_EARLY_TOLERANCE_MS) {
+    if (context.outcome === 'completed' && !expired && elapsed < work.durationMs - SETTLE_EARLY_TOLERANCE_MS) {
       return { status: 'too_early' }
     }
 

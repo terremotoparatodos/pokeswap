@@ -5,6 +5,7 @@ import { allSpeciesFacts } from './aptitude/speciesFacts'
 import { CROP_BY_ID, FARM_ACTION_MS, TEND_BONUS_UNITS, type PlotSnapshot } from './farming'
 import { RESOURCE_BY_ID } from './resources'
 import { SKILL_IDS, type SkillId } from './skills'
+import { attemptCap, attemptChance } from './attempts'
 import { evaluateWork, rhythmMultiplier, rollDrop, workDuration, type WorkTarget } from './workRules'
 import { totalXpForLevel } from './xpCurve'
 
@@ -14,6 +15,9 @@ const xpAt = (levels: Partial<Record<SkillId, number>>): Record<SkillId, number>
 const gather = (resourceId: string): WorkTarget => ({ kind: 'gather', resourceId })
 const plot = (over: Partial<PlotSnapshot> = {}): PlotSnapshot => ({ plotId: 'p1', kind: 'town', stage: 'EMPTY', cropId: null, tended: false, ...over })
 
+/** WORLD's work tick (PROB-2). */
+const TICK = 600
+
 const GEODUDE = 74
 const SCYTHER = 123
 const MAGIKARP = 129
@@ -22,22 +26,22 @@ const SUDOWOODO = 185
 describe('requirements: the skill level is the gate', () => {
   it('lets a level-1 player work the first rung of every skill', () => {
     for (const target of [gather('common_tree'), gather('stone_outcrop'), { kind: 'farm', action: 'plant', plot: plot(), cropId: 'oran' } as WorkTarget]) {
-      expect(evaluateWork({ target, skillXp: xpAt({}), workerSpeciesId: MAGIKARP }).ok).toBe(true)
+      expect(evaluateWork({ target, skillXp: xpAt({}), workerSpeciesId: MAGIKARP, attemptMs: TICK }).ok).toBe(true)
     }
   })
 
   it('refuses a resource above the player level and says which level', () => {
-    const result = evaluateWork({ target: gather('iron_vein'), skillXp: xpAt({ mining: 19 }), workerSpeciesId: GEODUDE })
+    const result = evaluateWork({ target: gather('iron_vein'), skillXp: xpAt({ mining: 19 }), workerSpeciesId: GEODUDE, attemptMs: TICK })
     expect(result).toMatchObject({ ok: false, reason: 'level_too_low', skillId: 'mining', requiredLevel: 20, playerLevel: 19 })
-    expect(evaluateWork({ target: gather('iron_vein'), skillXp: xpAt({ mining: 20 }), workerSpeciesId: GEODUDE }).ok).toBe(true)
+    expect(evaluateWork({ target: gather('iron_vein'), skillXp: xpAt({ mining: 20 }), workerSpeciesId: GEODUDE, attemptMs: TICK }).ok).toBe(true)
   })
 
   it('uses the right skill for each resource: mining XP does not open trees', () => {
-    expect(evaluateWork({ target: gather('pine_tree'), skillXp: xpAt({ mining: 50 }), workerSpeciesId: SCYTHER }).ok).toBe(false)
+    expect(evaluateWork({ target: gather('pine_tree'), skillXp: xpAt({ mining: 50 }), workerSpeciesId: SCYTHER, attemptMs: TICK }).ok).toBe(false)
   })
 
   it('refuses unknown resources', () => {
-    expect(evaluateWork({ target: gather('shore_spot'), skillXp: xpAt({}), workerSpeciesId: GEODUDE })).toMatchObject({ ok: false, reason: 'unknown_resource' })
+    expect(evaluateWork({ target: gather('shore_spot'), skillXp: xpAt({}), workerSpeciesId: GEODUDE, attemptMs: TICK })).toMatchObject({ ok: false, reason: 'unknown_resource' })
   })
 })
 
@@ -45,44 +49,45 @@ describe('no tools: the Pokémon does the work', () => {
   it('lets every one of the 493 species work every level-1 resource', () => {
     for (const facts of allSpeciesFacts()) {
       for (const id of ['common_tree', 'stone_outcrop']) {
-        expect(evaluateWork({ target: gather(id), skillXp: xpAt({}), workerSpeciesId: facts.speciesId }).ok, `${facts.name} ${id}`).toBe(true)
+        expect(evaluateWork({ target: gather(id), skillXp: xpAt({}), workerSpeciesId: facts.speciesId, attemptMs: TICK }).ok, `${facts.name} ${id}`).toBe(true)
       }
     }
   })
 
   it('has no tool anywhere in its inputs or terms', () => {
-    const result = evaluateWork({ target: gather('common_tree'), skillXp: xpAt({}), workerSpeciesId: SCYTHER })
+    const result = evaluateWork({ target: gather('common_tree'), skillXp: xpAt({}), workerSpeciesId: SCYTHER, attemptMs: TICK })
     expect(JSON.stringify(result)).not.toMatch(/tool|pickaxe|axe"|hoe|sickle|rod|durab|energy/i)
   })
 })
 
 describe('aptitude: efficiency everywhere, a gate only at the top', () => {
   it('asks aptitude 2 only for the top rung', () => {
-    const result = evaluateWork({ target: gather('boreal_tree'), skillXp: xpAt({ woodcutting: 50 }), workerSpeciesId: SUDOWOODO })
+    const result = evaluateWork({ target: gather('boreal_tree'), skillXp: xpAt({ woodcutting: 50 }), workerSpeciesId: SUDOWOODO, attemptMs: TICK })
     expect(result).toMatchObject({ ok: false, reason: 'aptitude_too_low', minAptitude: 2, aptitude: 1 })
-    expect(evaluateWork({ target: gather('hardwood_tree'), skillXp: xpAt({ woodcutting: 50 }), workerSpeciesId: SUDOWOODO }).ok).toBe(true)
+    expect(evaluateWork({ target: gather('hardwood_tree'), skillXp: xpAt({ woodcutting: 50 }), workerSpeciesId: SUDOWOODO, attemptMs: TICK }).ok).toBe(true)
   })
 
   it('makes a specialist faster and luckier than a clumsy worker on the same tree', () => {
     const levels = xpAt({ woodcutting: 12 })
-    const fast = evaluateWork({ target: gather('pine_tree'), skillXp: levels, workerSpeciesId: SCYTHER })
-    const slow = evaluateWork({ target: gather('pine_tree'), skillXp: levels, workerSpeciesId: SUDOWOODO })
+    const fast = evaluateWork({ target: gather('pine_tree'), skillXp: levels, workerSpeciesId: SCYTHER, attemptMs: TICK })
+    const slow = evaluateWork({ target: gather('pine_tree'), skillXp: levels, workerSpeciesId: SUDOWOODO, attemptMs: TICK })
     if (!fast.ok || !slow.ok) throw new Error('both should be allowed')
     expect(fast.terms.aptitude).toBe(5)
     expect(slow.terms.aptitude).toBe(1)
-    expect(fast.terms.durationMs).toBeLessThan(slow.terms.durationMs)
+    expect(fast.terms.chance).toBeGreaterThan(slow.terms.chance)
+    expect(fast.terms.maxAttempts).toBeLessThanOrEqual(slow.terms.maxAttempts)
     expect(fast.terms.drop!.bonusChance).toBeGreaterThan(slow.terms.drop!.bonusChance)
   })
 
   it('gives the same XP whatever the Pokémon: XP is what the player learns', () => {
     const levels = xpAt({ mining: 20 })
-    const a = evaluateWork({ target: gather('iron_vein'), skillXp: levels, workerSpeciesId: GEODUDE })
-    const b = evaluateWork({ target: gather('iron_vein'), skillXp: levels, workerSpeciesId: MAGIKARP })
+    const a = evaluateWork({ target: gather('iron_vein'), skillXp: levels, workerSpeciesId: GEODUDE, attemptMs: TICK })
+    const b = evaluateWork({ target: gather('iron_vein'), skillXp: levels, workerSpeciesId: MAGIKARP, attemptMs: TICK })
     expect(a.ok && b.ok && a.terms.xp === b.terms.xp).toBe(true)
   })
 })
 
-describe('duration modifiers', () => {
+describe('pre-PROB-2 fixed duration (kept for the MAP-1 audit script only)', () => {
   it('scales by aptitude around the aptitude-3 reference', () => {
     expect(workDuration(4000, 3, 1)).toBe(4000)
     expect(workDuration(4000, 5, 1)).toBe(Math.round(4000 * APTITUDE_DURATION[5]))
@@ -125,7 +130,7 @@ describe('reward rules', () => {
 
 describe('farming lifecycle', () => {
   const farm = (action: 'plant' | 'tend' | 'harvest', snapshot: PlotSnapshot, cropId: 'oran' | 'sitrus' | 'revival' | null = null, level = 50): ReturnType<typeof evaluateWork> =>
-    evaluateWork({ target: { kind: 'farm', action, plot: snapshot, cropId }, skillXp: xpAt({ farming: level }), workerSpeciesId: 1 })
+    evaluateWork({ target: { kind: 'farm', action, plot: snapshot, cropId }, skillXp: xpAt({ farming: level }), workerSpeciesId: 1, attemptMs: TICK })
 
   it('plants on an empty plot and gives plant XP but no items', () => {
     const result = farm('plant', plot(), 'oran')
@@ -153,7 +158,9 @@ describe('farming lifecycle', () => {
     if (!plain.ok || !tended.ok) throw new Error('harvest should be allowed')
     expect(plain.terms.drop!.guaranteedBonus).toBe(0)
     expect(tended.terms.drop!.guaranteedBonus).toBe(TEND_BONUS_UNITS)
-    expect(plain.terms.durationMs).toBe(workDuration(FARM_ACTION_MS.harvest, resolveAptitude(1, 'farming').value, 50))
+    const aptitude = resolveAptitude(1, 'farming').value
+    const chance = attemptChance({ level: 50, requiredLevel: 1, baseMs: FARM_ACTION_MS.harvest, tier: 'muy básico', aptitude, attemptMs: TICK })
+    expect(plain.terms).toMatchObject({ attemptMs: TICK, chance, maxAttempts: attemptCap(chance) })
   })
 
   it('level-gates planting', () => {
@@ -164,16 +171,16 @@ describe('farming lifecycle', () => {
 describe('early and midgame cases', () => {
   it('a brand-new player with a random starter can do all three skills', () => {
     for (const starter of [1, 4, 7, 152, 155, 158, 252, 255, 258, 387, 390, 393]) {
-      expect(evaluateWork({ target: gather('common_tree'), skillXp: xpAt({}), workerSpeciesId: starter }).ok).toBe(true)
-      expect(evaluateWork({ target: gather('stone_outcrop'), skillXp: xpAt({}), workerSpeciesId: starter }).ok).toBe(true)
-      expect(evaluateWork({ target: { kind: 'farm', action: 'plant', plot: plot(), cropId: 'oran' }, skillXp: xpAt({}), workerSpeciesId: starter }).ok).toBe(true)
+      expect(evaluateWork({ target: gather('common_tree'), skillXp: xpAt({}), workerSpeciesId: starter, attemptMs: TICK }).ok).toBe(true)
+      expect(evaluateWork({ target: gather('stone_outcrop'), skillXp: xpAt({}), workerSpeciesId: starter, attemptMs: TICK }).ok).toBe(true)
+      expect(evaluateWork({ target: { kind: 'farm', action: 'plant', plot: plot(), cropId: 'oran' }, skillXp: xpAt({}), workerSpeciesId: starter, attemptMs: TICK }).ok).toBe(true)
     }
   })
 
   it('a level-30 miner reaches iron but not gold', () => {
     const levels = xpAt({ mining: 30 })
-    expect(evaluateWork({ target: gather('iron_vein'), skillXp: levels, workerSpeciesId: GEODUDE }).ok).toBe(true)
-    expect(evaluateWork({ target: gather('gold_vein'), skillXp: levels, workerSpeciesId: GEODUDE })).toMatchObject({ ok: false, requiredLevel: 35 })
+    expect(evaluateWork({ target: gather('iron_vein'), skillXp: levels, workerSpeciesId: GEODUDE, attemptMs: TICK }).ok).toBe(true)
+    expect(evaluateWork({ target: gather('gold_vein'), skillXp: levels, workerSpeciesId: GEODUDE, attemptMs: TICK })).toMatchObject({ ok: false, requiredLevel: 35 })
   })
 
   it('pays more XP per second on the rung you just unlocked than on the first one', () => {

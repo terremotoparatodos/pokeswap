@@ -1,9 +1,11 @@
+import { WORK_TICK_MS } from './worldProtocol.js'
+
 /**
  * SkillPolicyPort — the WORLD ↔ SKILLS contract (WORLD-1C).
  *
  * WORLD answers "what exists and what is physically happening". SKILLS answers
- * "may this player and this Pokémon do it, how long does it take, and what
- * does it grant". This file is the only place the two meet. WORLD never reads
+ * "may this player and this Pokémon do it, how many attempts does it take,
+ * and what does it grant". This file is the only place the two meet. WORLD never reads
  * a skill level, an aptitude, a species rule, an XP table or a drop table; it
  * hands SKILLS physical facts and uses the answers it gets back.
  *
@@ -27,9 +29,13 @@
  *   node: { id; resourceKind; variantId; areaId; tx; ty; zone; biome }
  *   workKind: 'chop' | 'mine'   // the physical verb for the node's kind
  *   requestedAt: number         // server clock
+ *   attemptMs: number           // WORK_TICK_MS: the length of one attempt (PROB-2)
  * }
  * type Authorization =
- *   | { ok: true; durationMs: number }   // clamped by WORLD to [MIN, MAX]_ACTION_MS
+ *   // durationMs = attempts × attemptMs, from SKILLS' secret draw. WORLD keeps
+ *   // it server-side (it is when the action ends) and never sends it to a
+ *   // client. Rounded UP to whole ticks and clamped to [1 tick, MAX_ACTION_MS].
+ *   | { ok: true; durationMs: number }
  *   | { ok: false; reason: string }      // short code shown to the requester, e.g. 'level'
  *
  * interface WorkSettlement {
@@ -51,7 +57,6 @@
  * checked before SKILLS is asked anything.
  */
 
-export const MIN_ACTION_MS = 500
 export const MAX_ACTION_MS = 5 * 60_000
 const REASON = /^[a-z0-9][a-z0-9-]{0,31}$/
 
@@ -71,7 +76,7 @@ function bounded(value, limit) {
  * - `details`: SKILLS' terms for the requester's own UI (XP, reward range…).
  * - `plot`: for a plant, the crop and its grow time — SKILLS' rule, WORLD's clock.
  */
-export function readAuthorization(answer) {
+export function readAuthorization(answer, tickMs = WORK_TICK_MS) {
   if (!answer || typeof answer !== 'object') return { ok: false, reason: 'skills-invalid' }
   const message = typeof answer.message === 'string' ? answer.message.slice(0, MESSAGE_LIMIT) : undefined
   if (answer.ok === true) {
@@ -80,7 +85,7 @@ export function readAuthorization(answer) {
       ? { cropId: answer.plot.cropId, growMs: Math.round(Math.min(MAX_GROW_MS, Math.max(MIN_GROW_MS, answer.plot.growMs))) }
       : undefined
     return {
-      ok: true, durationMs: Math.round(Math.min(MAX_ACTION_MS, Math.max(MIN_ACTION_MS, answer.durationMs))),
+      ok: true, durationMs: tickAligned(answer.durationMs, tickMs),
       ...(plot ? { plot } : {}),
       ...(bounded(answer.details, DETAILS_LIMIT) === undefined ? {} : { details: answer.details }),
     }
@@ -89,6 +94,16 @@ export function readAuthorization(answer) {
     ok: false, reason: typeof answer.reason === 'string' && REASON.test(answer.reason) ? answer.reason : 'skills-denied',
     ...(message ? { message } : {}),
   }
+}
+
+/**
+ * A duration as a whole number of work ticks: rounded up (the action never
+ * ends before SKILLS would accept its settlement), at least one tick, at most
+ * MAX_ACTION_MS.
+ */
+export function tickAligned(durationMs, tickMs = WORK_TICK_MS) {
+  const ticks = Math.min(Math.floor(MAX_ACTION_MS / tickMs), Math.max(1, Math.ceil(durationMs / tickMs - 1e-9)))
+  return ticks * tickMs
 }
 
 const SUMMARY_LIMIT = 2048

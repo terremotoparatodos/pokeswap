@@ -40,7 +40,6 @@
             >
               <span>{{ option.name }}</span>
               <span class="fc-stars">{{ aptitudeStars(option.aptitude) }}</span>
-              <span class="fc-muted">{{ option.seconds.toLocaleString('es') }} s</span>
             </button>
           </li>
         </ul>
@@ -49,9 +48,9 @@
       <button v-if="plot.action" type="button" class="fc-go" :disabled="!canGo" @click="go">{{ goLabel }}</button>
     </template>
 
+    <!-- SKILLS PROB-2: no bar, no countdown. The server says when the Pokémon is done. -->
     <div v-else-if="phase === 'working'" class="fc-working" role="status">
-      <p>{{ workerName ?? 'Tu Pokémon' }} está trabajando la parcela…</p>
-      <span class="fc-progress"><span :style="{ animationDuration: `${durationMs}ms` }" /></span>
+      <p>{{ workerName ?? 'Tu Pokémon' }} está cultivando…</p>
     </div>
 
     <div v-else-if="view" class="fc-result" role="status">
@@ -90,7 +89,6 @@ const props = defineProps<{
     readonly action: FarmAction | null
   }
   phase: 'idle' | 'working' | 'result'
-  durationMs: number
   result: SettleResult | null
   refusal: string | null
   xp: Readonly<Record<SkillId, number>>
@@ -113,7 +111,7 @@ const crops = computed(() => cropOptions('town', level.value))
 const cropId = ref<string | null>(null)
 watch(crops, list => { if (!cropId.value) cropId.value = list.find(option => !option.locked)?.crop.id ?? null }, { immediate: true })
 
-const options = computed(() => props.plot.action ? farmWorkerOptions(props.workers, props.plot.action, props.plot.action === 'plant' ? cropId.value : props.plot.cropId, level.value) : [])
+const options = computed(() => props.plot.action ? farmWorkerOptions(props.workers, props.plot.action === 'plant' ? cropId.value : props.plot.cropId) : [])
 const chosen = ref<string | null>(null)
 watch([options, () => props.lastWorker], () => {
   const usable = options.value.filter(option => !option.unable)
@@ -161,14 +159,10 @@ function go(): void {
 .fc-go:disabled { opacity: 0.45; cursor: default; }
 .fc-ghost { border: 1px solid rgba(255, 255, 255, 0.25); background: transparent; color: inherit; }
 .fc-working { display: grid; gap: 0.45rem; font-size: 0.9rem; }
-.fc-progress { display: block; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
-.fc-progress span { display: block; width: 100%; height: 100%; background: var(--skx-gold, #ffd27a); transform-origin: left; animation: fc-fill linear forwards; }
-@keyframes fc-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 .fc-result { display: grid; gap: 0.35rem; }
 .fc-levelup { color: var(--skx-gold, #ffd27a); font-size: 1.1rem; font-weight: 900; }
 .fc-unlock { color: var(--skx-good, #9be27a); font-size: 0.82rem; font-weight: 700; }
 .fc-gains { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.8rem; font-size: 0.9rem; }
 .fc-xp { color: var(--skx-gold, #ffd27a); font-weight: 800; }
 .fc-item { display: inline-flex; align-items: center; gap: 0.3rem; }
-@media (prefers-reduced-motion: reduce) { .fc-progress span { animation: none; transform: none; } }
 </style>

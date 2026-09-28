@@ -44,7 +44,7 @@ const mirror = new WorldResourceMirror()
 const nodes = [-2, -1, 0].flatMap(cx => [-5, -4].flatMap(cy => resourcesInChunk('pradera', cx, cy)))
 mirror.applySnapshot({
   now: 0, areaId: 'pradera', chunks: ['-2,-5', '-1,-5', '0,-5', '-2,-4', '-1,-4', '0,-4'],
-  nodes: nodes.slice(0, 20).map((node, i) => ({ id: node.id, state: 'working', version: i + 1, actionId: `x${i}`, workKind: 'chop' as const, worker: { playerId: 'p', pokemonInstanceId: 1, speciesId: 1 }, startedAt: 0, endsAt: 3000 })),
+  nodes: nodes.slice(0, 20).map((node, i) => ({ id: node.id, state: 'working', version: i + 1, actionId: `x${i}`, workKind: 'chop' as const, worker: { playerId: 'p', pokemonInstanceId: 1, speciesId: 1 }, startedAt: 0 })),
 })
 const overlay = new WorldResourceOverlay(mirror, clock)
 const area = { id: 'pradera' } as never

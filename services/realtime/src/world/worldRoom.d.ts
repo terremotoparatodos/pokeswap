@@ -13,8 +13,11 @@ export declare class WorldRoom {
   leave(client: WorldSocket): void
   snapshot(client: WorldSocket, viewer: WorldViewer): void
   viewerMoved(client: WorldSocket, viewer: WorldViewer): void
-  work(actor: WorldViewer, payload: unknown): Promise<unknown>
-  cancel(actor: WorldViewer, payload: unknown): void
+  /** `client`: the socket the intent came from (default: the player's). An outdated one gets `client-outdated`. */
+  work(actor: WorldViewer, payload: unknown, client?: WorldSocket): Promise<unknown>
+  cancel(actor: WorldViewer, payload: unknown, client?: WorldSocket): void
+  /** Server state, for acceptance tests only. */
+  readonly authority: { readonly store: { get(id: string): unknown } }
   tick(now?: number): void
   flush(): void
   stats(): Record<string, unknown>

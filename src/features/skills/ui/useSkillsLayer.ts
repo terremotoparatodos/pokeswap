@@ -14,6 +14,7 @@ import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
 import type { SkillId } from '../domain/skills'
 import type { SettleResult } from '../service/skillsService'
 import { choppingTimeline } from '../scene/logging/choppingTimeline'
+import type { GatheringOutcome } from '../scene/overworld/gatheringOverlayCore'
 import { LoggingOverlay } from '../scene/logging/loggingOverlay'
 import { miningTimeline } from '../scene/mining/miningAction'
 import { MiningOverlay, type OverlayPlayer } from '../scene/mining/miningOverlay'
@@ -44,14 +45,20 @@ export interface WorkSelection {
 
 export type WorkPhase = 'idle' | 'working' | 'result'
 
+/**
+ * The running action as this client knows it (SKILLS PROB-2): who works and
+ * when it started on the server clock. How long it lasts is the server's
+ * secret; the result ends it.
+ */
 export interface WorkRun {
   readonly actionId: string
   readonly workerName: string
-  readonly durationMs: number
+  /** Server clock. */
   readonly startedAt: number
 }
 
-export function useSkillsLayer(game: () => SkillsGamePort | null, session: SkillsSession) {
+/** `serverNow`: the shared world's clock, to put the owner's blows on the worker's beat. */
+export function useSkillsLayer(game: () => SkillsGamePort | null, session: SkillsSession, serverNow: () => number | null = () => null) {
   /** Bumped on every change the session reports; views read through it. */
   const version = ref(0)
   const touch = () => { version.value++ }
@@ -133,10 +140,16 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Skill
     }
     const skill = current.target.resource.skill
     lastWorker.value = { ...lastWorker.value, [skill]: worker.instanceId }
-    run.value = { actionId: begin.actionId, workerName, durationMs: begin.durationMs, startedAt: Date.now() }
+    run.value = { actionId: begin.actionId, workerName, startedAt: begin.startedAt }
 
-    // The scene reaches its "result" beat at the end of the work; the server
-    // settles right then. Until its answer arrives the scene holds (undefined).
+    // The scene swings once per work tick for as long as the server has not
+    // answered (it alone knows when the action ends). The answer closes the
+    // scene's timeline: the blow in progress finishes, then the ending.
+    const outcome = (): GatheringOutcome => {
+      const settled = session.result(begin.actionId)
+      if (settled === undefined) return 'pending'
+      return settled && (settled.status === 'settled' || settled.status === 'already_settled') && settled.settlement.outcome === 'completed' ? 'success' : 'failed'
+    }
     const onResult = () => {
       const settled = session.result(begin.actionId)
       if (settled === undefined) return undefined
@@ -152,10 +165,12 @@ export function useSkillsLayer(game: () => SkillsGamePort | null, session: Skill
       game()?.setInputLocked(false)
     }
     // The Pokémon itself is WORLD's to draw (worker.stand): the scene only animates the node.
-    const start = { target: current.target, tx: current.tx, ty: current.ty, onResult, onDone }
-    if (skill === 'mining') mining.start({ ...start, timeline: miningTimeline(begin.durationMs) })
-    // In the shared world one completed job depletes a node: the tree falls.
-    else logging.start({ ...start, timeline: choppingTimeline(begin.durationMs, true) })
+    const now = serverNow()
+    const elapsedMs = now === null ? 0 : Math.max(0, now - begin.startedAt)
+    const start = { target: current.target, tx: current.tx, ty: current.ty, onResult, onDone, outcome, elapsedMs }
+    if (skill === 'mining') mining.start({ ...start, timeline: miningTimeline() })
+    // In the shared world a success depletes the node: the tree falls then.
+    else logging.start({ ...start, timeline: choppingTimeline() })
     return true
   }
 

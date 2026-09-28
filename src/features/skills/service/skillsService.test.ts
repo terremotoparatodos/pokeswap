@@ -14,7 +14,7 @@ function setup() {
 }
 
 const attempt = (actionId: string, target: WorkTarget = { kind: 'gather', resourceId: 'common_tree' }, speciesId = 123): WorkAttemptInput => ({
-  actionId, playerId: 'ash', worker: { instanceId: 'poke-1', speciesId }, target,
+  actionId, playerId: 'ash', worker: { instanceId: 'poke-1', speciesId }, target, attemptMs: 600,
 })
 
 function authorizeAndWait(env: ReturnType<typeof setup>, input: WorkAttemptInput): number {
@@ -58,6 +58,45 @@ describe('authorizeWorkAttempt', () => {
       { ...attempt('x'.repeat(200)) },
     ]
     for (const input of bad) expect(service.authorizeWorkAttempt(input)).toMatchObject({ allowed: false, reason: 'invalid_request' })
+  })
+
+  it('refuses a missing or out-of-range tick: WORLD must say how long one attempt is', () => {
+    const { service } = setup()
+    for (const attemptMs of [undefined, 0, 399, 1201, 600.5]) {
+      expect(service.authorizeWorkAttempt({ ...attempt('t'), attemptMs } as WorkAttemptInput)).toMatchObject({ allowed: false, reason: 'invalid_request' })
+    }
+  })
+
+  it('draws the attempts secretly with its own random port: durationMs = attempts × tick', () => {
+    const store = createMemorySkillsStore()
+    const rolls = [0.99, 0.99, 0.01] // two failures, then a success on attempt 3
+    const service = createSkillsService({ progress: store.progress, ledger: store.ledger, clock: createManualClock(0), random: () => rolls.shift() ?? 0.5 })
+    const auth = service.authorizeWorkAttempt(attempt('a1'))
+    if (!auth.allowed) throw new Error(auth.reason)
+    expect(auth.durationMs).toBe(3 * 600)
+    expect(store.ledger.authorization('a1')).toMatchObject({ attempts: 3, durationMs: 1_800 })
+  })
+
+  it('a level-50 player with the best roll finishes on the first tick', () => {
+    const store = createMemorySkillsStore()
+    store.setXp('ash', 'woodcutting', totalXpForLevel(50))
+    const service = createSkillsService({ progress: store.progress, ledger: store.ledger, clock: createManualClock(0), random: () => 0 })
+    expect(service.authorizeWorkAttempt(attempt('a1'))).toMatchObject({ allowed: true, durationMs: 600 })
+  })
+
+  it('the worst rolls stop at the cap, never beyond', () => {
+    const store = createMemorySkillsStore()
+    const service = createSkillsService({ progress: store.progress, ledger: store.ledger, clock: createManualClock(0), random: () => 0.9999999 })
+    const auth = service.authorizeWorkAttempt(attempt('a1'))
+    if (!auth.allowed) throw new Error(auth.reason)
+    const { terms, attempts } = store.ledger.authorization('a1')!
+    expect(attempts).toBe(terms.maxAttempts)
+    expect(auth.durationMs).toBe(terms.maxAttempts * 600)
+  })
+
+  it('tells the requester nothing else that predicts the end: no attempts, no chance, no cap', () => {
+    const { service } = setup()
+    expect(JSON.stringify(service.authorizeWorkAttempt(attempt('a1')))).not.toMatch(/attempts|chance|maxAttempts/i)
   })
 
   it('does not change anything by itself: no XP, no items, until settle', () => {

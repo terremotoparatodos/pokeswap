@@ -21,6 +21,10 @@ export interface AuthorizedWork {
   readonly workerSpeciesId: number
   readonly terms: WorkTerms
   readonly authorizedAt: number
+  /** The secret draw (PROB-2): attempts until the first success, capped. Server-only. */
+  readonly attempts: number
+  /** attempts × terms.attemptMs: the earliest instant settlement may complete. Server-only. */
+  readonly durationMs: number
 }
 
 export type SettlementOutcome = 'completed' | 'cancelled'

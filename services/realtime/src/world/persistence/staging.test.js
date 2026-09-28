@@ -6,8 +6,8 @@ import { ownershipFromPlayerData } from '../pokemonOwnership.js'
 import { PLOTS } from '../plots.js'
 import { RESPAWN_MS } from '../resourceLayout.js'
 import { createSkillsWorldPolicy, skillsResourceFor } from '../skills/skills.generated.js'
-import { fakeClient, lastMessage, manualClock, praderaNodesNearSpawn, settle } from '../testing.js'
-import { WORLD_MESSAGE } from '../worldProtocol.js'
+import { fakeClient, lastMessage, manualClock, praderaNodesNearSpawn, privateDuration, scriptedRandom, settle } from '../testing.js'
+import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../worldProtocol.js'
 import { WorldRoom } from '../worldRoom.js'
 
 // RC-0.3 Security & Persistence Gate, against a REAL Supabase stack (Postgres,
@@ -440,7 +440,8 @@ async function world(clock) {
   const actors = new Map()
   const sockets = new Map()
   const room = new WorldRoom({
-    skills: createSkillsWorldPolicy({ store: data, now: clock.now, growScale: 0.001 }), ownership: ownershipFromPlayerData(data, clock.now),
+    // Deterministic SKILLS draw (0.5 → every attempt of a level-1 player fails until the cap).
+    skills: createSkillsWorldPolicy({ store: data, now: clock.now, growScale: 0.001, random: scriptedRandom() }), ownership: ownershipFromPlayerData(data, clock.now),
     playerData: data, now: clock.now, log: () => {}, lookupActor: id => actors.get(id) ?? null, clientForPlayer: id => sockets.get(id) ?? null,
   })
   await room.start()
@@ -448,7 +449,7 @@ async function world(clock) {
     const client = fakeClient(id)
     const actor = { id, areaId: 'pradera', tx: spot.tx, ty: spot.ty }
     actors.set(id, actor); sockets.set(id, client)
-    room.join(client, { worldProtocol: 1 }, { kind: 'player', userId: id, token: null })
+    room.join(client, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: id, token: null })
     room.snapshot(client, actor)
     for (let i = 0; i < 40 && !lastMessage(client, WORLD_MESSAGE.PLAYER_STATE); i++) await new Promise(r => setTimeout(r, 25))
     return { client, actor }
@@ -472,7 +473,7 @@ test('WORLD on Supabase: chop → one settlement → restart keeps the stump →
   await first.room.work(pa.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
   const started = result(pa.client)
   assert.equal(started.ok, true, JSON.stringify(started))
-  await first.finish(started.endsAt - started.startedAt)
+  await first.finish(privateDuration(first.room.authority, started.actionId))
   assert.equal(lastMessage(pa.client, WORLD_MESSAGE.WORK_DONE).ok, true)
   assert.deepEqual((await first.data.playerState(a.id)).xp.woodcutting, 10)
 
@@ -500,7 +501,7 @@ test('WORLD on Supabase: farming survives a restart and only the planter harvest
   await first.room.work(pa.actor, { nodeId: PLOT.id, pokemonInstanceId: MILTANK, requestId: 1, cropId: 'oran' })
   const planting = result(pa.client)
   assert.equal(planting.ok, true, JSON.stringify(planting))
-  await first.finish(planting.endsAt - planting.startedAt)
+  await first.finish(privateDuration(first.room.authority, planting.actionId))
   // B cannot plant over it or harvest it.
   await first.room.work(pb.actor, { nodeId: PLOT.id, pokemonInstanceId: BELLOSSOM, requestId: 1, cropId: 'oran' })
   assert.equal(result(pb.client).reason, 'not-your-plot')
@@ -520,8 +521,13 @@ test('WORLD on Supabase: farming survives a restart and only the planter harvest
   await ready.room.work(pa3.actor, { nodeId: PLOT.id, pokemonInstanceId: MILTANK, requestId: 1 })
   const harvesting = result(pa3.client)
   assert.equal(harvesting.farmAction, 'harvest')
-  await ready.finish(harvesting.endsAt - harvesting.startedAt)
+  await ready.finish(privateDuration(ready.room.authority, harvesting.actionId))
   const paid = lastMessage(pa3.client, WORLD_MESSAGE.WORK_DONE).summary.rewards[0].quantity
+  // WORLD VISUAL-2 left the trainer on its waiting tile: step back beside the plot.
+  Object.assign(pa3.actor, {
+    tx: PLOT.tx - 1,
+    ty: PLOT.ty,
+  })
   await ready.room.work(pa3.actor, { nodeId: PLOT.id, pokemonInstanceId: MILTANK, requestId: 2 })
   assert.equal(result(pa3.client).reason, 'choose-crop', 'harvested: empty again')
   const saved = await ready.data.playerState(a.id)
@@ -550,7 +556,7 @@ test('WORLD on Supabase: hostile intents are ignored or refused', { skip }, asyn
   const started = result(pa.client)
   assert.equal(started.ok, true)
   assert.notEqual(started.actionId, chosenId, 'the server names the action, not the client')
-  await w.finish(started.endsAt - started.startedAt)
+  await w.finish(privateDuration(w.room.authority, started.actionId))
   // What the server rolled (base 1, +1 on an aptitude bonus) — never the payload's 999999.
   const paid = lastMessage(pa.client, WORLD_MESSAGE.WORK_DONE).summary.rewards
   assert.deepEqual(paid.map(r => r.itemId), ['common_log'])
@@ -573,7 +579,7 @@ test('WORLD on Supabase: A and B race for one tree — one reservation, one rewa
   const results = [result(pa.client), result(pb.client)]
   assert.deepEqual(results.map(r => r.ok).sort(), [false, true])
   const winner = results.find(r => r.ok)
-  await w.finish(winner.endsAt - winner.startedAt)
+  await w.finish(privateDuration(w.room.authority, winner.actionId))
   const total = (await w.data.playerState(a.id)).xp.woodcutting + (await w.data.playerState(b.id)).xp.woodcutting
   assert.equal(total, 10)
   assert.equal((await asService('/rest/v1/skill_work_settlements?select=action_id')).body.length, 1)

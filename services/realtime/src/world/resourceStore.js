@@ -44,7 +44,6 @@ export class ResourceStore {
       workKind: mutable.workKind ?? null,
       workedFrom: mutable.workedFrom ?? null,
       actionStartedAt: mutable.actionStartedAt ?? null,
-      actionEndsAt: mutable.actionEndsAt ?? null,
       respawnAt: mutable.respawnAt ?? null,
       plot: mutable.plot ?? null,
       version: ++this.revision,

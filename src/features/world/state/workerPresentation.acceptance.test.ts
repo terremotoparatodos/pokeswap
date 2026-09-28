@@ -5,6 +5,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { WorldRoom } from '../../../../services/realtime/src/world/worldRoom.js'
+import { WORLD_PROTOCOL } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { createDemoSkillPolicy } from '../../../../services/realtime/src/world/demoSkillPolicy.js'
 import { createStaticOwnership } from '../../../../services/realtime/src/world/pokemonOwnership.js'
 import { praderaNodesNearSpawn } from '../../../../services/realtime/src/world/testing.js'
@@ -36,7 +37,7 @@ function stage() {
     }
     const actor = { id, areaId: 'pradera', tx: spot.tx, ty: spot.ty }
     actors.set(id, actor); sockets.set(id, socket)
-    server.join(socket, { worldProtocol: 1 }, { kind: 'player', userId: id, token: null })
+    server.join(socket, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: id, token: null })
     world.attach((type, payload) => {
       if (type === 'world:work') void server.work(actor, payload)
       if (type === 'world:cancel') server.cancel(actor, payload)

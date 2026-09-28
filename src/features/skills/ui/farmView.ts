@@ -5,8 +5,7 @@
 import { resolveAptitude } from '../domain/aptitude/aptitude'
 import { speciesDisplayName } from '../domain/aptitude/speciesFacts'
 import type { Aptitude } from '../domain/aptitude/aptitudeScale'
-import { CROPS, CROP_BY_ID, FARM_ACTION_MS, type CropDefinition, type FarmAction, type PlotKind } from '../domain/farming'
-import { workDuration } from '../domain/workRules'
+import { CROPS, CROP_BY_ID, type CropDefinition, type FarmAction, type PlotKind } from '../domain/farming'
 import type { WorkerRef } from './workerRef'
 
 export type PlotStageName = 'empty' | 'planted' | 'growing' | 'ready' | 'working'
@@ -37,10 +36,10 @@ export interface FarmWorkerOption {
   readonly name: string
   readonly aptitude: Aptitude
   readonly unable: boolean
-  readonly seconds: number
 }
 
-export function farmWorkerOptions(workers: readonly WorkerRef[], action: FarmAction, cropId: string | null, farmingLevel: number): readonly FarmWorkerOption[] {
+/** Who can do this farm action, and how apt. No time: the server alone knows when an attempt succeeds (PROB-2). */
+export function farmWorkerOptions(workers: readonly WorkerRef[], cropId: string | null): readonly FarmWorkerOption[] {
   const minAptitude = (cropId ? CROP_BY_ID.get(cropId)?.minAptitude : 1) ?? 1
   return workers
     .map((worker, index) => {
@@ -49,7 +48,7 @@ export function farmWorkerOptions(workers: readonly WorkerRef[], action: FarmAct
         index,
         option: {
           instanceId: worker.instanceId, speciesId: worker.speciesId, name: speciesDisplayName(worker.speciesId), aptitude,
-          unable: aptitude < minAptitude, seconds: Math.round(workDuration(FARM_ACTION_MS[action], aptitude, farmingLevel) / 100) / 10,
+          unable: aptitude < minAptitude,
         },
       }
     })

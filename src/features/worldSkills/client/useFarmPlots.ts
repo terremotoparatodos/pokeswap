@@ -29,7 +29,7 @@ export function useFarmPlots(game: () => SkillsGamePort | null, session: SkillsS
   const touch = () => { version.value++ }
   const selection = shallowRef<PlotDef | null>(null)
   const phase = ref<'idle' | 'working' | 'result'>('idle')
-  const run = shallowRef<{ actionId: string; workerName: string; durationMs: number } | null>(null)
+  const run = shallowRef<{ actionId: string; workerName: string } | null>(null)
   const result = shallowRef<SettleResult | null>(null)
   const refusal = ref<string | null>(null)
   const lastWorker = ref<string | null>(null)
@@ -105,7 +105,7 @@ export function useFarmPlots(game: () => SkillsGamePort | null, session: SkillsS
       return
     }
     lastWorker.value = worker.instanceId
-    run.value = { actionId: begin.actionId, workerName, durationMs: begin.durationMs }
+    run.value = { actionId: begin.actionId, workerName }
     // The result arrives with world:work:done (see the subscription above).
   }
 

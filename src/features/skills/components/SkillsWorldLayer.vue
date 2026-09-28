@@ -9,7 +9,6 @@
         :key="farm.view.value.plot.id"
         :plot="farm.view.value"
         :phase="farm.phase.value"
-        :duration-ms="farm.run.value?.durationMs ?? 0"
         :result="farm.result.value"
         :refusal="farm.refusal.value"
         :xp="layer.xp.value"
@@ -77,7 +76,7 @@ const props = defineProps<{
 const emit = defineEmits<{ overlay: [open: boolean]; panel: [panel: 'skills' | 'bag', open: boolean] }>()
 
 const session = createWorldSkillsSession(props.world)
-const layer = useSkillsLayer(() => props.game, session)
+const layer = useSkillsLayer(() => props.game, session, () => props.world.serverNow())
 /** Agricultura on the shared plots (INTEGRATION-1). */
 const farm = useFarmPlots(() => props.game, session, props.world)
 const overlay = new CompositeOverlay(layer.overlay, new PlotOverlay(props.world, () => props.world.playerData?.playerId ?? null))

@@ -5,7 +5,7 @@ import { MESSAGE } from '../protocol/messages.js'
 import { ARRIVALS } from '../protocol/arrival.js'
 import { createDemoSkillPolicy } from '../world/demoSkillPolicy.js'
 import { createStaticOwnership } from '../world/pokemonOwnership.js'
-import { WORLD_MESSAGE } from '../world/worldProtocol.js'
+import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../world/worldProtocol.js'
 import { fakeClient, lastMessage, praderaNodesNearSpawn, settle } from '../world/testing.js'
 
 // WORLD-1 inside the presence room: routing, gating and the snapshot moments.
@@ -36,9 +36,9 @@ test('world messages ride the presence socket only for clients that declare the 
   const player = fakeClient('world-a-session')
   const legacy = fakeClient('legacy-session')
   const guest = fakeClient('guest-session')
-  await room.onJoin(player, { worldProtocol: 1 }, { kind: 'player', userId: 'world-a', username: 'A', token: null })
+  await room.onJoin(player, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: 'world-a', username: 'A', token: null })
   await room.onJoin(legacy, {}, { kind: 'player', userId: 'legacy-b', username: 'B', token: null })
-  await room.onJoin(guest, { worldProtocol: 1 }, { kind: 'guest', token: null })
+  await room.onJoin(guest, { worldProtocol: WORLD_PROTOCOL }, { kind: 'guest', token: null })
   for (const client of [player, legacy, guest]) room.ready(client)
   assert.deepEqual(lastMessage(player, WORLD_MESSAGE.SNAPSHOT), { now: lastMessage(player, WORLD_MESSAGE.SNAPSHOT).now, areaId: 'ciudad-corazon', chunks: [], nodes: [] })
   assert.ok(lastMessage(guest, WORLD_MESSAGE.SNAPSHOT))
@@ -55,6 +55,12 @@ test('world messages ride the presence socket only for clients that declare the 
   await settle()
   assert.equal(lastMessage(player, WORLD_MESSAGE.WORK_RESULT).ok, true)
   assert.equal(world.authority.store.get(target.node.id).state, 'working')
+
+  // SKILLS PROB-2: a socket without the current world protocol cannot start work, whatever it sends.
+  room.work(legacy, { nodeId: target.node.id, pokemonInstanceId: 25, requestId: 9 })
+  await settle()
+  assert.deepEqual(lastMessage(legacy, WORLD_MESSAGE.WORK_RESULT), { requestId: 9, ok: false, reason: 'client-outdated', message: 'Actualizá la página para seguir trabajando.' })
+  assert.equal(world.stats().transport.outdatedWork, 1)
 
   // A guest has no actor to stand beside anything.
   room.work(guest, { nodeId: target.node.id, pokemonInstanceId: 25, requestId: 1 })

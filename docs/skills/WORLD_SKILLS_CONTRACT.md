@@ -13,7 +13,8 @@
 | ¿Está agotado? ¿Cuándo reaparece? ¿Qué ve el resto? | **WORLD** |
 | ¿El jugador tiene nivel para esto? | **SKILLS** |
 | ¿Este Pokémon puede / qué tan bien lo hace? | **SKILLS** |
-| ¿Cuánto dura? ¿Cuánta XP? ¿Qué items? | **SKILLS** |
+| ¿Qué chance tiene cada intento y cuántos intentos lleva (sorteo secreto, PROB-2)? ¿Cuánta XP? ¿Qué items? | **SKILLS** |
+| ¿Cada cuánto es un intento (tick de trabajo, 600 ms)? | **WORLD** (`WORK_TICK_MS`) |
 | ¿La transición de parcela pedida es legal? | **SKILLS** (valida lo que WORLD reporta; no cambia nada) |
 
 SKILLS nunca escribe `node.state`. WORLD nunca escribe `if level >= 10`.
@@ -25,10 +26,12 @@ cliente: "trabajar nodo N con Pokémon P"
   └─▶ WORLD (servidor)
         valida: nodo existe, misma área, distancia, disponible, P es del jugador, P libre
         mint actionId (único, p. ej. uuid)
-        └─▶ skills.authorizeWorkAttempt({ actionId, playerId, worker: { instanceId, speciesId }, target })
+        └─▶ skills.authorizeWorkAttempt({ actionId, playerId, worker: { instanceId, speciesId }, target, attemptMs })
               ◀── { allowed: true, durationMs, xp, reward, skillId, aptitude, expiresAt, rulesVersion }
+                   (PROB-2: durationMs = intentos × attemptMs, del sorteo secreto de SKILLS;
+                    sólo servidor — ningún mensaje a un cliente lo lleva)
               ◀── { allowed: false, reason, message: "Requiere Minería 20", requiredLevel, ... }
-        si allowed: marca P y N como ocupados, difunde "P trabaja N" (AOI), arranca timer durationMs
+        si allowed: marca P y N como ocupados, difunde "P trabaja N desde startedAt" (AOI, sin fin), arranca timer durationMs
         al vencer el timer:
           consume la carga del nodo / avanza la parcela (WORLD)
           └─▶ skills.settleWork(actionId, { outcome: 'completed' })
@@ -70,7 +73,8 @@ interface PlotSnapshot {
 
 - **Idempotencia por `actionId`.** Un segundo `settleWork` del mismo `actionId` devuelve `already_settled` con el **mismo** settlement, sin conceder nada. Un `authorizeWorkAttempt` con un `actionId` ya usado devuelve `duplicate_action`.
 - **Términos congelados.** `settleWork` usa lo que se autorizó (recurso, aptitud, drop). WORLD no puede cambiar la recompensa en el settle.
-- **Sin pago anticipado.** `completed` antes de `durationMs − 250 ms` → `too_early` (no cambia nada; WORLD puede reintentar).
+- **Sin pago anticipado.** `completed` antes de `durationMs − 250 ms` (el sorteo guardado en el ledger) → `too_early` (no cambia nada; WORLD puede reintentar).
+- **Trabajo probabilístico (PROB-2).** `authorizeWorkAttempt` exige `attemptMs` entero en [400, 1200]; calcula la chance por intento con nivel, tier y aptitud, sortea con el puerto `random` (cripto en producción, inyectable en tests) cuántos intentos harán falta (tope ⌈3/p⌉ en [3, 40]) y guarda el sorteo en el ledger. La respuesta al cliente (`details`) nunca lleva duración, intentos ni chance. Detalle y tablas: `docs/skills/SKILLS_PROB_2_REPORT.md`.
 - **Vencimiento.** Una autorización de más de 10 min se cierra como `cancelled` sin pago.
 - **Carrera de commits.** Si dos instancias liquidan a la vez, gana una; la otra recibe `already_settled`.
 - **Entrada hostil.** ids vacíos/largos, especie no entera, target nulo → `invalid_request`.

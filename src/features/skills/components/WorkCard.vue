@@ -42,7 +42,7 @@
           >
             <span class="wc-worker-name">{{ option.name }}</span>
             <span class="wc-stars" :aria-label="`aptitud ${option.aptitude} de 5: ${APTITUDE_LABEL[option.aptitude]}`">{{ aptitudeStars(option.aptitude) }}</span>
-            <span class="wc-secs">{{ option.unable ? `Necesita ${'★'.repeat(resource.minAptitude)}` : `${option.seconds.toLocaleString('es')} s` }}</span>
+            <span v-if="option.unable" class="wc-secs">Necesita {{ '★'.repeat(resource.minAptitude) }}</span>
           </button>
         </li>
       </ul>
@@ -50,9 +50,9 @@
       <button type="button" class="wc-go" :disabled="!chosenOption" @click="go">{{ goLabel }}</button>
     </template>
 
+    <!-- SKILLS PROB-2: no bar, no countdown. The Pokémon swings once per tick until the server says it is done. -->
     <div v-else-if="phase === 'working'" class="wc-working" role="status">
-      <p>{{ workerName }} está {{ skill.working.toLowerCase() }}…</p>
-      <span class="wc-progress"><span :style="{ animationDuration: `${run?.durationMs ?? 0}ms` }" /></span>
+      <p>{{ run?.workerName ?? workerName }} está {{ skill.working.toLowerCase() }}…</p>
     </div>
 
     <div v-else-if="view" class="wc-result" role="status">
@@ -108,7 +108,7 @@ const emit = defineEmits<{ work: [worker: WorkerRef, name: string]; close: [] }>
 const skill = computed(() => SKILLS[props.resource.skill])
 const playerLevel = computed(() => levelForXp(props.xp[props.resource.skill] ?? 0))
 const firstTime = computed(() => SKILL_IDS.every(id => (props.xp[id] ?? 0) === 0))
-const options = computed(() => workerOptions(props.workers, props.resource, playerLevel.value))
+const options = computed(() => workerOptions(props.workers, props.resource))
 
 const chosen = ref<string | null>(null)
 const workerName = ref<string | null>(null)
@@ -194,9 +194,6 @@ function go(): void {
 .wc-actions .wc-go { flex: 1; }
 
 .wc-working { display: grid; gap: 0.45rem; font-size: 0.9rem; }
-.wc-progress { display: block; height: 8px; border-radius: 999px; background: rgba(255, 255, 255, 0.12); overflow: hidden; }
-.wc-progress span { display: block; width: 100%; height: 100%; background: var(--skx-gold); transform-origin: left; animation: wc-fill linear forwards; }
-@keyframes wc-fill { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
 .wc-result { display: grid; gap: 0.35rem; }
 .wc-levelup { color: var(--skx-gold); font-size: 1.1rem; font-weight: 900; }
@@ -204,8 +201,4 @@ function go(): void {
 .wc-gains { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.8rem; font-size: 0.9rem; }
 .wc-item { display: inline-flex; align-items: center; gap: 0.3rem; }
 .wc-bonus { color: var(--skx-rare); font-size: 0.78rem; }
-
-@media (prefers-reduced-motion: reduce) {
-  .wc-progress span { animation: none; transform: none; }
-}
 </style>

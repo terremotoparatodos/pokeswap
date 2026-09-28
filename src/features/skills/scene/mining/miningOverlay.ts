@@ -26,7 +26,7 @@ import {
   type ActiveGathering, type GatheringOverlayDeps, type GatheringReward, type RingStyle, type StartGathering,
   type ViewInput, type VisibleNode,
 } from '../overworld/gatheringOverlayCore'
-import { miningPose, strikesBetween, type MiningTimeline } from './miningAction'
+import { closeMining, miningPose, strikesBetween, type MiningTimeline } from './miningAction'
 import { rarityOfItem } from './miningRarity'
 import { nodeVisual, respawnFrame, type NodeVisualView } from './nodeVisualState'
 import { spawnImpact, stepParticles, type Particle } from './particles'
@@ -82,6 +82,10 @@ export class MiningOverlay extends GatheringOverlayCore<StartMining, ActiveActio
     for (let i = strikesBetween(action.timeline, action.lastMs, elapsedMs).length; i > 0; i--) {
       this.particles = spawnImpact(this.particles, { x, y, z: 6, rarity: nodeRarity === 'common' ? 'common' : 'uncommon', away, random: this.random })
     }
+  }
+
+  protected closeTimeline(elapsedMs: number): MiningTimeline {
+    return closeMining(elapsedMs)
   }
 
   protected celebrationEffects(action: ActiveAction, reward: GatheringReward, x: number, y: number): void {

@@ -27,7 +27,7 @@ describe('a fresh playtester', () => {
     expect(new Set(starters.map(resource => resource.skill))).toEqual(new Set(['woodcutting', 'mining']))
     for (const member of party) {
       for (const resource of starters) {
-        const result = evaluateWork({ target: { kind: 'gather', resourceId: resource.id }, skillXp: LEVEL_ONE, workerSpeciesId: member.speciesId })
+        const result = evaluateWork({ target: { kind: 'gather', resourceId: resource.id }, skillXp: LEVEL_ONE, workerSpeciesId: member.speciesId, attemptMs: 600 })
         expect(result.ok, `${member.speciesId} on ${resource.id}`).toBe(true)
       }
     }

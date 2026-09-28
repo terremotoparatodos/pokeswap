@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { actorPosition, createActor, isMoving } from '../../wildlands/engine/actors'
 import { CHOP_MS, CHOP_TOTAL_MS } from '../../skills/scene/logging/choppingTimeline'
 import { SWING_MS, SWING_TOTAL_MS } from '../../skills/scene/mining/miningAction'
+import { WORK_TICK_MS } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { TASK_BEATS, beatTime, isImpact, taskBeat, workerPose, type WorkKind } from './workerPose'
 
 const STAND = { tx: 4, ty: 7, dir: 'left' as const }
@@ -29,10 +30,18 @@ describe('worker pose per task', () => {
     }
   })
 
-  it('Talar, Minería and Agricultura are visibly different beats', () => {
+  it('Talar, Minería and Agricultura are visibly different gestures, each repeated once per work tick (one attempt)', () => {
     const [chop, mine, farm] = KINDS.map(trace)
     expect(new Set([chop, mine, farm]).size).toBe(3)
-    expect(new Set(KINDS.map(kind => TASK_BEATS[kind].periodMs)).size).toBe(3)
+    for (const kind of KINDS) {
+      expect(TASK_BEATS[kind].periodMs).toBe(WORK_TICK_MS)
+      expect(TASK_BEATS[kind].keys[TASK_BEATS[kind].keys.length - 1][0]).toBe(WORK_TICK_MS)
+      // The same pose one tick later, and ten ticks later: the gesture repeats until the server ends the action.
+      for (const t of [0, 90, 270, 444]) {
+        expect(workerPose(STAND, kind, START, START + t + WORK_TICK_MS).progress).toBeCloseTo(workerPose(STAND, kind, START, START + t).progress, 10)
+        expect(workerPose(STAND, kind, START, START + t + 10 * WORK_TICK_MS).hop).toBeCloseTo(workerPose(STAND, kind, START, START + t).hop, 10)
+      }
+    }
   })
 
   it('Talar and Minería land their blow on the Skills scene’s bite and strike', () => {
@@ -49,17 +58,17 @@ describe('worker pose per task', () => {
   })
 
   it('Minería bounces back off the rock after the strike; Talar pulls back before the bite', () => {
-    const mineBounce = drawnAt('mine', START + 370)
+    const mineBounce = drawnAt('mine', START + 444)
     expect(mineBounce.x).toBeGreaterThan(drawnAt('mine', START).x)
     expect(mineBounce.hop).toBeGreaterThan(1)
     expect(drawnAt('chop', START + 150).x).toBeGreaterThan(drawnAt('chop', START).x)
   })
 
   it('Agricultura is softer and lower: a small lean, the sprite dips, no impact', () => {
-    const low = drawnAt('farm', START + 450)
+    const low = drawnAt('farm', START + 300)
     expect(drawnAt('farm', START).x - low.x).toBeLessThanOrEqual(2)
     expect(low.hop).toBeLessThan(0)
-    for (let t = 0; t < 900; t += 25) expect(isImpact('farm', START, START + t)).toBe(false)
+    for (let t = 0; t < WORK_TICK_MS; t += 25) expect(isImpact('farm', START, START + t)).toBe(false)
   })
 
   it('stays on its stand (the lean never reaches the node) and steps from the shared clock', () => {
@@ -85,7 +94,7 @@ describe('worker pose per task', () => {
   it('an unknown or missing task falls back to the Talar beat; phase counts from the action start', () => {
     expect(taskBeat(undefined)).toBe(TASK_BEATS.chop)
     expect(taskBeat('dig')).toBe(TASK_BEATS.chop)
-    expect(beatTime(TASK_BEATS.mine, START, START - 100)).toBe(400)
-    expect(beatTime(TASK_BEATS.mine, START + 100, START + 600)).toBe(0)
+    expect(beatTime(TASK_BEATS.mine, START, START - 100)).toBe(500)
+    expect(beatTime(TASK_BEATS.mine, START + 100, START + 700)).toBe(0)
   })
 })

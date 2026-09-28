@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { createDemoSkillPolicy } from './demoSkillPolicy.js'
 import { createStaticOwnership } from './pokemonOwnership.js'
 import { resourceById } from './resourceLayout.js'
-import { WORLD_MESSAGE } from './worldProtocol.js'
+import { WORLD_MESSAGE, WORLD_PROTOCOL } from './worldProtocol.js'
 import { WorldRoom } from './worldRoom.js'
 import { standableTile, workPlacement } from './workPlacement.js'
 import { fakeClient, lastMessage, manualClock, praderaNodesNearSpawn, settle } from './testing.js'
@@ -37,7 +37,7 @@ function setup() {
     const client = fakeClient(id)
     const actor = { id, areaId: 'pradera', tx: spot.tx, ty: spot.ty }
     actors.set(id, actor); sockets.set(id, client)
-    world.join(client, { worldProtocol: 1 }, { kind: 'player', userId: id, token: null })
+    world.join(client, { worldProtocol: WORLD_PROTOCOL }, { kind: 'player', userId: id, token: null })
     world.snapshot(client, actor)
     return { client, actor }
   }
@@ -145,7 +145,7 @@ test('the new client stays gentle on a fake client: a fresh guest snapshot carri
   const a = join('a', SPOT_A)
   await work(world, a.actor)
   const guest = fakeClient('guest')
-  world.join(guest, { worldProtocol: 1 }, { kind: 'guest' })
+  world.join(guest, { worldProtocol: WORLD_PROTOCOL }, { kind: 'guest' })
   world.snapshot(guest, { id: null, areaId: 'pradera', tx: SPOT_B.tx, ty: SPOT_B.ty })
   const node = lastMessage(guest, WORLD_MESSAGE.SNAPSHOT).nodes.find(entry => entry.id === TREE.id)
   assert.deepEqual({ tx: node.worker.stand.tx, ty: node.worker.stand.ty }, SPOT_A)

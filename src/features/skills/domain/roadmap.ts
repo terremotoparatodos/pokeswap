@@ -4,7 +4,9 @@
 // Three kinds of unlock:
 //   resource  a tree/rock you may now work           (Talar, Minería)
 //   crop      something you may now plant            (Agricultura)
-//   rhythm    you work faster in this skill          (every RHYTHM.everyLevels)
+//   rhythm    a mastery milestone in this skill      (every RHYTHM.everyLevels)
+//             Since PROB-2 every level raises the chance of each attempt; the
+//             milestone names that progress without promising a number.
 
 import { MAX_SKILL_LEVEL, RHYTHM } from './balance'
 import { CROPS } from './farming'
@@ -39,10 +41,6 @@ const WHERE: Readonly<Record<string, string>> = {
   crystal_cluster: 'Cuevas y la Tundra profunda',
 }
 
-function rhythmPercent(level: number): number {
-  return Math.round(Math.floor(level / RHYTHM.everyLevels) * RHYTHM.reduction * 100)
-}
-
 function buildUnlocks(): readonly Unlock[] {
   const list: Unlock[] = []
   for (const resource of RESOURCES) {
@@ -59,7 +57,7 @@ function buildUnlocks(): readonly Unlock[] {
     for (let level = RHYTHM.everyLevels; level <= MAX_SKILL_LEVEL; level += RHYTHM.everyLevels) {
       list.push({
         skillId, level, kind: 'rhythm', id: `rhythm-${level}`,
-        title: `Ritmo ${level / RHYTHM.everyLevels}`, detail: `Todo trabajo ${rhythmPercent(level)} % más rápido`,
+        title: `Ritmo ${level / RHYTHM.everyLevels}`, detail: 'Tus golpes aciertan más seguido',
       })
     }
   }

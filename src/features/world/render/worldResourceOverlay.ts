@@ -2,8 +2,9 @@
 //
 // Only what the server said: a node away from its base state. A depleted tree
 // is a stump for everyone, a node being worked shakes in time with its worker
-// and shows the action's progress from the shared clock. Nothing here decides
-// a state; it reads the mirror.
+// on the shared clock, and a ring marks it as busy. SKILLS PROB-2: no progress
+// is drawn — nobody but the server knows when an action ends. Nothing here
+// decides a state; it reads the mirror.
 
 import type { Area } from '../../wildlands/engine/area'
 import type { DecorInstance } from '../../wildlands/engine/chunks'
@@ -15,7 +16,7 @@ import { depletedSprite } from './depletedArt'
 import { isImpact } from './workerPose'
 import { drawTrail, trailTiles, zoneLabels } from './zoneMarks'
 
-const VERB: Readonly<Record<string, string>> = { chop: 'Talando', mine: 'Minando', farm: 'Cultivando' }
+const VERB: Readonly<Record<string, string>> = { chop: 'Talando', mine: 'Picando', farm: 'Cultivando' }
 
 export class WorldResourceOverlay implements SceneOverlay {
   constructor(
@@ -56,17 +57,18 @@ export class WorldResourceOverlay implements SceneOverlay {
     const now = this.clock.now()
     if (now === null) return
     for (const node of this.mirror.active()) {
-      if (!node.actionId || node.startedAt === undefined || node.endsAt === undefined || this.isOwn(node)) continue
+      if (!node.actionId || node.startedAt === undefined || this.isOwn(node)) continue
       const [, tx, ty] = node.id.split(':').map(Number) as [number, number, number]
-      const progress = Math.min(1, Math.max(0, (now - node.startedAt) / Math.max(1, node.endsAt - node.startedAt)))
       const cx = tx * TILE + TILE / 2 - x0
       const cy = ty * TILE + TILE - 3 - y0
+      // A full, steady ring: "someone is working here". It pulses with the blows, never fills.
+      const beat = isImpact(node.workKind, node.startedAt, now) ? 0.9 : 0.55
       g.save()
       g.lineWidth = 2
       g.strokeStyle = 'rgba(0, 0, 0, 0.35)'
       g.beginPath(); g.ellipse(cx, cy, 9, 4.5, 0, 0, Math.PI * 2); g.stroke()
-      g.strokeStyle = '#ffd27a'
-      g.beginPath(); g.ellipse(cx, cy, 9, 4.5, 0, -Math.PI / 2, -Math.PI / 2 + progress * Math.PI * 2); g.stroke()
+      g.strokeStyle = `rgba(255, 210, 122, ${beat})`
+      g.beginPath(); g.ellipse(cx, cy, 9, 4.5, 0, 0, Math.PI * 2); g.stroke()
       g.restore()
     }
   }

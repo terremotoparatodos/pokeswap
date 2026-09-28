@@ -1,22 +1,28 @@
 import { describe, expect, it } from 'vitest'
 import { createSeededRandom } from '../../domain/rng'
-import { MIN_SWINGS, miningPose, miningTimeline, REWARD_MS, strikesBetween, SWING_MS, SWING_TOTAL_MS } from './miningAction'
+import { WORK_TICK_MS } from '../../../../../services/realtime/src/world/worldProtocol.js'
+import { closeMining, miningPose, miningTimeline, REWARD_MS, strikesBetween, SWING_MS, SWING_TOTAL_MS } from './miningAction'
 import { highestRarity, rarityOfItem, rewardRarity } from './miningRarity'
 import { MAX_PARTICLES, spawnImpact, stepParticles } from './particles'
 import { nodeVisual, respawnFrame, type NodeVisualInput } from './nodeVisualState'
 
-describe('mining action timeline', () => {
-  it('fills the authorized duration with swings and never resolves early', () => {
-    expect(miningTimeline(100).swings).toBe(MIN_SWINGS)
-    expect(miningTimeline(1500).swings).toBe(3)
-    for (const durationMs of [1200, 3000, 4400, 6000]) expect(miningTimeline(durationMs).resultAtMs).toBeGreaterThanOrEqual(durationMs)
-    const timeline = miningTimeline(1500)
-    expect(timeline.resultAtMs).toBe(3 * SWING_TOTAL_MS)
-    expect(timeline.totalMs).toBe(timeline.resultAtMs + REWARD_MS)
+describe('mining action timeline (SKILLS PROB-2: one swing per tick until the server answers)', () => {
+  it('swings once per work tick while open: no end, no duration', () => {
+    expect(SWING_TOTAL_MS).toBe(WORK_TICK_MS)
+    const open = miningTimeline()
+    expect(open).toMatchObject({ open: true, resultAtMs: Infinity, totalMs: Infinity })
+    for (const tick of [0, 7, 100]) expect(miningPose(open, tick * WORK_TICK_MS + SWING_MS.windup).phase).toBe('strike')
+  })
+
+  it('closing finishes the swing in progress, then the reward', () => {
+    const closed = closeMining(WORK_TICK_MS * 2 + 1)
+    expect(closed).toMatchObject({ open: false, swings: 3, resultAtMs: 3 * SWING_TOTAL_MS })
+    expect(closed.totalMs).toBe(closed.resultAtMs + REWARD_MS)
+    expect(closeMining(0).swings).toBe(1)
   })
 
   it('walks windup → strike → recoil for each swing, then reward and done', () => {
-    const timeline = miningTimeline(1000)
+    const timeline = closeMining(WORK_TICK_MS + 10)
     expect(miningPose(timeline, 0)).toMatchObject({ phase: 'windup', swing: 0, toolFrame: 0 })
     expect(miningPose(timeline, SWING_MS.windup)).toMatchObject({ phase: 'strike', toolFrame: 2 })
     expect(miningPose(timeline, SWING_MS.windup).nodeShake).not.toBe(0)
@@ -27,7 +33,7 @@ describe('mining action timeline', () => {
   })
 
   it('reports each strike exactly once across frame boundaries', () => {
-    const timeline = miningTimeline(1500)
+    const timeline = closeMining(2 * WORK_TICK_MS + 1)
     let last = 0
     const hits: number[] = []
     for (let t = 16; t <= timeline.totalMs; t += 16) {

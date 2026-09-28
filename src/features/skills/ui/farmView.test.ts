@@ -10,11 +10,12 @@ describe('Agricultura card view', () => {
   })
 
   it('ranks the player’s own Pokémon by farming aptitude', () => {
-    const [best, , worst] = farmWorkerOptions([{ instanceId: '129', speciesId: 129 }, { instanceId: '241', speciesId: 241 }, { instanceId: '324', speciesId: 324 }], 'plant', 'oran', 1)
+    const [best, , worst] = farmWorkerOptions([{ instanceId: '129', speciesId: 129 }, { instanceId: '241', speciesId: 241 }, { instanceId: '324', speciesId: 324 }], 'oran')
     expect(best.name).toBe('Miltank')
     expect(best.aptitude).toBe(5)
     expect(worst.aptitude).toBeLessThanOrEqual(best.aptitude)
-    expect(best.seconds).toBeLessThan(worst.seconds)
+    // No time estimate: since PROB-2 the card never promises a duration.
+    expect(Object.keys(best)).not.toContain('seconds')
   })
 
   it('formats the time left', () => {
