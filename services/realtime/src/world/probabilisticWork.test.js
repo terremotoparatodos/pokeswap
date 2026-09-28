@@ -286,3 +286,13 @@ test('the demo policy still runs on whole ticks (transport benchmarks)', async (
   const started = await work(s.world, a.actor)
   assert.equal(privateDuration(s.world.authority, started.actionId) % WORK_TICK_MS, 0)
 })
+
+test('WORLD asks SKILLS with the protocol’s tick: every attempt is WORK_TICK_MS (600 ms)', async () => {
+  const seen = []
+  const demo = createDemoSkillPolicy({ durationMs: WORK_TICK_MS })
+  const s = setup({ skills: { ...demo, authorizeWorkAttempt: attempt => { seen.push(attempt.attemptMs); return demo.authorizeWorkAttempt(attempt) } } })
+  const a = s.join('a', TREE.stands[0])
+  await work(s.world, a.actor)
+  assert.deepEqual(seen, [WORK_TICK_MS])
+  assert.equal(WORK_TICK_MS, 600)
+})

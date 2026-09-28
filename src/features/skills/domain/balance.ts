@@ -18,8 +18,9 @@ export const MAX_SKILL_LEVEL = 50
  *
  * The linear term makes the first levels quick (L2 is four basic actions);
  * the exponential term takes over in the 30s so the late levels are an
- * investment: at the reference pace (scripts/skills/pacing.ts) Nv 10 takes
- * ~15 min, Nv 25 ~1 h, Nv 40 ~5 h and Nv 50 ~17 h of active play per skill.
+ * investment: at the reference pace (scripts/skills/pacing.ts, probabilistic
+ * work since PROB-2, Talar) Nv 10 takes ~15 min, Nv 25 ~1,2 h, Nv 40 ~5 h and
+ * Nv 50 ~14 h of active play per skill (Minería and Agricultura ~19–20 h).
  * `growth` is the knob for "how steep is the midgame"; `linear` for "how fast
  * is the tutorial". See docs/skills/SKILLS_1_REPORT.md §7.
  */
@@ -46,7 +47,7 @@ export const RHYTHM = { everyLevels: 10, reduction: 0.04 } as const
 
 /**
  * Pre-PROB-2 floor of the fixed-duration model (`workDuration`, kept for the
- * pacing and MAP-1 scripts). Work no longer uses it: an action lasts a whole
+ * MAP-1 audit script). Work and the pacing tool no longer use it: an action lasts a whole
  * number of attempts (see ATTEMPTS).
  */
 export const MIN_ACTION_MS = 1200

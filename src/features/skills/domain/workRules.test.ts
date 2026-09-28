@@ -87,7 +87,7 @@ describe('aptitude: efficiency everywhere, a gate only at the top', () => {
   })
 })
 
-describe('pre-PROB-2 fixed duration (kept for the pacing and MAP-1 scripts only)', () => {
+describe('pre-PROB-2 fixed duration (kept for the MAP-1 audit script only)', () => {
   it('scales by aptitude around the aptitude-3 reference', () => {
     expect(workDuration(4000, 3, 1)).toBe(4000)
     expect(workDuration(4000, 5, 1)).toBe(Math.round(4000 * APTITUDE_DURATION[5]))

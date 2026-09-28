@@ -86,7 +86,8 @@ export interface WorkInput {
 }
 
 /**
- * Pre-PROB-2 fixed-duration model, kept for the pacing and MAP-1 scripts.
+ * Pre-PROB-2 fixed-duration model, kept only for the MAP-1 audit script
+ * (scripts/map/audit-pradera.ts). Work and pacing use `attempts.ts`.
  * Work no longer uses it: see `attempts.ts`.
  * 1 − reduction per full RHYTHM.everyLevels of skill level. Level 10 → 0.96, 50 → 0.80.
  */
