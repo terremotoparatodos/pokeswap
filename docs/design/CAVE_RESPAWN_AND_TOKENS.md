@@ -253,3 +253,221 @@ elemental_token_balances(user_id, token_type, balance integer NOT NULL CHECK (ba
 | Sumidero principal | Gacha (§6). |
 | Sumidero de nivelación | Conversión con pérdida **5 : 1** entre tipos (5 de cualquier tipo → 1 de otro), con un tope de 20 conversiones por día. Es un sumidero neto y resuelve los tipos escasos. |
 | Sumideros futuros | Consumibles de Dungeon, cosméticos. Fuera de alcance: no se diseñan acá. |
+
+---
+
+## 6. Futuro gacha de Ciudad (sólo contrato y economía preliminar)
+
+### 6.1 Contrato
+
+| Requisito | Cómo se cumple |
+| --- | --- |
+| Sólo tokens ganados jugando | El único débito aceptado es `elemental_token_balances`. No hay SKU, precio en dinero, checkout ni webhook. `create-checkout` sigue desactivado (`create-checkout/index.ts:1,20`). |
+| Sin dinero real | Ningún camino compra Esencias. Las Esencias son intransferibles y el gacha no acepta `profiles.tokens`. |
+| Separado del mercado | Otra Edge Function (`city-gacha`) y otras tablas. El mercado no lee Esencias. Si un Pokémon del gacha se puede vender se decide aparte (D-GA3): si es vendible, las Esencias se convierten indirectamente en `profiles.tokens`. |
+| Probabilidades visibles | Cada huevo publica su tabla (tier → probabilidad, especies posibles **en ese momento**, pity). La tabla es la del servidor, versionada (`rules_version`). |
+| Protección contra mala suerte | Pity duro por huevo y usuario, persistido. Se evaluó conservar el contador al rotar de huevo, pero es un escalón de diseño: ver §6.4. |
+| Propiedad y unicidad | La tirada sólo sortea entre especies **sin dueño** (`slots.owner_id IS NULL`, no bloqueadas, no excluidas) del pool. Se lee **bajo lock** en la misma transacción que asigna el dueño. |
+| Sin duplicados imposibles | El `UPDATE slots SET owner_id = $user WHERE pokemon_id = $x AND owner_id IS NULL` es la condición de éxito (CAS). Si no afecta filas, se re-sortea dentro de la transacción. |
+| Resultado con dueño | No puede pasar por construcción: el candidato se valida bajo lock. Si el pool del tier se vacía, la tirada baja al tier inferior. Si **todo** el huevo se vacía, el huevo se muestra "agotado" y no acepta tiradas: **nunca** se cobra una tirada sin resultado. |
+| Server-side y exactly-once | `pullId` = idempotencia enviada por el cliente (UUID) + `user_id`. En una transacción: dedupe `pullId` → débito → pity → sorteo CSPRNG → CAS de `slots` → ledger (`reason = 'gacha_pull'`, `source_id = pullId`) → `gacha_pulls`. Un reintento devuelve el resultado guardado. |
+| No se implementa ahora | GACHA-1 es auditoría y decisión (`CAVE_ECOSYSTEM_ROADMAP.md`). |
+
+### 6.2 Comparación de formatos
+
+| Formato | Qué es | Tema PokeSwap | Complejidad | Riesgo |
+| --- | --- | --- | --- | --- |
+| **Banner por tipo** | "Banner Roca": cuesta Esencias de Roca y sortea especies de tipo roca | Débil: genérico, de juego de móvil | Baja | Los banners con muchos tipos poseídos se vacían. `flying` y `dragon` no tienen fuente. |
+| **Huevo por tipo** | Huevo "de Roca" que eclosiona tras un breve tiempo en la Ciudad | Medio | Baja + temporizador cosmético | Mismo problema de agotamiento |
+| **Convocatoria por hábitat — "Huevo de hábitat"** *(recomendado)* | Un huevo por **tipo de cueva** (`Huevo de Caliza`, `Huevo de Mina`, `Huevo Cristalino`…). Cuesta una mezcla de las Esencias que da esa cueva (p. ej. Caliza: 60 Roca + 20 Tierra) y sortea entre las **familias de esa cueva** (formas base; intermedias como tier raro). | **Fuerte**: cierra el ciclo cueva → Esencias de la cueva → huevo de la cueva → Pokémon de la cueva. El huevo se entrega en un "Criadero" de Ciudad. | Media | El agotamiento sigue, pero los pools son curados y chicos, así que la escasez es explícita y comunicable. |
+| **Elección entre siluetas** | Se muestran 3 siluetas y el jugador elige una | Divertido y con agencia | Alta: hay que reservar 3 especies únicas durante la elección | Reservar especies únicas mientras alguien decide bloquea a los demás. Con unicidad global es mala idea. |
+
+**Recomendación: "Huevo de hábitat".**
+
+- Es temático: la cueva es la fuente de Esencias y de familias.
+- Reutiliza los pools de `CAVE_TYPES_AND_FAMILIES.md` §6.
+- Pide 2–3 tipos de Esencia, lo que da sentido a los secundarios.
+- La eclosión con tiempo es presentación: el resultado ya se decidió y se asignó en el servidor al pagar.
+
+### 6.3 Tiers del huevo (propuesta)
+
+| Tier | Qué sale | Probabilidad (escenario "media") |
+| --- | --- | --- |
+| Común | Forma base de una familia de la cueva (sin dueño) | 97 % |
+| Raro | Forma intermedia de una familia de la cueva, o un "raro de la cueva" (Dunsparce, Onix, Sableye…) | 3 % (pity duro a las 35 tiradas) |
+| — | Finales, legendarios, pseudos, starters, fósiles | **0 %**: nunca en huevos de cueva |
+
+### 6.4 Pity
+
+- Contador por (usuario, huevo) en `gacha_pity`. Sube en cada tirada sin raro y vuelve a 0 al obtenerlo. La tirada N-ésima sin raro lo garantiza.
+- Si un huevo rota o se agota, el contador **se conserva** para ese huevo. Si se retira para siempre, se transfiere al huevo del mismo tipo de cueva que lo reemplace (OPEN QUESTION D-GA2).
+
+---
+
+## 7. Economía simulada
+
+### 7.1 Supuestos y fórmulas
+
+**Producción.** Por derrota elegible (reglas de §5.2):
+
+```text
+primario(pool) = Σ_etapa share_etapa × base_etapa   +   media_pisos(bonus_profundidad)
+                 base = [1, 2, 3]                        bonus = 1 si piso ≥ 4, si no 0
+secundario(pool) = share_doble_tipo × 0,25
+```
+
+| Pool (arquetipo que lo juega) | Mezcla de etapas (1/2/3) | Pisos | Doble tipo | Foco* |
+| --- | --- | --- | --- | --- |
+| inicial (casual) | 80 / 20 / 0 | 1–3 | 45 % | 50 % |
+| intermedia (activo) | 50 / 40 / 10 | 1–5 | 55 % | 55 % |
+| avanzada (avanzado) | 30 / 45 / 25 | 1–8 | 60 % | 60 % |
+
+\* **Foco:** share de los tokens primarios que es del tipo que el jugador persigue (p. ej. Roca en `caliza`: 37 %; con la mezcla del huevo de hábitat, ~50 %).
+
+**Consumo por arquetipo:**
+
+- casual: 18 derrotas/h, 1 h/día;
+- activo: 30 derrotas/h, 2 h/día;
+- avanzado: 40 derrotas/h, 4 h/día.
+
+Estas cifras son consistentes con la capacidad de §4.
+
+**Tope blando:** tasa completa hasta `softCap`/día y 50 % después.
+
+**Pity:**
+
+```text
+E[tiradas hasta raro] = Σ_{n=1..pity} n × P(n)
+P(n) = (1−p)^(n−1) × p        para n < pity
+P(pity) = (1−p)^(pity−1)
+```
+
+### 7.2 Resultados
+
+| Economía | Costo por tirada | Pity | p(raro) | Tope blando | E[tiradas hasta raro] |
+| --- | --- | --- | --- | --- | --- |
+| **Accesible** | 40 | 25 | 5 % | 400/día | 14,5 |
+| **Media** | 80 | 35 | 3 % | 300/día | 21,9 |
+| **Lenta** | 150 | 50 | 2 % | 250/día | 31,8 |
+
+| Economía | Arquetipo | Tokens/h | Del foco/h | Pagados/día | Del foco/día | Horas hasta 1 tirada | Días hasta 1 tirada | Días hasta pity | Tiradas/día |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| Accesible | casual | 23,6 | 10,8 | 23,6 | 10,8 | 3,7 | 3,7 | 92,6 | 0,3 |
+| Accesible | activo | 64,1 | 33,0 | 128,3 | 66,0 | 1,2 | 0,6 | 15,2 | 1,7 |
+| Accesible | avanzado | 109,0 | 61,8 | 418,0 | 237,0 | 0,6 | 0,2 | 4,2 | 5,9 |
+| Media | casual | 23,6 | 10,8 | 23,6 | 10,8 | 7,4 | 7,4 | 259,3 | 0,1 |
+| Media | activo | 64,1 | 33,0 | 128,3 | 66,0 | 2,4 | 1,2 | 42,4 | 0,8 |
+| Media | avanzado | 109,0 | 61,8 | 368,0 | 208,6 | 1,3 | 0,4 | 13,4 | 2,6 |
+| Lenta | casual | 23,6 | 10,8 | 23,6 | 10,8 | 13,9 | 13,9 | 694,4 | 0,1 |
+| Lenta | activo | 64,1 | 33,0 | 128,3 | 66,0 | 4,5 | 2,3 | 113,6 | 0,4 |
+| Lenta | avanzado | 109,0 | 61,8 | 343,0 | 194,5 | 2,4 | 0,8 | 38,6 | 1,3 |
+
+**Lectura.**
+
+- **Accesible:** un jugador activo tira casi 2 veces por día y un avanzado, 6. La economía de Esencias no se "infla" (no hay mercado ni precio), pero el **ritmo de adjudicación de especies** es altísimo (§7.3).
+- **Media:** el activo tira ~1 vez por día y el avanzado ~2,6. El casual llega a una tirada por semana, y el pity le queda fuera de alcance (259 días). Aceptable **sólo** si el casual tiene otros objetivos (Pokédex de ejemplares derrotados, cosméticos).
+- **Lenta:** el casual casi no participa (una tirada cada dos semanas). Frustrante.
+- **Jugadores avanzados:** el tope blando les recorta 4 % en accesible, 16 % en media y 21 % en lenta (de 436 tokens brutos por día). La diferencia con el casual es de ~19× en tiradas por día en media (208,6 contra 10,8 tokens del foco por día). Bajar el tope achica esa brecha, pero castiga al activo. Se recomienda tope blando de 300 y rendimiento decreciente por nido (§3.1).
+- **Sumideros:** el gacha y la conversión 5:1. Sin mercado, el saldo acumulado no pierde valor: el riesgo de "inflación" es una **acumulación** que se descarga de golpe cuando abre un huevo nuevo. Se mitiga con un tope de tiradas por día por huevo (p. ej. 10).
+
+### 7.3 Presión de oferta (el hallazgo principal)
+
+Con especies únicas, cada tirada común **consume** una especie del mundo. Tiradas por día (promedio de los tres arquetipos × jugadores) y días hasta agotar un pool de 27 especies (las de tipo primario Roca en todo el catálogo, dato FACT):
+
+| Economía | 10 jugadores | 30 jugadores | 100 jugadores |
+| --- | --- | --- | --- |
+| Accesible | 26,1/día → **1,0 días** | 78,4/día → **0,3 días** | 261,5/día → **0,1 días** |
+| Media | 11,9/día → **2,3 días** | 35,7/día → **0,8 días** | 118,9/día → **0,2 días** |
+| Lenta | 6,0/día → **4,5 días** | 18,1/día → **1,5 días** | 60,3/día → **0,4 días** |
+
+Un huevo de hábitat es todavía más chico: `caliza` tiene 8 familias y 15 especies en su pool.
+
+**Conclusión:** mientras cada especie tenga un único dueño, **ninguna** economía conservadora sostiene un gacha que entregue especies. Hay tres salidas (decisión **D-GA1**, bloqueante para GACHA-1):
+
+1. **Esperar al modelo de instancias** (R32, `docs/wildlands/POKEMON_SPECIES_INSTANCE_MODEL.md`). Si una especie puede tener varios individuos, el gacha entrega una **instancia** y no hay agotamiento. Es la opción recomendada si R32 está en el roadmap de producto.
+2. **Stock global por huevo:** por ejemplo, una reposición de 5 especies por semana, con cola. La escasez es real y visible y el gacha pasa a ser un evento. Convierte las Esencias en fichas de una lotería con cupo.
+3. **Premio no-Pokémon:** el gacha entrega cosméticos, ítems de Dungeon o "Ecos" (un Pokédex de ejemplares). Los Pokémon únicos siguen saliendo sólo de las vías actuales.
+
+### 7.4 Recomendación económica preliminar
+
+- Playtest con **"media"**, tope blando de 300, conversión 5:1 y rendimiento decreciente por nido.
+- **Sin** gacha hasta resolver D-GA1: DROPS-1 puede lanzarse sin gacha. Las Esencias se acumulan y se muestran, y el playtest mide la producción real.
+- Recalibrar con telemetría: derrotas elegibles por hora y por arquetipo, distribución del foco, efecto del tope.
+- No fijar la economía final sin esa medición.
+
+### 7.5 Scripts reproducibles
+
+Los dos scripts son deterministas (sin azar) y se ejecutan con `node <archivo>.mjs` en Node ≥ 18. Las cifras de §4 y §7.2–§7.3 son su salida literal, redondeada a un decimal.
+
+`econ.mjs`:
+
+```js
+const STAGE_BASE = [1, 2, 3]
+const depthBonus = floor => (floor >= 4 ? 1 : 0)
+const SECONDARY_CHANCE = 0.25
+const POOLS = {
+  inicial:    { stages: [0.8, 0.2, 0.0], floors: [1, 2, 3], dual: 0.45, focus: 0.50 },
+  intermedia: { stages: [0.5, 0.4, 0.1], floors: [1, 2, 3, 4, 5], dual: 0.55, focus: 0.55 },
+  avanzada:   { stages: [0.3, 0.45, 0.25], floors: [1, 2, 3, 4, 5, 6, 7, 8], dual: 0.60, focus: 0.60 },
+}
+const ARCHETYPES = {
+  casual:   { perHour: 18, hours: 1, pool: 'inicial' },
+  activo:   { perHour: 30, hours: 2, pool: 'intermedia' },
+  avanzado: { perHour: 40, hours: 4, pool: 'avanzada' },
+}
+const ECONOMIES = {
+  accesible: { pullCost: 40,  pity: 25, rare: 0.05, softCap: 400 },
+  media:     { pullCost: 80,  pity: 35, rare: 0.03, softCap: 300 },
+  lenta:     { pullCost: 150, pity: 50, rare: 0.02, softCap: 250 },
+}
+function perDefeat(pool) {
+  const p = POOLS[pool]
+  const stage = p.stages.reduce((s, share, i) => s + share * STAGE_BASE[i], 0)
+  const depth = p.floors.reduce((s, f) => s + depthBonus(f), 0) / p.floors.length
+  return { primary: stage + depth, secondary: p.dual * SECONDARY_CHANCE }
+}
+function day(arch, eco) {
+  const a = ARCHETYPES[arch], e = ECONOMIES[eco], d = perDefeat(a.pool), p = POOLS[a.pool]
+  const rawPerHour = a.perHour * (d.primary + d.secondary)
+  const raw = rawPerHour * a.hours
+  const paid = Math.min(raw, e.softCap) + Math.max(0, raw - e.softCap) * 0.5
+  const focusPerHour = a.perHour * d.primary * p.focus
+  const focusDay = paid * (d.primary * p.focus) / (d.primary + d.secondary)
+  return { rawPerHour, focusPerHour, paid, focusDay, hoursToPull: e.pullCost / focusPerHour, daysToPull: e.pullCost / focusDay }
+}
+function expectedPullsToRare(rare, pity) {
+  let e = 0, miss = 1
+  for (let n = 1; n <= pity; n++) { const hit = n === pity ? 1 : rare; e += n * miss * hit; miss *= 1 - hit }
+  return e
+}
+const r = x => Math.round(x * 10) / 10
+for (const eco of Object.keys(ECONOMIES)) {
+  const e = ECONOMIES[eco]
+  console.log(eco, 'E[tiradas hasta raro] =', r(expectedPullsToRare(e.rare, e.pity)))
+  for (const arch of Object.keys(ARCHETYPES)) {
+    const x = day(arch, eco)
+    console.log(arch, r(x.rawPerHour), r(x.focusPerHour), r(x.paid), r(x.focusDay), r(x.hoursToPull), r(x.daysToPull), r(x.daysToPull * e.pity), r(x.focusDay / e.pullCost))
+  }
+  for (const players of [10, 30, 100]) {
+    const perDay = ['casual', 'activo', 'avanzado'].reduce((s, a) => s + day(a, eco).focusDay / e.pullCost, 0) / 3 * players
+    console.log('oferta', players, r(perDay), 'tiradas/día → pool de 27 agotado en', r(27 / perDay), 'días')
+  }
+}
+```
+
+`load.mjs`:
+
+```js
+const AREAS = 6, MAX_NESTS = 12, RESPAWN_S = 75, COMBAT_S = 40, WANT_PER_H = 30, CHANGES_PER_DEFEAT = 5
+const activeNests = p => Math.min(MAX_NESTS, 4 + Math.ceil(p / 2))
+const r = x => Math.round(x * 10) / 10
+for (const P of [10, 30, 100]) {
+  const p = P / AREAS, n = activeNests(p)
+  const capacity = n * 3600 / (RESPAWN_S + COMBAT_S)
+  const demandSolo = p * WANT_PER_H
+  const defeats = Math.min(capacity, demandSolo)
+  const share = Math.min(4, Math.max(1, demandSolo / capacity))
+  console.log(P, r(p), n, r(capacity), r(defeats), r(share), r(defeats * share / p),
+    r(defeats * AREAS / 3600), r(defeats * share * AREAS * 1.25 / 3600), r(defeats * CHANGES_PER_DEFEAT * p * AREAS / 3600))
+}
+```
