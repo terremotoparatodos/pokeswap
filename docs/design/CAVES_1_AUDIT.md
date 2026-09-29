@@ -4,6 +4,7 @@
 > Rama: `design/caves-audit-0.3`. Fase **exclusivamente documental**: no se tocó código productivo, assets, balance ni datos.
 > Etiquetas: **FACT** = verificado en el código citado; **INFERENCE** = deducido del código, no reproducido en ejecución; **OPEN QUESTION** = requiere decisión o verificación.
 > YIELD-2 (`world/multi-yield-*`) **no** se asume como base; donde una propuesta depende de él se dice explícitamente.
+> **Addendum (§13):** las decisiones D1–D11 ya están tomadas; cuevas y Dungeons serán compartidas por todos (sin instancias). §13 prevalece sobre las recomendaciones originales.
 
 ---
 
@@ -393,6 +394,8 @@ Qué **no** se rediseña: WORLD, SKILLS, protocolo de presencia (sólo nuevos id
 
 ### 6.5 Qué pasa con `dungeonEntrances/`
 
+> Resuelto por D2 y DUNGEONS-1 (§13.3). Se conserva el análisis original:
+
 Propuesta (depende de D1/D2): en CAVES-2 deja de colocar "cuevas" en Pradera — o las coloca sólo donde `caves.js` no tiene nada y con otro arte/etiqueta que diga "evento". El algoritmo `placeEntrances` puede sobrevivir para *eventos* temporales, pero entonces su reloj y su semilla tienen que venir del servidor (`dungeonSpawn.ts` §SERVER AUTHORITY). No mantener dos implementaciones activas de "cueva" (AGENTS §14).
 
 ---
@@ -485,7 +488,7 @@ Todas **derivadas de `CAVES` y de los layouts**, no de listas duplicadas de coor
 
 ### CAVES-2 — Fuente canónica, guardas y correcciones estructurales
 
-- **Alcance:** crear `caves.js` con las cuevas decididas (D2/D3) como datos; la superficie las lee de ahí; entrada sólo por la aproximación (I1); eliminar `seedOf` duplicado y alinear/retirar el script `dungeon:entrances` (I7); guardas derivadas; decidir qué pasa con el overlay de Dungeon (D1). **Sin** interiores nuevos, sin recursos, sin encuentros.
+- **Alcance:** crear `caves.js` con la única cueva de Pradera en `(-26,-74)` como dato (D2/D3); la superficie la lee de ahí; laterales y espalda sólidos, entrada sólo frontal (D4, I1); retirar las otras cinco bocas procedurales de Pradera; dejar de exponer el prototipo client-only desde las bocas **sin eliminarlo** (D2); eliminar `seedOf` duplicado y alinear/retirar el script `dungeon:entrances` (I7); guardas derivadas. **Sin** interiores nuevos, sin recursos, sin encuentros y **sin nada de Dungeon compartida** (§13).
 - **Archivos probables:** `services/realtime/src/world/caves.js` (+ `.d.ts`), `src/features/dungeonEntrances/**`, `scripts/dungeon-entrances.ts`, `scripts/map/audit-pradera.ts`, `src/features/world/domain/zoneParity.test.ts`, nuevo `caves.test.js`, `resourceZones.js` (`isPlannedTile` consulta bocas/claros; opcionalmente M6).
 - **Riesgos:** mover una cueva cambia su `spawnId`; romper el test de paridad MAP-2; cambiar lo que ven los testers del playtest.
 - **Tests:** identidad, footprint/colisión, entrada única, claro frontal, reachability.
@@ -514,14 +517,23 @@ Todas **derivadas de `CAVES` y de los layouts**, no de listas duplicadas de coor
 
 - **Alcance:** `BIOME_TYPES.cave` (o por cueva), hogares desde el layout, pool sin legendarios/alto aura, patrullas que respetan pasillos y claros.
 - **Archivos probables:** `wildPopulation.js`, `patrol.js`, `wildlands/engine/population.ts`.
-- **Riesgos:** ownership (pool único compartido con la superficie — decisión D7), densidad, rendimiento.
+- **Riesgos:** ownership (D7: pool propio por área de cueva, pero la propiedad/captura futura sigue siendo global — un salvaje de cueva no puede duplicar ni saltarse la unicidad de la superficie), densidad, rendimiento.
 - **Tests:** salvajes (tabla §8), paridad cliente/servidor de hogares.
 - **Aceptación:** salvajes de tipos de cueva aparecen y patrullan sin tapar portales ni stands.
 - **Dependencias:** CAVES-3 (CAVES-4 recomendable, no obligatorio).
 
-### Fase posterior — combate/captura en cuevas
+### DUNGEONS-1 — Auditoría y diseño de la Dungeon compartida
 
-Fuera de alcance. Requiere server-authoritative RNG, captura y recompensas (`DUNGEON_PROTOTYPE_INTEGRATION.md` §4; AGENTS §11).
+- **Alcance:** fase **de auditoría y diseño**, sin implementación. Diseñar la conversión del prototipo client-only (`dungeonPrototype/**`, `PlayDungeon.vue`) en una actividad temporal **compartida y autoritativa**, accesible desde una cueva o entrada específica, cumpliendo los requisitos de §13.2. Inventario de qué del prototipo es regla reutilizable (dominio puro) y qué es estado local que debe pasar al servidor.
+- **Archivos probables (a auditar, no a modificar):** `src/features/dungeonPrototype/domain/**` (`playSession.ts`, `dungeonSpawn.ts`, `rng.ts`, `rewards.ts`, `coop.ts`, `floorPlan.ts`/`floorTiles.ts`), `components/PlayDungeon.vue`, `src/features/dungeonEntrances/**`, `services/realtime/src/rooms/PresenceRoom.js`, `services/realtime/src/world/**`, `docs/wildlands/DUNGEON_PROTOTYPE_INTEGRATION.md`. Entregable: `docs/design/DUNGEONS_1_AUDIT.md`.
+- **Riesgos:** subestimar el estado que hoy vive en memoria del navegador; mezclar la Dungeon con el área de cueva (D1); recompensas y capturas que tocan economía y ownership.
+- **Tests (a diseñar):** dos jugadores ven el mismo `runId`, layout y reloj; entrada tardía durante una run activa; reconexión a mitad de run; reinicio determinista; recompensa personal sin duplicar progreso común; ningún resultado decidido por el cliente.
+- **Aceptación:** documento con modelo de estado, contrato de mensajes, dueño de cada decisión aleatoria, estrategia de persistencia y fases de implementación propias.
+- **Dependencias:** **posterior a CAVES-3** (primera cueva caminable). Independiente de CAVES-4/5 y de YIELD-2. No forma parte de CAVES-2.
+
+### Fase posterior — combate/captura en cuevas y Dungeons
+
+Fuera de alcance. Requiere server-authoritative RNG, captura y recompensas (`DUNGEON_PROTOTYPE_INTEGRATION.md` §4; AGENTS §11) y, para Dungeons, el diseño de DUNGEONS-1.
 
 ---
 
@@ -532,13 +544,15 @@ Fuera de alcance. Requiere server-authoritative RNG, captura y recompensas (`DUN
 | Mantener el overlay de Dungeon como "cueva" y sólo pulirlo | No hay lugar, ni presencia compartida, ni recursos ubicables; el interior es aleatorio y client-only. Resolvería I1 pero no B1–B3. |
 | Seguir colocando cuevas con `placeEntrances` y replicar el algoritmo en el servidor | Frágil: cualquier cambio de terreno/zona mueve cuevas (MAP-2 ya necesitó una guarda); para 1–5 lugares con intención de diseño, datos autorados son más simples y revisables. |
 | Cuevas como zona oscura en la superficie, sin interior | Barato, pero no da exploración, rutas ni sensación de "entrar". Puede ser un paso visual, no el destino. |
-| Interior generado por visita con el generador del prototipo (`floorPlan`/`floorTiles`) | Cada jugador vería una cueva distinta: incompatible con presencia compartida y autoridad del servidor. Útil para Dungeons instanciadas, no para cuevas. |
-| Instancias por grupo desde el día uno | Complejidad de presencia y de servidor sin necesidad para una cueva inicial. Reconsiderar para Dungeons. |
+| Interior generado por visita con el generador del prototipo (`floorPlan`/`floorTiles`) | Cada jugador vería una cueva distinta: incompatible con presencia compartida y autoridad del servidor. Para Dungeons sólo sirve si la semilla y el layout los fija el servidor por `runId` (§13.2). |
+| Instancias personales o por grupo | Descartado por producto (D9, §13): cuevas y Dungeons son compartidas por todos. |
 | Reutilizar `brinecave.png`/`icecave.png` | Estilo de fondo de combate, no de tiles; origen sin verificar. |
 
 ---
 
 ## 11. Decisiones que necesito antes de implementar
+
+> **Resueltas.** La tabla conserva las opciones tal como se plantearon; las decisiones tomadas están en §13.1 y prevalecen sobre la columna "Recomendación".
 
 | # | Decisión | Opciones | Recomendación |
 | --- | --- | --- | --- |
@@ -550,7 +564,7 @@ Fuera de alcance. Requiere server-authoritative RNG, captura y recompensas (`DUN
 | **D6** | Cristal | a) sigue como pickup de superficie; b) pasa a nodo de minería en cuevas avanzadas | Decidir antes de CAVES-4. |
 | **D7** | Pool de salvajes de cueva | a) mismo pool único de 25/h filtrado; b) pool propio por área | Afecta ownership y unicidad: decidir antes de CAVES-5. |
 | **D8** | Reconexión dentro de una cueva | a) reaparece dentro; b) reaparece en la aproximación | b) es más simple y siempre seguro; a) es más fiel. |
-| **D9** | ¿Cueva compartida por todos o instanciada? | a) compartida; b) instanciada por jugador/grupo | a) para la cueva inicial. |
+| **D9** | ¿Cuevas y Dungeons compartidas por todos o instanciadas? | a) compartidas; b) instanciadas por jugador/grupo | **Decidido: a) para la cueva inicial y para las futuras Dungeons.** Sin instancias personales ni por grupo (§13). |
 | **D10** | ¿Requisito de acceso a cuevas avanzadas? (sólo sí/no; sin balance) | a) libre; b) requisito de nivel de Minería | Decidir con SKILLS; no tocar valores. |
 | **D11** | `brinecave.png` / `icecave.png` | a) retirar; b) conservar documentando origen | Verificar origen primero (OPEN QUESTION). |
 
@@ -561,3 +575,50 @@ Fuera de alcance. Requiere server-authoritative RNG, captura y recompensas (`DUN
 - Todos los archivos citados existen en `d8b5571`; los símbolos y líneas citados se comprobaron con `grep -n` contra el worktree `pokeswap-caves-audit`.
 - Diagramas Mermaid: `flowchart` y `sequenceDiagram` estándar, sin HTML salvo `<br/>` en etiquetas.
 - Diff: sólo `docs/design/CAVES_1_AUDIT.md`. Ningún archivo productivo, asset, test o script modificado.
+
+---
+
+## 13. Addendum de decisión (antes de CAVES-2)
+
+Cambio de dirección de producto: **las cuevas y las Dungeons son experiencias compartidas por todos los jugadores, no instancias personales.** Se mantiene la separación conceptual:
+
+- **Cueva:** área permanente, compartida y persistente del mundo.
+- **Dungeon:** actividad temporal compartida, accesible desde una cueva o una entrada específica, con estado común para todos.
+
+### 13.1 Decisiones tomadas
+
+| # | Decisión |
+| --- | --- |
+| D1 | Cueva y Dungeon siguen siendo conceptos separados. |
+| D2 | En Pradera queda **una única cueva autorada en `(-26,-74)`**; las otras cinco bocas procedurales desaparecen. El prototipo client-only deja de estar expuesto públicamente desde esas bocas, pero **no se elimina todavía**. |
+| D3 | Cueva inicial en `(-26,-74)`. |
+| D4 | Entrada frontal mediante portal; laterales y espalda sólidos. |
+| D5 | Primera cueva autorada como datos. |
+| D6 | Cristal como nodo avanzado de Minería en cuevas avanzadas. |
+| D7 | Pool propio de salvajes por área de cueva; la propiedad/captura futura mantiene autoridad global. |
+| D8 | En la primera versión, reconectar devuelve a la aproximación exterior segura. |
+| D9 | La cueva inicial y las futuras Dungeons son **compartidas**. No habrá instancias personales ni por grupo. |
+| D10 | Cueva inicial libre; las cuevas avanzadas podrán requerir nivel de Minería, sin valores decididos todavía. |
+| D11 | Se conservan `brinecave.png` e `icecave.png` sin utilizarlos hasta verificar su origen. |
+
+### 13.2 Qué exige una Dungeon compartida
+
+El prototipo actual no cumple ninguno de estos puntos: crea su propio spawn con `Math.random()` (§1.4), vive en la memoria del navegador y no tiene presencia (§2). Una Dungeon compartida requiere, como mínimo:
+
+1. **`runId` y layout comunes:** todos los jugadores de una run ven el mismo piso, generado a partir de una semilla que fija el servidor.
+2. **Reloj y temporizador server-side:** `startedAt`/`closesAt` y los avisos los emite el servidor, no `Date.now()` del cliente.
+3. **Estado y progreso autoritativos:** piso actual, obstáculos, cofres, llaves, jefe y extracción los decide y guarda el servidor.
+4. **Entrada durante una run activa:** un jugador que llega tarde se une a la run en curso, no abre una nueva.
+5. **Presencia compartida:** los participantes se ven y se mueven en la misma área de run.
+6. **Reconexión:** un jugador que se desconecta vuelve a la misma run mientras siga activa, en una casilla segura.
+7. **Reinicio determinista:** al cerrar una run, la siguiente se crea con reglas y semilla del servidor, reproducibles.
+8. **Recompensas personales sobre progreso común:** el avance es de todos; lo que recibe cada jugador se calcula y entrega por jugador, de forma idempotente.
+9. **Ninguna decisión mediante `Math.random()` del cliente:** el azar del cliente queda sólo para presentación (AGENTS §11).
+10. **Persistencia en base** si en el futuro hay más de una instancia del servicio realtime; mientras haya una sola, memoria del servidor con límites explícitos.
+
+### 13.3 Alcance y secuencia
+
+- **CAVES-2 no implementa nada de esto.** Sólo deja de exponer el prototipo desde las bocas (D2) y crea la fuente canónica de la cueva.
+- La conversión se audita y diseña en una fase propia, **DUNGEONS-1** (§9), **posterior a CAVES-3** (primera cueva caminable).
+- Secuencia: CAVES-2 → CAVES-3 → DUNGEONS-1 (diseño), en paralelo con CAVES-4/5 → implementación de Dungeon compartida en fases que definirá DUNGEONS-1 → combate/captura.
+- §6.5 queda resuelto así: `placeEntrances` deja de colocar bocas en Pradera; si sobrevive, será sólo para entradas de Dungeon definidas por el servidor, según lo que decida DUNGEONS-1.
