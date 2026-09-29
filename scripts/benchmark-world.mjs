@@ -13,6 +13,10 @@
 // Output: JSON on stdout (per-client bytes by message family, world message
 // rates, snapshot sizes, work outcomes and latency, server world counters,
 // event loop delay and memory).
+// YIELD-2 recovery: `units` adds the multi-yield pipeline — units yielded,
+// commits attempted and confirmed, commits per unit, duplicates, stale_node,
+// ambiguous commits and resyncs (server counters over the run), sequences
+// that ended in error, and p50/p95/p99 latencies.
 
 import { spawn } from 'node:child_process'
 import net from 'node:net'
@@ -34,6 +38,7 @@ const externalUrl = option('url', null)
 const prefix = option('prefix', 'world')
 const realSkills = option('skills', 'demo') === 'real'
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
+const delta = (after, before, key) => (after?.[key] ?? 0) - (before?.[key] ?? 0)
 const percentile = (values, p) => { if (!values.length) return 0; const s = [...values].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.ceil(s.length * p) - 1)] }
 const round = value => Math.round(value * 100) / 100
 
@@ -71,6 +76,8 @@ try {
       worldTypes: {}, snapshotBytes: [], batchBytes: [], results: {}, latency: [], done: 0, pending: null, requestId: 0, target: i % targets.length,
       /** --skills real: owned instance ids from player:state; `worker` rotates past Pokémon SKILLS refuses. */
       pokemon: [], worker: 0, settleLag: [], settled: 0,
+      /** YIELD-2: units yielded to this player and sequences that ended in error. */
+      yields: 0, errors: 0,
       /** Nodes SKILLS said this player can never work yet (no resource, level too low): skipped for good. */
       never: new Set(),
       /** Nodes this client was told are not available: a player would not walk to them. */
@@ -88,9 +95,11 @@ try {
       }
       return size
     }
-    for (const type of ['presence:snapshot', 'presence:self', 'presence:delta', 'presence:batch', 'presence:error', 'chat:history', 'chat:line', 'world:snapshot', 'world:batch', 'world:wild', 'world:work:done']) {
+    for (const type of ['presence:snapshot', 'presence:self', 'presence:delta', 'presence:batch', 'presence:error', 'chat:history', 'chat:line', 'world:snapshot', 'world:batch', 'world:wild', 'world:work:yield', 'world:work:done']) {
       room.onMessage(type, payload => {
         count(type, payload)
+        if (type === 'world:work:yield') state.yields++
+        if (type === 'world:work:done' && payload.reason === 'error') state.errors++
         if (type === 'world:work:done' && state.pending?.actionId === payload.actionId) {
           state.done++
           if (payload.ok) { state.settled++; state.settleLag.push(Date.now() - state.pending.acceptedAt) } else state.worker++
@@ -156,6 +165,11 @@ try {
   const worldMsgs = clients.map(state => state.messages.world / seconds)
   const snapshotBytes = clients.flatMap(state => state.snapshotBytes)
   const batchBytes = clients.flatMap(state => state.batchBytes)
+  const lat = values => ({ p50: round(percentile(values, 0.5)), p95: round(percentile(values, 0.95)), p99: round(percentile(values, 0.99)), max: round(Math.max(0, ...values)) })
+  const actionsBefore = before.world?.actions ?? {}
+  const actionsAfter = after.world?.actions ?? {}
+  const unitsServer = delta(actionsAfter, actionsBefore, 'units')
+  const commitsAttempted = delta(actionsAfter, actionsBefore, 'commitAttempts')
   const results = {}
   for (const state of clients) for (const [key, value] of Object.entries(state.results)) results[key] = (results[key] ?? 0) + value
   console.log(JSON.stringify({
@@ -169,6 +183,19 @@ try {
     worldBatchBytes: { p50: percentile(batchBytes, 0.5), p95: percentile(batchBytes, 0.95), max: Math.max(0, ...batchBytes) },
     work: { results, completions: clients.reduce((a, s) => a + s.done, 0), settled: clients.reduce((a, s) => a + s.settled, 0),
       acceptedToDoneMs: { p50: round(percentile(clients.flatMap(s => s.settleLag), 0.5)), p95: round(percentile(clients.flatMap(s => s.settleLag), 0.95)), max: round(Math.max(0, ...clients.flatMap(s => s.settleLag))) }, requestToReplyMs: { p50: round(percentile(clients.flatMap(s => s.latency), 0.5)), p95: round(percentile(clients.flatMap(s => s.latency), 0.95)) } },
+    units: {
+      yieldedToClients: clients.reduce((a, s) => a + s.yields, 0),
+      settledServer: unitsServer,
+      commits: { attempted: commitsAttempted, confirmed: delta(actionsAfter, actionsBefore, 'completed'), retries: delta(actionsAfter, actionsBefore, 'settleRetries'), failed: delta(actionsAfter, actionsBefore, 'settleFailed') },
+      commitsPerUnit: unitsServer ? round(commitsAttempted / unitsServer) : null,
+      duplicates: delta(actionsAfter, actionsBefore, 'duplicateSettlements'),
+      staleNodes: delta(actionsAfter, actionsBefore, 'staleNodes'),
+      ambiguousCommits: delta(actionsAfter, actionsBefore, 'ambiguousCommits'),
+      resyncs: { started: delta(actionsAfter, actionsBefore, 'resyncs'), resolved: delta(actionsAfter, actionsBefore, 'resynced'), failedSteps: delta(actionsAfter, actionsBefore, 'resyncFailures') },
+      sequencesInError: clients.reduce((a, s) => a + s.errors, 0),
+      acceptedToDoneMs: lat(clients.flatMap(s => s.settleLag)),
+      requestToReplyMs: lat(clients.flatMap(s => s.latency)),
+    },
     concurrentActions: { max: Math.max(0, ...samples.map(s => s?.runningActions ?? 0)), mean: round(samples.reduce((a, s) => a + (s?.runningActions ?? 0), 0) / Math.max(1, samples.length)) },
     storedNodes: { max: Math.max(0, ...samples.map(s => s?.storedNodes ?? 0)) },
     subscribedChunks: { max: Math.max(0, ...samples.map(s => s?.subscribedChunks ?? 0)) },
