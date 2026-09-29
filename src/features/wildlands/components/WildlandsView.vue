@@ -183,8 +183,10 @@ const perfCapture = shallowRef<PerfCapture | null>(null)
 // more: since CAVES-2 the world only draws the closed Pradera cave, in every build.)
 const worldPlaytestFeaturesEnabled = import.meta.env.DEV || isPlaytest
 // R31-B profession prototype: in a playtest the same local session is what
-// the Skills panel reads.
-const ProfessionWorldDemo = worldPlaytestFeaturesEnabled ? defineAsyncComponent(() => import('../../skills/components/SkillsWorldLayer.vue')) : null
+// the Skills panel reads. Same condition as the flag above, spelled out on the
+// import's own line on purpose: skillsIsolation.test.ts reads that line to
+// prove Skills is only reachable behind a build gate.
+const ProfessionWorldDemo = import.meta.env.DEV || isPlaytest ? defineAsyncComponent(() => import('../../skills/components/SkillsWorldLayer.vue')) : null
 // Area chat rides the presence socket: playtest builds have players to talk
 // to, development builds have the server to talk to.
 const ChatPanel = worldPlaytestFeaturesEnabled ? defineAsyncComponent(() => import('../../chat/components/ChatPanel.vue')) : null
