@@ -83,7 +83,7 @@
       ref="professionRef"
       :area-kind="hud.areaKind"
       :game="game"
-      :skills="dungeonsInWorld"
+      :skills="worldPlaytestFeaturesEnabled"
       :world="sharedWorld"
       :owned-supplies="playtestStore?.supplies.value"
       @overlay="(open: boolean) => (professionOpen = open)"
@@ -177,17 +177,17 @@ const PlaytestPerformanceHud = isPlaytest || performanceMode
 // PERF-1 capture panel and hooks: VITE_PERF=on builds only (see perf/usePerfCapture.ts).
 const PerfPanel = performanceMode ? defineAsyncComponent(() => import('../perf/PerfPanel.vue')) : null
 const perfCapture = shallowRef<PerfCapture | null>(null)
-// R31-B profession prototype: development builds, and Community Playtest 0.1,
-// where the same local session is what the Skills panel reads. A normal
-// production build still never mounts it.
-const ProfessionWorldDemo = import.meta.env.DEV || isPlaytest ? defineAsyncComponent(() => import('../../skills/components/SkillsWorldLayer.vue')) : null
-// Development builds and Community Playtest 0.1: the gates below share this
-// flag. The Dungeon prototype is no longer opened from the world (CAVES-2):
-// Pradera has one authored cave, closed until CAVES-3, drawn for everyone.
-const dungeonsInWorld = import.meta.env.DEV || isPlaytest
-// Area chat rides the presence socket. Same gates again: playtest builds have
-// players to talk to, development builds have the server to talk to.
-const ChatPanel = dungeonsInWorld ? defineAsyncComponent(() => import('../../chat/components/ChatPanel.vue')) : null
+// World features that exist only in development builds and Community Playtest
+// 0.1: the professions layer, area chat, and the wait for them to mount. A
+// normal production build mounts none of them. (No Dungeon hangs off this any
+// more: since CAVES-2 the world only draws the closed Pradera cave, in every build.)
+const worldPlaytestFeaturesEnabled = import.meta.env.DEV || isPlaytest
+// R31-B profession prototype: in a playtest the same local session is what
+// the Skills panel reads.
+const ProfessionWorldDemo = worldPlaytestFeaturesEnabled ? defineAsyncComponent(() => import('../../skills/components/SkillsWorldLayer.vue')) : null
+// Area chat rides the presence socket: playtest builds have players to talk
+// to, development builds have the server to talk to.
+const ChatPanel = worldPlaytestFeaturesEnabled ? defineAsyncComponent(() => import('../../chat/components/ChatPanel.vue')) : null
 // The city during the playtest: two doors open, the rest say why they are not.
 const CityPanel = isPlaytest ? defineAsyncComponent(() => import('../../playtest/components/CityPanel.vue')) : null
 
@@ -514,10 +514,11 @@ onMounted(async () => {
   created.start()
   // The shared world, the cave mouths and (playtest) the professions all draw
   // into the scene and the engine holds exactly one overlay. Compose after the
-  // children have mounted, so this is the installation that wins.
+  // children have mounted, so this is the installation that wins (the
+  // professions layer only exists when the playtest features are on).
   // WORLD-1: the shared world draws first, so a node that is depleted for
   // everyone is a stump whatever a local overlay would have drawn there.
-  if (dungeonsInWorld) await nextTick()
+  if (worldPlaytestFeaturesEnabled) await nextTick()
   const parts = [sharedWorld.overlay, caveOverlay, professionRef.value?.overlay]
     .filter((part): part is SceneOverlay => !!part)
   created.setSceneOverlay(parts.length === 1 ? parts[0] : new CompositeOverlay(...parts))
