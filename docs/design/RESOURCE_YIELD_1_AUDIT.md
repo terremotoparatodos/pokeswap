@@ -252,6 +252,9 @@ Parámetros:
 | Roca | 25 | 1,54 s | 2 | 3,1 s | 891 → 1 291 (1,45×) | 8 915 → 12 911 | 2,0 → 2,7 |
 | Roca | 50 | 0,63 s | 2 | 1,3 s | 1 150 → 1 915 (1,66×) | 11 502 → 19 149 | 1,6 → 1,9 |
 | Avanzados (madera dura, hierro, oro, boreal, cristal) | — | igual | 1 | igual | **sin cambio** | sin cambio | sin cambio |
+| Veta de carbón (`coal_seam`) | — | igual | 1 | igual | **sin cambio** (deliberado) | sin cambio | sin cambio |
+
+**Carbón (aclaración YIELD-2 recovery, M-2).** `coal_seam` queda deliberadamente en `[1,1]`: se considera un material raro/avanzado, como los de la fila anterior, y hoy está retirado del mapa (ninguna zona lo genera). No se cambia código de balance ni de stock; si vuelve al mapa, su rango se revisa con el resto de los avanzados.
 
 **Capacidad** (nivel 1, jugadores repartidos mitad Talar y mitad Minería; % del tiempo trabajando):
 
