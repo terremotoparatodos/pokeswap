@@ -468,3 +468,358 @@ al activarse un nido (scopeId, nestId, generación g):
   nivel   = uniforme [level] · shiny = CSPRNG < 1/512
   encuentro = { encounterId: scope:nest:g, entrada, especie, nivel, shiny, rulesVersion }
 ```
+
+---
+
+## 10. Simulación (valores de playtest, no balance)
+
+Script `mmo_sim.mjs` (§10.7): determinista, calcula valores esperados. Supuestos:
+
+- 6 áreas con jugadores repartidos;
+- nidos activos `min(12, 4 + ⌈p/2⌉)`;
+- ciclo del nido = 75 s de respawn + 45 s vivo;
+- un jugador activo busca 30 encuentros por hora;
+- shares de tier de §7.
+
+### 10.1 Tiempo hasta que aparece cada tier en la zona (minutos)
+
+| Jugadores | Zona | Apariciones/h | common | uncommon | rare | very_rare | special |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 1–10 | Pradera | 150 | 0,6 | 1,7 | 7,3 | 80 | — |
+| 1–10 | Caliza | 150 | 0,7 | 1,3 | 3,3 | 13,3 | — |
+| 1–10 | Cristalina | 150 | 1,0 | 1,3 | 2,0 | 6,7 | 20 |
+| 30 | Pradera | 210 | 0,4 | 1,2 | 5,2 | 57,1 | — |
+| 30 | Caliza | 210 | 0,5 | 1,0 | 2,4 | 9,5 | — |
+| 30 | Cristalina | 210 | 0,7 | 0,9 | 1,4 | 4,8 | 14,3 |
+| 100 | Pradera | 360 | 0,2 | 0,7 | 3,0 | 33,3 | — |
+| 100 | Caliza | 360 | 0,3 | 0,6 | 1,4 | 5,6 | — |
+| 100 | Cristalina | 360 | 0,4 | 0,5 | 0,8 | 2,8 | 8,3 |
+
+Fórmula: `t(tier) = 60 / (apariciones_h × share(tier))`, con `apariciones_h = nidos × 3600 / 120`.
+
+**Lectura.**
+
+- Más jugadores implica más nidos activos, y los raros aparecen antes en la zona. Pero hay más gente para cada uno.
+- Un `very_rare` de Pradera aparece ~1 vez por hora con 30 jugadores: raro, pero visible.
+- Un `special` de `cristalina` aparece cada 8–20 minutos en la zona. Como está limitado a los pisos 7–8 (renormalización), lo que ve cada jugador depende de su piso.
+
+### 10.2 Encuentros por jugador
+
+| Jugadores | Oferta por área (encuentros/h) | Demanda (encuentros/h) | Encuentros propios por jugador/h | Como elegible (hasta 4 por combate) |
+| --- | --- | --- | --- | --- |
+| 10 | 150 | 50 | 30 | 30 |
+| 30 | 210 | 150 | 30 | 30 |
+| 100 | 360 | 500 | 21,6 | 30 |
+
+Con 100 jugadores la oferta se satura. La participación compartida mantiene el ritmo de recompensas, pero **no** el de capturas: una captura es un solo ganador por encuentro (§11).
+
+### 10.3 Ejemplares por captura (futura, 30 jugadores, sin tope)
+
+Supuestos: intento de captura en 40 % de los encuentros propios; éxito por tier 50 / 35 / 20 / 10 / 5 %. Horas por día: casual 1, activo 2, avanzado 4.
+
+| Arquetipo (zona) | Por semana | common | uncommon | rare | very_rare | special |
+| --- | --- | --- | --- | --- | --- | --- |
+| casual (Pradera) | 37,4 | 29,4 | 7,1 | 0,9 | 0,0 | — |
+| activo (Caliza) | 68,4 | 46,2 | 17,6 | 4,0 | 0,5 | — |
+| avanzado (Cristalina) | 121 | 67,2 | 37,6 | 13,4 | 2,0 | 0,3 |
+
+Con tope de **10 capturas exitosas por día**: el avanzado baja a 70 por semana; el casual y el activo no cambian.
+
+### 10.4 Gacha sin stock global
+
+Tokens del foco por día: salida de `econ.mjs` (`CAVE_RESPAWN_AND_TOKENS.md` §7.2). Tiers ordinarios del huevo (§12.3).
+
+| Economía | Costo | Pity (raro+) | E[tiradas hasta raro+] | Casual: tiradas/sem · semanas hasta raro+ | Activo | Avanzado |
+| --- | --- | --- | --- | --- | --- | --- |
+| Accesible | 40 | 25 | 14,5 | 1,9 · 7,6 | 11,6 · 1,3 | 41,5 · 0,3 |
+| Media | 80 | 35 | 20,4 | 0,9 · 21,5 | 5,8 · 3,5 | 18,3 · 1,1 |
+| Lenta | 150 | 50 | 28,7 | 0,5 · 57 | 3,1 · 9,3 | 9,1 · 3,2 |
+
+Cada tirada = **1 ejemplar nuevo**. No hay agotamiento: la conclusión anterior ("un banner se agota en 0,1–4,5 días") **queda invalidada**, porque dependía de una unidad global por especie. Se conserva en `CAVE_RESPAWN_AND_TOKENS.md` §7.3, marcada como histórica.
+
+### 10.5 Inflación por especie y familia, duplicados y almacenamiento
+
+Ejemplares nuevos por semana (captura sin tope + gacha "media"):
+
+| Jugadores | Ejemplares/semana | Por jugador | Especie común de Pradera* | Con tope de 10 capturas/día | Filas/año (con tope) |
+| --- | --- | --- | --- | --- | --- |
+| 10 | 838 | 83,8 | 30,2 | 669 | 34 800 |
+| 30 | 2 514 | 83,8 | 90,7 | 2 008 | 104 401 |
+| 100 | 8 380 | 83,8 | 302 | 6 692 | 348 002 |
+
+\* Ejemplares de **una** especie común de Pradera: 24 % de las capturas de los casuales + su parte del tier común de un huevo de 8 especies comunes.
+
+Duplicados dentro de un huevo (tier común, sorteo uniforme):
+
+| Especies del tier (K) | 5 tiradas | 10 | 20 | 40 |
+| --- | --- | --- | --- | --- |
+| 8 | 22 % | 41 % | 63 % | 80 % |
+| 15 | 13 % | 25 % | 44 % | 65 % |
+
+Fórmula: distintas = `K × (1 − (1 − 1/K)^n)`; duplicados = `n − distintas`.
+
+**Lectura.**
+
+1. **La inflación ya no es de especies sino de ejemplares.** Una especie común acumula cientos de ejemplares por semana con 100 jugadores. Su valor de mercado tiende a 0 si se vende libremente. Por eso: ligado a la cuenta y **sin venta** hasta medir (D-GA3).
+2. **Los duplicados son la norma** a partir de ~10 tiradas en huevos chicos. Hace falta un destino para ellos: liberar a cambio de 1 Esencia del tipo primario (un sumidero chico con tope diario) o una futura "transferencia". OPEN QUESTION D-IN2.
+3. **Almacenamiento:** ~350 000 filas por año con 100 jugadores es trivial para Postgres. El problema es la **UX de la caja**, no la base: hace falta un límite de caja y filtros.
+4. **Ingreso pasivo (U9):** `collect_passive_tokens` suma tokens por cada ejemplar con dueño. Con cientos de ejemplares por jugador, el ingreso pasivo explota. Hay que decidir antes de INSTANCES-1: contar sólo la party activa (6) o poner un tope por especie. D-IN1, **bloquea INSTANCES-1**.
+
+### 10.6 Valores de playtest propuestos
+
+- Pesos de tier de §7.
+- Respawn de 75 s ± 20 %.
+- Shiny 1/512.
+- Captura con **Ball consumible** (D-CP2) y tope de 10 capturas exitosas por día.
+- Gacha "media".
+- Ejemplares ligados a la cuenta 30 días.
+- Mercado cerrado para ejemplares nuevos hasta tener telemetría.
+
+### 10.7 Script reproducible
+
+`node mmo_sim.mjs` (Node ≥ 18). Las tablas de §10 son su salida literal.
+
+`mmo_sim.mjs`:
+
+```js
+// CAVE ECOSYSTEM-1 · simulación MMO con múltiples ejemplares. Determinista (valores esperados).
+const r = x => (x >= 100 ? Math.round(x) : Math.round(x * 10) / 10)
+// 1 · Rareza: share de cada tier en la tabla de una zona (pesos de playtest, §5).
+const ZONES = {
+  pradera: { common: 70, uncommon: 24, rare: 5.5, very_rare: 0.5, special: 0 },
+  caliza:  { common: 55, uncommon: 30, rare: 12, very_rare: 3, special: 0 },
+  cristalina: { common: 40, uncommon: 32, rare: 20, very_rare: 6, special: 2 },
+}
+// 2 · Oferta de una zona: nidos activos según jugadores, ciclo = respawn + estancia viva media.
+const MAX_NESTS = 12, CYCLE_S = 75 + 45
+const nests = p => Math.min(MAX_NESTS, 4 + Math.ceil(p / 2))
+const ENGAGE_PER_H = 30                                  // encuentros que un jugador activo quiere combatir por hora
+console.log('## Tiempo esperado hasta que APAREZCA un ejemplar de cada tier en la zona (min)')
+for (const players of [1, 10, 30, 100]) {
+  const p = players / 6                                   // 6 áreas con jugadores repartidos
+  const appearancesH = nests(Math.max(p, 1)) * 3600 / CYCLE_S
+  for (const [zone, w] of Object.entries(ZONES)) {
+    const total = Object.values(w).reduce((a, b) => a + b, 0)
+    const cells = Object.entries(w).filter(([, x]) => x > 0).map(([t, x]) => `${t} ${r(60 / (appearancesH * x / total))}`)
+    console.log(`${String(players).padStart(3)} jug · ${zone.padEnd(10)} apariciones/h ${r(appearancesH)} · ${cells.join(' · ')}`)
+  }
+}
+// 3 · Encuentros por jugador por hora con contención (oferta compartida).
+console.log('\n## Encuentros combatidos por jugador y hora (área con p jugadores)')
+for (const players of [10, 30, 100]) {
+  const p = players / 6, supply = nests(p) * 3600 / CYCLE_S, demand = p * ENGAGE_PER_H
+  const perPlayerSolo = Math.min(ENGAGE_PER_H, supply / p)
+  console.log(`${players} jug: oferta ${r(supply)}/h/área · demanda ${r(demand)}/h · encuentros propios ${r(perPlayerSolo)}/h · como elegible (hasta 4 por combate) ${r(Math.min(ENGAGE_PER_H, supply * Math.min(4, Math.max(1, demand / supply)) / p))}/h`)
+}
+// 4 · Ejemplares creados por captura (futura): intento en 40 % de los encuentros propios, éxito por tier.
+const CAPTURE_TRY = 0.4
+const CAPTURE_OK = { common: 0.5, uncommon: 0.35, rare: 0.2, very_rare: 0.1, special: 0.05 }
+const ARCH = { casual: { h: 1, zone: 'pradera' }, activo: { h: 2, zone: 'caliza' }, avanzado: { h: 4, zone: 'cristalina' } }
+console.log('\n## Ejemplares por captura por jugador y semana (30 jugadores, 7 días)')
+const perPlayerEnc = Math.min(ENGAGE_PER_H, nests(5) * 3600 / CYCLE_S / 5)
+for (const [a, { h, zone }] of Object.entries(ARCH)) {
+  const w = ZONES[zone], total = Object.values(w).reduce((x, y) => x + y, 0)
+  let week = 0; const byTier = {}
+  for (const [t, x] of Object.entries(w)) { const v = perPlayerEnc * h * 7 * CAPTURE_TRY * (x / total) * CAPTURE_OK[t]; byTier[t] = v; week += v }
+  console.log(`${a.padEnd(9)} ${r(week)}/semana · ${Object.entries(byTier).filter(([, v]) => v > 0).map(([t, v]) => `${t} ${r(v)}`).join(' · ')}`)
+}
+// 5 · Gacha sin stock global: tokens/día del foco (de econ.mjs, §7.2 de CAVE_RESPAWN_AND_TOKENS) y tabla de tiers.
+const FOCUS_DAY = { casual: 10.8, activo: 66, avanzado: { accesible: 237, media: 208.6, lenta: 194.5 } }
+const ECO = {
+  accesible: { cost: 40, pity: 25, tiers: { common: 0.75, uncommon: 0.2, rare: 0.045, very_rare: 0.005 } },
+  media:     { cost: 80, pity: 35, tiers: { common: 0.78, uncommon: 0.185, rare: 0.03, very_rare: 0.005 } },
+  lenta:     { cost: 150, pity: 50, tiers: { common: 0.8, uncommon: 0.175, rare: 0.02, very_rare: 0.005 } },
+}
+const pRarePlus = t => t.rare + t.very_rare
+function expectedToRarePlus(p, pity) { let e = 0, miss = 1; for (let n = 1; n <= pity; n++) { const hit = n === pity ? 1 : p; e += n * miss * hit; miss *= 1 - hit } return e }
+console.log('\n## Gacha: tiradas por semana, ejemplares, pity')
+for (const [eco, e] of Object.entries(ECO)) {
+  const eRare = expectedToRarePlus(pRarePlus(e.tiers), e.pity)
+  const rows = ['casual', 'activo', 'avanzado'].map(a => {
+    const fd = typeof FOCUS_DAY[a] === 'number' ? FOCUS_DAY[a] : FOCUS_DAY[a][eco]
+    const week = fd * 7 / e.cost
+    return `${a} ${r(week)} tiradas/sem (≈ ${r(week)} ejemplares) · semanas hasta raro+ ${r(eRare / week)}`
+  })
+  console.log(`${eco}: E[tiradas hasta raro+] = ${r(eRare)} · ${rows.join(' | ')}`)
+}
+// 6 · Inflación por especie y familia: ejemplares nuevos por semana en toda la población.
+console.log('\n## Ejemplares nuevos por semana (captura + gacha "media") y por especie')
+const CAPTURE_WEEK = { casual: 0, activo: 0, avanzado: 0 }
+for (const [a, { h, zone }] of Object.entries(ARCH)) {
+  const w = ZONES[zone], total = Object.values(w).reduce((x, y) => x + y, 0)
+  for (const [t, x] of Object.entries(w)) CAPTURE_WEEK[a] += perPlayerEnc * h * 7 * CAPTURE_TRY * (x / total) * CAPTURE_OK[t]
+}
+const GACHA_WEEK = { casual: 10.8 * 7 / 80, activo: 66 * 7 / 80, avanzado: 208.6 * 7 / 80 }
+for (const players of [10, 30, 100]) {
+  const perArch = players / 3
+  const total = ['casual', 'activo', 'avanzado'].reduce((s, a) => s + perArch * (CAPTURE_WEEK[a] + GACHA_WEEK[a]), 0)
+  // Una especie común que ocupa el 24 % de la tabla de Pradera y la mitad de las capturas de casuales,
+  // frente a una muy rara (0,5 % de su tabla).
+  const commonSpecies = perArch * (CAPTURE_WEEK.casual * 0.24 + GACHA_WEEK.casual * 0.78 / 8)
+  console.log(`${players} jug: ${r(total)} ejemplares/sem en total · ${r(total / players)} por jugador · especie común de Pradera ≈ ${r(commonSpecies)}/sem`)
+}
+// 7 · Duplicados en un huevo de K especies tras n tiradas (sorteo uniforme dentro del tier común).
+console.log('\n## Especies distintas esperadas en n tiradas sobre K especies (duplicados = n − distintas)')
+for (const K of [8, 15]) for (const n of [5, 10, 20, 40]) {
+  const distinct = K * (1 - (1 - 1 / K) ** n)
+  console.log(`K=${K} n=${n}: distintas ${r(distinct)} · duplicados ${r(n - distinct)} (${r(100 * (n - distinct) / n)} %)`)
+}
+// 8 · Con tope de 10 capturas exitosas por día (70/semana) y almacenamiento anual.
+console.log('\n## Con tope de 10 capturas/día')
+const CAP_WEEK = 70
+let capped = 0
+for (const a of ['casual', 'activo', 'avanzado']) { const v = Math.min(CAP_WEEK, CAPTURE_WEEK[a]); capped += v; console.log(`${a}: ${r(CAPTURE_WEEK[a])} → ${r(v)} capturas/sem`) }
+for (const players of [10, 30, 100]) {
+  const perArch = players / 3
+  const week = ['casual', 'activo', 'avanzado'].reduce((s, a) => s + perArch * (Math.min(CAP_WEEK, CAPTURE_WEEK[a]) + GACHA_WEEK[a]), 0)
+  console.log(`${players} jug: ${r(week)} ejemplares/sem · ${r(week * 52)} filas/año`)
+}
+```
+
+---
+
+## 11. Captura compartida futura (contrato)
+
+### 11.1 Invariantes
+
+1. Un encuentro (`encounterId` = `scope:nest:generación`) tiene **un solo resultado mundial**: `defeated`, `captured` o `fled`. Son mutuamente excluyentes y se escriben una vez (`encounter_resolutions` PK, CAS de generación: `SHARED_DUNGEON_ARCHITECTURE.md` §6.2).
+2. Si hay captura, hay **un único ganador**. El ejemplar se crea con `INSERT INTO pokemon_instances … (source 'wild_capture', source_ref = encounterId)` con `UNIQUE (source, source_ref)`, **en la misma transacción** que la resolución, el consumo de la Ball y las recompensas de los demás elegibles.
+3. El `instanceId` lo genera Postgres. El cliente nunca propone especie, IVs, shiny, nivel ni resultado.
+4. Tras la resolución, el nido pasa a `g+1` y un respawn posterior es **otro** encuentro, aunque sea la misma especie.
+
+### 11.2 ¿Quién obtiene el derecho a capturar?
+
+| Opción | Cómo funciona | Kill stealing | Frustración | Complejidad |
+| --- | --- | --- | --- | --- |
+| Iniciador | Sólo quien hizo `engage` puede capturar | Bajo | Alta para los que ayudan: la carrera pasa al `engage` | Baja |
+| Contribución | Captura quien más contribuyó | Bajo | Media: el que más daña siempre gana, y los que dan soporte nunca | Media |
+| Sorteo entre elegibles | Al llegar a 0 HP, sorteo uniforme | Bajo | Media: gana quien casi no hizo nada (dentro del mínimo) | Media |
+| Objeto personal de captura | El primero que lanza una Ball válida | **Alto**: carrera de latencia en el último golpe | Alta | Baja |
+| Decisión individual en combate | Cada uno decide lanzar en su turno; el primero que acierta gana | Medio-alto (latencia) | Media | Media |
+
+**Recomendación: intención de captura + sorteo ponderado por contribución.**
+
+1. Durante el combate, cada participante puede marcar **"Quiero capturarlo"**. Requiere tener una Ball y ser elegible.
+2. Al llegar a 0 HP (o bajo umbral, según COMBAT-1), el servidor pasa el encuentro a `resolving`. Entre los elegibles que declararon intención sortea un **candidato**, ponderado por contribución y con piso: nadie tiene menos del 15 %.
+3. Con el `catchRate` del catálogo sortea el **éxito**:
+   - éxito → `captured` para el candidato, que pierde su Ball; el resto recibe la recompensa de derrota (D-CB2);
+   - fallo → `fled`: el ejemplar huye, se consume la Ball del candidato y todos los elegibles reciben la recompensa de derrota.
+4. Si nadie declaró intención, el resultado es `defeated`.
+5. Todo en **una** resolución exactly-once.
+
+Por qué ésta:
+
+- **Sin carrera de latencia:** la intención se declara durante el combate, no en el último tick.
+- **Premia la ayuda:** ponderado, no "el que más daña gana siempre".
+- **Una persona sola siempre es el candidato.**
+- **Sin incentivo a matar el ejemplar antes que otro:** el resultado lo decide el servidor.
+
+### 11.3 Casos límite
+
+| Caso | Resultado |
+| --- | --- |
+| Dos jugadores declaran a la vez | Ambos entran al sorteo. El servidor serializa la resolución: no hay "primero". |
+| El candidato se desconecta en `resolving` | La resolución sigue: el ejemplar se crea igual a su nombre (ya fue elegido). Si se desconectó **antes** de la resolución y está fuera de la gracia, no es elegible y no entra al sorteo. |
+| Falla la persistencia | Nada se aplica (transacción). El encuentro vuelve a `alive` con la misma generación, y nadie pierde su Ball ni cobra. Los reintentos usan el mismo `encounterId`. Si el primer intento sí se aplicó pero la respuesta se perdió, el reintento devuelve lo guardado. |
+| Cliente modificado declara intención sin Ball, o sin ser elegible | El servidor filtra: sólo cuentan intenciones válidas en el momento de resolver. |
+| Captura durante el fin de la run | `ending` aborta los combates en curso: ningún resultado, ninguna Ball consumida. |
+| Caja llena | La captura se rechaza **antes** de sortear (no entra al sorteo). El ejemplar nunca se destruye después de creado. |
+| Encuentro `special` | Mismo contrato, con éxito mínimo y opcionalmente "sólo como jefe". |
+
+---
+
+## 12. Gacha con múltiples ejemplares
+
+### 12.1 Contrato (reemplaza a `CAVE_RESPAWN_AND_TOKENS.md` §6.1 en lo que dependía de la unicidad)
+
+| Requisito | Cómo se cumple |
+| --- | --- |
+| Crea un ejemplar persistente | `INSERT INTO pokemon_instances (source 'gacha', source_ref = pullId)` con `UNIQUE (source, source_ref)`. `instanceId` nuevo, generado por Postgres. |
+| Selección en el servidor | Tier con CSPRNG + pity; entrada dentro del tier sobre las tablas del hábitat; especie, IVs, naturaleza y shiny con CSPRNG. |
+| Probabilidades publicadas | Tabla por huevo y `rulesVersion`: tier → probabilidad → especies posibles. Test estadístico con semilla fija: aplicadas = publicadas. |
+| Pity | Por (usuario, huevo), persistido, en la misma transacción que la tirada. Se conserva si el huevo rota (D-GA2). |
+| Pools | Las entradas de las tablas de aparición del hábitat, con tier ≤ `very_rare`. Sin finales de 3 etapas (los huevos dan ejemplares jóvenes). |
+| Exclusiones | Nunca `special` ni `event_only`. Nunca legendarios, míticos, starters, pseudos, fósiles ni Eevee en el gacha ordinario. |
+| Reintentos y doble cobro | `pullId` = clave de idempotencia del cliente (UUID) + `user_id`. Una transacción: dedupe → débito de Esencias → pity → sorteo → ejemplar → ledger → registro de la tirada. Un reintento devuelve el mismo ejemplar. |
+| Ligado a la cuenta | `account_bound_until = now + 30 días`: no se puede listar ni intercambiar. |
+| Sin venta inmediata | El mercado no acepta ejemplares con `source = gacha` hasta medir la economía (D-GA3). |
+| Banner de evento | Sólo con una configuración server-side explícita (`eventId`, ventana, tabla propia). Nunca por un cambio de datos del cliente. |
+
+### 12.2 Formato: comparación
+
+| Formato | Pros | Contras |
+| --- | --- | --- |
+| Huevo por hábitat | Temático: cierra el ciclo cueva → Esencias → huevo → Pokémon de esa cueva; usa las tablas existentes | Pools chicos → muchos duplicados (§10.5) |
+| Huevo por tipo | Sumidero por tipo; claridad | Genérico; mezcla hábitats sin sentido temático |
+| Banner regional | Variedad y rotación (p. ej. "Semana Sinnoh") | Requiere curación; riesgo de FOMO |
+| **Mezcla** *(recomendada)* | Huevos de hábitat permanentes (Pradera, Bosque, Cantera, Caliza…) como base. Más adelante, un banner regional rotativo, sólo con tiers ordinarios. El huevo por tipo no se hace (lo cubre la conversión 5:1) | Dos contenidos que mantener |
+
+### 12.3 Tiers ordinarios del huevo (playtest)
+
+| Economía | common | uncommon | rare | very_rare | Pity raro+ |
+| --- | --- | --- | --- | --- | --- |
+| Accesible | 75 % | 20 % | 4,5 % | 0,5 % | 25 |
+| Media | 78 % | 18,5 % | 3 % | 0,5 % | 35 |
+| Lenta | 80 % | 17,5 % | 2 % | 0,5 % | 50 |
+
+**Recomendación:** "media". Da un raro+ cada ~3,5 semanas al activo y ~1 semana al avanzado. El casual necesita ~21 semanas, así que su vía principal de raros es la **captura**, no el gacha.
+
+---
+
+## 13. Riesgos
+
+| Riesgo | Impacto | Mitigación |
+| --- | --- | --- |
+| INSTANCES-1 es una migración de ownership irreversible (M2) | Pérdida o duplicación de propiedad | Backfill M-1 determinista, en seco, con conteos antes y después; aprobación humana; `slots` como vista mientras dure la transición |
+| Swap legacy reasigna especies de otros (U16) | Mecánica incompatible con ejemplares | D-SW1 antes de INSTANCES-1 |
+| Ingreso pasivo por ejemplar (U9) | Inflación de `profiles.tokens` | D-IN1 antes de INSTANCES-1 |
+| Sobreoferta de ejemplares comunes | Mercado sin valor, caja saturada | Ball consumible, tope diario, ligado a la cuenta, liberar con sumidero chico, límite de caja |
+| Horario inconsistente entre clientes (`clockShift`) | Condiciones de aparición distintas por jugador | Reloj de aparición del servidor (§9.3) |
+| Tablas mal curadas | Especies fuera de tema o finales en la zona inicial | Validaciones §9.2 + revisión humana |
+| Protocolo WORLD con `pokemonInstanceId` entero (U23) | Incompatible con uuid | Nueva versión de protocolo en INSTANCES-1 (YIELD-2 ya subió `WORLD_PROTOCOL` a 3) |
+| Legendarios de superficie hoy (U21) | Contradicen `event_only` | Retirar la categoría en WILD-SURFACE-1 |
+
+---
+
+## 14. Matriz de pruebas
+
+| # | Caso | Tipo | Fase |
+| --- | --- | --- | --- |
+| I1 | Dos jugadores poseen ejemplares distintos de la misma especie; ownership, lock y mercado operan por `instanceId` | base de datos | INSTANCES-1 |
+| I2 | Backfill M-1: cada fila de `slots` con dueño produce exactamente un ejemplar, determinista y repetible (mismo hash) | base de datos | INSTANCES-1 |
+| I3 | Transferencia CAS: dos compras concurrentes del mismo ejemplar → una | base de datos | INSTANCES-1 |
+| I4 | `pokemonInstanceId` uuid en WORLD; un cliente viejo con entero → `client-outdated` | sala | INSTANCES-1 |
+| S1 | Ninguna tabla sin `eventId` contiene legendarios, míticos o starters; `special` sólo tier ≥ B; `event_only` sólo con evento | unidad | CAVE WILD-1 |
+| S2 | Distribución empírica de tiers (semilla fija, 10⁵ sorteos) dentro de ±1 % de los shares | unidad | CAVE WILD-1 |
+| S3 | Finales de 3 etapas ausentes de las capas 2–5; L/XL sólo en cámaras o superficie abierta | unidad | CAVE WILD-1 |
+| S4 | Mismo nido, respawn: `encounterId` nuevo (g+1) aunque la especie se repita | unidad | CAVE WILD-1 |
+| S5 | Condición horaria evaluada con el reloj del servidor: dos clientes con `clockShift` distinto ven el mismo encuentro | sala | WILD-SURFACE-1 |
+| S6 | Pool de superficie ya no excluye especies con dueño ni exige unicidad (reemplazo de U29) | unidad | WILD-SURFACE-1 |
+| C1 | Un encuentro → un solo resultado entre `defeated`, `captured` y `fled`, aun con reintentos y dos instancias | base de datos | CAPTURE-1 |
+| C2 | Dos intenciones de captura → un candidato; la Ball se consume sólo al candidato | sala + base de datos | CAPTURE-1 |
+| C3 | Captura exitosa crea exactamente un ejemplar (`UNIQUE source_ref`) y otorga las recompensas de derrota a los demás elegibles | base de datos | CAPTURE-1 |
+| C4 | Fallo de persistencia: nada aplicado, el encuentro vuelve con la misma generación y ninguna Ball se consume | integración | CAPTURE-1 |
+| C5 | Cliente modificado (intención sin Ball, no elegible, especie o IVs en el payload) → ignorado | malicioso | CAPTURE-1 |
+| C6 | Caja llena → rechazo antes del sorteo | sala | CAPTURE-1 |
+| G1 | Tirada exactly-once: mismo `pullId` → mismo ejemplar, un solo débito | base de datos | GACHA-2 |
+| G2 | Nunca `special` ni `event_only` en huevo ordinario (10⁵ tiradas) | unidad | GACHA-2 |
+| G3 | Pity: la tirada N sin raro+ lo garantiza; el contador se persiste con la tirada | base de datos | GACHA-2 |
+| G4 | Ejemplar de gacha no listable en el mercado mientras `account_bound_until > now` | base de datos | GACHA-2 |
+
+---
+
+## 15. Decisiones abiertas
+
+| Id | Decisión | Recomendación | Bloquea |
+| --- | --- | --- | --- |
+| D-IN1 | Ingreso pasivo con muchos ejemplares | Contar sólo la party activa (6) | INSTANCES-1 |
+| D-IN2 | Destino de duplicados | Liberar → 1 Esencia (tope diario) | GACHA-2 / CAPTURE-1 |
+| D-SW1 | Swap con ejemplares | Crear un ejemplar nuevo desde una tabla del swap sin legendarios (no reasignar el de otro) | INSTANCES-1 |
+| D-CP1 | Derecho de captura | Intención + sorteo ponderado (§11.2) | CAPTURE-1 |
+| D-CP2 | Ball consumible y tope diario | Sí: Ball craftable o comprable con Esencias; 10 capturas/día | CAPTURE-1 |
+| D-CP3 | ¿Captura en Dungeons, o sólo en superficie y cuevas permanentes? | Ambas, con el mismo contrato | CAPTURE-1 |
+| D-SH1 | Tasa de shiny | 1/512 | CAVE WILD-1 |
+| D-TM1 | Reloj de aparición vs. ciclo visual de 240 s | Bandas de 20 min del servidor | WILD-SURFACE-1 |
+| D-GA2 | Pity al rotar huevos | Se conserva | GACHA-2 |
+| D-GA3 | Venta de ejemplares del gacha | No hasta medir; ligado a la cuenta 30 días | GACHA-2 |
+| D-BOX | Límite de caja | Definir con UX | CAPTURE-1 |
