@@ -3,6 +3,7 @@
 > Rama `design/cave-ecosystem-0.3`, base `2652a58`. Sólo diseño: no se modificó código, datos ni tests.
 > Etiquetas: **FACT** (verificado en el repo), **INFERENCE** (deducido o conocimiento canónico que el repo no contiene), **OPEN QUESTION** (requiere decisión).
 > Auditoría de partida: `SHARED_DUNGEON_ARCHITECTURE.md` §1.
+> **Corrección de premisa (posterior):** todas las especies pueden tener múltiples ejemplares, cada uno con `instanceId` y como máximo un dueño; no hay unicidad global por especie. D-EC1 y D-GA1 quedan resueltos. Ver `MMO_SPAWN_RARITY_AND_INSTANCES.md`, que prevalece sobre este documento. Los pools por tier de rareza de `caliza`, `mina` y `cristalina` que reemplazan a los de §6 están en ese documento (§7.5–§7.7).
 
 ---
 
@@ -213,13 +214,13 @@ Los pisos respetan la regla **aprobada** de 5–30 pisos por Dungeon (`src/featu
 
 | Grupo | Ids | Regla |
 | --- | --- | --- |
-| Legendarios y míticos (35) | 144–146, 150, 151, 243–245, 249–251, 377–386, 480–493 | Nunca en cuevas ni Dungeons. |
-| Pseudo-legendarios (15) | 147–149, 246–248, 371–376, 443–445 | Nunca. Incluye a Beldum/Metang/Metagross (`catchRate 3`). |
+| Legendarios y míticos (35) | 144–146, 150, 151, 243–245, 249–251, 377–386, 480–493 | `event_only`: nunca ambientales ni en gacha ordinario; sólo en tablas de evento configuradas en el servidor. |
+| Pseudo-legendarios (15) | 147–149, 246–248, 371–376, 443–445 | Formas base como `special` sólo en contenido avanzado (Beldum y Bagon en `cristalina`; Larvitar y Gible en `volcanica`; Dratini en `humeda` piso 6). Intermedias y finales: sólo evento o jefe. |
 | Starters (36) | 1–9, 152–160, 252–260, 387–395 | Excluidos por defecto (§7). |
 | Fósiles (13) | 138–142, 345–348, 408–411 | Excluidos por defecto (§7). |
 | Línea Eevee (8) | 133–136, 196, 197, 470, 471 | Excluida: valiosa y sin hábitat de cueva. |
 | Valiosos puntuales | 442 Spiritomb, 447–448 Riolu/Lucario | Excluidos: rareza de evento o demanda desproporcionada. |
-| Finales demasiado fuertes para el tier | Crobat 169, Magmortar 467, Magnezone 462, Rhyperior 464, Mamoswine 473, Weavile 461, Dusknoir 477, Steelix 208 | Fuera de los pools v1. Revisar sólo para tiers A/S. |
+| Finales demasiado fuertes para el tier | Crobat 169, Magmortar 467, Magnezone 462, Rhyperior 464, Mamoswine 473, Weavile 461, Dusknoir 477, Steelix 208 | Fuera de los pools ambientales v1: jefes, eventos o `very_rare` en Dungeons tier A/S. |
 
 ---
 
@@ -287,7 +288,7 @@ La rareza de aparición la fija el **peso del nido**, no el `cr` (el `cr` es un 
 | 322 Numel → 323 Camerupt | fire/ground | 2 | 255 / 150 | S / L | fire (ground) | Camerupt sólo en cámaras |
 | 324 Torkoal | fire | 1 | 90 | S | fire | — |
 | 228 Houndour → 229 Houndoom | dark/fire | 2 | 120 / 45 | S / L | dark (fire) | Pisos ≥ 4 |
-| 240 Magby → 126 Magmar | fire | 2 (+467 excluido) | 45 / 45 | S / L | fire | Raro, profundo |
+| 240 Magby → 126 Magmar | fire | 2 (+467 excluido) | 45 / 45 | S / L | fire | Magby es bebé: no ambiental. Magmar `rare`, profundo |
 
 ### 5.5 Glacial
 
@@ -324,7 +325,9 @@ Verificación: ids, nombres, tipos y `cr` de todas las filas se comprobaron con 
 
 ## 6. Pools concretos
 
-Reglas comunes:
+> **Reemplazado.** Los pools de esta sección fueron la primera propuesta, por peso de familia y sin tiers. Los vigentes, con `rarityTier`, renormalización por piso y el nido que sortea la entrada sobre la tabla de la zona, están en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §7.5 (`caliza`), §7.6 (`mina`) y §7.7 (`cristalina`). Se conservan como referencia de familias y pisos.
+
+Reglas comunes (históricas):
 
 1. Cada **nido** tiene una familia. El nido elige un **miembro** según el piso: formas base en los pisos tempranos y, con la profundidad, intermedias y finales.
 2. Los pesos son relativos dentro del piso y suman 100 por pool.
@@ -390,7 +393,7 @@ Onix: un solo nido por piso, sólo en una cámara ≥ 9×9, con radio de hogar 2
 
 | Grupo | Por qué excluirlos por defecto | Cuándo podrían entrar |
 | --- | --- | --- |
-| Starters (36) | En PokeSwap cada especie es un Pokémon único con dueño y valor de mercado (`slots`). Los starters son de alta demanda: meterlos en un nido que se derrota repetidamente banaliza la especie y, cuando haya captura, crea presión de camping. Además, ninguno es de hábitat de cueva. | Nunca en cuevas. Como mucho, un evento o una Dungeon especial "Legado", con decisión de producto explícita. |
+| Starters (36) | Son de alta demanda: como encuentros ambientales repetibles banalizan la elección inicial y, con captura, generan camping. Además, ninguno es de hábitat de cueva. (La unicidad por especie ya no es el motivo: fue descartada.) | Nunca en cuevas. Como mucho, un evento o una Dungeon especial "Legado", con decisión de producto explícita. |
 | Fósiles (13) | Son de cueva por naturaleza, pero en la fantasía se *reviven*, no se encuentran vivos. El prototipo ya los agrupa en una Dungeon especial (`dungeonCatalog.ts:39`, `fossil-strata`). Aerodactyl es un "raro famoso". | Como **drop o hallazgo** (fragmento fósil) en `caliza`/`mina` profundas, que alimente un sistema de revivir futuro, o como Dungeon especial tier A. Nunca como nido en v1. |
 
 ---
@@ -402,5 +405,5 @@ Onix: un solo nido por piso, sólo en una cámara ≥ 9×9, con radio de hogar 2
 | Las familias no están en el repo (H1) | Un error de familia pasaría sin detección | `caveFamilies.js` autorado + test contra `core.json` (ids, nombres, tipos) + revisión humana de las ramificaciones |
 | Pokémon XL en pasillos | Bloqueo visual, patrulla que no cabe | Clase de tamaño (H2) + regla "XL/L sólo en cámaras" validada por guarda |
 | Pools con un tipo dominante | Un token que no sale de ninguna cueva temprana (`steel`, `fairy`, `dragon`) | Tabla §6.4 + la simulación de `CAVE_RESPAWN_AND_TOKENS.md` §7. `dragon` no aparece en ningún pool: es intencional (§5.3 de ese documento) |
-| Solapamiento con la superficie | El mismo Geodude arriba y abajo | D7 ya decidió pool propio por cueva. Con D-EC1 (ejemplares) no hay conflicto de unicidad. |
+| Solapamiento con la superficie | El mismo Geodude arriba y abajo | D7 ya decidió pool propio por cueva. Con múltiples ejemplares no hay conflicto de propiedad: el solapamiento es sólo temático, y la caliza cambia el énfasis frente a la Cantera (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §7.4–§7.5). |
 | Seis tipos a la vez | Arte y contenido inabordables | Sólo `caliza` en la primera ola; el resto con fase propia |

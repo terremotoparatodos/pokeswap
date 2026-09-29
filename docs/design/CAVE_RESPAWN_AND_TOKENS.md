@@ -2,40 +2,35 @@
 
 > Rama `design/cave-ecosystem-0.3`, base `2652a58`. Sólo diseño: no hay código, SQL ni balance productivo.
 > Etiquetas: **FACT**, **INFERENCE**, **OPEN QUESTION**. Auditoría de partida: `SHARED_DUNGEON_ARCHITECTURE.md` §1.
+> **Corrección de premisa (posterior):** todas las especies pueden tener múltiples ejemplares, cada uno con `instanceId` y como máximo un dueño; no hay unicidad global por especie. D-EC1 y D-GA1 quedan resueltos. `MMO_SPAWN_RARITY_AND_INSTANCES.md` prevalece sobre este documento: rareza, tablas de aparición, captura, gacha y simulación actualizada.
 > Todos los números de este documento son **parámetros de playtest**, no economía aprobada. §7 los simula con un script reproducible.
 
 ---
 
 ## 0. Resumen
 
-- **Ejemplar ≠ Pokémon único.** Lo que aparece en un nido es un *ejemplar de encuentro* de una especie, no el Pokémon ownable (`slots`). Sin esta separación no puede existir el respawn por familias. Es la decisión **D-EC1**.
+- **Encuentros = ejemplares individuales (D-EC1, resuelto).** Cada aparición es un encuentro con `encounterId` y generación, que se resuelve una sola vez. Un respawn es otro encuentro aunque repita especie, y no se excluyen especies con dueño.
 - **Nidos autoritativos.** Cada nido tiene id estable, familia, miembros por piso, peso, tope simultáneo, hogar y patrulla, estado, tiempos y **generación**. El miembro que reaparece se sortea con CSPRNG en el servidor, dentro de la familia y según el piso.
 - **Respawn híbrido.** Temporizador individual por nido, cantidad de nidos activos según la presencia en el piso, suspensión sin jugadores y reset por run (Dungeon) o rotación horaria de la tabla de miembros (cueva permanente).
 - **Tokens elementales.** Una moneda por cada uno de los 18 tipos, en una tabla propia con ledger. **Nunca** es `profiles.tokens`. Al derrotar un ejemplar, 1–3 tokens del tipo primario (+1 desde el piso 4) y un 25 % de probabilidad de 1 token del secundario. Intransferibles.
-- **Gacha recomendado: "Huevo de hábitat".** Huevo temático por tipo de cueva, con probabilidades publicadas y pity. **Bloqueado** por la unicidad de especies: la simulación muestra que un banner de tipo que entrega especies únicas se agota en 0,1–4,5 días (§7.3).
+- **Gacha recomendado: "Huevo de hábitat"** (D-GA1, resuelto). Crea un ejemplar nuevo con `instanceId` en cada tirada, sin stock global; probabilidades publicadas y pity. El "agotamiento en 0,1–4,5 días" de §7.3 queda **invalidado**: dependía de la unicidad por especie. Contrato vigente en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §12; su dependencia real es INSTANCES-1.
 
 ---
 
-## 1. Ejemplar de encuentro vs. Pokémon único (D-EC1)
+## 1. Encuentros como ejemplares individuales (D-EC1, resuelto)
 
-**Hechos:**
+**Decisión de producto:**
 
-- Cada especie es un único Pokémon con, a lo sumo, un dueño (`slots.pokemon_id`, INV-OWN-1, `docs/INVARIANTS.md:74`).
-- El salvaje de superficie **es** esa entidad: id `wild:<área>:<época>:<pokemonId>`, excluida si tiene dueño (`wildPopulation.js:64-77,151`; `wildService.js:96`).
+- Los Pokémon de cuevas y Dungeons son **ejemplares de encuentro**: se pueden combatir y, en una fase futura, capturar.
+- Una captura crea un ejemplar persistente con `instanceId` nuevo. El encuentro queda resuelto exactly-once, y sólo un jugador puede obtener ese encuentro concreto.
+- El nido puede generar después otro ejemplar de la misma especie: otro `encounterId`, con generación `g+1`.
+- No se excluyen especies con dueño. La disponibilidad la regulan las tablas de aparición y la rareza (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §5–§9).
 
-Un nido con respawn necesita el mismo tipo de Pokémon una y otra vez.
+**Qué cambió respecto de la versión anterior de esta sección.** Antes se comparaban tres opciones: unicidad global, sólo especies sin dueño y ejemplares. La premisa de que "cada especie es un único Pokémon" fue descartada por producto, así que la comparación ya no aplica.
 
-| Opción | Qué implica | Problema |
-| --- | --- | --- |
-| **A. Unicidad global** (cada especie a lo sumo una vez en todo el mundo a la vez) | Un servicio global asigna especies a superficie, cuevas y runs. | Con 30 jugadores y pools de ~15 especies por cueva, los nidos quedan vacíos. Choca con el roster horario de superficie, que puede tomar la misma especie. Además, derrotar al "Geodude único" una y otra vez no tiene sentido. |
-| **B. Sólo especies sin dueño** | Los nidos filtran `ownedIds`, como la superficie. | A medida que la gente posee especies, las cuevas se vacían y las familias se rompen (Geodude con dueño → el nido de la familia pierde su base). |
-| **C. Ejemplares de encuentro** *(recomendada)* | Un ejemplar es un encuentro de combate de una especie, sin identidad de propiedad. Puede haber varios en el tiempo y, con tope, a la vez. La propiedad sigue siendo global y única. Una **captura** futura tendrá que resolverse contra `slots` (y sólo si la especie no tiene dueño) o contra el modelo de instancias R32 si llega. | Hay que comunicar la diferencia en el producto ("Geodude salvaje" en cueva vs. "el Geodude de la plaza"). |
-
-**Recomendación: C.**
-
-- La unicidad protege la *propiedad*; no hace falta que proteja los *encuentros*.
-- La captura queda fuera de alcance y se decide con su propio diseño (D-CB2).
-- Hasta entonces, los ejemplares de cueva **no son capturables**, y el `pokemonId` de un ejemplar **nunca** se usa como id de propiedad.
+- El repositorio **todavía** implementa esa unicidad (`slots` con `PRIMARY KEY (pokemon_id)`). Su retiro es la fase INSTANCES-1 (inventario U1–U30 en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §2).
+- **D-EC1 ya no bloquea CAVE WILD-1:** los nidos sin combate no crean ejemplares persistentes.
+- La captura (contrato en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §11) sí depende de INSTANCES-1.
 
 ---
 
@@ -47,7 +42,7 @@ Un nido con respawn necesita el mismo tipo de Pokémon una y otra vez.
 | --- | --- | --- | --- |
 | `nestId` | `f<n>-nest<i>` (Dungeon) o `v-nest<i>` (vestíbulo) | generador puro o `CAVE_LAYOUTS` | ✓ |
 | `scopeId` | `runId` o `caveId` | servidor | ✓ |
-| `familyId` | id autorado de `caveFamilies.js` (hueco H1 de `CAVE_TYPES_AND_FAMILIES.md`) | definición | ✓ |
+| `familyId` | **Actualizado:** el nido no tiene una familia fija. En cada aparición sortea una entrada de la tabla de la zona (familia + miembro + tier) compatible con sus etiquetas (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §9). Sólo los nidos "de firma" autorados fijan su entrada. | definición | ✓ (la entrada actual) |
 | `members` | `[{ speciesId, floors: [a,b], weight }]` según el piso | definición | ✓ (la **tabla**, no la próxima tirada) |
 | `weight` | peso del nido dentro del pool del piso | definición | ✓ |
 | `maxAlive` | tope de ejemplares simultáneos: 1 (v1); 2 sólo para "colonias" chicas (Zubat) en cámaras | definición | ✓ |
@@ -96,11 +91,11 @@ La patrulla usa un `walkable` que excluye todo lo anterior, igual que `sharedPop
 
 | Pregunta | Regla recomendada |
 | --- | --- |
-| ¿Cuándo reaparece? | `respawnAt = defeatedAt + cooldown(etapa) × (1 ± 0,2 CSPRNG)`, con cooldown de 60 s (etapa 1), 90 s (etapa 2) y 120 s (etapa 3). Los nidos "raros" (peso ≤ 6: Dunsparce, Onix, Lunatone/Solrock, Sableye, Mawile) usan **300 s**. |
-| ¿La misma especie? | **No necesariamente:** se vuelve a sortear entre los `members` válidos del piso, con sus pesos. La familia se conserva; la etapa depende del piso. |
+| ¿Cuándo reaparece? | `respawnAt = defeatedAt + respawnSec × (1 ± 0,2 CSPRNG)`, con `respawnSec` de la entrada de la tabla (playtest: 75 s). **Actualizado:** la rareza ya no se modela con nidos "raros" de 300 s. El tier se sortea en cada aparición sobre la tabla de la zona (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §5.2 y §9.4). Sólo los nidos "de firma" autorados (p. ej. la cámara de Onix) fijan su entrada. |
+| ¿La misma especie? | **No necesariamente:** en cada aparición el nido sortea una entrada de la tabla de la zona compatible con sus etiquetas (hábitat, tamaño, cámara), con pesos por tier y renormalizada por piso, horario y clima. Puede repetir especie: es otro encuentro. |
 | ¿Qué cambia al profundizar? | La distribución de etapas (ver pools en `CAVE_TYPES_AND_FAMILIES.md` §6), +1 token desde el piso 4 (§5) y los nidos de tamaño L/XL. El cooldown **no** baja con la profundidad. |
 | Límite de población | Por nido: `maxAlive` (1). Por área: `activeNests = min(12, 4 + ⌈jugadores_en_el_área / 2⌉)`, eligiendo entre los nidos del piso por peso, de forma estable durante la activación. Por run: 6 áreas × 12 = 72 ejemplares como máximo. |
-| Camping | (1) El cooldown no se acorta con jugadores presentes. (2) `respawnAt` no se publica. (3) Rendimiento decreciente **por jugador y nido**: desde la 7.ª derrota elegible del mismo nido en 30 min, los tokens de ese nido rinden 50 % (las llaves no se afectan). (4) Los nidos raros tienen 300 s. (5) El tope diario blando (§5.4). |
+| Camping | (1) El cooldown no se acorta con jugadores presentes. (2) `respawnAt` no se publica. (3) Rendimiento decreciente **por jugador y nido**: desde la 7.ª derrota elegible del mismo nido en 30 min, los tokens de ese nido rinden 50 % (las llaves no se afectan). (4) El tier se sortea por aparición, así que acampar un nido no concentra raros. (5) El tope diario blando (§5.4). |
 | Sin jugadores | El área pasa a `dormant` a los 5 min (`SHARED_DUNGEON_ARCHITECTURE.md` §3.2): no se simulan patrullas ni timers. Al reactivarse, cada nido aparece escalonado entre 5 y 15 s para que el piso no "florezca" de golpe. |
 | Limpieza | Filas de `dungeon_nests` con `scope = runId` de runs terminadas: se borran a las 24 h. `encounter_resolutions`: se retienen 30 días. El ledger de tokens nunca se borra. |
 | Reinicio del servidor | Se cargan los nidos persistidos (`generation`, `state`, `respawnAt`). Un nido `alive`, `reserved` o `in_combat` en memoria se pierde **sin pago** y reaparece con la misma generación y un miembro nuevo. Nada resucita lo ya derrotado: la derrota es un commit. |
@@ -203,7 +198,7 @@ Modelo (script `load.mjs`, §7.5):
 
 **Tipos sin fuente en las cuevas v1.**
 
-- `dragon` no aparece en ningún pool, a propósito: sus familias válidas son pocas y casi todas pseudo o legendarias. Queda para zonas futuras y **no** debe tener banner hasta tener fuente.
+- `dragon`: **actualizado.** Sus únicas fuentes ambientales son las formas base de pseudo-legendarios como `special` en contenido avanzado (Dratini en `humeda` piso 6, Bagon en `cristalina`, Gible en `volcanica`). Es una fuente escasa a propósito, y el huevo ordinario no debe pedir Esencia de Dragón.
 - `fire`, `ice`, `water`, `grass`, `electric` y `fairy` salen de `volcanica`, `glacial`, `humeda`, `mina` y `cristalina` a medida que se abren.
 - La conversión con pérdida (§5.6) evita que un tipo quede inalcanzable.
 
@@ -267,40 +262,42 @@ elemental_token_balances(user_id, token_type, balance integer NOT NULL CHECK (ba
 | Separado del mercado | Otra Edge Function (`city-gacha`) y otras tablas. El mercado no lee Esencias. Si un Pokémon del gacha se puede vender se decide aparte (D-GA3): si es vendible, las Esencias se convierten indirectamente en `profiles.tokens`. |
 | Probabilidades visibles | Cada huevo publica su tabla (tier → probabilidad, especies posibles **en ese momento**, pity). La tabla es la del servidor, versionada (`rules_version`). |
 | Protección contra mala suerte | Pity duro por huevo y usuario, persistido. Se evaluó conservar el contador al rotar de huevo, pero es un escalón de diseño: ver §6.4. |
-| Propiedad y unicidad | La tirada sólo sortea entre especies **sin dueño** (`slots.owner_id IS NULL`, no bloqueadas, no excluidas) del pool. Se lee **bajo lock** en la misma transacción que asigna el dueño. |
-| Sin duplicados imposibles | El `UPDATE slots SET owner_id = $user WHERE pokemon_id = $x AND owner_id IS NULL` es la condición de éxito (CAS). Si no afecta filas, se re-sortea dentro de la transacción. |
-| Resultado con dueño | No puede pasar por construcción: el candidato se valida bajo lock. Si el pool del tier se vacía, la tirada baja al tier inferior. Si **todo** el huevo se vacía, el huevo se muestra "agotado" y no acepta tiradas: **nunca** se cobra una tirada sin resultado. |
-| Server-side y exactly-once | `pullId` = idempotencia enviada por el cliente (UUID) + `user_id`. En una transacción: dedupe `pullId` → débito → pity → sorteo CSPRNG → CAS de `slots` → ledger (`reason = 'gacha_pull'`, `source_id = pullId`) → `gacha_pulls`. Un reintento devuelve el resultado guardado. |
+| Propiedad | **Actualizado:** la tirada **crea** un ejemplar (`pokemon_instances`, `source = gacha`, `source_ref = pullId` único) con dueño = quien tira. No consume ningún stock por especie ni mira `slots`. |
+| Sin duplicados imposibles | Un `pullId` produce a lo sumo un ejemplar (`UNIQUE (source, source_ref)`). Que el jugador reciba una especie que ya tiene **es posible y válido**: duplicado de especie, no de ejemplar (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §10.5). |
+| Resultado con dueño | Ya no aplica: no existe "especie con dueño" que bloquee una tirada. Los huevos no se agotan. |
+| Server-side y exactly-once | `pullId` = idempotencia enviada por el cliente (UUID) + `user_id`. En una transacción: dedupe `pullId` → débito → pity → sorteo CSPRNG → creación del ejemplar → ledger (`reason = 'gacha_pull'`, `source_id = pullId`) → `gacha_pulls`. Un reintento devuelve el resultado guardado. |
 | No se implementa ahora | GACHA-1 es auditoría y decisión (`CAVE_ECOSYSTEM_ROADMAP.md`). |
 
 ### 6.2 Comparación de formatos
 
 | Formato | Qué es | Tema PokeSwap | Complejidad | Riesgo |
 | --- | --- | --- | --- | --- |
-| **Banner por tipo** | "Banner Roca": cuesta Esencias de Roca y sortea especies de tipo roca | Débil: genérico, de juego de móvil | Baja | Los banners con muchos tipos poseídos se vacían. `flying` y `dragon` no tienen fuente. |
-| **Huevo por tipo** | Huevo "de Roca" que eclosiona tras un breve tiempo en la Ciudad | Medio | Baja + temporizador cosmético | Mismo problema de agotamiento |
-| **Convocatoria por hábitat — "Huevo de hábitat"** *(recomendado)* | Un huevo por **tipo de cueva** (`Huevo de Caliza`, `Huevo de Mina`, `Huevo Cristalino`…). Cuesta una mezcla de las Esencias que da esa cueva (p. ej. Caliza: 60 Roca + 20 Tierra) y sortea entre las **familias de esa cueva** (formas base; intermedias como tier raro). | **Fuerte**: cierra el ciclo cueva → Esencias de la cueva → huevo de la cueva → Pokémon de la cueva. El huevo se entrega en un "Criadero" de Ciudad. | Media | El agotamiento sigue, pero los pools son curados y chicos, así que la escasez es explícita y comunicable. |
-| **Elección entre siluetas** | Se muestran 3 siluetas y el jugador elige una | Divertido y con agencia | Alta: hay que reservar 3 especies únicas durante la elección | Reservar especies únicas mientras alguien decide bloquea a los demás. Con unicidad global es mala idea. |
+| **Banner por tipo** | "Banner Roca": cuesta Esencias de Roca y sortea especies de tipo roca | Débil: genérico, de juego de móvil | Baja | `flying` y `dragon` casi no tienen fuente. (La objeción de "se vacían" dependía de la unicidad y ya no aplica.) |
+| **Huevo por tipo** | Huevo "de Roca" que eclosiona tras un breve tiempo en la Ciudad | Medio | Baja + temporizador cosmético | Genérico; mezcla hábitats |
+| **Convocatoria por hábitat — "Huevo de hábitat"** *(recomendado)* | Un huevo por **tipo de cueva** (`Huevo de Caliza`, `Huevo de Mina`, `Huevo Cristalino`…). Cuesta una mezcla de las Esencias que da esa cueva (p. ej. Caliza: 60 Roca + 20 Tierra) y sortea entre las **familias de esa cueva** (formas base; intermedias como tier raro). | **Fuerte**: cierra el ciclo cueva → Esencias de la cueva → huevo de la cueva → Pokémon de la cueva. El huevo se entrega en un "Criadero" de Ciudad. | Media | Pools chicos → muchos duplicados de especie (se mitigan con liberar → Esencia, D-IN2). |
+| **Elección entre siluetas** | Se muestran 3 siluetas y el jugador elige una | Divertido y con agencia | Alta: estado de elección pendiente por jugador | Sin unicidad ya no bloquea a otros, pero agrega otro estado persistente. Queda para un banner especial. |
 
 **Recomendación: "Huevo de hábitat".**
 
 - Es temático: la cueva es la fuente de Esencias y de familias.
-- Reutiliza los pools de `CAVE_TYPES_AND_FAMILIES.md` §6.
+- Reutiliza las tablas de aparición del hábitat (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §7).
 - Pide 2–3 tipos de Esencia, lo que da sentido a los secundarios.
 - La eclosión con tiempo es presentación: el resultado ya se decidió y se asignó en el servidor al pagar.
 
-### 6.3 Tiers del huevo (propuesta)
+### 6.3 Tiers del huevo (propuesta original — reemplazada)
+
+> Reemplazada por los cuatro tiers ordinarios (`common`/`uncommon`/`rare`/`very_rare`) de `MMO_SPAWN_RARITY_AND_INSTANCES.md` §12.3.
 
 | Tier | Qué sale | Probabilidad (escenario "media") |
 | --- | --- | --- |
-| Común | Forma base de una familia de la cueva (sin dueño) | 97 % |
+| Común | Forma base de una familia de la cueva | 97 % |
 | Raro | Forma intermedia de una familia de la cueva, o un "raro de la cueva" (Dunsparce, Onix, Sableye…) | 3 % (pity duro a las 35 tiradas) |
 | — | Finales, legendarios, pseudos, starters, fósiles | **0 %**: nunca en huevos de cueva |
 
 ### 6.4 Pity
 
 - Contador por (usuario, huevo) en `gacha_pity`. Sube en cada tirada sin raro y vuelve a 0 al obtenerlo. La tirada N-ésima sin raro lo garantiza.
-- Si un huevo rota o se agota, el contador **se conserva** para ese huevo. Si se retira para siempre, se transfiere al huevo del mismo tipo de cueva que lo reemplace (OPEN QUESTION D-GA2).
+- Si un huevo rota, el contador **se conserva** para ese huevo. Si se retira para siempre, se transfiere al huevo del mismo tipo de cueva que lo reemplace (OPEN QUESTION D-GA2).
 
 ---
 
@@ -344,6 +341,8 @@ P(pity) = (1−p)^(pity−1)
 
 ### 7.2 Resultados
 
+> La producción de tokens (tokens por hora, del foco por día) sigue vigente. `p(raro)` y `E[tiradas hasta raro]` corresponden al huevo original de dos tiers. Con los cuatro tiers ordinarios, los valores vigentes están en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §10.4 (media: 20,4 tiradas hasta raro+).
+
 | Economía | Costo por tirada | Pity | p(raro) | Tope blando | E[tiradas hasta raro] |
 | --- | --- | --- | --- | --- | --- |
 | **Accesible** | 40 | 25 | 5 % | 400/día | 14,5 |
@@ -364,15 +363,17 @@ P(pity) = (1−p)^(pity−1)
 
 **Lectura.**
 
-- **Accesible:** un jugador activo tira casi 2 veces por día y un avanzado, 6. La economía de Esencias no se "infla" (no hay mercado ni precio), pero el **ritmo de adjudicación de especies** es altísimo (§7.3).
+- **Accesible:** un jugador activo tira casi 2 veces por día y un avanzado, 6. La economía de Esencias no se "infla" (no hay mercado ni precio), y cada tirada crea un ejemplar: el riesgo es la **sobreoferta de ejemplares** (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §10.5), no un agotamiento.
 - **Media:** el activo tira ~1 vez por día y el avanzado ~2,6. El casual llega a una tirada por semana, y el pity le queda fuera de alcance (259 días). Aceptable **sólo** si el casual tiene otros objetivos (Pokédex de ejemplares derrotados, cosméticos).
 - **Lenta:** el casual casi no participa (una tirada cada dos semanas). Frustrante.
 - **Jugadores avanzados:** el tope blando les recorta 4 % en accesible, 16 % en media y 21 % en lenta (de 436 tokens brutos por día). La diferencia con el casual es de ~19× en tiradas por día en media (208,6 contra 10,8 tokens del foco por día). Bajar el tope achica esa brecha, pero castiga al activo. Se recomienda tope blando de 300 y rendimiento decreciente por nido (§3.1).
 - **Sumideros:** el gacha y la conversión 5:1. Sin mercado, el saldo acumulado no pierde valor: el riesgo de "inflación" es una **acumulación** que se descarga de golpe cuando abre un huevo nuevo. Se mitiga con un tope de tiradas por día por huevo (p. ej. 10).
 
-### 7.3 Presión de oferta (el hallazgo principal)
+### 7.3 Presión de oferta — HISTÓRICA, INVÁLIDA bajo la decisión actual
 
-Con especies únicas, cada tirada común **consume** una especie del mundo. Tiradas por día (promedio de los tres arquetipos × jugadores) y días hasta agotar un pool de 27 especies (las de tipo primario Roca en todo el catálogo, dato FACT):
+> **Inválida.** Esta sección suponía una unidad global por especie. Con múltiples ejemplares, una tirada no consume especies y los huevos no se agotan. Se conserva sólo como registro de por qué se descartó esa premisa. El análisis vigente (inflación, duplicados, almacenamiento) está en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §10.
+
+Con especies únicas (supuesto descartado), cada tirada común **consume** una especie del mundo. Tiradas por día (promedio de los tres arquetipos × jugadores) y días hasta agotar un pool de 27 especies (las de tipo primario Roca en todo el catálogo, dato FACT):
 
 | Economía | 10 jugadores | 30 jugadores | 100 jugadores |
 | --- | --- | --- | --- |
@@ -382,16 +383,16 @@ Con especies únicas, cada tirada común **consume** una especie del mundo. Tira
 
 Un huevo de hábitat es todavía más chico: `caliza` tiene 8 familias y 15 especies en su pool.
 
-**Conclusión:** mientras cada especie tenga un único dueño, **ninguna** economía conservadora sostiene un gacha que entregue especies. Hay tres salidas (decisión **D-GA1**, bloqueante para GACHA-1):
+**Conclusión histórica** (bajo el supuesto descartado): ninguna economía conservadora sostenía un gacha de especies únicas. Se evaluaron tres salidas. **D-GA1 quedó resuelta con la primera**: ejemplares con `instanceId`. La recomendación de stock global (2) queda **retirada**.
 
 1. **Esperar al modelo de instancias** (R32, `docs/wildlands/POKEMON_SPECIES_INSTANCE_MODEL.md`). Si una especie puede tener varios individuos, el gacha entrega una **instancia** y no hay agotamiento. Es la opción recomendada si R32 está en el roadmap de producto.
-2. **Stock global por huevo:** por ejemplo, una reposición de 5 especies por semana, con cola. La escasez es real y visible y el gacha pasa a ser un evento. Convierte las Esencias en fichas de una lotería con cupo.
+2. ~~**Stock global por huevo**~~ (retirada): por ejemplo, una reposición de 5 especies por semana, con cola. La escasez es real y visible y el gacha pasa a ser un evento. Convierte las Esencias en fichas de una lotería con cupo.
 3. **Premio no-Pokémon:** el gacha entrega cosméticos, ítems de Dungeon o "Ecos" (un Pokédex de ejemplares). Los Pokémon únicos siguen saliendo sólo de las vías actuales.
 
 ### 7.4 Recomendación económica preliminar
 
 - Playtest con **"media"**, tope blando de 300, conversión 5:1 y rendimiento decreciente por nido.
-- **Sin** gacha hasta resolver D-GA1: DROPS-1 puede lanzarse sin gacha. Las Esencias se acumulan y se muestran, y el playtest mide la producción real.
+- DROPS-1 puede lanzarse sin gacha. El gacha (GACHA-2) espera a **INSTANCES-1** (tabla de ejemplares), no a una decisión de stock. Mientras tanto las Esencias se acumulan y se muestran, y el playtest mide la producción real.
 - Recalibrar con telemetría: derrotas elegibles por hora y por arquetipo, distribución del foco, efecto del tope.
 - No fijar la economía final sin esa medición.
 
@@ -450,7 +451,7 @@ for (const eco of Object.keys(ECONOMIES)) {
   }
   for (const players of [10, 30, 100]) {
     const perDay = ['casual', 'activo', 'avanzado'].reduce((s, a) => s + day(a, eco).focusDay / e.pullCost, 0) / 3 * players
-    console.log('oferta', players, r(perDay), 'tiradas/día → pool de 27 agotado en', r(27 / perDay), 'días')
+    console.log('oferta', players, r(perDay), 'tiradas/día → pool de 27 agotado en', r(27 / perDay), 'días (HISTÓRICO: supuesto de unicidad descartado)')
   }
 }
 ```

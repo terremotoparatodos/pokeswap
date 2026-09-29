@@ -1,33 +1,40 @@
 # CAVE ECOSYSTEM-1 — Threat model, pruebas, roadmap y decisiones
 
 > Rama `design/cave-ecosystem-0.3`, base `2652a58`. Sólo diseño.
-> Serie: `SHARED_DUNGEON_ARCHITECTURE.md` (auditoría y arquitectura), `CAVE_TYPES_AND_FAMILIES.md` (tipos y familias), `CAVE_RESPAWN_AND_TOKENS.md` (nidos, tokens, gacha y economía), este documento.
+> Serie: `SHARED_DUNGEON_ARCHITECTURE.md` (auditoría y arquitectura), `CAVE_TYPES_AND_FAMILIES.md` (tipos y familias), `CAVE_RESPAWN_AND_TOKENS.md` (nidos, tokens, gacha y economía), `MMO_SPAWN_RARITY_AND_INSTANCES.md` (múltiples ejemplares, rareza, mapa, captura y gacha), este documento.
+> **Corrección de premisa (posterior):** múltiples ejemplares por especie, cada uno con `instanceId` y como máximo un dueño. D-EC1 y D-GA1 quedan resueltos; se agregan las fases INSTANCES-1, WILD-SURFACE-1, CAPTURE-1 y GACHA-2.
 
 ---
 
 ## 0. Resumen
 
-- **Ocho fases**, cada una en su propia rama. Ninguna mezcla presencia, combate y economía:
+- **Doce fases**, cada una en su propia rama. Ninguna mezcla presencia, combate, ownership y economía:
   - CAVES-3: cueva vacía;
-  - CAVE WILD-1: nidos sin combate;
+  - CAVE WILD-1: nidos y tablas de aparición sin combate;
+  - WILD-SURFACE-1: la superficie pasa a tablas de aparición;
   - DUNGEONS-1: núcleo autoritativo de la run;
   - DUNGEONS-2: primera run compartida sin recompensas;
   - DUNGEONS-3: llaves, escaleras y obstáculos;
   - COMBAT-1: resolución compartida;
   - DROPS-1: Esencias;
-  - GACHA-1: auditoría y decisión.
-- **Tres decisiones bloquean fases:**
-  - D-EC1 (ejemplar vs. Pokémon único) bloquea CAVE WILD-1;
-  - D-GA1 (gacha frente a unicidad) bloquea GACHA-1;
-  - D-DG1 (fuente de la llave antes de que exista combate) bloquea DUNGEONS-3.
+  - INSTANCES-1: migración a ejemplares con `instanceId`;
+  - CAPTURE-1: captura compartida;
+  - GACHA-1: auditoría y decisión;
+  - GACHA-2: implementación del gacha.
+- **Decisiones resueltas:** D-EC1 (encuentros = ejemplares) y D-GA1 (el gacha crea ejemplares, sin stock). CAVE WILD-1 ya no está bloqueada.
+- **Decisiones que bloquean fases:**
+  - D-DG1 (fuente de la llave antes del combate) → DUNGEONS-3;
+  - D-IN1 (ingreso pasivo con muchos ejemplares) y D-SW1 (swap con ejemplares) → INSTANCES-1;
+  - D-CP1 y D-CP2 (derecho de captura, Ball y tope diario) → CAPTURE-1.
 - **Relación con YIELD-2:**
   - ninguna fase depende de su código;
   - COMBAT-1 y DUNGEONS-3 reutilizan su **patrón** (lock por entidad + dedupe + CAS por generación);
-  - CAVES-3 y DUNGEONS-2 van a chocar con él en `skills.generated.js`, `worldRoom.js` y `colyseusPresence.ts` si YIELD-2 se integra antes o después (§3.9).
+  - CAVES-3 y DUNGEONS-2 van a chocar con él en `skills.generated.js`, `worldRoom.js` y `colyseusPresence.ts` si YIELD-2 se integra antes o después (§2.13).
 
 ```mermaid
 flowchart LR
-  C3[CAVES-3<br/>cueva caminable vacía] --> W1[CAVE WILD-1<br/>nidos + respawn sin combate]
+  C3[CAVES-3<br/>cueva caminable vacía] --> W1[CAVE WILD-1<br/>nidos + tablas sin combate]
+  W1 --> WS[WILD-SURFACE-1<br/>superficie por tablas]
   C3 --> D1[DUNGEONS-1<br/>núcleo de run y pisos]
   D1 --> D2[DUNGEONS-2<br/>run compartida sin recompensas]
   W1 --> D2
@@ -36,10 +43,15 @@ flowchart LR
   D2 --> CB1
   CB1 --> DR1[DROPS-1<br/>Esencias elementales]
   D3 --> DR1
+  INS[INSTANCES-1<br/>ejemplares con instanceId] --> CAP[CAPTURE-1<br/>captura compartida]
+  CB1 --> CAP
+  DR1 --> CAP
   DR1 --> G1[GACHA-1<br/>auditoría final]
-  EC1{{D-EC1}} -. bloquea .-> W1
+  G1 --> G2[GACHA-2<br/>implementación]
+  INS --> G2
   DG1{{D-DG1}} -. bloquea .-> D3
-  GA1{{D-GA1}} -. bloquea .-> G1
+  IN1{{D-IN1 · D-SW1}} -. bloquea .-> INS
+  CP1{{D-CP1 · D-CP2}} -. bloquea .-> CAP
 ```
 
 ---
@@ -67,6 +79,10 @@ Leyenda de controles: **C** cliente, **RT** realtime, **EF** Edge Function (`wor
 | T15 | Filtración de seed, respawn o drops | Leer snapshots o el bundle | Predecir el próximo raro, drops o llave | `layoutSeed` sólo decide geometría. Drops, miembro del nido, llave y pity se deciden con CSPRNG en el momento. `respawnAt` y pity nunca salen del servidor. | RT | los snapshots públicos no contienen `respawnAt`, `pity`, `speciesId` futuro ni probabilidades por tirada |
 | T16 | Inyección en nombres | Usernames en deltas de Dungeon | XSS | Interpolación de framework / texto de canvas (AGENTS §13) | C | nombre hostil en el delta de `transit` |
 | T17 | Uso de la clave de servicio | Secretos en el frontend | Escrituras privilegiadas | Todo por `world-authority` con secreto de servidor (`handler.ts:70`). El cliente nunca llama funciones `dungeon_*`. | EF | grep del build: sin `service_role` ni secreto |
+| T18 | Captura duplicada | Dos jugadores capturan a la vez; reintento tras un ack perdido | Dos ejemplares de un encuentro | Resolución única por `encounterId` (CAS de generación) + `UNIQUE (source, source_ref)` en `pokemon_instances`, en la misma transacción | PG | MMO C1–C3 |
+| T19 | Resultado propuesto por el cliente | Payload con especie, IVs, shiny, nivel o tier en captura o gacha | Ejemplares a medida | Los intents no tienen esos campos; todo se sortea con CSPRNG en el servidor y el `instanceId` lo crea Postgres | RT + PG | MMO C5, G1 |
+| T20 | Swap legacy sobre ejemplares ajenos | `pokeswap-swap` asigna por especie con `upsert` (`pokeswap-swap/index.ts:122-126`) | Reasignar el ejemplar de otro jugador | D-SW1 en INSTANCES-1: el swap crea o intercambia ejemplares, nunca reasigna | EF | INSTANCES-1 I1 + regresión de swap |
+| T21 | Doble cobro de tirada | Reintento o doble clic en el gacha | Dos débitos, un ejemplar | `pullId` único: dedupe → débito → ejemplar en una transacción | PG | MMO G1 |
 
 ### 1.1 Qué controla cada capa
 
@@ -102,17 +118,17 @@ Cada fase: una rama, un PR, un informe en `docs/design/`. Los criterios de acept
 
 | Campo | Contenido |
 | --- | --- |
-| Alcance | `caveFamilies.js` (familias, tamaños y exclusiones, huecos H1–H3) con test contra `core.json`; nidos del vestíbulo en `caveLayouts.js`; `NestAuthority` en el realtime: activación por presencia, sorteo CSPRNG de miembro, patrulla (`patrol.js`), suspensión sin jugadores, rotación horaria de la tabla de miembros; mensaje `cave:nests` (snapshot + deltas). |
+| Alcance | `caveFamilies.js` (familias, tamaños y exclusiones, huecos H1–H3) con test contra `core.json`; `spawnTables.js` con el esquema y las validaciones de `MMO_SPAWN_RARITY_AND_INSTANCES.md` §9 (tabla `caliza.vestibulo`); nidos del vestíbulo en `caveLayouts.js`; `NestAuthority` en el realtime: activación por presencia, sorteo CSPRNG de la entrada de la tabla (tier, especie, nivel, shiny), patrulla (`patrol.js`), suspensión sin jugadores, rotación horaria de la tabla de miembros; mensaje `cave:nests` (snapshot + deltas). |
 | Fuera de alcance | Derrota, combate, recompensas y persistencia (sin valor, el estado vive en memoria). |
 | Archivos | `services/realtime/src/world/caveFamilies.js` (nuevo), `caveNests.js` (nuevo), `worldRoom.js` (cableado), cliente: `features/caves/world/caveNestLayer.ts` (nuevo) sobre `population.ts`. |
 | Migraciones | Ninguna. |
 | Protocolos | `cave:nests` público: especie actual, hogar, `encounterId` y estado. Sin `respawnAt`. |
-| Tests | Ningún hogar ni patrulla en casillas prohibidas (§2.3 de `CAVE_RESPAWN_AND_TOKENS.md`); L/XL sólo en cámaras; exclusiones (35 + 15 + 36 + 13 + 8 + 2 ids) nunca en un pool; determinismo de la patrulla cliente/servidor; activación según presencia; entrada tardía. |
+| Tests | Ningún hogar ni patrulla en casillas prohibidas (§2.3 de `CAVE_RESPAWN_AND_TOKENS.md`); L/XL sólo en cámaras; validaciones de tablas (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §9.2: legendarios, míticos y starters sólo con `eventId`; pseudos sólo como `special` en tier ≥ B; S1–S4); determinismo de la patrulla cliente/servidor; activación según presencia; entrada tardía. |
 | Benchmark | Área con 12 nidos y 30 viewers: bytes/s de `cave:nests`. |
-| Riesgos | D-EC1 sin decidir; familias mal curadas; patrullas que tapan la salida. |
+| Riesgos | Familias o tablas mal curadas; patrullas que tapan la salida. (D-EC1 resuelto: encuentros = ejemplares.) |
 | Aceptación | En el vestíbulo aparecen ejemplares de las familias de `caliza`, los mismos para todos, que respetan casillas prohibidas y se suspenden sin jugadores. |
 | YIELD-2 | Sin dependencia. |
-| **Bloqueo** | **D-EC1**. |
+| **Bloqueo** | Ninguno (D-EC1 resuelto). D-SH1 (tasa de shiny) se decide dentro de la fase. |
 
 ### 2.3 DUNGEONS-1 — Contrato autoritativo de run y pisos
 
@@ -194,17 +210,77 @@ Cada fase: una rama, un PR, un informe en `docs/design/`. Los criterios de acept
 
 | Campo | Contenido |
 | --- | --- |
-| Alcance | **Documental**: medir la producción real de DROPS-1, decidir D-GA1/D-GA2/D-GA3, fijar la economía y el formato (huevo de hábitat), diseñar el contrato final. La implementación sería GACHA-2. |
+| Alcance | **Documental**: medir la producción real de DROPS-1 (y de CAPTURE-1 si ya existe), cerrar D-GA2, D-GA3 y D-IN2, fijar la economía (propuesta: "media") y el formato (mezcla: huevos de hábitat + banner regional ordinario), y confirmar el contrato de `MMO_SPAWN_RARITY_AND_INSTANCES.md` §12. |
 | Fuera de alcance | Código. |
 | Archivos | `docs/design/GACHA_1_AUDIT.md`. |
 | Migraciones / protocolos | — |
-| Tests | Diseñar: tirada exactly-once, especie con dueño bajo carrera, huevo agotado, pity, probabilidades publicadas = probabilidades aplicadas (test estadístico con semilla fija). |
-| Riesgos | Implementar el gacha antes de resolver la unicidad agota especies en días (§7.3 de `CAVE_RESPAWN_AND_TOKENS.md`). |
+| Tests | Diseñar G1–G4 (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §14). |
+| Riesgos | Sobreoferta de ejemplares y duplicados (§10.5 de ese documento). El agotamiento por especie ya no aplica. |
 | Aceptación | Decisiones cerradas por producto. |
 | YIELD-2 | Sin dependencia. |
-| **Bloqueo** | **D-GA1**. |
+| **Bloqueo** | Ninguno de diseño (D-GA1 resuelto). |
 
-### 2.9 Relación con YIELD-2 (resumen)
+### 2.9 INSTANCES-1 — Ejemplares con `instanceId`
+
+| Campo | Contenido |
+| --- | --- |
+| Alcance | Conectar el modelo R32 a producción: tabla `pokemon_instances`; backfill M-1 desde `slots`; XP, mercado, transacciones, energía, locks, companion y ownership WORLD por ejemplar; rediseño del swap (D-SW1); ingreso pasivo (D-IN1); `slots` deja de ser la autoridad. Migraciones M1–M9 e inventario U1–U30 de `MMO_SPAWN_RARITY_AND_INSTANCES.md` §2 y §4. |
+| Fuera de alcance | Captura, gacha, tablas de aparición. |
+| Archivos | `supabase/migrations/**` (nuevas); Edge Functions `market-*`, `pokeswap-swap`, `dungeon-*`, `collect-passive-tokens`, `world-authority`; realtime `persistence/playerData.js`, `pokemonOwnership.js`, `worldProtocol.js`, `auth/supabaseAuth.js`; cliente `pokemon/api`, `wildlands/lobby`, `wildlands/identity`, `market`, `progression`. |
+| Migraciones | M1–M9 (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §4). M2 es irreversible y requiere aprobación humana. |
+| Protocolos | Nueva versión del protocolo WORLD con `pokemonInstanceId` string (uuid); companion por ejemplar. |
+| Tests | I1–I4; regresión del mercado (doble compra, compra y cancelación simultáneas); swap no reasigna ejemplares ajenos; ingreso pasivo según D-IN1. |
+| Benchmark | Backfill en una copia de producción: conteos antes y después, tiempo, locks. |
+| Riesgos | Irreversibilidad del backfill; mercado abierto durante la migración; clientes viejos; la documentación de producto (`POKEMON_PROFESSION_SYSTEM.md`, `HANDOFF.md`) sigue afirmando la unicidad hasta que se actualice en esta fase. |
+| Aceptación | Dos jugadores poseen la misma especie; ningún camino de producción usa `pokemon_id` como identidad del individuo; `slots` ya no es la autoridad. |
+| YIELD-2 | Conflicto en `worldProtocol.js` (YIELD-2 ya usa `WORLD_PROTOCOL = 3`: la versión nueva es la siguiente) y en `playerData.js`. |
+| **Bloqueo** | **D-IN1**, **D-SW1** y la aprobación del backfill. |
+
+### 2.10 WILD-SURFACE-1 — La superficie pasa a tablas de aparición
+
+| Campo | Contenido |
+| --- | --- |
+| Alcance | Reemplazar el roster horario (`rollWildPool`) por tablas de Pradera, Bosque y Cantera (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §7.2–§7.4) con `NestAuthority`; retirar la exclusión de especies con dueño (U19, U28) y la categoría ambiental `legendary` (U21); reloj de aparición del servidor (D-TM1). |
+| Fuera de alcance | Combate, captura. |
+| Archivos | `services/realtime/src/world/wildPopulation.js`, `wildService.js`, `spawnTables.js`; cliente `population.ts`, `pokemon/domain/wildPool.ts`, `lobby/usePlazaData.ts`. |
+| Migraciones | Ninguna. |
+| Protocolos | `world:wild` pasa de roster a nidos (versión de protocolo propia o del mensaje). |
+| Tests | S5, S6; reemplazo de `wildPopulation.test.js:23-29` y `wildPool.test.ts:10`. |
+| Riesgos | Cambio visible para todos los jugadores de superficie; la carta del salvaje (`LobbyPlaza`) hoy muestra dueño y precio de la especie. |
+| Aceptación | Pidgey, Rattata y Caterpie aparecen en sus zonas, iguales para todos; ningún legendario ambiental; que alguien posea una especie no la oculta. |
+| YIELD-2 | Conflicto en `worldRoom.js` y `sharedWorld.ts`. |
+
+### 2.11 CAPTURE-1 — Captura compartida
+
+| Campo | Contenido |
+| --- | --- |
+| Alcance | Contrato de `MMO_SPAWN_RARITY_AND_INSTANCES.md` §11: intención de captura, sorteo ponderado, resultado `defeated \| captured \| fled`, creación del ejemplar en la resolución, Ball consumible y tope diario (D-CP2), caja llena. |
+| Fuera de alcance | Gacha, mercado. |
+| Archivos | `EncounterAuthority`, `dungeon_resolve_encounter` (extensión), cliente de combate. |
+| Migraciones | Extensión de la resolución con `pokemon_instances`; inventario de Balls. |
+| Protocolos | `encounter:capture-intent`, resultado privado con el ejemplar. |
+| Tests | C1–C6. |
+| Benchmark | Resoluciones con captura por segundo con 100 jugadores. |
+| Riesgos | Sobreoferta de ejemplares (§10.5): los topes tienen que estar desde el día 1. |
+| Aceptación | Un encuentro, un resultado; un ganador; ninguna Ball perdida por un fallo de persistencia. |
+| YIELD-2 | Patrón CAS. |
+| **Bloqueo** | **D-CP1**, **D-CP2**; depende de INSTANCES-1, COMBAT-1 y DROPS-1. |
+
+### 2.12 GACHA-2 — Implementación del gacha
+
+| Campo | Contenido |
+| --- | --- |
+| Alcance | Huevos de hábitat (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §12), pity persistido, tirada exactly-once que crea el ejemplar, ligado a la cuenta 30 días, sin venta. |
+| Fuera de alcance | Banners de evento (fase propia, con configuración server-side), mercado. |
+| Archivos | Edge Function `city-gacha`, migración, UI del Criadero. |
+| Migraciones | `gacha_pulls`, `gacha_pity`, débito de Esencias. |
+| Tests | G1–G4. |
+| Riesgos | Duplicados; brecha entre casual y avanzado. |
+| Aceptación | Probabilidades aplicadas = publicadas (test estadístico); ningún `special` ni `event_only`. |
+| YIELD-2 | Sin dependencia. |
+| **Bloqueo** | Depende de INSTANCES-1, DROPS-1 y GACHA-1. |
+
+### 2.13 Relación con YIELD-2 (resumen)
 
 | Fase | Depende del código | Reutiliza el patrón | Conflicto esperado si YIELD-2 se integra en paralelo |
 | --- | --- | --- | --- |
@@ -216,6 +292,10 @@ Cada fase: una rama, un PR, un informe en `docs/design/`. Los criterios de acept
 | COMBAT-1 | no | CAS por generación | — |
 | DROPS-1 | no | — | `playerData.js`, `world_player_state` |
 | GACHA-1 | no | — | — |
+| INSTANCES-1 | no | CAS por ejemplar | `worldProtocol.js` (versión posterior a 3), `playerData.js` |
+| WILD-SURFACE-1 | no | — | `worldRoom.js`, `sharedWorld.ts` |
+| CAPTURE-1 | no | CAS por generación | — |
+| GACHA-2 | no | — | — |
 
 ---
 
@@ -248,6 +328,10 @@ Cada fase: una rama, un PR, un informe en `docs/design/`. Los criterios de acept
 | P23 | Latencia | 300 ms RTT: la escalera no se dispara dos veces; el `engage` perdido no bloquea; los reintentos son idempotentes | sala con latencia inyectada | D3/C1 |
 | P24 | Filtración | Snapshots y deltas públicos: sin `respawnAt`, `pity`, miembro futuro, saldos ni accesos ajenos | unidad (esquema) | W1/D3/DR1 |
 | P25 | Cliente modificado | Intents con campos extra, `floor` o `reward`: ignorados; pasos a través de paredes: rechazados | malicioso | D2/D3 |
+| P26 | Ejemplares | I1–I4 de `MMO_SPAWN_RARITY_AND_INSTANCES.md` §14 (ownership, backfill, CAS, protocolo) | base de datos + sala | INSTANCES-1 |
+| P27 | Rareza y tablas | S1–S6 (categorías prohibidas, distribución de tiers, finales, generación, reloj del servidor, superficie sin exclusión por dueño) | unidad + sala | W1/WILD-SURFACE-1 |
+| P28 | Captura | C1–C6 (resultado único, un ganador, ejemplar único, fallo de persistencia, cliente modificado, caja llena) | base de datos + sala | CAPTURE-1 |
+| P29 | Gacha | G1–G4 (exactly-once, sin `special`/`event_only`, pity, ligado a la cuenta) | base de datos + unidad | GACHA-2 |
 
 ---
 
@@ -255,8 +339,8 @@ Cada fase: una rama, un PR, un informe en `docs/design/`. Los criterios de acept
 
 | Id | Decisión | Opciones | Recomendación | Bloquea |
 | --- | --- | --- | --- | --- |
-| **D-EC1** | ¿Qué es un Pokémon de cueva o Dungeon? | A unicidad global · B sólo sin dueño · C ejemplar de encuentro | **C** (`CAVE_RESPAWN_AND_TOKENS.md` §1) | CAVE WILD-1 |
-| **D-GA1** | ¿Qué entrega el gacha con especies únicas? | Instancias R32 · stock global · premio no-Pokémon | Instancias R32 si están en el roadmap; si no, stock global | GACHA-1 |
+| D-EC1 | ¿Qué es un Pokémon de cueva o Dungeon? | — | **Resuelta por producto:** ejemplar de encuentro; captura futura crea un ejemplar con `instanceId` | — |
+| D-GA1 | ¿Qué entrega el gacha? | — | **Resuelta por producto:** un ejemplar nuevo por tirada, sin stock global; nunca `event_only` en el gacha ordinario. La recomendación de stock global queda retirada | — |
 | D-GA2 | ¿Pity al rotar o retirar un huevo? | Se pierde · se conserva · se transfiere | Se conserva y se transfiere al sucesor | GACHA-1 |
 | D-GA3 | ¿Los Pokémon del gacha se pueden vender en el mercado? | Sí · no · tras X días | **No** hasta medir (si no, Esencias → `profiles.tokens`) | GACHA-1 |
 | **D-DG1** | Fuente de la llave antes de que exista combate | Objetivo "Piedra guía" por piso (interacción personal) · posponer llaves hasta COMBAT-1 | "Piedra guía" como fuente v0 detrás de `KeySource`, reemplazada en DROPS-1 | DUNGEONS-3 |
@@ -271,12 +355,20 @@ Cada fase: una rama, un PR, un informe en `docs/design/`. Los criterios de acept
 | D-TY1 | Tipos de cueva del roadmap | 10 · 6 recomendados | 6 (`CAVE_TYPES_AND_FAMILIES.md` §2) | — |
 | D-FA1 | Fuente de familias, tamaños y exclusiones | Autorada + test · importar datos externos | Autorada + test contra `core.json` | CAVE WILD-1 |
 | D10 | Nivel de Minería para `mina`/`cristalina` | Libre · nivel N | Decidir con SKILLS (ya abierta en CAVES-1) | fases de cuevas avanzadas |
+| **D-IN1** | Ingreso pasivo con muchos ejemplares | Todos · party activa · tope por especie | Party activa (6) | INSTANCES-1 |
+| **D-SW1** | Swap con ejemplares | Reasignar · crear ejemplar nuevo · intercambio entre jugadores | Crear un ejemplar nuevo desde una tabla del swap sin legendarios | INSTANCES-1 |
+| **D-CP1** | Derecho de captura | Iniciador · contribución · sorteo · objeto · decisión individual | Intención + sorteo ponderado por contribución | CAPTURE-1 |
+| **D-CP2** | Ball y tope de capturas | Sin límite · Ball consumible + tope diario | Ball consumible, 10 capturas/día | CAPTURE-1 |
+| D-IN2 | Destino de duplicados | Nada · liberar → Esencia | Liberar → 1 Esencia con tope | CAPTURE-1 / GACHA-2 |
+| D-SH1 | Tasa de shiny | 1/64 · 1/512 | 1/512 | CAVE WILD-1 |
+| D-TM1 | Reloj de aparición | Fase visual (240 s, con `clockShift`) · bandas del servidor | Bandas de 20 min del servidor | WILD-SURFACE-1 |
 
 ---
 
 ## 5. Riesgos bloqueantes
 
-1. **Unicidad de especies (D-EC1, D-GA1).** Todo el sistema de nidos y el gacha dependen de separar el ejemplar del Pokémon ownable. Sin esa decisión no hay respawn por familias coherente, y el gacha agota especies en días.
+1. **Migración de ownership a ejemplares (INSTANCES-1).** La decisión de producto ya está tomada, pero el repositorio implementa la unicidad por especie en `slots`, mercado, swap, XP, ownership WORLD, pool salvaje y tests (U1–U30). Captura y gacha no pueden implementarse antes, y el backfill es irreversible. (Reemplaza al riesgo anterior "unicidad de especies", que ya no aplica.)
+   - Relacionado: **sobreoferta de ejemplares.** Sin Ball consumible, tope diario y ligado a la cuenta, la captura futura crearía ~84 ejemplares por jugador y semana (`MMO_SPAWN_RARITY_AND_INSTANCES.md` §10.5).
 2. **Colisión autoritativa en interiores.** Hoy el servidor no valida caminabilidad (`movement.js:12`). Sin esa validación en `dg:*`, un cliente modificado atraviesa obstáculos y rompe su sentido compartido. Es trabajo nuevo de DUNGEONS-2 y no se puede diferir a después de los obstáculos.
 3. **El realtime no importa TypeScript.** Los generadores (`floorPlan`/`floorTiles`) y `battle/authority` están en TS bajo `src/` y el realtime es JS sin build (`expeditionRoomCore.ts:10-15`). DUNGEONS-1 y COMBAT-1 necesitan el mismo mecanismo de bundle verificado que `skills.generated.js`, con test de deriva. Si no, habrá dos copias de las reglas.
 4. **Una sola sala y 100 conexiones.** Cuevas y Dungeons no suben el techo de `capacity.js:1`. Crecer más allá requiere sharding de presencia, que está fuera de esta serie.

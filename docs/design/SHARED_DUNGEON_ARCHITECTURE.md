@@ -3,6 +3,7 @@
 > Rama `design/cave-ecosystem-0.3`, base exacta `2652a58` (CAVES-2 aprobado, que deriva de `design/caves-audit-0.3 @ f4323c9`).
 > Verificado antes de empezar: `origin/world/caves-foundation-0.3 = 2652a5859c54965279b5f1db2aa66d9d641e313f`, `design/caves-audit-0.3 = f4323c9`, `f4323c9` es ancestro de `2652a58`, `world/multi-yield-recovery-0.3 = 3fca914` (YIELD-2, congelado).
 > Fase **exclusivamente documental**. No se modificó código, assets, SQL, bundles ni tests.
+> **Corrección de premisa (posterior):** todas las especies pueden tener múltiples ejemplares, cada uno con `instanceId` y como máximo un dueño; no hay unicidad global por especie. D-EC1 y D-GA1 quedan resueltos. Ver `MMO_SPAWN_RARITY_AND_INSTANCES.md`, que prevalece sobre este documento.
 > Etiquetas: **FACT** = verificado en el código citado (`archivo:línea` sobre `2652a58`); **INFERENCE** = deducido del código, no ejecutado; **OPEN QUESTION** = requiere decisión o verificación.
 
 Documentos de esta serie:
@@ -20,7 +21,7 @@ Documentos de esta serie:
 
 1. **Hoy no existe nada compartido bajo tierra.** La única cueva es una boca **cerrada** en Pradera (`caves.js`), sin interior registrado. La Dungeon es un prototipo 100 % cliente, alcanzable sólo desde rutas DEV, que genera su run con `Math.random()` y `Date.now()`. (FACT, §1.2–§1.3)
 2. **Los Pokémon salvajes no tienen ciclo de vida individual.** El servidor sortea cada hora un pool de 25 especies únicas por área y lo reemplaza entero. No hay derrota, despawn, respawn, generación ni persistencia por individuo. (FACT, §1.4)
-3. **El modelo de propiedad condiciona todo.** En PokeSwap cada especie es un único Pokémon con, a lo sumo, un dueño (`slots.pokemon_id`), y el salvaje de superficie es esa entidad única. Un nido que reaparece o un gacha que entrega Pokémon chocan con esa unicidad. Es la decisión bloqueante principal de esta serie. (FACT §1.4, decisión en `CAVE_ECOSYSTEM_ROADMAP.md`)
+3. **El repositorio todavía trata la especie como si fuera el individuo** (`slots` con `PRIMARY KEY (pokemon_id)`, y un salvaje de superficie por especie). La regla de producto vigente es la opuesta: múltiples ejemplares con `instanceId`. Nidos y Dungeons no dependen de esa migración; la captura y el gacha sí (INSTANCES-1). (FACT §1.4; decisión y auditoría en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §1–§2)
 4. **La maquinaria exactly-once ya existe y es reutilizable.** `world_commit_work` deduplica por `action_id`. YIELD-2 agrega lock por nodo, token de generación y CAS. `battle/authority` aporta semilla CSPRNG, `actionId` ordenado e idempotencia. Nada de esto está conectado a Dungeons. (FACT, §1.5–§1.6)
 5. **La palabra "tokens" ya está tomada.** `profiles.tokens` es la moneda del mercado y de la Dungeon legacy 0.2. Los tokens elementales tienen que ser otra moneda, en otra tabla, que nunca se convierta en esa. (FACT, §1.5)
 
@@ -150,7 +151,7 @@ flowchart LR
 - una generación contra ABA;
 - persistencia de las derrotas, para que un reinicio no resucite lo derrotado ni duplique recompensas.
 
-**Conflicto de modelo (bloqueante para CAVE WILD-1 y GACHA-1).** El salvaje de superficie **es** el Pokémon único ownable. Un nido que reaparece crea ejemplares repetidos de una especie en el tiempo, y quizá a la vez. `CAVE_RESPAWN_AND_TOKENS.md` §1 propone separar *ejemplar de encuentro* de *Pokémon único*. Es la decisión **D-EC1**.
+**Modelo de ejemplares (resuelto).** Esta auditoría detectó que el salvaje de superficie se implementa como "el" Pokémon único de su especie. Esa regla fue descartada por producto: los encuentros son ejemplares individuales, un respawn es un encuentro nuevo aunque repita especie, y no se excluyen especies con dueño. D-EC1 queda resuelto y **ya no bloquea** CAVE WILD-1. El inventario de lo que todavía implementa la unicidad está en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §2 (U1–U30).
 
 ### 1.5 Economía, inventario y monedas
 
@@ -563,7 +564,7 @@ No se diseña el motor de combate (eso es COMBAT-1). Sólo el contrato que neces
 | Desconexión | Deja de acumular. Si al resolver no está presente (fuera de la gracia de 15 s), no es elegible. |
 | Resolución | **Una sola** por encuentro y generación: `dungeon_resolve_encounter` con lock y CAS `g`. Una segunda resolución (reintento u otra instancia) recibe `stale` o el resultado guardado. |
 | Recompensa personal | Por jugador elegible, con `rewardId = <encounterId>:<userId>` único en el ledger: un jugador no cobra dos veces la misma derrota. |
-| Captura (futuro) | Una captura aceptada **resuelve** el encuentro con `outcome: captured`, bajo la misma exclusión. Si los demás elegibles reciben la recompensa de derrota se decidirá después (D-CB2). |
+| Captura (futuro) | Contrato en `MMO_SPAWN_RARITY_AND_INSTANCES.md` §11: intención de captura + sorteo ponderado por contribución entre los elegibles que la declararon; resultado único (`defeated`, `captured` o `fled`); el ejemplar (`instanceId` nuevo, `source_ref = encounterId` único) se crea en la misma transacción. Los demás elegibles reciben la recompensa de derrota (recomendado, D-CB2). |
 | Encuentro ya resuelto | `engage` o `action` sobre una generación vieja → `gone`. |
 | AFK | Sin acciones en 30 s, el participante sale del combate. Si nadie actúa en 30 s, el combate se aborta y el encuentro vuelve a `alive`. |
 | Griefing (bloquear un Pokémon) | La reserva vence a los 8 s y la inactividad en combate expulsa a los 30 s. Además, como otros pueden unirse, "apropiarse" de un Pokémon no impide que otros lo peleen. |
