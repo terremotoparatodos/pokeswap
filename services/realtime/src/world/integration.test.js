@@ -70,7 +70,7 @@ const nodeIn = (payload, id) => payload?.nodes?.find(node => node.id === id)
 async function quiet(world, timeoutMs = 10_000) {
   const deadline = Date.now() + timeoutMs
   await settle()
-  while ([...world.authority.actions.values()].some(action => action.phase === 'settling' || action.pending > 0 || action.authorizing)) {
+  while ([...world.authority.actions.values()].some(action => action.phase === 'settling' || action.phase === 'resyncing' || action.pending > 0 || action.authorizing) || world.authority.loading) {
     if (Date.now() > deadline) throw new Error('settlement did not finish')
     await new Promise(resolve => setTimeout(resolve, 5))
   }
@@ -401,14 +401,21 @@ test('two realtime instances on one database: a partial one instance does not kn
   assert.equal((await data.playerState(B)).xp.woodcutting, 0)
   assert.equal(two.world.stats().actions.staleNodes, 1)
 
-  // A fresh process restores the partial and continues its generation: the last unit, then depleted.
-  const three = await stage({ playerData: data, clock })
-  const c = await three.join(B, TREE.stands[1])
-  await three.world.work(c.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 2 })
-  const last = lastMessage(c.client, WORLD_MESSAGE.WORK_RESULT)
+  // YIELD-2 recovery: instance two resynced that node from the database (no restart needed):
+  // it now holds the partial privately, with the database's token and stock.
+  const synced = two.world.authority.store.get(TREE.node.id)
+  assert.deepEqual([synced.state, synced.stock, synced.token, synced.syncing], ['available', 1, `${first.actionId}-00`, false])
+  assert.equal(two.world.authority.syncing.size, 0)
+  two.world.flush()
+  for (const batch of messagesOf(b.client, WORLD_MESSAGE.BATCH)) assert.equal(/stock|token|syncing/.test(JSON.stringify(batch)), false, 'nothing private is published')
+
+  // B walks back beside the tree and goes again on the SAME instance: the partial's last unit, then depleted.
+  Object.assign(b.actor, TREE.stands[1])
+  await two.world.work(b.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 2 })
+  const last = lastMessage(b.client, WORLD_MESSAGE.WORK_RESULT)
   assert.equal(last.ok, true, JSON.stringify(last))
-  await three.untilDone(last.actionId)
-  assert.deepEqual([lastMessage(c.client, WORLD_MESSAGE.WORK_DONE).reason, lastMessage(c.client, WORLD_MESSAGE.WORK_DONE).total.units], ['depleted', 1])
+  await two.untilDone(last.actionId)
+  assert.deepEqual([lastMessage(b.client, WORLD_MESSAGE.WORK_DONE).reason, lastMessage(b.client, WORLD_MESSAGE.WORK_DONE).total.units], ['depleted', 1])
   assert.equal((await data.playerState(A)).xp.woodcutting + (await data.playerState(B)).xp.woodcutting, 20, 'two units for a stock of two')
   await data.close()
 })
@@ -432,4 +439,63 @@ test('Agricultura: planting is an attempt (harvest too, above); growth keeps its
   }
   assert.equal(grow[0], grow[1], 'the draw never changes how long a crop grows')
   assert.equal(grow[0], 5_000)
+})
+
+// ── RESOURCE YIELD-2 recovery: an ambiguous commit on the real SQL and the real adapter ──
+
+test('ambiguous commit: applied, every reply lost, the resync retries the SAME id, dedupe returns the stored original — one yield, one payment', async () => {
+  const clock = manualClock(Date.now())
+  const real = await createDevPlayerData()
+  // Unit 0's first commit is written by the database; that reply and the next three are lost.
+  let lost = 4
+  const commits = []
+  const flaky = {
+    ...real,
+    async commitWork(commit) {
+      const result = await real.commitWork(commit)
+      commits.push({ id: commit.actionId, applied: result.applied, rewards: commit.rewards })
+      if (commit.actionId.endsWith('-00') && lost-- > 0) throw new Error('reply lost')
+      return result
+    },
+  }
+  let reroll = false
+  const s = await stage({ playerData: flaky, clock, random: () => (reroll ? 0.999 : 0.5) })
+  s.world.authority.sleep = async () => { reroll = true }
+  const a = await s.join(A, TREE.stands[0])
+  await s.world.work(a.actor, { nodeId: TREE.node.id, pokemonInstanceId: SCYTHER, requestId: 1 })
+  const started = lastMessage(a.client, WORLD_MESSAGE.WORK_RESULT)
+  assert.equal(started.ok, true)
+  const id = `${started.actionId}-00`
+  await s.finish(privateDuration(s.world.authority, started.actionId))
+
+  // 1–4. Applied once; the retries and the resync step all carried the same settlement id.
+  assert.deepEqual(commits.filter(c => c.id.startsWith(started.actionId)).map(c => [c.id, c.applied]), [[id, true], [id, false], [id, false], [id, false], [id, false]])
+  // 5. One yield, with the stored original.
+  const yields = messagesOf(a.client, WORLD_MESSAGE.WORK_YIELD)
+  assert.equal(yields.length, 1)
+  assert.equal(yields[0].index, 0)
+  const saved = await real.playerState(A)
+  assert.deepEqual(yields[0].summary.rewards.map(r => [r.itemId, r.quantity]), commits[0].rewards.map(r => [r.itemId, r.quantity]), 'the paid roll, not a re-roll')
+  assert.equal(yields[0].summary.rewards.reduce((n, r) => n + r.quantity, 0), saved.materials.common_log)
+  assert.deepEqual([yields[0].summary.xpGained, yields[0].summary.levelBefore, yields[0].summary.duplicate], [10, 1, true])
+  // 6. The total is the canonical one.
+  const done = lastMessage(a.client, WORLD_MESSAGE.WORK_DONE)
+  assert.deepEqual([done.reason, done.total.units, done.total.xpGained, done.total.rewards.reduce((n, r) => n + r.quantity, 0)], ['error', 1, 10, saved.materials.common_log])
+  // 7. Paid once.
+  assert.equal(saved.xp.woodcutting, 10)
+  const stats = s.world.stats().actions
+  assert.deepEqual([stats.ambiguousCommits, stats.recoveredUnits, stats.duplicateSettlements, stats.resynced], [1, 1, 1, 1])
+  // The node is what the database holds: the partial after unit 0 (stock 2 drawn at its minimum).
+  const node = s.world.authority.store.get(TREE.node.id)
+  assert.deepEqual([node.state, node.stock, node.token], ['available', 1, id])
+
+  // The generation continues from the database's token: B takes the last unit, then the tree depletes.
+  const b = await s.join(B, TREE.stands[1])
+  await s.world.work(b.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 1 })
+  const next = lastMessage(b.client, WORLD_MESSAGE.WORK_RESULT)
+  assert.equal(next.ok, true, JSON.stringify(next))
+  await s.untilDone(next.actionId)
+  assert.deepEqual([lastMessage(b.client, WORLD_MESSAGE.WORK_DONE).reason, lastMessage(b.client, WORLD_MESSAGE.WORK_DONE).total.units], ['depleted', 1])
+  assert.equal((await real.playerState(A)).xp.woodcutting + (await real.playerState(B)).xp.woodcutting, 20)
+  await real.close()
 })
