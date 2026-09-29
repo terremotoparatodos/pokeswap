@@ -76,8 +76,8 @@ flowchart LR
 | Cambio de área | `changeArea` acepta cualquier id de `AREAS` y coloca al actor en `arrivalFor`. No valida ninguna condición de acceso. | `rooms/PresenceRoom.js:170-181` | FACT |
 | Viaje en el cliente | `travelTo` rechaza áreas fuera de presencia ("Esta zona llegará próximamente"). El área de presencia se elige con un ternario de dos valores. | `src/features/wildlands/engine/game.ts:188,760-765,793,913` | FACT |
 | Movimiento | El servidor acota el ritmo de los pasos, pero no la caminabilidad: "Walkability is decided by the client". | `services/realtime/src/presence/movement.js:12` | FACT |
-| Reconexión | Al salir, el actor se recuerda 15 s y se restaura en el mismo área y casilla. Pasado ese plazo, reaparece en Ciudad `(31,20)`. | `presence/reconnectCache.js:2`; `PresenceRoom.js:101-104,143-145` | FACT |
-| Capacidad | Una sola sala `presence`, límite de 100 conexiones, estado en `Map` de módulo. | `presence/capacity.js:1`; `PresenceRoom.js:15,25,34`; `services/realtime/src/index.js:23` | FACT |
+| Reconexión | Al salir, el actor se recuerda 15 s y se restaura en el mismo área y casilla. Pasado ese plazo, reaparece en Ciudad `(31,20)`. | `presence/reconnectCache.js:2`; `rooms/PresenceRoom.js:101-104,143-145` | FACT |
+| Capacidad | Una sola sala `presence`, límite de 100 conexiones, estado en `Map` de módulo. | `presence/capacity.js:1`; `rooms/PresenceRoom.js:15,25,34`; `services/realtime/src/index.js:23` | FACT |
 | Interior autorado | No existe (`caveLayouts.js` no está en el repo). | búsqueda de archivos | FACT |
 | Oscuridad y render | `DUNGEON_DARKNESS = 0.62` y `DungeonArea implements Area` existen, pero sólo dentro del prototipo. | `src/features/dungeonPrototype/world/dungeonArea.ts:27,143` | FACT |
 | Varias áreas salvajes | `WildService` genera rosters para toda área `procedural` de `WORLD_AREAS`: la estructura soporta N áreas, aunque hoy hay una. `skillsResourceFor` sólo resuelve áreas `procedural`. | `wildService.js:65-70`; `src/features/worldSkills/resourceMapping.ts:47` | FACT |
@@ -105,7 +105,7 @@ flowchart LR
 | Obstáculos | Un bloque por boca de recoveco, nunca en el camino a la escalera. Despejarlo no paga nada. | `domain/obstacles.ts:47,175-199`; `playSession.ts:292-300` | FACT |
 | Ocupación de encuentros | Contrato puro de reserva: `AVAILABLE → RESERVED → IN_COMBAT → DEFEATED`, reserva de 8 s, un solo titular. | `domain/occupancy.ts:16,32,55,100` | FACT |
 | Elegibilidad y botín personal | `participation` (≥5 % del daño **o** ≥3 acciones y ≥10 s, y presente al final) y `personalLoot` por jugador. | `domain/rewards.ts:55-66` | FACT |
-| RNG | mulberry32 + `deriveSeed` FNV-1a + `streamFor`, ya pensados para portarse al servidor. | `domain/rng.ts:27,43,73` | FACT |
+| RNG | mulberry32 + `deriveSeed` FNV-1a + `streamFor`, ya pensados para portarse al servidor. | `dungeonPrototype/domain/rng.ts:27,43,73` | FACT |
 | Rutas | `/dev/dungeon` y `/dev/superficies` sólo con `import.meta.env.DEV`. | `src/app/router/routes.ts:38,44` | FACT |
 | Mundo | Desconectado desde CAVES-2: ninguna superficie del mundo abre el prototipo (guarda en `caves.guard.test.ts`). | `docs/design/CAVES_2_REPORT.md` §5–§6 | FACT |
 | Autoridad de combate | `battle/authority` define semilla CSPRNG, `actionId = controller:sequence`, un libro de idempotencia acotado con piso por controlador y `ExpeditionRoomCore`. No lo importa nada fuera de `src/features/battle/`. | `battle/authority/seed.ts:35`; `actionId.ts:28`; `idempotency.ts:60`; `expeditionRoomCore.ts:43` | FACT |
@@ -183,7 +183,7 @@ flowchart LR
 | Dedupe | Por petición y por conexión (`recent`, 32 ids) en la sala, por `action_id` en Postgres. | `resourceAuthority.js:18,115-118` |
 | Estado WORLD | Nodos en memoria (`ResourceStore`), restaurados desde `world_load_nodes` antes de servir. La sala no sirve mundo hasta tenerlos (`ready`). | `worldRoom.js:57-71` |
 | Estado por jugador | Materiales y XP: sólo en Postgres, enviados por `player:state`. Presencia: en memoria. | `worldRoom.js:98-106` |
-| Varias instancias | **No soportadas.** Una sala `presence`, estado en `Map` de módulo, sin bus entre procesos. Una segunda instancia tendría otra presencia y otro `ResourceStore`. En la base, sus escrituras de nodo se pisan (sin CAS). YIELD-2 lo acota con CAS (`test(world): … a stale second instance`, commit `2ea684c`). | `PresenceRoom.js:15,25,34`; historia de `world/multi-yield-recovery-0.3` |
+| Varias instancias | **No soportadas.** Una sala `presence`, estado en `Map` de módulo, sin bus entre procesos. Una segunda instancia tendría otra presencia y otro `ResourceStore`. En la base, sus escrituras de nodo se pisan (sin CAS). YIELD-2 lo acota con CAS (`test(world): … a stale second instance`, commit `2ea684c`). | `rooms/PresenceRoom.js:15,25,34`; historia de `world/multi-yield-recovery-0.3` |
 
 **Conclusión 1.6.** Para Dungeons compartidas:
 
@@ -220,7 +220,7 @@ flowchart LR
 | `layoutSeed` | CSPRNG del servidor al abrir la run (patrón `battle/authority/seed.ts:35`) | Forma de los pisos y posición de nidos, obstáculos y escaleras: todo lo que el cliente dibuja igual | **Sí**, con `generatorVersion`. El cliente regenera las casillas con los mismos generadores puros (`floorPlan.ts:99`, `floorTiles.ts:139`). |
 | Azar de recompensas, llaves, miembro del nido, shiny | CSPRNG del servidor **en el momento** de cada resolución, como el sorteo secreto de PROB-2 (cabecera de `worldProtocol.js`) | Drops, llaves, qué miembro de la familia reaparece | **Nunca**. No existe una semilla de recompensas derivable. |
 
-**Regla.** `layoutSeed` y cualquier azar de valor son **independientes**. Derivar el segundo del primero con FNV (`rng.ts:27`) sería reversible por fuerza bruta con 32 bits.
+**Regla.** `layoutSeed` y cualquier azar de valor son **independientes**. Derivar el segundo del primero con FNV (`dungeonPrototype/domain/rng.ts:27`) sería reversible por fuerza bruta con 32 bits.
 
 ### 2.3 Reloj y ciclo
 
@@ -283,7 +283,7 @@ flowchart TB
   ST -.- UI
 ```
 
-`DungeonRunService` vive **al lado** de `WorldRoom`, no dentro de `ResourceAuthority`: WORLD es el mundo permanente y la Dungeon es temporal (D1). Comparten el socket, el tick de 50 ms (`PresenceRoom.js:74`) y el canal a `world-authority`.
+`DungeonRunService` vive **al lado** de `WorldRoom`, no dentro de `ResourceAuthority`: WORLD es el mundo permanente y la Dungeon es temporal (D1). Comparten el socket, el tick de 50 ms (`rooms/PresenceRoom.js:74`) y el canal a `world-authority`.
 
 ### 2.7 Qué vive dónde
 
@@ -440,7 +440,7 @@ sequenceDiagram
   C->>R: move hasta la casilla f3-down
   C->>R: dungeon:stairs {runId, stairsId, requestId}
   R->>R: valida run open/sealed, piso de A = 3, posición = escalera, sin transición en 2 s, fuera de combate
-  R->>R: acceso(A,3) en held o used (caché; si falta, lee Postgres)
+  R->>R: acceso(A,3) en held o used (caché, o lectura de Postgres si falta)
   alt sin llave
     R-->>C: {ok: false, reason: 'locked'}
   else con llave
@@ -583,7 +583,7 @@ sequenceDiagram
   E->>P: tx lock del nido, dedupe de la resolución, CAS de generación, ledger por jugador, pity y accesos, nido defeated (g+1, respawnAt)
   P-->>E: applied | stored | stale
   E-->>EA: resultado
-  EA->>EA: applied o stored → defeated y aviso privado a cada elegible; stale → re-sync del nido
+  EA->>EA: applied o stored → defeated y aviso privado a cada elegible, stale → re-sync del nido
 ```
 
 - Los **reintentos** usan el mismo `encounterId` (1 s, 3 s, 9 s, como `resourceAuthority.js:17`).
