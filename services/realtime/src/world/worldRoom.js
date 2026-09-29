@@ -44,6 +44,8 @@ export class WorldRoom {
     this.authority = authority ?? new ResourceAuthority({
       skills, ownership, lookupActor, now, placeActor, log,
       ...(stockRandom ? { random: stockRandom } : {}),
+      // The private read restore() uses, also the resync source after an ambiguous or stale commit (YIELD-2 recovery).
+      loadNodes: playerData ? () => playerData.loadNodes() : null,
       onNode: record => this.#nodeChanged(record),
       onResult: (playerId, result) => this.#sendToPlayer(playerId, WORLD_MESSAGE.WORK_RESULT, result),
       onDone: (playerId, done) => this.#sendToPlayer(playerId, WORLD_MESSAGE.WORK_DONE, done),

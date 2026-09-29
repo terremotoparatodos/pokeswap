@@ -53,13 +53,15 @@ export class ResourceStore {
       token: mutable.token ?? null,
       // YIELD-2, public while working: when the worker's last unit was confirmed (a flash for everyone).
       lastYieldAt: mutable.lastYieldAt ?? null,
+      // YIELD-2 recovery, PRIVATE: held while the database is asked what the node holds.
+      syncing: mutable.syncing === true,
       version: ++this.revision,
     }
     const key = chunkKey(node.areaId, node.chunkId)
     // Back to base: the record goes away and viewers are told so explicitly,
     // so no client has to know which state is "base" for which kind. A partial
     // node (available + stock) is NOT base: its stock is kept, privately.
-    record.base = record.state === lifecycle.initial && record.actionId === null && record.plot === null && record.stock === null
+    record.base = record.state === lifecycle.initial && record.actionId === null && record.plot === null && record.stock === null && !record.syncing
     if (record.base) {
       this.#records.delete(node.id)
       const ids = this.#byChunk.get(key)

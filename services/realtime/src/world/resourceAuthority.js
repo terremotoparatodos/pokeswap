@@ -19,6 +19,14 @@ export const SETTLE_RETRY_DELAYS_MS = Object.freeze([1_000, 3_000, 9_000])
 const RECENT_REQUESTS = 32
 /** At most one rate-limit log line per this window, with totals (bounded log). */
 export const RATE_LOG_WINDOW_MS = 60_000
+/**
+ * Resynchronization of a node whose last commit was ambiguous or stale (YIELD-2
+ * recovery): the first step runs at once, then after each delay here (the last
+ * one repeats until the database answers). The node never takes work meanwhile.
+ */
+export const RESYNC_DELAYS_MS = Object.freeze([1_000, 3_000, 9_000, 30_000])
+/** Steps the owner's worker waits for; after them the player and Pokémon are freed and only the node stays held. */
+export const RESYNC_HOLD_STEPS = 4
 
 const beside = (actor, node) => Math.abs(actor.tx - node.tx) + Math.abs(actor.ty - node.ty) === WORK_REACH
 /** While working, the trainer's reference tile is its waiting tile; older actions without one keep the reach rule. */
@@ -62,6 +70,24 @@ const STAGE = { empty: 'EMPTY', planted: 'PLANTED', growing: 'GROWING', ready: '
  * sequence's start alone. Losing the process loses the unit in progress,
  * never pays twice; settled units and the partial stock are in the database.
  *
+ * Resynchronization (YIELD-2 recovery). A unit whose commit ends without a
+ * definitive answer (every retry failed: the database may have applied it) or
+ * with `stale_node` (the database's node is not what this memory thinks) leaves
+ * the memory untrustworthy. The sequence then does not write its node from
+ * memory: it enters `resyncing` and the node refuses work (`busy`). Each step
+ * first asks the database about the doubtful unit again, with the SAME
+ * settlement (dedupe is authoritative: applied, duplicate — its stored
+ * original — or stale), and only then reads the node back through the private
+ * `loadNodes` (world_load_nodes: the database's rows and clock), filtered here
+ * by node id. The node is written from that row: full, partial, depleted or
+ * expired as the database says. `onYield` still fires only for a confirmed
+ * unit. Without `loadNodes` (no database) memory stays the only record.
+ *
+ * Authorizations (M-5). Every unit that ends unpaid for good — dropped,
+ * aborted, refused, `stale_node` — is closed with `cancelWork` (idempotent),
+ * never left to its TTL. A unit whose commit may still be confirmed by dedupe
+ * is NOT closed until the database has answered for it.
+ *
  * Placement (WORLD VISUAL-2). On acquisition the worker Pokémon takes the
  * trainer's validated tile and the trainer is moved, by the server, to a
  * waiting tile (`workPlacement`). That tile becomes the sequence's anchor:
@@ -82,11 +108,17 @@ export class ResourceAuthority {
     rateLimit = new WorkRateLimiter(),
     /** Draws new generations' stock. Server randomness; tests inject a script. */
     random = cryptoRandom,
+    /** The database's node overrides (PlayerDataAuthority.loadNodes, private): the resync source. Null: no database. */
+    loadNodes = null,
     log = () => {},
   }) {
-    Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone, onYield, placeActor, rateLimit, random, log })
+    Object.assign(this, { skills, ownership, lookupActor, now, newActionId, sleep, store, queue, onNode, onResult, onDone, onYield, placeActor, rateLimit, random, loadNodes, log })
     this.rateLog = { lastLogAt: null, intents: 0, players: new Set() }
     this.actions = new Map()
+    /** Nodes being resynchronized from the database, by node id: they take no work. */
+    this.syncing = new Map()
+    /** One database read at a time, shared by every node resyncing. */
+    this.loading = null
     /** Players with an attempt between its first check and its acquisition. */
     this.attempting = new Set()
     this.byPlayer = new Map()
@@ -96,6 +128,8 @@ export class ResourceAuthority {
       requested: 0, rateLimited: 0, started: 0, rejected: {}, completed: 0, duplicateSettlements: 0, settleRetries: 0, settleFailed: 0,
       cancelled: 0, respawned: 0, staleCompletions: 0, authorizedNotStarted: 0, restored: 0,
       units: 0, staleNodes: 0, refilled: 0, disconnectedStops: 0,
+      // YIELD-2 recovery.
+      commitAttempts: 0, ambiguousCommits: 0, resyncs: 0, resyncSteps: 0, resyncFailures: 0, resynced: 0, recoveredUnits: 0, lateConfirmations: 0, heldReleases: 0,
     }
   }
 
@@ -267,6 +301,7 @@ export class ResourceAuthority {
     for (const task of this.queue.drain(now)) {
       if (task.type === 'complete') void this.complete(task.actionId)
       else if (task.type === 'timer') this.#timer(task.nodeId, task.version)
+      else if (task.type === 'resync') { const job = this.syncing.get(task.nodeId); if (job) void this.#resyncStep(job) }
     }
   }
 
@@ -369,34 +404,167 @@ export class ResourceAuthority {
       return
     }
     let result = null
+    // A retryable failure means "no answer": the database may have applied the unit.
+    let unanswered = false
     for (let attempt = 0; attempt <= SETTLE_RETRY_DELAYS_MS.length; attempt++) {
       if (attempt > 0) { this.metrics.settleRetries++; await this.sleep(SETTLE_RETRY_DELAYS_MS[attempt - 1]) }
-      try { result = readSettlement(await this.skills.settleWork(settlement)) } catch { result = { ok: false, retryable: true, reason: 'skills-error' } }
+      result = await this.#settleOnce(settlement)
       if (result.ok || !result.retryable) break
+      unanswered = true
     }
     if (result.ok) {
-      action.committed = next
-      this.metrics.completed++
-      this.metrics.units++
-      if (result.status === 'duplicate') this.metrics.duplicateSettlements++
-      this.#addToTotal(action, result.summary)
-      if (action.gather && next.state === 'depleted') action.stop ??= 'depleted'
-      // A flash for everyone watching (the worker is still on the node).
-      if (action.working && this.store.get(action.node.id)?.actionId === action.actionId) {
-        this.onNode(this.store.write(action.node, { ...action.working, lastYieldAt: this.now() }))
-      }
-      this.onYield(action.playerId, { actionId: action.actionId, index: unit.index, ...(result.summary === undefined ? {} : { summary: result.summary }) })
+      this.#confirmUnit(action, unit, next, result)
     } else {
-      // Never paid, and neither is anything after it.
+      // Not paid (as far as WORLD knows), and nothing after it will be.
       action.abortCommits = true
       action.stop = 'error'
       action.errorReason = result.reason
       this.metrics.settleFailed++
-      if (result.reason === 'stale-node') this.metrics.staleNodes++
+      if (result.reason === 'stale-node') {
+        // Definitive: the database checks dedupe before the CAS, so no settlement
+        // with this id exists — and memory is wrong about the node.
+        this.metrics.staleNodes++
+        action.resync = true
+        this.#notifyCancel(unit.settlementId, action.playerId, 'stale-node')
+      } else if (result.retryable || unanswered) {
+        // Ambiguous: never closed here (dedupe may still confirm it), never paid here.
+        this.metrics.ambiguousCommits++
+        action.resync = true
+        action.doubt = { unit, settlement, next }
+      } else {
+        // Refused for good before the database was reached (expired, invalid…): memory still holds.
+        this.#notifyCancel(unit.settlementId, action.playerId, 'failed')
+      }
       if (action.phase === 'running') this.#dropCurrent(action, 'aborted')
     }
     action.pending--
     this.#maybeFinish(action)
+  }
+
+  /** One settle call. A throw is a retryable non-answer. */
+  async #settleOnce(settlement) {
+    this.metrics.commitAttempts++
+    try { return readSettlement(await this.skills.settleWork(settlement)) } catch { return { ok: false, retryable: true, reason: 'skills-error' } }
+  }
+
+  /** A unit the database confirmed (applied, or its stored duplicate): counted, flashed and yielded once. */
+  #confirmUnit(action, unit, next, result) {
+    action.committed = next
+    this.metrics.completed++
+    this.metrics.units++
+    if (result.status === 'duplicate') this.metrics.duplicateSettlements++
+    this.#addToTotal(action, result.summary)
+    if (action.gather && next.state === 'depleted') action.stop ??= 'depleted'
+    // A flash for everyone watching (the worker is still on the node).
+    if (action.working && this.store.get(action.node.id)?.actionId === action.actionId) {
+      this.onNode(this.store.write(action.node, { ...action.working, lastYieldAt: this.now() }))
+    }
+    this.onYield(action.playerId, { actionId: action.actionId, index: unit.index, ...(result.summary === undefined ? {} : { summary: result.summary }) })
+  }
+
+  /**
+   * The node's memory can no longer be trusted: hold it and ask the database.
+   * The owner's worker stays (phase `resyncing`) for RESYNC_HOLD_STEPS steps.
+   */
+  #beginResync(action) {
+    action.phase = 'resyncing'
+    const job = { node: action.node, action, doubt: action.doubt ?? null, step: 0, busy: false }
+    this.syncing.set(action.node.id, job)
+    this.metrics.resyncs++
+    void this.#resyncStep(job)
+  }
+
+  /**
+   * One resync step: (1) the doubtful unit, if any, is settled again with the
+   * same settlement — dedupe answers for it; (2) once nothing is in doubt, the
+   * node is read back from the database and written as it is there. Any
+   * failure schedules the next step on the room's clock.
+   */
+  async #resyncStep(job) {
+    if (job.busy || this.syncing.get(job.node.id) !== job) return
+    job.busy = true
+    this.metrics.resyncSteps++
+    try {
+      if (job.doubt) {
+        const { unit, settlement, next } = job.doubt
+        const result = await this.#settleOnce(settlement)
+        if (result.ok) {
+          job.doubt = null
+          this.metrics.recoveredUnits++
+          if (job.action) this.#confirmUnit(job.action, unit, next, result)
+          else this.metrics.lateConfirmations++ // paid in the database; the sequence was already reported
+        } else if (!result.retryable) {
+          // The database (or SKILLS) answered: not paid, and it never will be.
+          job.doubt = null
+          if (result.reason === 'stale-node') this.metrics.staleNodes++
+          this.#notifyCancel(unit.settlementId, job.action?.playerId ?? settlement.playerId, result.reason === 'stale-node' ? 'stale-node' : 'failed')
+        }
+      }
+      if (!job.doubt) {
+        const rows = await this.#loadPersisted()
+        const row = rows.find(candidate => candidate?.nodeId === job.node.id) ?? null
+        this.#resolveSync(job, row)
+        return
+      }
+    } catch {
+      // The database did not answer: try again later.
+    } finally {
+      job.busy = false
+    }
+    this.metrics.resyncFailures++
+    job.step++
+    if (job.action && job.step >= RESYNC_HOLD_STEPS) this.#releaseHeld(job)
+    this.queue.push(this.now() + RESYNC_DELAYS_MS[Math.min(job.step, RESYNC_DELAYS_MS.length) - 1], { type: 'resync', nodeId: job.node.id })
+  }
+
+  /** The database's node overrides; concurrent resyncs share one read. */
+  #loadPersisted() {
+    this.loading ??= Promise.resolve().then(() => this.loadNodes()).finally(() => { this.loading = null })
+    return this.loading
+  }
+
+  /** The database answered for the node: memory becomes exactly that. */
+  #resolveSync(job, row) {
+    this.syncing.delete(job.node.id)
+    this.metrics.resynced++
+    const persisted = this.#persistedState(job.node, row)
+    if (job.action) { this.#finish(job.action, persisted); return }
+    const record = this.store.write(job.node, persisted)
+    if (record.respawnAt !== null && !record.base) this.queue.push(record.respawnAt, { type: 'timer', nodeId: record.id, version: record.version })
+    this.onNode(record)
+  }
+
+  /**
+   * The database has not answered for a while: the player and the Pokémon are
+   * freed and told how the sequence ended (confirmed units only); the node
+   * stays held — refusing work, publicly as it last rested — until it does.
+   */
+  #releaseHeld(job) {
+    const action = job.action
+    job.action = null
+    this.metrics.heldReleases++
+    const record = this.store.write(action.node, { ...this.#restingFromMemory(action, this.now()), syncing: true })
+    this.#release(action)
+    this.onNode(record)
+    this.#reportDone(action)
+  }
+
+  /**
+   * A node as the database holds it (one world_load_nodes row, or none). The
+   * database's clock already dropped expired rows; no row is the base state.
+   */
+  #persistedState(node, row) {
+    const initial = lifecycleFor(node.resourceKind).initial
+    if (node.resourceKind === PLOT_KIND) {
+      if (!row?.plot) return { state: initial }
+      const now = this.now()
+      return { state: plotStageAt(row.plot, now), plot: row.plot, respawnAt: nextPlotChange(row.plot, now) }
+    }
+    if (!row || row.respawnAt === null) return { state: initial }
+    if (row.state === 'available') {
+      return Number.isInteger(row.stockRemaining) ? { state: 'available', stock: row.stockRemaining, token: row.actionId, respawnAt: row.respawnAt } : { state: initial }
+    }
+    return { state: row.state, respawnAt: row.respawnAt, token: row.actionId ?? null }
   }
 
   /** Drops the unit still attempting (or being authorized): never paid. */
@@ -410,33 +578,36 @@ export class ResourceAuthority {
 
   /** Ends the sequence once nothing is attempting and no commit is pending. */
   #maybeFinish(action) {
-    if (action.phase === 'running' || action.phase === 'done' || action.pending > 0) return
+    if (action.phase === 'running' || action.phase === 'done' || action.phase === 'resyncing' || action.pending > 0) return
+    // Memory may be wrong about the node: the database decides (when there is one).
+    if (action.resync && this.loadNodes) { this.#beginResync(action); return }
     this.#finish(action)
   }
 
-  #finish(action) {
-    const reason = action.stop ?? (action.gather ? 'depleted' : 'completed')
-    const now = this.now()
-    let record
-    if (action.gather) {
-      const settled = action.committed
-      const resting = settled ?? action.restingBefore
-      if (settled?.state === 'depleted') {
-        record = this.store.write(action.node, { state: 'depleted', respawnAt: settled.respawnAt, token: settled.token })
-      } else if (resting && resting.respawnAt > now) {
-        // Partial: private stock and token, refill 90 s after its last settled unit.
-        // A cancellation writes the partial back as it was: no timestamp moves.
-        record = this.store.write(action.node, { state: 'available', stock: resting.stock, token: resting.token, respawnAt: resting.respawnAt })
-      } else {
-        // Nothing settled on a fresh node, or the partial expired while reserved: full again.
-        record = this.store.write(action.node, { state: action.workedFrom })
-      }
-    } else {
-      record = this.store.write(action.node, action.committed ?? this.#restingState(action))
-    }
+  /** Releases the sequence. `persisted`: the node as the database holds it (after a resync); otherwise memory's. */
+  #finish(action, persisted = undefined) {
+    const record = this.store.write(action.node, persisted ?? this.#restingFromMemory(action, this.now()))
     if (record.respawnAt !== null && !record.base) this.queue.push(record.respawnAt, { type: 'timer', nodeId: record.id, version: record.version })
     this.#release(action)
     this.onNode(record)
+    this.#reportDone(action)
+  }
+
+  /** Where the node rests after the sequence, as far as WORLD's own memory knows. */
+  #restingFromMemory(action, now) {
+    if (!action.gather) return action.committed ?? this.#restingState(action)
+    const settled = action.committed
+    const resting = settled ?? action.restingBefore
+    if (settled?.state === 'depleted') return { state: 'depleted', respawnAt: settled.respawnAt, token: settled.token }
+    // Partial: private stock and token, refill 90 s after its last settled unit.
+    // A cancellation writes the partial back as it was: no timestamp moves.
+    if (resting && resting.respawnAt > now) return { state: 'available', stock: resting.stock, token: resting.token, respawnAt: resting.respawnAt }
+    // Nothing settled on a fresh node, or the partial expired while reserved: full again.
+    return { state: action.workedFrom }
+  }
+
+  #reportDone(action) {
+    const reason = action.stop ?? (action.gather ? 'depleted' : 'completed')
     this.onDone(action.playerId, {
       actionId: action.actionId, ok: action.total.units > 0, reason,
       total: { units: action.total.units, xpGained: action.total.xpGained, rewards: [...action.total.rewards].map(([itemId, quantity]) => ({ itemId, quantity })) },
@@ -535,7 +706,8 @@ export class ResourceAuthority {
     const lifecycle = lifecycleFor(node.resourceKind)
     const record = this.store.get(node.id)
     const state = record?.state ?? lifecycle.initial
-    if (state === WORKING) return { reason: 'busy' }
+    // Resyncing (YIELD-2 recovery): what the node holds is unknown until the database answers.
+    if (state === WORKING || this.syncing.has(node.id)) return { reason: 'busy' }
     if (!canStartWork(lifecycle, state)) return { reason: state }
     if (this.byPlayer.has(actor.id)) return { reason: 'actor-busy' }
     if (this.byPokemon.has(intent.pokemonInstanceId)) return { reason: 'pokemon-busy' }

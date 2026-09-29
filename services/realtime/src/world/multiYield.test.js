@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { MAX_UNITS, REFILL_MS, drawStock, generationAt, settlementIdOf, stockedUnit } from './nodeStock.js'
 import { createStaticOwnership } from './pokemonOwnership.js'
-import { ResourceAuthority } from './resourceAuthority.js'
+import { RESYNC_DELAYS_MS, RESYNC_HOLD_STEPS, ResourceAuthority, SETTLE_RETRY_DELAYS_MS } from './resourceAuthority.js'
 import { RESPAWN_MS } from './resourceLayout.js'
 import { keysDeep, manualClock, praderaNodesNearSpawn, settle } from './testing.js'
 import { WORK_TICK_MS, publicNode } from './worldProtocol.js'
@@ -22,13 +22,13 @@ const SUMMARY = { xpGained: 10, rewards: [{ itemId: 'log', quantity: 1 }] }
  * settle call, in call order) is simulated on the same clock: a settle call
  * resolves only once the clock has passed its due instant.
  */
-function harness({ stock = { min: 3, max: 3 }, attempts = [2], latency = [0], commit = null, random = () => 0 } = {}) {
+function harness({ stock = { min: 3, max: 3 }, attempts = [2], latency = [0], commit = null, random = () => 0, loadNodes = null } = {}) {
   const clock = manualClock()
   const actors = new Map([
     ['a', { id: 'a', areaId: 'pradera', ...SPOT_A }],
     ['b', { id: 'b', areaId: 'pradera', ...SPOT_B }],
   ])
-  const log = { authorized: [], calls: [], settled: [], cancelled: [], yields: [], done: [], nodes: [], draws: 0 }
+  const log = { authorized: [], calls: [], settled: [], cancelled: [], yields: [], done: [], nodes: [], draws: 0, loads: 0 }
   const waiting = []
   const skills = {
     async authorizeWorkAttempt(attempt) {
@@ -57,6 +57,7 @@ function harness({ stock = { min: 3, max: 3 }, attempts = [2], latency = [0], co
     onNode: record => log.nodes.push(record),
     onYield: (playerId, unit) => log.yields.push({ playerId, ...unit, at: clock.now() }),
     onDone: (playerId, event) => log.done.push({ playerId, ...event, at: clock.now() }),
+    ...(loadNodes ? { loadNodes: async () => { log.loads++; return loadNodes(log, clock) } } : {}),
   })
   /** Resolves every due settle call, letting the chain move on. */
   const pump = async () => {
@@ -196,18 +197,24 @@ test('no yield before its commit is confirmed, however long the database takes',
   assert.deepEqual(h.log.yields.map(y => y.index), [0, 1, 2])
 })
 
-test('stale_node on unit 1: nothing paid for it, the prepared unit 2 is dropped unpaid, the sequence ends in error', async () => {
+test('stale_node on unit 1 (M-1): settled once under its own id, never re-settled, closed once; nothing after it is prepared, paid or yielded', async () => {
   const h = harness({ commit: settlement => (settlement.actionId.endsWith('-01') ? { ok: false, retryable: false, reason: 'stale-node' } : null) })
   const started = await h.work()
   await h.run(6 * UNIT)
   const id = started.actionId
+  // Every real settleWork call, in order: exactly one per unit that reached the database.
+  assert.deepEqual(h.log.calls.map(c => c.id), [sid(id, 0), sid(id, 1)], 'the stale unit is sent once, with its own id; unit 2 never')
   assert.deepEqual(h.log.settled, [sid(id, 0)])
-  assert.deepEqual(h.log.cancelled, [sid(id, 2)], 'the next unit is closed once, unpaid')
-  assert.equal(h.log.calls.some(c => c.id === sid(id, 2)), false, 'never sent to the database')
+  assert.deepEqual(h.log.cancelled, [sid(id, 1), sid(id, 2)], 'the stale unit and the prepared unit 2 are each closed once')
+  assert.equal(h.log.authorized.some(a => a.id === sid(id, 3)), false, 'no unit after the one running is prepared')
   assert.deepEqual(h.log.yields.map(y => y.index), [0])
   assert.deepEqual([h.log.done.length, h.log.done[0].ok, h.log.done[0].reason, h.log.done[0].total.units], [1, true, 'error', 1])
   assert.equal(h.authority.metrics.staleNodes, 1)
   assert.equal(h.authority.actions.size, 0, 'the node is released')
+  // Nothing more happens afterwards, however long the room runs.
+  await h.run(60_000)
+  assert.equal(h.log.calls.length, 2)
+  assert.equal(h.log.done.length, 1)
 })
 
 test('a commit that keeps failing is retried with the same id, then aborts everything after it', async () => {
@@ -422,4 +429,197 @@ test('one worker per node: another player is refused between units too', async (
   await h.run(UNIT)
   const refused = await h.work('b')
   assert.deepEqual([refused.ok, refused.reason], [false, 'busy'])
+})
+
+// ── Recovery: ambiguous and stale commits resync from the database (YIELD-2 recovery) ──
+
+const DOWN = { ok: false, retryable: true, reason: 'store-unavailable' }
+const STALE = { ok: false, retryable: false, reason: 'stale-node' }
+const TRIES = SETTLE_RETRY_DELAYS_MS.length + 1
+const callsFor = (h, id) => h.log.calls.filter(c => c.id === id)
+/** A database row as world_load_nodes gives it (normalized by playerData.nodeOverride). */
+const dbRow = fields => ({ nodeId: TREE.id, areaId: TREE.areaId, chunkId: TREE.chunkId, plot: null, stockRemaining: null, ...fields })
+const baseOf = settlementId => settlementId.slice(0, -3)
+
+test('ambiguous unit 1: every retry and the resync reuse its id; dedupe confirms it; one yield; the node is what the database says', async () => {
+  // Unit 1 was written by the database, but every reply of the ordered retries is lost.
+  let lost = TRIES
+  const h = harness({
+    commit: settlement => {
+      if (!settlement.actionId.endsWith('-01')) return null
+      if (lost-- > 0) return DOWN
+      return { ok: true, status: 'duplicate', summary: { ...SUMMARY, rewards: [{ itemId: 'log', quantity: 2 }], duplicate: true } }
+    },
+    loadNodes: (log, clock) => [dbRow({ state: 'available', stockRemaining: 1, actionId: sid(baseOf(log.calls[0].id), 1), respawnAt: clock.now() + 60_000 })],
+  })
+  const started = await h.work()
+  const id = started.actionId
+  await h.run(6 * UNIT)
+  const unit1 = callsFor(h, sid(id, 1))
+  assert.equal(unit1.length, TRIES + 1, 'the ordered retries, then one resync step: always the same settlement id')
+  assert.ok(unit1.every(c => c.settlement === unit1[0].settlement), 'the very same settlement, never a new one')
+  assert.deepEqual(callsFor(h, sid(id, 2)), [], 'unit 2 never reaches the database')
+  assert.deepEqual(h.log.yields.map(y => y.index), [0, 1], 'exactly one yield per confirmed unit')
+  assert.ok(h.log.yields[1].at >= unit1.at(-1).resolvedAt, 'unit 1 yields only once dedupe confirmed it')
+  assert.deepEqual(h.log.done.map(d => [d.reason, d.total]), [['error', { units: 2, xpGained: 20, rewards: [{ itemId: 'log', quantity: 3 }] }]], 'the total counts the stored original')
+  assert.deepEqual(h.log.cancelled, [sid(id, 2)], 'the doubtful unit is never closed; the aborted one is, once')
+  assert.equal(h.log.loads, 1)
+  const node = h.authority.store.get(TREE.id)
+  assert.deepEqual([node.state, node.stock, node.token, node.syncing], ['available', 1, sid(id, 1), false])
+  assert.equal(h.authority.syncing.size, 0)
+  const m = h.authority.metrics
+  assert.deepEqual([m.ambiguousCommits, m.resyncs, m.resynced, m.recoveredUnits, m.duplicateSettlements], [1, 1, 1, 1, 1])
+})
+
+test('ambiguous, then the database says stale: never paid, closed once, the node follows the database', async () => {
+  let lost = TRIES
+  const h = harness({
+    commit: settlement => (settlement.actionId.endsWith('-01') ? (lost-- > 0 ? DOWN : STALE) : null),
+    loadNodes: (log, clock) => [dbRow({ state: 'depleted', actionId: 'ffffffff-0000-4000-8000-000000000009-00', respawnAt: clock.now() + 120_000 })],
+  })
+  const started = await h.work()
+  const id = started.actionId
+  await h.run(6 * UNIT)
+  assert.equal(callsFor(h, sid(id, 1)).length, TRIES + 1)
+  assert.deepEqual(h.log.yields.map(y => y.index), [0])
+  assert.deepEqual([...h.log.cancelled].sort(), [sid(id, 1), sid(id, 2)].sort())
+  assert.deepEqual([h.log.done[0].total.units, h.log.done[0].reason], [1, 'error'])
+  assert.equal(h.authority.store.get(TREE.id).state, 'depleted', 'another writer depleted it: memory follows')
+  const refused = await h.work('b')
+  assert.deepEqual([refused.ok, refused.reason], [false, 'depleted'])
+})
+
+test('stale_node resyncs at once from the database: full, partial, depleted or expired — whatever it holds', async () => {
+  const cases = [
+    ['full (no row)', () => [], node => assert.equal(node, null)],
+    ['expired (dropped by the database clock)', () => [], node => assert.equal(node, null)],
+    ['partial', (log, clock) => [dbRow({ state: 'available', stockRemaining: 2, actionId: 'eeeeeeee-0000-4000-8000-000000000001-00', respawnAt: clock.now() + 50_000 })],
+      node => assert.deepEqual([node.state, node.stock, node.token], ['available', 2, 'eeeeeeee-0000-4000-8000-000000000001-00'])],
+    ['depleted', (log, clock) => [dbRow({ state: 'depleted', actionId: 'eeeeeeee-0000-4000-8000-000000000001-01', respawnAt: clock.now() + 50_000 })],
+      node => assert.deepEqual([node.state, node.stock], ['depleted', null])],
+  ]
+  for (const [name, rows, check] of cases) {
+    const h = harness({ commit: settlement => (settlement.actionId.endsWith('-01') ? STALE : null), loadNodes: rows })
+    const started = await h.work()
+    await h.run(3 * UNIT)
+    assert.equal(h.log.loads, 1, name)
+    assert.equal(callsFor(h, sid(started.actionId, 1)).length, 1, `${name}: stale is final, no resettle`)
+    check(h.authority.store.get(TREE.id))
+    assert.equal(h.authority.actions.size, 0, name)
+  }
+})
+
+test('the read is filtered by node id: other nodes’ rows are never applied', async () => {
+  const other = praderaNodesNearSpawn()[1]?.node
+  assert.ok(other && other.id !== TREE.id)
+  const h = harness({
+    commit: settlement => (settlement.actionId.endsWith('-01') ? STALE : null),
+    loadNodes: (log, clock) => [
+      { ...dbRow({ state: 'depleted', actionId: 'aaaaaaaa-0000-4000-8000-000000000001-00', respawnAt: clock.now() + 9_000 }), nodeId: other.id },
+      dbRow({ state: 'available', stockRemaining: 1, actionId: 'dddddddd-0000-4000-8000-000000000001-00', respawnAt: clock.now() + 9_000 }),
+    ],
+  })
+  await h.work()
+  await h.run(3 * UNIT)
+  assert.equal(h.authority.store.get(other.id), null)
+  assert.equal(h.authority.store.get(TREE.id).stock, 1)
+})
+
+test('while resyncing the node takes no work, and nothing private reaches any client', async () => {
+  let release
+  const gate = new Promise(resolve => { release = resolve })
+  const h = harness({
+    commit: settlement => (settlement.actionId.endsWith('-01') ? STALE : null),
+    loadNodes: async (log, clock) => { await gate; return [dbRow({ state: 'available', stockRemaining: 1, actionId: 'cccccccc-0000-4000-8000-000000000001-00', respawnAt: clock.now() + 9_000 })] },
+  })
+  const started = await h.work()
+  await h.run(3 * UNIT)
+  assert.equal(h.authority.syncing.has(TREE.id), true)
+  assert.equal(h.authority.actionOf('a').phase, 'resyncing')
+  assert.equal(h.authority.cancel('a', started.actionId), false, 'nothing is attempting any more')
+  const refused = await h.work('b')
+  assert.deepEqual([refused.ok, refused.reason], [false, 'busy'], 'no one loses time on a node whose stock is unknown')
+  release()
+  await h.run(STEP)
+  assert.equal(h.authority.syncing.size, 0)
+  const keys = keysDeep(h.log.nodes.map(publicNode))
+  for (const key of ['stock', 'token', 'stockRemaining', 'syncing', 'settlementId']) assert.equal(keys.has(key), false, key)
+  for (const unit of h.log.yields) {
+    const { playerId: _p, at: _a, ...message } = unit
+    assert.deepEqual(Object.keys(message).sort(), ['actionId', 'index', 'summary'])
+  }
+  const ok = await h.work('b', 6, 2)
+  assert.equal(ok.ok, true, 'free again once the database answered')
+})
+
+test('database down: the worker waits a few steps, then player and Pokémon are freed; the node stays held until the database answers', async () => {
+  let up = false
+  const h = harness({
+    commit: settlement => (!settlement.actionId.endsWith('-01') ? null : up ? { ok: true, status: 'duplicate', summary: SUMMARY } : DOWN),
+    loadNodes: (log, clock) => {
+      if (!up) throw new Error('down')
+      return [dbRow({ state: 'available', stockRemaining: 1, actionId: sid(baseOf(log.calls[0].id), 1), respawnAt: clock.now() + 60_000 })]
+    },
+  })
+  const started = await h.work()
+  const id = started.actionId
+  await h.run(3 * UNIT)
+  assert.equal(h.log.done.length, 0, 'held: the owner waits for the first steps')
+  const holdMs = RESYNC_DELAYS_MS.slice(0, RESYNC_HOLD_STEPS - 1).reduce((a, b) => a + b, 0)
+  await h.run(holdMs + STEP)
+  assert.deepEqual(h.log.done.map(d => [d.reason, d.total.units]), [['error', 1]], 'freed, with the confirmed units only')
+  assert.equal(h.authority.actions.size, 0)
+  assert.equal(h.authority.byPokemon.size, 0)
+  assert.deepEqual([h.authority.store.get(TREE.id).syncing, h.authority.store.get(TREE.id).base], [true, false])
+  assert.equal((await h.work('b')).reason, 'busy', 'the node itself is still held')
+  const steps = h.authority.metrics.resyncSteps
+  await h.run(5 * 60_000)
+  assert.ok(h.authority.metrics.resyncSteps > steps && h.authority.metrics.resyncSteps < steps + 12, 'bounded backoff, never a tight loop')
+  assert.deepEqual([...new Set(h.log.calls.map(c => c.id))], [sid(id, 0), sid(id, 1)], 'only units 0 and 1 ever reach the database')
+  const unit1 = callsFor(h, sid(id, 1))
+  assert.ok(unit1.every(c => c.settlement === unit1[0].settlement))
+  assert.deepEqual(h.log.cancelled, [sid(id, 2)], 'the doubtful unit stays open while the database may still confirm it')
+  up = true
+  await h.run(RESYNC_DELAYS_MS.at(-1) + STEP)
+  assert.equal(h.authority.syncing.size, 0)
+  assert.deepEqual([h.authority.store.get(TREE.id).stock, h.authority.store.get(TREE.id).syncing], [1, false])
+  assert.equal(h.authority.metrics.lateConfirmations, 1, 'paid in the database, reported late')
+  assert.deepEqual(h.log.yields.map(y => y.index), [0], 'never a yield after the sequence was reported done')
+  assert.equal(h.log.done.length, 1)
+  assert.equal((await h.work('b', 6, 3)).ok, true)
+})
+
+test('authorizations (M-5): success, duplicate, ambiguous, stale and cancellation — each closed exactly when it can no longer be paid', async () => {
+  const run = async (commit, after = async () => {}) => {
+    const h = harness({ stock: { min: 1, max: 1 }, commit, loadNodes: () => [] })
+    const started = await h.work()
+    await after(h, started)
+    await h.run(3 * UNIT)
+    assert.equal(h.log.done.length, 1)
+    return { h, id: sid(started.actionId, 0) }
+  }
+  let r = await run(null)
+  assert.deepEqual(r.h.log.cancelled, [], 'applied: settled, nothing to close')
+  r = await run(() => ({ ok: true, status: 'duplicate', summary: SUMMARY }))
+  assert.deepEqual(r.h.log.cancelled, [], 'duplicate: settled, nothing to close')
+  let n = 0
+  r = await run(() => (n++ < TRIES ? DOWN : { ok: true, status: 'duplicate', summary: SUMMARY }))
+  assert.deepEqual(r.h.log.cancelled, [], 'ambiguous then confirmed: never closed')
+  n = 0
+  r = await run(() => (n++ < TRIES ? DOWN : STALE))
+  assert.deepEqual(r.h.log.cancelled, [r.id], 'ambiguous then stale: closed once, after the answer')
+  r = await run(() => STALE)
+  assert.deepEqual(r.h.log.cancelled, [r.id], 'stale: closed once')
+  r = await run(() => ({ ok: false, retryable: false, reason: 'expired' }))
+  assert.deepEqual(r.h.log.cancelled, [r.id], 'refused for good: closed once')
+  r = await run(null, async (h, started) => { h.authority.cancel('a', started.actionId); h.authority.cancel('a', started.actionId) })
+  assert.deepEqual([r.h.log.cancelled, r.h.log.calls.length], [[r.id], 0], 'cancelled: closed once, never settled')
+})
+
+test('without a database (no loadNodes) a stale unit ends from memory, as before', async () => {
+  const h = harness({ commit: settlement => (settlement.actionId.endsWith('-01') ? STALE : null) })
+  const started = await h.work()
+  await h.run(3 * UNIT)
+  assert.equal(h.authority.syncing.size, 0)
+  assert.deepEqual([h.authority.store.get(TREE.id).stock, h.authority.store.get(TREE.id).token], [2, sid(started.actionId, 0)])
 })
