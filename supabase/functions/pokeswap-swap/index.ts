@@ -4,7 +4,7 @@
 // The auth check uses the anon key on purpose: the retired endpoint needs no
 // privileged access, so it never creates a service-role client.
 
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient } from 'jsr:@supabase/supabase-js@2.117.2';
 import { handleRetiredSwap } from './handler.ts';
 
 Deno.serve(req => handleRetiredSwap(req, {
