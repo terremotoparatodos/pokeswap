@@ -1,5 +1,6 @@
 import { biomeAt, hash2, isWaterTile } from './terrain.js'
 import { isSolidAtArea } from './resourceZones.js'
+import { isCaveReserved } from './caves.js'
 
 /**
  * Wild Pokémon — identity, species, home and lifecycle decided once, by the
@@ -106,6 +107,7 @@ export function fitsBiome(biome, entry) {
 /**
  * The browser's historic spawn tiles of one 32-tile chunk (`Population.populate`).
  * Solidity includes the area's authored resource-zone layer (MAP-2), as the browser's.
+ * A cave's footprint and front clearance never host a wild home (CAVES-2).
  */
 export function wildSpawnTiles(seed, cx, cy, areaId = null) {
   const tiles = []
@@ -113,7 +115,7 @@ export function wildSpawnTiles(seed, cx, cy, areaId = null) {
   for (let i = 0; i < count; i++) {
     const tx = cx * WILD_CHUNK_TILES + Math.floor(hash2(cx * 31 + i, cy, seed + 901) * WILD_CHUNK_TILES)
     const ty = cy * WILD_CHUNK_TILES + Math.floor(hash2(cx, cy * 31 + i, seed + 902) * WILD_CHUNK_TILES)
-    if (isSolidAtArea(areaId, seed, tx, ty)) continue
+    if (isSolidAtArea(areaId, seed, tx, ty) || isCaveReserved(areaId, tx, ty)) continue
     const water = isWaterTile(seed, tx, ty)
     tiles.push({ tx, ty, water, biome: water ? 'ocean' : biomeAt(seed, tx + 0.5, ty + 0.5) })
   }

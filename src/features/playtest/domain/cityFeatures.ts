@@ -22,7 +22,7 @@ export type PlaytestSurface =
 /** Why each closed door is closed, in one sentence a player can read. */
 const CLOSED: Readonly<Record<Exclude<LobbyFeature, 'caja' | 'mercado'>, string>> = {
   swap: 'El Swap mueve Pokémon de verdad entre cuentas. Queda cerrado durante el playtest.',
-  dungeon: 'La Dungeon no se entra desde acá: buscá una cueva en WildLands.',
+  dungeon: 'La Dungeon todavía no está abierta: la cueva de la Pradera sigue cerrada.',
   pokedex: 'La Pokédex vuelve después del playtest.',
   perfil: 'Tu perfil y tus tokens reales quedan fuera de esta build.',
 }

@@ -1,5 +1,6 @@
 import { decorAt, isSolidDecor } from './terrain.js'
 import { AUTHORED_DECOR } from './resourceZoneLayout.js'
+import { isCaveReserved, isCaveRock } from './caves.js'
 
 /**
  * Resource zones of the shared world (MAP-2).
@@ -72,9 +73,13 @@ export function resourceZoneAt(areaId, tx, ty) {
   return null
 }
 
-/** Whether a tile belongs to a zone, a route, a reserve or the arrival clearance (nothing else may be placed there). */
+/**
+ * Whether a tile belongs to a zone, a route, a reserve or the arrival clearance (nothing else may be placed there).
+ * A cave's footprint and front clearance are planned ground too (CAVES-2, `caves.js`).
+ */
 export function isPlannedTile(areaId, tx, ty) {
   return !!resourceZoneAt(areaId, tx, ty)
+    || isCaveReserved(areaId, tx, ty)
     || ROUTES.some(route => route.areaId === areaId && inBox(route.box, tx, ty))
     || RESERVED_AREAS.some(area => area.areaId === areaId && inBox(area.box, tx, ty))
 }
@@ -102,7 +107,10 @@ export function decorAtArea(areaId, seed, tx, ty, corners) {
   return decorAt(seed, tx, ty, corners)
 }
 
-/** Collision of the shared layer: the same answer the browser's World gives for the area. */
+/**
+ * Collision of the shared layer: the same answer the browser's World gives for the area.
+ * Cave rock (`caves.js`) collides like a prop, for the browser and the service alike.
+ */
 export function isSolidAtArea(areaId, seed, tx, ty) {
-  return isSolidDecor(decorAtArea(areaId, seed, tx, ty))
+  return isSolidDecor(decorAtArea(areaId, seed, tx, ty)) || isCaveRock(areaId, tx, ty)
 }
