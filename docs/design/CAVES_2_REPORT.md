@@ -10,7 +10,7 @@
 - La roca de la cueva es parte de la **capa compartida de colisión** (`isSolidAtArea`). El navegador (`World.isSolid`) y el servicio dan la misma respuesta casilla por casilla, sin componentes montados y sin depender del orden de montaje.
 - El footprint y el claro frontal 3×3 son **terreno planificado**. Ningún hogar de salvaje ni ningún errante compartido los ocupa.
 - Desaparecen del mundo las otras 5 bocas de Pradera y las 24 de los mundos inalcanzables, junto con la apertura de `DungeonRunPanel`. El prototipo de Dungeon **se conserva**, pero sólo se alcanza por las rutas DEV.
-- 14 guardas derivadas de `CAVES`, 6 mutaciones detectadas y todos los gates en verde.
+- 14 guardas derivadas de `CAVES`, más un gate que corre el auditor de Pradera. 8 mutaciones detectadas y todos los gates en verde.
 
 ## 2. Commits
 
@@ -19,7 +19,11 @@
 | 1 | `c767075` | Fuente canónica: `caves.js` + `caves.d.ts`. |
 | 2 | `5a6b053` | Consumo por colisión, reserva y dibujo; retiro del acceso procedural. |
 | 3 | `1e7985a` | Guardas (`caves.test.js`, `caves.guard.test.ts`), MAP-2 adaptado y scripts alineados o retirados. |
-| 4 | *(este)* | Informe. |
+| 4 | `d0f2279` | Informe. |
+| 5 | `4515cd4` | Auditor de Pradera: termina con exit 0 y comprueba la cueva canónica; gate `praderaAudit.test.ts`. |
+| 6 | `33272d4` | Renombre `dungeonsInWorld` → `worldPlaytestFeaturesEnabled`. |
+| 7 | `98a7b3c` | Corrige el 6: la línea del import de Skills vuelve a llevar el gate literal que exige `skillsIsolation.test.ts`, que el 6 había roto (lo detectó el Vitest completo). |
+| 8 | *(este)* | Informe actualizado. |
 
 El commit 2 deja en rojo, a propósito, la aserción MAP-2 "las 6 cuevas no se movieron", que el commit 3 reemplaza. La punta de la rama está en verde (§7).
 
@@ -33,13 +37,14 @@ El commit 2 deja en rojo, a propósito, la aserción MAP-2 "las 6 cuevas no se m
 | `services/realtime/src/world/skills/skills.generated.js` | Regenerado: inlinea `resourceZones.js`, que ahora importa `caves.js`. **Sólo agrega** los datos de la cueva, sin cambiar reglas de SKILLS. |
 | `src/features/caves/world/caveMouthOverlay.ts` | **Nuevo.** Dibuja las bocas de `caves.js` y su etiqueta. |
 | `src/features/caves/art/caveEntranceArt.ts` | Movido desde `dungeonEntrances/art/` sin cambios. |
-| `src/features/wildlands/components/WildlandsView.vue` | Sin `DungeonEntrances`, `DungeonRunPanel`, `dungeonRun`, `leaveDungeon` ni `professionClaims`. Instala `CaveMouthOverlay` en todos los builds (+20 −64 líneas). |
+| `src/features/wildlands/components/WildlandsView.vue` | Sin `DungeonEntrances`, `DungeonRunPanel`, `dungeonRun`, `leaveDungeon` ni `professionClaims`. Instala `CaveMouthOverlay` en todos los builds. El flag `dungeonsInWorld` pasa a llamarse `worldPlaytestFeaturesEnabled`, porque ya no gobierna ninguna Dungeon: habilita la capa de profesiones (`:skills`), el chat de área (`ChatPanel`) y la espera de montaje. Misma condición (`import.meta.env.DEV \|\| isPlaytest`). La línea de `ProfessionWorldDemo` conserva la condición literal a propósito, porque `skillsIsolation.test.ts` exige ver el gate de build en la misma línea del import de Skills. |
 | `src/features/wildlands/engine/game.ts` | Los errantes compartidos no caminan por la reserva de una cueva (una condición en `sharedPopulace.walkable`). |
 | `src/features/wildlands/engine/placedObjects.ts` | Se elimina el tipo huérfano `'dungeonEntrance'`. |
 | `src/features/playtest/domain/cityFeatures.ts` | El aviso del Gimnasio ya no manda a buscar una cueva: "La Dungeon todavía no está abierta: la cueva de la Pradera sigue cerrada." |
 | `src/features/dungeonEntrances/components/DungeonEntrances.vue`, `world/caveOverlay.ts` | **Eliminados**, reemplazados por `caves.js` y `CaveMouthOverlay`. |
 | `scripts/dungeon-entrances.ts` + script npm `dungeon:entrances` | **Retirados.** Medían las cuevas por semilla, que ya no existen. |
-| `scripts/map/audit-pradera.ts` | Lee `cavesIn('pradera')`, sin `seedOf` propio ni colocación. |
+| `scripts/map/audit-pradera.ts` | Lee `cavesIn('pradera')`, sin `seedOf` propio ni colocación. Se retira la propuesta histórica de MAP-1 (mapas 1–4, `proposal.json`, candidatos de zona): buscaba lugar para zonas en un mundo que ya las tiene, fallaba en `reserveSite` y su resultado ya está congelado en `docs/design/map-1/`. La carpeta de salida es obligatoria, sin valor por defecto en `docs/`. Al final comprueba la cueva: una sola, ancla `(-26,-74)`, aproximación alcanzable; si no, exit 1. |
+| `src/features/caves/praderaAudit.test.ts` | **Nuevo.** Gate liviano (~1,3 s): corre el auditor real en una carpeta temporal y exige exit 0 y la línea de comprobación de la cueva. |
 | `src/features/world/domain/zoneParity.test.ts` | Sin la lista copiada `CAVES_BEFORE_MAP2` ni `seedOf`. Lee `CAVES` y verifica stands y esperas contra footprint **y** claro. |
 | `services/realtime/src/world/caves.test.js`, `src/features/caves/caves.guard.test.ts` | **Nuevos.** Guardas. |
 
@@ -126,23 +131,27 @@ Todos consumen `cavesIn` / `isCaveRock` / `isCaveReserved`. No queda ninguna cop
 | 13 | cliente y servidor: mismo footprint y colisión | › *collides like the service…*; `zoneParity.test.ts` › *draws and collides exactly like the server layer* (radio 64, incluye la cueva) |
 | 14 | una mutación de la definición hace fallar las guardas | §8 |
 | + | ningún hogar salvaje en la reserva | `caves.test.js` › *no wild home can land in a cave reserve* |
+| + | el auditor de Pradera termina limpio y mide la cueva canónica | `praderaAudit.test.ts` (corre el script real; exit 0, ancla y aproximación) |
 
-## 7. Verificación (Node 24.21.0 portable)
+## 7. Verificación (Node 24.21.0 portable, sobre `98a7b3c`)
 
 | Gate | Resultado |
 | --- | --- |
-| Tests de cuevas | ✓ `caves.test.js` 8/8 · `caves.guard.test.ts` 5/5 |
-| Mapa, zonas, colisión, `workPlacement` (`resourceZones`, `wildPopulation`, `workPlacement`, `zoneParity`, `praderaPortalGuard`) | ✓ |
+| Auditor de Pradera (`npx vite-node scripts/map/audit-pradera.ts -- <carpeta temporal>`) | ✓ **exit 0** · `cave check: ok — (-26,-74), approach (-25,-73) at 24 steps` · `audit.json` → 1 cueva, ancla `(-26,-74)`, footprint 6, aproximación a 24 pasos. Escribe sólo en la carpeta temporal; `docs/design/map-1/` y `map-2/` sin cambios. Sin argumento termina con exit 2 y no escribe nada. |
+| Tests de cuevas (servidor) | ✓ `caves.test.js` 8/8 |
+| Tests de cuevas y paridad (cliente) | ✓ 13/13 (`caves.guard.test.ts` 5, `praderaAudit.test.ts` 1, `zoneParity.test.ts` 5, `praderaPortalGuard.test.ts` 2) |
+| Mapa, zonas, colisión, `workPlacement` (servidor) | ✓ 29/29 (`resourceZones`, `wildPopulation`, `workPlacement`, `workPlacement.room`) |
 | Realtime completo (`node --test "src/**/*.test.js"`) | ✓ 196 pass · 0 fail · 20 skipped (staging, igual que antes) |
-| Vitest completo | ✓ 185 archivos · 1820 tests |
+| Vitest completo | ✓ 186 archivos · 1821 tests |
 | Typecheck (`vue-tsc`) | ✓ exit 0 |
 | Lint (`eslint .`) | ✓ exit 0 · 0 errores · 9 warnings, los mismos de antes (`AuthModal.vue`) |
-| Build | ✓ |
-| Drift de SKILLS (`bundle-skills.mjs --check`, `serverBundle.test.ts`) | ✓ (con el bundle regenerado, ver §3) |
-| `zone-layout.ts -- --check` | ✓ "resourceZoneLayout.js is up to date" |
-| Auditor `audit-pradera.ts` | Mide 1 cueva, ancla `(-26,-74)`, aproximación a 24 pasos. **Falla después** en la sección de propuesta MAP-1 (`reserveSite` indefinido). La falla es **preexistente**: se reproduce idéntica con los archivos de `f4323c9`. No se corrigió porque es ajena a CAVES-2. Se ejecutó sobre una carpeta temporal y no se regeneró `docs/design/map-2/`. |
+| Build | ✓ exit 0 |
+| Drift de SKILLS (`bundle-skills.mjs --check`, `serverBundle.test.ts`) | ✓ exit 0 |
+| `zone-layout.ts -- --check` | ✓ exit 0 · "resourceZoneLayout.js is up to date" |
 
 No se corrieron Deno ni staging: no cambian Supabase, Edge Functions, settlement ni persistencia.
+
+Una corrida intermedia del Vitest completo, sobre `33272d4`, falló en `skillsIsolation.test.ts`. Esa guarda exige que el import de Skills lleve el gate de build en la misma línea, y el renombre lo había reemplazado por el flag. `98a7b3c` lo repone. La tabla corresponde a la corrida final.
 
 ## 8. Mutaciones
 
@@ -156,6 +165,8 @@ Cada mutación se aplicó con un script, se corrieron `caves.test.js`, `caves.gu
 | Recurso dentro del claro (zona + roca en `-26,-72`) | *nothing else occupies the reserve*, *work stand…*, *approach… clearance open*, *collides like the service*, dos de `zoneParity` |
 | Reaparece una boca extra (segunda cueva en `caves.js`, sitio de la vieja cueva 2) | *exactly one public cave*, *draws exactly the caves of caves.js*, *clearance open*, *collides like the service* |
 | Reaparece la colocación procedural (`areaEntrances` importado en `WildlandsView`) | *no world surface opens the Dungeon prototype or places entrances from a seed* |
+| El auditor lanza una excepción después de escribir sus resultados | `praderaAudit.test.ts` (exit ≠ 0) |
+| Cueva movida a `(-22,-74)`, vista por el auditor | el auditor termina con exit 1 (`cave anchored at (-22,-74), expected (-26,-74)`) y `praderaAudit.test.ts` falla |
 
 ## 9. Compatibilidad
 
@@ -180,8 +191,7 @@ Un cliente 0.3 anterior a este cambio no dibujaría la roca. Como la colisión d
 4. **Reconexión (D8):** devolver a `approach`, que ya es casilla segura y está garantizada por guarda.
 5. **Tareas activas:** con un cambio de área real, `reconcileActor` cancela solo. Falta un test de sala que lo cubra.
 6. **Tap en la roca:** hoy la cueva no es un objeto colocado, así que un tap sobre la parte alta del arte cae en la casilla de detrás. Si CAVES-3 quiere "tocar la boca para caminar hasta la aproximación", necesita un hitbox.
-7. **Código muerto:** `entrancePlacement`/`entranceSpawns`/`DungeonRunPanel`/`returnFromExpedition` quedan para DUNGEONS-1.
-8. **Auditor MAP-1:** la sección de propuesta de `audit-pradera.ts` está rota desde MAP-2; conviene retirarla o arreglarla en una tarea de mapa aparte.
+7. **Código del prototipo:** `entrancePlacement`/`entranceSpawns`/`DungeonRunPanel`/`returnFromExpedition` quedan para DUNGEONS-1.
 
 ## 11. Estado
 
