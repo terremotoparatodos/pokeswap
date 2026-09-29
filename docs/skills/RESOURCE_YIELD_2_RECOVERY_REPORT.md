@@ -172,3 +172,22 @@ Cadena desde `a2003b6`:
 - `skills.generated.js`: bundle regenerado.
 
 **Sin cambios:** SQL, migraciones, `handler.ts`, `playerData.js`, el protocolo del cliente, balance y stock.
+
+## 11. Corrección final: la clasificación depende de la respuesta final
+
+En `#commitUnit`, la bandera `unanswered` convertía en ambigua cualquier secuencia en la que hubiera habido un intento sin respuesta, aunque el último intento trajera un rechazo definitivo (p. ej. reintentable → `expired`). Eso causaba retención y resincronización innecesarias, y demoraba el cierre de la autorización. Se eliminó la bandera. Ahora cuenta sólo el resultado final:
+
+| Resultado final | Qué pasa |
+|---|---|
+| `ok` | se confirma |
+| `stale_node` | resync autoritativo y `cancelWork` una vez |
+| reintentable, después de agotar los intentos | ambiguo: mismo settlement, sin cerrar, resync |
+| otro rechazo definitivo | se cierra una vez y la secuencia termina desde la memoria confirmada, sin resync ni `loadNodes` |
+
+Tests nuevos en `multiYield.test.js`: reintentable → `expired`, reintentable → otro rechazo definitivo, reintentable en todos los intentos, y reintentable → `stale_node`.
+
+**Mutación:** con la condición defectuosa restaurada fallan 2 tests (los dos casos definitivos). Los otros dos cubren comportamiento que la corrección no cambia y quedan como regresión. El archivo se restauró con el mismo SHA-1.
+
+**Caso límite aceptado:** si un intento perdió la respuesta pero la base aplicó la unidad, y SKILLS contesta `expired` en un reintento, WORLD no ve ese pago y la memoria queda una unidad atrás. No hay doble pago, porque el dedupe y el CAS lo impiden. La primera unidad siguiente sobre ese nodo recibe `stale_node`, y eso dispara el resync autoritativo que corrige la memoria. Para que ocurra, la autorización tiene que vencer (10 min) durante los ~13 s de reintentos.
+
+**Gates:** realtime 262 tests (241 pass, 0 fail, 21 skipped del gate de staging), PGlite 33/33, Vitest 1 835/1 835, y typecheck, lint (0 errores), build, drift y pacing con exit 0. El benchmark no se repitió porque sólo cambia la clasificación de un camino de error.

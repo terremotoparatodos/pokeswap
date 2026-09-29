@@ -623,3 +623,67 @@ test('without a database (no loadNodes) a stale unit ends from memory, as before
   assert.equal(h.authority.syncing.size, 0)
   assert.deepEqual([h.authority.store.get(TREE.id).stock, h.authority.store.get(TREE.id).token], [2, sid(started.actionId, 0)])
 })
+
+// ── Classification by the final answer (YIELD-2 recovery, final fix) ──
+
+/** Unit 1 answers with `answers` in order (the last one repeats); everything else applies. */
+const scripted = answers => {
+  let n = 0
+  return settlement => (settlement.actionId.endsWith('-01') ? answers[Math.min(n++, answers.length - 1)] : null)
+}
+const tree = (h, id) => h.authority.store.get(TREE.id)
+
+for (const [name, refusal] of [['expired', { ok: false, retryable: false, reason: 'expired' }], ['another definitive refusal', { ok: false, retryable: false, reason: 'skills-denied' }]]) {
+  test(`retryable → ${name}: definitive — closed once, no resync, released from confirmed memory, nothing after it`, async () => {
+    const h = harness({ commit: scripted([DOWN, refusal]), loadNodes: () => { throw new Error('must not be read') } })
+    const started = await h.work()
+    const id = started.actionId
+    await h.run(6 * UNIT)
+    assert.equal(callsFor(h, sid(id, 1)).length, 2, 'one non-answer, then the definitive refusal')
+    assert.deepEqual(callsFor(h, sid(id, 2)), [], 'no later unit reaches the database')
+    assert.equal(h.log.cancelled.filter(c => c === sid(id, 1)).length, 1, 'cancelWork once for the refused unit')
+    assert.deepEqual(h.log.cancelled, [sid(id, 1), sid(id, 2)])
+    assert.equal(h.log.loads, 0, 'loadNodes never called')
+    const m = h.authority.metrics
+    assert.deepEqual([m.resyncs, m.resyncSteps, m.ambiguousCommits], [0, 0, 0])
+    assert.equal(h.authority.syncing.size, 0)
+    assert.equal(h.authority.actions.size, 0, 'released at once')
+    assert.deepEqual(h.log.yields.map(y => y.index), [0])
+    assert.deepEqual(h.log.done.map(d => [d.reason, d.total.units]), [['error', 1]])
+    const node = tree(h)
+    assert.deepEqual([node.state, node.stock, node.token, node.syncing], ['available', 2, sid(id, 0), false], 'the last confirmed unit, from memory')
+    assert.equal(h.log.authorized.some(a => a.id === sid(id, 3)), false)
+  })
+}
+
+test('retryable on every attempt: still ambiguous — same settlement id every time, recovery starts', async () => {
+  const h = harness({ commit: scripted([DOWN]), loadNodes: () => [] })
+  const started = await h.work()
+  const id = started.actionId
+  await h.run(3 * UNIT)
+  const unit1 = callsFor(h, sid(id, 1))
+  assert.ok(unit1.length > TRIES, 'the ordered retries, then resync steps')
+  assert.ok(unit1.every(c => c.settlement === unit1[0].settlement && c.id === sid(id, 1)))
+  const m = h.authority.metrics
+  assert.deepEqual([m.ambiguousCommits, m.resyncs], [1, 1])
+  assert.equal(h.authority.syncing.has(TREE.id), true, 'in recovery')
+  assert.equal(h.log.cancelled.includes(sid(id, 1)), false, 'kept open: dedupe may still confirm it')
+  assert.equal(h.log.loads, 0, 'the node is read only once nothing is in doubt')
+})
+
+test('retryable → stale_node: authoritative resync, never paid, closed once', async () => {
+  const h = harness({
+    commit: scripted([DOWN, STALE]),
+    loadNodes: (log, clock) => [dbRow({ state: 'depleted', actionId: 'abababab-0000-4000-8000-000000000001-00', respawnAt: clock.now() + 30_000 })],
+  })
+  const started = await h.work()
+  const id = started.actionId
+  await h.run(6 * UNIT)
+  assert.equal(callsFor(h, sid(id, 1)).length, 2, 'stale is final: no resettle')
+  assert.deepEqual(h.log.yields.map(y => y.index), [0], 'unit 1 never paid')
+  assert.equal(h.log.cancelled.filter(c => c === sid(id, 1)).length, 1)
+  assert.equal(h.log.loads, 1)
+  const m = h.authority.metrics
+  assert.deepEqual([m.staleNodes, m.resyncs, m.resynced, m.ambiguousCommits], [1, 1, 1, 0])
+  assert.equal(tree(h).state, 'depleted', 'the database’s node')
+})

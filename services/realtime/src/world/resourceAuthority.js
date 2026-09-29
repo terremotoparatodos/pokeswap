@@ -404,14 +404,12 @@ export class ResourceAuthority {
       return
     }
     let result = null
-    // A retryable failure means "no answer": the database may have applied the unit.
-    let unanswered = false
     for (let attempt = 0; attempt <= SETTLE_RETRY_DELAYS_MS.length; attempt++) {
       if (attempt > 0) { this.metrics.settleRetries++; await this.sleep(SETTLE_RETRY_DELAYS_MS[attempt - 1]) }
       result = await this.#settleOnce(settlement)
       if (result.ok || !result.retryable) break
-      unanswered = true
     }
+    // Classified by the FINAL answer alone: an earlier non-answer does not make a later definitive one ambiguous.
     if (result.ok) {
       this.#confirmUnit(action, unit, next, result)
     } else {
@@ -426,8 +424,9 @@ export class ResourceAuthority {
         this.metrics.staleNodes++
         action.resync = true
         this.#notifyCancel(unit.settlementId, action.playerId, 'stale-node')
-      } else if (result.retryable || unanswered) {
-        // Ambiguous: never closed here (dedupe may still confirm it), never paid here.
+      } else if (result.retryable) {
+        // Every attempt went unanswered: the database may have applied it. Ambiguous —
+        // never closed here (dedupe may still confirm it), never paid here.
         this.metrics.ambiguousCommits++
         action.resync = true
         action.doubt = { unit, settlement, next }
