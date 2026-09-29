@@ -1338,6 +1338,37 @@ function skillsResourceFor(node) {
 // src/features/worldSkills/server/skillsWorldPolicy.ts
 var REASON = (value) => value.replace(/_/g, "-").slice(0, 32);
 var EMPTY_XP = { woodcutting: 0, mining: 0, farming: 0 };
+var SKILL_IDS2 = new Set(Object.keys(EMPTY_XP));
+var count = (value) => Number.isInteger(value) && value >= 0;
+function summaryOf(paid) {
+  return {
+    skillId: paid.skillId,
+    xpGained: paid.xpGained,
+    xpAfter: paid.xpAfter,
+    rewards: paid.rewards,
+    levelBefore: paid.levelBefore,
+    levelAfter: paid.levelAfter,
+    levelUpLine: levelUpLine(paid.skillId, paid.levelBefore, paid.levelAfter),
+    unlocks: unlocksBetween(paid.skillId, paid.levelBefore, paid.levelAfter).map((unlock) => ({ skillId: unlock.skillId, level: unlock.level, kind: unlock.kind, id: unlock.id, title: unlock.title, detail: unlock.detail }))
+  };
+}
+function canonicalSummary(stored, actionId) {
+  if (!stored || stored.action_id !== actionId || typeof stored.skill_id !== "string" || !SKILL_IDS2.has(stored.skill_id)) return null;
+  if (!count(stored.xp_gained) || !count(stored.xp_after) || !count(stored.level_before) || !count(stored.level_after) || !Array.isArray(stored.rewards)) return null;
+  const rewards = stored.rewards.filter((reward) => typeof reward?.itemId === "string" && Number.isInteger(reward?.quantity) && reward.quantity > 0).map((reward) => ({ itemId: reward.itemId, quantity: reward.quantity, bonus: reward.bonus === true }));
+  const paid = stored.outcome === "completed";
+  return {
+    ...summaryOf({
+      skillId: stored.skill_id,
+      xpGained: paid ? stored.xp_gained : 0,
+      xpAfter: stored.xp_after,
+      rewards: paid ? rewards : [],
+      levelBefore: stored.level_before,
+      levelAfter: stored.level_after
+    }),
+    duplicate: true
+  };
+}
 function cryptoRandom() {
   const buffer = new Uint32Array(1);
   globalThis.crypto.getRandomValues(buffer);
@@ -1460,25 +1491,16 @@ function createSkillsWorldPolicy(options) {
       staged.delete(paid.actionId);
       committed.set(paid.actionId, paid);
       const xpAfter = stored.settlement?.xp_after;
-      const cache = xp.get(paid.playerId);
-      if (cache && typeof xpAfter === "number") cache[paid.skillId] = xpAfter;
       if (!stored.applied) {
         xp.delete(paid.playerId);
-        return { ok: true, status: "duplicate", summary: { skillId: paid.skillId, duplicate: true } };
+        return { ok: true, status: "duplicate", summary: canonicalSummary(stored.settlement, paid.actionId) ?? { skillId: paid.skillId, duplicate: true } };
       }
+      const cache = xp.get(paid.playerId);
+      if (cache && typeof xpAfter === "number") cache[paid.skillId] = xpAfter;
       return {
         ok: true,
         status: "applied",
-        summary: {
-          skillId: paid.skillId,
-          xpGained: paid.xpGained,
-          xpAfter: xpAfter ?? paid.xpAfter,
-          rewards: paid.rewards,
-          levelBefore: paid.levelBefore,
-          levelAfter: paid.levelAfter,
-          levelUpLine: levelUpLine(paid.skillId, paid.levelBefore, paid.levelAfter),
-          unlocks: unlocksBetween(paid.skillId, paid.levelBefore, paid.levelAfter).map((unlock) => ({ skillId: unlock.skillId, level: unlock.level, kind: unlock.kind, id: unlock.id, title: unlock.title, detail: unlock.detail }))
-        }
+        summary: summaryOf({ ...paid, xpAfter: typeof xpAfter === "number" ? xpAfter : paid.xpAfter })
       };
     },
     cancelWork(cancellation) {
@@ -1493,6 +1515,7 @@ function createSkillsWorldPolicy(options) {
   };
 }
 export {
+  canonicalSummary,
   createSkillsWorldPolicy,
   skillsResourceFor
 };
