@@ -19,7 +19,6 @@
     "catalog:sample": "node scripts/battle-catalog/sample.mjs",
     "pokemon:sample": "vite-node scripts/pokemon-sample.ts --",
     "battle:sample": "vite-node scripts/battle-sample.ts --",
-    "dungeon:entrances": "vite-node scripts/dungeon-entrances.ts --",
     "benchmark:multiplayer": "node scripts/benchmark-presence.mjs"
   },
   "dependencies": {

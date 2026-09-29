@@ -3,7 +3,7 @@
 // Reads exactly what players get: the procedural terrain and props both sides
 // run (`terrain.js`), WORLD's node layout (`resourceLayout.js`), SKILLS'
 // node → resource mapping (`resourceMapping.ts`), the huerta plots, the return
-// portal and the caves as the client places them. Writes counts and
+// portal and the caves of `caves.js` (CAVES-2). Writes counts and
 // coordinates (JSON) and annotated maps (PNG) for the report.
 //
 //   npx vite-node scripts/map/audit-pradera.ts -- docs/design/map-2
@@ -17,7 +17,6 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 import { Atlas } from '../../src/features/wildlands/areas/atlas'
-import { areaEntrances } from '../../src/features/dungeonEntrances/domain/entranceSpawns'
 import { skillsResourceFor } from '../../src/features/worldSkills/resourceMapping'
 import { workDuration } from '../../src/features/skills/domain/workRules'
 import { WORLD_AREAS } from '../../services/realtime/src/world/areas.js'
@@ -25,9 +24,10 @@ import { PLOTS } from '../../services/realtime/src/world/plots.js'
 import { RESOURCE_VARIANTS, ZONE_RING_TILES, resourceAt } from '../../services/realtime/src/world/resourceLayout.js'
 import { RESPAWN_MS } from '../../services/realtime/src/world/worldTuning.js'
 import { T, decorAt, isSolidDecor, tileTerrain } from '../../services/realtime/src/world/terrain.js'
-import { RESERVED_AREAS, RESOURCE_ZONES, ROUTES, decorAtArea, isPlannedTile, resourceZoneAt } from '../../services/realtime/src/world/resourceZones.js'
+import { RESERVED_AREAS, RESOURCE_ZONES, ROUTES, decorAtArea, resourceZoneAt } from '../../services/realtime/src/world/resourceZones.js'
 import { standableTile, workPlacement } from '../../services/realtime/src/world/workPlacement.js'
 import { WORLD_VIEW_TILES } from '../../services/realtime/src/world/worldInterest.js'
+import { cavesIn } from '../../services/realtime/src/world/caves.js'
 
 type Tile = { tx: number; ty: number }
 const OUT = process.argv.slice(2).find(arg => arg !== '--') ?? 'docs/design/map-1'
@@ -44,21 +44,8 @@ const PORTAL = area.portals[0].tiles[0]
 const TREE_KINDS = new Set(['tree', 'pine', 'snowpine', 'palm'])
 const ROCK_KINDS = new Set(['rock', 'boulder', 'icerock'])
 
-// ── Caves, placed like DungeonEntrances.vue does (same seed derivation) ─────
-function seedOf(areaId: string): number {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < areaId.length; i++) hash = Math.imul(hash ^ areaId.charCodeAt(i), 0x01000193) >>> 0
-  return hash
-}
-const caves = areaEntrances({
-  areaId: 'pradera', origin: area.arrival(null), seed: seedOf('pradera'), now: Date.now(),
-  port: {
-    isSolid: (tx, ty) => area.isSolid(tx, ty),
-    isWater: (tx, ty) => area.isWater(tx, ty),
-    // As DungeonEntrances.vue asks since MAP-2: portal, planned zone ground, nodes and plots.
-    isTaken: (tx, ty) => (tx === PORTAL.tx && ty === PORTAL.ty) || isPlannedTile('pradera', tx, ty) || resourceAt('pradera', tx, ty) !== null || PLOTS.some(p => p.tx === tx && p.ty === ty),
-  },
-}).map(entrance => entrance.placement)
+// ── Caves: the canonical ones (CAVES-2), not a placement of their own ──────
+const caves = cavesIn('pradera')
 const caveTiles = new Set(caves.flatMap(cave => cave.footprint.map(key)))
 
 // ── Tiles ────────────────────────────────────────────────────────────────────
