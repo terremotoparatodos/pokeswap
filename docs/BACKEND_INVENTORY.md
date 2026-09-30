@@ -383,6 +383,29 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 | `kofi-webhook` | 1 | ✗ | Ko-fi donation webhook → resets swap cooldown |
 | `paypal-ipn` | 1 | ✗ | PayPal IPN → resets swap cooldown |
 
+> **PAYMENTS RETIRE-2 (branch `security/retire-payment-webhooks-0.3`, not deployed yet).**
+> The table above is the hosted state read on 2026-09-07 and is kept as the record of the
+> **previous hosted versions** (`webhook-stripe` v13, `webhook-mercadopago` v13, `webhook-paypal`
+> v6, `kofi-webhook` v1, `paypal-ipn` v1). **INFERENCE:** `kofi-webhook` was probably redeployed
+> after SEC-04 (R11); its current hosted version was not re-read, and nothing in this task reads
+> hosted. After the deploy, the five payment receivers are:
+>
+> | Slug | Source | JWT | Behaviour |
+> |---|---|---|---|
+> | `kofi-webhook` | `supabase/functions/kofi-webhook/` | ✗ | Checks `KOFI_VERIFICATION_TOKEN`; 200 / 401 / 503, all generic; no effects |
+> | `paypal-ipn` | `supabase/functions/paypal-ipn/` → `_shared/retiredPaymentWebhook.ts` | ✗ | Empty 200, body never read |
+> | `webhook-paypal` | idem | ✗ (was ✓) | Empty 200, body never read |
+> | `webhook-stripe` | idem | ✗ (was ✓) | Empty 200, body never read |
+> | `webhook-mercadopago` | idem | ✗ (was ✓) | Empty 200, body never read |
+>
+> The three `webhook-*` change from ✓ to ✗ on purpose: with ✓ the gateway answers the provider
+> 401 and the provider keeps retrying. Deploy only through
+> `node scripts/payment-retire/webhook-deploy-guard.mjs command <slug>` (never a bare
+> `supabase functions deploy`, which deploys every function). **Production project:
+> `qsufableozmyugcrhcai`.** `xdhtasxadmhjltmtirxy` is a different, **external** project that
+> legacy PayPal buttons used as IPN `notify_url` (`js/swap.js`, commit `817c322`); we do not
+> administer it and nothing is deployed there.
+
 ### 6.1 `free-claim`
 
 Calls `reset_daily_free_claim()` then `claim_slot(... p_is_free = true)`. Entirely
@@ -457,6 +480,12 @@ fetched in this inventory pass. **OPEN QUESTION (OQ-04):** What payment provider
 `webhook-paypal`. Their source was not fetched. **OPEN QUESTION (OQ-05):** Which of these
 call `confirm_payment`, and which are stubs or legacy?
 
+> **PAYMENTS RETIRE-2:** OQ-05 is closed by decision instead of by reading the hosted source:
+> PayPal, Stripe and MercadoPago are disabled, and the three webhooks are replaced by versioned
+> stubs that answer 200 and do nothing. Their hosted source was not fetched and must not be
+> copied into the repository (it may hold secrets and payload handling). `create-checkout` and
+> `create-payment-skip` are outside that task.
+
 ### 6.6 `kofi-webhook` and `paypal-ipn`
 
 Both handle payment-provider callbacks to reset the swap cooldown (skip-cooldown product).
@@ -466,6 +495,13 @@ Neither grants Pokémon ownership — they only write `kofi_payments` and update
 > **OPEN QUESTION (SWAP RETIRE-2):** with Swap retired, both still sell a cooldown reset that
 > no longer does anything. `kofi-webhook` is still in `supabase/functions/`; `paypal-ipn`
 > exists only in hosted. Disabling them is a payment-flow change and is left to its own task.
+>
+> **PAYMENTS RETIRE-2 (resolves the question above):** both are neutralized in the repository.
+> `kofi-webhook` keeps only the token check and answers 200 without touching anything (no
+> `profiles`, no `kofi_payments`, no user lookup, no service role). `paypal-ipn` is a stub that
+> answers an empty 200 and no longer posts back to PayPal. The FACT bullets below describe the
+> hosted versions **before** that change. Historical rows in `kofi_payments`, `transactions`,
+> `token_ledger` and `profiles.swap_cooldown_until` are kept untouched.
 
 **FACT — `paypal-ipn` performs IPN verification** by posting back to
 `https://ipnpb.paypal.com/cgi-bin/webscr` with `cmd=_notify-validate` and only proceeding

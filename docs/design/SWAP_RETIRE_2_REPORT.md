@@ -74,6 +74,7 @@ Dungeon, el sprite "Silph Co. (3D)" del City Lab, `travel.ts` (`swap` de área),
 | Id de feature `swap` | renombrarlo cuando exista la feature de huevos |
 | **`kofi-webhook`** | **OPEN QUESTION / riesgo.** Sigue en el código: una donación de Ko-fi ≥ 1,00 limpia `swap_cooldown_until` con service role. Vende un salto que ya no vale nada. Es un flujo de pagos (AGENTS §12, §17), así que no se toca acá. Hay que decidir si se desactiva como `create-payment-skip` y verificar su estado en hosted |
 | `paypal-ipn` | solo existe en hosted (BACKEND_INVENTORY §6.6); el mismo caso |
+| ↳ **PAYMENTS RETIRE-2** | `kofi-webhook` y `paypal-ipn` neutralizados en el repositorio (y también `webhook-paypal`, `webhook-stripe` y `webhook-mercadopago`); ver §10 |
 | Borrar `skip_swap_cooldown`, `swap_cooldown_until` y `swap_history` | después del backfill de `INSTANCES-1` |
 | Comentario "A swap touches two slots…" en `usePlazaData.ts` | describe cambios de `slots` que el Mercado también produce; puede quedar |
 
@@ -170,3 +171,214 @@ Tests nuevos:
 - Leer firmas y ACL reales de `skip_swap_cooldown` en hosted (consulta del §5).
 - Decidir `kofi-webhook` / `paypal-ipn` (pagos, tarea aparte).
 - Realtime completo con Node ≥ 22.
+
+---
+
+## 10. PAYMENTS RETIRE-2 — webhooks de pagos neutralizados
+
+Rama `security/retire-payment-webhooks-0.3`, desde `origin/world/swap-retire-cleanup-0.3 @ 9475138`
+(que deriva de la integración `4ed2b62`). Resuelve la OPEN QUESTION de `kofi-webhook` / `paypal-ipn`
+del §3. Sin merge, sin deploy, sin cambios en hosted, sin SQL ni migraciones, sin rotar secretos y
+sin pagos de prueba.
+
+### 10.1 Decisión de producto
+
+- Swap está retirado; nada reemplaza al salto de cooldown (ni huevos, ni tokens, ni mejores
+  probabilidades).
+- Ko-fi queda solo como donación voluntaria, **sin recompensa jugable**.
+- PayPal, Stripe y MercadoPago quedan desactivados.
+- Los proveedores conservan sus propios registros; por ahora no guardamos donaciones nuevas.
+
+### 10.2 Comportamiento de cada endpoint
+
+| Endpoint | `OPTIONS` | Llamada del proveedor | Qué **no** hace |
+|---|---|---|---|
+| `kofi-webhook` | 200 `ok` + CORS, sin leer secreto ni cuerpo | secreto ausente o vacío → **503** `unavailable` (sin leer el cuerpo) · token inválido, ausente, de otro tipo, cuerpo malformado o de más de 16 KiB → **401** `unauthorized` · token válido → **200** `ok` (donación, evento ignorado o duplicado: misma respuesta) | cliente de Supabase, service role, búsqueda de usuarios, `profiles`, `swap_cooldown_until`, `kofi_payments`, balances, red, dedupe |
+| `paypal-ipn` | 200 `ok` + CORS | **200** vacío, siempre | leer el cuerpo, verificar el IPN contra PayPal, secretos, tablas, logs |
+| `webhook-paypal` | idem | **200** vacío, siempre | idem |
+| `webhook-stripe` | idem | **200** vacío, siempre | idem |
+| `webhook-mercadopago` | idem | **200** vacío, siempre | idem |
+
+Detalles de `kofi-webhook` (`supabase/functions/kofi-webhook/handler.ts`):
+
+- El secreto llega por `deps`; `index.ts` solo lee `KOFI_VERIFICATION_TOKEN`.
+- Comparación en tiempo constante: se hashean ambos lados con SHA-256 y se comparan los 32 bytes
+  con XOR acumulado, así el tiempo no depende de dónde difieren ni de sus longitudes.
+- El cuerpo se lee con tope de 16 KiB (por `content-length` y por lo realmente recibido); acepta el
+  form `data=<json>` urlencoded y también multipart.
+- Los logs son cuatro cadenas fijas (`not configured`, `rejected`, `acknowledged`,
+  `internal error`). Ninguna incluye nada recibido, ni antes ni después de validar el token.
+- Ningún camino distingue tipo de evento, monto o `is_public`: sin efectos, no hay nada que decidir.
+
+Los cuatro stubs comparten `supabase/functions/_shared/retiredPaymentWebhook.ts` (sin imports).
+`_shared` es la convención de Supabase: el CLI no lo despliega como función y lo empaqueta dentro
+de cada función que lo importa.
+
+### 10.3 Configuración JWT
+
+**FACT** (docs oficiales y código del CLI, `apps/cli/src/shared/functions/deploy.ts` en
+`supabase/cli@develop`):
+
+- No existe un archivo de configuración por función. El único lugar versionado para
+  `verify_jwt` es `[functions.<slug>]` dentro de `supabase/config.toml`, que es la configuración
+  **de todo el proyecto**.
+- Precedencia al desplegar: `--no-verify-jwt` explícito → `verify_jwt` de `config.toml` → el valor
+  que ya tenga la función en hosted.
+- `supabase functions deploy` sin nombre despliega **todas** las funciones de
+  `supabase/functions/`.
+
+**Decisión:** no se agrega `supabase/config.toml`. El repositorio no lo tiene, y agregarlo, aunque
+sea mínimo, lo convierte en la configuración que leen `supabase start`, `db push`, `link` y
+`config push`. `config push` puede empujar a hosted los valores por defecto de secciones no
+escritas (auth, API). Eso no se puede garantizar como inocuo sin leer la configuración de hosted.
+
+En su lugar:
+
+- `--no-verify-jwt` va explícito en un deploy **de una sola función**.
+- `scripts/payment-retire/webhook-deploy-guard.mjs` (Node, sin dependencias, nunca ejecuta el CLI):
+  - `check`: las cinco fuentes son las retiradas (falla, por ejemplo, desde `main`, donde está el
+    `kofi-webhook` viejo y no existen los stubs). Si algún día aparece un `config.toml`,
+    `verify_jwt = false` solo se permite en estas cinco y `true` en ninguna de ellas.
+  - `command <slug>`: corre `check` e imprime el único comando válido. Rechaza otros slugs, el
+    deploy sin nombre, refs mal formados y el proyecto externo `xdhtas…`.
+  - `verify-remote <list.json>`: sobre `supabase functions list --output json`, exige
+    `verify_jwt = false` en las cinco y `true` en todas las demás.
+
+Cambio intencional respecto de hosted: `webhook-stripe`, `webhook-mercadopago` y `webhook-paypal`
+tenían `verify_jwt = true`, así que el gateway le respondía 401 al proveedor y este reintentaba.
+Pasan a `false` para que el stub conteste 200.
+
+### 10.4 Proyectos y versiones hosted anteriores
+
+- **Producción:** `qsufableozmyugcrhcai` (el mismo del playtest).
+- **Externo, no administrable:** `xdhtasxadmhjltmtirxy`. Los botones de PayPal del monolito
+  (`js/swap.js`, commit `817c322`) enviaban el IPN (`notify_url`) a
+  `https://xdhtasxadmhjltmtirxy.supabase.co/functions/v1/paypal-ipn`. No podemos desplegar ni
+  cambiar nada ahí; el guard lo rechaza. Lo que llegue a ese proyecto se corta desde la cuenta de
+  PayPal (§10.8).
+- Versiones hosted anteriores (lectura del 2026-09-07, `BACKEND_INVENTORY.md` §6; **no se releyó
+  hosted en esta tarea**):
+
+  | Función | Versión | JWT |
+  |---|---|---|
+  | `kofi-webhook` | 1 (**INFERENCE:** probablemente redesplegada tras SEC-04/R11) | ✗ |
+  | `paypal-ipn` | 1 | ✗ |
+  | `webhook-paypal` | 6 | ✓ |
+  | `webhook-stripe` | 13 | ✓ |
+  | `webhook-mercadopago` | 13 | ✓ |
+
+  Antes de desplegar, guardar `supabase functions list --project-ref qsufableozmyugcrhcai --output
+  json` como registro local (solo metadatos). **No se copian fuentes hosted al repositorio:** pueden
+  tener secretos (la v1 de `kofi-webhook` tenía el token literal, SEC-04) y manejo de payloads.
+
+### 10.5 Datos preservados
+
+Nada se borra ni se modifica: `kofi_payments`, `transactions`, `token_ledger`,
+`profiles.swap_cooldown_until`, los secretos actuales y los registros de cada proveedor. No hay
+migraciones nuevas; la que revoca `skip_swap_cooldown` ya estaba en la base (§5). La brecha SEC-01
+(RLS apagado en `kofi_payments`) sigue abierta y queda para una tarea de esquema.
+
+### 10.6 Plan de despliegue por función (manual, no ejecutado)
+
+Desde un checkout limpio de esta rama, en su SHA final, con el CLI de Supabase autenticado:
+
+```bash
+node scripts/payment-retire/webhook-deploy-guard.mjs check
+deno test --allow-read --allow-write --allow-env supabase/functions/kofi-webhook/ supabase/functions/_shared/
+supabase functions list --project-ref qsufableozmyugcrhcai --output json > before.json
+```
+
+Luego, **una función por vez**, copiando el comando que imprime el guard:
+
+```bash
+node scripts/payment-retire/webhook-deploy-guard.mjs command webhook-stripe
+# → supabase functions deploy webhook-stripe --project-ref qsufableozmyugcrhcai --no-verify-jwt --use-api
+```
+
+Orden: `webhook-stripe`, `webhook-mercadopago`, `webhook-paypal`, `paypal-ipn` (stubs sin
+secretos, riesgo mínimo) y al final `kofi-webhook`, que sigue usando el secreto actual. Nunca
+`--prune`, nunca deploy sin nombre, nunca desde `main` ni desde una rama anterior a este cambio.
+
+Verificación:
+
+```bash
+supabase functions list --project-ref qsufableozmyugcrhcai --output json > after.json
+node scripts/payment-retire/webhook-deploy-guard.mjs verify-remote after.json
+```
+
+Humo sin pagos: `OPTIONS` y `POST {}` a cada stub → 200; `POST` a `kofi-webhook` sin token → 401.
+`before.json` fallará `verify-remote` (los tres `webhook-*` con JWT): es lo esperado.
+
+**Rollback seguro.** No volver nunca a las versiones hosted anteriores: reactivan la venta del
+salto de cooldown, escriben con service role y loguean datos personales y el token. Si un stub
+diera problemas, se redespliega el mismo stub desde esta rama. En una emergencia,
+`supabase functions delete <slug> --project-ref qsufableozmyugcrhcai` deja el endpoint en 404: el
+proveedor reintenta, pero no se otorga nada. `kofi-webhook` no tiene estado que revertir.
+
+### 10.7 Rotación de `KOFI_VERIFICATION_TOKEN` (obligatoria)
+
+El token está comprometido: la v1 hosted lo tenía literal en el código (SEC-04), y el handler
+anterior imprimía el payload completo, token incluido, en los logs de la función. Orden seguro:
+
+1. Desplegar el `kofi-webhook` nuevo (§10.6) **con el token actual**. Desde ese momento nada vuelve
+   a loguear el token.
+2. En Ko-fi → *More → API* (webhooks): regenerar el verification token.
+3. Enseguida, fijar el secreto nuevo sin dejarlo en el historial de la shell: escribirlo en un
+   archivo temporal fuera del repo, correr `supabase secrets set --env-file <archivo> --project-ref
+   qsufableozmyugcrhcai` y borrar el archivo. El secreto aplica a las invocaciones nuevas, sin
+   redesplegar.
+4. Desde Ko-fi, *Send Test* (no es un pago): debe aparecer `kofi-webhook: acknowledged` en los logs.
+   Un `rejected` indica que el secreto y Ko-fi no coinciden.
+
+Entre los pasos 2 y 3, Ko-fi recibe 401 y reintenta. No tiene costo: no hay efectos que perder.
+Rotar antes del paso 1 dejaría el token nuevo expuesto a los logs de la versión vieja.
+
+### 10.8 Tareas manuales pendientes (fuera del repositorio)
+
+- **Ko-fi:** rotar el token (§10.7); confirmar que la URL del webhook apunta a
+  `qsufableozmyugcrhcai`/`kofi-webhook`; quitar de la página de Ko-fi y de cualquier texto público
+  la promesa de «saltar el cooldown» con una donación. Si no se quiere recibir webhooks, borrar la
+  URL en Ko-fi (la función puede quedar igual).
+- **PayPal:** desactivar el IPN o cambiar su URL en el perfil (*Notifications → Instant Payment
+  Notifications*), porque los botones viejos apuntan al proyecto externo `xdhtas…`. También,
+  desactivar o borrar los botones de pago y el webhook REST que apunte a `webhook-paypal`.
+- **Stripe / MercadoPago:** deshabilitar los endpoints de webhook y las URLs de notificación en sus
+  paneles. Los stubs contestan 200 mientras tanto.
+- Revisar en hosted los logs viejos de `kofi-webhook` y `paypal-ipn` (datos personales) según la
+  política de retención. Esta tarea no los toca.
+- `create-checkout` y `create-payment-skip` quedan fuera de alcance (el segundo ya responde 503).
+
+### 10.9 Tests y gates
+
+| Gate | Resultado |
+|---|---|
+| Deno real, 5 funciones (`deno test`, Deno 2.9.7, SHA-256 del zip verificado) | ✓ `kofi-webhook` 15/15 · stubs 27/27 (6 por función + 3 comunes) · con `pokeswap-swap` y `world-authority`: 57/57 |
+| `deno check` de los cinco `index.ts` | ✓ |
+| Humo HTTP real (`Deno.serve` en 127.0.0.1, `--allow-net=127.0.0.1`) | ✓ Ko-fi: OPTIONS 200, token válido 200, inválido 401; stubs: OPTIONS 200, POST 200 vacío; ningún log de los stubs |
+| Mutaciones sobre el `handler.ts` real de Ko-fi | ✓ loguear el payload → 6 tests fallan · escribir el cooldown → 8 fallan · aceptar cualquier token → 1 falla |
+| Guard de deploy (`node --test scripts/payment-retire/`) | ✓ 9/9 (incluye: el `kofi-webhook` de `9475138` es rechazado) |
+| Realtime completo (`node --test`, **Node 22.23.3** portátil) | ✓ 195 pass · 0 fail · 20 skipped (todas: gate de staging RC-0.3, requiere Supabase local) |
+| Integración / PGlite | ✓ incluidos arriba (`integration.test.js`, `database.test.js`, `skipSwapCooldownRetire.test.js`, restart en disco) |
+| Vitest completo | ✓ 183 archivos / 1779 tests |
+| typecheck | ✓ |
+| lint | ✓ 0 errores / 9 warnings (los mismos de `9475138`, todos en `AuthModal.vue`) |
+| build normal + `swap-retire/bundle-check.mjs normal` | ✓ |
+| build Playtest + `bundle-check.mjs playtest` | ✓ |
+| Drift de SKILLS (`bundle-skills.mjs --check`) | ✓ (control negativo: con el bundle alterado sale 1) |
+
+Tests nuevos:
+
+- `supabase/functions/kofi-webhook/handler.test.ts`: OPTIONS; secreto ausente o vacío; tokens
+  inválidos (distinto, truncado, más largo, mayúsculas, vacío, número, array, null, ausente); token
+  válido; multipart; eventos ignorados; duplicados; cuerpos malformados; cuerpo grande, con y sin
+  `content-length`, y en streaming; ningún log contiene datos recibidos; sin red, archivos, RNG ni
+  env; el `index.ts` real solo lee `KOFI_VERIFICATION_TOKEN`; sin imports de Supabase, service
+  role ni operaciones de base; mutantes que loguean el payload o escriben el cooldown (por `fetch`
+  y por `createClient`) hacen fallar los guards.
+- `supabase/functions/_shared/retiredPaymentWebhook.test.ts`: por cada stub, a través de su
+  `index.ts` real: registra el handler compartido; OPTIONS; POST → 200 vacío; cuerpos de
+  PayPal/IPN/Stripe/MercadoPago, JSON roto, binario y 1 MiB, más GET/PUT/PATCH/DELETE, dan la misma
+  respuesta y `bodyUsed` sigue en `false`; cero logs, red, env, archivos y RNG; fuente sin imports
+  administrativos, secretos, lectura del cuerpo ni base. Además: mutantes del stub son detectados, y
+  todo directorio `*paypal*|*stripe*|*mercadopago*` está cubierto.
+- `scripts/payment-retire/webhook-deploy-guard.test.mjs`: descrito en §10.3.

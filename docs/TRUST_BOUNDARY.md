@@ -127,6 +127,20 @@ Pokémon they do not own, or cancel another player's listing if the RLS policy h
 **Rule** — Browser redirects are never proof of payment (INV-PAY-1). A client returning from
 a payment provider must wait for the server webhook to confirm before any entitlement is granted.
 
+> **PAYMENTS RETIRE-2 (`security/retire-payment-webhooks-0.3`, pending deploy).** No payment
+> grants anything any more. Swap is retired; Ko-fi is a voluntary donation with no in-game reward;
+> PayPal, Stripe and MercadoPago are disabled. The table above describes the R-era design.
+>
+> | Receiver | Authority now | What it does |
+> |---|---|---|
+> | `kofi-webhook` | Server: checks `KOFI_VERIFICATION_TOKEN` (constant-time) | 200 generic on a valid token, 401 generic otherwise, 503 generic if the secret is missing. No Supabase client, no table, no cooldown, no log of anything received |
+> | `paypal-ipn`, `webhook-paypal`, `webhook-stripe`, `webhook-mercadopago` | None needed: they decide nothing | Empty 200 to every call, body never read, no secret, no provider call, no table |
+>
+> All five are public (`verify_jwt = false`, deployed with `--no-verify-jwt` through
+> `scripts/payment-retire/webhook-deploy-guard.mjs`). Being public is safe because none of them
+> has an effect. Any future paid feature needs its own server-verified, idempotent receiver
+> (AGENTS §12); these stubs are not a base for it.
+
 ### 3.7 Profile fields
 
 | Field | Authority | Notes |
@@ -191,6 +205,11 @@ requires a server function or is blocked by RLS.
 | `kofi_payments` | INSERT | `kofi-webhook` | Server-only ✓ | Enable RLS (SEC-01) |
 | `rate_limits` | INSERT/UPDATE | `check_rate_limit` DEFINER fn | Server-only ✓ | No change needed |
 
+> **PAYMENTS RETIRE-2:** once the new receivers are deployed, no payment webhook writes
+> `profiles.swap_cooldown_until` or `kofi_payments`, and nothing else in the repository does
+> either. Both keep their historical rows; the SEC-01 RLS gap on `kofi_payments` still stands and is
+> not fixed here (no schema change in that task).
+
 ---
 
 ## 6. Security findings inherited from R02 that block server authority
@@ -205,6 +224,11 @@ whether the prerequisite is cleared.
 | SEC-02 | High | Token economy, cooldown, multiplier are not server-only | Add a SECURITY DEFINER update RPC; restrict the `profiles` UPDATE policy to safe columns only |
 | SEC-03 | Medium | `get_email_by_id` leaks any user's email | Restrict to service-role callers or drop the function |
 | SEC-04 | High | `kofi-webhook` secret is hardcoded | Move to `Deno.env.get()` Supabase secret |
+
+> **SEC-04 follow-up (PAYMENTS RETIRE-2):** the source reads the secret from the environment
+> since R11, but the old hosted handler printed the whole Ko-fi payload, verification token
+> included, to the function logs. `KOFI_VERIFICATION_TOKEN` must be rotated after the new
+> `kofi-webhook` is deployed (order in `docs/design/SWAP_RETIRE_2_REPORT.md` §10.7).
 
 ---
 
