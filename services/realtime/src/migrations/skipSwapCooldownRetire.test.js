@@ -16,7 +16,7 @@ import { asRole } from '../world/persistence/dev/localDatabase.js'
 const repo = path => fileURLToPath(new URL(`../../../../${path}`, import.meta.url))
 const STUBS = fileURLToPath(new URL('../world/persistence/dev/supabaseStubs.sql', import.meta.url))
 const RESTORE = repo('supabase/migrations/20260914130000_restore_skip_swap_cooldown.sql')
-const RETIRE = repo('supabase/migrations/20260930150000_retire_skip_swap_cooldown.sql')
+const RETIRE = repo('supabase/migrations/20260930230308_retire_skip_swap_cooldown.sql')
 
 const A = '11111111-1111-4111-8111-111111111111'
 const CLIENTS = ['anon', 'authenticated']

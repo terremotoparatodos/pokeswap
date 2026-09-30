@@ -95,7 +95,13 @@ toca ninguno de esos datos.
 
 ## 5. Migración preparada (no aplicada)
 
-`supabase/migrations/20260930150000_retire_skip_swap_cooldown.sql`
+`supabase/migrations/20260930230308_retire_skip_swap_cooldown.sql`
+
+> **Versión alineada con hosted (PAYMENTS RETIRE-2):** se preparó como
+> `20260930150000_retire_skip_swap_cooldown.sql`. Se renombró sin tocar el contenido (mismo blob
+> git `e08080b…` y mismo SHA-256) porque, según el dueño del proyecto, hosted la registró como
+> `20260930230308 retire_skip_swap_cooldown`. Ese registro no se leyó desde este repositorio. El
+> título de esta sección y el §9 describen el estado al cerrar SWAP RETIRE-2.
 
 - Busca en `pg_proc` todas las sobrecargas reales de `public.skip_swap_cooldown` y, a cada una, le
   hace `REVOKE ALL ... FROM PUBLIC, anon, authenticated` con su firma real (`regprocedure`), más

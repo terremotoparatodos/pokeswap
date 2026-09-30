@@ -345,10 +345,15 @@ SECURITY DEFINER. Debits 1,000 tokens, clears `profiles.swap_cooldown_until` and
 
 > **RETIRED (SWAP RETIRE-2).** Swap is gone, so the cooldown guards nothing and the debit bought
 > nothing. The client no longer calls it. Migration
-> `20260930150000_retire_skip_swap_cooldown.sql` (prepared, **not applied to hosted**) revokes
+> `20260930230308_retire_skip_swap_cooldown.sql` revokes
 > every real overload from `PUBLIC`, `anon` and `authenticated` and comments it as retired. It
 > keeps the function and its body for traceability and administrative rollback only. Hosted
 > signatures and ACL are **not verified** from this repository.
+>
+> **Version (PAYMENTS RETIRE-2):** the migration was prepared as `20260930150000_…` and was
+> renamed, byte-identical, to `20260930230308_…` because hosted recorded it under version
+> `20260930230308` (`retire_skip_swap_cooldown`), as reported by the project owner. That hosted
+> record was not read from this repository.
 
 ---
 
