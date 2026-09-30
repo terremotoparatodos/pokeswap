@@ -404,8 +404,10 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 > `node scripts/payment-retire/webhook-deploy-guard.mjs command <slug>` (never a bare
 > `supabase functions deploy`, which deploys every function), and check the result with
 > `verify-remote before.json after.json --project-ref qsufableozmyugcrhcai`: the five must be
-> public, and every other function must keep exactly its previous `verify_jwt`, version and hash,
-> whatever they were. **Production project:
+> public and carry their pinned production function ids in both dumps, and every other function
+> must keep exactly its previous `verify_jwt`, version and hash, whatever they were. Deploy
+> `kofi-webhook` first with the current token and rotate only after verifying it in hosted
+> (`docs/design/SWAP_RETIRE_2_REPORT.md` §10.6). **Production project:
 > `qsufableozmyugcrhcai`.** `xdhtasxadmhjltmtirxy` is a different, **external** project that
 > legacy PayPal buttons used as IPN `notify_url` (`js/swap.js`, commit `817c322`); we do not
 > administer it and nothing is deployed there.

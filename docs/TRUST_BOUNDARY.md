@@ -228,7 +228,9 @@ whether the prerequisite is cleared.
 > **SEC-04 follow-up (PAYMENTS RETIRE-2):** the source reads the secret from the environment
 > since R11, but the old hosted handler printed the whole Ko-fi payload, verification token
 > included, to the function logs. `KOFI_VERIFICATION_TOKEN` must be rotated after the new
-> `kofi-webhook` is deployed (order in `docs/design/SWAP_RETIRE_2_REPORT.md` §10.7).
+> `kofi-webhook` is deployed with the current token and verified in hosted, never before, so
+> the old handler never receives the new token (order in `docs/design/SWAP_RETIRE_2_REPORT.md`
+> §10.6).
 
 ---
 

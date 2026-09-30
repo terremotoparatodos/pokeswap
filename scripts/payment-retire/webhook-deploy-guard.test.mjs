@@ -1,4 +1,4 @@
-// Run with: node --test scripts/payment-retire/
+// Run with: node --test "scripts/payment-retire/*.test.mjs"   (Node 22 does not take a directory)
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { execFileSync, spawnSync } from 'node:child_process'
@@ -12,6 +12,7 @@ import {
   checkRepo,
   deployCommand,
   EXTERNAL_PROJECT_REF,
+  PRODUCTION_FUNCTION_IDS,
   PRODUCTION_PROJECT_REF,
   PUBLIC_RECEIVERS,
   verifyJwtDeclarations,
@@ -93,9 +94,10 @@ test('deployCommand refuses deploy-all, other functions and the external project
   assert.throws(() => deployCommand('kofi-webhook', 'not-a-ref; rm -rf /'), /not a Supabase project ref/)
 })
 
-// Inventories shaped like `supabase functions list --output json`.
+// Inventories shaped like `supabase functions list --output json`. The five carry their
+// real production ids; unrelated functions get made-up ones.
 const fn = (slug, verify_jwt, extra = {}) => ({
-  id: `id-${slug}`, slug, name: slug, status: 'ACTIVE', version: 3, verify_jwt,
+  id: PRODUCTION_FUNCTION_IDS[slug] ?? `id-${slug}`, slug, name: slug, status: 'ACTIVE', version: 3, verify_jwt,
   ezbr_sha256: `sha-${slug}-v3`, updated_at: 1_790_000_000_000, entrypoint_path: `file:///src/${slug}/index.ts`, ...extra,
 })
 /** Hosted before the deploy: the three webhook-* behind a JWT, two unrelated public functions. */
@@ -172,14 +174,78 @@ test('verify-remote: only the five may change version or hash', () => {
 test('verify-remote: a target left with verify_jwt=true, or missing, fails', () => {
   assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'webhook-stripe', { verify_jwt: true })),
     ['webhook-stripe: verify_jwt is true, must be false'])
-  assert.deepEqual(checkRemoteChange(BEFORE, AFTER.filter(f => f.slug !== 'paypal-ipn')), ['paypal-ipn: not deployed'])
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER.filter(f => f.slug !== 'paypal-ipn')),
+    ['after: paypal-ipn is missing; cannot confirm this is production'])
 })
 
-test('verify-remote: dumps from different projects fail', () => {
-  const otherProject = AFTER.map(f => ({ ...f, id: `other-${f.id}` }))
-  const problems = checkRemoteChange(BEFORE, otherProject).join('\n')
-  assert.match(problems, /kofi-webhook: id changed .* different projects/)
-  assert.match(problems, /market-buy: id changed/)
+test('project identity: the five pinned ids are the production ones given for this task', () => {
+  assert.deepEqual({ ...PRODUCTION_FUNCTION_IDS }, {
+    'kofi-webhook': '9a59d5c8-cae3-4545-a8eb-257c19668a8b',
+    'paypal-ipn': 'fab0ec1d-87cc-4d24-99ef-5dd55628a5b9',
+    'webhook-paypal': '3be1f08d-9758-4d1c-98a8-d0cf78dee61d',
+    'webhook-stripe': '46a7e11f-1767-4e90-9cfd-0eb38a0a8e2e',
+    'webhook-mercadopago': 'c9db404c-339d-4eb0-a52a-096d8de4ffd5',
+  })
+  assert.deepEqual(Object.keys(PRODUCTION_FUNCTION_IDS).sort(), [...PUBLIC_RECEIVERS].sort())
+  assert.ok(Object.isFrozen(PRODUCTION_FUNCTION_IDS))
+})
+
+test('project identity: the right ids in both inventories pass', () => {
+  for (const slug of PUBLIC_RECEIVERS) {
+    assert.equal(BEFORE.find(f => f.slug === slug).id, PRODUCTION_FUNCTION_IDS[slug])
+    assert.equal(AFTER.find(f => f.slug === slug).id, PRODUCTION_FUNCTION_IDS[slug])
+  }
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER), [])
+})
+
+test('project identity: a wrong id in before fails', () => {
+  const wrong = '00000000-0000-4000-8000-000000000000'
+  assert.deepEqual(checkRemoteChange(edit(BEFORE, 'webhook-stripe', { id: wrong }), AFTER),
+    [`before: webhook-stripe has id ${wrong}, production is ${PRODUCTION_FUNCTION_IDS['webhook-stripe']}; not the production project`])
+})
+
+test('project identity: a wrong id in after fails', () => {
+  const wrong = '00000000-0000-4000-8000-000000000000'
+  assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'kofi-webhook', { id: wrong })),
+    [`after: kofi-webhook has id ${wrong}, production is ${PRODUCTION_FUNCTION_IDS['kofi-webhook']}; not the production project`])
+})
+
+test('project identity: a missing id fails', () => {
+  const stripped = { ...AFTER.find(f => f.slug === 'paypal-ipn') }
+  delete stripped.id
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER.map(f => (f.slug === 'paypal-ipn' ? stripped : f))),
+    [`after: paypal-ipn has id undefined, production is ${PRODUCTION_FUNCTION_IDS['paypal-ipn']}; not the production project`])
+})
+
+test('project identity: swapping ids between two slugs fails, in either inventory', () => {
+  const swap = list => list.map(f => {
+    if (f.slug === 'webhook-paypal') return { ...f, id: PRODUCTION_FUNCTION_IDS['webhook-stripe'] }
+    if (f.slug === 'webhook-stripe') return { ...f, id: PRODUCTION_FUNCTION_IDS['webhook-paypal'] }
+    return f
+  })
+  for (const [before, after, label] of [[swap(BEFORE), AFTER, 'before'], [BEFORE, swap(AFTER), 'after']]) {
+    const problems = checkRemoteChange(before, after)
+    assert.equal(problems.length, 2, problems.join('\n'))
+    assert.match(problems.join('\n'), new RegExp(`${label}: webhook-paypal has id ${PRODUCTION_FUNCTION_IDS['webhook-stripe']}`))
+    assert.match(problems.join('\n'), new RegExp(`${label}: webhook-stripe has id ${PRODUCTION_FUNCTION_IDS['webhook-paypal']}`))
+  }
+})
+
+test('project identity: coherent inventories of another project fail', () => {
+  // Same shape, internally consistent before/after, but every id belongs to another project.
+  const other = list => list.map(f => ({ ...f, id: `other-${f.slug}` }))
+  const problems = checkRemoteChange(other(BEFORE), other(AFTER))
+  assert.equal(problems.length, 2 * PUBLIC_RECEIVERS.length, problems.join('\n'))
+  for (const slug of PUBLIC_RECEIVERS) {
+    for (const label of ['before', 'after']) {
+      assert.ok(problems.includes(`${label}: ${slug} has id other-${slug}, production is ${PRODUCTION_FUNCTION_IDS[slug]}; not the production project`))
+    }
+  }
+})
+
+test('verify-remote: an unrelated function whose id changes fails (mixed dumps)', () => {
+  assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'market-buy', { id: 'id-elsewhere' })),
+    ['market-buy: id changed from "id-market-buy" to "id-elsewhere"'])
 })
 
 test('verify-remote: malformed inventories fail', () => {

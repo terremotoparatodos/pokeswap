@@ -22,9 +22,10 @@
 //   verify-remote <before.json> <after.json> --project-ref <ref>
 //                              compares two `supabase functions list --output json`
 //                              dumps taken right before and right after the deploy:
-//                              the five exist with verify_jwt = false, and every
-//                              other function is unchanged (present, same verify_jwt,
-//                              same version/hash/metadata), with nothing added
+//                              the five exist in both with their pinned production
+//                              ids, and with verify_jwt = false after; every other
+//                              function is unchanged (present, same verify_jwt, same
+//                              version/hash/metadata), with nothing added
 //
 // It never runs the Supabase CLI, never deploys and needs no credentials.
 
@@ -39,6 +40,19 @@ export const EXTERNAL_PROJECT_REF = 'xdhtasxadmhjltmtirxy'
 export const KOFI_RECEIVER = 'kofi-webhook'
 export const RETIRED_STUBS = ['paypal-ipn', 'webhook-paypal', 'webhook-stripe', 'webhook-mercadopago']
 export const PUBLIC_RECEIVERS = [KOFI_RECEIVER, ...RETIRED_STUBS]
+
+/**
+ * Function ids of the five in production. They are public identifiers, not secrets,
+ * and they survive a redeploy (only version and hash change). A dump whose five ids
+ * are not these is not production, whatever it claims.
+ */
+export const PRODUCTION_FUNCTION_IDS = Object.freeze({
+  'kofi-webhook': '9a59d5c8-cae3-4545-a8eb-257c19668a8b',
+  'paypal-ipn': 'fab0ec1d-87cc-4d24-99ef-5dd55628a5b9',
+  'webhook-paypal': '3be1f08d-9758-4d1c-98a8-d0cf78dee61d',
+  'webhook-stripe': '46a7e11f-1767-4e90-9cfd-0eb38a0a8e2e',
+  'webhook-mercadopago': 'c9db404c-339d-4eb0-a52a-096d8de4ffd5',
+})
 
 const SHARED_STUB = '../_shared/retiredPaymentWebhook.ts'
 
@@ -175,15 +189,20 @@ export function checkRemoteChange(before, after) {
   const now = indexBySlug(after, 'after', problems)
   if (!was || !now) return problems
 
+  // Project identity: both dumps must carry the five production ids. Versions and
+  // hashes of the five are not pinned: the deploy changes them.
+  for (const [label, map] of [['before', was], ['after', now]]) {
+    for (const slug of PUBLIC_RECEIVERS) {
+      const fn = map.get(slug)
+      const expected = PRODUCTION_FUNCTION_IDS[slug]
+      if (!fn) problems.push(`${label}: ${slug} is missing; cannot confirm this is production`)
+      else if (fn.id !== expected) problems.push(`${label}: ${slug} has id ${fn.id}, production is ${expected}; not the production project`)
+    }
+  }
+
   for (const slug of PUBLIC_RECEIVERS) {
     const fn = now.get(slug)
-    if (!fn) problems.push(`${slug}: not deployed`)
-    else if (fn.verify_jwt !== false) problems.push(`${slug}: verify_jwt is ${fn.verify_jwt}, must be false`)
-    // A redeploy keeps the function id; a different one means the dumps are from different projects.
-    const old = was.get(slug)
-    if (old && fn && Object.hasOwn(old, 'id') && old.id !== fn.id) {
-      problems.push(`${slug}: id changed from ${old.id} to ${fn.id}; the dumps look like different projects`)
-    }
+    if (fn && fn.verify_jwt !== false) problems.push(`${slug}: verify_jwt is ${fn.verify_jwt}, must be false`)
   }
 
   for (const [slug, old] of was) {

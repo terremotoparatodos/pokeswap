@@ -251,14 +251,26 @@ En su lugar:
       `verify_jwt` que tenía (sea `true` o `false`: no supone ningún valor) y los mismos `id`,
       `version`, `ezbr_sha256`, `status`, `updated_at`, `entrypoint_path`, `import_map` e
       `import_map_path`, cuando `before.json` los trae;
-    - no aparece ninguna función nueva: solo las cinco pueden cambiar versión o hash.
+    - no aparece ninguna función nueva: solo las cinco pueden cambiar versión o hash;
+    - **identidad del proyecto:** en **ambos** inventarios, las cinco tienen sus `id` de
+      producción, fijados en el guard (`PRODUCTION_FUNCTION_IDS`):
+
+      | Función | `id` en producción |
+      |---|---|
+      | `kofi-webhook` | `9a59d5c8-cae3-4545-a8eb-257c19668a8b` |
+      | `paypal-ipn` | `fab0ec1d-87cc-4d24-99ef-5dd55628a5b9` |
+      | `webhook-paypal` | `3be1f08d-9758-4d1c-98a8-d0cf78dee61d` |
+      | `webhook-stripe` | `46a7e11f-1767-4e90-9cfd-0eb38a0a8e2e` |
+      | `webhook-mercadopago` | `c9db404c-339d-4eb0-a52a-096d8de4ffd5` |
+
+      Son identificadores públicos y se mantienen al redesplegar. La versión y el hash de las cinco
+      **no** se fijan: el deploy los cambia.
 
     Falla si falta alguno de los dos inventarios, si falta `--project-ref`, si el ref no es
-    producción (incluido `xdhtas…`), o si los `id` de las funciones no coinciden entre los dos
-    archivos. **Límite:** el JSON del CLI no incluye el ref del proyecto. El guard comprueba el
-    ref declarado y que los dos inventarios sean del mismo proyecto (por los `id`), pero no puede
-    demostrar de dónde salió un archivo. Por eso ambos deben capturarse con
-    `--project-ref qsufableozmyugcrhcai` explícito.
+    producción (incluido `xdhtas…`), si alguna de las cinco falta o tiene otro `id` en cualquiera
+    de los dos archivos (incluidos `id` intercambiados entre slugs, o inventarios coherentes de
+    otro proyecto), o si cambia el `id` de una función ajena. El JSON del CLI no trae el ref del
+    proyecto: la identidad la dan esos cinco `id`.
 
 Cambio intencional respecto de hosted: `webhook-stripe`, `webhook-mercadopago` y `webhook-paypal`
 tenían `verify_jwt = true`, así que el gateway le respondía 401 al proveedor y este reintentaba.
@@ -298,39 +310,88 @@ Nada se borra ni se modifica: `kofi_payments`, `transactions`, `token_ledger`,
 migraciones nuevas; la que revoca `skip_swap_cooldown` ya estaba en la base (§5). La brecha SEC-01
 (RLS apagado en `kofi_payments`) sigue abierta y queda para una tarea de esquema.
 
-### 10.6 Plan de despliegue por función (manual, no ejecutado)
+### 10.6 Plan de despliegue y rotación de Ko-fi (manual, no ejecutado)
 
-Desde un checkout limpio de esta rama, en su SHA final, con el CLI de Supabase autenticado:
+El token de Ko-fi está comprometido: la v1 hosted lo tenía literal en el código (SEC-04), y el
+handler anterior imprimía el payload completo, token incluido, en los logs de la función. Regla
+central: **la implementación vieja nunca debe llegar a recibir el token nuevo.** Por eso primero se
+neutraliza `kofi-webhook` con el token actual, y recién después se rota.
+
+Preparación, desde un checkout limpio de esta rama en su SHA final, con el CLI autenticado:
 
 ```bash
 node scripts/payment-retire/webhook-deploy-guard.mjs check
 deno test --allow-read --allow-write --allow-env supabase/functions/kofi-webhook/ supabase/functions/_shared/
-supabase functions list --project-ref qsufableozmyugcrhcai --output json > before.json
 ```
 
-Luego, **una función por vez**, copiando el comando que imprime el guard:
+Orden obligatorio:
 
-```bash
-node scripts/payment-retire/webhook-deploy-guard.mjs command webhook-stripe
-# → supabase functions deploy webhook-stripe --project-ref qsufableozmyugcrhcai --no-verify-jwt --use-api
-```
+1. **Tomar un `before.json` nuevo**, justo antes del primer deploy (no reutilizar uno viejo):
+   ```bash
+   supabase functions list --project-ref qsufableozmyugcrhcai --output json > before.json
+   ```
+2. **Desplegar `kofi-webhook` seguro con el secreto actual** (no tocar `KOFI_VERIFICATION_TOKEN`):
+   ```bash
+   node scripts/payment-retire/webhook-deploy-guard.mjs command kofi-webhook
+   # → supabase functions deploy kofi-webhook --project-ref qsufableozmyugcrhcai --no-verify-jwt --use-api
+   ```
+3. **Verificar en hosted**, antes de seguir:
+   - **Corresponde al código nuevo:** en `supabase functions list` tiene una versión nueva y un
+     `ezbr_sha256` distinto del de `before.json`. Además, descargarlo fuera del repo y compararlo con
+     esta rama:
+     ```bash
+     supabase functions download kofi-webhook --project-ref qsufableozmyugcrhcai --workdir "$(mktemp -d)"
+     ```
+     `index.ts` y `handler.ts` deben coincidir con `supabase/functions/kofi-webhook/`.
+   - **No usa Supabase ni service role:** en la fuente descargada no aparecen `createClient`,
+     `supabase-js`, `SERVICE_ROLE`, `profiles`, `swap_cooldown` ni `kofi_payments`.
+   - **Token actual válido → `200`:** *Send Test* desde Ko-fi (todavía con el token actual; no es un
+     pago).
+   - **Token incorrecto → `401`:**
+     ```bash
+     curl -s -o /dev/null -w "%{http_code}\n" --data-urlencode 'data={"verification_token":"not-the-token"}' https://qsufableozmyugcrhcai.supabase.co/functions/v1/kofi-webhook
+     ```
+   - **No registra payloads:** los logs de esas dos llamadas (Dashboard → Edge Functions →
+     `kofi-webhook` → Logs) son solo `kofi-webhook: acknowledged` y `kofi-webhook: rejected`.
 
-Orden: `webhook-stripe`, `webhook-mercadopago`, `webhook-paypal`, `paypal-ipn` (stubs sin
-secretos, riesgo mínimo) y al final `kofi-webhook`, que sigue usando el secreto actual. Nunca
-`--prune`, nunca deploy sin nombre, nunca desde `main` ni desde una rama anterior a este cambio.
+   Si algo de esto falla, **no rotar**: se corrige y se vuelve a desplegar desde esta rama.
+4. **Recién entonces**, regenerar el verification token en Ko-fi (*More → API → Webhooks*).
+5. **Cargar inmediatamente el token nuevo** mediante un archivo temporal privado, fuera del repo, sin
+   pasarlo por la línea de comandos ni por el historial de la shell:
+   ```bash
+   umask 077; KOFI_ENV="$(mktemp)"
+   # pegar en ese archivo, con un editor, la línea KOFI_VERIFICATION_TOKEN=<token nuevo>
+   supabase secrets set --env-file "$KOFI_ENV" --project-ref qsufableozmyugcrhcai
+   ```
+   El secreto aplica a las invocaciones nuevas, sin redesplegar.
+6. **Borrar el archivo temporal:** `rm -f "$KOFI_ENV"`.
+7. **Enviar *Send Test* desde Ko-fi** y comprobar `200` (`kofi-webhook: acknowledged`). Un
+   `rejected` indica que el secreto y Ko-fi no coinciden: repetir 5–6.
+8. **Confirmar que los logs posteriores contienen únicamente los mensajes fijos** (`not configured`,
+   `rejected`, `acknowledged`, `internal error`), sin token, email, nombre, mensaje ni cuerpo.
+9. **Desplegar los cuatro stubs restantes**, uno por vez, con el comando que imprime el guard:
+   `webhook-stripe`, `webhook-mercadopago`, `webhook-paypal`, `paypal-ipn`. Humo sin pagos:
+   `OPTIONS` y `POST {}` a cada uno → `200`.
+10. **Tomar `after.json` y ejecutar el guard:**
+    ```bash
+    supabase functions list --project-ref qsufableozmyugcrhcai --output json > after.json
+    node scripts/payment-retire/webhook-deploy-guard.mjs verify-remote before.json after.json --project-ref qsufableozmyugcrhcai
+    ```
 
-Verificación:
+Entre los pasos 4 y 5, el handler **nuevo** puede responder `401` a Ko-fi. Es seguro: no filtra el
+token (no se loguea nada recibido), no hay efectos que perder y Ko-fi reintenta. Nunca regenerar el
+token antes de completar los pasos 2 y 3: el handler viejo lo imprimiría en los logs.
 
-```bash
-supabase functions list --project-ref qsufableozmyugcrhcai --output json > after.json
-node scripts/payment-retire/webhook-deploy-guard.mjs verify-remote before.json after.json --project-ref qsufableozmyugcrhcai
-```
+**La rotación no bloquea la neutralización.** Si el dueño no puede entrar a Ko-fi en ese momento, se
+hacen 1–3, después 9–10, y la rotación (4–8) queda como **pendiente urgente**, en ese mismo orden.
+Hosted queda neutralizado con el token existente, que ya no se loguea.
 
-`before.json` se toma una sola vez, justo antes del primer deploy, y `after.json` después del
-último. Si entre ambos otra persona despliega una función ajena, `verify-remote` falla a
-propósito: hay que entender ese cambio antes de dar el deploy por bueno.
-
-Humo sin pagos: `OPTIONS` y `POST {}` a cada stub → 200; `POST` a `kofi-webhook` sin token → 401.
+Nunca `--prune`, nunca deploy sin nombre, nunca desde `main` ni desde una rama anterior a este
+cambio. `before.json` se toma una sola vez (paso 1) y `after.json` al final (paso 10). Si en el medio
+alguien despliega una función ajena, `verify-remote` falla a propósito: hay que entender ese cambio
+antes de dar el deploy por bueno. **INFERENCE:** `secrets set` no modifica los metadatos de las
+funciones. Si `verify-remote` marcara cambios en funciones ajenas después del paso 5, hay que revisarlo
+antes de aceptar.
 
 **Rollback seguro.** No volver nunca a las versiones hosted anteriores: reactivan la venta del
 salto de cooldown, escriben con service role y loguean datos personales y el token. Si un stub
@@ -340,25 +401,13 @@ proveedor reintenta, pero no se otorga nada. `kofi-webhook` no tiene estado que 
 
 ### 10.7 Rotación de `KOFI_VERIFICATION_TOKEN` (obligatoria)
 
-El token está comprometido: la v1 hosted lo tenía literal en el código (SEC-04), y el handler
-anterior imprimía el payload completo, token incluido, en los logs de la función. Orden seguro:
-
-1. Desplegar el `kofi-webhook` nuevo (§10.6) **con el token actual**. Desde ese momento nada vuelve
-   a loguear el token.
-2. En Ko-fi → *More → API* (webhooks): regenerar el verification token.
-3. Enseguida, fijar el secreto nuevo sin dejarlo en el historial de la shell: escribirlo en un
-   archivo temporal fuera del repo, correr `supabase secrets set --env-file <archivo> --project-ref
-   qsufableozmyugcrhcai` y borrar el archivo. El secreto aplica a las invocaciones nuevas, sin
-   redesplegar.
-4. Desde Ko-fi, *Send Test* (no es un pago): debe aparecer `kofi-webhook: acknowledged` en los logs.
-   Un `rejected` indica que el secreto y Ko-fi no coinciden.
-
-Entre los pasos 2 y 3, Ko-fi recibe 401 y reintenta. No tiene costo: no hay efectos que perder.
-Rotar antes del paso 1 dejaría el token nuevo expuesto a los logs de la versión vieja.
+Es parte del orden de §10.6 (pasos 4–8) y no puede adelantarse a los pasos 2–3. Resumen: primero
+el handler seguro con el token actual, se verifica en hosted, y recién después se regenera el token
+en Ko-fi y se carga en Supabase.
 
 ### 10.8 Tareas manuales pendientes (fuera del repositorio)
 
-- **Ko-fi:** rotar el token (§10.7); confirmar que la URL del webhook apunta a
+- **Ko-fi:** rotar el token en el orden de §10.6 (pasos 4–8, nunca antes de 2–3); confirmar que la URL del webhook apunta a
   `qsufableozmyugcrhcai`/`kofi-webhook`; quitar de la página de Ko-fi y de cualquier texto público
   la promesa de «saltar el cooldown» con una donación. Si no se quiere recibir webhooks, borrar la
   URL en Ko-fi (la función puede quedar igual).
@@ -379,7 +428,7 @@ Rotar antes del paso 1 dejaría el token nuevo expuesto a los logs de la versió
 | `deno check` de los cinco `index.ts` | ✓ |
 | Humo HTTP real (`Deno.serve` en 127.0.0.1, `--allow-net=127.0.0.1`) | ✓ Ko-fi: OPTIONS 200, token válido 200, inválido 401; stubs: OPTIONS 200, POST 200 vacío; ningún log de los stubs |
 | Mutaciones sobre el `handler.ts` real de Ko-fi | ✓ loguear el payload → 6 tests fallan · escribir el cooldown → 8 fallan · aceptar cualquier token → 1 falla |
-| Guard de deploy (`node --test scripts/payment-retire/`) | ✓ 21/21 (incluye: el `kofi-webhook` de `9475138` es rechazado; `verify-remote` antes/después: función ajena en `false` válida, `false→true` y `true→false` fallan, borrar o cambiar versión/hash/metadatos falla, función nueva falla, objetivo en `true` falla, inventarios de otro proyecto o ausentes fallan) |
+| Guard de deploy (`node --test "scripts/payment-retire/*.test.mjs"`) | ✓ 28/28 (incluye: el `kofi-webhook` de `9475138` es rechazado; `verify-remote` antes/después: función ajena en `false` válida, `false→true` y `true→false` fallan, borrar o cambiar versión/hash/metadatos falla, función nueva falla, objetivo en `true` falla, inventarios ausentes fallan; identidad: `id` correctos pasan, `id` incorrecto en before o en after, `id` intercambiados y otro proyecto coherente fallan. Control negativo: sin el chequeo de `id`, esos 5 tests fallan) |
 | Realtime completo (`node --test`, **Node 22.23.3** portátil) | ✓ 195 pass · 0 fail · 20 skipped (todas: gate de staging RC-0.3, requiere Supabase local) |
 | Integración / PGlite | ✓ incluidos arriba (`integration.test.js`, `database.test.js`, `skipSwapCooldownRetire.test.js`, restart en disco) |
 | Vitest completo | ✓ 183 archivos / 1779 tests |
