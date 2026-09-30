@@ -23,9 +23,9 @@ const CLIENTS = ['anon', 'authenticated']
 
 // Production's tables, reduced to the columns skip_swap_cooldown and the audit need.
 const SCHEMA = `
-  CREATE TABLE public.profiles (id uuid PRIMARY KEY, tokens integer, swap_cooldown_until timestamptz);
+  CREATE TABLE public.profiles (id uuid PRIMARY KEY, tokens numeric(10,2) DEFAULT 0, swap_cooldown_until timestamptz);
   CREATE TABLE public.token_ledger (id bigserial PRIMARY KEY, user_id uuid, amount integer, reason text, created_at timestamptz DEFAULT now());
-  CREATE TABLE public.swap_history (id bigserial PRIMARY KEY, user_id uuid, pokemon_given_id integer, pokemon_received_id integer, was_shiny boolean, rarity text, created_at timestamptz DEFAULT now());
+  CREATE TABLE public.swap_history (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, pokemon_given_id integer, pokemon_received_id integer, was_shiny boolean, rarity text, created_at timestamptz DEFAULT now());
   GRANT SELECT ON public.profiles, public.token_ledger, public.swap_history TO authenticated;
   INSERT INTO auth.users VALUES ('${A}');
   INSERT INTO public.profiles VALUES ('${A}', 5000, now() + interval '8 hours');
@@ -67,7 +67,7 @@ async function publicCanExecute(db, sig) {
 async function snapshot(db) {
   const profile = (await db.query('SELECT tokens, swap_cooldown_until FROM public.profiles')).rows
   const ledger = (await db.query('SELECT user_id, amount, reason FROM public.token_ledger ORDER BY id')).rows
-  const history = (await db.query('SELECT * FROM public.swap_history ORDER BY id')).rows
+  const history = (await db.query('SELECT * FROM public.swap_history ORDER BY created_at, pokemon_given_id')).rows
   return { profile, ledger, history }
 }
 
