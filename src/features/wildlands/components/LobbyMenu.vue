@@ -87,7 +87,7 @@ const { profile, isLoading } = useAuth()
 const signingOut = ref(false)
 const sheetRef = ref<HTMLElement | null>(null)
 
-const items = LOBBY_FEATURE_IDS.map(id => ({
+const items = LOBBY_FEATURE_IDS.filter(id => LOBBY_FEATURES[id].inMenu).map(id => ({
   id,
   title: LOBBY_FEATURES[id].title,
   building: HEARTHOME.buildings.find(b => b.feature === id)?.name ?? null,

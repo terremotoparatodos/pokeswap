@@ -21,16 +21,17 @@ beforeEach(() => {
 })
 
 describe('LobbyMenu', () => {
-  it('lists the six functions with the building that hosts each', () => {
+  it('lists the five functions with the building that hosts each, and no Swap (SWAP RETIRE-2)', () => {
     const wrapper = mount(LobbyMenu, { props: { open: true } })
     const items = wrapper.findAll('.lm-item:not(.lm-item--activity)')
-    expect(items.map(i => i.find('.lm-item-title').text())).toEqual(['Mercado', 'Swap', 'Dungeon', 'Pokédex', 'Perfil', 'Mi caja'])
+    expect(items.map(i => i.find('.lm-item-title').text())).toEqual(['Mercado', 'Dungeon', 'Pokédex', 'Perfil', 'Mi caja'])
+    expect(wrapper.text()).not.toMatch(/swap|silph/i)
     expect(items[0].find('.lm-item-place').text()).toBe('Tienda')
   })
 
   it('closes and selects a function', async () => {
     const wrapper = mount(LobbyMenu, { props: { open: true } })
-    await wrapper.findAll('.lm-item')[4].trigger('click')
+    await wrapper.findAll('.lm-item')[3].trigger('click')
     expect(wrapper.emitted('update:open')?.[0]).toEqual([false])
     expect(wrapper.emitted('select')?.[0]).toEqual(['perfil'])
   })

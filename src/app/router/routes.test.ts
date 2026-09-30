@@ -7,7 +7,7 @@ import routesSource from './routes.ts?raw'
 const view = { default: { template: '<div />' } }
 vi.mock('../../features/wildlands/components/WildlandsView.vue', () => view)
 vi.mock('../../features/market/components/MarketView.vue', () => view)
-vi.mock('../../features/swap/components/SwapView.vue', () => view)
+vi.mock('../../features/swap/components/SwapRetiredView.vue', () => view)
 vi.mock('../../features/dungeon/components/DungeonView.vue', () => view)
 vi.mock('../../features/pokedex/components/PokedexView.vue', () => view)
 vi.mock('../../features/progression/components/ProfileView.vue', () => view)

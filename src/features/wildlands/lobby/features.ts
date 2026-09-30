@@ -11,15 +11,19 @@ export interface LobbyFeatureInfo {
   title: string
   /** Opening it without a session shows the sign-in modal instead. */
   requiresAuth: boolean
+  /** Listed in the lobby menu. A retired feature keeps its door, not a menu entry. */
+  inMenu: boolean
 }
 
 export const LOBBY_FEATURES: Readonly<Record<LobbyFeature, LobbyFeatureInfo>> = {
-  mercado: { title: 'Mercado', requiresAuth: false },
-  swap: { title: 'Swap', requiresAuth: true },
-  dungeon: { title: 'Dungeon', requiresAuth: true },
-  pokedex: { title: 'Pokédex', requiresAuth: true },
-  perfil: { title: 'Perfil', requiresAuth: true },
-  caja: { title: 'Mi caja', requiresAuth: true },
+  mercado: { title: 'Mercado', requiresAuth: false, inMenu: true },
+  // SWAP RETIRE-2: Swap is retired. The id stays because it is the key Silph
+  // Co.'s door speaks; it opens a static notice that needs no session.
+  swap: { title: 'Silph Co.', requiresAuth: false, inMenu: false },
+  dungeon: { title: 'Dungeon', requiresAuth: true, inMenu: true },
+  pokedex: { title: 'Pokédex', requiresAuth: true, inMenu: true },
+  perfil: { title: 'Perfil', requiresAuth: true, inMenu: true },
+  caja: { title: 'Mi caja', requiresAuth: true, inMenu: true },
 }
 
 /** Menu order. */

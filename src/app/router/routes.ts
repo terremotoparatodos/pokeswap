@@ -22,11 +22,13 @@ export type PanelViews = Record<LobbyFeature, LazyView>
 
 // Community Playtest 0.1: null. The playtest opens its own surfaces from the
 // doors (WildlandsView.openFeature), and a direct URL must not be a way around
-// that — these views reach market, swap, dungeon rewards and tokens. With the
-// flag folded to `true` the imports are dead code and the chunks never ship.
+// that — these views reach market, dungeon rewards and tokens. With the flag
+// folded to `true` the imports are dead code and the chunks never ship.
+// SWAP RETIRE-2: `swap` is Silph Co.'s retired notice, not a trade — a direct
+// /swap only says Swap is gone.
 const PANEL_VIEWS: PanelViews | null = isPlaytest ? null : {
   mercado: () => import('../../features/market/components/MarketView.vue'),
-  swap: () => import('../../features/swap/components/SwapView.vue'),
+  swap: () => import('../../features/swap/components/SwapRetiredView.vue'),
   dungeon: () => import('../../features/dungeon/components/DungeonView.vue'),
   pokedex: () => import('../../features/pokedex/components/PokedexView.vue'),
   perfil: () => import('../../features/progression/components/ProfileView.vue'),

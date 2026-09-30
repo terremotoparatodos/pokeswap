@@ -63,16 +63,16 @@ describe('useLobbyPanel', () => {
   it('opens a building panel and closes it back into the town with history', async () => {
     const onClosed = vi.fn()
     const { router, panel } = await setup('/', { onClosed })
-    panel.open('swap', 'door')
+    panel.open('dungeon', 'door')
     await flushPromises()
-    expect(router.currentRoute.value.name).toBe('swap')
-    expect(panel.title.value).toBe('SWAP')
+    expect(router.currentRoute.value.name).toBe('dungeon')
+    expect(panel.title.value).toBe('DUNGEON')
     expect(panel.access.value).toBe('open')
 
     panel.close()
     await settle()
     expect(router.currentRoute.value.name).toBe('lobby')
-    expect(onClosed).toHaveBeenCalledWith('swap', 'door')
+    expect(onClosed).toHaveBeenCalledWith('dungeon', 'door')
     expect(refreshProfile).toHaveBeenCalledOnce()
   })
 
