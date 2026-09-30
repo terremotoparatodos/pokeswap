@@ -385,3 +385,61 @@ Fase 3 con confirmación del usuario en cada paso: push de `perf/stability-inves
 - `git revert -m 1 <merge>` en `playtest/community-0.1`. Eso redespliega **frontend y Colyseus** solos.
 - Si el auto-deploy fallara: redeploy manual en el panel de Colyseus Cloud.
 - Sin force-push.
+
+---
+
+## Sesión 2, cierre — cliente publicado, bandeja de pistas y desconexiones (2026-09-23)
+
+### PR #23 (cliente) — publicado y verificado
+
+- Merge commit `b224ac0`. FACT: su árbol es idéntico al de la rama verificada (`8a58985`).
+- FACT: Colyseus se redesplegó solo (~10 s) → `/version` `commit: b224ac0`, `protocol: 2`; `/` 200; matchmaking y join WebSocket OK desde `https://pokeswap.lol`.
+- FACT: frontend: run #12 verde; el bundle servido contiene `b224ac0`. El HUD muestra los contadores de presencia nuevos.
+- FACT: pruebas del usuario en producción ("Ciudad" caminando, ida y vuelta por la puerta oeste, tecla sostenida con cambio de pestaña), leídas del HUD:
+  - `seq env/conf 120/120`;
+  - 0 punto seguro, 0 reconciliaciones, rechazos 0/0/0;
+  - `reubic/ack viejo 8/3`: reubicaciones por cambios de área y "Ciudad", y acks viejos ignorados por `487ffb8`, como se esperaba;
+  - RTT mov p50/p95/p99/máx = 155/169/181/204 ms (Buenos Aires → Miami);
+  - 60 FPS, frame p99 2,8 ms.
+  - El usuario confirmó que el personaje no camina solo después del cambio de pestaña.
+
+### PR #24 — bandeja única de pistas (pedido del usuario, fuera del alcance de rendimiento)
+
+- Problema: "Dungeon" y "Skills" eran dos tarjetas `position: absolute`, cada una con su propio `bottom`, y se amontonaban sobre el personaje.
+- Cambio:
+  - cada feature expone su pista como objeto plano;
+  - `WorldHintTray.vue` las dibuja como filas de un solo cuerpo, arriba de la píldora de zona;
+  - la bandeja se oculta con el chat abierto (`ChatPanel` emite `open`) o con una tarjeta de profesión abierta.
+  - FACT: `professionsIsolation.test.ts` rechazó un primer intento que importaba el tipo desde WildLands; se resolvió con tipado estructural.
+- Gates: 1.942/1.942, typecheck, build, lint (0 errores). Visual en `vite` dev: Pradera en 629 y 1280 px; la bandeja se oculta y vuelve con el chat.
+- Merge commit `92ed74a`, run #13 verde; el bundle servido contiene `92ed74a` y la bandeja.
+- **FACT: Colyseus NO se redesplegó con `92ed74a`**: no hay entrada nueva en el historial, tampoco fallida, y `/version` sigue en `b224ac0` con el mismo `startedAt`.
+  - INFERENCE: el auto-deploy de Colyseus Cloud filtra por cambios en `services/realtime`. Los tres merges con cambios de servidor desplegaron y el que no tenía cambios de servidor, no.
+  - Consecuencia: un merge sólo de cliente no reinicia el servidor ni corta sesiones.
+- OPEN QUESTION (menor): la bandeja en Pradera no se vio en producción; se verificó en local y en el bundle servido. Pendiente de una mirada del usuario.
+
+### Contador "desconex" del HUD
+
+- Observación: en el navegador de la app, "desconex" llegó a 1–3 apenas cargada la página, con `seq 0/0` y sin personaje propio.
+- FACT (código):
+  - `game.setAuthoritativeActor(null)` cuenta una desconexión cuando había actor propio;
+  - `colyseusPresence.clearActors()` llama a eso en `onDrop`, `onError`, `onLeave` y `disconnect()`;
+  - con `onLeave(4001)` (`REPLACED_SESSION_CODE`: la misma cuenta entró desde otro navegador o pestaña) el cliente **deja de reintentar a propósito** y el acceso vuelve a `pending`, o sea espectador.
+- INFERENCE: la pestaña del navegador de la app competía con otra sesión del usuario con la misma cuenta.
+  - Explica las desconexiones y la ausencia del personaje.
+  - También explica por qué los clics de la automatización no movían al jugador en producción: `tap()` sale temprano en modo espectador.
+  - Resuelve la OPEN QUESTION de la entrada anterior.
+  - El contador cuenta eventos reales, no cortes de red.
+- Propuesta (no implementada): distinguir en el HUD "reemplazada por otra sesión" de "caída de red", para que un reporte de bug no confunda los dos casos.
+
+### Documentación
+
+- `HANDOFF.md` §1 decía que con un panel abierto el loop dibuja a ~10 fps (`PAUSED_FRAME_MS`). Se corrigió: sigue a frecuencia completa y sólo una pestaña oculta detiene el loop, como exige `gamePause.test.ts`.
+
+### Limpieza
+
+- Se borraron los worktrees temporales (`26f3b7c` y el del hotfix), el Node 22 portable de `%TEMP%` y las ramas remotas ya mergeadas (`hotfix/realtime-arrival-pacing`, `perf/stability-investigation`, `feat/playtest-hint-tray`).
+
+### Pendiente del usuario
+
+- Decisión de producto: contadores de red en el texto de "REPORTAR BUG". No implementado.

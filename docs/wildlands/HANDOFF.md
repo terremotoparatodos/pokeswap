@@ -48,7 +48,7 @@ Ruta: `/` (la vieja `/wildlands` redirige conservando la query). Parámetros de 
 - **Link directo:** la ciudad arranca con el personaje en la puerta del edificio y el panel ya abierto.
 - **Sin sesión:** una función que la requiere abre `AuthModal`. Si se cierra sin ingresar, vuelve a `/`. Si se ingresa, se muestra el panel.
 - **Salir del panel:** si se había entrado por la puerta o por link, el personaje aparece frente a la puerta mirando hacia abajo. Si se abrió desde el menú, se queda donde estaba.
-- **Pausa con panel, menú o login abiertos:** se ignoran toques, arrastre y teclado (`keys.detach()`, así escribir en un input no mueve al personaje), y el loop dibuja a ~10 fps (`PAUSED_FRAME_MS`).
+- **Pausa con panel, menú o login abiertos:** se ignoran toques, arrastre y teclado (`keys.detach()`, así escribir en un input no mueve al personaje), y el loop sigue dibujando a frecuencia completa (ya no existe `PAUSED_FRAME_MS`; lo exige `engine/gamePause.test.ts`). Sólo una pestaña oculta detiene el loop (`setVisibilityPaused`), sin cortar la presencia.
 
 ---
 
