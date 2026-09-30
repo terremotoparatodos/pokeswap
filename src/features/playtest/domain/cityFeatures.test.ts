@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { LOBBY_FEATURE_IDS } from '../../wildlands/lobby/features'
 import { CLOSED_HEADLINE, OPEN_FEATURES, isOpenDuringPlaytest, playtestSurfaceFor } from './cityFeatures'
+import { SWAP_RETIRED_NOTICE } from '../../swap/retired'
 
 describe('the city during the playtest', () => {
   it('opens the Centro Pokémon and the Tienda, and only those', () => {
@@ -25,6 +26,10 @@ describe('the city during the playtest', () => {
       expect(playtestSurfaceFor(feature).kind, feature).toBe('closed')
       expect(isOpenDuringPlaytest(feature)).toBe(false)
     }
+  })
+
+  it('keeps Silph Co. closed with the retirement notice, in the playtest as everywhere (SWAP RETIRE-2)', () => {
+    expect(playtestSurfaceFor('swap')).toEqual({ kind: 'closed', title: 'Silph Co.', reason: SWAP_RETIRED_NOTICE })
   })
 
   it('closes the Gimnasio and says where Dungeons actually are', () => {

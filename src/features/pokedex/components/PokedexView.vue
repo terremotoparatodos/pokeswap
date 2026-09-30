@@ -53,7 +53,7 @@
         </div>
 
         <p v-else class="pokedex-empty">
-          Todavía no registraste ningún Pokémon. ¡Hacé un swap!
+          Todavía no registraste ningún Pokémon.
         </p>
       </template>
     </template>

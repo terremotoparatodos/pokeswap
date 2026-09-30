@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import CityPanel from './CityPanel.vue'
 import { MAX_PARTY } from '../../dungeonPrototype/domain/party'
 import { playtestSurfaceFor } from '../domain/cityFeatures'
+import { SWAP_RETIRED_NOTICE } from '../../swap/retired'
 import { PLAYTEST_START_COINS } from '../domain/playtestShop'
 import { usePlaytestStore } from '../state/usePlaytestStore'
 
@@ -22,10 +23,18 @@ beforeEach(() => store.reset())
 
 describe('a closed door', () => {
   it('says it is closed and why, instead of doing nothing', () => {
-    const wrapper = open('swap')
+    const wrapper = open('perfil')
     expect(wrapper.text()).toContain('No disponible durante Community Playtest 0.2')
-    expect(wrapper.text()).toContain('Swap')
+    expect(wrapper.text()).toContain('tokens reales')
+    expect(wrapper.find('.cp-title').text()).toBe('Casino')
+  })
+
+  it("says Silph Co.'s Swap is retired, not coming back after the playtest (SWAP RETIRE-2)", () => {
+    const wrapper = open('swap')
     expect(wrapper.find('.cp-title').text()).toBe('Silph Co.')
+    expect(wrapper.text()).toContain(SWAP_RETIRED_NOTICE)
+    expect(wrapper.text()).not.toMatch(/durante el playtest|vuelve después|¡Hacer Swap!/)
+    expect(wrapper.find('button.swap-btn').exists()).toBe(false)
   })
 
   it('points the Gimnasio at where Dungeons actually are', () => {

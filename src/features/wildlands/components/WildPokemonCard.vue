@@ -13,7 +13,6 @@
       <div class="wc-actions">
         <button @click="emit('feature', 'pokedex')">Abrir Pokédex</button>
         <button @click="emit('feature', 'mercado')">Ver Mercado</button>
-        <button @click="emit('feature', 'swap')">Ir a Swap</button>
       </div>
     </section>
   </div>

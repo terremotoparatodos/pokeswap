@@ -5,6 +5,16 @@
 > functions, and Edge Functions) so that migration steps are grounded in what actually exists, not
 > what the frontend code implies. Resolves all OPEN QUESTIONs deferred from R00 and R01.
 > **Source:** Live read of project `qsufableozmyugcrhcai` via Supabase MCP on 2026-09-07.
+>
+> **Current state of Swap and the payment webhooks (2026-09-30):** see §4.8 and §6. The body of
+> this document is the 2026-09-07 read, kept as history.
+>
+> ⚠️ **Migration history (pre-existing risk, not caused by SWAP/PAYMENTS RETIRE-2):** several old
+> migrations are named `20260907_00N_*.sql` (8 files) and `20260908_0NN_*.sql` (3 files). The
+> Supabase CLI takes only the digits before the first `_` as the version, so locally there are 8
+> migrations with version `20260907` and 3 with `20260908`. **Do not run a general
+> `supabase db push` until the local history is reconciled with hosted.** Those files are not
+> renamed or repaired here (`docs/design/SWAP_RETIRE_2_REPORT.md` §11).
 > **Labeling:** Same convention as R00/R01 — **FACT**, **INFERENCE**, **OPEN QUESTION**.
 
 ---
@@ -162,6 +172,9 @@ permanent ownership are not tracked as current-state properties of a slot.
 
 **FACT** — `was_shiny` is persisted in `swap_history` as a historical record of the swap event,
 not as a property of the current slot state. `slots` has no `is_shiny` column.
+
+> **SWAP RETIRE-2:** no client reads this table any more. It is kept unchanged, as history
+> for the `INSTANCES-1` backfill; see `docs/design/SWAP_RETIRE_2_REPORT.md`.
 
 ### 1.8 `pokedex_entries`
 
@@ -333,6 +346,28 @@ check.
 > function should be dropped in favor of using the service role key directly inside Edge
 > Functions.
 
+### 4.8 `skip_swap_cooldown()` → jsonb
+
+SECURITY DEFINER. Debits 1,000 tokens, clears `profiles.swap_cooldown_until` and writes a
+`token_ledger` row (`reason = 'skip_swap_cooldown'`). Versioned in
+`20260907_005_token_economy_rpcs.sql` and `20260914130000_restore_skip_swap_cooldown.sql`
+(`EXECUTE` to `authenticated`; `PUBLIC` and `anon` revoked).
+
+> **RETIRED (SWAP RETIRE-2).** Swap is gone, so the cooldown guards nothing and the debit bought
+> nothing. The client no longer calls it. Migration
+> `20260930230308_retire_skip_swap_cooldown.sql` revokes
+> every real overload from `PUBLIC`, `anon` and `authenticated` and comments it as retired. It
+> keeps the function and its body for traceability and administrative rollback only.
+>
+> **Current state (FACT, verified in hosted by the main station on 2026-09-30):** applied as
+> `20260930230308 retire_skip_swap_cooldown`. The function body is unchanged; `PUBLIC`, `anon` and
+> `authenticated` have no `EXECUTE`; `postgres` and `service_role` keep theirs. An authenticated
+> call gets HTTP 403 / SQLSTATE 42501, and the test account's tokens, cooldown and ledger did not
+> change.
+>
+> **History:** prepared as `20260930150000_…` and renamed, byte-identical, to
+> `20260930230308_…` to match the hosted version.
+
 ---
 
 ## 5. Triggers
@@ -366,6 +401,53 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 | `kofi-webhook` | 1 | ✗ | Ko-fi donation webhook → resets swap cooldown |
 | `paypal-ipn` | 1 | ✗ | PayPal IPN → resets swap cooldown |
 
+> **Current state — PAYMENTS RETIRE-2 deployed (FACT, verified in hosted by the main station on
+> 2026-09-30):**
+>
+> | Slug | Version | JWT | Short hash |
+> |---|---|---|---|
+> | `kofi-webhook` | 5 | ✗ | `817d7f13` |
+> | `webhook-stripe` | 16 | ✗ | `ac4e22bf` |
+> | `webhook-mercadopago` | 16 | ✗ | `42552d73` |
+> | `webhook-paypal` | 9 | ✗ | `28722c35` |
+> | `paypal-ipn` | 4 | ✗ | `3d7e06ab` |
+>
+> `verify-remote before.json after.json` passed. The other nine functions did not change
+> (`pokeswap-swap` still v15, `world-authority` still v1). The stubs answer an empty 200,
+> `kofi-webhook` answers 401 to a wrong token, logs carry no bodies or received data, and
+> `kofi_payments` still has 0 rows. **Pending:** rotate `KOFI_VERIFICATION_TOKEN`, run a valid Ko-fi
+> `Send Test`, clean up the PayPal, Stripe and MercadoPago dashboards, and review the external
+> project `xdhtasxadmhjltmtirxy`.
+>
+> **History — PAYMENTS RETIRE-2 as prepared (branch `security/retire-payment-webhooks-0.3`).**
+> The table above is the hosted state read on 2026-09-07 (the R02 live read in this file's
+> header; PAYMENTS RETIRE-2, on 2026-09-30, did not read hosted) and is kept as the record of the
+> **previous hosted versions** (`webhook-stripe` v13, `webhook-mercadopago` v13, `webhook-paypal`
+> v6, `kofi-webhook` v1, `paypal-ipn` v1). **INFERENCE:** `kofi-webhook` was probably redeployed
+> after SEC-04 (R11); its current hosted version was not re-read, and nothing in this task reads
+> hosted. After the deploy, the five payment receivers are:
+>
+> | Slug | Source | JWT | Behaviour |
+> |---|---|---|---|
+> | `kofi-webhook` | `supabase/functions/kofi-webhook/` | ✗ | Checks `KOFI_VERIFICATION_TOKEN`; 200 / 401 / 503, all generic; no effects |
+> | `paypal-ipn` | `supabase/functions/paypal-ipn/` → `_shared/retiredPaymentWebhook.ts` | ✗ | Empty 200, body never read |
+> | `webhook-paypal` | idem | ✗ (was ✓) | Empty 200, body never read |
+> | `webhook-stripe` | idem | ✗ (was ✓) | Empty 200, body never read |
+> | `webhook-mercadopago` | idem | ✗ (was ✓) | Empty 200, body never read |
+>
+> The three `webhook-*` change from ✓ to ✗ on purpose: with ✓ the gateway answers the provider
+> 401 and the provider keeps retrying. Deploy only through
+> `node scripts/payment-retire/webhook-deploy-guard.mjs command <slug>` (never a bare
+> `supabase functions deploy`, which deploys every function), and check the result with
+> `verify-remote before.json after.json --project-ref qsufableozmyugcrhcai`: the five must be
+> public and carry their pinned production function ids in both dumps, and every other function
+> must keep exactly its previous `verify_jwt`, version and hash, whatever they were. Deploy
+> `kofi-webhook` first with the current token and rotate only after verifying it in hosted
+> (`docs/design/SWAP_RETIRE_2_REPORT.md` §10.6). **Production project:
+> `qsufableozmyugcrhcai`.** `xdhtasxadmhjltmtirxy` is a different, **external** project that
+> legacy PayPal buttons used as IPN `notify_url` (`js/swap.js`, commit `817c322`); we do not
+> administer it and nothing is deployed there.
+
 ### 6.1 `free-claim`
 
 Calls `reset_daily_free_claim()` then `claim_slot(... p_is_free = true)`. Entirely
@@ -379,6 +461,10 @@ server-authoritative. No client-supplied price or outcome. **INV-OWN-2 resolved.
 > unchanged. It creates no service-role client, reads no body, touches no table and rolls no
 > RNG (`supabase/functions/pokeswap-swap/handler.ts`, tests in `handler.test.ts`). The
 > function, `swap_history` and `profiles.swap_cooldown_until` are kept for traceability.
+> **SWAP RETIRE-2:** the 0.3 client no longer calls it (SwapView, useSwap and swapApi
+> are removed; `/swap` shows a static retirement notice). The function stays deployed at 410
+> for old clients. **Never redeploy it from `main @ 480b352`**, which still has the
+> pre-retirement code.
 > The bullets below describe the flow **as it was** before the retirement, and why it was
 > retired: the received Pokémon was chosen without checking its owner and upserted by
 > `pokemon_id` with the service role, so it could be taken from another player.
@@ -436,11 +522,28 @@ fetched in this inventory pass. **OPEN QUESTION (OQ-04):** What payment provider
 `webhook-paypal`. Their source was not fetched. **OPEN QUESTION (OQ-05):** Which of these
 call `confirm_payment`, and which are stubs or legacy?
 
+> **PAYMENTS RETIRE-2:** OQ-05 is closed by decision instead of by reading the hosted source:
+> PayPal, Stripe and MercadoPago are disabled, and the three webhooks are replaced by versioned
+> stubs that answer 200 and do nothing. Their hosted source was not fetched and must not be
+> copied into the repository (it may hold secrets and payload handling). `create-checkout` and
+> `create-payment-skip` are outside that task.
+
 ### 6.6 `kofi-webhook` and `paypal-ipn`
 
 Both handle payment-provider callbacks to reset the swap cooldown (skip-cooldown product).
 Neither grants Pokémon ownership — they only write `kofi_payments` and update
 `profiles.swap_cooldown_until`.
+
+> **OPEN QUESTION (SWAP RETIRE-2):** with Swap retired, both still sell a cooldown reset that
+> no longer does anything. `kofi-webhook` is still in `supabase/functions/`; `paypal-ipn`
+> exists only in hosted. Disabling them is a payment-flow change and is left to its own task.
+>
+> **PAYMENTS RETIRE-2 (resolves the question above):** both are neutralized in the repository.
+> `kofi-webhook` keeps only the token check and answers 200 without touching anything (no
+> `profiles`, no `kofi_payments`, no user lookup, no service role). `paypal-ipn` is a stub that
+> answers an empty 200 and no longer posts back to PayPal. The FACT bullets below describe the
+> hosted versions **before** that change. Historical rows in `kofi_payments`, `transactions`,
+> `token_ledger` and `profiles.swap_cooldown_until` are kept untouched.
 
 **FACT — `paypal-ipn` performs IPN verification** by posting back to
 `https://ipnpb.paypal.com/cgi-bin/webscr` with `cmd=_notify-validate` and only proceeding

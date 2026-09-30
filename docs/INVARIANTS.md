@@ -213,6 +213,10 @@ server-side function.**
 
 ## 5. Swap
 
+> **Retired (SWAP RETIRE-1 / RETIRE-2).** Swap is withdrawn from the product: `pokeswap-swap`
+> answers 410 and the client no longer trades or skips cooldowns. The invariants below are kept
+> as history of the retired flow; see `docs/design/SWAP_RETIRE_2_REPORT.md`.
+
 ### INV-SWP-1 — The `pokeswap-swap` Edge Function is the authority for swap outcomes
 
 **FACT** — `swapConfirm()` calls `${SB_URL}/functions/v1/pokeswap-swap` with `pokemon_given_id` and

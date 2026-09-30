@@ -16,7 +16,6 @@ vi.mock('../../../shared/api/supabase', () => ({
 
 import { supabase } from '../../../shared/api/supabase'
 import { collectPassiveTokens, learnMove, grantXp } from './progressionApi'
-import { skipCooldown } from '../../swap/api/swapApi'
 
 const mockInvoke = supabase.functions.invoke as ReturnType<typeof vi.fn>
 const mockRpc    = supabase.rpc as ReturnType<typeof vi.fn>
@@ -73,35 +72,6 @@ describe('learnMove', () => {
     mockRpc.mockResolvedValueOnce({ data: null, error: new Error('not_owner') })
 
     await expect(learnMove(99, ['tackle'])).rejects.toThrow('not_owner')
-  })
-})
-
-// ── skipCooldown ──────────────────────────────────────────────────────────────
-
-describe('skipCooldown', () => {
-  it('calls skip_swap_cooldown RPC and returns new balance', async () => {
-    mockRpc.mockResolvedValueOnce({ data: { new_balance: 500 }, error: null })
-
-    const result = await skipCooldown()
-
-    expect(mockRpc).toHaveBeenCalledWith('skip_swap_cooldown')
-    expect(mockFrom).not.toHaveBeenCalled()
-    expect(result).toEqual({ new_balance: 500 })
-  })
-
-  it('propagates insufficient_tokens_or_no_cooldown error', async () => {
-    mockRpc.mockResolvedValueOnce({
-      data: null,
-      error: new Error('insufficient_tokens_or_no_cooldown'),
-    })
-
-    await expect(skipCooldown()).rejects.toThrow('insufficient_tokens_or_no_cooldown')
-  })
-
-  it('propagates no_active_cooldown error', async () => {
-    mockRpc.mockResolvedValueOnce({ data: null, error: new Error('no_active_cooldown') })
-
-    await expect(skipCooldown()).rejects.toThrow('no_active_cooldown')
   })
 })
 
@@ -162,8 +132,8 @@ describe('grantXp', () => {
 // TKN-INV-3: spend_tokens_learn_move with insufficient balance
 //   Expected: raises 'insufficient_tokens', pokemon_xp.moves unchanged.
 //
-// TKN-INV-4: skip_swap_cooldown with no active cooldown
-//   Expected: raises 'no_active_cooldown', no token debit occurs.
+// TKN-INV-4: retired with Swap (SWAP RETIRE-2) — skip_swap_cooldown is no
+//   longer executable by clients; see the PGlite test in services/realtime.
 //
 // TKN-INV-5: Concurrent collect_passive_tokens calls
 //   Expected: one wins; total credit equals exactly one calculation period.

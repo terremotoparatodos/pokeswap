@@ -9,12 +9,12 @@ const TRAINER_LINES = [
   '«¡Qué calor hace por acá!»',
   '«Dicen que de noche aparecen cristales raros.»',
   '«Mi Pokémon se escapó hacia el agua…»',
-  '«Estoy entrenando para el próximo swap.»',
+  '«Estoy entrenando para la próxima cueva.»',
 ]
 const TOWN_LINES = [
   '«¿Ya elegiste a qué mundo ir hoy?»',
   '«Me encanta pasear por la plaza de las fuentes.»',
-  '«Hoy me toca un Swap en Silph Co.»',
+  '«En Silph Co. ya no se intercambia nada.»',
   '«Vengo de la Costa Coral, ¡hay Pokémon nadando por todos lados!»',
 ]
 
