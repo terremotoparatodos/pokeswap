@@ -7,7 +7,8 @@ import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
-  checkRemoteList,
+  assertTargetProject,
+  checkRemoteChange,
   checkRepo,
   deployCommand,
   EXTERNAL_PROJECT_REF,
@@ -51,7 +52,7 @@ test('a missing stub or a stub that reads the body fails', t => {
   assert.match(problems, /paypal-ipn\/index\.ts contains/)
 })
 
-test('config.toml: absent is fine; if present it must match the five and nothing else', t => {
+test('config.toml: absent is fine; if present the five must be false, other functions are not judged', t => {
   const dir = scratchRepo(t)
   const config = join(dir, 'supabase', 'config.toml')
   const write = body => writeFileSync(config, body)
@@ -62,11 +63,9 @@ test('config.toml: absent is fine; if present it must match the five and nothing
   write('[functions.webhook-stripe]\nverify_jwt = true\n')
   assert.match(checkRepo(dir).join('\n'), /webhook-stripe must have verify_jwt = false/)
 
-  write('[functions.market-buy]\nverify_jwt = false\n')
-  assert.match(checkRepo(dir).join('\n'), /market-buy is not a public receiver/)
-
-  write('[functions."world-authority"]\nverify_jwt=false\n')
-  assert.match(checkRepo(dir).join('\n'), /world-authority is not a public receiver/)
+  // A function outside this task may legitimately be public (or not): not this guard's call.
+  write('[functions.market-buy]\nverify_jwt = false\n[functions."world-authority"]\nverify_jwt=true\n')
+  assert.deepEqual(checkRepo(dir), [])
 
   write('[edge_runtime]\nverify_jwt = false\n')
   assert.match(checkRepo(dir).join('\n'), /outside a \[functions\.<slug>\] section/)
@@ -87,27 +86,114 @@ test('deployCommand refuses deploy-all, other functions and the external project
   assert.throws(() => deployCommand(undefined), /deploys every function/)
   assert.throws(() => deployCommand(''), /deploys every function/)
   for (const slug of ['market-buy', 'world-authority', 'pokeswap-swap', 'create-checkout', 'create-payment-skip']) {
-    assert.throws(() => deployCommand(slug), /never deploy it with --no-verify-jwt/)
+    assert.throws(() => deployCommand(slug), /prints no command for it/)
   }
   assert.throws(() => deployCommand('kofi-webhook', EXTERNAL_PROJECT_REF), /external project/)
+  assert.throws(() => deployCommand('kofi-webhook', 'abcdefghijklmnopqrst'), /not the production project/)
   assert.throws(() => deployCommand('kofi-webhook', 'not-a-ref; rm -rf /'), /not a Supabase project ref/)
 })
 
-test('checkRemoteList accepts only: the five public, everything else behind a JWT', () => {
-  const good = [
-    ...PUBLIC_RECEIVERS.map(slug => ({ slug, verify_jwt: false, version: 2 })),
-    { slug: 'market-buy', verify_jwt: true }, { slug: 'pokeswap-swap', verify_jwt: true },
-  ]
-  assert.deepEqual(checkRemoteList(good), [])
+// Inventories shaped like `supabase functions list --output json`.
+const fn = (slug, verify_jwt, extra = {}) => ({
+  id: `id-${slug}`, slug, name: slug, status: 'ACTIVE', version: 3, verify_jwt,
+  ezbr_sha256: `sha-${slug}-v3`, updated_at: 1_790_000_000_000, entrypoint_path: `file:///src/${slug}/index.ts`, ...extra,
+})
+/** Hosted before the deploy: the three webhook-* behind a JWT, two unrelated public functions. */
+const BEFORE = [
+  fn('kofi-webhook', false, { version: 1 }), fn('paypal-ipn', false, { version: 1 }),
+  fn('webhook-paypal', true, { version: 6 }), fn('webhook-stripe', true, { version: 13 }), fn('webhook-mercadopago', true, { version: 13 }),
+  fn('market-buy', true), fn('world-authority', true),
+  fn('verify-loyalty', false), fn('some-public-hook', false),
+]
+/** After a correct deploy: only the five moved (new version and hash, verify_jwt false). */
+const AFTER = BEFORE.map(f => (PUBLIC_RECEIVERS.includes(f.slug)
+  ? { ...f, verify_jwt: false, version: f.version + 1, ezbr_sha256: `sha-${f.slug}-retired`, updated_at: 1_790_000_900_000 }
+  : { ...f }))
+const edit = (list, slug, patch) => list.map(f => (f.slug === slug ? { ...f, ...patch } : f))
 
-  const stripeLocked = good.map(f => (f.slug === 'webhook-stripe' ? { ...f, verify_jwt: true } : f))
-  assert.deepEqual(checkRemoteList(stripeLocked), ['webhook-stripe: verify_jwt is true, must be false'])
+test('verify-remote: the five in false and everything else untouched passes', () => {
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER), [])
+})
 
-  const marketOpen = good.map(f => (f.slug === 'market-buy' ? { ...f, verify_jwt: false } : f))
-  assert.deepEqual(checkRemoteList(marketOpen), ['market-buy: verify_jwt is false, must be true (not a public receiver)'])
+test('verify-remote: an unrelated function with verify_jwt=false before and after is valid', () => {
+  assert.equal(BEFORE.find(f => f.slug === 'verify-loyalty').verify_jwt, false)
+  assert.equal(AFTER.find(f => f.slug === 'verify-loyalty').verify_jwt, false)
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER), [])
+})
 
-  assert.deepEqual(checkRemoteList(good.filter(f => f.slug !== 'paypal-ipn')), ['paypal-ipn: not deployed'])
-  assert.equal(checkRemoteList({}).length, 1)
+test('verify-remote: does not assume the previous state was true', () => {
+  const allPublic = BEFORE.map(f => ({ ...f, verify_jwt: false }))
+  const after = allPublic.map(f => AFTER.find(a => a.slug === f.slug)).map(f => (PUBLIC_RECEIVERS.includes(f.slug) ? f : { ...f, verify_jwt: false }))
+  assert.deepEqual(checkRemoteChange(allPublic, after), [])
+})
+
+test('verify-remote: an unrelated function going false → true fails', () => {
+  assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'verify-loyalty', { verify_jwt: true })),
+    ['verify-loyalty: verify_jwt changed from false to true'])
+})
+
+test('verify-remote: an unrelated function going true → false fails', () => {
+  assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'market-buy', { verify_jwt: false })),
+    ['market-buy: verify_jwt changed from true to false'])
+})
+
+test('verify-remote: deleting an unrelated function fails', () => {
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER.filter(f => f.slug !== 'world-authority')),
+    ['world-authority: existed before and is gone'])
+})
+
+test('verify-remote: changing an unrelated function version, hash or metadata fails', () => {
+  assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'market-buy', { version: 4 })), ['market-buy: version changed from 3 to 4'])
+  assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'market-buy', { ezbr_sha256: 'sha-other' })),
+    ['market-buy: ezbr_sha256 changed from "sha-market-buy-v3" to "sha-other"'])
+  assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'some-public-hook', { updated_at: 1 })),
+    ['some-public-hook: updated_at changed from 1790000000000 to 1'])
+  const stripped = { ...AFTER.find(f => f.slug === 'market-buy') }
+  delete stripped.ezbr_sha256
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER.map(f => (f.slug === 'market-buy' ? stripped : f))),
+    ['market-buy: ezbr_sha256 was "sha-market-buy-v3", now missing'])
+})
+
+test('verify-remote: a new unrelated function appearing fails; only the five may change', () => {
+  assert.deepEqual(checkRemoteChange(BEFORE, [...AFTER, fn('create-checkout', true)]),
+    ['create-checkout: appeared after the deploy; only the five may change'])
+})
+
+test('verify-remote: only the five may change version or hash', () => {
+  for (const slug of PUBLIC_RECEIVERS) {
+    const b = BEFORE.find(f => f.slug === slug)
+    const a = AFTER.find(f => f.slug === slug)
+    assert.notEqual(a.version, b.version)
+    assert.notEqual(a.ezbr_sha256, b.ezbr_sha256)
+  }
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER), [])
+})
+
+test('verify-remote: a target left with verify_jwt=true, or missing, fails', () => {
+  assert.deepEqual(checkRemoteChange(BEFORE, edit(AFTER, 'webhook-stripe', { verify_jwt: true })),
+    ['webhook-stripe: verify_jwt is true, must be false'])
+  assert.deepEqual(checkRemoteChange(BEFORE, AFTER.filter(f => f.slug !== 'paypal-ipn')), ['paypal-ipn: not deployed'])
+})
+
+test('verify-remote: dumps from different projects fail', () => {
+  const otherProject = AFTER.map(f => ({ ...f, id: `other-${f.id}` }))
+  const problems = checkRemoteChange(BEFORE, otherProject).join('\n')
+  assert.match(problems, /kofi-webhook: id changed .* different projects/)
+  assert.match(problems, /market-buy: id changed/)
+})
+
+test('verify-remote: malformed inventories fail', () => {
+  assert.match(checkRemoteChange({}, AFTER).join('\n'), /before: expected the JSON array/)
+  assert.match(checkRemoteChange(BEFORE, null).join('\n'), /after: expected the JSON array/)
+  assert.match(checkRemoteChange(BEFORE, [...AFTER, AFTER[0]]).join('\n'), /after: kofi-webhook appears twice/)
+  assert.match(checkRemoteChange([{ version: 1 }], AFTER).join('\n'), /before: an entry has no slug/)
+})
+
+test('only the production project is a valid target', () => {
+  assert.doesNotThrow(() => assertTargetProject(PRODUCTION_PROJECT_REF))
+  assert.throws(() => assertTargetProject(EXTERNAL_PROJECT_REF), /external project/)
+  assert.throws(() => assertTargetProject('abcdefghijklmnopqrst'), /not the production project/)
+  assert.throws(() => assertTargetProject(undefined), /not a Supabase project ref/)
 })
 
 test('CLI: exit codes', t => {
@@ -123,9 +209,20 @@ test('CLI: exit codes', t => {
 
   const dir = mkdtempSync(join(tmpdir(), 'webhook-guard-list-'))
   t.after(() => rmSync(dir, { recursive: true, force: true }))
-  const list = join(dir, 'list.json')
-  writeFileSync(list, JSON.stringify(PUBLIC_RECEIVERS.map(slug => ({ slug, verify_jwt: false }))))
-  assert.equal(run('verify-remote', list).status, 0)
-  writeFileSync(list, JSON.stringify([{ slug: 'kofi-webhook', verify_jwt: true }]))
-  assert.equal(run('verify-remote', list).status, 1)
+  const before = join(dir, 'before.json')
+  const after = join(dir, 'after.json')
+  writeFileSync(before, JSON.stringify(BEFORE))
+  writeFileSync(after, JSON.stringify(AFTER))
+  const ref = ['--project-ref', PRODUCTION_PROJECT_REF]
+  assert.equal(run('verify-remote', before, after, ...ref).status, 0)
+  assert.equal(run('verify-remote', before, after).status, 1, 'project ref is required')
+  assert.equal(run('verify-remote', before, after, '--project-ref', EXTERNAL_PROJECT_REF).status, 1)
+  assert.equal(run('verify-remote', before, after, '--project-ref', 'abcdefghijklmnopqrst').status, 1)
+  assert.equal(run('verify-remote', after, ...ref).status, 1, 'both inventories are required')
+  assert.equal(run('verify-remote', ...ref).status, 1)
+  assert.equal(run('verify-remote', join(dir, 'missing.json'), after, ...ref).status, 1)
+  writeFileSync(after, JSON.stringify(edit(AFTER, 'verify-loyalty', { verify_jwt: true })))
+  const changed = run('verify-remote', before, after, ...ref)
+  assert.equal(changed.status, 1)
+  assert.match(changed.stderr, /verify-loyalty: verify_jwt changed from false to true/)
 })

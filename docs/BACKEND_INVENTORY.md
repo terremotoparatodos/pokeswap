@@ -384,7 +384,8 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 | `paypal-ipn` | 1 | ✗ | PayPal IPN → resets swap cooldown |
 
 > **PAYMENTS RETIRE-2 (branch `security/retire-payment-webhooks-0.3`, not deployed yet).**
-> The table above is the hosted state read on 2026-09-07 and is kept as the record of the
+> The table above is the hosted state read on 2026-09-07 (the R02 live read in this file's
+> header; PAYMENTS RETIRE-2, on 2026-09-30, did not read hosted) and is kept as the record of the
 > **previous hosted versions** (`webhook-stripe` v13, `webhook-mercadopago` v13, `webhook-paypal`
 > v6, `kofi-webhook` v1, `paypal-ipn` v1). **INFERENCE:** `kofi-webhook` was probably redeployed
 > after SEC-04 (R11); its current hosted version was not re-read, and nothing in this task reads
@@ -401,7 +402,10 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 > The three `webhook-*` change from ✓ to ✗ on purpose: with ✓ the gateway answers the provider
 > 401 and the provider keeps retrying. Deploy only through
 > `node scripts/payment-retire/webhook-deploy-guard.mjs command <slug>` (never a bare
-> `supabase functions deploy`, which deploys every function). **Production project:
+> `supabase functions deploy`, which deploys every function), and check the result with
+> `verify-remote before.json after.json --project-ref qsufableozmyugcrhcai`: the five must be
+> public, and every other function must keep exactly its previous `verify_jwt`, version and hash,
+> whatever they were. **Production project:
 > `qsufableozmyugcrhcai`.** `xdhtasxadmhjltmtirxy` is a different, **external** project that
 > legacy PayPal buttons used as IPN `notify_url` (`js/swap.js`, commit `817c322`); we do not
 > administer it and nothing is deployed there.

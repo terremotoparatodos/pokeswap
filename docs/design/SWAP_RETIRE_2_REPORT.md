@@ -237,12 +237,28 @@ En su lugar:
 - `--no-verify-jwt` va explícito en un deploy **de una sola función**.
 - `scripts/payment-retire/webhook-deploy-guard.mjs` (Node, sin dependencias, nunca ejecuta el CLI):
   - `check`: las cinco fuentes son las retiradas (falla, por ejemplo, desde `main`, donde está el
-    `kofi-webhook` viejo y no existen los stubs). Si algún día aparece un `config.toml`,
-    `verify_jwt = false` solo se permite en estas cinco y `true` en ninguna de ellas.
+    `kofi-webhook` viejo y no existen los stubs). Si algún día aparece un `config.toml`, exige
+    que no declare `verify_jwt = true` para ninguna de las cinco; lo que declare para otras
+    funciones no es asunto de esta tarea.
   - `command <slug>`: corre `check` e imprime el único comando válido. Rechaza otros slugs, el
-    deploy sin nombre, refs mal formados y el proyecto externo `xdhtas…`.
-  - `verify-remote <list.json>`: sobre `supabase functions list --output json`, exige
-    `verify_jwt = false` en las cinco y `true` en todas las demás.
+    deploy sin nombre, refs mal formados, cualquier proyecto que no sea producción y el externo
+    `xdhtas…`.
+  - `verify-remote <before.json> <after.json> --project-ref qsufableozmyugcrhcai`: compara los
+    dos inventarios de `supabase functions list --output json`, tomados justo antes y justo
+    después del deploy. Exige:
+    - las cinco existen en `after.json` con `verify_jwt = false`;
+    - cada función no objetivo que estaba en `before.json` sigue existiendo, con el **mismo**
+      `verify_jwt` que tenía (sea `true` o `false`: no supone ningún valor) y los mismos `id`,
+      `version`, `ezbr_sha256`, `status`, `updated_at`, `entrypoint_path`, `import_map` e
+      `import_map_path`, cuando `before.json` los trae;
+    - no aparece ninguna función nueva: solo las cinco pueden cambiar versión o hash.
+
+    Falla si falta alguno de los dos inventarios, si falta `--project-ref`, si el ref no es
+    producción (incluido `xdhtas…`), o si los `id` de las funciones no coinciden entre los dos
+    archivos. **Límite:** el JSON del CLI no incluye el ref del proyecto. El guard comprueba el
+    ref declarado y que los dos inventarios sean del mismo proyecto (por los `id`), pero no puede
+    demostrar de dónde salió un archivo. Por eso ambos deben capturarse con
+    `--project-ref qsufableozmyugcrhcai` explícito.
 
 Cambio intencional respecto de hosted: `webhook-stripe`, `webhook-mercadopago` y `webhook-paypal`
 tenían `verify_jwt = true`, así que el gateway le respondía 401 al proveedor y este reintentaba.
@@ -256,8 +272,12 @@ Pasan a `false` para que el stub conteste 200.
   `https://xdhtasxadmhjltmtirxy.supabase.co/functions/v1/paypal-ipn`. No podemos desplegar ni
   cambiar nada ahí; el guard lo rechaza. Lo que llegue a ese proyecto se corta desde la cuenta de
   PayPal (§10.8).
-- Versiones hosted anteriores (lectura del 2026-09-07, `BACKEND_INVENTORY.md` §6; **no se releyó
-  hosted en esta tarea**):
+- Versiones hosted anteriores, según la lectura en vivo del **2026-09-07** (R02, encabezado de
+  `BACKEND_INVENTORY.md`: «Live read … via Supabase MCP on 2026-09-07»). **No es un error de
+  fecha:** esa es la última lectura de hosted registrada en el repositorio. La auditoría de
+  PAYMENTS RETIRE-2 (2026-09-30) trabajó solo sobre el repositorio y **no leyó hosted**. Si hubo
+  otra lectura de hosted el 2026-09-30, sus valores no están versionados y deben reemplazar esta
+  tabla. `before.json` (§10.6) será el registro autoritativo:
 
   | Función | Versión | JWT |
   |---|---|---|
@@ -268,7 +288,7 @@ Pasan a `false` para que el stub conteste 200.
   | `webhook-mercadopago` | 13 | ✓ |
 
   Antes de desplegar, guardar `supabase functions list --project-ref qsufableozmyugcrhcai --output
-  json` como registro local (solo metadatos). **No se copian fuentes hosted al repositorio:** pueden
+  json` como `before.json` (solo metadatos): es la base de `verify-remote`. **No se copian fuentes hosted al repositorio:** pueden
   tener secretos (la v1 de `kofi-webhook` tenía el token literal, SEC-04) y manejo de payloads.
 
 ### 10.5 Datos preservados
@@ -303,11 +323,14 @@ Verificación:
 
 ```bash
 supabase functions list --project-ref qsufableozmyugcrhcai --output json > after.json
-node scripts/payment-retire/webhook-deploy-guard.mjs verify-remote after.json
+node scripts/payment-retire/webhook-deploy-guard.mjs verify-remote before.json after.json --project-ref qsufableozmyugcrhcai
 ```
 
+`before.json` se toma una sola vez, justo antes del primer deploy, y `after.json` después del
+último. Si entre ambos otra persona despliega una función ajena, `verify-remote` falla a
+propósito: hay que entender ese cambio antes de dar el deploy por bueno.
+
 Humo sin pagos: `OPTIONS` y `POST {}` a cada stub → 200; `POST` a `kofi-webhook` sin token → 401.
-`before.json` fallará `verify-remote` (los tres `webhook-*` con JWT): es lo esperado.
 
 **Rollback seguro.** No volver nunca a las versiones hosted anteriores: reactivan la venta del
 salto de cooldown, escriben con service role y loguean datos personales y el token. Si un stub
@@ -356,7 +379,7 @@ Rotar antes del paso 1 dejaría el token nuevo expuesto a los logs de la versió
 | `deno check` de los cinco `index.ts` | ✓ |
 | Humo HTTP real (`Deno.serve` en 127.0.0.1, `--allow-net=127.0.0.1`) | ✓ Ko-fi: OPTIONS 200, token válido 200, inválido 401; stubs: OPTIONS 200, POST 200 vacío; ningún log de los stubs |
 | Mutaciones sobre el `handler.ts` real de Ko-fi | ✓ loguear el payload → 6 tests fallan · escribir el cooldown → 8 fallan · aceptar cualquier token → 1 falla |
-| Guard de deploy (`node --test scripts/payment-retire/`) | ✓ 9/9 (incluye: el `kofi-webhook` de `9475138` es rechazado) |
+| Guard de deploy (`node --test scripts/payment-retire/`) | ✓ 21/21 (incluye: el `kofi-webhook` de `9475138` es rechazado; `verify-remote` antes/después: función ajena en `false` válida, `false→true` y `true→false` fallan, borrar o cambiar versión/hash/metadatos falla, función nueva falla, objetivo en `true` falla, inventarios de otro proyecto o ausentes fallan) |
 | Realtime completo (`node --test`, **Node 22.23.3** portátil) | ✓ 195 pass · 0 fail · 20 skipped (todas: gate de staging RC-0.3, requiere Supabase local) |
 | Integración / PGlite | ✓ incluidos arriba (`integration.test.js`, `database.test.js`, `skipSwapCooldownRetire.test.js`, restart en disco) |
 | Vitest completo | ✓ 183 archivos / 1779 tests |
