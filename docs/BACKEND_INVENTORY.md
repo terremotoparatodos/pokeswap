@@ -373,6 +373,16 @@ server-authoritative. No client-supplied price or outcome. **INV-OWN-2 resolved.
 
 ### 6.2 `pokeswap-swap`
 
+> **RETIRED (SWAP RETIRE-1, `hotfix/retire-swap-0.2`).** Swap is permanently withdrawn. The
+> function now authenticates the caller with the anon key and answers every signed-in request
+> `410 Gone` with `{ code: 'swap_retired' }`; OPTIONS and the 401 without a valid user are
+> unchanged. It creates no service-role client, reads no body, touches no table and rolls no
+> RNG (`supabase/functions/pokeswap-swap/handler.ts`, tests in `handler.test.ts`). The
+> function, `swap_history` and `profiles.swap_cooldown_until` are kept for traceability.
+> The bullets below describe the flow **as it was** before the retirement, and why it was
+> retired: the received Pokémon was chosen without checking its owner and upserted by
+> `pokemon_id` with the service role, so it could be taken from another player.
+
 - Validates JWT and fetches profile.
 - Checks `swap_cooldown_until` server-side; rejects if still in cooldown. **INV-SWP-2 confirmed.**
 - Queries `slots WHERE owner_id = user AND is_locked = false`. **INV-OWN-3 resolved: locked
