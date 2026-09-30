@@ -163,6 +163,9 @@ permanent ownership are not tracked as current-state properties of a slot.
 **FACT** — `was_shiny` is persisted in `swap_history` as a historical record of the swap event,
 not as a property of the current slot state. `slots` has no `is_shiny` column.
 
+> **SWAP RETIRE-2:** no client reads this table any more. It is kept unchanged, as history
+> for the `INSTANCES-1` backfill; see `docs/design/SWAP_RETIRE_2_REPORT.md`.
+
 ### 1.8 `pokedex_entries`
 
 **FACT** — RLS enabled. 399 rows. Composite PK `(user_id, pokemon_id)`.
@@ -333,6 +336,20 @@ check.
 > function should be dropped in favor of using the service role key directly inside Edge
 > Functions.
 
+### 4.8 `skip_swap_cooldown()` → jsonb
+
+SECURITY DEFINER. Debits 1,000 tokens, clears `profiles.swap_cooldown_until` and writes a
+`token_ledger` row (`reason = 'skip_swap_cooldown'`). Versioned in
+`20260907_005_token_economy_rpcs.sql` and `20260914130000_restore_skip_swap_cooldown.sql`
+(`EXECUTE` to `authenticated`; `PUBLIC` and `anon` revoked).
+
+> **RETIRED (SWAP RETIRE-2).** Swap is gone, so the cooldown guards nothing and the debit bought
+> nothing. The client no longer calls it. Migration
+> `20260930150000_retire_skip_swap_cooldown.sql` (prepared, **not applied to hosted**) revokes
+> every real overload from `PUBLIC`, `anon` and `authenticated` and comments it as retired. It
+> keeps the function and its body for traceability and administrative rollback only. Hosted
+> signatures and ACL are **not verified** from this repository.
+
 ---
 
 ## 5. Triggers
@@ -379,6 +396,10 @@ server-authoritative. No client-supplied price or outcome. **INV-OWN-2 resolved.
 > unchanged. It creates no service-role client, reads no body, touches no table and rolls no
 > RNG (`supabase/functions/pokeswap-swap/handler.ts`, tests in `handler.test.ts`). The
 > function, `swap_history` and `profiles.swap_cooldown_until` are kept for traceability.
+> **SWAP RETIRE-2:** the 0.3 client no longer calls it (SwapView, useSwap and swapApi
+> are removed; `/swap` shows a static retirement notice). The function stays deployed at 410
+> for old clients. **Never redeploy it from `main @ 480b352`**, which still has the
+> pre-retirement code.
 > The bullets below describe the flow **as it was** before the retirement, and why it was
 > retired: the received Pokémon was chosen without checking its owner and upserted by
 > `pokemon_id` with the service role, so it could be taken from another player.
@@ -441,6 +462,10 @@ call `confirm_payment`, and which are stubs or legacy?
 Both handle payment-provider callbacks to reset the swap cooldown (skip-cooldown product).
 Neither grants Pokémon ownership — they only write `kofi_payments` and update
 `profiles.swap_cooldown_until`.
+
+> **OPEN QUESTION (SWAP RETIRE-2):** with Swap retired, both still sell a cooldown reset that
+> no longer does anything. `kofi-webhook` is still in `supabase/functions/`; `paypal-ipn`
+> exists only in hosted. Disabling them is a payment-flow change and is left to its own task.
 
 **FACT — `paypal-ipn` performs IPN verification** by posting back to
 `https://ipnpb.paypal.com/cgi-bin/webscr` with `cmd=_notify-validate` and only proceeding
