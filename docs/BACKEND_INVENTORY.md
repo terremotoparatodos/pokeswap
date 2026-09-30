@@ -5,6 +5,16 @@
 > functions, and Edge Functions) so that migration steps are grounded in what actually exists, not
 > what the frontend code implies. Resolves all OPEN QUESTIONs deferred from R00 and R01.
 > **Source:** Live read of project `qsufableozmyugcrhcai` via Supabase MCP on 2026-09-07.
+>
+> **Current state of Swap and the payment webhooks (2026-09-30):** see §4.8 and §6. The body of
+> this document is the 2026-09-07 read, kept as history.
+>
+> ⚠️ **Migration history (pre-existing risk, not caused by SWAP/PAYMENTS RETIRE-2):** several old
+> migrations are named `20260907_00N_*.sql` (8 files) and `20260908_0NN_*.sql` (3 files). The
+> Supabase CLI takes only the digits before the first `_` as the version, so locally there are 8
+> migrations with version `20260907` and 3 with `20260908`. **Do not run a general
+> `supabase db push` until the local history is reconciled with hosted.** Those files are not
+> renamed or repaired here (`docs/design/SWAP_RETIRE_2_REPORT.md` §11).
 > **Labeling:** Same convention as R00/R01 — **FACT**, **INFERENCE**, **OPEN QUESTION**.
 
 ---
@@ -347,13 +357,16 @@ SECURITY DEFINER. Debits 1,000 tokens, clears `profiles.swap_cooldown_until` and
 > nothing. The client no longer calls it. Migration
 > `20260930230308_retire_skip_swap_cooldown.sql` revokes
 > every real overload from `PUBLIC`, `anon` and `authenticated` and comments it as retired. It
-> keeps the function and its body for traceability and administrative rollback only. Hosted
-> signatures and ACL are **not verified** from this repository.
+> keeps the function and its body for traceability and administrative rollback only.
 >
-> **Version (PAYMENTS RETIRE-2):** the migration was prepared as `20260930150000_…` and was
-> renamed, byte-identical, to `20260930230308_…` because hosted recorded it under version
-> `20260930230308` (`retire_skip_swap_cooldown`), as reported by the project owner. That hosted
-> record was not read from this repository.
+> **Current state (FACT, verified in hosted by the main station on 2026-09-30):** applied as
+> `20260930230308 retire_skip_swap_cooldown`. The function body is unchanged; `PUBLIC`, `anon` and
+> `authenticated` have no `EXECUTE`; `postgres` and `service_role` keep theirs. An authenticated
+> call gets HTTP 403 / SQLSTATE 42501, and the test account's tokens, cooldown and ledger did not
+> change.
+>
+> **History:** prepared as `20260930150000_…` and renamed, byte-identical, to
+> `20260930230308_…` to match the hosted version.
 
 ---
 
@@ -388,7 +401,25 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 | `kofi-webhook` | 1 | ✗ | Ko-fi donation webhook → resets swap cooldown |
 | `paypal-ipn` | 1 | ✗ | PayPal IPN → resets swap cooldown |
 
-> **PAYMENTS RETIRE-2 (branch `security/retire-payment-webhooks-0.3`, not deployed yet).**
+> **Current state — PAYMENTS RETIRE-2 deployed (FACT, verified in hosted by the main station on
+> 2026-09-30):**
+>
+> | Slug | Version | JWT | Short hash |
+> |---|---|---|---|
+> | `kofi-webhook` | 5 | ✗ | `817d7f13` |
+> | `webhook-stripe` | 16 | ✗ | `ac4e22bf` |
+> | `webhook-mercadopago` | 16 | ✗ | `42552d73` |
+> | `webhook-paypal` | 9 | ✗ | `28722c35` |
+> | `paypal-ipn` | 4 | ✗ | `3d7e06ab` |
+>
+> `verify-remote before.json after.json` passed. The other nine functions did not change
+> (`pokeswap-swap` still v15, `world-authority` still v1). The stubs answer an empty 200,
+> `kofi-webhook` answers 401 to a wrong token, logs carry no bodies or received data, and
+> `kofi_payments` still has 0 rows. **Pending:** rotate `KOFI_VERIFICATION_TOKEN`, run a valid Ko-fi
+> `Send Test`, clean up the PayPal, Stripe and MercadoPago dashboards, and review the external
+> project `xdhtasxadmhjltmtirxy`.
+>
+> **History — PAYMENTS RETIRE-2 as prepared (branch `security/retire-payment-webhooks-0.3`).**
 > The table above is the hosted state read on 2026-09-07 (the R02 live read in this file's
 > header; PAYMENTS RETIRE-2, on 2026-09-30, did not read hosted) and is kept as the record of the
 > **previous hosted versions** (`webhook-stripe` v13, `webhook-mercadopago` v13, `webhook-paypal`

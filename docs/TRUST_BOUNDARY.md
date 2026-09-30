@@ -127,7 +127,8 @@ Pokémon they do not own, or cancel another player's listing if the RLS policy h
 **Rule** — Browser redirects are never proof of payment (INV-PAY-1). A client returning from
 a payment provider must wait for the server webhook to confirm before any entitlement is granted.
 
-> **PAYMENTS RETIRE-2 (`security/retire-payment-webhooks-0.3`, pending deploy).** No payment
+> **PAYMENTS RETIRE-2 (deployed to hosted on 2026-09-30; see `docs/BACKEND_INVENTORY.md` §6).**
+> **Pending:** rotate `KOFI_VERIFICATION_TOKEN` and run a valid Ko-fi `Send Test`. No payment
 > grants anything any more. Swap is retired; Ko-fi is a voluntary donation with no in-game reward;
 > PayPal, Stripe and MercadoPago are disabled. The table above describes the R-era design.
 >

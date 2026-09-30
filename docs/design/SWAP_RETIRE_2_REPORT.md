@@ -1,7 +1,52 @@
 # SWAP RETIRE-2 — Limpieza funcional de Swap
 
 Rama `world/swap-retire-cleanup-0.3`, desde `origin/integration/world-skills-0.3 @ 4ed2b62`.
-Sin merge, sin deploy y sin cambios en hosted.
+Al cerrar esa rama: sin merge, sin deploy y sin cambios en hosted. El estado actual está en
+**Estado vigente**, justo abajo.
+
+## Estado vigente (2026-09-30)
+
+> **FACT — verificado en hosted por la estación principal el 2026-09-30** (proyecto de producción
+> `qsufableozmyugcrhcai`). No se leyó desde este repositorio; se registra acá como cierre. Las
+> secciones siguientes conservan la historia de cada rama. Donde digan «preparada», «no aplicada»
+> o «sin deploy», describen el momento en que se escribieron, no el estado actual.
+
+**Swap y `skip_swap_cooldown`:**
+
+- `pokeswap-swap` sigue en **v15** (410 `swap_retired`).
+- Migración aplicada en hosted como **`20260930230308 retire_skip_swap_cooldown`**; el archivo
+  local está alineado: `supabase/migrations/20260930230308_retire_skip_swap_cooldown.sql`.
+- Cuerpo de `skip_swap_cooldown` sin cambios. `PUBLIC`, `anon` y `authenticated` **sin
+  `EXECUTE`**; `postgres` y `service_role` conservados.
+- Prueba autenticada: HTTP **403**, SQLSTATE **42501**. Tokens, cooldown y ledger de la cuenta de
+  prueba no cambiaron.
+
+**Webhooks de pago (PAYMENTS RETIRE-2) desplegados:**
+
+| Función | Versión | `verify_jwt` | Hash corto |
+|---|---|---|---|
+| `kofi-webhook` | v5 | `false` | `817d7f13` |
+| `webhook-stripe` | v16 | `false` | `ac4e22bf` |
+| `webhook-mercadopago` | v16 | `false` | `42552d73` |
+| `webhook-paypal` | v9 | `false` | `28722c35` |
+| `paypal-ipn` | v4 | `false` | `3d7e06ab` |
+
+- `verify-remote before.json after.json` pasó. Las otras nueve funciones no cambiaron;
+  `world-authority` sigue en v1.
+- Los stubs responden `200` vacío. `kofi-webhook` con token falso responde `401`.
+- Logs sin cuerpos ni datos recibidos. `kofi_payments` continúa con 0 filas.
+
+**Pendiente:**
+
+1. **Rotar `KOFI_VERIFICATION_TOKEN`** (urgente; orden de §10.6, pasos 4–8). Hosted quedó
+   neutralizado con el token existente, que ya no se loguea.
+2. **Ejecutar un `Send Test` válido** desde Ko-fi y comprobar `200` (tras la rotación, §10.6 paso 7).
+3. **Limpiar los paneles** de PayPal (IPN, botones, webhook REST), Stripe y MercadoPago (§10.8).
+4. **Revisar el proyecto externo `xdhtasxadmhjltmtirxy`**, al que apuntaba el IPN de los botones
+   viejos de PayPal. No lo administramos; se corta desde la cuenta de PayPal (§10.4, §10.8).
+
+> ⚠️ **No ejecutar un `supabase db push` general hasta reconciliar el historial local de
+> migraciones con hosted.** Hay versiones locales duplicadas, un riesgo previo a estas tareas (§11).
 
 > ⚠️ **No redesplegar Swap desde `main @ 480b352`.** Esa revisión tiene el `pokeswap-swap`
 > anterior a SWAP RETIRE-1: usa service role, elige el Pokémon recibido sin comprobar dueño y
@@ -22,7 +67,7 @@ pantalla no se construye acá.
 - **Corregida en RETIRE-1 (hosted `pokeswap-swap v15`):** la función elegía el Pokémon recibido
   sin comprobar su dueño y lo reasignaba con service role, de modo que podía quitárselo a otro
   jugador. Hoy responde `410 swap_retired`.
-- **Corregida acá (pendiente de aplicar en hosted):** `skip_swap_cooldown()` seguía ejecutable por
+- **Corregida acá (aplicada en hosted como `20260930230308`; ver Estado vigente):** `skip_swap_cooldown()` seguía ejecutable por
   `authenticated`. Cobraba 1.000 tokens por limpiar un cooldown que ya no protege nada. Además,
   la build normal de integración @ `4ed2b62` todavía incluía `SwapView` con su botón para saltar
   el cooldown.
@@ -43,7 +88,7 @@ pantalla no se construye acá.
 | Textos: NPCs (2), cartel y NPC de Silph Co., Pokédex y caja vacías ("¡Hacé un swap!") | reemplazados; las líneas de NPC conservan su posición en la lista |
 | Puerta cerrada del playtest: "Queda cerrado durante el playtest" | ahora dice el aviso de retiro |
 | Tests de `skipCooldown` en `progressionApi.test.ts` | borrados |
-| `EXECUTE` de `skip_swap_cooldown` para `PUBLIC`/`anon`/`authenticated` | migración preparada (§5) |
+| `EXECUTE` de `skip_swap_cooldown` para `PUBLIC`/`anon`/`authenticated` | revocado por la migración `20260930230308`, aplicada en hosted (§5) |
 
 Aviso único (`src/features/swap/retired.ts`):
 «El intercambio fue retirado. Próximamente este edificio albergará investigación de huevos e
@@ -93,15 +138,19 @@ Nada se borra ni se transforma: `swap_history`, `slots`, `profiles.swap_cooldown
 `token_ledger` y la función `skip_swap_cooldown`. La prueba PGlite comprueba que la migración no
 toca ninguno de esos datos.
 
-## 5. Migración preparada (no aplicada)
+## 5. Migración `20260930230308` — aplicada en hosted
 
 `supabase/migrations/20260930230308_retire_skip_swap_cooldown.sql`
 
-> **Versión alineada con hosted (PAYMENTS RETIRE-2):** se preparó como
-> `20260930150000_retire_skip_swap_cooldown.sql`. Se renombró sin tocar el contenido (mismo blob
-> git `e08080b…` y mismo SHA-256) porque, según el dueño del proyecto, hosted la registró como
-> `20260930230308 retire_skip_swap_cooldown`. Ese registro no se leyó desde este repositorio. El
-> título de esta sección y el §9 describen el estado al cerrar SWAP RETIRE-2.
+> **Estado vigente:** aplicada en hosted como `20260930230308 retire_skip_swap_cooldown`,
+> verificado por la estación principal el 2026-09-30. Cuerpo sin cambios; `PUBLIC`, `anon` y
+> `authenticated` sin `EXECUTE`; `postgres` y `service_role` conservados; una llamada autenticada
+> recibe HTTP 403 / SQLSTATE 42501 sin cambiar tokens, cooldown ni ledger.
+>
+> **Historia:** se preparó como `20260930150000_retire_skip_swap_cooldown.sql` y se renombró sin
+> tocar el contenido (mismo blob git `e08080b…` y mismo SHA-256) para coincidir con la versión de
+> hosted. Lo que sigue describe cómo se preparó; la frase sobre el catálogo sin verificar vale
+> para ese momento.
 
 - Busca en `pg_proc` todas las sobrecargas reales de `public.skip_swap_cooldown` y, a cada una, le
   hace `REVOKE ALL ... FROM PUBLIC, anon, authenticated` con su firma real (`regprocedure`), más
@@ -154,7 +203,7 @@ WHERE n.nspname = 'public' AND p.proname = 'skip_swap_cooldown';
 | build Playtest + `bundle-check.mjs playtest` | ✓ |
 | Control negativo: el mismo chequeo sobre builds de `4ed2b62` | ✗ como se esperaba (`SwapView` con ambas llamadas en la normal; copy de Swap en las dos) |
 | Drift de SKILLS (`bundle-skills.mjs --check`) | ✓ |
-| Realtime completo | **pendiente**: esta máquina solo tiene Node 18.14, y Colyseus 0.18 necesita Node ≥ 22 (`import ... with`). Con Node 18 pasan 16 de 32 archivos, entre ellos el test nuevo; los otros 16 fallan al parsear, por el entorno. Esta rama no cambia código de realtime |
+| Realtime completo | **pendiente al cerrar SWAP RETIRE-2; resuelto en PAYMENTS RETIRE-2** (Node 22.23.3: 195 pass, 0 fail, 20 skipped, §10.9). Nota original: esta máquina solo tiene Node 18.14, y Colyseus 0.18 necesita Node ≥ 22 (`import ... with`). Con Node 18 pasan 16 de 32 archivos, entre ellos el test nuevo; los otros 16 fallan al parsear, por el entorno. Esta rama no cambia código de realtime |
 
 Tests nuevos:
 
@@ -169,7 +218,12 @@ Tests nuevos:
 - Login, Ciudad y el resto de la navegación siguen cubiertos por las suites existentes (`routes`,
   `useLobbyPanel`, `LobbyMenu`, auth), todas en verde.
 
-## 9. Pendientes que requieren Supabase local o hosted
+## 9. Pendientes al cerrar SWAP RETIRE-2 (resueltos)
+
+> **Estado vigente:** los cuatro puntos quedaron resueltos. La migración se aplicó en hosted y se
+> verificaron ACL y la llamada autenticada (403/42501). `kofi-webhook` y `paypal-ipn` se
+> decidieron y desplegaron en PAYMENTS RETIRE-2 (§10). Realtime pasó con Node 22. La lista original
+> queda como historia:
 
 - Aplicar la migración sobre un Supabase real (local con Docker o staging) y comprobar
   `has_function_privilege` y una llamada PostgREST como `authenticated`. PGlite reproduce los roles
@@ -184,8 +238,9 @@ Tests nuevos:
 
 Rama `security/retire-payment-webhooks-0.3`, desde `origin/world/swap-retire-cleanup-0.3 @ 9475138`
 (que deriva de la integración `4ed2b62`). Resuelve la OPEN QUESTION de `kofi-webhook` / `paypal-ipn`
-del §3. Sin merge, sin deploy, sin cambios en hosted, sin SQL ni migraciones, sin rotar secretos y
-sin pagos de prueba.
+del §3. Esta rama no hizo merge, deploy, cambios en hosted, SQL, migraciones nuevas, rotación de
+secretos ni pagos de prueba. El deploy de las cinco funciones y la aplicación de la migración los
+hizo después la estación principal (**Estado vigente**, al principio).
 
 ### 10.1 Decisión de producto
 
@@ -290,6 +345,10 @@ Pasan a `false` para que el stub conteste 200.
   `https://xdhtasxadmhjltmtirxy.supabase.co/functions/v1/paypal-ipn`. No podemos desplegar ni
   cambiar nada ahí; el guard lo rechaza. Lo que llegue a ese proyecto se corta desde la cuenta de
   PayPal (§10.8).
+- **Versiones vigentes** (desplegadas el 2026-09-30): `kofi-webhook` v5 (`817d7f13`),
+  `webhook-stripe` v16 (`ac4e22bf`), `webhook-mercadopago` v16 (`42552d73`), `webhook-paypal` v9
+  (`28722c35`), `paypal-ipn` v4 (`3d7e06ab`), todas con `verify_jwt=false`. La tabla siguiente es
+  historia.
 - Versiones hosted anteriores, según la lectura en vivo del **2026-09-07** (R02, encabezado de
   `BACKEND_INVENTORY.md`: «Live read … via Supabase MCP on 2026-09-07»). **No es un error de
   fecha:** esa es la última lectura de hosted registrada en el repositorio. La auditoría de
@@ -316,7 +375,12 @@ Nada se borra ni se modifica: `kofi_payments`, `transactions`, `token_ledger`,
 migraciones nuevas; la que revoca `skip_swap_cooldown` ya estaba en la base (§5). La brecha SEC-01
 (RLS apagado en `kofi_payments`) sigue abierta y queda para una tarea de esquema.
 
-### 10.6 Plan de despliegue y rotación de Ko-fi (manual, no ejecutado)
+### 10.6 Plan de despliegue y rotación de Ko-fi
+
+> **Estado vigente (2026-09-30):** la estación principal desplegó las cinco funciones y
+> `verify-remote before.json after.json` pasó. Stubs → `200` vacío; Ko-fi con token falso →
+> `401`; logs limpios. Se siguió el camino «la rotación no bloquea la neutralización»: **faltan los
+> pasos 4–8** (rotar el token y hacer un `Send Test` válido), pendientes urgentes, en este orden.
 
 El token de Ko-fi está comprometido: la v1 hosted lo tenía literal en el código (SEC-04), y el
 handler anterior imprimía el payload completo, token incluido, en los logs de la función. Regla
@@ -413,6 +477,10 @@ en Ko-fi y se carga en Supabase.
 
 ### 10.8 Tareas manuales pendientes (fuera del repositorio)
 
+Vigentes al 2026-09-30, después del deploy: rotar `KOFI_VERIFICATION_TOKEN`, hacer un `Send Test`
+válido, limpiar los paneles de PayPal, Stripe y MercadoPago, y revisar el proyecto externo
+`xdhtasxadmhjltmtirxy`. Detalle:
+
 - **Ko-fi:** rotar el token en el orden de §10.6 (pasos 4–8, nunca antes de 2–3); confirmar que la URL del webhook apunta a
   `qsufableozmyugcrhcai`/`kofi-webhook`; quitar de la página de Ko-fi y de cualquier texto público
   la promesa de «saltar el cooldown» con una donación. Si no se quiere recibir webhooks, borrar la
@@ -425,6 +493,8 @@ en Ko-fi y se carga en Supabase.
 - Revisar en hosted los logs viejos de `kofi-webhook` y `paypal-ipn` (datos personales) según la
   política de retención. Esta tarea no los toca.
 - `create-checkout` y `create-payment-skip` quedan fuera de alcance (el segundo ya responde 503).
+- **Proyecto externo `xdhtasxadmhjltmtirxy`:** revisar qué recibe y cortar su origen desde PayPal.
+  No lo administramos y no se despliega nada ahí.
 
 ### 10.9 Tests y gates
 
@@ -460,3 +530,25 @@ Tests nuevos:
   administrativos, secretos, lectura del cuerpo ni base. Además: mutantes del stub son detectados, y
   todo directorio `*paypal*|*stripe*|*mercadopago*` está cubierto.
 - `scripts/payment-retire/webhook-deploy-guard.test.mjs`: descrito en §10.3.
+
+---
+
+## 11. Riesgo preexistente: versiones de migración duplicadas
+
+**FACT.** Varias migraciones antiguas usan nombres con un sufijo numérico después de la fecha:
+
+- `20260907_001_*.sql` … `20260907_008_*.sql` (8 archivos);
+- `20260908_009_*.sql`, `20260908_010_*.sql`, `20260908_011_*.sql` (3 archivos).
+
+El CLI de Supabase toma como versión **solo los dígitos anteriores al primer `_`**. Localmente
+existen entonces 8 migraciones con la versión `20260907` y 3 con `20260908`. Las demás versiones
+(`20260914130000`, `20260919`, `20260924042219`, `20260926…`, `20260930230308`) son únicas.
+
+**No lo causó PAYMENTS RETIRE-2** (ni SWAP RETIRE-2). El único cambio de migraciones de estas
+tareas fue renombrar la de retiro a `20260930230308`, que es única y la última del orden.
+
+**Consecuencia: no ejecutar un `supabase db push` general hasta reconciliar el historial local con
+el de hosted.** No se sabe cómo registró hosted esas versiones. Un `db push` podría intentar
+aplicar de nuevo, o en otro orden, migraciones que hosted ya tiene. Esta tarea no renombra ni
+repara esas migraciones: la reconciliación (leer `supabase_migrations.schema_migrations` en hosted,
+decidir nombres y, si hace falta, `migration repair`) queda para una tarea propia.
