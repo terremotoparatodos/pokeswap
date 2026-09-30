@@ -6,11 +6,14 @@
 // half of what we are watching.
 //
 // Every closed door leads somewhere real in the normal build. Closing them here
-// is a playtest decision and nothing more: the Mercado, the Swap and the Perfil
-// all write to persistent, economic state, and a two-hour build has no business
-// near it (see the data classification in COMMUNITY_PLAYTEST_0_1.md).
+// is a playtest decision and nothing more: the Mercado and the Perfil write to
+// persistent, economic state, and a two-hour build has no business near it
+// (see the data classification in COMMUNITY_PLAYTEST_0_1.md). Silph Co. is the
+// exception: Swap is retired in every build (SWAP RETIRE-2), so its door says
+// that rather than promising it back.
 
 import type { LobbyFeature } from '../../wildlands/lobby/features'
+import { SWAP_RETIRED_NOTICE } from '../../swap/retired'
 
 export type PlaytestSurface =
   /** Heal, party and boxes. */
@@ -21,7 +24,7 @@ export type PlaytestSurface =
 
 /** Why each closed door is closed, in one sentence a player can read. */
 const CLOSED: Readonly<Record<Exclude<LobbyFeature, 'caja' | 'mercado'>, string>> = {
-  swap: 'El Swap mueve Pokémon de verdad entre cuentas. Queda cerrado durante el playtest.',
+  swap: SWAP_RETIRED_NOTICE,
   dungeon: 'La Dungeon no se entra desde acá: buscá una cueva en WildLands.',
   pokedex: 'La Pokédex vuelve después del playtest.',
   perfil: 'Tu perfil y tus tokens reales quedan fuera de esta build.',

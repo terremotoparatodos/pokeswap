@@ -18,7 +18,7 @@
       <p v-if="boxLoading" class="profile-box-loading">Cargando…</p>
       <p v-else-if="boxError" class="profile-error" role="alert">{{ boxError }}</p>
       <p v-else-if="!boxItems.length" class="profile-box-empty">
-        Todavía no tenés ningún Pokémon. ¡Hacé un swap!
+        Todavía no tenés ningún Pokémon.
       </p>
 
       <ul v-else class="profile-box-grid">
