@@ -113,3 +113,25 @@ describe('a move the server made (WORLD VISUAL-2: the trainer steps aside for it
     expect([far.g.player.tx, far.g.player.ty, far.g.player.progress]).toEqual([33, 20, 1])
   })
 })
+
+describe('CAVES-3: a refused crossing', () => {
+  it('stops waiting for the cave and accepts the snapshot of where the actor really is', () => {
+    const { g } = game('pradera')
+    g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -25, ty: -73, moveSequence: 4 }), 'snapshot')
+    // The client stepped onto the mouth and asked for the cave; the service refused.
+    Object.assign(g, { pendingPresenceArea: 'cueva-inicial', awaitingAreaSnapshot: true })
+    ;(g as unknown as { presenceRejected(reason: string): void }).presenceRejected('area transition denied')
+    g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -25, ty: -73, moveSequence: 4 }), 'snapshot')
+    expect(g.area.id).toBe('pradera')
+    expect([g.player.tx, g.player.ty]).toEqual([-25, -73])
+    expect((g as unknown as { pendingPresenceArea: string | null }).pendingPresenceArea).toBeNull()
+    expect((g as unknown as { awaitingAreaSnapshot: boolean }).awaitingAreaSnapshot).toBe(false)
+  })
+
+  it('any other refusal leaves a pending crossing pending', () => {
+    const { g } = game('pradera')
+    Object.assign(g, { pendingPresenceArea: 'cueva-inicial', awaitingAreaSnapshot: true })
+    ;(g as unknown as { presenceRejected(reason: string): void }).presenceRejected('movement rate denied')
+    expect((g as unknown as { pendingPresenceArea: string | null }).pendingPresenceArea).toBe('cueva-inicial')
+  })
+})

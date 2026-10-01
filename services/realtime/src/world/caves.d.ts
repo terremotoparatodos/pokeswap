@@ -24,3 +24,5 @@ export declare const CAVES: readonly Cave[]
 export declare function cavesIn(areaId: string): readonly Cave[]
 export declare function isCaveRock(areaId: string, tx: number, ty: number): boolean
 export declare function isCaveReserved(areaId: string, tx: number, ty: number): boolean
+export declare function caveByInterior(areaId: string): Cave | null
+export declare function isCaveMouth(areaId: string, tx: number, ty: number): boolean

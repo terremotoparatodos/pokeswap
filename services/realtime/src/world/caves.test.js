@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { WORLD_AREAS } from './areas.js'
-import { CAVES, CAVE_CLEARANCE, CAVE_ENTRANCE, cavesIn, isCaveReserved, isCaveRock } from './caves.js'
+import { CAVES, CAVE_CLEARANCE, CAVE_ENTRANCE, cavesIn, isCaveMouth, isCaveReserved, isCaveRock } from './caves.js'
 import { PLOTS } from './plots.js'
 import { resourceAt } from './resourceLayout.js'
 import { AUTHORED_DECOR } from './resourceZoneLayout.js'
@@ -47,12 +47,13 @@ test('ids are unique and stable strings; interiors are unique too', () => {
   }
 })
 
-test('exactly one public cave: Pradera at (-26,-74), closed until CAVES-3', () => {
+test('exactly one public cave: Pradera at (-26,-74), open since CAVES-3, leading to cueva-inicial', () => {
   assert.equal(CAVES.length, 1)
   assert.deepEqual(CAVES.map(cave => cave.areaId), ['pradera'])
   const [cave] = cavesIn('pradera')
   assert.deepEqual({ ...cave.anchor }, { tx: -26, ty: -74 })
-  assert.equal(cave.entrance, CAVE_ENTRANCE.CLOSED)
+  assert.equal(cave.entrance, CAVE_ENTRANCE.OPEN)
+  assert.equal(cave.interiorAreaId, 'cueva-inicial')
   for (const areaId of ['ciudad-corazon', 'bosque', 'desierto', 'tundra', 'costa']) assert.equal(cavesIn(areaId).length, 0, areaId)
 })
 
@@ -76,16 +77,20 @@ test('geometry: the footprint, mouth, approach and clearance follow from anchor,
   }
 })
 
-test('footprint on dry ground; every rock tile, sides and back included, is solid for the service', () => {
+test('footprint on dry ground; sides and back are solid rock, and only the open mouth lets anyone through', () => {
   for (const cave of cavesIn('pradera')) {
+    const isMouth = t => t.tx === cave.mouth.tx && t.ty === cave.mouth.ty
     for (const t of cave.footprint) {
       assert.equal(isWaterTile(seed, t.tx, t.ty), false, `${k(t)} dry`)
-      assert.equal(isCaveRock('pradera', t.tx, t.ty), true)
-      assert.equal(solid(t.tx, t.ty), true, `${k(t)} solid`)
+      assert.equal(isCaveRock('pradera', t.tx, t.ty), !isMouth(t), `${k(t)} rock`)
+      assert.equal(solid(t.tx, t.ty), !isMouth(t), `${k(t)} solid`)
+      assert.equal(isCaveMouth('pradera', t.tx, t.ty), isMouth(t), `${k(t)} mouth`)
     }
-    // Nothing but the footprint is rock: the layer never grows past the data.
+    // Exactly one footprint tile is open: the whole rock never becomes walkable.
+    assert.equal(cave.footprint.filter(t => !solid(t.tx, t.ty)).length, 1)
+    // Nothing but the footprint (minus its open mouth) is rock: the layer never grows past the data.
     for (let ty = cave.anchor.ty - 4; ty <= cave.anchor.ty + 5; ty++) for (let tx = cave.anchor.tx - 4; tx <= cave.anchor.tx + cave.width + 3; tx++) {
-      const inside = cave.footprint.some(t => t.tx === tx && t.ty === ty)
+      const inside = cave.footprint.some(t => t.tx === tx && t.ty === ty) && !isMouth({ tx, ty })
       assert.equal(isCaveRock('pradera', tx, ty), inside, `${tx},${ty}`)
     }
   }

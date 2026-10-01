@@ -4,6 +4,7 @@
 // own seed and a preferred starting biome; a glowing pad next to the arrival
 // point leads back to the lobby.
 
+import { CAVE_ENTRANCE, caveByInterior, cavesIn } from '../../../../services/realtime/src/world/caves.js'
 import type { Arrival, Area, AreaId, Populace, PopulaceContext, Portal } from '../engine/area'
 import { weatherAt } from '../engine/atmosphere'
 import { CHUNK_PX, ChunkStore, type DecorInstance } from '../engine/chunks'
@@ -39,10 +40,19 @@ export class WildArea implements Area {
     this.chunks = new ChunkStore(this.world)
     const spawn = this.world.findSpawn(def.prefer)
     this.start = { ...spawn, dir: 'down' }
-    this.portals = [{ tiles: [{ tx: spawn.tx, ty: spawn.ty - 1 }], to: lobby, label: 'Volver a Ciudad Corazón', pad: true }]
+    this.portals = [
+      { tiles: [{ tx: spawn.tx, ty: spawn.ty - 1 }], to: lobby, label: 'Volver a Ciudad Corazón', pad: true },
+      // CAVES-3: an open cave's mouth tile leads inside. No pad: the cave art is the door.
+      ...cavesIn(def.id)
+        .filter(cave => cave.entrance === CAVE_ENTRANCE.OPEN)
+        .map(cave => ({ tiles: [{ tx: cave.mouth.tx, ty: cave.mouth.ty }], to: cave.interiorAreaId, label: 'Entrar a la cueva' })),
+    ]
   }
 
-  arrival(): Arrival {
+  /** Mirrors `arrivalFor` (protocol/arrival.js): leaving a cave lands on its approach, never on the mouth. */
+  arrival(from: AreaId | null = null): Arrival {
+    const cave = from ? caveByInterior(from) : null
+    if (cave && cave.areaId === this.id) return { tx: cave.approach.tx, ty: cave.approach.ty, dir: 'down' }
     return this.start
   }
 

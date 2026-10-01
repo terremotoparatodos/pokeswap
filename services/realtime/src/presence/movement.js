@@ -16,10 +16,15 @@ export const MOVE_BURST_CAPACITY = 15
 /** @deprecated kept for callers that still read the old constant name. */
 export const BURST_LIMIT = MOVE_TOKENS_PER_SECOND
 
-const DELTA = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
+/** Tile offset of one step in each direction. */
+export const STEP_DELTA = Object.freeze({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] })
 
-/** Returns `null` when the move is accepted (and applied), else the rejection reason. */
-export function applyMove(actor, direction, now, running, sequence = null) {
+/**
+ * Returns `null` when the move is accepted (and applied), else the rejection reason.
+ * `canStep(actor, direction)`, when given, can refuse the step itself ('blocked'),
+ * e.g. into a cave wall (CAVES-3); like a rate refusal it consumes the sequence.
+ */
+export function applyMove(actor, direction, now, running, sequence = null, canStep = null) {
   if (!DIRECTIONS.has(direction) || typeof running !== 'boolean') return 'invalid'
   const currentSequence = Number.isInteger(actor.moveSequence) ? actor.moveSequence : 0
   if (sequence !== null && sequence <= currentSequence) return 'replay'
@@ -36,7 +41,13 @@ export function applyMove(actor, direction, now, running, sequence = null) {
     return 'rate'
   }
   actor.moveTokens -= 1
-  const [dx, dy] = DELTA[direction]
+  if (canStep && !canStep(actor, direction)) {
+    // Same answer as a rate refusal: the sequence is consumed and the caller
+    // echoes the unchanged actor, so the client reconciles to the real tile.
+    if (sequence !== null) actor.moveSequence = sequence
+    return 'blocked'
+  }
+  const [dx, dy] = STEP_DELTA[direction]
   actor.lastMoveAt = now; actor.dir = direction; actor.speed = running ? TILE_PER_SECOND * 2 : TILE_PER_SECOND
   actor.moveSequence = sequence ?? currentSequence + 1
   actor.tx += dx; actor.ty += dy

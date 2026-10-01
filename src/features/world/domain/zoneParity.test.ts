@@ -60,7 +60,11 @@ describe('MAP-2 in the browser', () => {
         expect(isPlannedTile('pradera', tile.tx, tile.ty)).toBe(true)
         expect(RESOURCE_ZONES.some(zone => tile.tx >= zone.box.x0 && tile.tx <= zone.box.x1 && tile.ty >= zone.box.y0 && tile.ty <= zone.box.y1)).toBe(false)
       }
-      for (const tile of cave.footprint) expect(pradera.isSolid(tile.tx, tile.ty)).toBe(true)
+      // CAVES-3: the open mouth is the portal; the rest of the footprint stays solid.
+      for (const tile of cave.footprint) {
+        const mouth = tile.tx === cave.mouth.tx && tile.ty === cave.mouth.ty
+        expect(pradera.isSolid(tile.tx, tile.ty)).toBe(!mouth)
+      }
     }
   })
 

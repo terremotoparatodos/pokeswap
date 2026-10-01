@@ -35,7 +35,8 @@ import { DEFAULT_PLAYER_CHARACTER_ID, isPlayerCharacterId, playerCharacter } fro
 import type { PlayerVisualIdentity } from '../identity/playerIdentity'
 import type { TownPosition } from '../identity/playerPreferences'
 import { pokeballInfo } from './pokeball'
-import { isPresenceAreaId, type LocalPresencePort, type RemotePresenceActor } from '../multiplayer/domain/presence'
+import { AREA_TRANSITION_DENIED } from '../../../../services/realtime/src/protocol/crossing.js'
+import { isPresenceAreaId, type LocalPresencePort, type PresenceAreaId, type RemotePresenceActor } from '../multiplayer/domain/presence'
 import { reconcilePresenceArea } from '../multiplayer/domain/areaReconciliation'
 import { keepsPredictedStep, safeAuthoritativePosition } from '../multiplayer/domain/movementReconciliation'
 import { PresenceDiagnostics, type PresenceDiagnosticsSnapshot } from '../multiplayer/domain/presenceDiagnostics'
@@ -185,7 +186,7 @@ export class WildlandsGame {
   /** Server id of the local player, used only to attach accepted chat to its sprite. */
   private localPresenceActorId: string | null = null
   /** Area requested locally; old-area socket acknowledgements cannot undo it. */
-  private pendingPresenceArea: 'ciudad-corazon' | 'pradera' | null = null
+  private pendingPresenceArea: PresenceAreaId | null = null
   /**
    * Set whenever this client asks the service to re-place its actor. Every
    * `presence:self` ack still in flight describes the position from before that
@@ -542,6 +543,10 @@ export class WildlandsGame {
   /** The service refused an intent; counted for the playtest HUD only. */
   presenceRejected(reason: string): void {
     this.presenceDiagnostics.rejected(reason)
+    // CAVES-3: a refused crossing is followed by a snapshot of the area the
+    // actor really is in. Stop waiting for the area that was asked for, so
+    // that snapshot is accepted and the player is put back where it stands.
+    if (reason === AREA_TRANSITION_DENIED) this.pendingPresenceArea = null
   }
 
   /** Reconciles an authoritative snapshot while preserving every unchanged actor object. */
@@ -790,7 +795,7 @@ export class WildlandsGame {
    * Asks the service to place the actor at this area's arrival. The barrier
    * and the kept move sequence let the player keep walking before the reply.
    */
-  private requestPresencePlacement(areaId: 'ciudad-corazon' | 'pradera'): void {
+  private requestPresencePlacement(areaId: PresenceAreaId): void {
     this.pendingPresenceArea = areaId
     this.awaitingAreaSnapshot = true
     if (this.presence) this.presenceDiagnostics.placementRequested()
@@ -906,10 +911,11 @@ export class WildlandsGame {
     if (this.lensBlend < 1) this.lensBlend = Math.min(1, this.lensBlend + dt * 1.8)
     this.travel.update(dt, (to, from) => {
       this.enterArea(to, from, null)
-      // Only these two areas participate in R30 presence. The request is
-      // recorded before it crosses the socket so an older town snapshot cannot
-      // pull the local player back through the portal.
-      const presenceArea = this.area.id === LOBBY_ID ? 'ciudad-corazon' : this.area.id === 'pradera' ? 'pradera' : null
+      // Only presence areas (Ciudad, Pradera and, since CAVES-3, the cave
+      // interior) participate. The request is recorded before it crosses the
+      // socket so an older snapshot cannot pull the local player back through
+      // the portal.
+      const presenceArea = isPresenceAreaId(this.area.id) ? this.area.id : null
       if (presenceArea) this.requestPresencePlacement(presenceArea)
       else this.pendingPresenceArea = null
       this.say(this.area.name)
