@@ -78,6 +78,12 @@ export interface StartGathering<Timeline extends GatheringTimeline = GatheringTi
    */
   readonly onResult: () => GatheringReward | null | undefined
   readonly onDone: () => void
+  /**
+   * RESOURCE YIELD-2: the units the server confirmed so far, in order. Each
+   * new one pops its own +1 while the timeline stays open: a unit never ends
+   * the scene. Only the outcome does. Absent: a single-unit action.
+   */
+  readonly units?: () => readonly GatheringReward[]
 }
 
 export type ActiveGathering<Start extends StartGathering = StartGathering> = Start & {
@@ -85,6 +91,8 @@ export type ActiveGathering<Start extends StartGathering = StartGathering> = Sta
   lastMs: number
   resultApplied: boolean
   linger: number
+  /** Units already shown (YIELD-2). */
+  unitsShown: number
 }
 
 /** What every node visual state shares. */
@@ -175,7 +183,7 @@ export abstract class GatheringOverlayCore<
   /** The running action's record; professions with extra per-action state extend it. */
   protected activate(options: Start): Action {
     const elapsed = Math.max(0, options.elapsedMs ?? 0)
-    return { ...options, startedAt: this.seconds - elapsed / 1000, lastMs: elapsed, resultApplied: false, linger: 0 } as Action
+    return { ...options, startedAt: this.seconds - elapsed / 1000, lastMs: elapsed, resultApplied: false, linger: 0, unitsShown: 0 } as Action
   }
 
   // ── Public surface (unchanged from the per-profession overlays) ───────
@@ -316,6 +324,12 @@ export abstract class GatheringOverlayCore<
     const elapsed = (seconds - action.startedAt) * 1000
     const x = action.tx * TILE + TILE / 2
     const y = action.ty * TILE + TILE - 3
+    // Each confirmed unit: its own +1 on the spot, and the Pokémon keeps working (YIELD-2).
+    const units = action.units?.()
+    while (units && action.unitsShown < units.length) {
+      const unit = units[action.unitsShown++]
+      this.pops.pushGathered(unit.stacks, unit.xp, x, y, this.rewardLift, this.seconds)
+    }
     if (action.timeline.open) {
       // No end is known until the server says so. A success finishes the blow and
       // plays the ending; anything else (walked away, cancelled, refused) ends the
@@ -344,7 +358,8 @@ export abstract class GatheringOverlayCore<
       if (reward) {
         action.linger = RARITY_FEEDBACK[reward.rarity].lingerMs
         this.celebrationEffects(action, reward, x, y)
-        this.pops.pushGathered(reward.stacks, reward.xp, x, y, this.rewardLift, this.seconds)
+        // Units already popped one by one are not counted twice.
+        if (action.unitsShown === 0) this.pops.pushGathered(reward.stacks, reward.xp, x, y, this.rewardLift, this.seconds)
       }
     }
     action.lastMs = elapsed

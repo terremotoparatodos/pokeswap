@@ -6,7 +6,7 @@
 
 import type { Actor } from '../../wildlands/engine/actors'
 import type { WorldLayer, WorldLayerContext } from '../../wildlands/engine/worldLayer'
-import type { PlayerStateMessage, WildMessage, WildRoster, WildStatus, WorkDone, WorkResult, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { PlayerStateMessage, WildMessage, WildRoster, WildStatus, WorkDone, WorkResult, WorkYield, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WorldSend, WorldTransportSink } from '../api/worldTransport'
 import { devWarn } from '../../../shared/utils/devTools'
@@ -36,6 +36,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   private workersKey = ''
   private own: OwnAction | null = null
   private readonly doneListeners = new Set<(done: WorkDone) => void>()
+  private readonly yieldListeners = new Set<(unit: WorkYield) => void>()
   private roster: WildRoster | null = null
   /** Why there are (no) wild Pokémon here. Without 'ready' the world shows none: fail closed. */
   wildStatus: WildStatus | null = null
@@ -139,6 +140,10 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     entry.resolve(result)
   }
 
+  workYield(unit: WorkYield): void {
+    for (const listener of this.yieldListeners) listener(unit)
+  }
+
   workDone(done: WorkDone): void {
     if (this.own?.actionId === done.actionId) this.own = null
     for (const listener of this.doneListeners) listener(done)
@@ -173,6 +178,12 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   onWorkDone(listener: (done: WorkDone) => void): () => void {
     this.doneListeners.add(listener)
     return () => this.doneListeners.delete(listener)
+  }
+
+  /** Each confirmed unit of the local player's sequence (YIELD-2). */
+  onWorkYield(listener: (unit: WorkYield) => void): () => void {
+    this.yieldListeners.add(listener)
+    return () => this.yieldListeners.delete(listener)
   }
 
   // ── Engine layer ─────────────────────────────────────────────────────────

@@ -2,6 +2,8 @@
 //
 //   npm run skills:pacing
 //   npm run skills:pacing -- --aptitude 5 --overhead 2
+//   npm run skills:pacing -- --commit 1.5      (a bad hosted commit)
+//   npm run skills:pacing -- --single          (one unit per node: before YIELD-2)
 //
 // Only the command line lives here. The model is src/features/skills/domain/
 // pacing.ts, built on the canonical probabilistic work functions and the
@@ -24,10 +26,12 @@ const options: PacingOptions = {
   overhead: arg('overhead', DEFAULT_PACING.overhead),
   walk: arg('walk', DEFAULT_PACING.walk),
   plots: arg('plots', DEFAULT_PACING.plots),
+  commit: arg('commit', DEFAULT_PACING.commit),
+  stock: process.argv.includes('--single') ? 'single' : 'normative',
 }
 
 const pad = (text: string, width: number) => text.padEnd(width)
-console.log(`Skills pacing · aptitude ${options.aptitude} · overhead ${options.overhead}s · walk ${options.walk}s · ${options.plots} plots`)
+console.log(`Skills pacing · aptitude ${options.aptitude} · overhead ${options.overhead}s · walk ${options.walk}s · commit ${options.commit}s · ${options.stock === 'single' ? '1 unit per node' : 'normative stock per node'} · ${options.plots} plots`)
 console.log(`Probabilistic work · tick ${WORK_TICK_MS} ms · γ ${ATTEMPTS.curveGamma} · unlock ×${ATTEMPTS.unlockSlowdown} · cap ⌈${ATTEMPTS.capFactor}/p⌉ in [${ATTEMPTS.minAttempts}, ${ATTEMPTS.maxAttempts}] (expected times)`)
 console.log(`XP to 50: ${totalXpForLevel(MAX_SKILL_LEVEL).toLocaleString('es')}\n`)
 for (const [name, table] of [['Talar', gatherPacing('woodcutting', options)], ['Minería', gatherPacing('mining', options)], ['Agricultura', farmingPacing(options)]] as const) {

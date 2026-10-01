@@ -42,6 +42,8 @@ export function nodeOverride(row) {
     respawnAt: respawn === null ? null : typeof respawn === 'number' ? respawn : new Date(respawn).getTime(),
     plot: row.plot ?? null,
     actionId: row.action_id ?? row.actionId ?? null,
+    // YIELD-2: units left on a partial node (1–3), null otherwise. `actionId` is its generation token.
+    stockRemaining: Number.isInteger(row.stock_remaining ?? row.stockRemaining) ? (row.stock_remaining ?? row.stockRemaining) : null,
   }
 }
 
@@ -65,9 +67,13 @@ function commitArgs(commit) {
   ]
 }
 
+/** `rejected` (YIELD-2): 'stale_node' when the node's token or stock no longer matches. Nothing was written. */
 function readCommit(raw) {
   const result = typeof raw === 'string' ? JSON.parse(raw) : raw
-  return { applied: result?.applied === true, settlement: result?.settlement ?? null }
+  return {
+    applied: result?.applied === true, settlement: result?.settlement ?? null,
+    ...(typeof result?.rejected === 'string' ? { rejected: result.rejected } : {}),
+  }
 }
 
 /** `query(sql, params)` runs as service_role and resolves to `{ rows }`. */

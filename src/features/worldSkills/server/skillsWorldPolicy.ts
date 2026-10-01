@@ -73,9 +73,27 @@ export interface PlayerState {
   readonly pokemon: readonly { readonly instanceId: number; readonly speciesId: number }[]
 }
 
+/**
+ * The stored settlement row (`to_jsonb(skill_work_settlements)`). On a
+ * duplicate it is the ORIGINAL settlement — the canonical record of what was
+ * paid — never the one this retry recomputed.
+ */
+export interface StoredSettlement {
+  readonly action_id?: unknown
+  readonly skill_id?: unknown
+  readonly outcome?: unknown
+  readonly xp_gained?: unknown
+  readonly xp_after?: unknown
+  readonly rewards?: unknown
+  readonly level_before?: unknown
+  readonly level_after?: unknown
+}
+
 export interface CommitResult {
   readonly applied: boolean
-  readonly settlement: { readonly xp_after?: number; readonly xp_gained?: number; readonly rewards?: unknown } | null
+  /** YIELD-2: 'stale_node' when the node's generation token or stock no longer matched. Nothing was written. */
+  readonly rejected?: string
+  readonly settlement: StoredSettlement | null
 }
 
 /** The part of PlayerDataAuthority this adapter uses. */
@@ -98,6 +116,40 @@ export interface SkillsWorldPolicyOptions {
 
 const REASON = (value: string) => value.replace(/_/g, '-').slice(0, 32)
 const EMPTY_XP: Record<SkillId, number> = { woodcutting: 0, mining: 0, farming: 0 }
+const SKILL_IDS = new Set<string>(Object.keys(EMPTY_XP))
+const count = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0
+
+/** What a unit paid, for its worker: the same shape for a first settlement and for a duplicate. */
+function summaryOf(paid: { skillId: SkillId; xpGained: number; xpAfter: number; rewards: unknown; levelBefore: number; levelAfter: number }) {
+  return {
+    skillId: paid.skillId, xpGained: paid.xpGained, xpAfter: paid.xpAfter, rewards: paid.rewards,
+    levelBefore: paid.levelBefore, levelAfter: paid.levelAfter, levelUpLine: levelUpLine(paid.skillId, paid.levelBefore, paid.levelAfter),
+    unlocks: unlocksBetween(paid.skillId, paid.levelBefore, paid.levelAfter).map(unlock => ({ skillId: unlock.skillId, level: unlock.level, kind: unlock.kind, id: unlock.id, title: unlock.title, detail: unlock.detail })),
+  }
+}
+
+/**
+ * RESOURCE YIELD-2 recovery (M-3): a duplicate reports the settlement the
+ * database already holds for this id — its XP, levels and materials — never
+ * the one this retry just recomputed (a retry after a lost reply re-rolls the
+ * drop in memory; only the stored roll was paid). Null when the row is not a
+ * well-formed settlement of `actionId`.
+ */
+export function canonicalSummary(stored: StoredSettlement | null, actionId: string) {
+  if (!stored || stored.action_id !== actionId || typeof stored.skill_id !== 'string' || !SKILL_IDS.has(stored.skill_id)) return null
+  if (!count(stored.xp_gained) || !count(stored.xp_after) || !count(stored.level_before) || !count(stored.level_after) || !Array.isArray(stored.rewards)) return null
+  const rewards = stored.rewards
+    .filter((reward): reward is { itemId: string; quantity: number; bonus?: unknown } => typeof reward?.itemId === 'string' && Number.isInteger(reward?.quantity) && reward.quantity > 0)
+    .map(reward => ({ itemId: reward.itemId, quantity: reward.quantity, bonus: reward.bonus === true }))
+  const paid = stored.outcome === 'completed'
+  return {
+    ...summaryOf({
+      skillId: stored.skill_id as SkillId, xpGained: paid ? stored.xp_gained : 0, xpAfter: stored.xp_after, rewards: paid ? rewards : [],
+      levelBefore: stored.level_before, levelAfter: stored.level_after,
+    }),
+    duplicate: true,
+  }
+}
 
 /** Server randomness for the attempt draw and the rewards (AGENTS §11). Unpredictable to any client. */
 function cryptoRandom(): number {
@@ -181,7 +233,8 @@ export function createSkillsWorldPolicy(options: SkillsWorldPolicyOptions) {
       return {
         // durationMs is the secret draw (attempts × tick): WORLD keeps it private.
         // `details` goes to the requester and must never carry it, nor the chance.
-        ok: true, durationMs: answer.durationMs,
+        // stock (YIELD-2) is also WORLD-private: the range a node's hidden stock is drawn from.
+        ok: true, durationMs: answer.durationMs, stock: answer.stock,
         details: { skillId: answer.skillId, xp: answer.xp, reward: answer.reward, aptitude: answer.aptitude, requiredLevel: answer.requiredLevel, playerLevel: answer.playerLevel },
         ...(crop ? { plot: { cropId: crop.id, growMs: Math.round(crop.growMs * growScale) } } : {}),
       }
@@ -209,23 +262,27 @@ export function createSkillsWorldPolicy(options: SkillsWorldPolicyOptions) {
         staged.delete(paid.actionId)
         return { ok: false, retryable: true, reason: 'store-unavailable' }
       }
+      if (stored.rejected === 'stale_node') {
+        // The node changed under this unit (token, stock or expiry): nothing was
+        // written or paid. Un-stage — the ledger must not look settled — and let
+        // WORLD end the sequence; retrying cannot succeed.
+        staged.delete(paid.actionId)
+        return { ok: false, retryable: false, reason: 'stale-node' }
+      }
       staged.delete(paid.actionId)
       committed.set(paid.actionId, paid)
       const xpAfter = stored.settlement?.xp_after
+      if (!stored.applied) {
+        // Already committed by an earlier call: report THAT one (the stored row), grant nothing.
+        // Its xp_after is as of the original commit, so the cache is re-read instead.
+        xp.delete(paid.playerId)
+        return { ok: true, status: 'duplicate', summary: canonicalSummary(stored.settlement, paid.actionId) ?? { skillId: paid.skillId, duplicate: true } }
+      }
       const cache = xp.get(paid.playerId)
       if (cache && typeof xpAfter === 'number') cache[paid.skillId] = xpAfter
-      if (!stored.applied) {
-        // Already committed by an earlier call: report that one, grant nothing.
-        xp.delete(paid.playerId)
-        return { ok: true, status: 'duplicate', summary: { skillId: paid.skillId, duplicate: true } }
-      }
       return {
         ok: true, status: 'applied',
-        summary: {
-          skillId: paid.skillId, xpGained: paid.xpGained, xpAfter: xpAfter ?? paid.xpAfter, rewards: paid.rewards,
-          levelBefore: paid.levelBefore, levelAfter: paid.levelAfter, levelUpLine: levelUpLine(paid.skillId, paid.levelBefore, paid.levelAfter),
-          unlocks: unlocksBetween(paid.skillId, paid.levelBefore, paid.levelAfter).map(unlock => ({ skillId: unlock.skillId, level: unlock.level, kind: unlock.kind, id: unlock.id, title: unlock.title, detail: unlock.detail })),
-        },
+        summary: summaryOf({ ...paid, xpAfter: typeof xpAfter === 'number' ? xpAfter : paid.xpAfter }),
       }
     },
 

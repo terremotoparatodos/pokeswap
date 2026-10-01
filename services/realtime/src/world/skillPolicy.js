@@ -31,6 +31,8 @@ import { WORK_TICK_MS } from './worldProtocol.js'
  *   requestedAt: number         // server clock
  *   attemptMs: number           // WORK_TICK_MS: the length of one attempt (PROB-2)
  * }
+ *   // YIELD-2, WORLD-private too: `stock: { min, max }`, the range WORLD draws a
+ *   // gathered node's hidden stock from (absent: one unit).
  * type Authorization =
  *   // durationMs = attempts × attemptMs, from SKILLS' secret draw. WORLD keeps
  *   // it server-side (it is when the action ends) and never sends it to a
@@ -87,6 +89,7 @@ export function readAuthorization(answer, tickMs = WORK_TICK_MS) {
     return {
       ok: true, durationMs: tickAligned(answer.durationMs, tickMs),
       ...(plot ? { plot } : {}),
+      ...(readStockRange(answer.stock) ? { stock: readStockRange(answer.stock) } : {}),
       ...(bounded(answer.details, DETAILS_LIMIT) === undefined ? {} : { details: answer.details }),
     }
   }
@@ -94,6 +97,19 @@ export function readAuthorization(answer, tickMs = WORK_TICK_MS) {
     ok: false, reason: typeof answer.reason === 'string' && REASON.test(answer.reason) ? answer.reason : 'skills-denied',
     ...(message ? { message } : {}),
   }
+}
+
+/** Most units a node can hold (YIELD-2); the SQL contract accepts stock.before in [1, 4]. */
+export const MAX_NODE_STOCK = 4
+
+/**
+ * YIELD-2: SKILLS' range for a node's hidden stock, or null (a single unit).
+ * Integers with 1 <= min <= max <= MAX_NODE_STOCK; anything else is ignored.
+ */
+export function readStockRange(stock) {
+  if (!stock || typeof stock !== 'object') return null
+  const { min, max } = stock
+  return Number.isInteger(min) && Number.isInteger(max) && min >= 1 && min <= max && max <= MAX_NODE_STOCK ? { min, max } : null
 }
 
 /**

@@ -221,6 +221,7 @@ Mismas condiciones en las tres corridas: `node scripts/benchmark-world.mjs --pla
 1. **Staging RC-0.3 y Deno sin ejecutar en esta máquina** (§10). Hay que correrlos antes de publicar.
 2. **Ritmo de XP**: hasta ~1,56× acciones/materiales por hora en nivel alto. Se observa con `rules_version = 'skills-1.1'`.
 3. **Pacing: simplificación de desplazamiento.** `pacing.ts` ya usa el modelo probabilístico canónico (§14), pero sigue cobrando el desplazamiento como `walk / charges` (cargas advisory del catálogo), aunque en el mundo compartido cada éxito agota el nodo. Es una simplificación anterior a PROB-2 que no cambié para no mezclar dos efectos. Si se quiere reflejarla, subiría por igual los tiempos de todas las habilidades de recolección.
+   **Resuelto en RESOURCE YIELD-2:** no era una simplificación menor, duplicaba el ritmo (Talar Nv 50: 12,86 h estimadas contra 29,66 h reales). `pacing.ts` usa ahora el stock normativo y la latencia del commit, y las cargas advisory se eliminaron del catálogo (corrección en §16).
 4. **Un reinicio sigue perdiendo las acciones en curso** (igual que antes). Nunca paga dos veces, pero el jugador tiene que volver a pedir.
 5. **El éxito visible llega una latencia de commit después del tick ganador.** En el benchmark, el commit p95 fue de 4–10 ms en PGlite; con la edge function real será mayor.
 6. **Los navegadores con el bundle viejo en cache** reciben `client-outdated` hasta recargar. El texto dice "Actualizá la página para seguir trabajando".
@@ -294,6 +295,8 @@ Mismas condiciones en las tres corridas: `node scripts/benchmark-world.mjs --pla
 
 Talar a Nv 50 queda ~19 % más rápido que con la duración fija, Minería ~10 % y Agricultura igual (la domina el crecimiento). Es la consecuencia esperada de γ = 2 y del aumento de acciones por hora en niveles altos (§2). No se tocó el balance.
 
+> **Corrección (RESOURCE YIELD-2).** Las horas de esta tabla (y las de §16) suponían las cargas advisory del catálogo, varias unidades por nodo, en un mundo que entregaba una; el tiempo real era ~2× mayor. Ver la corrección de §16 y `docs/skills/RESOURCE_YIELD_2_REPORT.md` §8.
+
 ## 15. Cambios respecto de la versión anterior de este informe
 
 - **Benchmark:** se agregó la corrida de **100 jugadores** y el A/B contra el commit sin rate limit (§10). Las cifras de 10 y 30 no cambian.
@@ -344,6 +347,17 @@ Cálculo exacto con las funciones canónicas, aptitud 3 salvo indicación. Accio
 | Agricultura | 0,27 → 0,26 h | 1,17 → 1,16 h | 5,40 → 5,38 h | 19,08 → **19,05 h** (−0,2 %) |
 
 No se reajustó ningún otro valor para compensar. Las cifras quedan para decidir después.
+
+> **Corrección (RESOURCE YIELD-2).** Estas horas son la **estimación del catálogo**: cobraban el desplazamiento como `walk / charges` con las cargas advisory (3–6 por nodo), en un mundo que entregaba **una** unidad por nodo, y no incluían la latencia del commit. Las horas reales con el tope ⌈1,5/p⌉ (aptitud 3, overhead 1,5 s, walk 8 s; Nv 10 / 25 / 40 / 50):
+>
+> | Modelo | Talar | Minería |
+> |---|---|---|
+> | Estimación del catálogo (esta tabla) | 0,22 / 1,11 / 4,51 / 12,86 | 0,23 / 1,18 / 5,67 / 18,28 |
+> | Juego real con 1 unidad por nodo (commit 0,4 s) | 0,45 / 2,32 / 9,80 / **29,66** | 0,45 / 2,24 / 10,44 / **32,22** |
+> | Multi-yield YIELD-2 (stock normativo, commit 0,4 s) | 0,22 / 1,21 / 8,70 / **28,55** | 0,28 / 2,07 / 10,26 / **32,05** |
+> | Multi-yield con commit malo (1,5 s) | 0,23 / 1,29 / 9,44 / 31,08 | 0,30 / 2,23 / 11,10 / 34,75 |
+>
+> Agricultura no cambia (19,05 h). Detalle en `docs/skills/RESOURCE_YIELD_2_REPORT.md` §8.
 
 ### Tests y guardias
 

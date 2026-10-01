@@ -18,9 +18,11 @@ export const MAX_SKILL_LEVEL = 50
  *
  * The linear term makes the first levels quick (L2 is four basic actions);
  * the exponential term takes over in the 30s so the late levels are an
- * investment: at the reference pace (scripts/skills/pacing.ts, probabilistic
- * work since PROB-2, Talar) Nv 10 takes ~15 min, Nv 25 ~1,2 h, Nv 40 ~5 h and
- * Nv 50 ~14 h of active play per skill (Minería and Agricultura ~19–20 h).
+ * investment: at the reference pace (scripts/skills/pacing.ts: probabilistic
+ * work, the normative stock per node and a 0.4 s commit since RESOURCE
+ * YIELD-2; Talar) Nv 10 takes ~13 min, Nv 25 ~1,2 h, Nv 40 ~8,7 h and Nv 50
+ * ~28,5 h of active play (Minería ~32 h, Agricultura ~19 h). The ~14 h once
+ * quoted here assumed the catalog's advisory charges (see pacing.ts).
  * `growth` is the knob for "how steep is the midgame"; `linear` for "how fast
  * is the tutorial". See docs/skills/SKILLS_1_REPORT.md §7.
  */
@@ -109,4 +111,4 @@ export const SETTLE_EARLY_TOLERANCE_MS = 250
 export const AUTHORIZATION_TTL_MS = 10 * 60 * 1000
 
 /** Bumped whenever a rule or a number above changes meaning. Stored with each settlement. */
-export const SKILLS_RULES_VERSION = 'skills-1.2'
+export const SKILLS_RULES_VERSION = 'skills-1.3'

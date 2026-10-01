@@ -23,8 +23,15 @@ export interface SkillsSession {
   workers(): readonly WorkerRef[] | null
   nodeState(nodeId: string, resource: ResourceDefinition): NodeState
   begin(nodeId: string, worker: WorkerRef, cropId?: string | null): Promise<SessionBegin>
-  /** undefined: still running; null: it ended without a reward. */
+  /**
+   * The whole sequence once it ended (RESOURCE YIELD-2: every confirmed unit
+   * together). undefined: still running; null: it ended without a reward.
+   */
   result(actionId: string): SettleResult | null | undefined
+  /** The units confirmed so far, in order, each as the server paid it. Grows while the Pokémon works. */
+  units(actionId: string): readonly SettleResult[]
+  /** Why the sequence ended ('depleted', 'moved', 'cancelled', …); undefined while it runs. */
+  endReason(actionId: string): string | undefined
   cancel(actionId: string): void
   subscribe(listener: () => void): () => void
 }

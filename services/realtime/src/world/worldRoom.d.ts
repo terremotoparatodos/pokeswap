@@ -8,6 +8,8 @@ export declare class WorldRoom {
     lookupActor(id: string): WorldViewer | null
     clientForPlayer(id: string): WorldSocket | null
     now?: () => number
+    /** Draws new generations' hidden stock (YIELD-2). Tests only; default: server crypto randomness. */
+    stockRandom?: () => number
   })
   join(client: WorldSocket, options: unknown, auth: { kind: string; userId?: string; token?: string | null }): void
   leave(client: WorldSocket): void

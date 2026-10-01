@@ -28,7 +28,7 @@ var TIER_MAX_CHANCE = {
 };
 var SETTLE_EARLY_TOLERANCE_MS = 250;
 var AUTHORIZATION_TTL_MS = 10 * 60 * 1e3;
-var SKILLS_RULES_VERSION = "skills-1.2";
+var SKILLS_RULES_VERSION = "skills-1.3";
 
 // src/features/skills/domain/farming.ts
 var FARM_ACTION_MS = { plant: 3e3, tend: 2e3, harvest: 2600 };
@@ -206,7 +206,8 @@ var RESOURCES = [
     xp: 10,
     baseDurationMs: 3e3,
     drop: { itemId: "common_log", min: 1, max: 1 },
-    world: { habitats: ["grassland", "forest", "beach"], minRing: 0, anchors: ["tree", "palm"], spawnWeight: 6, charges: [3, 5], respawnSeconds: 30 }
+    stock: [2, 4],
+    world: { habitats: ["grassland", "forest", "beach"], minRing: 0, anchors: ["tree", "palm"], spawnWeight: 6, respawnSeconds: 30 }
   },
   {
     id: "pine_tree",
@@ -218,7 +219,8 @@ var RESOURCES = [
     xp: 22,
     baseDurationMs: 3600,
     drop: { itemId: "pine_log", min: 1, max: 1 },
-    world: { habitats: ["forest", "tundra"], minRing: 0, anchors: ["pine"], spawnWeight: 5, charges: [4, 6], respawnSeconds: 45 }
+    stock: [2, 3],
+    world: { habitats: ["forest", "tundra"], minRing: 0, anchors: ["pine"], spawnWeight: 5, respawnSeconds: 45 }
   },
   {
     id: "hardwood_tree",
@@ -230,7 +232,8 @@ var RESOURCES = [
     xp: 40,
     baseDurationMs: 4400,
     drop: { itemId: "hardwood_log", min: 1, max: 1 },
-    world: { habitats: ["forest"], minRing: 1, anchors: ["tree"], spawnWeight: 3, charges: [4, 6], respawnSeconds: 75 }
+    stock: [1, 1],
+    world: { habitats: ["forest"], minRing: 1, anchors: ["tree"], spawnWeight: 3, respawnSeconds: 75 }
   },
   {
     id: "boreal_tree",
@@ -242,7 +245,8 @@ var RESOURCES = [
     xp: 68,
     baseDurationMs: 5200,
     drop: { itemId: "boreal_log", min: 1, max: 1 },
-    world: { habitats: ["tundra"], minRing: 2, anchors: ["snowpine"], spawnWeight: 3, charges: [5, 7], respawnSeconds: 120 }
+    stock: [1, 1],
+    world: { habitats: ["tundra"], minRing: 2, anchors: ["snowpine"], spawnWeight: 3, respawnSeconds: 120 }
   },
   // ── Minería ──────────────────────────────────────────────────────────────
   {
@@ -255,7 +259,8 @@ var RESOURCES = [
     xp: 10,
     baseDurationMs: 3200,
     drop: { itemId: "stone", min: 1, max: 1 },
-    world: { habitats: ["grassland", "forest", "desert", "beach"], minRing: 0, anchors: ["rock"], spawnWeight: 6, charges: [3, 5], respawnSeconds: 30 }
+    stock: [1, 3],
+    world: { habitats: ["grassland", "forest", "desert", "beach"], minRing: 0, anchors: ["rock"], spawnWeight: 6, respawnSeconds: 30 }
   },
   {
     id: "coal_seam",
@@ -267,7 +272,8 @@ var RESOURCES = [
     xp: 18,
     baseDurationMs: 3800,
     drop: { itemId: "coal", min: 1, max: 1 },
-    world: { habitats: ["forest", "desert", "grassland"], minRing: 1, anchors: ["rock", "boulder"], spawnWeight: 4, charges: [3, 5], respawnSeconds: 45 }
+    stock: [1, 1],
+    world: { habitats: ["forest", "desert", "grassland"], minRing: 1, anchors: ["rock", "boulder"], spawnWeight: 4, respawnSeconds: 45 }
   },
   {
     id: "iron_vein",
@@ -279,7 +285,8 @@ var RESOURCES = [
     xp: 30,
     baseDurationMs: 4400,
     drop: { itemId: "iron_ore", min: 1, max: 1 },
-    world: { habitats: ["desert", "tundra", "cave"], minRing: 1, anchors: ["boulder", "icerock"], spawnWeight: 4, charges: [3, 5], respawnSeconds: 75 }
+    stock: [1, 1],
+    world: { habitats: ["desert", "tundra", "cave"], minRing: 1, anchors: ["boulder", "icerock"], spawnWeight: 4, respawnSeconds: 75 }
   },
   {
     id: "gold_vein",
@@ -291,7 +298,8 @@ var RESOURCES = [
     xp: 50,
     baseDurationMs: 5200,
     drop: { itemId: "gold_ore", min: 1, max: 1 },
-    world: { habitats: ["desert", "tundra", "cave"], minRing: 2, anchors: ["boulder", "icerock"], spawnWeight: 2, charges: [2, 4], respawnSeconds: 150 }
+    stock: [1, 1],
+    world: { habitats: ["desert", "tundra", "cave"], minRing: 2, anchors: ["boulder", "icerock"], spawnWeight: 2, respawnSeconds: 150 }
   },
   {
     id: "crystal_cluster",
@@ -303,7 +311,8 @@ var RESOURCES = [
     xp: 75,
     baseDurationMs: 6e3,
     drop: { itemId: "crystal", min: 1, max: 1 },
-    world: { habitats: ["cave", "tundra"], minRing: 2, anchors: ["crystal"], spawnWeight: 1, charges: [2, 3], respawnSeconds: 300 }
+    stock: [1, 1],
+    world: { habitats: ["cave", "tundra"], minRing: 2, anchors: ["crystal"], spawnWeight: 1, respawnSeconds: 300 }
   }
 ];
 var RESOURCE_BY_ID = new Map(RESOURCES.map((entry) => [entry.id, entry]));
@@ -1049,7 +1058,8 @@ function subjectOf(target) {
         minAptitude: resource.minAptitude,
         baseMs: resource.baseDurationMs,
         xp: resource.xp,
-        drop: { ...resource.drop, guaranteedBonus: 0 }
+        drop: { ...resource.drop, guaranteedBonus: 0 },
+        stock: { min: resource.stock[0], max: resource.stock[1] }
       }
     };
   }
@@ -1070,7 +1080,8 @@ function subjectOf(target) {
       minAptitude: crop.minAptitude,
       baseMs: FARM_ACTION_MS[target.action],
       xp: crop.xp[target.action],
-      drop: harvest ? { ...crop.harvest, guaranteedBonus: target.plot.tended ? TEND_BONUS_UNITS : 0 } : null
+      drop: harvest ? { ...crop.harvest, guaranteedBonus: target.plot.tended ? TEND_BONUS_UNITS : 0 } : null,
+      stock: null
     }
   };
 }
@@ -1116,7 +1127,8 @@ function evaluateWork(input) {
       chance,
       maxAttempts: attemptCap(chance),
       xp: subject.xp,
-      drop: subject.drop ? { ...subject.drop, bonusChance: APTITUDE_BONUS_CHANCE[aptitude] } : null
+      drop: subject.drop ? { ...subject.drop, bonusChance: APTITUDE_BONUS_CHANCE[aptitude] } : null,
+      stock: subject.stock
     }
   };
 }
@@ -1180,7 +1192,8 @@ function createSkillsService(ports) {
       xp: terms.xp,
       reward: terms.drop ? { itemId: terms.drop.itemId, min: terms.drop.min + terms.drop.guaranteedBonus, max: terms.drop.max + terms.drop.guaranteedBonus + (terms.drop.bonusChance > 0 ? 1 : 0) } : null,
       expiresAt: now + AUTHORIZATION_TTL_MS,
-      rulesVersion: SKILLS_RULES_VERSION
+      rulesVersion: SKILLS_RULES_VERSION,
+      stock: terms.stock
     };
   }
   function describe(status, settlement) {
@@ -1325,6 +1338,37 @@ function skillsResourceFor(node) {
 // src/features/worldSkills/server/skillsWorldPolicy.ts
 var REASON = (value) => value.replace(/_/g, "-").slice(0, 32);
 var EMPTY_XP = { woodcutting: 0, mining: 0, farming: 0 };
+var SKILL_IDS2 = new Set(Object.keys(EMPTY_XP));
+var count = (value) => Number.isInteger(value) && value >= 0;
+function summaryOf(paid) {
+  return {
+    skillId: paid.skillId,
+    xpGained: paid.xpGained,
+    xpAfter: paid.xpAfter,
+    rewards: paid.rewards,
+    levelBefore: paid.levelBefore,
+    levelAfter: paid.levelAfter,
+    levelUpLine: levelUpLine(paid.skillId, paid.levelBefore, paid.levelAfter),
+    unlocks: unlocksBetween(paid.skillId, paid.levelBefore, paid.levelAfter).map((unlock) => ({ skillId: unlock.skillId, level: unlock.level, kind: unlock.kind, id: unlock.id, title: unlock.title, detail: unlock.detail }))
+  };
+}
+function canonicalSummary(stored, actionId) {
+  if (!stored || stored.action_id !== actionId || typeof stored.skill_id !== "string" || !SKILL_IDS2.has(stored.skill_id)) return null;
+  if (!count(stored.xp_gained) || !count(stored.xp_after) || !count(stored.level_before) || !count(stored.level_after) || !Array.isArray(stored.rewards)) return null;
+  const rewards = stored.rewards.filter((reward) => typeof reward?.itemId === "string" && Number.isInteger(reward?.quantity) && reward.quantity > 0).map((reward) => ({ itemId: reward.itemId, quantity: reward.quantity, bonus: reward.bonus === true }));
+  const paid = stored.outcome === "completed";
+  return {
+    ...summaryOf({
+      skillId: stored.skill_id,
+      xpGained: paid ? stored.xp_gained : 0,
+      xpAfter: stored.xp_after,
+      rewards: paid ? rewards : [],
+      levelBefore: stored.level_before,
+      levelAfter: stored.level_after
+    }),
+    duplicate: true
+  };
+}
 function cryptoRandom() {
   const buffer = new Uint32Array(1);
   globalThis.crypto.getRandomValues(buffer);
@@ -1404,8 +1448,10 @@ function createSkillsWorldPolicy(options) {
       return {
         // durationMs is the secret draw (attempts × tick): WORLD keeps it private.
         // `details` goes to the requester and must never carry it, nor the chance.
+        // stock (YIELD-2) is also WORLD-private: the range a node's hidden stock is drawn from.
         ok: true,
         durationMs: answer.durationMs,
+        stock: answer.stock,
         details: { skillId: answer.skillId, xp: answer.xp, reward: answer.reward, aptitude: answer.aptitude, requiredLevel: answer.requiredLevel, playerLevel: answer.playerLevel },
         ...crop ? { plot: { cropId: crop.id, growMs: Math.round(crop.growMs * growScale) } } : {}
       };
@@ -1438,28 +1484,23 @@ function createSkillsWorldPolicy(options) {
         staged.delete(paid.actionId);
         return { ok: false, retryable: true, reason: "store-unavailable" };
       }
+      if (stored.rejected === "stale_node") {
+        staged.delete(paid.actionId);
+        return { ok: false, retryable: false, reason: "stale-node" };
+      }
       staged.delete(paid.actionId);
       committed.set(paid.actionId, paid);
       const xpAfter = stored.settlement?.xp_after;
-      const cache = xp.get(paid.playerId);
-      if (cache && typeof xpAfter === "number") cache[paid.skillId] = xpAfter;
       if (!stored.applied) {
         xp.delete(paid.playerId);
-        return { ok: true, status: "duplicate", summary: { skillId: paid.skillId, duplicate: true } };
+        return { ok: true, status: "duplicate", summary: canonicalSummary(stored.settlement, paid.actionId) ?? { skillId: paid.skillId, duplicate: true } };
       }
+      const cache = xp.get(paid.playerId);
+      if (cache && typeof xpAfter === "number") cache[paid.skillId] = xpAfter;
       return {
         ok: true,
         status: "applied",
-        summary: {
-          skillId: paid.skillId,
-          xpGained: paid.xpGained,
-          xpAfter: xpAfter ?? paid.xpAfter,
-          rewards: paid.rewards,
-          levelBefore: paid.levelBefore,
-          levelAfter: paid.levelAfter,
-          levelUpLine: levelUpLine(paid.skillId, paid.levelBefore, paid.levelAfter),
-          unlocks: unlocksBetween(paid.skillId, paid.levelBefore, paid.levelAfter).map((unlock) => ({ skillId: unlock.skillId, level: unlock.level, kind: unlock.kind, id: unlock.id, title: unlock.title, detail: unlock.detail }))
-        }
+        summary: summaryOf({ ...paid, xpAfter: typeof xpAfter === "number" ? xpAfter : paid.xpAfter })
       };
     },
     cancelWork(cancellation) {
@@ -1474,6 +1515,7 @@ function createSkillsWorldPolicy(options) {
   };
 }
 export {
+  canonicalSummary,
   createSkillsWorldPolicy,
   skillsResourceFor
 };

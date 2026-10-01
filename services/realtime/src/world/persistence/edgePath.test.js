@@ -64,3 +64,50 @@ test('realtime → Edge Function handler → SQL: settle once, read back, refuse
   await assert.rejects(stranger.playerState(USER), /401/)
   await db.close()
 })
+
+test('YIELD-2 through the real handler: a stocked unit settles, and a stale one is an HTTP 200 answer with `rejected`, not an error', async t => {
+  const handler = await loadHandler()
+  if (!handler) return t.skip('this Node cannot load TypeScript; covered by `deno test supabase/functions/world-authority/`')
+  const db = await openLocalDatabase()
+  await db.exec(`INSERT INTO auth.users VALUES ('${USER}'); INSERT INTO public.world_skills_testers (user_id) VALUES ('${USER}');`)
+  const query = serviceQuery(db)
+  const rpc = async (fn, args) => {
+    try {
+      const names = Object.keys(args)
+      const values = names.map(name => (args[name] !== null && typeof args[name] === 'object' ? JSON.stringify(args[name]) : args[name]))
+      const sql = fn === 'world_load_nodes'
+        ? "SELECT coalesce(json_agg(n), '[]'::json) AS data FROM public.world_load_nodes() n"
+        : `SELECT public.${fn}(${names.map((name, i) => `${name} => $${i + 1}`).join(', ')}) AS data`
+      const { rows } = await query(sql, values)
+      return { data: rows[0]?.data ?? null, error: null }
+    } catch (error) {
+      return { data: null, error: { message: error.message } }
+    }
+  }
+  const statuses = []
+  const fetcher = async (_url, init) => {
+    const response = await handler.handleWorldAuthority(new Request('https://local/world-authority', init), { secret: SECRET, rpc })
+    statuses.push(response.status)
+    return response
+  }
+  const data = createEdgePlayerData({ url: 'https://local/world-authority', secret: SECRET, publishableKey: 'anon', fetcher })
+  const reservedAt = Date.now() + 86_400_000
+  const unit = (actionId, before, expectedToken) => ({
+    actionId, userId: USER, skillId: 'woodcutting', outcome: 'completed', xpGained: 10,
+    rewards: [{ itemId: 'common_log', quantity: 1, bonus: false }], levelBefore: 1, levelAfter: 1, rulesVersion: 'skills-1.3',
+    node: {
+      nodeId: 'pradera:-6:-64:tree', areaId: 'pradera', chunkId: '-1,-4', plot: null, base: false,
+      state: before - 1 === 0 ? 'depleted' : 'available', respawnAt: reservedAt + 600 + 90_000,
+      stock: { before, after: before - 1 }, expectedToken, reservedAt,
+    },
+  })
+  const first = await data.commitWork(unit('00000000-0000-4000-8000-0000000000a1-00', 3, null))
+  assert.equal(first.applied, true)
+  const stale = await data.commitWork(unit('00000000-0000-4000-8000-0000000000a2-00', 2, 'ffffffff-0000-4000-8000-000000000000-00'))
+  assert.deepEqual(stale, { applied: false, settlement: null, rejected: 'stale_node' })
+  assert.deepEqual(statuses, [200, 200], 'stale_node is a normal 200 answer')
+  assert.equal((await data.playerState(USER)).xp.woodcutting, 10, 'the stale unit paid nothing')
+  const nodes = await data.loadNodes()
+  assert.equal(nodes[0].stockRemaining, 2)
+  await db.close()
+})

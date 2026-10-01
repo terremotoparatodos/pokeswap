@@ -116,6 +116,7 @@ export class ColyseusPresence implements LocalPresencePort {
         room.onMessage(WORLD_MESSAGE.SNAPSHOT, snapshot => world.snapshot(snapshot))
         room.onMessage(WORLD_MESSAGE.BATCH, batch => world.batch(batch))
         room.onMessage(WORLD_MESSAGE.WORK_RESULT, result => world.workResult(result))
+        room.onMessage(WORLD_MESSAGE.WORK_YIELD, unit => world.workYield(unit))
         room.onMessage(WORLD_MESSAGE.WORK_DONE, done => world.workDone(done))
         room.onMessage(WORLD_MESSAGE.WILD, message => world.wild(message))
         room.onMessage(WORLD_MESSAGE.PLAYER_STATE, message => world.playerState(message))

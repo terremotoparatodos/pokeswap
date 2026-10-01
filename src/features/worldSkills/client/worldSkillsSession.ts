@@ -4,11 +4,12 @@
 //   XP, materials, the Pokémon roster  ← player:state (read server-side at join)
 //   node state (depleted, working)     ← the WORLD mirror
 //   begin a job                        → world:work intent; the server decides
-//   the result                         ← world:work:done (one settlement, persisted)
+//   each unit                          ← world:work:yield (one settlement, persisted)
+//   the end of the sequence            ← world:work:done (why, and the total)
 // The client only shows. It cannot grant itself XP, items or levels: it never
 // sends any, and the numbers it shows are the ones the server committed.
 
-import type { PlayerStateMessage, WorkDone } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { PlayerStateMessage, WorkDone, WorkYield } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { MATERIAL_BY_ID } from '../../skills/domain/materials'
 import type { SkillId } from '../../skills/domain/skills'
 import { levelForXp } from '../../skills/domain/xpCurve'
@@ -64,6 +65,10 @@ export function createWorldSkillsSession(world: SharedWorld, clock: () => number
   let materials: Record<string, number> = {}
   let roster: WorkerRef[] | null = null
   const results = new Map<string, SettleResult | null>()
+  /** Confirmed units of each sequence, in order (YIELD-2). */
+  const units = new Map<string, SettleResult[]>()
+  const indices = new Map<string, Set<number>>()
+  const reasons = new Map<string, string>()
   const listeners = new Set<() => void>()
   const emit = () => { for (const listener of listeners) listener() }
 
@@ -73,23 +78,61 @@ export function createWorldSkillsSession(world: SharedWorld, clock: () => number
     roster = state.pokemon.map(pokemon => ({ instanceId: String(pokemon.instanceId), speciesId: pokemon.speciesId }))
     emit()
   })
-  world.onWorkDone((done: WorkDone) => {
-    if (!done.ok) { results.set(done.actionId, null); emit(); return }
-    const summary = done.summary as Summary | undefined
-    if (!summary || !summary.skillId || !('xpGained' in summary)) { results.set(done.actionId, null); emit(); return }
+  // RESOURCE YIELD-2: each confirmed unit arrives on its own (world:work:yield)
+  // and is shown at once; world:work:done closes the sequence. Anything for a
+  // sequence that already ended is late and ignored.
+  world.onWorkYield((unit: WorkYield) => {
+    if (results.has(unit.actionId)) return
+    const summary = unit.summary as Summary | undefined
+    if (!summary || !summary.skillId || !('xpGained' in summary)) return
+    // Each unit once (a client that reloaded mid-sequence joins at a later index).
+    const seen = indices.get(unit.actionId) ?? new Set<number>()
+    if (seen.has(unit.index)) return
+    indices.set(unit.actionId, seen.add(unit.index))
+    const list = units.get(unit.actionId) ?? []
     xp = { ...xp, [summary.skillId]: summary.xpAfter }
     for (const reward of summary.rewards) materials = { ...materials, [reward.itemId]: (materials[reward.itemId] ?? 0) + reward.quantity }
-    results.set(done.actionId, {
+    units.set(unit.actionId, [...list, settled(unit.actionId, summary)])
+    emit()
+  })
+  world.onWorkDone((done: WorkDone) => {
+    if (results.has(done.actionId)) return
+    reasons.set(done.actionId, done.reason)
+    results.set(done.actionId, whole(done.actionId, units.get(done.actionId) ?? []))
+    emit()
+  })
+
+  function settled(actionId: string, summary: Summary): SettleResult {
+    return {
       status: 'settled',
       settlement: {
-        actionId: done.actionId, playerId: world.playerData?.playerId ?? '', skillId: summary.skillId, outcome: 'completed',
+        actionId, playerId: world.playerData?.playerId ?? '', skillId: summary.skillId, outcome: 'completed',
         xpGained: summary.xpGained, rewards: summary.rewards.filter(reward => MATERIAL_BY_ID.has(reward.itemId)) as never,
         levelBefore: summary.levelBefore, levelAfter: summary.levelAfter, xpAfter: summary.xpAfter, settledAt: clock(), rulesVersion: '',
       },
       unlocks: summary.unlocks, levelUpLine: summary.levelUpLine,
-    })
-    emit()
-  })
+    }
+  }
+
+  /** The sequence as one result: its units summed (first level before, last level after). */
+  function whole(actionId: string, list: readonly SettleResult[]): SettleResult | null {
+    const paid = list.filter((unit): unit is Extract<SettleResult, { settlement: unknown }> => 'settlement' in unit)
+    if (!paid.length) return null
+    const first = paid[0].settlement
+    const last = paid[paid.length - 1].settlement
+    const rewards = new Map<string, number>()
+    for (const unit of paid) for (const reward of unit.settlement.rewards) rewards.set(reward.itemId, (rewards.get(reward.itemId) ?? 0) + reward.quantity)
+    return {
+      status: 'settled',
+      settlement: {
+        ...last, actionId, levelBefore: first.levelBefore,
+        xpGained: paid.reduce((sum, unit) => sum + unit.settlement.xpGained, 0),
+        rewards: [...rewards].map(([itemId, quantity]) => ({ itemId, quantity, bonus: false })) as never,
+      },
+      unlocks: paid.flatMap(unit => unit.unlocks),
+      levelUpLine: paid.map(unit => unit.levelUpLine).filter(Boolean).join(' · ') || null,
+    }
+  }
 
   return {
     xp: () => xp,
@@ -109,6 +152,8 @@ export function createWorldSkillsSession(world: SharedWorld, clock: () => number
       return { allowed: true, actionId: reply.actionId, startedAt: reply.startedAt }
     },
     result: actionId => (results.has(actionId) ? results.get(actionId)! : undefined),
+    units: actionId => units.get(actionId) ?? [],
+    endReason: actionId => reasons.get(actionId),
     cancel: actionId => world.cancelWork(actionId),
     subscribe(listener) {
       listeners.add(listener)

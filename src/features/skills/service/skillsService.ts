@@ -62,6 +62,8 @@ export type WorkAuthorization =
       readonly reward: { readonly itemId: string; readonly min: number; readonly max: number } | null
       /** Settling as completed after this instant is refused. */
       readonly expiresAt: number
+      /** YIELD-2, SERVER-ONLY: the range WORLD draws a node's hidden stock from; null for farm actions. */
+      readonly stock: { readonly min: number; readonly max: number } | null
       readonly rulesVersion: string
     }
   | {
@@ -136,7 +138,7 @@ export function createSkillsService(ports: SkillsServicePorts): SkillsService {
       allowed: true, actionId, skillId: terms.skillId, durationMs: work.durationMs,
       requiredLevel: terms.requiredLevel, playerLevel: terms.playerLevel, aptitude: terms.aptitude, xp: terms.xp,
       reward: terms.drop ? { itemId: terms.drop.itemId, min: terms.drop.min + terms.drop.guaranteedBonus, max: terms.drop.max + terms.drop.guaranteedBonus + (terms.drop.bonusChance > 0 ? 1 : 0) } : null,
-      expiresAt: now + AUTHORIZATION_TTL_MS, rulesVersion: SKILLS_RULES_VERSION,
+      expiresAt: now + AUTHORIZATION_TTL_MS, rulesVersion: SKILLS_RULES_VERSION, stock: terms.stock,
     }
   }
 

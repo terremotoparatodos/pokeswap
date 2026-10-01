@@ -51,6 +51,11 @@ export interface WorkTerms {
   readonly xp: number
   /** Items on completion; null for actions that only teach (plant, tend). */
   readonly drop: WorkDrop | null
+  /**
+   * YIELD-2: the range WORLD draws a node's hidden stock from (units before it
+   * depletes). Gathering only; null for farm actions (a plot is not stocked).
+   */
+  readonly stock: { readonly min: number; readonly max: number } | null
 }
 
 export interface WorkDrop {
@@ -110,6 +115,7 @@ interface Subject {
   readonly baseMs: number
   readonly xp: number
   readonly drop: Omit<WorkDrop, 'bonusChance'> | null
+  readonly stock: { readonly min: number; readonly max: number } | null
 }
 
 type SubjectLookup = { readonly ok: true; readonly subject: Subject } | { readonly ok: false; readonly reason: WorkRejection }
@@ -125,6 +131,7 @@ function subjectOf(target: WorkTarget): SubjectLookup {
         requiredLevel: resource.requiredLevel, tier: resource.tier, minAptitude: resource.minAptitude,
         baseMs: resource.baseDurationMs, xp: resource.xp,
         drop: { ...resource.drop, guaranteedBonus: 0 },
+        stock: { min: resource.stock[0], max: resource.stock[1] },
       },
     }
   }
@@ -141,6 +148,7 @@ function subjectOf(target: WorkTarget): SubjectLookup {
       requiredLevel: crop.requiredLevel, tier: crop.tier, minAptitude: crop.minAptitude,
       baseMs: FARM_ACTION_MS[target.action], xp: crop.xp[target.action],
       drop: harvest ? { ...crop.harvest, guaranteedBonus: target.plot.tended ? TEND_BONUS_UNITS : 0 } : null,
+      stock: null,
     },
   }
 }
@@ -175,6 +183,7 @@ export function evaluateWork(input: WorkInput): WorkEvaluation {
       attemptMs: input.attemptMs, chance, maxAttempts: attemptCap(chance),
       xp: subject.xp,
       drop: subject.drop ? { ...subject.drop, bonusChance: APTITUDE_BONUS_CHANCE[aptitude] } : null,
+      stock: subject.stock,
     },
   }
 }
