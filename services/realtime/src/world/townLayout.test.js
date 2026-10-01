@@ -92,3 +92,17 @@ test('townCollision is the same rule for any town definition: a gate tile always
   const solid = townCollision({ terrain: ['ttt', 'tst', 'ttt'], buildings: [], fountains: [], props: [], gates: [{ tiles: [{ tx: 0, ty: 1 }] }] })
   assert.deepEqual([...solid], [1, 1, 1, 0, 0, 1, 1, 1, 1])
 })
+
+test('the collision mask is frozen: md5 of the pre-CAVES-4 browser mask, margin included', async () => {
+  // Rows from -2 to height+1, '#' solid and '.' walkable: the exact text the
+  // browser's TownArea produced before the layout moved here (CAVES-4 report).
+  // Any edit that changes a single tile is a different town, not a refactor.
+  const { createHash } = await import('node:crypto')
+  const rows = []
+  for (let ty = -2; ty < TOWN_HEIGHT + 2; ty++) {
+    let row = ''
+    for (let tx = -2; tx < TOWN_WIDTH + 2; tx++) row += isTownWalkable(tx, ty) ? '.' : '#'
+    rows.push(row)
+  }
+  assert.equal(createHash('md5').update(rows.join('\n')).digest('hex'), '04ca2bc17ea29a4e4ae8025737cc8bf7')
+})
