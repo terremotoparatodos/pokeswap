@@ -58,6 +58,54 @@ async function slot(pokemonId) {
   return body[0] ?? null
 }
 
+// ── Market after SECURITY-3: no client may execute the market functions ───
+// Fixtures that need a listing or a locked slot are written by the harness with
+// the LOCAL stack's service key — never through a client path.
+
+async function lockSlot(pokemonId) {
+  const locked = await asService(`/rest/v1/slots?pokemon_id=eq.${pokemonId}`, { method: 'PATCH', prefer: 'return=minimal', body: { is_locked: true } })
+  assert.ok(locked.status < 300, locked.text)
+}
+
+/** A listing exactly as publish_market_listing leaves it: the row, and the slot locked. */
+async function listingFixture(seller, pokemonId, priceTokens) {
+  const profile = await asService(`/rest/v1/profiles?select=username&id=eq.${seller.id}`)
+  assert.equal(profile.status, 200, profile.text)
+  await lockSlot(pokemonId)
+  const created = await asService('/rest/v1/market_listings', {
+    method: 'POST', prefer: 'return=representation',
+    body: { pokemon_id: pokemonId, seller_id: seller.id, seller_username: profile.body[0].username, price_tokens: priceTokens },
+  })
+  assert.equal(created.status, 201, created.text)
+  return created.body[0]
+}
+
+/** Everything a market call could change, read with the local service key. */
+async function marketState() {
+  const read = async path => {
+    const response = await asService(path)
+    assert.equal(response.status, 200, response.text)
+    return response.body
+  }
+  return {
+    listings: await read('/rest/v1/market_listings?select=id,pokemon_id,seller_id,price_tokens,is_purchased,purchased_by&order=id'),
+    slots: await read('/rest/v1/slots?select=pokemon_id,owner_id,is_locked&order=pokemon_id'),
+    tokens: await read('/rest/v1/profiles?select=id,tokens&order=id'),
+    ledger: await read('/rest/v1/token_ledger?select=id&order=id'),
+    transactions: await read('/rest/v1/transactions?select=id&order=id'),
+  }
+}
+
+/** A client call to a market function is refused by its ACL (42501) before the body runs. */
+async function refusedMarketCall(fn, args, jwt, label) {
+  const call = await http(`/rest/v1/rpc/${fn}`, { method: 'POST', jwt, body: args })
+  // PostgREST answers 42501 with 403 for a session and 401 for anon.
+  if (jwt) assert.equal(call.status, 403, `${label} ${fn} -> ${call.status} ${call.text}`)
+  else assert.ok(denied(call.status), `${label} ${fn} -> ${call.status} ${call.text}`)
+  assert.equal(call.body?.code, '42501', `${label} ${fn}: ${call.text}`)
+  assert.match(call.body?.message ?? '', /permission denied/, `${label} ${fn}: the ACL, not the body's own check`)
+}
+
 // ── Fixture: two real Auth users with real sessions and a few slots ───────
 
 let fixture = null
@@ -142,55 +190,50 @@ test('slots: the privileged ownership functions are not callable by clients', { 
 })
 
 test('market: no session is an explicit refusal before anything is read or locked', { skip }, async () => {
-  const { b } = await reset()
-  const listing = await http('/rest/v1/rpc/publish_market_listing', { method: 'POST', jwt: b.jwt, body: { p_pokemon_id: PINSIR, p_price_tokens: 5 } })
-  assert.equal(listing.status, 200, listing.text)
+  const { a, b } = await reset()
+  // Fixture (harness, local service key): B's Pinsir is listed. No client can list since SECURITY-3.
+  const listing = await listingFixture(b, PINSIR, 5)
   const calls = [
     ['publish_market_listing', { p_pokemon_id: UNOWNED, p_price_tokens: 1 }],
-    ['cancel_market_listing', { p_listing_id: listing.body.listing_id }],
-    ['buy_market_listing', { p_listing_id: listing.body.listing_id }],
+    ['cancel_market_listing', { p_listing_id: listing.id }],
+    ['buy_market_listing', { p_listing_id: listing.id }],
   ]
+  const before = await marketState()
   for (const [fn, args] of calls) {
-    // anon: no EXECUTE at all.
-    const anon = await http(`/rest/v1/rpc/${fn}`, { method: 'POST', body: args })
-    assert.ok(denied(anon.status), `anon ${fn} -> ${anon.status}`)
-    assert.equal(anon.body?.code, '42501', `anon ${fn}: ${anon.text}`)
+    // anon, and any signed-in user (the seller too): no EXECUTE at all (SECURITY-3).
+    await refusedMarketCall(fn, args, null, 'anon')
+    await refusedMarketCall(fn, args, a.jwt, 'A')
+    await refusedMarketCall(fn, args, b.jwt, 'B (seller)')
     // A caller that has EXECUTE but no user (the service key): the body's own check.
     const sessionless = await asService(`/rest/v1/rpc/${fn}`, { method: 'POST', body: args })
     assert.ok(sessionless.status >= 400, `sessionless ${fn} -> ${sessionless.status}`)
     assert.equal(sessionless.body?.message, 'not_authenticated', `sessionless ${fn}: ${sessionless.text}`)
   }
+  assert.deepEqual(await marketState(), before, 'no refused call listed, locked, cancelled, bought or paid anything')
   assert.deepEqual(await slot(UNOWNED), { pokemon_id: UNOWNED, owner_id: null, is_locked: false })
   assert.deepEqual(await slot(PINSIR), { pokemon_id: PINSIR, owner_id: b.id, is_locked: true }, 'listing untouched')
-  const cancelled = await http('/rest/v1/rpc/cancel_market_listing', { method: 'POST', jwt: b.jwt, body: { p_listing_id: listing.body.listing_id } })
-  assert.equal(cancelled.status, 200, cancelled.text)
 })
 
-test('slots: the market functions only let the real owner list, and nobody buys without paying', { skip }, async () => {
+test('slots: no client can list, cancel or buy — not even the real owner — and nobody buys without paying', { skip }, async () => {
   const { a, b } = await reset()
-  // A cannot list B's Pokémon or a free one; anon cannot list anything.
-  for (const [jwt, id] of [[a.jwt, PINSIR], [a.jwt, UNOWNED], [null, UNOWNED], [null, PINSIR]]) {
-    const listing = await http('/rest/v1/rpc/publish_market_listing', { method: 'POST', jwt, body: { p_pokemon_id: id, p_price_tokens: 1 } })
-    assert.ok(listing.status >= 400, `publish ${id} → ${listing.status} ${listing.text}`)
+  // Nobody lists from a client (SECURITY-3): not B its own Pinsir, not A B's or a free one, not anon.
+  const empty = await marketState()
+  for (const [user, label, id] of [[b, 'B (owner)', PINSIR], [a, 'A', PINSIR], [a, 'A', UNOWNED], [null, 'anon', UNOWNED], [null, 'anon', PINSIR]]) {
+    await refusedMarketCall('publish_market_listing', { p_pokemon_id: id, p_price_tokens: 1 }, user?.jwt ?? null, label)
   }
-  assert.equal((await slot(UNOWNED)).is_locked, false)
-  assert.equal((await asService('/rest/v1/market_listings?select=id')).body.length, 0)
+  assert.deepEqual(await marketState(), empty, 'no listing created, no slot locked')
+  assert.equal(empty.listings.length, 0)
 
-  // The legitimate path still works: B lists Pinsir (locked → WORLD stops using it).
-  const listed = await http('/rest/v1/rpc/publish_market_listing', { method: 'POST', jwt: b.jwt, body: { p_pokemon_id: PINSIR, p_price_tokens: 5 } })
-  assert.equal(listed.status, 200, listed.text)
-  assert.equal((await slot(PINSIR)).is_locked, true)
-  // Someone else cannot cancel it; A (0 tokens) and anon cannot buy it.
-  for (const jwt of [a.jwt, null]) {
-    const cancel = await http('/rest/v1/rpc/cancel_market_listing', { method: 'POST', jwt, body: { p_listing_id: listed.body.listing_id } })
-    assert.ok(cancel.status >= 400, `cancel → ${cancel.status}`)
-    const buy = await http('/rest/v1/rpc/buy_market_listing', { method: 'POST', jwt, body: { p_listing_id: listed.body.listing_id } })
-    assert.ok(buy.status >= 400, `buy → ${buy.status}`)
+  // Fixture (harness, local service key): B's Pinsir is listed and locked.
+  const listing = await listingFixture(b, PINSIR, 5)
+  const listed = await marketState()
+  // Nobody cancels or buys it from a client: not A (0 tokens), not B, not anon.
+  for (const [user, label] of [[a, 'A'], [b, 'B (seller)'], [null, 'anon']]) {
+    await refusedMarketCall('cancel_market_listing', { p_listing_id: listing.id }, user?.jwt ?? null, label)
+    await refusedMarketCall('buy_market_listing', { p_listing_id: listing.id }, user?.jwt ?? null, label)
   }
+  assert.deepEqual(await marketState(), listed, 'the listing, its lock, tokens, ledger and transactions are unchanged')
   assert.deepEqual(await slot(PINSIR), { pokemon_id: PINSIR, owner_id: b.id, is_locked: true })
-  const cancelled = await http('/rest/v1/rpc/cancel_market_listing', { method: 'POST', jwt: b.jwt, body: { p_listing_id: listed.body.listing_id } })
-  assert.equal(cancelled.status, 200, cancelled.text)
-  assert.equal((await slot(PINSIR)).is_locked, false)
 })
 
 test('slots: what a legitimate client needs — reading ownership — still works', { skip }, async () => {
@@ -388,9 +431,22 @@ test('ownership through the function follows slots, and a listed (locked) Pokém
   assert.equal(await owns(a.id, SCYTHER), true)
   assert.equal(await owns(a.id, PINSIR), false)
   assert.equal(await owns(a.id, UNOWNED), false)
-  await http('/rest/v1/rpc/publish_market_listing', { method: 'POST', jwt: b.jwt, body: { p_pokemon_id: PINSIR, p_price_tokens: 5 } })
+  assert.equal(await owns(b.id, PINSIR), true)
+  // Fixture (harness, local service key): Pinsir locked as a listing locks it. No client can list since SECURITY-3.
+  await lockSlot(PINSIR)
   assert.equal(await owns(b.id, PINSIR), false)
-  assert.deepEqual((await edge('player_state', { userId: b.id })).body.state.pokemon, [BELLOSSOM])
+  const before = { state: (await edge('player_state', { userId: b.id })).body.state, nodes: (await edge('load_nodes', {})).body.nodes }
+  assert.deepEqual(before.state.pokemon, [BELLOSSOM])
+
+  // WORLD refuses to put it to work: no reservation, no XP, no material, no node change.
+  const w = await world(manualClock(Date.now()))
+  const pb = await w.join(b.id, TREE.stands[1])
+  await w.room.work(pb.actor, { nodeId: TREE.node.id, pokemonInstanceId: PINSIR, requestId: 1 })
+  assert.equal(result(pb.client).reason, 'not-owner', 'a locked Pokémon cannot work')
+  assert.equal(w.room.authority.actions.size, 0)
+  assert.deepEqual((await edge('player_state', { userId: b.id })).body.state, before.state)
+  assert.deepEqual((await edge('load_nodes', {})).body.nodes, before.nodes)
+  assert.equal((await asService(`/rest/v1/skill_work_settlements?select=action_id&user_id=eq.${b.id}`)).body.length, 0)
 })
 
 test('feature gate: closed users cannot work or settle; testers can; opening the gate opens it to all', { skip }, async () => {
