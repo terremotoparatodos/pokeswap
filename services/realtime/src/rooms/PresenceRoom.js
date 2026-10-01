@@ -2,11 +2,11 @@ import { Room, ServerError } from '@colyseus/core'
 import { authenticateSupabase, authorizedCompanion } from '../auth/supabaseAuth.js'
 import { ChatLog, acceptChat, chatIntent, chatMessage } from '../chat/chat.js'
 import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
+import { areaTransition, stepAllowed } from '../presence/areaTransition.js'
 import { applyMove } from '../presence/movement.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
 import { AREA, COMPACT_STEP_PROTOCOL, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor, stackStep, stepActor } from '../protocol/messages.js'
-import { arrivalFor } from '../protocol/arrival.js'
 import { metrics } from '../observability/metrics.js'
 import { WORLD_MESSAGE } from '../world/worldProtocol.js'
 import { WorldRoom } from '../world/worldRoom.js'
@@ -149,13 +149,15 @@ export class PresenceRoom extends Room {
   move(client, payload) {
     const actor = actors.get(client.userData?.actorId); const intent = moveIntent(payload)
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
-    const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence)
+    const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence, stepAllowed)
     if (rejection) {
-      this.reject(client, rejection === 'replay' ? 'movement replay denied' : 'movement rate denied', rejection)
+      const reason = rejection === 'replay' ? 'movement replay denied' : rejection === 'blocked' ? 'movement blocked' : 'movement rate denied'
+      this.reject(client, reason, rejection)
       // A refused step must still be answered with authority (see applyMove).
       // A replay too: after a server-made move (WORLD VISUAL-2) an older
-      // client's next number is already taken, and this resyncs it.
-      if ((rejection === 'rate' || rejection === 'replay') && intent.sequence !== null) this.sendSelf(client, actor)
+      // client's next number is already taken, and this resyncs it. A step
+      // into a cave wall (CAVES-3) is answered the same way.
+      if (rejection !== 'invalid' && intent.sequence !== null) this.sendSelf(client, actor)
       return
     }
     metrics.moved()
@@ -170,9 +172,18 @@ export class PresenceRoom extends Room {
   changeArea(client, payload) {
     const actor = actors.get(client.userData?.actorId); const intent = areaIntent(payload)
     if (!actor || !intent) return this.reject(client, 'area denied', 'area')
+    // CAVES-3: the service decides whether this crossing is allowed (a cave is
+    // entered only from its mouth and left only from its exit pad). A refusal
+    // answers with the actor's real area and tile, so the client stops waiting
+    // for the area it asked for and reconciles to where it actually is.
+    const arrival = areaTransition(actor, intent.areaId)
+    if (!arrival) {
+      this.reject(client, 'area transition denied', 'area')
+      this.sendSnapshot(client, actor)
+      return
+    }
     // Must match the client's own arrival tile (see protocol/arrival.js):
     // the client keeps predicting from there before this snapshot reaches it.
-    const arrival = arrivalFor(intent.areaId, actor.areaId)
     actor.areaId = intent.areaId
     actor.tx = arrival.tx; actor.ty = arrival.ty; actor.dir = arrival.dir
     metrics.changedArea()
