@@ -19,7 +19,7 @@
 
 ## 2. Migración
 
-`supabase/migrations/20260928120000_world_multi_yield.sql` (aditiva):
+`supabase/migrations/20261001051958_world_multi_yield.sql` (aditiva; renombrada desde `20260928120000_world_multi_yield.sql`, mismo contenido byte por byte, ver §2.1):
 
 - `world_node_overrides.stock_remaining smallint NULL`, con `CHECK (stock_remaining BETWEEN 1 AND 3)` (constraint con nombre).
 - **Semántica de filas:**
@@ -31,6 +31,18 @@
 - `CREATE OR REPLACE world_commit_work` con la **misma firma**. Mantiene `REVOKE`/`GRANT` a `service_role`.
 - **Rollback lógico** (probado en PGlite): volver a aplicar la función de `20260926002154_world_skills_authority.sql` y ignorar la columna. Un realtime anterior nunca la escribe.
 - `localDatabase.js` (PGlite) y el loop de `scripts/integration/rc03-staging/README.md` incluyen la migración.
+
+### 2.1 Aplicación en hosted
+
+- Producción aplicó la migración **individualmente** (sin `db push`), después de SWAP RETIRE-2 y SECURITY-3, y la registró como **`20261001051958 world_multi_yield`**.
+- El archivo local se renombró a esa versión: renombrada desde `20260928120000_world_multi_yield.sql`, mismo blob de Git y mismo SQL. Ahora es la última versión del repositorio.
+- Verificación de producción (estación principal):
+  - `world_commit_work` actualizado; su ACL queda solo para `postgres` y `service_role`;
+  - `world_node_overrides.stock_remaining` presente;
+  - las 12 filas preexistentes se preservaron con `stock_remaining = NULL`;
+  - las violaciones de SECURITY-3 siguieron en 0;
+  - no cambió ningún dato.
+- `world_load_nodes` **no** se ejecutó durante la verificación, porque borra los nodos vencidos. La lectura funcional de `stock_remaining` queda para el nuevo realtime.
 
 ## 3. Contrato SQL (`world_commit_work`)
 
@@ -274,7 +286,7 @@ Las tablas históricas se conservan y llevan la corrección al lado.
 | Staging RC-0.3 (Supabase local) | **pendiente**: no hay Docker/Supabase. Los tests del gate se adaptaron a YIELD-2 y se agregó uno de parcial/`stale_node` por la Edge real, **sin ejecutar** |
 
 Pasos para la estación principal:
-1. aplicar `20260928120000_world_multi_yield` en el stack local (loop de `scripts/integration/rc03-staging/README.md`);
+1. aplicar `20261001051958_world_multi_yield` (renombrada desde `20260928120000_world_multi_yield.sql`) en el stack local (loop de `scripts/integration/rc03-staging/README.md`);
 2. correr el gate de staging con las variables `RC03_*`;
 3. correr la suite Deno de `world-authority`.
 

@@ -24,11 +24,11 @@ cp ../scripts/integration/rc03-staging/02_prod_mirror_functions.sql supabase/mig
 supabase start -x studio,imgproxy,vector,logflare,mailpit,realtime,storage-api,postgres-meta,supavisor
 
 # 2. The migrations under test, in the order hosted applies them (errors stop them; NOTICEs are printed):
-#    the four RC-0.3 migrations, SWAP RETIRE-2, SECURITY-3, then multi-yield LAST (see the warning below).
+#    the four RC-0.3 migrations, SWAP RETIRE-2, SECURITY-3, then multi-yield (see the note below).
 for m in 20260926001322_slots_client_write_revoke 20260926001502_market_require_session \
          20260926002154_world_skills_authority 20260926002207_world_skills_gate \
          20260930230308_retire_skip_swap_cooldown 20261001032040_security3_close_client_writes \
-         20260928120000_world_multi_yield; do
+         20261001051958_world_multi_yield; do
   docker exec -i supabase_db_stage psql -U postgres -v ON_ERROR_STOP=1 --single-transaction -f - \
     < ../supabase/migrations/$m.sql
 done
@@ -46,16 +46,14 @@ cd ../services/realtime && RC03_SUPABASE_URL=http://127.0.0.1:54321 RC03_ANON_KE
 
 The tests refuse any `RC03_SUPABASE_URL` that is not `127.0.0.1` or `localhost`.
 
-> ⚠️ **Migration order (YIELD-2 on top of SECURITY-3).** `20260928120000_world_multi_yield` has an
-> earlier nominal version than `20260930230308_retire_skip_swap_cooldown` and
-> `20261001032040_security3_close_client_writes`, but hosted already has both security migrations.
-> This stack applies multi-yield **last** to reproduce the order hosted will actually see (the
-> objects are disjoint, so the result is the same in either order).
+> ⚠️ **Migration order (YIELD-2 on top of SECURITY-3).** Hosted applied multi-yield individually
+> after both security migrations and recorded it as `20261001051958`; the local file was renamed to
+> `20261001051958_world_multi_yield.sql` (renamed from `20260928120000_world_multi_yield.sql`, same
+> bytes). It is now the last version, so this loop's order is also version order.
 >
-> - **Never use `supabase db push`**: it would refuse the out-of-order version, or apply other local
->   files, and the local history is not reconciled with hosted (`docs/BACKEND_INVENTORY.md`).
-> - In hosted, apply `20260928120000_world_multi_yield.sql` **individually**, then rename the local
->   file to the version hosted records for it (as SECURITY-3 did with `20261001032040`).
+> - **Never use `supabase db push`**: the local history is not reconciled with hosted
+>   (`docs/BACKEND_INVENTORY.md`). A future migration is applied individually and its local file is
+>   then aligned with the version hosted records (as SECURITY-3 did with `20261001032040`).
 
 **Market after SECURITY-3.** No client (anon or signed-in) may execute `publish_market_listing`,
 `cancel_market_listing` or `buy_market_listing`: the gate expects 42501 (HTTP 403 for a session) and
