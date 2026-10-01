@@ -215,3 +215,22 @@ Un cliente 0.3 anterior a este cambio no dibujaría la roca. Como la colisión d
 - **Decisiones superadas.**
   - La premisa de Pokémon salvajes como "entidad única con dueño posible" (`CAVES_1_AUDIT.md`) queda reemplazada por la de varios ejemplares por especie, con `instanceId` y como máximo un dueño (`MMO_SPAWN_RARITY_AND_INSTANCES.md`).
   - Las entradas procedurales por semilla (`seedOf`, `placeEntrances`, seis bocas en Pradera) y la Dungeon que se abría desde cualquier cueva quedan retiradas.
+
+## 13. Validación humana y cierre (2026-10-01)
+
+Smoke humano en el entorno oscuro, con la integración `67f1ad0` en el realtime y en el cliente (protocolo WORLD 3, gate cerrado).
+
+| Comprobación | Resultado |
+|---|---|
+| Bocas de cueva en Pradera | Una sola, `pradera-cueva-inicial` en `(-26,-74)`; ninguna de las cinco anteriores |
+| Colisiones | La roca de 3×2 (boca incluida) no se atraviesa; la aproximación se pisa |
+| Claro frontal | Libre de salvajes, errantes, recursos y parcelas |
+| Panel de Dungeon | No se abre ninguno desde el mundo |
+| Portal Ciudad ↔ Pradera | Sin regresiones |
+| YIELD-2 | Sin regresiones: 4 settlements nuevos de minería, conciliados exactamente con la XP (+40) y los materiales (+4), 0 IDs duplicados |
+| Conexiones | Hasta dos jugadores a la vez |
+| Errores, rechazos de protocolo, `stale_node`, resyncs, fallos de settlement | 0 |
+
+Los rechazos `busy` registrados (3) son intentos sobre un nodo ya ocupado, sin pago. La economía (tokens, ledger, transacciones) no cambió.
+
+**Veredicto: PASS.** La fase siguiente es CAVES-3.
