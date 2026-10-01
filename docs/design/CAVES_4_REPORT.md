@@ -17,9 +17,33 @@ Decisiones tomadas con el usuario antes de implementar:
 
 | Decisión | Elegido |
 | --- | --- |
-| Botón «Ciudad» | **Recall server-side.** Es la única excepción explícita: el cliente pide volver y el servicio elige un destino fijo. |
-| Pedido de la misma área fuera de la Ciudad | **Resync sin mover.** Solo cae a la llegada si la casilla del propio servicio dejó de ser válida. |
+| Botón «Ciudad» | **Eliminado** (decisión definitiva del usuario, corrección posterior a `1d556ac`, §1.1). No hay teletransporte libre. |
+| Pedido de la misma área (cualquiera de las tres) | **Resync sin mover.** Solo cae a la llegada si la casilla del propio servicio dejó de ser caminable y alcanzable. |
 | Reconexión pasados 15 s o tras un reinicio | **Solo diseño** (§6). No se implementa persistencia. |
+
+### 1.1 Corrección: sin botón «Ciudad» y sin teletransporte
+
+La primera versión de esta rama (`1d556ac`) conservaba el botón «Ciudad» como un recall server-side. El usuario lo revirtió como decisión de producto definitiva:
+
+- **Cliente:**
+  - se eliminaron el botón del HUD (`LobbyHud.vue`), su evento y su listener (`WildlandsView.vue`);
+  - se eliminó `WildlandsGame.returnToLobby()`, el único caller;
+  - el harness de presencia (`scripts/presence-harness`) dejó de usarlo.
+- **Servicio:** acepta solo cuatro transiciones, siempre parado **exactamente** sobre el portal canónico:
+  - Ciudad → Pradera (puerta oeste);
+  - Pradera → Ciudad (pad de regreso);
+  - Pradera → `cueva-inicial` (boca);
+  - `cueva-inicial` → Pradera (salida).
+- **Pedido de Ciudad desde cualquier otro lugar** (un bundle viejo o un cliente manipulado):
+  - `area transition denied` y un único snapshot con el estado real, solo para ese cliente;
+  - no mueve al jugador;
+  - los observadores no reciben nada;
+  - no hay loop;
+  - el trabajo en curso no se cancela, porque el jugador no se movió.
+- **Pedido de la misma área en la Ciudad:** es un resync, como en las otras áreas. Sin teletransporte al spawn.
+- **Bolsillo cercado:** el resync repara una casilla que el cliente marca como colisión (caminable pero no alcanzable). Para eso el servicio tiene `isReachable`, con paridad casilla por casilla con `TownArea` y `CaveArea`. Antes de esta corrección, el recall era lo que sacaba al jugador de ahí.
+
+**Fuera de alcance:** el viaje rápido (Vuelo/Teletransporte) será una feature futura y separada, con desbloqueos, destinos permitidos, costes o cooldowns. No se diseña ni se implementa en CAVES-4.
 
 ## 2. Auditoría: cómo se definía la navegación (FACT, en `c8d0a4c`)
 
@@ -94,12 +118,10 @@ No hay dos mapas manuales. El cliente y el servicio derivan la colisión de los 
 | Pedido | Respuesta |
 | --- | --- |
 | Otra área, parado **exactamente** sobre un portal de su área real que lleva ahí | `portal`: aterriza en la llegada de ese origen, nunca sobre un portal |
-| Ciudad desde cualquier otro lugar | `recall` a (8,41) desde la Pradera y al spawn (31,20) desde la cueva: exactamente lo que el cliente ya predice |
-| Ciudad estando en la Ciudad | `recall` al spawn |
-| La misma área fuera de la Ciudad | `resync`: snapshot de la posición real, sin moverse ni publicar nada. Solo cae a la llegada si su casilla dejó de ser caminable |
-| Cualquier otro caso (casilla equivocada, área no compartida, área inventada) | `area transition denied` + un snapshot con el área y la casilla reales |
+| La misma área (Ciudad, Pradera o cueva) | `resync`: snapshot de la posición real, sin moverse ni publicar nada. Solo cae a la llegada si su casilla dejó de ser caminable y alcanzable |
+| Cualquier otro caso: Ciudad fuera de su portal (el viejo «Ciudad»), casilla equivocada, área no compartida o inventada | `area transition denied` + un único snapshot con el área y la casilla reales. Sin movimiento, sin noticias para los observadores y sin cancelar el trabajo |
 
-**Reconexión dentro de la gracia de 15 s:** la casilla recordada se usa solo si `isSafeLanding` (caminable y no portal). Si no, se usa la llegada de su área (`reconnectRepairs`).
+**Reconexión dentro de la gracia de 15 s:** la casilla recordada se usa solo si `isSafeLanding` (caminable, alcanzable y no portal). Si no, se usa la llegada de su área (`reconnectRepairs`).
 
 **Trabajadores:** `standableTile` excluye **todo** portal, el pad de la Pradera incluido.
 
@@ -109,7 +131,7 @@ No hay dos mapas manuales. El cliente y el servicio derivan la colisión de los 
 - un invitado solo puede observar la Ciudad y la Pradera, nunca la cueva.
 
 **Métricas** (agregadas, sin ids ni coordenadas):
-- `transitions {portal, recall, resync}`;
+- `transitions {portal, resync}`;
 - rechazos `sequence` y `blocked`;
 - `reconnectRepairs`.
 
@@ -208,13 +230,15 @@ Lo que CAVES-4 sí agrega dentro de la gracia: la casilla restaurada se valida (
   - contrato de llegadas;
   - `townCollision` genérico;
   - **huella md5 congelada**.
-- `rooms/PresenceRoomNavigation.test.js` (16), con la sala real, el rate limit real y un reloj falso:
+- `rooms/PresenceRoomNavigation.test.js` (18), con la sala real, el rate limit real y un reloj falso:
   - movimiento válido en las tres áreas;
   - las cuatro transiciones en ambos sentidos;
   - casilla equivocada en cada portal (un solo snapshot);
   - coordenadas, origen y destino falsificados;
-  - recall;
-  - resync;
+  - sin teletransporte a Ciudad desde la Pradera ni desde la cueva (un solo rechazo, un solo snapshot, nada a los observadores, sin loop);
+  - resync en la Ciudad sin ir al spawn, salvo desde un bolsillo cercado;
+  - un pedido viejo de «Ciudad» mientras trabaja no mueve al jugador ni cancela el trabajo;
+  - resync en la Pradera y la cueva;
   - paredes y bordes (un solo `self` y nada a los observadores);
   - pasos malformados o no finitos;
   - ráfaga y salto;
@@ -233,8 +257,10 @@ Tests existentes adaptados, sin cambiar lo que prueban, porque antes viajaban pi
 
 **Navegador:**
 - `areas/townNavigation.test.ts` (4): paridad de colisión en cada casilla, gates, huellas y textos de carteles, y copias en lugar de los originales congelados;
-- `areas/navigationParity.test.ts` (4): colisión y borde de la Pradera, mundos locales sin borde, portales idénticos, llegadas y recall;
-- `engine/presenceReconciliation.test.ts` (+2): el resync y el paso rechazado con número consumido se adoptan una vez y no se reenvía nada.
+- `areas/navigationParity.test.ts` (5): colisión y borde de la Pradera, mundos locales sin borde, alcanzabilidad de la Ciudad y la cueva igual a la del servicio, portales idénticos y llegadas;
+- `components/LobbyHud.test.ts` (2): el HUD no tiene botón ni emite `home`, en la Ciudad y en la Pradera;
+- `components/noCityTeleport.test.ts` (3): ningún archivo productivo de `src/` define o llama un recall, ni escucha el viejo botón; la Ciudad solo se pide desde el callback de viaje (un portal caminado) y desde el resync del punto seguro;
+- `engine/presenceReconciliation.test.ts`: el resync y el paso rechazado con número consumido se adoptan una vez y no se reenvía nada; el motor ya no tiene `returnToLobby`; un «Ciudad» rechazado de un cliente viejo se reconcilia una sola vez. Se eliminaron los dos tests que probaban `returnToLobby`.
 
 ### 7.1 Controles negativos (mutantes)
 
@@ -244,7 +270,7 @@ Cada mutante se aplicó con un script, se corrieron los tests indicados y se res
 | --- | --- |
 | N1 el servicio ignora paredes | Navegación y cueva (4) |
 | N2 un portal funciona desde cualquier casilla de su área | Navegación y cueva (9) |
-| N3 el recall lleva a cualquier área (teleport) | Navegación y cueva (9) |
+| N3 el recall lleva a cualquier área (teleport) | Navegación y cueva (9). *Obsoleto: el recall ya no existe; lo reemplaza R1* |
 | N4 el pedido de la misma área teletransporta a la llegada | Navegación y cueva (3) |
 | N5 se aceptan secuencias adelantadas | Navegación (1) |
 | N6 se rechazan pero no se consumen (riesgo de loop) | Navegación (1) |
@@ -262,6 +288,19 @@ Cada mutante se aplicó con un script, se corrieron los tests indicados y se res
 
 **17/17 detectados.**
 
+**Controles de la corrección** (restaurados desde una copia en memoria; el árbol quedó idéntico, md5 del diff):
+
+| Mutante | Lo detecta |
+| --- | --- |
+| R1 el servicio vuelve a teletransportar a Ciudad desde cualquier lugar | Navegación, cueva y sala (3) |
+| R2 el pedido de la misma área en la Ciudad vuelve a llevar al spawn | Navegación y sala (2) |
+| R3 un «Ciudad» rechazado se publica a los observadores | Navegación (1) |
+| R4 un «Ciudad» rechazado igual mueve al jugador (y cancela su trabajo) | Navegación (2) |
+| R5 vuelve el botón al HUD | `LobbyHud.test.ts` y `noCityTeleport.test.ts` (3) |
+| R6 vuelve un caller productivo que pide la Ciudad desde cualquier lugar | `noCityTeleport.test.ts` y `presenceReconciliation.test.ts` (3) |
+
+R4 reemplaza a un primer intento, «el rechazo llama a `actorPlaced`», que sobrevivió por ser **equivalente**: `reconcileActor` solo cancela si el actor dejó de estar donde trabaja, así que sin movimiento no hace nada. Esa protección es estructural.
+
 ## 8. Benchmark
 
 `scripts/benchmark-navigation.mjs` usa:
@@ -272,19 +311,19 @@ Cada mutante se aplicó con un script, se corrieron los tests indicados y se res
 
 Los resultados están en `docs/performance/baselines/caves-4/`.
 
-| 100 actores, 60 s | Limpio | Con sondas (p = 0.05) |
+| 100 actores, 60 s | Limpio (`1d556ac`) | Con sondas (p = 0.05, tras la corrección: las sondas incluyen el viejo «Ciudad») |
 | --- | --- | --- |
 | Distribución inicial | Ciudad 34 · Pradera 33 · cueva 33 | Igual |
-| Distribución final | Ciudad 39 · Pradera 49 · cueva 12 | Ciudad 38 · Pradera 56 · cueva 6 |
-| Pasos aceptados (cliente = servidor) | 40 118 = 40 118 | 40 148 = 40 148 |
-| Cruces aceptados (`portal`) | 552 | 501 |
-| Rechazos esperados (sondas del generador) | — | 73 de 73: 40 `sequence`, 26 `area`, 7 `blocked` |
+| Distribución final | Ciudad 39 · Pradera 49 · cueva 12 | Ciudad 32 · Pradera 55 · cueva 13 |
+| Pasos aceptados (cliente = servidor) | 40 118 = 40 118 | 40 163 = 40 163 |
+| Cruces aceptados (`portal`) | 552 | 520 |
+| Rechazos esperados (sondas del generador) | — | 84 de 84: 46 `sequence`, 36 `area` (incluye pedidos de Ciudad fuera del portal), 2 `blocked` |
 | Rechazos inesperados (defectos del servidor) | **0** | **0** |
 | Fugas de presencia entre áreas | **0** | **0** |
 | Errores de socket | 0 | 0 |
-| RTT del ack p50/p95/p99/máx (driver con 100 sockets en un proceso) | 6.5 / 33.9 / 48.7 / 91.0 ms | 6.8 / 35.7 / 51.1 / 82.3 ms |
-| Event loop del servidor p50/p99/máx | 31.0 / 36.5 / 38.5 ms | 31.0 / 36.5 / 38.0 ms |
-| Memoria RSS / heap (final; pico) | 203 / 27 MB (pico 205 / 68) | 198 / 68 MB (pico 199 / 75) |
+| RTT del ack p50/p95/p99/máx (driver con 100 sockets en un proceso) | 6.5 / 33.9 / 48.7 / 91.0 ms | 8.3 / 50.4 / 77.0 / 130.7 ms |
+| Event loop del servidor p50/p99/máx | 31.0 / 36.5 / 38.5 ms | 30.1 / 37.4 / 42.9 ms |
+| Memoria RSS / heap (final; pico) | 203 / 27 MB (pico 205 / 68) | 207 / 66 MB (pico 205 / 86) |
 
 El p50 del event loop (~31 ms) es el piso del medidor con resolución de 20 ms y el tick de 50 ms. Es el mismo valor de los benchmarks previos: INTEGRATION-1 `demo-50` dio p50 30.98 y p99 33.31.
 
@@ -305,14 +344,14 @@ Atribución de los rechazos del generador:
 
 Contra el benchmark histórico (`MULTIPLAYER_BENCHMARK.md`, 100 jugadores en la Ciudad: RTT p95 16.03 y p99 20.68), la validación no agrega costo medible.
 
-## 9. Gates (punta de la rama)
+## 9. Gates (punta de la rama, con la corrección §1.1)
 
 | Gate | Resultado |
 | --- | --- |
-| Navegación y presencia focalizadas (navegación, Ciudad, salas, cueva, presencia, protocolo, benchmark room) | 102/102 |
-| Realtime completo, Node 24 | 332 aprobados, 0 fallos, 21 omitidos (staging) |
-| Realtime completo, **Node 22** (`npx --offline node@22`) | 332 aprobados, 0 fallos, 21 omitidos |
-| Vitest completo | 190 archivos, 1824/1824 |
+| Navegación y presencia focalizadas (navegación, Ciudad, salas, cueva, presencia, protocolo, benchmark room) | 105/105 |
+| Realtime completo, Node 24 | 335 aprobados, 0 fallos, 21 omitidos (staging) |
+| Realtime completo, **Node 22** (`npx --offline node@22`) | 335 aprobados, 0 fallos, 21 omitidos |
+| Vitest completo | 191 archivos, 1829/1829 |
 | typecheck | OK |
 | lint | 0 errores, 9 warnings ya existentes |
 | Build normal y Playtest + `bundle-check` del retiro de Swap | ✓ / ✓ |
@@ -324,7 +363,9 @@ Contra el benchmark histórico (`MULTIPLAYER_BENCHMARK.md`, 100 jugadores en la 
 | Migraciones y SECURITY-3 (PGlite) | 40/40 |
 | Guard de webhooks: tests y `check` | 28/28 y ✓ |
 | Pacing de SKILLS | ✓ |
-| Controles negativos | 17/17 |
+| Controles negativos | 17/17 (N1–N17) + 6/6 de la corrección (R1–R6) |
+| Bundles construidos (normal y playtest) | Sin `wl-home`, `returnToLobby` ni «Reubicar»; el único «Volver a Ciudad Corazón» es la etiqueta del pad real de la Pradera |
+| Harness de presencia (`scripts/presence-harness/run.sh`) | 5 escenarios, cliente = servidor. S3: 1 `replay` del propio harness (el movimiento del servidor sobre el portal consume un número). S5: 9 rechazos de ritmo de la ráfaga, ya conocidos |
 
 **Deno y staging omitidos:**
 - `git diff c8d0a4c..HEAD -- supabase` está vacío: no cambian SQL, migraciones ni Edge Functions;
@@ -339,18 +380,19 @@ Contra el benchmark histórico (`MULTIPLAYER_BENCHMARK.md`, 100 jugadores en la 
 | `49b0878` | `townLayout.js`: navegación canónica de la Ciudad; el cliente la consume (equivalencia probada) |
 | `995a467` | Bundle de SKILLS regenerado (solo datos) |
 | `fd0c6f3` | `navigation.js`: walkability, portales, borde de la Pradera; trabajadores fuera de todo portal; helpers de test |
-| `5a62020` | El servicio valida cada paso y cada cruce; recall, resync, secuencias y restauración validada; tests de sala |
+| `5a62020` | El servicio valida cada paso y cada cruce; recall (eliminado después), resync, secuencias y restauración validada; tests de sala |
 | `37b9ac7` | Cliente: borde de la Pradera y guardas de paridad |
 | `1b6b554` | Huella congelada de la colisión de la Ciudad |
 | `fae230b` | Jugadores sintéticos por portales reales; los generadores adoptan la autoridad |
 | `5ebcebf` | Benchmark de navegación de 100 actores y resultados |
-| *(este)* | Informe |
+| `1d556ac` | Informe |
+| *(corrección)* | Sin botón «Ciudad» ni teletransporte (§1.1): cliente, servicio, alcanzabilidad, harness, benchmark, tests e informe |
 
 ## 11. Deudas explícitas
 
 1. **Persistencia de la posición (§6.2):** pasados 15 s o tras un reinicio, se vuelve a la Ciudad. Es seguro, pero no restaura el área.
 2. **Una sola instancia:** la presencia asume un proceso. Escalar horizontalmente exige estado compartido.
-3. **El recall es un teleport por diseño:** a un destino fijo y sin cooldown.
+3. **Viaje rápido:** fuera de alcance. Será una feature futura (Vuelo/Teletransporte, con desbloqueos, destinos, costes o cooldowns). Hoy no existe ninguna forma de cambiar de área sin caminar por un portal.
 4. **Borde de la Pradera (±4096):** pared invisible, sin arte.
 5. **Divergencia de colisión:** si el cliente y el servicio divergieran, el punto seguro del cliente podría pedir resync una y otra vez.
    - Hoy no pueden divergir: misma función, paridad probada y `placedObjects` vacío en producción.
@@ -389,7 +431,7 @@ Contra el benchmark histórico (`MULTIPLAYER_BENCHMARK.md`, 100 jugadores en la 
 **Validación oscura:** reiniciar **juntos** cliente y realtime sobre el merge (mismos túneles, gate cerrado). Smoke humano propuesto, con Titan123 y terremototw:
 1. Chocar contra edificios, fuentes, cercos y bancos de la Ciudad, y contra árboles y la roca de la cueva en la Pradera: no se atraviesan, no hay saltos y no aparece el toast de «punto seguro».
 2. Ciudad → Pradera por la puerta oeste; Pradera → Ciudad por el pad; Pradera → cueva por la boca; cueva → Pradera por la salida.
-3. El botón «Ciudad» desde la Pradera (aparece junto a la puerta oeste) y desde la cueva (aparece en el spawn).
+3. No hay botón «Ciudad» en el HUD (escritorio ni móvil). Para volver a la Ciudad desde la cueva hay que salir por el pad y caminar hasta el pad de la Pradera.
 4. Los dos jugadores cruzan la puerta oeste en sentidos opuestos a la vez: cada uno termina donde caminó y se ven solo en la misma área.
 5. Recargar a menos de 15 s dentro de la cueva: vuelve a su casilla. Recargar pasados 15 s: Ciudad (esperado, §6).
 6. YIELD-2: talar o minar; chocar contra el nodo no cancela, y alejarse un paso sí. Conciliar settlements, XP y materiales.

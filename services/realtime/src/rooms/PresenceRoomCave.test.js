@@ -38,10 +38,10 @@ test('areaTransition: out to the cave area only from the exit pad, landing on th
   assert.deepEqual({ ...out.arrival }, { tx: CAVE.approach.tx, ty: CAVE.approach.ty, dir: 'down' })
   assert.equal(areaTransition(at(INSIDE.arrival.tx, INSIDE.arrival.ty), 'pradera'), null)
   assert.equal(areaTransition(at(INSIDE.exit.tx, INSIDE.exit.ty - 1), 'pradera'), null)
-  // The "Ciudad" recall still works from inside. A same-area request is a
-  // resync since CAVES-4: it keeps a valid tile and only repairs an invalid
+  // No "Ciudad" teleport from inside (CAVES-4), from any tile. A same-area
+  // request is a resync: it keeps a valid tile and only repairs an invalid
   // one (1,1 is rock) to the arrival.
-  assert.deepEqual({ ...areaTransition(at(1, 1), 'ciudad-corazon').arrival }, { ...ARRIVALS['ciudad-corazon'] })
+  for (const t of [{ tx: 1, ty: 1 }, { tx: 12, ty: 8 }, INSIDE.exit, INSIDE.arrival]) assert.equal(areaTransition(at(t.tx, t.ty), 'ciudad-corazon'), null)
   assert.deepEqual({ ...areaTransition(at(1, 1), INSIDE.id).arrival }, { ...INSIDE.arrival })
   assert.equal(areaTransition(at(12, 8), INSIDE.id).arrival, null)
 })

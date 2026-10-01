@@ -10,4 +10,5 @@ export declare function isWalkable(areaId: string, tx: number, ty: number): bool
 export declare function portalAt(areaId: string, tx: number, ty: number): string | null
 export declare function nextHop(from: string, to: string): string | null
 export declare function portalTo(from: string, to: string): NavigationPortal | null
+export declare function isReachable(areaId: string, tx: number, ty: number): boolean
 export declare function isSafeLanding(areaId: string, tx: number, ty: number): boolean

@@ -146,9 +146,9 @@ try {
     const wall = Object.keys(DELTA).find(d => !isWalkable(state.areaId, state.tx + DELTA[d][0], state.ty + DELTA[d][1]))
     if (kind === 0 && wall) { state.expect.push('movement blocked'); sendMove(state, wall); return }
     if (kind === 1) {
-      // A crossing to a neighbour that is not the town (the recall is legitimate anywhere), off its portal.
-      const target = NEIGHBOURS[state.areaId].find(a => a !== 'ciudad-corazon')
-      if (target && portalAt(state.areaId, state.tx, state.ty) !== target) { state.expect.push('area transition denied'); state.room.send('area', { areaId: target, tx: 0, ty: 0 }); return }
+      // A crossing off its portal: to a neighbour, or the old "Ciudad" teleport from anywhere.
+      const target = state.areaId === 'ciudad-corazon' ? 'pradera' : pick([...NEIGHBOURS[state.areaId], 'ciudad-corazon'])
+      if (portalAt(state.areaId, state.tx, state.ty) !== target) { state.expect.push('area transition denied'); state.room.send('area', { areaId: target, tx: 0, ty: 0 }); return }
     }
     state.expect.push('movement sequence denied')
     state.sequence += 5
@@ -205,7 +205,7 @@ try {
     },
     server: {
       moves: (after.moves ?? 0) - (before.moves ?? 0), areaChanges: (after.areaChanges ?? 0) - (before.areaChanges ?? 0),
-      transitions: { portal: diff('transitions', 'portal'), recall: diff('transitions', 'recall'), resync: diff('transitions', 'resync') },
+      transitions: { portal: diff('transitions', 'portal'), resync: diff('transitions', 'resync') },
       rejections: Object.fromEntries(Object.keys(after.rejections ?? {}).map(k => [k, (after.rejections[k] ?? 0) - (before.rejections?.[k] ?? 0)])),
       eventLoopDelayMs: after.eventLoopDelayMs, memoryMb: after.memoryMb,
       memoryPeakMb: { rss: Math.max(0, ...samples.map(s => s.rss ?? 0)), heapUsed: Math.max(0, ...samples.map(s => s.heap ?? 0)) },

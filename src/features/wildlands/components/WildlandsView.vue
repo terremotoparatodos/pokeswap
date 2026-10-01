@@ -63,7 +63,7 @@
       </button>
     </template>
 
-    <LobbyHud :hud="hud" @home="game?.returnToLobby()" />
+    <LobbyHud :hud="hud" />
 
     <RunToggle v-model:active="runMode" />
 

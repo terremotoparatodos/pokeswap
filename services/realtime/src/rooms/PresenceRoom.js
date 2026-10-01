@@ -200,10 +200,12 @@ export class PresenceRoom extends Room {
     const actor = actors.get(client.userData?.actorId); const intent = areaIntent(payload)
     if (!actor || !intent) return this.reject(client, 'area denied', 'area')
     // CAVES-3/4: the service decides whether this crossing is allowed and
-    // where it lands: through a portal only standing on it, the town recall
-    // from anywhere, nothing else (presence/areaTransition.js). A refusal
-    // answers with the actor's real area and tile, so the client stops waiting
-    // for the area it asked for and reconciles to where it actually is.
+    // where it lands: through a portal only standing on it, nothing else —
+    // there is no "Ciudad" teleport (presence/areaTransition.js). A refusal
+    // moves nothing and tells no observer: it answers once, to this client,
+    // with the actor's real area and tile, so a client waiting for the area
+    // it asked for (an old bundle's "Ciudad" included) reconciles to where it
+    // actually is. Running work is untouched: the actor did not move.
     const transition = areaTransition(actor, intent.areaId)
     if (!transition) {
       this.reject(client, AREA_TRANSITION_DENIED, 'area')

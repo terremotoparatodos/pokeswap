@@ -12,6 +12,10 @@ import { AreaTravel } from '../../src/features/wildlands/engine/travel'
 import { PresenceRoom } from '../../services/realtime/src/rooms/PresenceRoom.js'
 // @ts-expect-error untyped JS module
 import { metrics } from '../../services/realtime/src/observability/metrics.js'
+// @ts-expect-error untyped JS module
+import { liveActorForTesting } from '../../services/realtime/src/rooms/PresenceRoom.js'
+// @ts-expect-error untyped JS module
+import { portalTo } from '../../services/realtime/src/world/navigation.js'
 
 const DELTA: Record<string, [number, number]> = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
 
@@ -65,6 +69,13 @@ export async function world(label: string) {
     g.placePlayer(g.area.arrival(from))
     g.pendingPresenceArea = to
     g.awaitingAreaSnapshot = true // no-op on old client code
+    // CAVES-4: the service crosses only from the portal tile. The harness
+    // models the walk with a server-made move onto it, just before asking.
+    up.push(() => {
+      const actor = liveActorForTesting(`h-${label}`)
+      const portal = portalTo(actor.areaId, to)
+      if (portal) room.placeActor(actor, { tx: portal.tx, ty: portal.ty, dir: actor.dir })
+    })
     g.presence.changeArea(to)
   }
   return { g, room, sock, rtt, flushUp, flushDown, step, travel, counters, log, metrics, up, down }
@@ -76,14 +87,15 @@ async function scenario1() {
   return { name: 'S1 enter Pradera, 20 RTT idle', ...w.counters, client: `${w.g.area.id}(${w.g.player.tx},${w.g.player.ty})` }
 }
 async function scenario2() {
-  // Walk a bit, press "Ciudad" (same-area reset) and keep walking before the snapshot arrives.
+  // Walk a bit, ask for a safe-point resync (CAVES-4: there is no "Ciudad"
+  // teleport) and keep walking before the snapshot arrives.
   const w = await world('s2')
   for (let i = 0; i < 3; i++) w.step('right'); w.rtt()
-  w.g.returnToLobby()
-  for (let i = 0; i < 3; i++) w.step('down') // sent before the reset snapshot returns
+  w.g.requestPresencePlacement('ciudad-corazon')
+  for (let i = 0; i < 3; i++) w.step('down') // sent before the resync snapshot returns
   w.rtt(3)
   const self = w.g.player
-  return { name: 'S2 Ciudad reset + keep walking', ...w.counters, client: `(${self.tx},${self.ty})` }
+  return { name: 'S2 safe-point resync + keep walking', ...w.counters, client: `(${self.tx},${self.ty})` }
 }
 async function scenario3() {
   // Round trip Pradera and back, walking in each.

@@ -7,7 +7,7 @@ import { MESSAGE } from '../protocol/messages.js'
 import { cavesIn } from '../world/caves.js'
 import { caveInterior } from '../world/caveLayouts.js'
 import { createDemoSkillPolicy } from '../world/demoSkillPolicy.js'
-import { AREA_BOUNDS, PRADERA_RETURN_PAD, isWalkable, portalTo } from '../world/navigation.js'
+import { AREA_BOUNDS, PRADERA_RETURN_PAD, isReachable, isWalkable, portalTo } from '../world/navigation.js'
 import { createStaticOwnership } from '../world/pokemonOwnership.js'
 import { fakeClient, lastMessage, messagesOf, openDirection, praderaNodesNearSpawn, routeBetween, settle } from '../world/testing.js'
 import { standableTile, workPlacement } from '../world/workPlacement.js'
@@ -167,22 +167,76 @@ test('nav: the client names an area and nothing else — coordinates, origins an
   assert.deepEqual(where(a), { ...start, ty: start.ty + 1 })
 })
 
-test('nav: the "Ciudad" recall is the only trip without a portal, to a landing the service picks', async t => {
+// ── No "Ciudad" teleport ───────────────────────────────────────────────────
+
+test('nav: a direct request for Ciudad from Pradera or the cave does not teleport — one answer, nothing for observers, no loop', async t => {
   const { room, join, where, walk, travel } = await navRoom(t)
   const before = { ...metrics.transitions }
-  const a = await join('nav-recall')
-  travel(a, 'pradera')
-  walk(a, CAVE.approach)
-  room.changeArea(a, { areaId: 'ciudad-corazon' })
-  assert.deepEqual(where(a), { areaId: 'ciudad-corazon', tx: TOWN_FROM_PRADERA.tx, ty: TOWN_FROM_PRADERA.ty }, 'from Pradera: where the client lands too')
-  travel(a, 'pradera'); travel(a, INSIDE.id)
-  walk(a, { tx: 12, ty: 3 })
-  room.changeArea(a, { areaId: 'ciudad-corazon' })
-  assert.deepEqual(where(a), { areaId: 'ciudad-corazon', tx: ARRIVALS['ciudad-corazon'].tx, ty: ARRIVALS['ciudad-corazon'].ty }, 'from the cave: the spawn')
+  const a = await join('nav-norecall')
+  const prader = await join('nav-norecall-pradera')
+  const caver = await join('nav-norecall-cave')
+  const towner = await join('nav-norecall-town')
+  travel(prader, 'pradera')
+  travel(caver, 'pradera'); travel(caver, INSIDE.id)
+  for (const [area, spot] of [['pradera', CAVE.approach], [INSIDE.id, { tx: 12, ty: 3 }]]) {
+    if (where(a).areaId !== area) travel(a, area)
+    walk(a, spot)
+    room.flushDeltaBatches()
+    const watchers = [prader, caver, towner]
+    const seen = watchers.map(w => deltasOf(w, 'nav-norecall').length)
+    const [snapshots, selves, errorsBefore] = [messagesOf(a, MESSAGE.SNAPSHOT).length, messagesOf(a, MESSAGE.SELF).length, errors(a).length]
+    room.changeArea(a, { areaId: 'ciudad-corazon' })
+    room.flushDeltaBatches()
+    assert.deepEqual(where(a), { areaId: area, ...spot }, `${area}: not moved`)
+    assert.equal(lastMessage(a, MESSAGE.ERROR).reason, 'area transition denied')
+    assert.equal(errors(a).length, errorsBefore + 1, 'one refusal')
+    assert.equal(messagesOf(a, MESSAGE.SNAPSHOT).length, snapshots + 1, 'one authoritative snapshot')
+    assert.equal(messagesOf(a, MESSAGE.SELF).length, selves, 'no extra self')
+    assert.deepEqual(watchers.map(w => deltasOf(w, 'nav-norecall').length), seen, 'observers hear nothing')
+    // No loop: nothing more arrives without new input.
+    const settled = a.messages.length
+    for (let i = 0; i < 3; i++) room.flushDeltaBatches()
+    assert.equal(a.messages.length, settled)
+  }
+  assert.equal(metrics.transitions.portal - before.portal, 5, 'only the walked portals crossed')
+})
+
+test('nav: a same-area request in Ciudad is a resync too — no teleport to the spawn, except out of a fenced pocket', async t => {
+  const { room, join, where, walk } = await navRoom(t)
+  const a = await join('nav-town-resync')
   walk(a, { tx: 31, ty: 30 })
   room.changeArea(a, { areaId: 'ciudad-corazon' })
-  assert.deepEqual(where(a), { areaId: 'ciudad-corazon', tx: 31, ty: 20 }, 'inside the town: the spawn')
-  assert.equal(metrics.transitions.recall - before.recall, 3)
+  assert.deepEqual(where(a), { areaId: 'ciudad-corazon', tx: 31, ty: 30 })
+  // A tile the browser counts as collision (walkable but unreachable on foot) is repaired to the spawn.
+  const pocket = { tx: 37, ty: 9 }
+  assert.ok(isWalkable('ciudad-corazon', pocket.tx, pocket.ty) && !isReachable('ciudad-corazon', pocket.tx, pocket.ty))
+  room.placeActor(liveActorForTesting('nav-town-resync'), { ...pocket, dir: 'down' })
+  room.changeArea(a, { areaId: 'ciudad-corazon' })
+  assert.deepEqual(where(a), { areaId: 'ciudad-corazon', tx: ARRIVALS['ciudad-corazon'].tx, ty: ARRIVALS['ciudad-corazon'].ty })
+})
+
+test('nav: an old or forged "Ciudad" request while working is refused without moving, and the work keeps running', async t => {
+  const { room, join, self, where, walk, travel, step } = await navRoom(t, { 'nav-work-recall': [25] })
+  const a = await join('nav-work-recall')
+  travel(a, 'pradera')
+  const isOpen = standableTile('pradera')
+  const target = praderaNodesNearSpawn()
+    .flatMap(({ node, stands }) => stands.map(stand => ({ node, stand, placement: workPlacement(node, stand, isOpen) })))
+    .find(({ stand, placement }) => placement && routeBetween('pradera', ARRIVALS.pradera, stand, 20))
+  walk(a, target.stand)
+  room.work(a, { nodeId: target.node.id, pokemonInstanceId: 25, requestId: 1 })
+  await settle()
+  assert.equal(lastMessage(a, WORLD_MESSAGE.WORK_RESULT).ok, true)
+  const at = where(a)
+  room.changeArea(a, { areaId: 'ciudad-corazon' })
+  await settle()
+  assert.equal(lastMessage(a, MESSAGE.ERROR).reason, 'area transition denied')
+  assert.deepEqual(where(a), at)
+  assert.equal(lastMessage(a, WORLD_MESSAGE.WORK_DONE), undefined, 'the work was not cancelled')
+  assert.equal(lastMessage(a, WORLD_MESSAGE.SNAPSHOT).ownAction?.nodeId, target.node.id, 'and the snapshot still reports it')
+  // A real step away still cancels, as the rules say.
+  step(a, openDirection('pradera', self(a)))
+  assert.equal(lastMessage(a, WORLD_MESSAGE.WORK_DONE).reason, 'moved')
 })
 
 test('nav: a same-area request outside the town is a resync — no move, no news for anyone', async t => {

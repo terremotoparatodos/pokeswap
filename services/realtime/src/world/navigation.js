@@ -3,7 +3,7 @@ import { WORLD_AREAS } from './areas.js'
 import { CAVES, CAVE_ENTRANCE } from './caves.js'
 import { caveInterior, isCaveFloor } from './caveLayouts.js'
 import { isSolidAtArea } from './resourceZones.js'
-import { TOWN_AREA_ID, TOWN_GATES, isTownWalkable } from './townLayout.js'
+import { TOWN_AREA_ID, TOWN_GATES, TOWN_SPAWN, isTownWalkable } from './townLayout.js'
 
 /**
  * Where a player can stand and where each portal leads, for every shared
@@ -100,11 +100,44 @@ export function portalTo(from, to) {
   return PORTALS.find(p => p.areaId === from && p.to === to) ?? null
 }
 
+/** Orthogonal flood fill over the walkable tiles of a bounded area, from its spawn. */
+function reachFrom(areaId, start) {
+  const seen = new Set([`${start.tx},${start.ty}`])
+  const queue = [start]
+  for (let i = 0; i < queue.length; i++) {
+    const { tx, ty } = queue[i]
+    for (const [nx, ny] of [[tx + 1, ty], [tx - 1, ty], [tx, ty + 1], [tx, ty - 1]]) {
+      if (seen.has(`${nx},${ny}`) || !isWalkable(areaId, nx, ny)) continue
+      seen.add(`${nx},${ny}`)
+      queue.push({ tx: nx, ty: ny })
+    }
+  }
+  return seen
+}
+
 /**
- * A tile a player may be put on without walking there: walkable and not a
- * portal (landing on one would carry it straight across). Arrivals, recalls
+ * Bounded areas know which walkable tiles can be walked to from their spawn,
+ * exactly like the browser's `TownArea.isReachable` / `CaveArea.isReachable`
+ * (a fenced pocket counts as collision there). Pradera is unbounded: every
+ * walkable tile counts as reachable, as in the browser.
+ */
+const REACHABLE = new Map([
+  [TOWN_AREA_ID, reachFrom(TOWN_AREA_ID, TOWN_SPAWN)],
+  ...CAVES.map(cave => caveInterior(cave.interiorAreaId)).filter(Boolean).map(interior => [interior.id, reachFrom(interior.id, interior.arrival)]),
+])
+
+/** Whether a tile is walkable and, in a bounded area, reachable from its spawn on foot. */
+export function isReachable(areaId, tx, ty) {
+  if (!isWalkable(areaId, tx, ty)) return false
+  const reach = REACHABLE.get(areaId)
+  return reach ? reach.has(`${tx},${ty}`) : true
+}
+
+/**
+ * A tile a player may be put on without walking there: walkable, reachable
+ * and not a portal (landing on one would carry it straight across). Arrivals
  * and restored positions must all be one.
  */
 export function isSafeLanding(areaId, tx, ty) {
-  return isWalkable(areaId, tx, ty) && portalAt(areaId, tx, ty) === null
+  return isReachable(areaId, tx, ty) && portalAt(areaId, tx, ty) === null
 }

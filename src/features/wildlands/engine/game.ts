@@ -773,27 +773,12 @@ export class WildlandsGame {
     if (this.travel.begin(this.area.id, to)) this.nav.cancel()
   }
 
-  returnToLobby(): void {
-    if (this.area.id !== LOBBY_ID) {
-      this.travelTo(LOBBY_ID)
-      return
-    }
-    // The same-area action is an escape hatch: reset every local movement
-    // state and ask presence to authoritatively place the actor at town spawn.
-    const arrival = this.area.arrival(null)
-    this.placePlayer(arrival)
-    this.onTownPosition?.({ tx: arrival.tx, ty: arrival.ty, dir: arrival.dir })
-    if (this.presence && !this.spectator) {
-      this.requestPresencePlacement('ciudad-corazon')
-    } else {
-      this.observerAt = null
-    }
-    this.say('Volviste al centro de Ciudad Corazón')
-  }
-
   /**
-   * Asks the service to place the actor at this area's arrival. The barrier
-   * and the kept move sequence let the player keep walking before the reply.
+   * Asks the service for the actor's authoritative place in this area (the
+   * safe-point repair; CAVES-4: a resync that moves nothing while the
+   * service's own tile is valid). The barrier and the kept move sequence let
+   * the player keep walking before the reply. There is no "Ciudad" teleport:
+   * areas change only through their portals.
    */
   private requestPresencePlacement(areaId: PresenceAreaId): void {
     this.pendingPresenceArea = areaId

@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { ARRIVALS, arrivalFor } from '../../../../services/realtime/src/protocol/arrival.js'
-import { AREA_BOUNDS, PORTALS, isWalkable, portalAt } from '../../../../services/realtime/src/world/navigation.js'
+import { AREA_BOUNDS, PORTALS, isReachable, isWalkable, portalAt } from '../../../../services/realtime/src/world/navigation.js'
 import { portalAt as clientPortalAt } from '../engine/area'
 import { isPresenceAreaId } from '../multiplayer/domain/presence'
 import { Atlas } from './atlas'
@@ -33,6 +33,18 @@ describe('navigation parity with the presence service (CAVES-4)', () => {
     expect(open).toBeGreaterThan(0)
   })
 
+  it('Ciudad and the cave judge reachability like the service (its resync repairs exactly what the safe point flags)', () => {
+    for (const areaId of ['ciudad-corazon', 'cueva-inicial'] as const) {
+      const area = atlas.get(areaId)
+      for (let ty = -2; ty < 53; ty++) {
+        for (let tx = -2; tx < 66; tx++) {
+          const client = !area.isSolid(tx, ty) && (area.isReachable?.(tx, ty) ?? true)
+          expect(client, `${areaId} ${tx},${ty}`).toBe(isReachable(areaId, tx, ty))
+        }
+      }
+    }
+  })
+
   it('every portal of every shared area is the same tile, to the same area, on both sides', () => {
     for (const areaId of SHARED) {
       const area = atlas.get(areaId)
@@ -50,13 +62,7 @@ describe('navigation parity with the presence service (CAVES-4)', () => {
       const landing = atlas.get(p.to).arrival(p.areaId)
       expect({ tx: landing.tx, ty: landing.ty, dir: landing.dir }, `${p.areaId} → ${p.to}`).toEqual({ ...arrivalFor(p.to, p.areaId) })
     }
-    // The recall lands where the client's "Ciudad" button puts the player.
-    const town = atlas.get('ciudad-corazon')
-    for (const from of SHARED) {
-      // Inside the town the button resets to the spawn (`arrival(null)`); elsewhere it travels from `from`.
-      const client = town.arrival(from === 'ciudad-corazon' ? null : from)
-      expect({ ...client }, from).toEqual({ ...arrivalFor('ciudad-corazon', from) })
-    }
-    expect({ ...town.arrival(null) }).toEqual({ ...ARRIVALS['ciudad-corazon'] })
+    // First join lands on the town spawn on both sides.
+    expect({ ...atlas.get('ciudad-corazon').arrival(null) }).toEqual({ ...ARRIVALS['ciudad-corazon'] })
   })
 })

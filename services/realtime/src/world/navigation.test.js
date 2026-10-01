@@ -5,7 +5,7 @@ import { AREAS } from '../protocol/messages.js'
 import { WORLD_AREAS } from './areas.js'
 import { cavesIn } from './caves.js'
 import { caveInterior, isCaveFloor } from './caveLayouts.js'
-import { AREA_BOUNDS, PORTALS, PRADERA_RETURN_PAD, insideAreaBounds, isSafeLanding, isWalkable, portalAt, portalTo } from './navigation.js'
+import { AREA_BOUNDS, PORTALS, PRADERA_RETURN_PAD, insideAreaBounds, isReachable, isSafeLanding, isWalkable, portalAt, portalTo } from './navigation.js'
 import { PLOTS } from './plots.js'
 import { isSolidAtArea } from './resourceZones.js'
 import { resourceAt } from './resourceLayout.js'
@@ -70,6 +70,18 @@ test('every portal: walkable, reachable from its area arrival, and landing never
   }
   // Each shared area's own arrival is a safe landing too (first join, recall, repairs).
   for (const areaId of AREAS) assert.ok(isSafeLanding(areaId, ARRIVALS[areaId].tx, ARRIVALS[areaId].ty), areaId)
+})
+
+test('reachability: bounded areas flood from their spawn, a fenced pocket is not a safe landing, Pradera is open', () => {
+  assert.equal(isWalkable('ciudad-corazon', 37, 9), true)
+  assert.equal(isReachable('ciudad-corazon', 37, 9), false, 'the fenced pocket behind the north-east fence')
+  assert.equal(isSafeLanding('ciudad-corazon', 37, 9), false)
+  for (const p of PORTALS) assert.ok(isReachable(p.areaId, p.tx, p.ty), `${p.areaId} ${p.tx},${p.ty}`)
+  for (let ty = 0; ty < INSIDE.height; ty++) {
+    for (let tx = 0; tx < INSIDE.width; tx++) assert.equal(isReachable(INSIDE.id, tx, ty), isCaveFloor(INSIDE.id, tx, ty))
+  }
+  assert.equal(isReachable('pradera', ARRIVALS.pradera.tx, ARRIVALS.pradera.ty), true)
+  assert.equal(isReachable('ciudad-corazon', -1, 0), false)
 })
 
 test('only the portal tile itself leads anywhere', () => {

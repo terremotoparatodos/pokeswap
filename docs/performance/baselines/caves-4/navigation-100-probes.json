@@ -4,7 +4,7 @@
   "seconds": 60.32,
   "seed": 4,
   "probes": 0.05,
-  "joinMs": 1181.77,
+  "joinMs": 1361.34,
   "distribution": {
     "start": {
       "ciudad-corazon": 34,
@@ -12,21 +12,21 @@
       "cueva-inicial": 33
     },
     "end": {
-      "ciudad-corazon": 38,
-      "pradera": 56,
-      "cueva-inicial": 6
+      "ciudad-corazon": 32,
+      "pradera": 55,
+      "cueva-inicial": 13
     }
   },
   "client": {
-    "movesSent": 40454,
-    "movesAccepted": 40148,
-    "crossingsAccepted": 501,
-    "probesSent": 73,
+    "movesSent": 40494,
+    "movesAccepted": 40163,
+    "crossingsAccepted": 520,
+    "probesSent": 84,
     "refusals": {
       "expected": {
-        "movement sequence denied": 40,
-        "area transition denied": 26,
-        "movement blocked": 7
+        "area transition denied": 36,
+        "movement sequence denied": 46,
+        "movement blocked": 2
       },
       "unexpected": {}
     },
@@ -34,42 +34,41 @@
     "errors": 0,
     "pendingExpected": 0,
     "ackRttMs": {
-      "p50": 6.76,
-      "p95": 35.65,
-      "p99": 51.08,
-      "max": 82.32
+      "p50": 8.28,
+      "p95": 50.35,
+      "p99": 76.99,
+      "max": 130.73
     }
   },
   "server": {
-    "moves": 40148,
-    "areaChanges": 501,
+    "moves": 40163,
+    "areaChanges": 520,
     "transitions": {
-      "portal": 501,
-      "recall": 0,
+      "portal": 520,
       "resync": 0
     },
     "rejections": {
       "capacity": 0,
       "invalid": 0,
       "rate": 0,
-      "area": 26,
+      "area": 36,
       "replay": 0,
-      "sequence": 40,
-      "blocked": 7
+      "sequence": 46,
+      "blocked": 2
     },
     "eventLoopDelayMs": {
-      "p50": 30.97,
-      "p99": 36.47,
-      "max": 37.95
+      "p50": 30.1,
+      "p99": 37.39,
+      "max": 42.86
     },
     "memoryMb": {
-      "rss": 198,
-      "heapUsed": 68
+      "rss": 207,
+      "heapUsed": 66
     },
     "memoryPeakMb": {
-      "rss": 199,
-      "heapUsed": 75
+      "rss": 205,
+      "heapUsed": 86
     },
-    "loopP99MaxSampleMs": 36.86
+    "loopP99MaxSampleMs": 37.68
   }
 }

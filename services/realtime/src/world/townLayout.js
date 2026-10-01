@@ -74,7 +74,7 @@ export const TOWN_TERRAIN = Object.freeze([
   'ttttttttsssssstttttttttttttttttttttttttttttttttttttttttttttttttt',
 ])
 
-/** First join, the "Ciudad" recall from the cave and the recall inside the town. */
+/** First join, and where a reconnect past the grace period starts (CAVES-4 §6). */
 export const TOWN_SPAWN = Object.freeze({ tx: 31, ty: 20, dir: 'down' })
 
 const tile = (tx, ty) => Object.freeze({ tx, ty })

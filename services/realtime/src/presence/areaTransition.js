@@ -1,18 +1,19 @@
-import { AREA } from '../protocol/messages.js'
 import { ARRIVALS, arrivalFor } from '../protocol/arrival.js'
-import { isWalkable, portalAt } from '../world/navigation.js'
+import { isReachable, isWalkable, portalAt } from '../world/navigation.js'
 import { STEP_DELTA } from './movement.js'
 
 /**
  * How the service answers an `area` request (CAVES-3, generalised in CAVES-4).
  * The client only names an area; whether it may go and where it lands are
  * decided here, from the actor's real area and tile. It never moves the actor.
+ *
+ * There is no "Ciudad" recall: the town is reached through its portal like
+ * every other area. Fast travel will be its own feature (unlocks, allowed
+ * destinations, costs or cooldowns), not an exception here.
  */
 export const TRANSITION = Object.freeze({
   /** Standing on a portal that leads to the requested area: crosses to its arrival. */
   PORTAL: 'portal',
-  /** The "Ciudad" button: back to the town from anywhere, to a landing the service picks. */
-  RECALL: 'recall',
   /** The client asked for the area it already is in (its safe-point repair): no move, just the real state. */
   RESYNC: 'resync',
 })
@@ -21,31 +22,28 @@ export const TRANSITION = Object.freeze({
  * Returns `{ kind, arrival }`, or `null` when the request is refused.
  * `arrival` is where the actor lands, or `null` for a resync that keeps it.
  *
- * - Another area through a portal: only standing **exactly** on a portal of
- *   the actor's real area whose destination is that area (a town gate, the
- *   Pradera pad, an open cave mouth, a cave exit pad). It lands on the
- *   destination's arrival for that origin, never on a portal (no loop).
- * - The town from anywhere else: the recall. The landing is the one the
- *   client already predicts for that origin (`arrivalFor`): by the west gate
- *   from Pradera, the town spawn from the cave.
- * - The town while in the town: the recall to the spawn.
- * - Any other area the actor already is in: a resync, which does not move
- *   it, unless its own tile stopped being walkable: then the area's arrival.
- * - Anything else (another area from a wrong tile, or one that is not
- *   shared): refused.
+ * - Another area: only standing **exactly** on a portal of the actor's real
+ *   area whose destination is that area — Ciudad ↔ Pradera by the west gate
+ *   and the return pad, Pradera ↔ `cueva-inicial` by the mouth and the exit
+ *   pad. It lands on the destination's arrival for that origin, never on a
+ *   portal (no loop).
+ * - The area the actor already is in (any of the three): a resync, which does
+ *   not move it, unless its own tile stopped being a reachable walkable tile:
+ *   then the area's arrival.
+ * - Anything else — the town from anywhere but its portal (an old or forged
+ *   "Ciudad" request), another area from a wrong tile, an area that is not
+ *   shared: refused. The caller answers once with the real state.
  */
 export function areaTransition(actor, to) {
   const from = actor.areaId
   if (to === from) {
-    if (to === AREA.TOWN) return { kind: TRANSITION.RECALL, arrival: ARRIVALS[AREA.TOWN] }
-    if (isWalkable(from, actor.tx, actor.ty)) return { kind: TRANSITION.RESYNC, arrival: null }
+    if (isReachable(from, actor.tx, actor.ty)) return { kind: TRANSITION.RESYNC, arrival: null }
     return ARRIVALS[from] ? { kind: TRANSITION.RESYNC, arrival: ARRIVALS[from] } : null
   }
   if (portalAt(from, actor.tx, actor.ty) === to) {
     const arrival = arrivalFor(to, from)
     return arrival ? { kind: TRANSITION.PORTAL, arrival } : null
   }
-  if (to === AREA.TOWN) return { kind: TRANSITION.RECALL, arrival: arrivalFor(AREA.TOWN, from) }
   return null
 }
 

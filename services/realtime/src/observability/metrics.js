@@ -10,7 +10,7 @@ export class PresenceMetrics {
     this.rejections = { capacity: 0, invalid: 0, rate: 0, area: 0, replay: 0, sequence: 0, blocked: 0 }
     this.moves = 0; this.areaChanges = 0; this.reconnectRestores = 0; this.reconnectRepairs = 0
     /** CAVES-4: accepted `area` requests by kind (presence/areaTransition.js TRANSITION). */
-    this.transitions = { portal: 0, recall: 0, resync: 0 }
+    this.transitions = { portal: 0, resync: 0 }
     // Delta batching (50 ms window). Measurement only: see PresenceRoom.sendDelta.
     this.batching = { queued: 0, stepStacked: 0, stepFoldedIntoUpsert: 0, replaced: 0, batches: 0, maxBatch: 0 }
     this.loopDelay = loopDelay

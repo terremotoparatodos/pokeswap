@@ -490,9 +490,9 @@ test('area changes place the actor exactly where the client arrives, never on Pr
   room.move(traveller, { direction: 'up', running: false, sequence: liveActorForTesting('arrival-user').moveSequence + 1 })
   room.changeArea(traveller, { areaId: 'ciudad-corazon' })
   assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'ciudad-corazon', tx: 8, ty: 41, dir: 'right' })
-  // The "Ciudad" escape hatch inside town resets to the town spawn.
+  // A same-area request inside town is a resync too: there is no "Ciudad" teleport to the spawn (CAVES-4).
   room.changeArea(traveller, { areaId: 'ciudad-corazon' })
-  assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'ciudad-corazon', tx: 31, ty: 20, dir: 'down' })
+  assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'ciudad-corazon', tx: 8, ty: 41, dir: 'right' })
   room.onLeave(traveller)
 })
 
@@ -578,7 +578,9 @@ test('an area change reaches observers as one coherent update: a leave in the ol
     assert.deepEqual(seen(townWatcher).at(-1)[0], 'leave')
 
     now += 500
-    // The "Ciudad" recall from Pradera (CAVES-4: the only trip without a portal).
+    // Back through the return pad, one step north of the arrival (CAVES-4: the only way to town).
+    room.move(traveller, { direction: 'up', running: false, sequence: liveActorForTesting('area-traveller-user').moveSequence + 1 })
+    now += 300
     room.changeArea(traveller, { areaId: 'ciudad-corazon' })
     assert.deepEqual(seen(wildWatcher).at(-1)[0], 'leave')
     // Back in town: it reappears at the gate arrival and keeps walking from there.

@@ -7,7 +7,7 @@ import { AreaTravel } from './travel'
 import type { RemotePresenceActor } from '../multiplayer/domain/presence'
 
 type Sent = { kind: 'move' | 'area'; value: string; sequence?: number }
-type Harness = Pick<WildlandsGame, 'setAuthoritativeActor' | 'returnToLobby'> & {
+type Harness = Pick<WildlandsGame, 'setAuthoritativeActor'> & {
   area: { id: string; arrival(from: string | null): { tx: number; ty: number } }
   player: Actor
   nextMoveSequence: number
@@ -39,26 +39,6 @@ const self = (patch: Partial<RemotePresenceActor>): RemotePresenceActor => ({
 })
 
 describe('presence reconciliation around area requests', () => {
-  it('ignores a pre-reset move ack after "Ciudad" until the reset snapshot arrives', () => {
-    const { g } = game()
-    g.setAuthoritativeActor(self({ tx: 34, ty: 20, moveSequence: 3 }), 'snapshot')
-    g.nextMoveSequence = 3
-    g.returnToLobby()
-    // The ack for seq 3 was already in flight and still describes (34, 20).
-    g.setAuthoritativeActor(self({ tx: 34, ty: 20, moveSequence: 3 }), 'self')
-    expect([g.player.tx, g.player.ty]).toEqual([31, 20])
-    g.setAuthoritativeActor(self({ tx: 31, ty: 20, moveSequence: 3 }), 'snapshot')
-    expect([g.player.tx, g.player.ty]).toEqual([31, 20])
-  })
-
-  it('keeps the move sequence across a reset so steps taken before the reply are not replays', () => {
-    const { g, sent } = game()
-    g.setAuthoritativeActor(self({ moveSequence: 7 }), 'snapshot')
-    g.returnToLobby()
-    expect(g.nextMoveSequence).toBe(7)
-    expect(sent).toEqual([{ kind: 'area', value: 'ciudad-corazon' }])
-  })
-
   it('repairs a solid authoritative tile once and then accepts the corrected placement', () => {
     const { g, sent } = game('pradera')
     const arrival = g.area.arrival(null)
@@ -156,6 +136,24 @@ describe('CAVES-4: answers without a move', () => {
     g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -5, ty: -67, moveSequence: 9 }), 'self')
     expect(g.nextMoveSequence).toBe(9)
     expect([g.player.tx, g.player.ty]).toEqual([-5, -67])
+    expect(sent).toEqual([])
+  })
+})
+
+describe('CAVES-4: no "Ciudad" teleport', () => {
+  it('the engine has no recall entry point', () => {
+    expect('returnToLobby' in WildlandsGame.prototype).toBe(false)
+  })
+
+  it('an old client\'s refused "Ciudad" request from Pradera reconciles to where the actor really is, once', () => {
+    const { g, sent } = game('pradera')
+    g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -5, ty: -67, moveSequence: 6 }), 'snapshot')
+    // What a pre-CAVES-4 bundle did on "Ciudad": wait for the town and ask for it.
+    Object.assign(g, { pendingPresenceArea: 'ciudad-corazon', awaitingAreaSnapshot: true })
+    ;(g as unknown as { presenceRejected(reason: string): void }).presenceRejected('area transition denied')
+    g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -5, ty: -67, moveSequence: 6 }), 'snapshot')
+    expect([g.area.id, g.player.tx, g.player.ty]).toEqual(['pradera', -5, -67])
+    expect((g as unknown as { pendingPresenceArea: string | null }).pendingPresenceArea).toBeNull()
     expect(sent).toEqual([])
   })
 })
