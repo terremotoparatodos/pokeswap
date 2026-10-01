@@ -1,4 +1,5 @@
 import { worldArea } from './areas.js'
+import { isCaveMouth } from './caves.js'
 import { PLOTS } from './plots.js'
 import { resourceAt } from './resourceLayout.js'
 import { isWaterTile } from './terrain.js'
@@ -42,12 +43,14 @@ export function workPlacement(node, trainer, isOpen) {
 
 /**
  * Tiles of `areaId` a trainer may wait on, from the shared terrain alone: not
- * a solid prop, not water, not another resource node or farm plot. Areas the
- * world does not model offer none. Client-placed objects are unknown here.
+ * a solid prop, not water, not another resource node or farm plot, and not a
+ * cave mouth (a portal: standing there would carry the trainer inside). Areas
+ * the world does not model offer none. Client-placed objects are unknown here.
  */
 export function standableTile(areaId) {
   const area = worldArea(areaId)
   if (!area?.procedural) return () => false
   return (tx, ty) => !isSolidAtArea(areaId, area.seed, tx, ty) && !isWaterTile(area.seed, tx, ty)
+    && !isCaveMouth(areaId, tx, ty)
     && !resourceAt(areaId, tx, ty) && !PLOTS.some(plot => plot.areaId === areaId && plot.tx === tx && plot.ty === ty)
 }

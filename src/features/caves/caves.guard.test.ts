@@ -41,12 +41,13 @@ describe('CAVES-2 in the browser', () => {
     expect(overlay.sprites(atlas.get('pradera')).length).toBe(1)
   })
 
-  it('stands the art on the middle of the front row and names a closed cave as such', () => {
+  it('stands the art on the middle of the front row and names an open cave as such', () => {
     for (const cave of CAVES) {
       const feet = caveFeet(cave)
       expect(feet.x).toBe((cave.mouth.tx + 0.5) * TILE)
       expect(Math.floor(feet.y / TILE)).toBe(cave.anchor.ty)
-      expect(caveLabel(cave)).toMatch(/próximamente/)
+      expect(caveLabel(cave)).toBe('Cueva')
+      expect(caveLabel({ ...cave, entrance: 'closed' })).toMatch(/próximamente/)
     }
   })
 
@@ -59,13 +60,14 @@ describe('CAVES-2 in the browser', () => {
     expect(at(cave.approach.tx, cave.approach.ty, 'ciudad-corazon')).toHaveLength(0)
   })
 
-  it('collides like the service: rock solid, approach and clearance open, on the client World', () => {
+  it('collides like the service: rock solid but the open mouth, approach and clearance open, on the client World', () => {
     const { seed } = WORLD_AREAS.pradera
     const pradera = atlas.get('pradera')
     for (const cave of cavesIn('pradera')) {
       for (const t of cave.footprint) {
-        expect(pradera.isSolid(t.tx, t.ty), `${t.tx},${t.ty}`).toBe(true)
-        expect(isSolidAtArea('pradera', seed!, t.tx, t.ty)).toBe(true)
+        const mouth = t.tx === cave.mouth.tx && t.ty === cave.mouth.ty
+        expect(pradera.isSolid(t.tx, t.ty), `${t.tx},${t.ty}`).toBe(!mouth)
+        expect(isSolidAtArea('pradera', seed!, t.tx, t.ty)).toBe(!mouth)
       }
       for (const t of cave.clearance) {
         expect(pradera.isSolid(t.tx, t.ty), `${t.tx},${t.ty}`).toBe(false)

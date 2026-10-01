@@ -9,14 +9,15 @@
  * see docs/design/CAVES_1_AUDIT.md §1.2).
  *
  * A Cave is not a Dungeon (CAVES-1 §13, D1): this is the permanent mouth in
- * the world. Pradera has exactly one. Its entrance is `closed` until CAVES-3
- * gives it an interior: the whole footprint is rock, nothing opens, nothing
- * travels.
+ * the world. Pradera has exactly one. Since CAVES-3 its entrance is `open`:
+ * the mouth tile is the portal to the interior (`caveLayouts.js`), and the
+ * rest of the footprint stays rock. A `closed` entrance keeps the whole
+ * footprint rock, mouth included.
  *
  * Geometry, for the only orientation there is (`facing: 'down'`):
  *
  *   ty-1   R R R    R = rock (footprint, solid)
- *   ty     R M R    M = mouth: the future portal tile, solid while closed
+ *   ty     R M R    M = mouth: the portal tile when open, rock when closed
  *   ty+1   . A .    A = approach: where the player stands, and lands on exit
  *   ty+2   . . .    the front clearance (3×3, includes A): kept free of
  *   ty+3   . . .    props, nodes, plots, portals, work stands and wild homes
@@ -28,7 +29,7 @@
  * the client, Node runs it.
  */
 
-/** Whether a cave can be entered. Only `closed` exists until CAVES-3. */
+/** Whether a cave can be entered. */
 export const CAVE_ENTRANCE = Object.freeze({ CLOSED: 'closed', OPEN: 'open' })
 
 /** How far the kept-free ground reaches in front of the mouth, and how wide it is. */
@@ -56,13 +57,13 @@ function defineCave({ id, areaId, anchor, width, depth, facing, interiorAreaId, 
     facing,
     /** Every tile the rock covers, front row first. */
     footprint: Object.freeze(footprint),
-    /** The front-row centre: rock today, the portal of CAVES-3. */
+    /** The front-row centre: the portal when the entrance is open, rock when it is closed. */
     mouth: tile(centre, anchor.ty),
     /** The walkable tile in front of the mouth. */
     approach: tile(centre, anchor.ty + 1),
     /** The ground kept free in front of the mouth (includes the approach). */
     clearance: Object.freeze(clearance),
-    /** The area the mouth will lead to. Not registered anywhere until CAVES-3. */
+    /** The shared interior area the mouth leads to (`caveLayouts.js`). */
     interiorAreaId,
     entrance,
   })
@@ -77,12 +78,13 @@ export const CAVES = Object.freeze([
     depth: 2,
     facing: 'down',
     interiorAreaId: 'cueva-inicial',
-    entrance: CAVE_ENTRANCE.CLOSED,
+    entrance: CAVE_ENTRANCE.OPEN,
   }),
 ])
 
 const key = (areaId, tx, ty) => `${areaId}:${tx}:${ty}`
-const ROCK = new Set(CAVES.flatMap(cave => cave.footprint.map(t => key(cave.areaId, t.tx, t.ty))))
+const isOpenMouth = (cave, t) => cave.entrance === CAVE_ENTRANCE.OPEN && t.tx === cave.mouth.tx && t.ty === cave.mouth.ty
+const ROCK = new Set(CAVES.flatMap(cave => cave.footprint.filter(t => !isOpenMouth(cave, t)).map(t => key(cave.areaId, t.tx, t.ty))))
 const RESERVED = new Set(CAVES.flatMap(cave => [...cave.footprint, ...cave.clearance].map(t => key(cave.areaId, t.tx, t.ty))))
 
 /** The caves whose mouth is in an area. */
@@ -91,8 +93,8 @@ export function cavesIn(areaId) {
 }
 
 /**
- * Whether a tile is cave rock. While an entrance is closed the mouth is rock
- * too, so nobody can stand in it; CAVES-3 turns it into a portal.
+ * Whether a tile is cave rock: the footprint, except the mouth of an open
+ * entrance, which is the portal (the only tile that lets anyone through).
  */
 export function isCaveRock(areaId, tx, ty) {
   return ROCK.has(key(areaId, tx, ty))
@@ -101,4 +103,14 @@ export function isCaveRock(areaId, tx, ty) {
 /** Whether a tile belongs to a cave's footprint or its front clearance: nothing else may be placed there. */
 export function isCaveReserved(areaId, tx, ty) {
   return RESERVED.has(key(areaId, tx, ty))
+}
+
+/** The cave whose interior is this area, or null. */
+export function caveByInterior(areaId) {
+  return CAVES.find(cave => cave.interiorAreaId === areaId) ?? null
+}
+
+/** Whether a tile is the mouth of an open cave in this area: the only tile that leads inside. */
+export function isCaveMouth(areaId, tx, ty) {
+  return CAVES.some(cave => cave.areaId === areaId && isOpenMouth(cave, { tx, ty }))
 }

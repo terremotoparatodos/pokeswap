@@ -1,6 +1,13 @@
 /** Shared wire contract. Keep this module dependency-free so Vite may consume it. */
-export const AREA = Object.freeze({ TOWN: 'ciudad-corazon', WILD: 'pradera' })
+/**
+ * Shared presence areas. `CAVE` (CAVES-3) is the interior of Pradera's cave:
+ * one area everyone shares, entered only through its mouth (see
+ * `presence/areaTransition.js`, which validates every change of area).
+ */
+export const AREA = Object.freeze({ TOWN: 'ciudad-corazon', WILD: 'pradera', CAVE: 'cueva-inicial' })
 export const AREAS = new Set(Object.values(AREA))
+/** Areas a guest may look at. A cave interior is not one of them: only a player who walked in sees inside. */
+export const OBSERVABLE_AREAS = new Set([AREA.TOWN, AREA.WILD])
 export const DIRECTIONS = new Set(['up', 'down', 'left', 'right'])
 export const MESSAGE = Object.freeze({
   READY: 'presence:ready', MOVE: 'move', AREA: 'area', OBSERVE: 'observe',
@@ -25,7 +32,7 @@ export function areaIntent(value) {
 }
 
 export function observeIntent(value) {
-  if (!value || typeof value !== 'object' || !AREAS.has(value.areaId) || !Number.isInteger(value.tx) || !Number.isInteger(value.ty)) return null
+  if (!value || typeof value !== 'object' || !OBSERVABLE_AREAS.has(value.areaId) || !Number.isInteger(value.tx) || !Number.isInteger(value.ty)) return null
   return { areaId: value.areaId, tx: value.tx, ty: value.ty }
 }
 
