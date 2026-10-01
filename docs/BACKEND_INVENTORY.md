@@ -231,13 +231,18 @@ tables in the public schema:
 | `regions` | Anyone (all rows) | — | — | — |
 | `activity_feed` | Anyone (all rows) | — | — | — |
 | `market_listings` | Active + unexpired only | Own listing | Own listing | Own listing |
-| `pokedex_entries` | Own rows | Own rows | Own rows | Own rows |
-| `pokemon_xp` | Own rows | Own rows | Own rows | Own rows |
+| `pokedex_entries` | Own rows | Own rows ¹ | Own rows ¹ | Own rows ¹ |
+| `pokemon_xp` | Own rows | Own rows ¹ | Own rows ¹ | Own rows ¹ |
 | `swap_history` | Own rows | — | — | — |
 | `token_ledger` | Own rows | — | — | — |
 | `transactions` | Own (buyer or seller) | — | — | — |
 | `rate_limits` | None (DEFINER fn only) | None | None | None |
 | `kofi_payments` | ⚠️ **No RLS** | ⚠️ **No RLS** | ⚠️ **No RLS** | ⚠️ **No RLS** |
+
+¹ Migration `20261001020637_security3_close_client_writes.sql` (SECURITY-3, not applied to hosted
+yet) revokes INSERT/UPDATE/DELETE/TRUNCATE on both tables from `PUBLIC`, `anon` and
+`authenticated`, and client EXECUTE on the market RPCs and the latent 005/008/009 RPCs. The
+policies stay; the privileges no longer let a client use them.
 
 ### 2.2 Notable policy gaps
 
@@ -389,7 +394,7 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 
 | Slug | Version | JWT | Purpose |
 |---|---|---|---|
-| `free-claim` | 15 | ✓ | Authenticated free-claim via `claim_slot` RPC |
+| `free-claim` | 15 | ✓ | Authenticated free-claim via `claim_slot` RPC — **retired in the repo (SECURITY-3), §6.1** |
 | `pokeswap-swap` | 10 | ✓ | Swap execution — rolls rarity, transfers ownership |
 | `market-buy` | 3 | ✓ | Market purchase with rate limit and optimistic lock |
 | `verify-loyalty` | 6 | ✓ | Twitch/YouTube sub check → updates `token_multiplier` |
@@ -462,8 +467,13 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 
 ### 6.1 `free-claim`
 
-Calls `reset_daily_free_claim()` then `claim_slot(... p_is_free = true)`. Entirely
-server-authoritative. No client-supplied price or outcome. **INV-OWN-2 resolved.**
+> **RETIRED in the repository (SECURITY-3, `security/retire-free-claim-client-writes-0.3`); not
+> deployed yet.** Hosted v19 (unversioned, service role) calls `reset_daily_free_claim()` then
+> `claim_slot(... p_is_free = true)` as separate steps: concurrent calls can exceed the daily limit
+> and, for a species with no `slots` row, reassign ownership through `ON CONFLICT DO UPDATE`.
+> The versioned replacement (`supabase/functions/free-claim/`) keeps JWT and CORS, authenticates
+> with the anon key and answers `410 { code: 'free_claim_retired' }`; it reads no body, creates no
+> service-role client and touches no table. Deploy plan: `docs/design/SECURITY_3_REPORT.md` §8.
 
 ### 6.2 `pokeswap-swap`
 
