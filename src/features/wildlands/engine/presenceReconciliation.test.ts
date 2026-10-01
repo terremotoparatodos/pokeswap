@@ -135,3 +135,27 @@ describe('CAVES-3: a refused crossing', () => {
     expect((g as unknown as { pendingPresenceArea: string | null }).pendingPresenceArea).toBe('cueva-inicial')
   })
 })
+
+describe('CAVES-4: answers without a move', () => {
+  it('a resync (same-area request outside town) is accepted once, where the actor stands, and asks nothing more', () => {
+    const { g, sent } = game('pradera')
+    g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -5, ty: -67, moveSequence: 9 }), 'snapshot')
+    Object.assign(g, { pendingPresenceArea: 'pradera', awaitingAreaSnapshot: true })
+    g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -5, ty: -67, moveSequence: 9 }), 'snapshot')
+    expect([g.area.id, g.player.tx, g.player.ty]).toEqual(['pradera', -5, -67])
+    expect((g as unknown as { awaitingAreaSnapshot: boolean }).awaitingAreaSnapshot).toBe(false)
+    expect(sent).toEqual([])
+    expect(g.toast).toBeNull()
+  })
+
+  it('a refused step (wall, edge or skipped number) is acknowledged with the consumed number: the client adopts it and does not resend', () => {
+    const { g, sent } = game('pradera')
+    g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -5, ty: -67, moveSequence: 4 }), 'snapshot')
+    g.nextMoveSequence = 9
+    ;(g as unknown as { presenceRejected(reason: string): void }).presenceRejected('movement sequence denied')
+    g.setAuthoritativeActor(self({ areaId: 'pradera', tx: -5, ty: -67, moveSequence: 9 }), 'self')
+    expect(g.nextMoveSequence).toBe(9)
+    expect([g.player.tx, g.player.ty]).toEqual([-5, -67])
+    expect(sent).toEqual([])
+  })
+})
