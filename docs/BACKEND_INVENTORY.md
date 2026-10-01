@@ -415,9 +415,19 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 > `verify-remote before.json after.json` passed. The other nine functions did not change
 > (`pokeswap-swap` still v15, `world-authority` still v1). The stubs answer an empty 200,
 > `kofi-webhook` answers 401 to a wrong token, logs carry no bodies or received data, and
-> `kofi_payments` still has 0 rows. **Pending:** rotate `KOFI_VERIFICATION_TOKEN`, run a valid Ko-fi
-> `Send Test`, clean up the PayPal, Stripe and MercadoPago dashboards, and review the external
-> project `xdhtasxadmhjltmtirxy`.
+> `kofi_payments` still has 0 rows.
+>
+> **Ko-fi rotation — completed (verified by the main station, 2026-09-30):** Ko-fi points at
+> production; `KOFI_VERIFICATION_TOKEN` was regenerated and updated without a redeploy, and the old
+> token is invalidated. `Send Test` → HTTP 200: one POST, no retries. Logs show only `booted`,
+> `kofi-webhook: acknowledged` and the access line, with no payloads or personal data.
+> `kofi_payments` is still empty. `skip_swap_cooldown` rejected both `anon` and an authenticated
+> user without changing tokens, cooldown or ledger.
+>
+> **Real pending work:** retire the endpoints in the PayPal, Stripe and MercadoPago dashboards;
+> investigate or retire the external project `xdhtasxadmhjltmtirxy` if access is ever obtained; and
+> reconcile the old migrations with duplicate local versions before any general
+> `supabase db push`.
 >
 > **History — PAYMENTS RETIRE-2 as prepared (branch `security/retire-payment-webhooks-0.3`).**
 > The table above is the hosted state read on 2026-09-07 (the R02 live read in this file's
@@ -444,9 +454,11 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 > must keep exactly its previous `verify_jwt`, version and hash, whatever they were. Deploy
 > `kofi-webhook` first with the current token and rotate only after verifying it in hosted
 > (`docs/design/SWAP_RETIRE_2_REPORT.md` §10.6). **Production project:
-> `qsufableozmyugcrhcai`.** `xdhtasxadmhjltmtirxy` is a different, **external** project that
-> legacy PayPal buttons used as IPN `notify_url` (`js/swap.js`, commit `817c322`); we do not
-> administer it and nothing is deployed there.
+> `qsufableozmyugcrhcai`.** `xdhtasxadmhjltmtirxy` is a different, **external, historical,
+> non-administrable** project: the target of the previous PayPal IPN URL (`notify_url` in
+> `js/swap.js`, commit `817c322`). We have no access to it and no evidence of its historical
+> traffic, so there is no record that it processed real donations or payments. Nothing is
+> deployed there.
 
 ### 6.1 `free-claim`
 
