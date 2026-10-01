@@ -437,3 +437,50 @@ Contra el benchmark histórico (`MULTIPLAYER_BENCHMARK.md`, 100 jugadores en la 
 6. YIELD-2: talar o minar; chocar contra el nodo no cancela, y alejarse un paso sí. Conciliar settlements, XP y materiales.
 
 Nada de esto requiere SQL, deploy hosted ni cambios de gate o testers.
+
+## 13. Cierre humano (APROBADO)
+
+Smoke humano en el entorno oscuro sobre `15f5f4f` (merge de CAVES-4 en `integration/world-skills-0.3`), el 2026-10-01, con Titan123 y terremototw. El usuario lo cerró como **CAVES-4 OK**: todo el smoke funcionó correctamente.
+
+Condiciones durante toda la prueba:
+- gate cerrado y testers sin cambios;
+- Playtest 0.2, `main`, el tag `playtest-0.2` y el realtime público (`be360fd`, protocolo 2) intactos;
+- sin cambios, reinicios ni SQL.
+
+### Corrección al checklist (§12, paso 6)
+
+El punto «chocar contra el nodo no cancela» no aplica a la presentación actual. Al empezar a trabajar, el Pokémon ocupa la posición de trabajo y el entrenador queda apartado (WORLD VISUAL-2). La regla correcta:
+
+- un movimiento rechazado o bloqueado, que no cambia la casilla, **no** cancela el trabajo;
+- un movimiento válido que cambia la posición del entrenador **sí** lo cancela.
+
+El caso bloqueado lo cubren las pruebas automáticas (`PresenceRoomNavigation.test.js`: el paso bloqueado no cancela y el real sí; el «Ciudad» rechazado mientras trabaja no cancela; mutantes N8 y R4). No es un requisito del smoke humano.
+
+### Monitor de solo lectura
+
+`/metrics` agregado cada 5 s, sin unirse a la sala, de 23:27:13 a 23:34:03 UTC: 83 lecturas y 0 fallos.
+
+| Métrica (delta contra la línea base) | Valor |
+| --- | --- |
+| Jugadores simultáneos (pico) | 2 |
+| Pasos aceptados | 644 |
+| Cruces por portal (`transitions.portal` = `areaChanges`) | 32 |
+| Resyncs | 0 |
+| Restauraciones por reconexión / reparaciones | 4 / 0 |
+| Rechazos de cualquier tipo (`blocked`, `sequence`, `replay`, `area`, `rate`, `invalid`, `capacity`) | **0** |
+| Trabajos pedidos / iniciados | 8 / 8 |
+| Unidades = settlements confirmados = commits | 7 = 7 = 7 |
+| `commitWork`: llamadas / fallos | 7 / 0 |
+| Duplicados, `stale_node`, ambiguos, `resync`, `settleFailed` | 0 |
+| Cancelados al caminar | 4 (con 4 `staleCompletions`: el temporizador del trabajo cancelado se descarta, como corresponde) |
+| Trabajos en curso al cerrar | 0 |
+| Nodos guardados | 2 → 6 (4 agotados) |
+| Errores en logs del realtime y del cliente | 0. Los túneles registraron 3 avisos de canal ocioso de cloudflared, no errores |
+| Reinicios o cambio de versión | 0 (commit `15f5f4f`, `startedAt` sin cambios) |
+| Event loop p50/p99 / RSS | 31.1 / 32.7 ms / 82 MB |
+
+La conciliación por usuario de XP y materiales no se recalculó: requiere leer la base y la consigna excluía SQL. Del lado del servicio, cada unidad tuvo exactamente un commit confirmado, sin fallos ni duplicados.
+
+Las fugas de presencia entre áreas no son observables con métricas agregadas. Quedan respaldadas por la observación humana, las pruebas automáticas, el smoke técnico (0 fugas) y el benchmark de 100 actores (0 fugas).
+
+**Veredicto: CAVES-4 cerrado.**
