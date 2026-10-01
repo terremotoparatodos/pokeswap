@@ -74,7 +74,7 @@ considered server-authoritative.
 
 | Operation | Authority | Mechanism |
 |---|---|---|
-| Free claim | **Server** ✓ | `free-claim` Edge Function → `claim_slot` RPC (INV-OWN-2 resolved). |
+| Free claim | **Retired** (SECURITY-3, pending deploy) | Hosted v19 → `claim_slot` with the service role, raceable (daily limit, ownership of species without a `slots` row). The versioned `free-claim` answers `410 free_claim_retired` and writes nothing. |
 | Token-paid claim | **Server** ✓ | `claim_slot` RPC. |
 | Real-money claim | **Server** ✓ | `claim_slot` (pending) → `confirm_payment` RPC after webhook. |
 | Swap ownership transfer | **Server** ✓ | `pokeswap-swap` Edge Function (INV-SWP-1). |

@@ -231,13 +231,26 @@ tables in the public schema:
 | `regions` | Anyone (all rows) | — | — | — |
 | `activity_feed` | Anyone (all rows) | — | — | — |
 | `market_listings` | Active + unexpired only | Own listing | Own listing | Own listing |
-| `pokedex_entries` | Own rows | Own rows | Own rows | Own rows |
-| `pokemon_xp` | Own rows | Own rows | Own rows | Own rows |
+| `pokedex_entries` | Own rows | Own rows ¹ | Own rows ¹ | Own rows ¹ |
+| `pokemon_xp` | Own rows | Own rows ¹ | Own rows ¹ | Own rows ¹ |
 | `swap_history` | Own rows | — | — | — |
 | `token_ledger` | Own rows | — | — | — |
 | `transactions` | Own (buyer or seller) | — | — | — |
 | `rate_limits` | None (DEFINER fn only) | None | None | None |
 | `kofi_payments` | ⚠️ **No RLS** | ⚠️ **No RLS** | ⚠️ **No RLS** | ⚠️ **No RLS** |
+
+¹ Migration `20261001032040_security3_close_client_writes.sql` (SECURITY-3) — **applied and verified in
+production, registered by hosted as `20261001032040`**; the local file was renamed from `20261001020637_…` to match
+(pure rename, identical content). The client-privilege violations query went from 19 rows to 0. It
+revokes INSERT/UPDATE/DELETE/TRUNCATE on both tables from `PUBLIC`, `anon` and
+`authenticated`, and client EXECUTE on the market RPCs, the latent 005/008/009 RPCs and the
+dungeon RPCs of 010/011 (`award_dungeon_reward`, `consume_dungeon_energy`). The policies stay; the
+privileges no longer let a client use them. The dungeon RPCs do not exist in production and the
+`dungeon-reward`/`dungeon-start` Edge Functions are not deployed: they are closed preventively.
+Dungeon must reintroduce server-side authority later; never grant them to `authenticated`.
+`anon`/`authenticated` still hold `MAINTAIN`, `REFERENCES` and `TRIGGER` on `pokemon_xp` and
+`pokedex_entries` (Supabase defaults). PostgREST does not expose them and clients have no direct SQL
+connection; cleaning them up is separate debt for a new migration, never an edit of this one.
 
 ### 2.2 Notable policy gaps
 
@@ -389,7 +402,7 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 
 | Slug | Version | JWT | Purpose |
 |---|---|---|---|
-| `free-claim` | 15 | ✓ | Authenticated free-claim via `claim_slot` RPC |
+| `free-claim` | 15 | ✓ | Authenticated free-claim via `claim_slot` RPC — **retired in the repo (SECURITY-3), §6.1** |
 | `pokeswap-swap` | 10 | ✓ | Swap execution — rolls rarity, transfers ownership |
 | `market-buy` | 3 | ✓ | Market purchase with rate limit and optimistic lock |
 | `verify-loyalty` | 6 | ✓ | Twitch/YouTube sub check → updates `token_multiplier` |
@@ -462,8 +475,13 @@ All functions use `verify_jwt = true` except the two public webhook receivers.
 
 ### 6.1 `free-claim`
 
-Calls `reset_daily_free_claim()` then `claim_slot(... p_is_free = true)`. Entirely
-server-authoritative. No client-supplied price or outcome. **INV-OWN-2 resolved.**
+> **RETIRED in the repository (SECURITY-3, `security/retire-free-claim-client-writes-0.3`); not
+> deployed yet.** Hosted v19 (unversioned, service role) calls `reset_daily_free_claim()` then
+> `claim_slot(... p_is_free = true)` as separate steps: concurrent calls can exceed the daily limit
+> and, for a species with no `slots` row, reassign ownership through `ON CONFLICT DO UPDATE`.
+> The versioned replacement (`supabase/functions/free-claim/`) keeps JWT and CORS, authenticates
+> with the anon key and answers `410 { code: 'free_claim_retired' }`; it reads no body, creates no
+> service-role client and touches no table. Deploy plan: `docs/design/SECURITY_3_REPORT.md` §8.
 
 ### 6.2 `pokeswap-swap`
 
