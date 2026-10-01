@@ -2,7 +2,7 @@ import { isWaterTile } from './terrain.js'
 import { isSolidAtArea } from './resourceZones.js'
 import { resourceAt } from './resourceLayout.js'
 import { WORLD_AREAS } from './areas.js'
-import { isWalkable, portalAt, portalTo } from './navigation.js'
+import { isWalkable, nextHop, portalAt, portalTo } from './navigation.js'
 
 /** Test helpers shared by the world's node tests. Not imported by the service. */
 
@@ -103,13 +103,6 @@ export function routeBetween(areaId, from, to, radius = 160) {
   return null
 }
 
-/** The next shared area on the way from one to another (Ciudad – Pradera – cave). */
-const HOP = Object.freeze({
-  'ciudad-corazon': { pradera: 'pradera', 'cueva-inicial': 'pradera' },
-  pradera: { 'ciudad-corazon': 'ciudad-corazon', 'cueva-inicial': 'cueva-inicial' },
-  'cueva-inicial': { pradera: 'pradera', 'ciudad-corazon': 'pradera' },
-})
-
 /**
  * Test setup: takes a player to `to` through the real portals. At each hop it
  * stands the actor on the portal with a server-made move (`placeActor`) and
@@ -119,7 +112,7 @@ const HOP = Object.freeze({
 export function crossTo(room, client, actor, to) {
   for (let hops = 0; actor.areaId !== to; hops++) {
     if (hops > 3) throw new Error(`could not cross from ${actor.areaId} to ${to}`)
-    const next = HOP[actor.areaId]?.[to]
+    const next = nextHop(actor.areaId, to)
     const tile = next ? portalTo(actor.areaId, next) : null
     if (!tile) throw new Error(`no portal from ${actor.areaId} towards ${to}`)
     room.placeActor(actor, { tx: tile.tx, ty: tile.ty, dir: actor.dir })

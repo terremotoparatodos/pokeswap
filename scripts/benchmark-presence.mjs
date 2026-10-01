@@ -161,6 +161,9 @@ try {
         } else if (type === 'presence:snapshot') {
           current.snapshots++
           current.seen.clear()
+          // Like a real client, number the next step after the service's own
+          // (CAVES-4: entering Pradera through its gate is a server-made move).
+          if (payload.self) current.sequence = Math.max(current.sequence, payload.self.moveSequence)
           for (const actor of payload.actors ?? []) observe(actor)
         }
         else if (type === 'presence:error') current.errors++

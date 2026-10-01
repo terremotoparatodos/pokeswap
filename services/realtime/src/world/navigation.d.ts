@@ -8,5 +8,6 @@ export declare const PORTALS: readonly NavigationPortal[]
 export declare function insideAreaBounds(areaId: string, tx: number, ty: number): boolean
 export declare function isWalkable(areaId: string, tx: number, ty: number): boolean
 export declare function portalAt(areaId: string, tx: number, ty: number): string | null
+export declare function nextHop(from: string, to: string): string | null
 export declare function portalTo(from: string, to: string): NavigationPortal | null
 export declare function isSafeLanding(areaId: string, tx: number, ty: number): boolean

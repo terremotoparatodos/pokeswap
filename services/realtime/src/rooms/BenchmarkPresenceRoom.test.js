@@ -15,3 +15,26 @@ test('rejects malformed synthetic identities', async () => {
   await assert.rejects(() => room.onAuth({}, { benchmark: { id: 'valid', username: 12 } }))
   await assert.rejects(() => room.onAuth({}, { benchmark: { id: 'valid', username: 'Carga', area: 'otra' } }))
 })
+
+test('a synthetic player starts in its area by crossing the real portals (CAVES-4)', async () => {
+  const { MESSAGE } = await import('../protocol/messages.js')
+  const { ARRIVALS } = await import('../protocol/arrival.js')
+  const { caveInterior } = await import('../world/caveLayouts.js')
+  const room = new BenchmarkPresenceRoom()
+  const sockets = []
+  try {
+    for (const area of ['pradera', 'cueva-inicial']) {
+      const messages = []
+      const client = { sessionId: `bench-${area}`, userData: undefined, messages, send: (type, payload) => messages.push({ type, payload }), leave() {} }
+      sockets.push(client)
+      const options = { benchmark: { id: `cross-${area}`, username: 'Carga', area } }
+      await room.onJoin(client, options, await room.onAuth(client, options))
+      const snapshot = [...messages].reverse().find(m => m.type === MESSAGE.SNAPSHOT).payload.self
+      const expected = area === 'pradera' ? ARRIVALS.pradera : caveInterior(area).arrival
+      assert.deepEqual({ areaId: snapshot.areaId, tx: snapshot.tx, ty: snapshot.ty }, { areaId: area, tx: expected.tx, ty: expected.ty })
+      assert.equal(messages.filter(m => m.type === MESSAGE.ERROR).length, 0)
+    }
+  } finally {
+    for (const client of sockets) room.onLeave(client)
+  }
+})

@@ -83,6 +83,18 @@ export function portalAt(areaId, tx, ty) {
   return PORTAL_BY_TILE.get(`${areaId}:${tx}:${ty}`) ?? null
 }
 
+/** The next shared area on the way from one to another: Ciudad – Pradera – cave, in a line. */
+const HOPS = Object.freeze({
+  [TOWN_AREA_ID]: Object.freeze({ pradera: 'pradera', 'cueva-inicial': 'pradera' }),
+  pradera: Object.freeze({ [TOWN_AREA_ID]: TOWN_AREA_ID, 'cueva-inicial': 'cueva-inicial' }),
+  'cueva-inicial': Object.freeze({ pradera: 'pradera', [TOWN_AREA_ID]: 'pradera' }),
+})
+
+/** The area to cross into next when going from `from` to `to`, or null (tests, tools and the benchmark). */
+export function nextHop(from, to) {
+  return Object.hasOwn(HOPS, from) && Object.hasOwn(HOPS[from], to) ? HOPS[from][to] : null
+}
+
 /** The first portal tile of `from` that leads to `to`, or null (tests, tools and the benchmark). */
 export function portalTo(from, to) {
   return PORTALS.find(p => p.areaId === from && p.to === to) ?? null
