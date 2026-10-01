@@ -458,7 +458,8 @@ async function world(clock) {
   }
   const quiet = async () => {
     await settle()
-    for (let i = 0; i < 400 && [...room.authority.actions.values()].some(a => a.phase === 'settling' || a.pending > 0 || a.authorizing); i++) await new Promise(r => setTimeout(r, 25))
+    // stale_node starts an async database read (resync): wait for it to resolve too.
+    for (let i = 0; i < 400 && ([...room.authority.actions.values()].some(a => a.phase === 'settling' || a.pending > 0 || a.authorizing) || room.authority.syncing.size > 0); i++) await new Promise(r => setTimeout(r, 25))
     await settle()
   }
   const finish = async ms => { clock.advance(ms); room.tick(); await quiet(); room.flush() }
