@@ -36,14 +36,29 @@ Al cerrar esa rama: sin merge, sin deploy y sin cambios en hosted. El estado act
 - Los stubs responden `200` vacío. `kofi-webhook` con token falso responde `401`.
 - Logs sin cuerpos ni datos recibidos. `kofi_payments` continúa con 0 filas.
 
-**Pendiente:**
+**Rotación de Ko-fi — completada** (verificado por la estación principal, 2026-09-30):
 
-1. **Rotar `KOFI_VERIFICATION_TOKEN`** (urgente; orden de §10.6, pasos 4–8). Hosted quedó
-   neutralizado con el token existente, que ya no se loguea.
-2. **Ejecutar un `Send Test` válido** desde Ko-fi y comprobar `200` (tras la rotación, §10.6 paso 7).
-3. **Limpiar los paneles** de PayPal (IPN, botones, webhook REST), Stripe y MercadoPago (§10.8).
-4. **Revisar el proyecto externo `xdhtasxadmhjltmtirxy`**, al que apuntaba el IPN de los botones
-   viejos de PayPal. No lo administramos; se corta desde la cuenta de PayPal (§10.4, §10.8).
+- Ko-fi apunta al proyecto de producción (`qsufableozmyugcrhcai` / `kofi-webhook`).
+- `KOFI_VERIFICATION_TOKEN` regenerado en Ko-fi y actualizado en Supabase, **sin redeploy** durante
+  la rotación. El token anterior quedó invalidado.
+- `Send Test` → **HTTP 200**: un solo POST, sin reintentos.
+- Logs: solo `booted`, `kofi-webhook: acknowledged` y el registro de acceso. Ningún payload ni dato
+  personal.
+- `kofi_payments` sigue vacío.
+- `skip_swap_cooldown` rechazó tanto a `anon` como a un usuario autenticado, sin cambiar tokens,
+  cooldown ni ledger.
+
+**Pendientes reales:**
+
+1. **Retirar los endpoints en los paneles** de PayPal (IPN, botones, webhook REST), Stripe y
+   MercadoPago (§10.8). Mientras tanto, los stubs contestan `200` vacío.
+2. **Proyecto externo `xdhtasxadmhjltmtirxy`:** investigarlo o retirarlo si alguna vez se obtiene
+   acceso. Es un proyecto Supabase **externo, histórico y no administrable**: es el
+destino de la URL anterior de IPN de PayPal (`notify_url` en `js/swap.js`, commit `817c322`). No
+tenemos acceso a ese proyecto ni evidencia de su tráfico histórico, así que **no consta** que haya
+procesado donaciones o pagos reales.
+3. **Reconciliar las migraciones antiguas** con versiones locales duplicadas antes de cualquier
+   `supabase db push` general (§11).
 
 > ⚠️ **No ejecutar un `supabase db push` general hasta reconciliar el historial local de
 > migraciones con hosted.** Hay versiones locales duplicadas, un riesgo previo a estas tareas (§11).
@@ -340,11 +355,11 @@ Pasan a `false` para que el stub conteste 200.
 ### 10.4 Proyectos y versiones hosted anteriores
 
 - **Producción:** `qsufableozmyugcrhcai` (el mismo del playtest).
-- **Externo, no administrable:** `xdhtasxadmhjltmtirxy`. Los botones de PayPal del monolito
-  (`js/swap.js`, commit `817c322`) enviaban el IPN (`notify_url`) a
-  `https://xdhtasxadmhjltmtirxy.supabase.co/functions/v1/paypal-ipn`. No podemos desplegar ni
-  cambiar nada ahí; el guard lo rechaza. Lo que llegue a ese proyecto se corta desde la cuenta de
-  PayPal (§10.8).
+- **Externo, histórico y no administrable:** `xdhtasxadmhjltmtirxy`. Es el destino de la URL
+  anterior de IPN de PayPal: el monolito (`js/swap.js`, commit `817c322`) ponía como `notify_url`
+  `https://xdhtasxadmhjltmtirxy.supabase.co/functions/v1/paypal-ipn`. No tenemos acceso ni evidencia
+  de su tráfico histórico, así que no consta que haya procesado donaciones o pagos reales. No
+  podemos desplegar ni cambiar nada ahí; el guard lo rechaza.
 - **Versiones vigentes** (desplegadas el 2026-09-30): `kofi-webhook` v5 (`817d7f13`),
   `webhook-stripe` v16 (`ac4e22bf`), `webhook-mercadopago` v16 (`42552d73`), `webhook-paypal` v9
   (`28722c35`), `paypal-ipn` v4 (`3d7e06ab`), todas con `verify_jwt=false`. La tabla siguiente es
@@ -379,8 +394,10 @@ migraciones nuevas; la que revoca `skip_swap_cooldown` ya estaba en la base (§5
 
 > **Estado vigente (2026-09-30):** la estación principal desplegó las cinco funciones y
 > `verify-remote before.json after.json` pasó. Stubs → `200` vacío; Ko-fi con token falso →
-> `401`; logs limpios. Se siguió el camino «la rotación no bloquea la neutralización»: **faltan los
-> pasos 4–8** (rotar el token y hacer un `Send Test` válido), pendientes urgentes, en este orden.
+> `401`; logs limpios. Después se completaron los pasos 4–8: token regenerado en Ko-fi y
+> actualizado en Supabase sin redeploy, token anterior invalidado, `Send Test` → `200` (un solo
+> POST, sin reintentos), logs solo con `booted`, `kofi-webhook: acknowledged` y acceso.
+> **El plan está completo.** Lo que sigue es el procedimiento tal como se escribió.
 
 El token de Ko-fi está comprometido: la v1 hosted lo tenía literal en el código (SEC-04), y el
 handler anterior imprimía el payload completo, token incluido, en los logs de la función. Regla
@@ -475,26 +492,30 @@ Es parte del orden de §10.6 (pasos 4–8) y no puede adelantarse a los pasos 2�
 el handler seguro con el token actual, se verifica en hosted, y recién después se regenera el token
 en Ko-fi y se carga en Supabase.
 
-### 10.8 Tareas manuales pendientes (fuera del repositorio)
+### 10.8 Tareas manuales (fuera del repositorio)
 
-Vigentes al 2026-09-30, después del deploy: rotar `KOFI_VERIFICATION_TOKEN`, hacer un `Send Test`
-válido, limpiar los paneles de PayPal, Stripe y MercadoPago, y revisar el proyecto externo
-`xdhtasxadmhjltmtirxy`. Detalle:
+**Completado (2026-09-30):** Ko-fi apunta a producción; `KOFI_VERIFICATION_TOKEN` rotado, con el
+token anterior invalidado; `Send Test` válido → `200`.
 
-- **Ko-fi:** rotar el token en el orden de §10.6 (pasos 4–8, nunca antes de 2–3); confirmar que la URL del webhook apunta a
-  `qsufableozmyugcrhcai`/`kofi-webhook`; quitar de la página de Ko-fi y de cualquier texto público
-  la promesa de «saltar el cooldown» con una donación. Si no se quiere recibir webhooks, borrar la
-  URL en Ko-fi (la función puede quedar igual).
+**Pendientes reales:** retirar los endpoints en los paneles de PayPal, Stripe y MercadoPago;
+investigar o retirar el proyecto externo `xdhtasxadmhjltmtirxy` si alguna vez se obtiene acceso; y
+reconciliar las migraciones con versiones duplicadas antes de cualquier `supabase db push` general
+(§11). Detalle:
+
+- **Ko-fi (opcional):** quitar de la página de Ko-fi y de cualquier texto público la promesa de
+  «saltar el cooldown» con una donación, si todavía figura. Si no se quieren recibir webhooks,
+  borrar la URL en Ko-fi (la función puede quedar igual).
 - **PayPal:** desactivar el IPN o cambiar su URL en el perfil (*Notifications → Instant Payment
-  Notifications*), porque los botones viejos apuntan al proyecto externo `xdhtas…`. También,
+  Notifications*), porque la URL anterior de IPN apuntaba al proyecto externo `xdhtas…`. También,
   desactivar o borrar los botones de pago y el webhook REST que apunte a `webhook-paypal`.
 - **Stripe / MercadoPago:** deshabilitar los endpoints de webhook y las URLs de notificación en sus
   paneles. Los stubs contestan 200 mientras tanto.
 - Revisar en hosted los logs viejos de `kofi-webhook` y `paypal-ipn` (datos personales) según la
   política de retención. Esta tarea no los toca.
 - `create-checkout` y `create-payment-skip` quedan fuera de alcance (el segundo ya responde 503).
-- **Proyecto externo `xdhtasxadmhjltmtirxy`:** revisar qué recibe y cortar su origen desde PayPal.
-  No lo administramos y no se despliega nada ahí.
+- **Proyecto externo `xdhtasxadmhjltmtirxy`:** investigarlo o retirarlo si alguna vez se obtiene
+  acceso. Hoy es histórico y no administrable, y no consta que haya procesado donaciones reales. No
+  se despliega nada ahí.
 
 ### 10.9 Tests y gates
 
