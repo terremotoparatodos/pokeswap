@@ -15,12 +15,13 @@ import { packColor, pixelsToCanvas } from '../engine/pixels'
 import type { LensName } from '../engine/projection'
 import { buildPropSprites } from '../engine/props'
 import { bakeTownGround, type TileRect } from '../engine/townGround'
-import { buildTownProps, fencePiece, fencePosts, fenceTileArt, townPropFeet, townPropTiles, type TownPropKind } from '../engine/townProps'
+import { buildTownProps, fencePiece, fencePosts, fenceTileArt, townPropFeet, type TownPropKind } from '../engine/townProps'
 import { TILE } from '../engine/world'
 import { loadImageSprite } from '../engine/sprite'
 import { devWarn } from '../../../shared/utils/devTools'
 import type { LobbyFeature } from '../lobby/features'
 import { TownPopulace } from './townPopulace'
+import { townCollision } from '../../../../services/realtime/src/world/townLayout.js'
 
 export interface TownGate extends Portal {
   /** Where the player stands when coming back through this gate. */
@@ -112,7 +113,6 @@ export interface TownDef {
   plots?: readonly TileRect[]
 }
 
-const SOLID_PROPS = new Set<TownPropKind>(['lamp', 'sign', 'hedge', 'fenceH', 'fenceV', 'bench', 'benchLeft'])
 interface TownArt {
   ground: HTMLCanvasElement
   decor: DecorInstance[]
@@ -141,29 +141,8 @@ export class TownArea implements Area {
     this.doors = buildingDoors(def.buildings)
     this.width = def.terrain[0].length
     this.height = def.terrain.length
-    this.solid = this.buildCollision()
-  }
-
-  private buildCollision(): Uint8Array {
-    const { def, width, height } = this
-    const solid = new Uint8Array(width * height)
-    const mark = (tx: number, ty: number, value: number) => {
-      if (tx >= 0 && ty >= 0 && tx < width && ty < height) solid[ty * width + tx] = value
-    }
-    for (let ty = 0; ty < height; ty++) {
-      for (let tx = 0; tx < width; tx++) if (def.terrain[ty][tx] === 't') mark(tx, ty, 1)
-    }
-    for (const b of def.buildings) {
-      for (let ty = b.y; ty < b.y + b.d; ty++) for (let tx = b.x; tx < b.x + b.w; tx++) mark(tx, ty, 1)
-      for (const t of b.open ?? []) mark(t.tx, t.ty, 0)
-      if (b.door) mark(b.door.tx, b.door.ty, 0)
-    }
-    for (const f of def.fountains) {
-      for (let ty = f.y0; ty <= f.y1; ty++) for (let tx = f.x0; tx <= f.x1; tx++) mark(tx, ty, 1)
-    }
-    for (const p of def.props) if (SOLID_PROPS.has(p.kind)) for (const t of townPropTiles(p)) mark(t.tx, t.ty, 1)
-    for (const gate of def.gates) for (const t of gate.tiles) mark(t.tx, t.ty, 0)
-    return solid
+    // CAVES-4: the one collision rule the presence service validates steps with.
+    this.solid = townCollision(def)
   }
 
   /** Bakes ground and builds sprites on first use (needs a DOM canvas). */
