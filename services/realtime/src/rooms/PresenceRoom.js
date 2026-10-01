@@ -5,6 +5,8 @@ import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
 import { areaTransition, stepAllowed } from '../presence/areaTransition.js'
 import { AREA_TRANSITION_DENIED } from '../protocol/crossing.js'
 import { applyMove } from '../presence/movement.js'
+import { ARRIVALS } from '../protocol/arrival.js'
+import { isSafeLanding } from '../world/navigation.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
 import { AREA, COMPACT_STEP_PROTOCOL, MESSAGE, areaIntent, moveIntent, observeIntent, publicActor, stackStep, stepActor } from '../protocol/messages.js'
@@ -12,6 +14,12 @@ import { metrics } from '../observability/metrics.js'
 import { WORLD_MESSAGE } from '../world/worldProtocol.js'
 import { WorldRoom } from '../world/worldRoom.js'
 import { worldDependencies } from '../world/worldConfig.js'
+
+/** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
+const MOVE_REJECTION_REASON = Object.freeze({
+  invalid: 'movement denied', replay: 'movement replay denied', sequence: 'movement sequence denied',
+  rate: 'movement rate denied', blocked: 'movement blocked',
+})
 
 const actors = new Map()
 const clientsByActor = new Map()
@@ -48,6 +56,14 @@ function createWorld(dependencies) {
   })
   metrics.world = () => created.stats()
   return created
+}
+
+/**
+ * The live actor of a player, or null (tests and the local benchmark only:
+ * they stand an actor on a portal with `placeActor` before a real crossing).
+ */
+export function liveActorForTesting(userId) {
+  return actors.get(userId) ?? null
 }
 
 /** Replaces the world's SKILLS/ownership adapters (tests and local tooling). Drops all world state. */
@@ -100,7 +116,17 @@ export class PresenceRoom extends Room {
     // Replace the old socket before any optional visual lookup. Otherwise a
     // reload can let the old onLeave remove presence seen by other clients.
     const restored = actors.has(auth.userId) ? null : reconnectingActors.take(auth.userId)
-    if (restored) metrics.restored()
+    if (restored) {
+      metrics.restored()
+      // CAVES-4: a remembered tile is only trusted if it is still a safe
+      // landing (walkable and not a portal). Otherwise the area's own arrival.
+      if (!isSafeLanding(restored.areaId, restored.tx, restored.ty)) {
+        const fallback = ARRIVALS[restored.areaId] ?? ARRIVALS[AREA.TOWN]
+        if (!ARRIVALS[restored.areaId]) restored.areaId = AREA.TOWN
+        restored.tx = fallback.tx; restored.ty = fallback.ty; restored.dir = fallback.dir
+        metrics.restoreRepaired()
+      }
+    }
     const actor = actors.get(auth.userId) ?? restored ??
       { id: auth.userId, areaId: AREA.TOWN, tx: 31, ty: 20, username: auth.username, characterId, companionId: null, dir: 'down', speed: 3.75, moveSequence: 0, lastMoveAt: 0, moves: [] }
     actor.username = auth.username
@@ -152,12 +178,12 @@ export class PresenceRoom extends Room {
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
     const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence, stepAllowed)
     if (rejection) {
-      const reason = rejection === 'replay' ? 'movement replay denied' : rejection === 'blocked' ? 'movement blocked' : 'movement rate denied'
-      this.reject(client, reason, rejection)
-      // A refused step must still be answered with authority (see applyMove).
-      // A replay too: after a server-made move (WORLD VISUAL-2) an older
-      // client's next number is already taken, and this resyncs it. A step
-      // into a cave wall (CAVES-3) is answered the same way.
+      this.reject(client, MOVE_REJECTION_REASON[rejection], rejection)
+      // A refused step must still be answered with authority (see applyMove),
+      // once, to this client only: observers never hear of it. A replay too:
+      // after a server-made move (WORLD VISUAL-2) an older client's next
+      // number is already taken, and this resyncs it. A step into a wall or
+      // past an edge (CAVES-3/4) and a skipped number (CAVES-4) likewise.
       if (rejection !== 'invalid' && intent.sequence !== null) this.sendSelf(client, actor)
       return
     }
@@ -173,18 +199,24 @@ export class PresenceRoom extends Room {
   changeArea(client, payload) {
     const actor = actors.get(client.userData?.actorId); const intent = areaIntent(payload)
     if (!actor || !intent) return this.reject(client, 'area denied', 'area')
-    // CAVES-3: the service decides whether this crossing is allowed (a cave is
-    // entered only from its mouth and left only from its exit pad). A refusal
+    // CAVES-3/4: the service decides whether this crossing is allowed and
+    // where it lands: through a portal only standing on it, the town recall
+    // from anywhere, nothing else (presence/areaTransition.js). A refusal
     // answers with the actor's real area and tile, so the client stops waiting
     // for the area it asked for and reconciles to where it actually is.
-    const arrival = areaTransition(actor, intent.areaId)
-    if (!arrival) {
+    const transition = areaTransition(actor, intent.areaId)
+    if (!transition) {
       this.reject(client, AREA_TRANSITION_DENIED, 'area')
       this.sendSnapshot(client, actor)
       return
     }
+    metrics.transition(transition.kind)
+    // A resync on a valid tile moves nothing and tells no one: the snapshot
+    // is the real state the client asked for.
+    if (!transition.arrival) return this.sendSnapshot(client, actor)
     // Must match the client's own arrival tile (see protocol/arrival.js):
     // the client keeps predicting from there before this snapshot reaches it.
+    const { arrival } = transition
     actor.areaId = intent.areaId
     actor.tx = arrival.tx; actor.ty = arrival.ty; actor.dir = arrival.dir
     metrics.changedArea()

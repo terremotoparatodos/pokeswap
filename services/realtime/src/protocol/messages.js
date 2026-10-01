@@ -22,7 +22,8 @@ export function moveIntent(value) {
   // During a rolling deploy, already-loaded clients omit this display hint.
   // They remain bounded and render as walking rather than being disconnected.
   if (value.running !== undefined && typeof value.running !== 'boolean') return null
-  if (value.sequence !== undefined && (!Number.isInteger(value.sequence) || value.sequence < 1)) return null
+  // A safe integer: past 2^53 consecutive numbers stop being distinct.
+  if (value.sequence !== undefined && (!Number.isSafeInteger(value.sequence) || value.sequence < 1)) return null
   return { direction: value.direction, running: value.running === true, sequence: value.sequence ?? null }
 }
 

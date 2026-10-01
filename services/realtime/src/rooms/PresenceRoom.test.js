@@ -1,9 +1,27 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PresenceRoom } from './PresenceRoom.js'
+import { PresenceRoom, liveActorForTesting } from './PresenceRoom.js'
 import { MAX_VIA_STEPS, MESSAGE } from '../protocol/messages.js'
 import { RETAIN_MARGIN_TILES } from '../presence/interest.js'
 import { metrics } from '../observability/metrics.js'
+import { isWalkable, portalAt } from '../world/navigation.js'
+import { crossTo } from '../world/testing.js'
+
+/** CAVES-4: areas change only through a portal. Tests that need another area walk a player there through the real ones. */
+const cross = (room, target, userId, to) => crossTo(room, target, liveActorForTesting(userId), to)
+
+/** The first Pradera tile, scanning out from the arrival, with `length` walkable non-portal tiles to its right. */
+function praderaClearRun(length) {
+  const clear = (tx, ty) => isWalkable('pradera', tx, ty) && portalAt('pradera', tx, ty) === null
+  for (let ty = -69; ty < -40; ty++) {
+    for (let tx = -5; tx < 40; tx++) {
+      let n = 0
+      while (n <= length && clear(tx + n, ty)) n++
+      if (n > length) return { tx, ty }
+    }
+  }
+  throw new Error('no clear run in Pradera')
+}
 
 function client(id) {
   const messages = []
@@ -148,7 +166,7 @@ test('chat reaches everyone in the area, and nobody outside it', async () => {
   room.ready(speaker)
   room.ready(neighbour)
   // Brock walks off to the wild; the other two stay in the city.
-  room.changeArea(elsewhere, { areaId: 'pradera' })
+  cross(room, elsewhere, 'chat-c', 'pradera')
 
   room.chat(speaker, { text: '  hola   a todos  ' })
 
@@ -220,7 +238,7 @@ test('somebody arriving mid-conversation is handed the area history', async () =
   assert.ok(history.payload.lines.some(line => line.text === 'alguien vio una cueva?'))
 
   // And changing area hands over that area's history instead, not the old one.
-  room.changeArea(late, { areaId: 'pradera' })
+  cross(room, late, 'chat-late-user', 'pradera')
   assert.equal(lastOf(late, MESSAGE.CHAT_HISTORY).payload.areaId, 'pradera')
 
   room.onLeave(early)
@@ -250,14 +268,20 @@ test('wild interest sends a leave once an actor is past the retention margin and
   await room.onJoin(traveller, {}, travellerAuth)
   room.ready(watcher)
   room.ready(traveller)
-  room.changeArea(watcher, { areaId: 'pradera' })
-  room.changeArea(traveller, { areaId: 'pradera' })
+  cross(room, watcher, 'watcher', 'pradera')
+  cross(room, traveller, 'traveller', 'pradera')
+  // CAVES-4: the service enforces Pradera's collision, so the walk needs a
+  // straight run with nothing solid on it. Both stand at its start.
+  const start = praderaClearRun(30)
+  room.placeActor(liveActorForTesting('watcher'), { ...start, dir: 'down' })
+  room.placeActor(liveActorForTesting('traveller'), { ...start, dir: 'right' })
+  const base = liveActorForTesting('traveller').moveSequence
   const realNow = Date.now
   let now = 1_000
   Date.now = () => now
   try {
-    // Both start at (-5, -69). The sectors alone would drop the traveller at
-    // x = 12, 17 tiles away and on screen; now it stays until 20 + 6 tiles.
+    // The sectors alone would drop the traveller 17 tiles away, on screen;
+    // now it stays until 20 + 6 tiles.
     for (let step = 0; step < 30; step++) {
       room.move(traveller, { direction: 'right', running: true })
       now += 125
@@ -267,7 +291,7 @@ test('wild interest sends a leave once an actor is past the retention margin and
   }
   assert.deepEqual(watcher.messages.at(-1), {
     type: MESSAGE.DELTA,
-    payload: { type: 'leave', actor: { id: 'traveller', areaId: 'pradera', tx: 22, ty: -69, username: 'Traveller', characterId: 'lucas', companionId: null, dir: 'right', speed: 7.5, moveSequence: 27 } },
+    payload: { type: 'leave', actor: { id: 'traveller', areaId: 'pradera', tx: start.tx + 27, ty: start.ty, username: 'Traveller', characterId: 'lucas', companionId: null, dir: 'right', speed: 7.5, moveSequence: base + 27 } },
   })
   room.onLeave(watcher)
   room.onLeave(traveller)
@@ -438,7 +462,7 @@ test('an area snapshot discards queued deltas from the previous area', async () 
   Date.now = () => 30_000
   try {
     room.move(traveller, { direction: 'right', running: true })
-    room.changeArea(watcher, { areaId: 'pradera' })
+    cross(room, watcher, 'batch-area-watcher', 'pradera')
   } finally {
     Date.now = realNow
   }
@@ -456,13 +480,14 @@ test('area changes place the actor exactly where the client arrives, never on Pr
   const traveller = client('arrival-traveller')
   await room.onJoin(traveller, {}, { kind: 'player', userId: 'arrival-user', username: 'Arrival', token: null })
   room.ready(traveller)
-  // Town -> Pradera: the client stands on WildArea.arrival(), not the town gate tile (8, 41).
+  // Town -> Pradera through the west gate: the client stands on WildArea.arrival(), not the town gate tile (8, 41).
+  cross(room, traveller, 'arrival-user', 'pradera')
+  assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'pradera', tx: -5, ty: -69, dir: 'down' })
+  // A same-area request (client safe-spawn repair) is a resync since CAVES-4: the same safe tile, no loop.
   room.changeArea(traveller, { areaId: 'pradera' })
   assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'pradera', tx: -5, ty: -69, dir: 'down' })
-  // A same-area request (client safe-spawn repair) must land on the same safe tile, not loop.
-  room.changeArea(traveller, { areaId: 'pradera' })
-  assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'pradera', tx: -5, ty: -69, dir: 'down' })
-  // Pradera -> town via the return pad: the client lands by the west gate.
+  // Pradera -> town via the return pad, one step north of the arrival: the client lands by the west gate.
+  room.move(traveller, { direction: 'up', running: false, sequence: liveActorForTesting('arrival-user').moveSequence + 1 })
   room.changeArea(traveller, { areaId: 'ciudad-corazon' })
   assert.deepEqual(pick(lastOf(traveller, MESSAGE.SNAPSHOT).payload.self), { areaId: 'ciudad-corazon', tx: 8, ty: 41, dir: 'right' })
   // The "Ciudad" escape hatch inside town resets to the town spawn.
@@ -547,18 +572,19 @@ test('an area change reaches observers as one coherent update: a leave in the ol
   let now = 70_000
   Date.now = () => now
   try {
-    room.changeArea(traveller, { areaId: 'pradera' })
+    cross(room, traveller, 'area-traveller-user', 'pradera')
     // Every update the Pradera watcher gets names Pradera and Pradera coordinates.
     assert.deepEqual(seen(wildWatcher), [['upsert', 'pradera', -5, -69]])
     assert.deepEqual(seen(townWatcher).at(-1)[0], 'leave')
 
     now += 500
+    // The "Ciudad" recall from Pradera (CAVES-4: the only trip without a portal).
     room.changeArea(traveller, { areaId: 'ciudad-corazon' })
     assert.deepEqual(seen(wildWatcher).at(-1)[0], 'leave')
     // Back in town: it reappears at the gate arrival and keeps walking from there.
     assert.deepEqual(seen(townWatcher).at(-1), ['upsert', 'ciudad-corazon', 8, 41])
     now += 300
-    room.move(traveller, { direction: 'right', running: false, sequence: 1 })
+    room.move(traveller, { direction: 'right', running: false, sequence: liveActorForTesting('area-traveller-user').moveSequence + 1 })
     const last = townWatcher.messages.filter(m => m.type === MESSAGE.DELTA).at(-1).payload
     assert.deepEqual([last.type, last.actor.tx, last.actor.ty], ['step', 9, 41])
   } finally {

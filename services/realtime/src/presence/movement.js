@@ -9,8 +9,8 @@ export const MOVE_TOKENS_PER_SECOND = 10
  * after any stall of ~350 ms, leaving the server permanently one tile behind
  * per rejection. Fifteen tokens absorb a 1.5 s stall at run speed (see
  * `presence.test.js`) while the sustained rate stays bounded at ten tiles/s.
- * Walkability is decided by the client either way: this bounds pace, not
- * collision.
+ * This bounds pace; collision is the caller's `canStep` (CAVES-4: every
+ * shared area, `presence/areaTransition.js` stepAllowed).
  */
 export const MOVE_BURST_CAPACITY = 15
 /** @deprecated kept for callers that still read the old constant name. */
@@ -22,12 +22,24 @@ export const STEP_DELTA = Object.freeze({ up: [0, -1], down: [0, 1], left: [-1, 
 /**
  * Returns `null` when the move is accepted (and applied), else the rejection reason.
  * `canStep(actor, direction)`, when given, can refuse the step itself ('blocked'),
- * e.g. into a cave wall (CAVES-3); like a rate refusal it consumes the sequence.
+ * e.g. into a wall or past an edge; like a rate refusal it consumes the sequence.
+ * A sequence that skips ahead is refused as 'sequence' and consumed as well.
  */
 export function applyMove(actor, direction, now, running, sequence = null, canStep = null) {
   if (!DIRECTIONS.has(direction) || typeof running !== 'boolean') return 'invalid'
   const currentSequence = Number.isInteger(actor.moveSequence) ? actor.moveSequence : 0
   if (sequence !== null && sequence <= currentSequence) return 'replay'
+  if (sequence !== null && sequence > currentSequence + 1) {
+    // CAVES-4: a step numbered past the next one skipped steps the service
+    // never saw. A client only ever numbers its steps one by one (refusals
+    // and server-made moves consume their number too), so this is a forged
+    // or broken sender. Refused without moving, but the number is consumed,
+    // like a rate refusal: the echoed actor then acknowledges exactly the
+    // client's latest step, so even a confused client reconciles at once
+    // instead of being refused forever.
+    actor.moveSequence = sequence
+    return 'sequence'
+  }
   if (!Number.isFinite(actor.moveTokens)) { actor.moveTokens = MOVE_BURST_CAPACITY; actor.moveTokensAt = now }
   const elapsed = Math.max(0, now - actor.moveTokensAt)
   actor.moveTokens = Math.min(MOVE_BURST_CAPACITY, actor.moveTokens + elapsed * MOVE_TOKENS_PER_SECOND / 1000)

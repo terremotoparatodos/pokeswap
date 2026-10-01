@@ -7,8 +7,10 @@ import { monitorEventLoopDelay } from 'node:perf_hooks'
 export class PresenceMetrics {
   constructor({ loopDelay = null } = {}) {
     this.connections = 0; this.guests = 0; this.players = 0
-    this.rejections = { capacity: 0, invalid: 0, rate: 0, area: 0, replay: 0 }
-    this.moves = 0; this.areaChanges = 0; this.reconnectRestores = 0
+    this.rejections = { capacity: 0, invalid: 0, rate: 0, area: 0, replay: 0, sequence: 0, blocked: 0 }
+    this.moves = 0; this.areaChanges = 0; this.reconnectRestores = 0; this.reconnectRepairs = 0
+    /** CAVES-4: accepted `area` requests by kind (presence/areaTransition.js TRANSITION). */
+    this.transitions = { portal: 0, recall: 0, resync: 0 }
     // Delta batching (50 ms window). Measurement only: see PresenceRoom.sendDelta.
     this.batching = { queued: 0, stepStacked: 0, stepFoldedIntoUpsert: 0, replaced: 0, batches: 0, maxBatch: 0 }
     this.loopDelay = loopDelay
@@ -20,7 +22,9 @@ export class PresenceMetrics {
   rejected(kind) { this.rejections[kind] = (this.rejections[kind] ?? 0) + 1 }
   moved() { this.moves++ }
   changedArea() { this.areaChanges++ }
+  transition(kind) { this.transitions[kind] = (this.transitions[kind] ?? 0) + 1 }
   restored() { this.reconnectRestores++ }
+  restoreRepaired() { this.reconnectRepairs++ }
   /** `kind`: how a delta met the one already queued for the same actor and socket. */
   deltaQueued(kind) { this.batching.queued++; if (kind) this.batching[kind]++ }
   batchSent(size) { this.batching.batches++; if (size > this.batching.maxBatch) this.batching.maxBatch = size }
@@ -33,7 +37,7 @@ export class PresenceMetrics {
     const ms = value => Math.round(value / 1e4) / 100
     const delay = this.loopDelay
     return {
-      moves: this.moves, areaChanges: this.areaChanges, reconnectRestores: this.reconnectRestores, batching: { ...this.batching },
+      moves: this.moves, areaChanges: this.areaChanges, transitions: { ...this.transitions }, reconnectRestores: this.reconnectRestores, reconnectRepairs: this.reconnectRepairs, batching: { ...this.batching },
       ...(this.world ? { world: this.world() } : {}),
       uptimeSeconds: Math.round(process.uptime()),
       memoryMb: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
