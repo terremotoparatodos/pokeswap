@@ -3,6 +3,7 @@
 > Rama `world/caves-foundation-0.3`, base `f4323c9` (CAVES-1 aprobado, padre `6039409`).
 > Verificado antes de empezar: `origin/design/caves-audit-0.3 = f4323c9`, padre `6039409`, `origin/integration/world-skills-0.3 = d8b5571`, YIELD-2 congelado en `3fca914`.
 > Diseño de referencia: `docs/design/CAVES_1_AUDIT.md` (§13 decisiones D1–D11).
+> **Estado vigente (2026-10-01):** integrado en `integration/world-skills-0.3` sobre `c55a4c1` (YIELD-2 cerrado), junto con el diseño de `design/cave-ecosystem-0.3 @ bfb21ed`. Las referencias de arriba son las de la rama original. Ver §12.
 
 ## 1. Resumen
 
@@ -197,3 +198,20 @@ Un cliente 0.3 anterior a este cambio no dibujaría la roca. Como la colisión d
 
 - Push sólo a `world/caves-foundation-0.3`. Sin PR, merge, deploy, tag ni release.
 - `pokeswap-caves-audit` y `design/caves-audit-0.3` no se tocaron. Tampoco otros worktrees.
+
+## 12. Integración (2026-10-01)
+
+- **Base real.** Se integró sobre `integration/world-skills-0.3 @ c55a4c1`. Esa base ya tiene SWAP RETIRE-2, PAYMENTS RETIRE-2, SECURITY-3 y YIELD-2 (cerrado y validado en el entorno oscuro, migración hosted `20261001051958 world_multi_yield`). No sobre `d8b5571` ni con YIELD-2 congelado en `3fca914`, como dicen las referencias de la rama original.
+- **Qué se integró.** Un merge `--no-ff` de `design/cave-ecosystem-0.3 @ bfb21ed`, que contiene el código de CAVES-2 (`world/caves-foundation-0.3 @ 2652a58`) y el **diseño vigente** del ecosistema de cuevas:
+  - `CAVE_ECOSYSTEM_ROADMAP.md`;
+  - `SHARED_DUNGEON_ARCHITECTURE.md`;
+  - `CAVE_TYPES_AND_FAMILIES.md`;
+  - `CAVE_RESPAWN_AND_TOKENS.md`;
+  - `MMO_SPAWN_RARITY_AND_INSTANCES.md`.
+- **Único conflicto.** `src/features/playtest/domain/cityFeatures.ts`. Se conservan `swap: SWAP_RETIRED_NOTICE` (SWAP RETIRE-2) y la línea nueva de la Dungeon de CAVES-2. `skills.generated.js` se mezcló solo y pasa el check de drift sin regenerarse.
+- **CAVES-2 sigue siendo una fundación cerrada.** Hay una sola boca, `pradera-cueva-inicial` en `(-26,-74)`, con roca de 3×2 (boca incluida), aproximación caminable y claro frontal reservado. No hay interior, portal, spawns, combate, captura, drops, llaves, pisos ni Dungeon.
+- **Entrar y salir de la cueva corresponde a CAVES-3** (`CAVE_ECOSYSTEM_ROADMAP.md` §2.1), que es la siguiente fase. Los riesgos de §10 siguen siendo su punto de partida.
+- **Sin cambios hosted.** No hay SQL, migraciones, Edge Functions, permisos, secretos ni cambios del gate. El protocolo WORLD sigue en 3.
+- **Decisiones superadas.**
+  - La premisa de Pokémon salvajes como "entidad única con dueño posible" (`CAVES_1_AUDIT.md`) queda reemplazada por la de varios ejemplares por especie, con `instanceId` y como máximo un dueño (`MMO_SPAWN_RARITY_AND_INSTANCES.md`).
+  - Las entradas procedurales por semilla (`seedOf`, `placeEntrances`, seis bocas en Pradera) y la Dungeon que se abría desde cualquier cueva quedan retiradas.
