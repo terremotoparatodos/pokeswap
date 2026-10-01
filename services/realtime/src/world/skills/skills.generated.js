@@ -1252,24 +1252,6 @@ function hash2(x, y, seed) {
 }
 var T = Object.freeze({ DEEP: 0, WATER: 1, SAND: 2, GRASS: 3, DUNE: 4, TALL: 5, SNOW: 6 });
 
-// services/realtime/src/protocol/arrival.js
-var ARRIVALS = Object.freeze({
-  /** Town spawn: first join, the "Ciudad" escape hatch and any same-area reset. */
-  "ciudad-corazon": Object.freeze({ tx: 31, ty: 20, dir: "down" }),
-  /** `WildArea.arrival()` for seed 208 (`World.findSpawn(['grassland'])`). */
-  pradera: Object.freeze({ tx: -5, ty: -69, dir: "down" })
-});
-var TOWN_FROM_PRADERA = Object.freeze({ tx: 8, ty: 41, dir: "right" });
-
-// services/realtime/src/world/areas.js
-var WORLD_AREAS = Object.freeze({
-  pradera: Object.freeze({ id: "pradera", seed: 208, procedural: true, spawn: Object.freeze({ tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty }) }),
-  "ciudad-corazon": Object.freeze({ id: "ciudad-corazon", seed: null, procedural: false, spawn: null })
-});
-function worldArea(areaId) {
-  return Object.hasOwn(WORLD_AREAS, areaId) ? WORLD_AREAS[areaId] : null;
-}
-
 // services/realtime/src/world/caves.js
 var CAVE_ENTRANCE = Object.freeze({ CLOSED: "closed", OPEN: "open" });
 var CAVE_CLEARANCE = Object.freeze({ width: 3, depth: 3 });
@@ -1293,13 +1275,13 @@ function defineCave({ id, areaId, anchor, width, depth, facing, interiorAreaId, 
     facing,
     /** Every tile the rock covers, front row first. */
     footprint: Object.freeze(footprint),
-    /** The front-row centre: rock today, the portal of CAVES-3. */
+    /** The front-row centre: the portal when the entrance is open, rock when it is closed. */
     mouth: tile(centre, anchor.ty),
     /** The walkable tile in front of the mouth. */
     approach: tile(centre, anchor.ty + 1),
     /** The ground kept free in front of the mouth (includes the approach). */
     clearance: Object.freeze(clearance),
-    /** The area the mouth will lead to. Not registered anywhere until CAVES-3. */
+    /** The shared interior area the mouth leads to (`caveLayouts.js`). */
     interiorAreaId,
     entrance
   });
@@ -1313,12 +1295,78 @@ var CAVES = Object.freeze([
     depth: 2,
     facing: "down",
     interiorAreaId: "cueva-inicial",
-    entrance: CAVE_ENTRANCE.CLOSED
+    entrance: CAVE_ENTRANCE.OPEN
   })
 ]);
 var key = (areaId, tx, ty) => `${areaId}:${tx}:${ty}`;
-var ROCK = new Set(CAVES.flatMap((cave) => cave.footprint.map((t) => key(cave.areaId, t.tx, t.ty))));
+var isOpenMouth = (cave, t) => cave.entrance === CAVE_ENTRANCE.OPEN && t.tx === cave.mouth.tx && t.ty === cave.mouth.ty;
+var ROCK = new Set(CAVES.flatMap((cave) => cave.footprint.filter((t) => !isOpenMouth(cave, t)).map((t) => key(cave.areaId, t.tx, t.ty))));
 var RESERVED = new Set(CAVES.flatMap((cave) => [...cave.footprint, ...cave.clearance].map((t) => key(cave.areaId, t.tx, t.ty))));
+
+// services/realtime/src/world/caveLayouts.js
+var INITIAL = Object.freeze([
+  "#####################",
+  "######.........######",
+  "####.............####",
+  "###...............###",
+  "##.................##",
+  "##....###.....##...##",
+  "##....###.....##...##",
+  "##.................##",
+  "##.................##",
+  "###...............###",
+  "####.............####",
+  "######....S....######",
+  "########.....########",
+  "#########.E.#########",
+  "#####################"
+]);
+function findTile(rows, mark) {
+  for (let ty = 0; ty < rows.length; ty++) {
+    const tx = rows[ty].indexOf(mark);
+    if (tx >= 0) return Object.freeze({ tx, ty });
+  }
+  throw new Error(`cave layout: no '${mark}' tile`);
+}
+function defineInterior({ id, name, rows }) {
+  const width = rows[0].length;
+  if (rows.some((row) => row.length !== width)) throw new Error(`cave layout ${id}: rows must share one width`);
+  return Object.freeze({
+    id,
+    name,
+    width,
+    height: rows.length,
+    rows,
+    /** Where a player entering from the mouth stands, facing into the cave. */
+    arrival: Object.freeze({ ...findTile(rows, "S"), dir: "up" }),
+    /** The exit pad: stepping on it takes that player back out. */
+    exit: findTile(rows, "E")
+  });
+}
+var CAVE_INTERIORS = Object.freeze({
+  "cueva-inicial": defineInterior({ id: "cueva-inicial", name: "Cueva de la Pradera", rows: INITIAL })
+});
+
+// services/realtime/src/protocol/arrival.js
+var interiorArrivals = Object.fromEntries(Object.values(CAVE_INTERIORS).map((interior) => [interior.id, Object.freeze({ tx: interior.arrival.tx, ty: interior.arrival.ty, dir: interior.arrival.dir })]));
+var ARRIVALS = Object.freeze({
+  /** Town spawn: first join, the "Ciudad" escape hatch and any same-area reset. */
+  "ciudad-corazon": Object.freeze({ tx: 31, ty: 20, dir: "down" }),
+  /** `WildArea.arrival()` for seed 208 (`World.findSpawn(['grassland'])`). */
+  pradera: Object.freeze({ tx: -5, ty: -69, dir: "down" }),
+  /** CAVES-3: inside a cave, the `S` tile of its layout, facing in. */
+  ...interiorArrivals
+});
+var TOWN_FROM_PRADERA = Object.freeze({ tx: 8, ty: 41, dir: "right" });
+
+// services/realtime/src/world/areas.js
+var WORLD_AREAS = Object.freeze({
+  pradera: Object.freeze({ id: "pradera", seed: 208, procedural: true, spawn: Object.freeze({ tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty }) }),
+  "ciudad-corazon": Object.freeze({ id: "ciudad-corazon", seed: null, procedural: false, spawn: null })
+});
+function worldArea(areaId) {
+  return Object.hasOwn(WORLD_AREAS, areaId) ? WORLD_AREAS[areaId] : null;
+}
 
 // services/realtime/src/world/resourceZones.js
 var box = (x0, y0, x1, y1) => Object.freeze({ x0, y0, x1, y1 });
