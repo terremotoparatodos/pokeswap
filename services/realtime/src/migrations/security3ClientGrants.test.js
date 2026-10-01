@@ -37,7 +37,9 @@ const DML = ['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE']
 const TABLES = ['pokemon_xp', 'pokedex_entries']
 const MARKET = ['buy_market_listing', 'publish_market_listing', 'cancel_market_listing']
 const LATENT = ['grant_pokemon_xp', 'spend_tokens_learn_move', 'register_pokemon', 'record_pokemon_seen', 'bulk_record_pokemon_seen', 'collect_passive_tokens']
-const CLOSED_FUNCTIONS = [...MARKET, ...LATENT]
+// Absent from production; dungeon-reward and dungeon-start are not deployed. Closed preventively.
+const DUNGEON = ['award_dungeon_reward', 'consume_dungeon_energy']
+const CLOSED_FUNCTIONS = [...MARKET, ...LATENT, ...DUNGEON]
 
 // The migrations production ran after the catalog was mirrored (2026-09-25).
 const HOSTED_SINCE_MIRROR = [
@@ -102,6 +104,13 @@ async function hostedWithLatent() {
   return db
 }
 
+/** Also the dungeon RPCs of 010/011, as a fresh install creates and grants them. */
+async function hostedWithDungeon() {
+  const db = await hostedWithLatent()
+  for (const name of ['20260908_010_dungeon_reward.sql', '20260908_011_dungeon_start_authority.sql']) await run(db, migration(name))
+  return db
+}
+
 // Objects the repository's migrations expect but never create (they predate it).
 const SCRATCH_BASELINE = `
   CREATE TABLE public.kofi_payments (id uuid PRIMARY KEY DEFAULT gen_random_uuid());
@@ -120,15 +129,19 @@ async function migrationFiles() {
   return (await readdir(MIGRATIONS_DIR)).filter(f => f.endsWith('.sql')).sort()
 }
 
-/** Pre-migration baseline + every versioned migration, in order; `extra` SQL runs last. */
-async function fromScratch(extra = null) {
+/**
+ * Pre-migration baseline + every versioned migration, in order; `extra` SQL runs last.
+ * `security3Sql` replaces the SECURITY-3 file's content (mutation tests); `security3: false` skips it.
+ */
+async function fromScratch(extra = null, { security3Sql = null, security3: apply = true } = {}) {
   const db = await pglite()
   await run(db, MIRROR)
   await run(db, MIRROR_FUNCTIONS)
   await db.exec(SCRATCH_BASELINE)
   for (const name of await migrationFiles()) {
     try {
-      await run(db, migration(name))
+      if (name !== SECURITY3_FILE) await run(db, migration(name))
+      else if (apply) await db.exec(security3Sql ?? await readFile(SECURITY3, 'utf8'))
     } catch (err) {
       throw new Error(`${name} does not apply on the from-scratch baseline (extend SCRATCH_BASELINE if it needs a pre-existing object): ${err.message}`)
     }
@@ -449,6 +462,7 @@ test('guard: a fresh install from every versioned migration ends with no client 
   // The latent RPCs exist in a fresh install, so this exercises them for real.
   assert.equal((await signatures(db, LATENT)).length, 6)
   assert.equal((await signatures(db, MARKET)).length, 3)
+  assert.deepEqual(await signatures(db, DUNGEON), ['award_dungeon_reward(integer,integer,integer)', 'consume_dungeon_energy(integer)'])
   assert.deepEqual(await violations(db), [])
   for (const sig of await signatures(db)) assert.equal(await can(db, 'service_role', sig), true, `service_role ${sig}`)
   await db.close()
@@ -490,6 +504,8 @@ const HISTORICAL_GRANTORS = [
   '20260907_005_token_economy_rpcs.sql',
   '20260907_008_progression_xp_authority.sql',
   '20260908_009_pokedex_authority.sql',
+  '20260908_010_dungeon_reward.sql',
+  '20260908_011_dungeon_start_authority.sql',
   '20260926001502_market_require_session.sql',
 ]
 
@@ -538,4 +554,133 @@ test('guard: the static rules catch re-grants, schema-wide grants and re-created
     'REVOKE EXECUTE ON FUNCTION public.grant_pokemon_xp(integer, integer, text) FROM authenticated;',
     '-- GRANT EXECUTE ON FUNCTION public.buy_market_listing(uuid) TO authenticated;',
   ]) assert.deepEqual(regrantFindings([{ name: '20991231000000_future.sql', sql }]), [], sql)
+})
+
+// ── Dungeon RPCs (010/011): absent from production, closed preventively ─────
+
+/** Runs `sql` as a role that holds nothing but what PUBLIC holds. */
+async function asPublicOnly(db, sql, params = [], userId = A) {
+  await db.exec(`DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'public_only') THEN CREATE ROLE public_only NOLOGIN; END IF; END $$;
+    GRANT USAGE ON SCHEMA public, auth TO public_only;`)
+  return db.transaction(async tx => {
+    await tx.query(`SELECT set_config('request.jwt.claim.sub', $1, true)`, [userId])
+    await tx.exec('SET LOCAL ROLE public_only')
+    return tx.query(sql, params)
+  })
+}
+
+const DUNGEON_CALLS = [
+  ['award_dungeon_reward', 'SELECT public.award_dungeon_reward(1, 10000, 3000) AS r'],
+  ['consume_dungeon_energy', 'SELECT public.consume_dungeon_energy(1) AS r'],
+]
+
+test('dungeon before: a signed-in user can award themselves tokens and XP and spend energy', async () => {
+  const db = await hostedWithDungeon()
+  for (const sig of await signatures(db, DUNGEON)) assert.equal(await can(db, 'authenticated', sig), true, sig)
+  const reward = await asRole(db, 'authenticated', DUNGEON_CALLS[0][1], [], A)
+  assert.equal(reward.rows[0].r.tokens_awarded, 3000, 'client-chosen token amount')
+  const energy = await asRole(db, 'authenticated', DUNGEON_CALLS[1][1], [], A)
+  assert.equal(energy.rows[0].r.remaining_energy, 70)
+  await db.close()
+})
+
+test('dungeon after: PUBLIC, anon and authenticated are denied; keepers keep EXECUTE; bodies and energy/tokens/XP unchanged', async () => {
+  const db = await hostedWithDungeon()
+  // An overload the repository never defined, open to PUBLIC only.
+  await db.exec(`CREATE FUNCTION public.consume_dungeon_energy(p_pokemon_id integer, p_cost integer) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
+    REVOKE ALL ON FUNCTION public.consume_dungeon_energy(integer, integer) FROM PUBLIC, anon, authenticated, service_role;
+    GRANT EXECUTE ON FUNCTION public.consume_dungeon_energy(integer, integer) TO PUBLIC;`)
+  const sigs = await signatures(db, DUNGEON)
+  assert.deepEqual(sigs, ['award_dungeon_reward(integer,integer,integer)', 'consume_dungeon_energy(integer)', 'consume_dungeon_energy(integer,integer)'])
+  const keepers = {}
+  for (const sig of sigs) for (const role of KEEPERS) keepers[`${role} ${sig}`] = await can(db, role, sig)
+  const energy = async () => (await db.query('SELECT pokemon_id, energy, energy_updated_at FROM public.slots ORDER BY 1')).rows
+  const before = { state: await definitionsAndData(db), energy: await energy() }
+  assert.notDeepEqual((await violations(db)).filter(v => DUNGEON.some(f => v.object.startsWith(`${f}(`))), [])
+
+  await security3(db)
+
+  for (const sig of sigs) {
+    for (const role of CLIENTS) assert.equal(await can(db, role, sig), false, `${role} ${sig}`)
+    for (const role of KEEPERS) {
+      assert.equal(await can(db, role, sig), keepers[`${role} ${sig}`], `${role} ${sig}`)
+      assert.equal(await can(db, role, sig), true, `${role} ${sig}`)
+    }
+  }
+  for (const [fn, sql] of [...DUNGEON_CALLS, ['consume_dungeon_energy', 'SELECT public.consume_dungeon_energy(1, 0)']]) {
+    for (const role of CLIENTS) await assert.rejects(asRole(db, role, sql, [], A), /permission denied/, `${role} ${fn}`)
+    await assert.rejects(asPublicOnly(db, sql), /permission denied/, `PUBLIC ${fn}`)
+  }
+  assert.deepEqual({ state: await definitionsAndData(db), energy: await energy() }, before)
+  assert.deepEqual(await violations(db), [])
+  // service_role may still call them (no auth.uid(), so the body refuses: the call itself is allowed).
+  await assert.rejects(asRole(db, 'service_role', DUNGEON_CALLS[1][1]), /not_owner/)
+  await db.close()
+})
+
+test('dungeon absent (production today): the migration passes and creates neither function', async () => {
+  const db = await hostedLike()
+  assert.deepEqual(await signatures(db, DUNGEON), [])
+  await security3(db)
+  await security3(db)
+  assert.deepEqual(await signatures(db, DUNGEON), [])
+  await db.close()
+})
+
+test('dungeon: applying twice gives the same ACLs, definitions and data', async () => {
+  const db = await hostedWithDungeon()
+  await security3(db)
+  const once = { acls: await acls(db), state: await definitionsAndData(db) }
+  await security3(db)
+  assert.deepEqual({ acls: await acls(db), state: await definitionsAndData(db) }, once)
+  await db.close()
+})
+
+// A fresh install without SECURITY-3, under Supabase's worst-case default privileges:
+// - market RPCs: only authenticated (20260926001502 already revoked PUBLIC and anon);
+// - latent and dungeon RPCs: PUBLIC, anon and authenticated (005/008/009/010/011 + defaults);
+// - pokemon_xp: anon ×4 + authenticated DELETE/TRUNCATE (008 revoked INSERT/UPDATE);
+//   pokedex_entries: anon ×4 + authenticated TRUNCATE (009 revoked INSERT/UPDATE/DELETE).
+const ALL_CLIENTS = ['PUBLIC', 'anon', 'authenticated']
+const FRESH_INSTALL_FUNCTION_GRANTEES = {
+  ...Object.fromEntries(MARKET.map(f => [f, ['authenticated']])),
+  ...Object.fromEntries([...LATENT, ...DUNGEON].map(f => [f, ALL_CLIENTS])),
+}
+const FRESH_INSTALL_TABLE_VIOLATIONS = 6 + 5
+const FRESH_INSTALL_VIOLATIONS = 3 * 1 + 8 * 3 + FRESH_INSTALL_TABLE_VIOLATIONS // 38, of which 6 are the dungeon RPCs
+
+test('violation counts: production-like 19 (no dungeon RPCs); fresh install with every RPC 38; 0 after', async () => {
+  const hosted = await hostedLike()
+  assert.equal((await violations(hosted)).length, 19)
+  await security3(hosted)
+  assert.equal((await violations(hosted)).length, 0)
+  await hosted.close()
+
+  const fresh = await fromScratch(null, { security3: false })
+  const rows = await violations(fresh)
+  const byFunction = name => rows.filter(v => v.kind === 'function' && v.object.startsWith(`${name}(`))
+  for (const name of CLOSED_FUNCTIONS) assert.deepEqual(byFunction(name).map(v => v.grantee).sort(), FRESH_INSTALL_FUNCTION_GRANTEES[name], name)
+  assert.equal(rows.filter(v => v.kind === 'table').length, FRESH_INSTALL_TABLE_VIOLATIONS)
+  assert.equal(rows.length, FRESH_INSTALL_VIOLATIONS)
+  assert.equal(rows.filter(v => DUNGEON.some(f => v.object.startsWith(`${f}(`))).length, 6)
+  await fresh.close()
+
+  const sealed = await fromScratch()
+  assert.equal((await violations(sealed)).length, 0)
+  await sealed.close()
+})
+
+test('guard: removing any function from the migration list leaves it open in a fresh install', async () => {
+  const sql = await readFile(SECURITY3, 'utf8')
+  for (const name of CLOSED_FUNCTIONS) {
+    // Drop the name and its separating comma, wherever it sits in the array.
+    const mutant = sql.includes(`'${name}',`)
+      ? sql.replace(new RegExp(String.raw`'${name}',\s*`), '')
+      : sql.replace(new RegExp(String.raw`,\s*'${name}'`), '')
+    assert.notEqual(mutant, sql, `${name}: mutation anchor moved`)
+    const db = await fromScratch(null, { security3Sql: mutant })
+    const open = (await violations(db)).filter(v => v.kind === 'function' && v.object.startsWith(`${name}(`))
+    assert.ok(open.some(v => v.grantee === 'authenticated'), `${name} removed from the list must be caught`)
+    await db.close()
+  }
 })

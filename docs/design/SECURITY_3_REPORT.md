@@ -58,7 +58,8 @@ Versión única y posterior a todas (`20260930230308` era la última). Un solo b
 2. Todas las sobrecargas reales (catálogo `pg_proc`, esquema `public`) de
    `buy_market_listing`, `publish_market_listing`, `cancel_market_listing` y de las latentes
    `grant_pokemon_xp`, `spend_tokens_learn_move`, `register_pokemon`, `record_pokemon_seen`,
-   `bulk_record_pokemon_seen`, `collect_passive_tokens`: `REVOKE EXECUTE ... FROM PUBLIC, anon,
+   `bulk_record_pokemon_seen`, `collect_passive_tokens`, y de las de Dungeon `award_dungeon_reward`
+   y `consume_dungeon_energy` (010/011, ver §3.1): `REVOKE EXECUTE ... FROM PUBLIC, anon,
    authenticated`. Si no existen, no hace nada; nunca las crea.
 3. `postgres` y `service_role` conservan exactamente lo que tenían: se mide antes; si uno solo lo
    tenía vía `PUBLIC`, se le concede directo (único `GRANT` posible).
@@ -78,6 +79,27 @@ No edita 005/008/009. Idempotente. Sin `CASCADE`: si algún cliente hubiera re-o
 | idem | `service_role`, `postgres` | EXECUTE | EXECUTE |
 | 6 RPC latentes | — | no existen | no existen (no se crean) |
 | 6 RPC latentes en instalación nueva | `authenticated` | EXECUTE (005/008/009) + defaults de Supabase | sin EXECUTE; `service_role`/`postgres` igual |
+| `award_dungeon_reward`, `consume_dungeon_energy` | — | no existen en producción | no existen (no se crean) |
+| idem, en instalación nueva | `PUBLIC`, `anon`, `authenticated` | EXECUTE (010/011) + defaults de Supabase | sin EXECUTE; `service_role`/`postgres` igual |
+
+Conteo de `client-grants-violations.sql` antes de la migración: **19** en la base tipo producción
+(sin RPC de Dungeon; sin cambios por esta adición) y **38** en una instalación nueva sin SECURITY-3
+(3 de mercado + 8 latentes/Dungeon × 3 roles + 11 de tablas; 6 de esas 38 son las dos de Dungeon).
+Después: **0** en ambos casos.
+
+### 3.1 RPC de Dungeon cerradas preventivamente
+
+- **FACT:** `award_dungeon_reward` y `consume_dungeon_energy` **no existen en producción**, y las Edge
+  Functions `dungeon-reward` y `dungeon-start` **tampoco están desplegadas**.
+- Una instalación nueva las crea (010/011) y las concede a `authenticated`. `award_dungeon_reward`
+  recibe montos de XP y tokens del cliente (acotados a 10 000 XP / 3 000 tokens por día, pero
+  elegidos por el cliente); `consume_dungeon_energy` escribe `slots.energy`.
+- SECURITY-3 las cierra a `PUBLIC`, `anon` y `authenticated` con el mismo mecanismo de catálogo
+  (todas las firmas reales, ausentes → sin error, keepers preservados). No se editan 010/011 ni sus
+  cuerpos; no se tocan energía, tokens ni XP.
+- **Dungeon deberá reintroducir autoridad server-side en una fase futura** (resultado de la mazmorra
+  calculado o validado en el servidor). **Estas funciones nunca deben concederse directamente a
+  `authenticated`**; el guard estático y el de instalación nueva fallan si alguna migración lo hace.
 
 **INFERENCE:** el ACL exacto de las dos tablas en hosted no está versionado; la fila «Antes»
 sale de los defaults de Supabase y de la verificación de producción (escritura propia permitida).
@@ -122,11 +144,20 @@ Los dos archivos se ejecutan tal cual en los tests de PGlite.
   6 re-grants distintos (función a `authenticated`/`PUBLIC`, UPDATE de tabla, INSERT por columna,
   TRUNCATE a `PUBLIC`, `GRANT ALL ON ALL FUNCTIONS IN SCHEMA`). Si una migración futura no aplica
   sobre la línea base, el test falla con el nombre del archivo;
-- estático: fuera de la lista congelada de 7 migraciones históricas (001, 002, 003, 005, 008, 009,
-  `20260926001502`), ningún archivo —cualquiera sea su versión, también uno viejo agregado fuera de
+- estático: fuera de la lista congelada de 9 migraciones históricas (001, 002, 003, 005, 008, 009,
+  010, 011, `20260926001502`), ningún archivo —cualquiera sea su versión, también uno viejo agregado fuera de
   orden— puede `GRANT` estos objetos a clientes, abrir el esquema a clientes (`ON ALL ... IN SCHEMA`,
   `ALTER DEFAULT PRIVILEGES`) ni `CREATE/DROP` estas funciones o tablas (recrearlas les devuelve los
-  defaults de Supabase). Además SECURITY-3 debe ser el último archivo que las menciona.
+  defaults de Supabase). Además SECURITY-3 debe ser el último archivo que las menciona;
+- mutación por función: quitar de la lista de la migración cualquiera de las 11 funciones (incluidas
+  las dos de Dungeon) deja esa función abierta a `authenticated` en una instalación nueva y el test
+  falla.
+
+Casos de Dungeon (con 010/011 aplicadas sobre la base tipo producción): antes, `authenticated` se
+otorga 3 000 tokens y gasta energía; después, `anon`, `authenticated` y un rol que solo tiene lo de
+`PUBLIC` reciben `permission denied` (también en una sobrecarga extra abierta solo a `PUBLIC`);
+`postgres` y `service_role` conservan EXECUTE; cuerpos, energía (`slots.energy`), tokens, ledger y XP
+idénticos; sin las funciones la migración pasa (dos veces) sin crearlas; doble aplicación idéntica.
 
 Mutaciones de la migración (cada una detectada): sin `TRUNCATE` (6 tests fallan), sin `PUBLIC` en
 funciones (4), olvidar `collect_passive_tokens` (2), olvidar `buy_market_listing` (5), sin
@@ -158,9 +189,9 @@ tokens ni ledger, ni ninguna función SQL existente. Los cuatro slots legacy blo
    Pokédex. Los valores actuales pueden estar manipulados; tratarlos como no confiables o acotarlos.
 6. **Migraciones antiguas duplicadas bloquean cualquier `db push` general** (8 archivos con versión
    `20260907`, 3 con `20260908`; `SWAP_RETIRE_2_REPORT.md` §11). Esta rama no las toca.
-7. *(adicional, INFERENCE)* `award_dungeon_reward` (010) y `consume_dungeon_energy` (011) también se
-   conceden a `authenticated` en una instalación nueva y no están en el alcance de SECURITY-3.
-   No se sabe si existen en hosted; conviene auditarlas con el mismo patrón.
+7. ~~`award_dungeon_reward` (010) y `consume_dungeon_energy` (011) se conceden a `authenticated` en
+   una instalación nueva.~~ **Cerradas preventivamente en esta rama** (§3.1). No existen en
+   producción; la reintroducción de Dungeon necesita autoridad server-side.
 8. *(adicional, FACT)* `src/features/pokedex/api/pokedexApi.ts` y
    `src/features/progression/api/progressionApi.ts` siguen llamando `record_pokemon_seen`,
    `bulk_record_pokemon_seen`, `register_pokemon`, `spend_tokens_learn_move` y `grant_pokemon_xp`,
@@ -203,7 +234,7 @@ tokens ni ledger, ni ninguna función SQL existente. Los cuatro slots legacy blo
 2. Aplicar únicamente `supabase/migrations/20261001020637_security3_close_client_writes.sql`, en una
    transacción: o `psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f <archivo>`, o el SQL Editor
    / `apply_migration` con el contenido exacto del archivo. El `NOTICE` debe decir 2 tablas y 3
-   sobrecargas (o más, si hosted tiene sobrecargas no versionadas).
+   sobrecargas (o más, si hosted tiene sobrecargas no versionadas; las de Dungeon no existen allí).
 3. Registrar la versión: con `psql`, `supabase migration repair --status applied 20261001020637`
    (solo escribe el historial). Si se usó `apply_migration` y hosted asignó otra versión, renombrar
    el archivo local a esa versión (como en `20260930230308`) y actualizar `SECURITY3_FILE` en el test.
@@ -221,8 +252,9 @@ tokens ni ledger, ni ninguna función SQL existente. Los cuatro slots legacy blo
 |---|---|
 | Deno real `free-claim` (`deno test`, Deno 2.9.7, `--allow-net=127.0.0.1`) | ✓ 14/14 · con `pokeswap-swap`, `kofi-webhook`, `_shared` y `world-authority`: 71/71 |
 | `deno check` (`free-claim/index.ts`, `handler.test.ts`) | ✓ · `deno lint`: solo `no-import-prefix` del `jsr:` de supabase-js, igual que `pokeswap-swap` |
-| Migración en PGlite (`security3ClientGrants.test.js`) | ✓ 19/19 · mutaciones de la migración detectadas (§4) |
-| Realtime completo (`node --test`, Node 22.23.3) | ✓ 0 fallos; 20 skipped (gate de staging RC-0.3, requiere Supabase local) |
+| Migración en PGlite (`security3ClientGrants.test.js`) | ✓ 25/25 (19 + 6 de Dungeon/conteos/mutación por función) · mutaciones de la migración detectadas (§4) |
+| Realtime completo (`node --test`, Node 22.23.3) | ✓ 220 pass, 0 fallos; 20 skipped (gate de staging RC-0.3, requiere Supabase local) |
+| Tests de Dungeon (`vitest run src/features/dungeon`) | ✓ 22 archivos / 452 tests |
 | Vitest | ✓ 183 archivos / 1779 tests |
 | typecheck | ✓ |
 | lint | ✓ 0 errores / 9 warnings (los mismos de la base) |

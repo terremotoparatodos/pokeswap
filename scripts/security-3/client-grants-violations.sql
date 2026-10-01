@@ -19,7 +19,8 @@ closed_functions AS (
   WHERE n.nspname = 'public' AND p.proname IN (
     'buy_market_listing', 'publish_market_listing', 'cancel_market_listing',
     'grant_pokemon_xp', 'spend_tokens_learn_move', 'register_pokemon',
-    'record_pokemon_seen', 'bulk_record_pokemon_seen', 'collect_passive_tokens')
+    'record_pokemon_seen', 'bulk_record_pokemon_seen', 'collect_passive_tokens',
+    'award_dungeon_reward', 'consume_dungeon_energy')
 )
 -- anon/authenticated, directly or through PUBLIC; INSERT/UPDATE also per column.
 SELECT 'table' AS kind, t.relname::text AS object, r.role AS grantee, d.priv AS privilege

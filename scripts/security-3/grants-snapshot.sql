@@ -22,7 +22,8 @@ WITH objs AS (
   WHERE n.nspname = 'public' AND p.proname IN (
     'buy_market_listing', 'publish_market_listing', 'cancel_market_listing',
     'grant_pokemon_xp', 'spend_tokens_learn_move', 'register_pokemon',
-    'record_pokemon_seen', 'bulk_record_pokemon_seen', 'collect_passive_tokens')
+    'record_pokemon_seen', 'bulk_record_pokemon_seen', 'collect_passive_tokens',
+    'award_dungeon_reward', 'consume_dungeon_energy')
 )
 SELECT o.kind, o.object,
        CASE WHEN x.grantee = 0 THEN 'PUBLIC' ELSE x.grantee::regrole::text END AS grantee,

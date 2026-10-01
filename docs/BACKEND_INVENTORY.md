@@ -241,8 +241,11 @@ tables in the public schema:
 
 ¹ Migration `20261001020637_security3_close_client_writes.sql` (SECURITY-3, not applied to hosted
 yet) revokes INSERT/UPDATE/DELETE/TRUNCATE on both tables from `PUBLIC`, `anon` and
-`authenticated`, and client EXECUTE on the market RPCs and the latent 005/008/009 RPCs. The
-policies stay; the privileges no longer let a client use them.
+`authenticated`, and client EXECUTE on the market RPCs, the latent 005/008/009 RPCs and the
+dungeon RPCs of 010/011 (`award_dungeon_reward`, `consume_dungeon_energy`). The policies stay; the
+privileges no longer let a client use them. The dungeon RPCs do not exist in production and the
+`dungeon-reward`/`dungeon-start` Edge Functions are not deployed: they are closed preventively.
+Dungeon must reintroduce server-side authority later; never grant them to `authenticated`.
 
 ### 2.2 Notable policy gaps
 

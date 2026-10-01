@@ -14,6 +14,13 @@
 --    today, but a fresh install from this repository creates them and grants
 --    them to authenticated. Wherever they exist, EXECUTE is revoked from
 --    PUBLIC, anon and authenticated. They are never created here.
+-- 4. Dungeon RPCs from migrations 010/011 (award_dungeon_reward,
+--    consume_dungeon_energy): absent from production, and neither the
+--    dungeon-reward nor the dungeon-start Edge Function is deployed. A fresh
+--    install creates them and grants them to authenticated; award_dungeon_reward
+--    takes client-supplied XP and token amounts. Closed preventively, exactly
+--    like the latent RPCs. Dungeon must reintroduce server-side authority in a
+--    later phase; these functions must never be granted to authenticated.
 --
 -- Additive and non-destructive on purpose:
 --   - no table, column, row, function body, policy or comment is created,
@@ -27,7 +34,7 @@
 --     directly (the only GRANT this migration can issue);
 --   - re-running it is harmless.
 --
--- Historical migrations 005/008/009 still contain their GRANTs; this one runs
+-- Historical migrations 005/008/009/010/011 still contain their GRANTs; this one runs
 -- after them and leaves the final state closed. The guard in
 -- services/realtime/src/migrations/security3ClientGrants.test.js fails if any
 -- other migration grants these objects back to clients.
@@ -44,7 +51,8 @@ DECLARE
   closed_fns constant text[] := ARRAY[
     'buy_market_listing', 'publish_market_listing', 'cancel_market_listing',
     'grant_pokemon_xp', 'spend_tokens_learn_move', 'register_pokemon',
-    'record_pokemon_seen', 'bulk_record_pokemon_seen', 'collect_passive_tokens'
+    'record_pokemon_seen', 'bulk_record_pokemon_seen', 'collect_passive_tokens',
+    'award_dungeon_reward', 'consume_dungeon_energy'
   ];
   tbl      text;
   rel      regclass;
