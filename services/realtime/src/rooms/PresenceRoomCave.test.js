@@ -166,6 +166,19 @@ test('room: two players share the interior and see each other; one outside sees 
   assert.ok(lastMessage(c, MESSAGE.SNAPSHOT).actors.every(actor => actor.areaId === 'pradera'))
 })
 
+test('room: presence is isolated by area even at the same coordinates (a Ciudad player next to the interior tiles)', async t => {
+  const { room, join, walk, toApproach, enter } = await caveRoom(t)
+  // Interior tiles are small numbers; so are Ciudad's. Distance alone would not hide them.
+  const town = await join('cave-iso-town')
+  walk(town, { tx: INSIDE.arrival.tx, ty: INSIDE.arrival.ty + 1 })
+  const a = await toApproach('cave-iso-a')
+  room.flushDeltaBatches()
+  enter(a)
+  room.flushDeltaBatches()
+  assert.deepEqual(deltasOf(town, 'cave-iso-a').filter(delta => delta.actor.areaId === INSIDE.id), [])
+  assert.deepEqual(lastMessage(a, MESSAGE.SNAPSHOT).actors.map(actor => actor.id), [])
+})
+
 test('room: walls are enforced by the service; a blocked step is answered with the real tile', async t => {
   const { room, self, step, toApproach, enter } = await caveRoom(t)
   const a = await toApproach('cave-wall')
