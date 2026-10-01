@@ -134,3 +134,23 @@ Se aplicó cada mutante, se comprobó que fallara y se restauró el archivo.
 5. **Clientes viejos:** un bundle anterior a CAVES-3 no conoce `cueva-inicial`. No puede pedirla, y ve la boca como roca. Hay que reiniciar realtime y cliente juntos.
 6. **Benchmark de 100 actores en 3 áreas** (hoja de ruta §2.1): no se corrió en esta fase.
 7. **La reconexión pasados 15 s** devuelve a la Ciudad, no a la aproximación de la cueva (D8 de CAVES-1). Hoy no hay caso en que eso deje al jugador en roca.
+
+## 9. Cierre humano (APROBADO)
+
+Smoke humano en el entorno oscuro sobre `c8d0a4c` (integración con CAVES-3), 2026-10-01 desde ~16:31 UTC, con `Titan123` y `terremototw`. Gate cerrado durante toda la prueba; Playtest 0.2, `main`, el tag `playtest-0.2` y el realtime público (`be360fd`, protocolo 2) sin cambios.
+
+| Comprobación | Resultado |
+| --- | --- |
+| Transiciones de área | 6, todas correctas |
+| Entrada y salida individual | ✓ — cada jugador cruza solo; el otro se queda en su área |
+| Dos jugadores en el interior | ✓ — se ven y se mueven en la misma cueva |
+| Aislamiento de presencia | ✓ — desde afuera no se ve a quien está adentro, y viceversa |
+| Recargas | 5 restauraciones correctas (área y casilla) |
+| Paredes y pilares | ✓ — no se atraviesan |
+| Movimientos | 440 |
+| Rechazos de área, `blocked`, ritmo o replay | 0 |
+| Errores | 0 |
+| YIELD-2 | Sin regresiones: 5 unidades = 5 settlements, XP +65 y materiales +7, conciliados exactamente por usuario; 0 duplicados; 0 `stale`, `resync` o `failed` |
+| Economía | Sin cambios |
+
+**Veredicto: CAVES-3 cerrado.** Las deudas del §8 pasan a CAVES-4.
