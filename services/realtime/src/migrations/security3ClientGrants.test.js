@@ -24,6 +24,7 @@ const STUBS = fileURLToPath(new URL('../world/persistence/dev/supabaseStubs.sql'
 const MIRROR = repo('scripts/integration/rc03-staging/01_prod_mirror.sql')
 const MIRROR_FUNCTIONS = repo('scripts/integration/rc03-staging/02_prod_mirror_functions.sql')
 const VIOLATIONS = repo('scripts/security-3/client-grants-violations.sql')
+const SNAPSHOT = repo('scripts/security-3/grants-snapshot.sql')
 const SECURITY3_FILE = '20261001020637_security3_close_client_writes.sql'
 const SECURITY3 = `${MIGRATIONS_DIR}/${SECURITY3_FILE}`
 const migration = name => `${MIGRATIONS_DIR}/${name}`
@@ -404,6 +405,24 @@ test('only client ACLs change: every other ACL entry in public is untouched', as
   assert.deepEqual(after.filter(r => !touched(r.obj)), before.filter(r => !touched(r.obj)))
   // Closed objects: identical once client and PUBLIC entries are removed.
   assert.deepEqual(strip(after.filter(r => touched(r.obj) && r.acl !== 'default')), strip(before.filter(r => touched(r.obj) && r.acl !== 'default')))
+  await db.close()
+})
+
+test('grants-snapshot.sql before/after: only client rows disappear; only keeper rows held through PUBLIC appear', async () => {
+  const db = await hostedWithLatent()
+  await db.exec(`CREATE FUNCTION public.cancel_market_listing(p_listing_id uuid, p_reason text) RETURNS jsonb LANGUAGE sql AS $$ SELECT '{}'::jsonb $$;
+    REVOKE ALL ON FUNCTION public.cancel_market_listing(uuid, text) FROM PUBLIC, anon, authenticated, service_role;
+    GRANT EXECUTE ON FUNCTION public.cancel_market_listing(uuid, text) TO PUBLIC;`)
+  const snap = async () => (await db.query(await readFile(SNAPSHOT, 'utf8'))).rows.map(r => `${r.kind} ${r.object} ${r.grantee} ${r.privilege_type}`)
+  const before = await snap()
+  await security3(db)
+  const after = await snap()
+  const removed = before.filter(r => !after.includes(r))
+  const added = after.filter(r => !before.includes(r))
+  assert.ok(removed.length > 0)
+  for (const r of removed) assert.match(r, / (PUBLIC|anon|authenticated) (INSERT|UPDATE|DELETE|TRUNCATE|EXECUTE)$/, r)
+  assert.deepEqual(added, ['function cancel_market_listing(uuid,text) service_role EXECUTE'])
+  assert.ok(after.some(r => / (SELECT)$/.test(r) && / authenticated /.test(r)), 'client SELECT rows stay')
   await db.close()
 })
 
