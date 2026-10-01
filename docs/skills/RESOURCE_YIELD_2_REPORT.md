@@ -323,3 +323,48 @@ Realtime local con esta rama (`npm run dev` más el realtime en modo dev con PGl
 8. **Agricultura:** plantar, cuidar y cosechar funcionan igual que antes.
 9. **Cliente viejo:** con un bundle cacheado anterior, pedir trabajo muestra "Actualizá la página para seguir trabajando".
 10. **Verificar** `/version` → protocol 5; `/metrics` → `actions.units`, `staleNodes`, `refilled`, `disconnectedStops`.
+
+## 13. Validación humana y cierre (2026-10-01)
+
+Estado validado:
+
+- integración `integration/world-skills-0.3` en `a2534a5` (merge de YIELD-2 sobre SECURITY-3, más la alineación del nombre de la migración);
+- entorno oscuro (realtime local en modo producción y cliente Vite, ambos detrás de túneles temporales) en `a2534a5`, protocolo **WORLD 3** en cliente y realtime;
+- migración aplicada en hosted de forma individual y registrada como **`20261001051958 world_multi_yield`** (sin `db push`); el cuerpo de `world_commit_work` en hosted es idéntico byte por byte al del archivo, y solo `postgres` y `service_role` pueden ejecutarla;
+- gate global `world-skills` **cerrado**; testers: `Titan123` y `terremototw`.
+
+Lo que §10 y §11.1 daban como pendiente ya se ejecutó en la estación principal: Deno de `world-authority` 6/6 con `deno check` OK; staging RC-0.3 local 21/21 en dos corridas consecutivas, sobre las siete migraciones en el orden de hosted; y todos los gates del merge en verde.
+
+**Smoke técnico (aprobado).** Al arrancar, la autoridad cargó los nodos persistidos. `world_load_nodes` descartó solo los nodos agotados con respawn vencido y conservó las parcelas. Un invitado con protocolo 3 recibe `world:snapshot`; uno con protocolo 2 no recibe mensajes del mundo. Hubo cero errores de arranque, rechazos ni rate limits. Ningún mensaje público incluye stock, IDs de settlement, cantidades futuras, RNG, intentos, probabilidades ni duración.
+
+**Smoke humano (aprobado)**, con `Titan123` y `terremototw` sobre el entorno oscuro:
+
+| Caso | Resultado |
+|---|---|
+| Varias unidades por nodo | Árboles de 3 y 4 unidades y rocas de 1 a 3, cada unidad con su settlement, XP y material (con bonus ocasional) |
+| Nodos parciales | Al moverse a mitad de secuencia, el nodo queda `available` con `stock_remaining` 1–3 y el token de la última unidad |
+| Persistencia tras reiniciar el realtime | Un árbol parcial (stock 3) se restauró con el mismo token después de reiniciar el realtime, y se taló hasta 0 sin `stale_node` |
+| Agotamiento, recarga y respawn | Nodos `depleted` con respawn; un parcial abandonado se recargó a los 90 s (`refilled`); los agotados volvieron (`respawned`) |
+| Cancelación por movimiento | Cancelaciones sin pago de la unidad en curso |
+| Carrera entre `Titan123` y `terremototw` | Clic simultáneo sobre el mismo árbol: **una sola reserva**, las solicitudes perdedoras rechazadas como `busy`, sin pago. Titan123 sacó 1 unidad y terremototw terminó las 2 restantes del mismo parcial (**stock compartido**, CAS con el token del otro jugador). Estado final `depleted`, igual en la base y en el realtime |
+| Exactly-once | 0 IDs de settlement duplicados; cada unidad paga una vez y solo a quien la sacó |
+| Recuperación | 0 `stale_node`, 0 resyncs, 0 commits ambiguos, 0 reintentos y 0 fallos de settlement en toda la prueba |
+
+Agregados verificados en hosted, antes y después del smoke:
+
+| Métrica | Antes | Después |
+|---|---|---|
+| Settlements | 86 | 104 |
+| XP de skills (suma) | 700 | 880 |
+| Materiales (suma) | 67 | 88 |
+| IDs de settlement duplicados | — | 0 |
+
+La XP y los materiales nuevos de cada tester coinciden exactamente con la suma de sus settlements nuevos.
+
+Economía intacta (sin cambios): slots con dueño 38, tokens 1002140, `token_ledger` 35 filas, `transactions` 78 filas, `pokemon_xp` 24 filas, Pokédex 1037 filas.
+
+No se probó en esta ronda una pestaña con un bundle anterior pidiendo trabajo (`client-outdated`, punto 9 de §12). El smoke técnico confirmó que un cliente de protocolo 2 no recibe mensajes del mundo.
+
+Siguen vigentes los riesgos 2 a 8 de §11 (sumideros de materiales antes de abrir el gate, volumen de commits, latencia hosted, clientes viejos, unidad en curso perdida en un reinicio, multi-instancia y tamaño de `resourceAuthority.js`). El gate sigue cerrado y no hay lanzamiento público planificado.
+
+**Veredicto final: PASS.**
