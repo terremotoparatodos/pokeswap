@@ -1,0 +1,162 @@
+{
+  "benchmark": "world-1",
+  "skills": "demo",
+  "players": 30,
+  "worldProtocol": true,
+  "seconds": 60,
+  "actionMs": 3000,
+  "targets": 129,
+  "perClientKiBps": {
+    "presence": {
+      "mean": 18.59,
+      "p95": 19.62
+    },
+    "world": {
+      "mean": 0.64,
+      "p95": 0.65
+    }
+  },
+  "worldMessagesPerClientPerSecond": {
+    "mean": 2.36,
+    "p95": 2.47
+  },
+  "worldSnapshotBytes": {
+    "p50": 1829,
+    "max": 1829
+  },
+  "worldBatchBytes": {
+    "p50": 217,
+    "p95": 861,
+    "max": 1268
+  },
+  "work": {
+    "results": {
+      "ok": 71,
+      "too-far": 277,
+      "no-room": 3
+    },
+    "completions": 71,
+    "settled": 71,
+    "acceptedToDoneMs": {
+      "p50": 3026,
+      "p95": 3059,
+      "max": 3063
+    },
+    "requestToReplyMs": {
+      "p50": 1.42,
+      "p95": 3.02
+    }
+  },
+  "units": {
+    "yieldedToClients": 71,
+    "settledServer": 71,
+    "commits": {
+      "attempted": 71,
+      "confirmed": 71,
+      "retries": 0,
+      "failed": 0
+    },
+    "commitsPerUnit": 1,
+    "duplicates": 0,
+    "staleNodes": 0,
+    "ambiguousCommits": 0,
+    "resyncs": {
+      "started": 0,
+      "resolved": 0,
+      "failedSteps": 0
+    },
+    "sequencesInError": 0,
+    "acceptedToDoneMs": {
+      "p50": 3026,
+      "p95": 3059,
+      "p99": 3063,
+      "max": 3063
+    },
+    "requestToReplyMs": {
+      "p50": 1.42,
+      "p95": 3.02,
+      "p99": 4.32,
+      "max": 6.91
+    }
+  },
+  "concurrentActions": {
+    "max": 28,
+    "mean": 3.61
+  },
+  "storedNodes": {
+    "max": 71
+  },
+  "subscribedChunks": {
+    "max": 40
+  },
+  "server": {
+    "world": {
+      "wild": {
+        "epoch": 497465,
+        "loads": 1,
+        "failures": 0
+      },
+      "clients": 30,
+      "subscribedChunks": 33,
+      "storedNodes": 71,
+      "nodesByState": {
+        "depleted": 71
+      },
+      "runningActions": 0,
+      "queued": 71,
+      "actions": {
+        "requested": 351,
+        "rateLimited": 0,
+        "started": 71,
+        "rejected": {
+          "no-room": 3,
+          "too-far": 277
+        },
+        "completed": 71,
+        "duplicateSettlements": 0,
+        "settleRetries": 0,
+        "settleFailed": 0,
+        "cancelled": 0,
+        "respawned": 0,
+        "staleCompletions": 0,
+        "authorizedNotStarted": 0,
+        "restored": 0,
+        "units": 71,
+        "staleNodes": 0,
+        "refilled": 0,
+        "disconnectedStops": 0,
+        "commitAttempts": 71,
+        "ambiguousCommits": 0,
+        "resyncs": 0,
+        "resyncSteps": 0,
+        "resyncFailures": 0,
+        "resynced": 0,
+        "recoveredUnits": 0,
+        "lateConfirmations": 0,
+        "heldReleases": 0
+      },
+      "transport": {
+        "snapshots": 60,
+        "batches": 3693,
+        "nodeDeltas": 6337,
+        "chunkEnters": 2198,
+        "chunkLeaves": 2071,
+        "maxBatchBytes": 1815,
+        "bytes": 1125087,
+        "outdatedJoins": 0,
+        "outdatedWork": 0
+      },
+      "playerData": null
+    },
+    "eventLoopDelayMs": {
+      "p50": 31.36,
+      "p99": 33.91,
+      "max": 37.75
+    },
+    "memoryMb": {
+      "rss": 87,
+      "heapUsed": 23
+    },
+    "moves": 10777
+  }
+}

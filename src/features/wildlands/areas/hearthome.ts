@@ -6,11 +6,11 @@
 // scripts/extract_town_sprites.py. Footprints are sized to each sprite.
 
 import { HEARTHOME_TERRAIN } from './hearthomeTerrain'
-import type { ArtImage, TownArtSet, TownDef, TownProp } from './townArea'
+import type { ArtImage, TownArtSet, TownDef, TownGate, TownProp } from './townArea'
+import {
+  TOWN_BUILDINGS, TOWN_FOUNTAINS, TOWN_GATES, TOWN_PROPS, TOWN_SPAWN, type TownBuildingFootprint,
+} from '../../../../services/realtime/src/world/townLayout.js'
 import type { WorldDef } from './wildArea'
-
-type Run = [x: number, y0: number, y1: number]
-type Line = [y: number, x0: number, x1: number]
 
 const art = (name: string) => `/assets/town/${name}.png`
 const modelSprite = (name: string) => `/assets/town/models/${name}-sprite.png`
@@ -52,41 +52,39 @@ const HEARTHOME_ART: TownArtSet = {
   },
 }
 
-const hedgeRuns: Run[] = [
-  [14, 17, 19], [20, 17, 19], [25, 17, 19], [35, 17, 19], [41, 17, 19], [55, 17, 19],
-  [8, 24, 29], [16, 24, 29], [22, 26, 29], [27, 26, 29], [32, 26, 29], [49, 26, 29],
-  [35, 35, 37], [43, 35, 37],
-]
-// The row in front of the fountain block stops short of the Casino.
-const hedgeRows: Line[] = [[29, 33, 36]]
-// The north-east fence stops short of the gym, leaving the walk up to the Amity Square lawn.
-const fenceRows: Line[] = [[13, 14, 22], [13, 41, 45], [7, 23, 25], [7, 37, 39], [34, 18, 35], [34, 43, 51]]
-const fenceCols: Run[] = [[23, 8, 12], [39, 8, 12], [7, 14, 33], [56, 14, 33]]
+// The street props are navigation (they block tiles), so their places live in
+// the shared town layout (CAVES-4); only what the signs say is decided here.
+const SIGN_TEXT: Readonly<Record<string, string>> = {
+  'amity-west': 'Plaza Amistad · Puerta a la Tundra Helada',
+  'amity-east': 'Plaza Amistad · Puerta a la Costa Coral',
+  welcome: 'Ciudad Corazón · Donde los corazones se encuentran',
+  fountains: 'Barrio de las fuentes · Casas y Tienda',
+  casino: 'Casino · Perfil de entrenadores',
+  gym: 'Gimnasio de Ciudad Corazón · Líder: por anunciar',
+  'west-south-gates': 'Puerta oeste → Pradera Brisa · Puerta sur → Desierto Ardiente',
+  'east-gate': 'Puerta este → Bosque Umbrío',
+  'activity-board': 'Tablón de actividad',
+}
 
 function props(): TownProp[] {
-  const out: TownProp[] = []
-  for (const [x, y0, y1] of hedgeRuns) for (let y = y0; y <= y1; y++) out.push({ kind: 'hedge', tx: x, ty: y })
-  for (const [y, x0, x1] of hedgeRows) for (let x = x0; x <= x1; x++) out.push({ kind: 'hedge', tx: x, ty: y })
-  for (const [y, x0, x1] of fenceRows) for (let x = x0; x <= x1; x++) out.push({ kind: 'fenceH', tx: x, ty: y })
-  for (const [x, y0, y1] of fenceCols) for (let y = y0; y <= y1; y++) out.push({ kind: 'fenceV', tx: x, ty: y })
-  const lamps = [[8, 15], [14, 15], [28, 18], [34, 18], [41, 15], [47, 15], [8, 23], [55, 23], [8, 33], [55, 33], [36, 35], [42, 35], [23, 42], [41, 42]]
-  for (const [tx, ty] of lamps) out.push({ kind: 'lamp', tx, ty })
-  // Two benches end to end beside each pair of fountains, backs to the water (Platinum's layout).
-  for (const ty of [35, 37]) out.push({ kind: 'bench', tx: 33, ty }, { kind: 'benchLeft', tx: 45, ty })
-  const signs: [number, number, string][] = [
-    [13, 11, 'Plaza Amistad · Puerta a la Tundra Helada'],
-    [50, 11, 'Plaza Amistad · Puerta a la Costa Coral'],
-    [28, 15, 'Ciudad Corazón · Donde los corazones se encuentran'],
-    [21, 29, 'Barrio de las fuentes · Casas y Tienda'],
-    [36, 28, 'Casino · Perfil de entrenadores'],
-    [46, 18, 'Gimnasio de Ciudad Corazón · Líder: por anunciar'],
-    [14, 40, 'Puerta oeste → Pradera Brisa · Puerta sur → Desierto Ardiente'],
-    [50, 39, 'Puerta este → Bosque Umbrío'],
-  ]
-  for (const [tx, ty, text] of signs) out.push({ kind: 'sign', tx, ty, text })
-  // Next to the Pokémon Center: the activity board.
-  out.push({ kind: 'sign', tx: 13, ty: 19, text: 'Tablón de actividad', board: true })
-  return out
+  return TOWN_PROPS.map(({ kind, tx, ty, key, board }) => kind === 'sign'
+    ? { kind, tx, ty, text: SIGN_TEXT[key ?? ''], ...(board ? { board } : {}) }
+    : { kind, tx, ty })
+}
+
+/** A building's footprint, open tiles and door: navigation, from the shared town layout. */
+function footprint(id: string): Omit<TownBuildingFootprint, 'id'> & { id: string } {
+  const found = TOWN_BUILDINGS.find(b => b.id === id)
+  if (!found) throw new Error(`hearthome: no footprint for building ${id}`)
+  const { open, door, ...rect } = found
+  return { ...rect, ...(open ? { open: [...open] } : {}), ...(door ? { door: { ...door } } : {}) }
+}
+
+/** A gate's tiles and arrival: navigation, from the shared town layout. */
+function gate(to: string, label: string): TownGate {
+  const found = TOWN_GATES.find(g => g.to === to)
+  if (!found) throw new Error(`hearthome: no gate to ${to}`)
+  return { to, label, tiles: found.tiles.map(t => ({ ...t })), arrival: { ...found.arrival } }
 }
 
 export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
@@ -97,33 +95,29 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
     // The steeper town camera: 3D buildings keep Platinum's proportions and hide less behind them.
     lens: 'town',
     terrain: HEARTHOME_TERRAIN,
-    spawn: { tx: 31, ty: 20, dir: 'down' },
+    spawn: { ...TOWN_SPAWN },
     buildings: [
       // Silph Co. (HeartGold's model) stands where the Contest Hall was: 10 tiles wide for its 160 px, same door.
-      { id: 'contest', name: 'Silph Co.', blurb: 'El intercambio fue retirado.', style: 'contest', x: 26, y: 7, w: 10, d: 8, door: { tx: 31, ty: 14 }, feature: 'swap', image: { src: '/assets/town/models/silph-sprite.png', model: '/assets/town/models/silph.json' } },
-      { id: 'amityL', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Tundra Helada.', style: 'amityGate', x: 8, y: 1, w: 6, d: 9, open: [{ tx: 10, ty: 9 }, { tx: 11, ty: 9 }], image: gateImage('amity-gate', 'gate-north', 'all') },
-      { id: 'amityR', name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Costa Coral.', style: 'amityGate', x: 50, y: 1, w: 6, d: 9, open: [{ tx: 52, ty: 9 }, { tx: 53, ty: 9 }], image: gateImage('amity-gate', 'gate-north', 'all') },
-      { id: 'gateW', name: 'Puerta oeste', blurb: 'Entrá por el costado para ir a la Pradera Brisa.', style: 'routeGate', x: 0, y: 38, w: 6, d: 6, image: gateImage('route-gate', 'gate-west', 52) },
-      { id: 'gateE', name: 'Puerta este', blurb: 'Entrá por el costado para ir al Bosque Umbrío.', style: 'routeGate', x: 58, y: 38, w: 6, d: 6, image: gateImage('route-gate', 'gate-east', 52) },
-      { id: 'gateS', name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', x: 9, y: 44, w: 5, d: 7, image: gateImage('route-gate', 'gate-south', 52) },
-      { id: 'pokecenter', name: 'Centro Pokémon', blurb: 'Acá te guardan la caja con tus Pokémon.', style: 'pokecenter', x: 15, y: 15, w: 5, d: 5, door: { tx: 17, ty: 19 }, feature: 'caja', image: { src: art('pokecenter'), flatTop: 54, model: '/assets/town/models/pokecenter.json' } },
-      { id: 'house1', name: 'Casa', blurb: 'No hay nadie. Se escucha una radio adentro.', style: 'house', x: 21, y: 15, w: 4, d: 5, image: { src: art('house-green'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
-      { id: 'apt1', name: 'Departamentos', blurb: 'Las jardineras están recién regadas.', style: 'apartment', x: 36, y: 13, w: 5, d: 7, image: { src: art('apartment-a'), flatTop: 70, model: '/assets/town/models/celadon-tall.json' } },
-      { id: 'gym', name: 'Gimnasio', blurb: 'La entrada al Dungeon.', style: 'gym', x: 48, y: 14, w: 7, d: 6, door: { tx: 51, ty: 19 }, feature: 'dungeon', image: { src: art('gym'), flatTop: 59, model: '/assets/town/models/gym.json' } },
+      { ...footprint('contest'), name: 'Silph Co.', blurb: 'El intercambio fue retirado.', style: 'contest', feature: 'swap', image: { src: '/assets/town/models/silph-sprite.png', model: '/assets/town/models/silph.json' } },
+      { ...footprint('amityL'), name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Tundra Helada.', style: 'amityGate', image: gateImage('amity-gate', 'gate-north', 'all') },
+      { ...footprint('amityR'), name: 'Plaza Amistad', blurb: 'Subí la escalera para viajar a la Costa Coral.', style: 'amityGate', image: gateImage('amity-gate', 'gate-north', 'all') },
+      { ...footprint('gateW'), name: 'Puerta oeste', blurb: 'Entrá por el costado para ir a la Pradera Brisa.', style: 'routeGate', image: gateImage('route-gate', 'gate-west', 52) },
+      { ...footprint('gateE'), name: 'Puerta este', blurb: 'Entrá por el costado para ir al Bosque Umbrío.', style: 'routeGate', image: gateImage('route-gate', 'gate-east', 52) },
+      { ...footprint('gateS'), name: 'Puerta sur', blurb: 'Pisá la plaza gris de arriba para ir al Desierto Ardiente.', style: 'routeGate', image: gateImage('route-gate', 'gate-south', 52) },
+      { ...footprint('pokecenter'), name: 'Centro Pokémon', blurb: 'Acá te guardan la caja con tus Pokémon.', style: 'pokecenter', feature: 'caja', image: { src: art('pokecenter'), flatTop: 54, model: '/assets/town/models/pokecenter.json' } },
+      { ...footprint('house1'), name: 'Casa', blurb: 'No hay nadie. Se escucha una radio adentro.', style: 'house', image: { src: art('house-green'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
+      { ...footprint('apt1'), name: 'Departamentos', blurb: 'Las jardineras están recién regadas.', style: 'apartment', image: { src: art('apartment-a'), flatTop: 70, model: '/assets/town/models/celadon-tall.json' } },
+      { ...footprint('gym'), name: 'Gimnasio', blurb: 'La entrada al Dungeon.', style: 'gym', feature: 'dungeon', image: { src: art('gym'), flatTop: 59, model: '/assets/town/models/gym.json' } },
       // Mr. Pokémon's House (HeartGold's model) where the Fan Club was: same Pokédex door, a 4×4 footprint.
-      { id: 'fanclub', name: 'Casa de Mr. Pokémon', blurb: 'Guarda la Pokédex de todos los entrenadores.', style: 'redhouse', x: 10, y: 26, w: 4, d: 4, door: { tx: 11, ty: 29 }, feature: 'pokedex', image: { src: '/assets/town/models/mrpokemon-sprite.png', model: '/assets/town/models/mrpokemon.json' } },
-      { id: 'house2', name: 'Casa', blurb: 'Huele a pan recién horneado.', style: 'house', x: 23, y: 25, w: 4, d: 5, image: { src: art('house-blue'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
-      { id: 'mart', name: 'Tienda', blurb: 'El Mercado de PokeSwap: comprá y vendé Pokémon.', style: 'mart', x: 28, y: 26, w: 4, d: 4, door: { tx: 29, ty: 29 }, feature: 'mercado', image: { src: art('mart'), flatTop: 36, model: '/assets/town/models/mart.json' } },
+      { ...footprint('fanclub'), name: 'Casa de Mr. Pokémon', blurb: 'Guarda la Pokédex de todos los entrenadores.', style: 'redhouse', feature: 'pokedex', image: { src: '/assets/town/models/mrpokemon-sprite.png', model: '/assets/town/models/mrpokemon.json' } },
+      { ...footprint('house2'), name: 'Casa', blurb: 'Huele a pan recién horneado.', style: 'house', image: { src: art('house-blue'), flatTop: 43, model: '/assets/town/models/celadon-green.json' } },
+      { ...footprint('mart'), name: 'Tienda', blurb: 'El Mercado de PokeSwap: comprá y vendé Pokémon.', style: 'mart', feature: 'mercado', image: { src: art('mart'), flatTop: 36, model: '/assets/town/models/mart.json' } },
       // The Casino (HeartGold's Game Corner) where the Poffin House was: the Perfil entrance, 7×4 tiles
       // (a hedge column and the end of the hedge row made room for it).
-      { id: 'poffin', name: 'Casino', blurb: 'Tu perfil, tus tokens y tus movimientos.', style: 'contest', x: 37, y: 26, w: 7, d: 4, door: { tx: 40, ty: 29 }, feature: 'perfil', image: { src: '/assets/town/models/casino-sprite.png', model: '/assets/town/models/casino.json' } },
-      { id: 'apt2', name: 'Departamentos', blurb: 'Alguien practica flauta en el segundo piso.', style: 'apartment', x: 44, y: 23, w: 5, d: 7, image: { src: art('apartment-b'), flatTop: 75, model: '/assets/town/models/celadon-tall.json' } },
+      { ...footprint('poffin'), name: 'Casino', blurb: 'Tu perfil, tus tokens y tus movimientos.', style: 'contest', feature: 'perfil', image: { src: '/assets/town/models/casino-sprite.png', model: '/assets/town/models/casino.json' } },
+      { ...footprint('apt2'), name: 'Departamentos', blurb: 'Alguien practica flauta en el segundo piso.', style: 'apartment', image: { src: art('apartment-b'), flatTop: 75, model: '/assets/town/models/celadon-tall.json' } },
     ],
-    fountains: [
-      { x0: 19, y0: 35, x1: 22, y1: 37 },
-      { x0: 27, y0: 35, x1: 30, y1: 37 },
-      { x0: 47, y0: 35, x1: 50, y1: 37 },
-    ],
+    fountains: TOWN_FOUNTAINS.map(f => ({ ...f })),
     props: props(),
     art: HEARTHOME_ART,
     // City blocks traced from the outlined sidewalks around each building group.
@@ -136,11 +130,11 @@ export function hearthomeDef(worlds: readonly WorldDef[], id: string): TownDef {
       { x0: 37, y0: 22, x1: 50, y1: 24 },
     ],
     gates: [
-      { to: 'tundra', label: `Puerta norte → ${worldName('tundra')}`, tiles: [{ tx: 10, ty: 9 }, { tx: 11, ty: 9 }], arrival: { tx: 10, ty: 11, dir: 'down' } },
-      { to: 'costa', label: `Puerta norte → ${worldName('costa')}`, tiles: [{ tx: 52, ty: 9 }, { tx: 53, ty: 9 }], arrival: { tx: 53, ty: 11, dir: 'down' } },
-      { to: 'pradera', label: `Puerta oeste → ${worldName('pradera')}`, tiles: [{ tx: 6, ty: 41 }, { tx: 6, ty: 42 }], arrival: { tx: 8, ty: 41, dir: 'right' } },
-      { to: 'bosque', label: `Puerta este → ${worldName('bosque')}`, tiles: [{ tx: 57, ty: 41 }, { tx: 57, ty: 42 }], arrival: { tx: 55, ty: 41, dir: 'left' } },
-      { to: 'desierto', label: `Puerta sur → ${worldName('desierto')}`, tiles: [{ tx: 10, ty: 42 }, { tx: 11, ty: 42 }], arrival: { tx: 11, ty: 40, dir: 'up' } },
+      gate('tundra', `Puerta norte → ${worldName('tundra')}`),
+      gate('costa', `Puerta norte → ${worldName('costa')}`),
+      gate('pradera', `Puerta oeste → ${worldName('pradera')}`),
+      gate('bosque', `Puerta este → ${worldName('bosque')}`),
+      gate('desierto', `Puerta sur → ${worldName('desierto')}`),
     ],
     residents: [
       { tx: 10, ty: 17, dir: 'right', lines: ['«¡Bienvenido a Ciudad Corazón, el corazón de PokeSwap!»'] },

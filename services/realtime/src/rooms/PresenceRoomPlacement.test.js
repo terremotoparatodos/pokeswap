@@ -1,32 +1,36 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PresenceRoom, configureWorld } from './PresenceRoom.js'
+import { PresenceRoom, configureWorld, liveActorForTesting } from './PresenceRoom.js'
 import { MESSAGE } from '../protocol/messages.js'
 import { ARRIVALS } from '../protocol/arrival.js'
 import { createDemoSkillPolicy } from '../world/demoSkillPolicy.js'
 import { createStaticOwnership } from '../world/pokemonOwnership.js'
 import { standableTile, workPlacement } from '../world/workPlacement.js'
 import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../world/worldProtocol.js'
-import { fakeClient, lastMessage, messagesOf, praderaNodesNearSpawn, settle } from '../world/testing.js'
+import { crossTo, fakeClient, lastMessage, messagesOf, openDirection, praderaNodesNearSpawn, routeBetween, settle } from '../world/testing.js'
 
 // WORLD VISUAL-2 inside the presence room: the server's own move of a trainer
 // is published like a step, with a sequence every viewer accepts, and the
 // owner is told its new tile. The world's rules are tested in world/*.test.js.
 
-/** A node with room for the trainer, reachable from the Pradera arrival within the move burst. */
+/**
+ * A node with room for the trainer, reachable from the Pradera arrival within
+ * the move burst by a real walk (CAVES-4: the service enforces collision).
+ */
 function reachable() {
-  const { tx, ty } = ARRIVALS.pradera
   const isOpen = standableTile('pradera')
   const [pick] = praderaNodesNearSpawn()
-    .flatMap(({ node, stands }) => stands.map(stand => ({ node, stand, cost: Math.abs(stand.tx - tx) + Math.abs(stand.ty - ty) })))
-    .filter(({ node, stand }) => workPlacement(node, stand, isOpen))
-    .sort((a, b) => a.cost - b.cost)
-  assert.ok(pick.cost <= 12)
-  const moves = [
-    ...Array(Math.abs(pick.stand.tx - tx)).fill(pick.stand.tx > tx ? 'right' : 'left'),
-    ...Array(Math.abs(pick.stand.ty - ty)).fill(pick.stand.ty > ty ? 'down' : 'up'),
-  ]
-  return { ...pick, moves, placement: workPlacement(pick.node, pick.stand, isOpen) }
+    .flatMap(({ node, stands }) => stands.map(stand => ({ node, stand, moves: routeBetween('pradera', ARRIVALS.pradera, stand, 20) })))
+    .filter(({ node, stand, moves }) => moves && workPlacement(node, stand, isOpen))
+    .sort((a, b) => a.moves.length - b.moves.length)
+  assert.ok(pick.moves.length <= 12)
+  return { ...pick, placement: workPlacement(pick.node, pick.stand, isOpen) }
+}
+
+/** Both players cross to Pradera through the west gate; returns the sequence the owner's next step must carry. */
+function toPradera(room, clients, ids) {
+  clients.forEach((client, i) => { room.ready(client); crossTo(room, client, liveActorForTesting(ids[i]), 'pradera') })
+  return liveActorForTesting(ids[0]).moveSequence + 1
 }
 
 const deltasOf = (client, id) => messagesOf(client, MESSAGE.BATCH).flat().concat(messagesOf(client, MESSAGE.DELTA)).filter(delta => delta.actor?.id === id)
@@ -41,9 +45,9 @@ test('the server moves the trainer: observers get a newer step, the owner its ti
   try {
     await room.onJoin(owner, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId: 'place-a', username: 'A', token: null })
     await room.onJoin(viewer, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId: 'place-b', username: 'B', token: null })
-    for (const client of [owner, viewer]) { room.ready(client); room.changeArea(client, { areaId: 'pradera' }) }
+    const first = toPradera(room, [owner, viewer], ['place-a', 'place-b'])
     const target = reachable()
-    target.moves.forEach((direction, i) => room.move(owner, { direction, running: false, sequence: i + 1 }))
+    target.moves.forEach((direction, i) => room.move(owner, { direction, running: false, sequence: first + i }))
     room.flushDeltaBatches()
     const before = lastMessage(owner, MESSAGE.SELF)
     assert.deepEqual({ tx: before.tx, ty: before.ty }, { tx: target.stand.tx, ty: target.stand.ty })
@@ -70,7 +74,7 @@ test('the server moves the trainer: observers get a newer step, the owner its ti
     assert.equal(world.authority.store.get(target.node.id).state, 'working', 'a refused step moved nothing')
 
     // A real step off the waiting tile cancels, as before.
-    room.move(owner, { direction: 'up', running: false, sequence: self.moveSequence + 1 })
+    room.move(owner, { direction: openDirection('pradera', self), running: false, sequence: self.moveSequence + 1 })
     assert.equal(world.authority.store.get(target.node.id), null)
     assert.equal(skills.cancelled.length, 1)
   } finally {
@@ -90,9 +94,9 @@ test('an older 0.3 client that does not adopt the new sequence: one replay, one 
   try {
     await room.onJoin(owner, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId: 'legacy-a', username: 'A', token: null })
     await room.onJoin(viewer, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId: 'legacy-b', username: 'B', token: null })
-    for (const client of [owner, viewer]) { room.ready(client); room.changeArea(client, { areaId: 'pradera' }) }
+    const first = toPradera(room, [owner, viewer], ['legacy-a', 'legacy-b'])
     const target = reachable()
-    target.moves.forEach((direction, i) => room.move(owner, { direction, running: false, sequence: i + 1 }))
+    target.moves.forEach((direction, i) => room.move(owner, { direction, running: false, sequence: first + i }))
     const S = lastMessage(owner, MESSAGE.SELF).moveSequence
 
     // 2 · The server starts the work, moves the trainer to its anchor and advances to S+1.
@@ -105,7 +109,7 @@ test('an older 0.3 client that does not adopt the new sequence: one replay, one 
     const viewerSteps = () => deltasOf(viewer, 'legacy-a').length
     const [selvesBefore, stepsBefore] = [selves(), viewerSteps()]
     // The old client predicts a step away from where it thinks it stands.
-    const away = target.stand.tx > target.node.tx ? 'right' : target.stand.tx < target.node.tx ? 'left' : target.stand.ty > target.node.ty ? 'down' : 'up'
+    const away = openDirection('pradera', anchor)
 
     // 3–4 · It numbers that step S+1: a replay. Nothing moves, nothing cancels, and the answer is the truth.
     room.move(owner, { direction: away, running: false, sequence: S + 1 })

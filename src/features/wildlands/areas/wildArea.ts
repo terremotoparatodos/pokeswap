@@ -5,6 +5,7 @@
 // point leads back to the lobby.
 
 import { CAVE_ENTRANCE, caveByInterior, cavesIn } from '../../../../services/realtime/src/world/caves.js'
+import { insideAreaBounds } from '../../../../services/realtime/src/world/navigation.js'
 import type { Arrival, Area, AreaId, Populace, PopulaceContext, Portal } from '../engine/area'
 import { weatherAt } from '../engine/atmosphere'
 import { CHUNK_PX, ChunkStore, type DecorInstance } from '../engine/chunks'
@@ -57,7 +58,9 @@ export class WildArea implements Area {
   }
 
   isSolid(tx: number, ty: number): boolean {
-    return this.world.isSolid(tx, ty)
+    // CAVES-4: a shared area has the presence service's hard edge (navigation.js);
+    // the local-only worlds stay unbounded.
+    return !insideAreaBounds(this.id, tx, ty) || this.world.isSolid(tx, ty)
   }
 
   isWater(tx: number, ty: number): boolean {

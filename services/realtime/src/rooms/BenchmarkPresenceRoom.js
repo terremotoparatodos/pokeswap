@@ -1,8 +1,9 @@
 import { ServerError } from '@colyseus/core'
-import { PresenceRoom } from './PresenceRoom.js'
+import { PresenceRoom, liveActorForTesting } from './PresenceRoom.js'
+import { nextHop, portalTo } from '../world/navigation.js'
 
 const BENCHMARK_ID = /^[a-z0-9][a-z0-9-]{0,39}$/
-const BENCHMARK_AREAS = new Set(['ciudad-corazon', 'pradera'])
+const BENCHMARK_AREAS = new Set(['ciudad-corazon', 'pradera', 'cueva-inicial'])
 
 /**
  * Local-only room used by the reproducible multiplayer benchmark.
@@ -31,6 +32,16 @@ export class BenchmarkPresenceRoom extends PresenceRoom {
   async onJoin(client, options, auth) {
     await super.onJoin(client, options, auth)
     const area = options?.benchmark?.area
-    if (auth.kind === 'player' && area && area !== 'ciudad-corazon') this.changeArea(client, { areaId: area })
+    if (auth.kind !== 'player' || !area) return
+    // CAVES-4: areas change only through a portal, for synthetic players too.
+    // Stand the actor on each portal on the way (a server-made move) and ask
+    // for the next area like a client would, so the service's rules decide.
+    const actor = liveActorForTesting(auth.userId)
+    for (let hops = 0; actor && actor.areaId !== area && hops < 3; hops++) {
+      const portal = portalTo(actor.areaId, nextHop(actor.areaId, area))
+      if (!portal) return
+      this.placeActor(actor, { tx: portal.tx, ty: portal.ty, dir: actor.dir })
+      this.changeArea(client, { areaId: portal.to })
+    }
   }
 }

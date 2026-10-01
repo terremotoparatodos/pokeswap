@@ -2,6 +2,7 @@ import { isWaterTile } from './terrain.js'
 import { isSolidAtArea } from './resourceZones.js'
 import { resourceAt } from './resourceLayout.js'
 import { WORLD_AREAS } from './areas.js'
+import { isWalkable, nextHop, portalAt, portalTo } from './navigation.js'
 
 /** Test helpers shared by the world's node tests. Not imported by the service. */
 
@@ -69,4 +70,66 @@ export function numbersDeep(value, out = []) {
   else if (value && typeof value === 'object') for (const inner of Object.values(value)) numbersDeep(inner, out)
   else if (typeof value === 'number') out.push(value)
   return out
+}
+
+const ROUTE_STEPS = Object.freeze([['right', 1, 0], ['left', -1, 0], ['down', 0, 1], ['up', 0, -1]])
+
+/**
+ * CAVES-4: the shortest walk between two tiles of a shared area over the
+ * shared collision (`navigation.js`), never crossing a portal other than the
+ * goal. Directions in order, or null when the goal is out of reach within
+ * `radius` tiles of the start.
+ */
+export function routeBetween(areaId, from, to, radius = 160) {
+  const key = (tx, ty) => `${tx},${ty}`
+  const previous = new Map([[key(from.tx, from.ty), null]])
+  const queue = [from]
+  for (let i = 0; i < queue.length; i++) {
+    const at = queue[i]
+    if (at.tx === to.tx && at.ty === to.ty) {
+      const directions = []
+      for (let k = key(at.tx, at.ty); previous.get(k);) { const [direction, back] = previous.get(k); directions.unshift(direction); k = back }
+      return directions
+    }
+    for (const [direction, dx, dy] of ROUTE_STEPS) {
+      const tx = at.tx + dx, ty = at.ty + dy
+      if (previous.has(key(tx, ty)) || Math.abs(tx - from.tx) > radius || Math.abs(ty - from.ty) > radius) continue
+      if (!isWalkable(areaId, tx, ty)) continue
+      if (portalAt(areaId, tx, ty) !== null && !(tx === to.tx && ty === to.ty)) continue
+      previous.set(key(tx, ty), [direction, key(at.tx, at.ty)])
+      queue.push({ tx, ty })
+    }
+  }
+  return null
+}
+
+/**
+ * Test setup: takes a player to `to` through the real portals. At each hop it
+ * stands the actor on the portal with a server-made move (`placeActor`) and
+ * then asks for the area like a client would, so every crossing still goes
+ * through the service's own rules.
+ */
+export function crossTo(room, client, actor, to) {
+  for (let hops = 0; actor.areaId !== to; hops++) {
+    if (hops > 3) throw new Error(`could not cross from ${actor.areaId} to ${to}`)
+    const next = nextHop(actor.areaId, to)
+    const tile = next ? portalTo(actor.areaId, next) : null
+    if (!tile) throw new Error(`no portal from ${actor.areaId} towards ${to}`)
+    room.placeActor(actor, { tx: tile.tx, ty: tile.ty, dir: actor.dir })
+    room.changeArea(client, { areaId: next })
+    if (actor.areaId !== next) throw new Error(`the crossing from ${tile.areaId} to ${next} was refused`)
+  }
+  return actor
+}
+
+/**
+ * The first of `prefer` whose step from `at` lands on a walkable, non-portal
+ * tile of the area (CAVES-4: tests that "walk away" must not walk into a tree).
+ */
+export function openDirection(areaId, at, prefer = ['up', 'down', 'left', 'right']) {
+  const delta = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }
+  return prefer.find(direction => {
+    const [dx, dy] = delta[direction]
+    return isWalkable(areaId, at.tx + dx, at.ty + dy) && portalAt(areaId, at.tx + dx, at.ty + dy) === null
+  }) ?? null
 }

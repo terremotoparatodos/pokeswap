@@ -2,7 +2,7 @@
  * Where the presence service places an actor that enters a shared area.
  *
  * Dependency-free on purpose: the browser's guard test imports it (it only
- * reads the dependency-free cave sources). Every value must equal what the
+ * reads the dependency-free cave and town sources). Every value must equal what the
  * client's `Area.arrival(from)` returns, because the client moves
  * optimistically from its own arrival while the server applies the same
  * direction intents from this one. Any difference becomes a permanent offset;
@@ -12,13 +12,14 @@
  */
 import { caveByInterior } from '../world/caves.js'
 import { CAVE_INTERIORS } from '../world/caveLayouts.js'
+import { TOWN_GATES, TOWN_SPAWN } from '../world/townLayout.js'
 
 const interiorArrivals = Object.fromEntries(Object.values(CAVE_INTERIORS)
   .map(interior => [interior.id, Object.freeze({ tx: interior.arrival.tx, ty: interior.arrival.ty, dir: interior.arrival.dir })]))
 
 export const ARRIVALS = Object.freeze({
   /** Town spawn: first join, the "Ciudad" escape hatch and any same-area reset. */
-  'ciudad-corazon': Object.freeze({ tx: 31, ty: 20, dir: 'down' }),
+  'ciudad-corazon': TOWN_SPAWN,
   /** `WildArea.arrival()` for seed 208 (`World.findSpawn(['grassland'])`). */
   pradera: Object.freeze({ tx: -5, ty: -69, dir: 'down' }),
   /** CAVES-3: inside a cave, the `S` tile of its layout, facing in. */
@@ -26,7 +27,7 @@ export const ARRIVALS = Object.freeze({
 })
 
 /** The town tile in front of the west gate, where the Pradera return pad lands. */
-export const TOWN_FROM_PRADERA = Object.freeze({ tx: 8, ty: 41, dir: 'right' })
+export const TOWN_FROM_PRADERA = TOWN_GATES.find(gate => gate.to === 'pradera').arrival
 
 /**
  * Mirrors `TownArea.arrival(from)` / `WildArea.arrival(from)` / `CaveArea.arrival()`.

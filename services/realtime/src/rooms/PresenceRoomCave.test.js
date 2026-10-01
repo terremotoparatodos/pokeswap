@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PresenceRoom, configureWorld } from './PresenceRoom.js'
+import { PresenceRoom, configureWorld, liveActorForTesting } from './PresenceRoom.js'
 import { areaTransition, stepAllowed } from '../presence/areaTransition.js'
 import { ARRIVALS } from '../protocol/arrival.js'
 import { MESSAGE, observeIntent } from '../protocol/messages.js'
@@ -9,7 +9,7 @@ import { caveInterior } from '../world/caveLayouts.js'
 import { createDemoSkillPolicy } from '../world/demoSkillPolicy.js'
 import { createStaticOwnership } from '../world/pokemonOwnership.js'
 import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../world/worldProtocol.js'
-import { fakeClient, lastMessage, messagesOf, settle } from '../world/testing.js'
+import { crossTo, fakeClient, lastMessage, messagesOf, routeBetween, settle } from '../world/testing.js'
 
 // CAVES-3 inside the presence room: one shared cave interior, entered only
 // from the mouth and left only from the exit pad, with the walls enforced by
@@ -23,7 +23,7 @@ const INSIDE = caveInterior(CAVE.interiorAreaId)
 test('areaTransition: into the cave only from the mouth tile of its own area', () => {
   const at = (areaId, tx, ty) => ({ areaId, tx, ty })
   const arrival = { ...INSIDE.arrival }
-  assert.deepEqual({ ...areaTransition(at('pradera', CAVE.mouth.tx, CAVE.mouth.ty), INSIDE.id) }, arrival)
+  assert.deepEqual({ ...areaTransition(at('pradera', CAVE.mouth.tx, CAVE.mouth.ty), INSIDE.id).arrival }, arrival)
   // The approach, a rock tile, the arrival, anywhere else: refused.
   for (const t of [CAVE.approach, CAVE.anchor, ARRIVALS.pradera, { tx: 0, ty: 0 }]) {
     assert.equal(areaTransition(at('pradera', t.tx, t.ty), INSIDE.id), null, `${t.tx},${t.ty}`)
@@ -35,26 +35,24 @@ test('areaTransition: into the cave only from the mouth tile of its own area', (
 test('areaTransition: out to the cave area only from the exit pad, landing on the approach', () => {
   const at = (tx, ty) => ({ areaId: INSIDE.id, tx, ty })
   const out = areaTransition(at(INSIDE.exit.tx, INSIDE.exit.ty), 'pradera')
-  assert.deepEqual({ ...out }, { tx: CAVE.approach.tx, ty: CAVE.approach.ty, dir: 'down' })
+  assert.deepEqual({ ...out.arrival }, { tx: CAVE.approach.tx, ty: CAVE.approach.ty, dir: 'down' })
   assert.equal(areaTransition(at(INSIDE.arrival.tx, INSIDE.arrival.ty), 'pradera'), null)
   assert.equal(areaTransition(at(INSIDE.exit.tx, INSIDE.exit.ty - 1), 'pradera'), null)
-  // The "Ciudad" escape hatch still works from inside, and a same-area reset lands on the arrival.
-  assert.deepEqual({ ...areaTransition(at(1, 1), 'ciudad-corazon') }, { ...ARRIVALS['ciudad-corazon'] })
-  assert.deepEqual({ ...areaTransition(at(1, 1), INSIDE.id) }, { ...INSIDE.arrival })
+  // No "Ciudad" teleport from inside (CAVES-4), from any tile. A same-area
+  // request is a resync: it keeps a valid tile and only repairs an invalid
+  // one (1,1 is rock) to the arrival.
+  for (const t of [{ tx: 1, ty: 1 }, { tx: 12, ty: 8 }, INSIDE.exit, INSIDE.arrival]) assert.equal(areaTransition(at(t.tx, t.ty), 'ciudad-corazon'), null)
+  assert.deepEqual({ ...areaTransition(at(1, 1), INSIDE.id).arrival }, { ...INSIDE.arrival })
+  assert.equal(areaTransition(at(12, 8), INSIDE.id).arrival, null)
 })
 
-test('areaTransition: Ciudad ↔ Pradera behaves exactly as before CAVES-3', () => {
-  assert.deepEqual({ ...areaTransition({ areaId: 'ciudad-corazon', tx: 3, ty: 3 }, 'pradera') }, { ...ARRIVALS.pradera })
-  assert.equal(areaTransition({ areaId: 'pradera', tx: 3, ty: 3 }, 'ciudad-corazon').tx, 8)
-  assert.deepEqual({ ...areaTransition({ areaId: 'pradera', tx: 3, ty: 3 }, 'pradera') }, { ...ARRIVALS.pradera })
-})
-
-test('stepAllowed: walls and edges of a cave block; other areas are unchanged (client walkability)', () => {
+test('stepAllowed: walls and edges of a cave block; so does the cave rock outside (CAVES-4)', () => {
   const inside = (tx, ty) => ({ areaId: INSIDE.id, tx, ty })
   assert.equal(stepAllowed(inside(INSIDE.arrival.tx, INSIDE.arrival.ty), 'up'), true)
   assert.equal(stepAllowed(inside(6, 11), 'left'), false, 'wall')
   assert.equal(stepAllowed(inside(INSIDE.exit.tx, INSIDE.exit.ty), 'down'), false, 'edge of the grid')
-  assert.equal(stepAllowed({ areaId: 'pradera', tx: CAVE.mouth.tx - 1, ty: CAVE.mouth.ty + 1 }, 'up'), true)
+  assert.equal(stepAllowed({ areaId: 'pradera', tx: CAVE.mouth.tx - 1, ty: CAVE.mouth.ty + 1 }, 'up'), false, 'rock beside the mouth')
+  assert.equal(stepAllowed({ areaId: 'pradera', tx: CAVE.approach.tx, ty: CAVE.approach.ty }, 'up'), true, 'onto the mouth')
 })
 
 test('a guest cannot observe the inside of a cave', () => {
@@ -100,19 +98,22 @@ async function caveRoom(t) {
     sequences.set(client, sequence)
     room.move(client, { direction, running: false, sequence })
   }
+  /** Walks the shortest route over the shared collision (CAVES-4: the service refuses anything solid). */
   const walk = (client, to) => {
-    for (let guard = 0; guard < 200; guard++) {
-      const at = self(client)
-      if (at.tx === to.tx && at.ty === to.ty) return
-      step(client, at.tx !== to.tx ? (to.tx > at.tx ? 'right' : 'left') : (to.ty > at.ty ? 'down' : 'up'))
+    const at = self(client)
+    const route = routeBetween(at.areaId, at, to)
+    if (!route) throw new Error(`no route in ${at.areaId} from ${at.tx},${at.ty} to ${to.tx},${to.ty}`)
+    for (const direction of route) step(client, direction)
+    const end = self(client)
+    if (end.tx !== to.tx || end.ty !== to.ty) {
+      const last = client.messages.slice(-3).map(m => `${m.type} ${JSON.stringify(m.payload).slice(0, 120)}`).join(' | ')
+      throw new Error(`could not walk to ${to.tx},${to.ty}: ${last}`)
     }
-    const last = client.messages.slice(-3).map(m => `${m.type} ${JSON.stringify(m.payload).slice(0, 120)}`).join(' | ')
-    throw new Error(`could not walk to ${to.tx},${to.ty}: ${last}`)
   }
-  /** Joins, goes to Pradera and stands on the approach in front of the mouth. */
+  /** Joins, crosses to Pradera through the west gate and walks to the approach in front of the mouth. */
   const toApproach = async id => {
     const client = await join(id)
-    room.changeArea(client, { areaId: 'pradera' })
+    crossTo(room, client, liveActorForTesting(id), 'pradera')
     walk(client, CAVE.approach)
     return client
   }
@@ -180,7 +181,7 @@ test('room: presence is isolated by area even at the same coordinates (a Ciudad 
 })
 
 test('room: walls are enforced by the service; a blocked step is answered with the real tile', async t => {
-  const { room, self, step, toApproach, enter } = await caveRoom(t)
+  const { room, self, step, walk, toApproach, enter } = await caveRoom(t)
   const a = await toApproach('cave-wall')
   enter(a)
   for (let i = 0; i < 4; i++) step(a, 'left') // (10,11) → (6,11): floor all the way
@@ -188,8 +189,11 @@ test('room: walls are enforced by the service; a blocked step is answered with t
   step(a, 'left') // (5,11) is rock
   assert.equal(lastMessage(a, MESSAGE.ERROR).reason, 'movement blocked')
   assert.deepEqual({ tx: self(a).tx, ty: self(a).ty }, { tx: 6, ty: 11 })
-  // Nowhere out of the grid either: down from the exit pad is the edge.
+  // A same-area request does not move it (CAVES-4 resync): it walks back instead.
   room.changeArea(a, { areaId: INSIDE.id })
+  assert.deepEqual({ tx: self(a).tx, ty: self(a).ty }, { tx: 6, ty: 11 })
+  walk(a, INSIDE.arrival)
+  // Nowhere out of the grid either: down from the exit pad is the edge.
   step(a, 'down'); step(a, 'down')
   assert.deepEqual({ tx: self(a).tx, ty: self(a).ty }, { ...INSIDE.exit })
   step(a, 'down')

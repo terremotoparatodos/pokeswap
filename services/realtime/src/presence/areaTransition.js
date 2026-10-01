@@ -1,47 +1,58 @@
-import { arrivalFor } from '../protocol/arrival.js'
-import { CAVE_ENTRANCE, caveByInterior } from '../world/caves.js'
-import { caveInterior, isCaveFloor } from '../world/caveLayouts.js'
+import { ARRIVALS, arrivalFor } from '../protocol/arrival.js'
+import { isReachable, isWalkable, portalAt } from '../world/navigation.js'
 import { STEP_DELTA } from './movement.js'
 
 /**
- * CAVES-3: the service decides who may cross into or out of a cave.
+ * How the service answers an `area` request (CAVES-3, generalised in CAVES-4).
+ * The client only names an area; whether it may go and where it lands are
+ * decided here, from the actor's real area and tile. It never moves the actor.
  *
- * A client asks for an area (`area` message); this answers where the actor
- * lands, or `null` when the change is refused. It never moves the actor.
+ * There is no "Ciudad" recall: the town is reached through its portal like
+ * every other area. Fast travel will be its own feature (unlocks, allowed
+ * destinations, costs or cooldowns), not an exception here.
+ */
+export const TRANSITION = Object.freeze({
+  /** Standing on a portal that leads to the requested area: crosses to its arrival. */
+  PORTAL: 'portal',
+  /** The client asked for the area it already is in (its safe-point repair): no move, just the real state. */
+  RESYNC: 'resync',
+})
+
+/**
+ * Returns `{ kind, arrival }`, or `null` when the request is refused.
+ * `arrival` is where the actor lands, or `null` for a resync that keeps it.
  *
- * - Into a cave interior: only from the cave's own area, through an open
- *   entrance, standing on the mouth tile itself (where the client's portal
- *   is). Asking from anywhere else, or from another area, is refused.
- * - Out of a cave interior to the cave's area: only standing on the exit pad.
- *   It lands on the approach, in front of the mouth — never on the mouth, so
- *   leaving cannot loop straight back in.
- * - Everything else keeps the behaviour it had before CAVES-3: the Ciudad ↔
- *   Pradera trip, the "Ciudad" escape hatch (also from inside a cave) and the
- *   same-area reset to the area's arrival.
+ * - Another area: only standing **exactly** on a portal of the actor's real
+ *   area whose destination is that area — Ciudad ↔ Pradera by the west gate
+ *   and the return pad, Pradera ↔ `cueva-inicial` by the mouth and the exit
+ *   pad. It lands on the destination's arrival for that origin, never on a
+ *   portal (no loop).
+ * - The area the actor already is in (any of the three): a resync, which does
+ *   not move it, unless its own tile stopped being a reachable walkable tile:
+ *   then the area's arrival.
+ * - Anything else — the town from anywhere but its portal (an old or forged
+ *   "Ciudad" request), another area from a wrong tile, an area that is not
+ *   shared: refused. The caller answers once with the real state.
  */
 export function areaTransition(actor, to) {
   const from = actor.areaId
-  const entering = caveByInterior(to)
-  if (entering && from !== to) {
-    if (from !== entering.areaId || entering.entrance !== CAVE_ENTRANCE.OPEN) return null
-    if (actor.tx !== entering.mouth.tx || actor.ty !== entering.mouth.ty) return null
+  if (to === from) {
+    if (isReachable(from, actor.tx, actor.ty)) return { kind: TRANSITION.RESYNC, arrival: null }
+    return ARRIVALS[from] ? { kind: TRANSITION.RESYNC, arrival: ARRIVALS[from] } : null
   }
-  const leaving = caveByInterior(from)
-  if (leaving && to === leaving.areaId) {
-    const { exit } = caveInterior(from)
-    if (actor.tx !== exit.tx || actor.ty !== exit.ty) return null
+  if (portalAt(from, actor.tx, actor.ty) === to) {
+    const arrival = arrivalFor(to, from)
+    return arrival ? { kind: TRANSITION.PORTAL, arrival } : null
   }
-  return arrivalFor(to, from)
+  return null
 }
 
 /**
- * Whether one step is allowed by the shared collision of the actor's area.
- * The service checks it where it holds the whole map: cave interiors, whose
- * walls and edges come from `caveLayouts.js`. Elsewhere walkability is still
- * decided by the client (see `movement.js`); this only ever refuses more.
+ * Whether one step is allowed by the shared collision of the actor's area:
+ * the target tile must be walkable (`world/navigation.js`). Every shared area
+ * is validated since CAVES-4, and the browser collides with the same tiles.
  */
 export function stepAllowed(actor, direction) {
-  if (!caveInterior(actor.areaId)) return true
   const [dx, dy] = STEP_DELTA[direction]
-  return isCaveFloor(actor.areaId, actor.tx + dx, actor.ty + dy)
+  return isWalkable(actor.areaId, actor.tx + dx, actor.ty + dy)
 }

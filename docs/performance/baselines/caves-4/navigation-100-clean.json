@@ -1,0 +1,71 @@
+{
+  "benchmark": "caves-4-navigation",
+  "players": 100,
+  "seconds": 60.33,
+  "seed": 4,
+  "probes": 0,
+  "joinMs": 1067.61,
+  "distribution": {
+    "start": {
+      "ciudad-corazon": 34,
+      "pradera": 33,
+      "cueva-inicial": 33
+    },
+    "end": {
+      "ciudad-corazon": 39,
+      "pradera": 49,
+      "cueva-inicial": 12
+    }
+  },
+  "client": {
+    "movesSent": 40217,
+    "movesAccepted": 40118,
+    "crossingsAccepted": 552,
+    "probesSent": 0,
+    "refusals": {
+      "expected": {},
+      "unexpected": {}
+    },
+    "leaks": 0,
+    "errors": 0,
+    "pendingExpected": 0,
+    "ackRttMs": {
+      "p50": 6.46,
+      "p95": 33.93,
+      "p99": 48.65,
+      "max": 90.98
+    }
+  },
+  "server": {
+    "moves": 40118,
+    "areaChanges": 552,
+    "transitions": {
+      "portal": 552,
+      "recall": 0,
+      "resync": 0
+    },
+    "rejections": {
+      "capacity": 0,
+      "invalid": 0,
+      "rate": 0,
+      "area": 0,
+      "replay": 0,
+      "sequence": 0,
+      "blocked": 0
+    },
+    "eventLoopDelayMs": {
+      "p50": 30.97,
+      "p99": 36.5,
+      "max": 38.54
+    },
+    "memoryMb": {
+      "rss": 203,
+      "heapUsed": 27
+    },
+    "memoryPeakMb": {
+      "rss": 205,
+      "heapUsed": 68
+    },
+    "loopP99MaxSampleMs": 36.73
+  }
+}

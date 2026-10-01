@@ -17,13 +17,12 @@ const hud = (areaKind: HudState['areaKind']): HudState => ({
   presence: new PresenceDiagnostics().snapshot(),
 })
 
-describe('LobbyHud city recovery', () => {
-  it('offers the city button even while already in the city', async () => {
-    const wrapper = mount(LobbyHud, { props: { hud: hud('town') } })
-    const button = wrapper.find('.wl-home')
-    expect(button.exists()).toBe(true)
-    expect(button.attributes('title')).toBe('Reubicar en Ciudad Corazón')
-    await button.trigger('click')
-    expect(wrapper.emitted('home')).toHaveLength(1)
+describe('LobbyHud (CAVES-4: no "Ciudad" teleport)', () => {
+  it.each(['town', 'wild'] as const)('has no button and emits nothing in %s', areaKind => {
+    const wrapper = mount(LobbyHud, { props: { hud: hud(areaKind) } })
+    expect(wrapper.findAll('button')).toHaveLength(0)
+    expect(wrapper.find('.wl-home').exists()).toBe(false)
+    expect(wrapper.text()).not.toMatch(/Ciudad$|Volver a Ciudad|Reubicar/)
+    expect(Object.keys(wrapper.emitted())).not.toContain('home')
   })
 })

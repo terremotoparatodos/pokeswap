@@ -13,7 +13,7 @@ test('health endpoints expose readiness and aggregate-only metrics', async () =>
     assert.equal((await fetch(`${base}/healthz`)).status, 200)
     assert.equal((await fetch(`${base}/readyz`)).status, 200)
     assert.deepEqual(await (await fetch(`${base}/metrics`)).json(), {
-      connections: 1, guests: 1, players: 0, rejections: { capacity: 0, invalid: 1, rate: 0, area: 0, replay: 0 },
+      connections: 1, guests: 1, players: 0, rejections: { capacity: 0, invalid: 1, rate: 0, area: 0, replay: 0, sequence: 0, blocked: 0 },
     })
   } finally {
     await new Promise(resolve => server.close(resolve))

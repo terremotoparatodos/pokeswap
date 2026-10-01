@@ -22,7 +22,7 @@ import { spawn } from 'node:child_process'
 import net from 'node:net'
 import { performance } from 'node:perf_hooks'
 import { Client } from '@colyseus/sdk'
-import { praderaNodesNearSpawn } from '../services/realtime/src/world/testing.js'
+import { praderaNodesNearSpawn, routeBetween } from '../services/realtime/src/world/testing.js'
 import { ARRIVALS } from '../services/realtime/src/protocol/arrival.js'
 import { WORLD_PROTOCOL } from '../services/realtime/src/world/worldProtocol.js'
 
@@ -98,6 +98,21 @@ try {
     for (const type of ['presence:snapshot', 'presence:self', 'presence:delta', 'presence:batch', 'presence:error', 'chat:history', 'chat:line', 'world:snapshot', 'world:batch', 'world:wild', 'world:work:yield', 'world:work:done']) {
       room.onMessage(type, payload => {
         count(type, payload)
+        // Like a real client, start from the service's tile and number the next
+        // step after its own (CAVES-4: entering Pradera is a server-made move).
+        if (type === 'presence:snapshot' && payload.self) {
+          state.tx = payload.self.tx; state.ty = payload.self.ty
+          state.sequence = Math.max(state.sequence, payload.self.moveSequence)
+          state.route = null; state.routeTo = null
+        }
+        // The service also moves the trainer itself (WORLD VISUAL-2: aside for
+        // its worker). Before CAVES-4 the walker never noticed and kept walking
+        // from a tile it was not on; follow the authoritative tile instead.
+        if (type === 'presence:self' && payload.moveSequence >= state.sequence && (payload.tx !== state.tx || payload.ty !== state.ty)) {
+          state.tx = payload.tx; state.ty = payload.ty
+          state.sequence = payload.moveSequence
+          state.route = null; state.routeTo = null
+        }
         if (type === 'world:work:yield') state.yields++
         if (type === 'world:work:done' && payload.reason === 'error') state.errors++
         if (type === 'world:work:done' && state.pending?.actionId === payload.actionId) {
@@ -138,6 +153,13 @@ try {
     const target = targets[state.target]
     const dx = target.stand.tx - state.tx
     const dy = target.stand.ty - state.ty
+    // CAVES-4: the service enforces Pradera's collision, so a walker follows a
+    // real route (shared navigation) instead of a straight line through trees.
+    if ((dx !== 0 || dy !== 0) && state.routeTo !== target) {
+      state.route = routeBetween('pradera', { tx: state.tx, ty: state.ty }, target.stand, 80)
+      state.routeTo = target
+      if (!state.route) { state.never.add(target.node.id); state.routeTo = null; return }
+    }
     if (dx === 0 && dy === 0) {
       if (!worldOn) { state.target = (state.target + players) % targets.length; return }
       state.pending = { requestId: ++state.requestId, sentAt: performance.now() }
@@ -147,7 +169,7 @@ try {
       state.target = (state.target + players + 1) % targets.length
       return
     }
-    const direction = dx !== 0 ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up')
+    const direction = state.route.shift()
     if (direction === 'right') state.tx++; else if (direction === 'left') state.tx--; else if (direction === 'down') state.ty++; else state.ty--
     state.room.send('move', { direction, running: true, sequence: ++state.sequence })
   }

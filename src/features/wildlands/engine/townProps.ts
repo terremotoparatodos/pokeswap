@@ -9,6 +9,7 @@
 // instead of one sprite per tile, so a tilted camera spaces its posts exactly
 // like the ground and the posts in front cover the ones behind.
 
+import { townPropSize as sharedTownPropSize, townPropTiles as sharedTownPropTiles } from '../../../../services/realtime/src/world/townLayout.js'
 import { Painter } from './painter'
 import { ellipses, shade, spriteFromPixels, type Sprite } from './sprite'
 
@@ -17,22 +18,17 @@ export type TownPropKind =
   /** Plaza benches, 1×2 tiles, backrest on the right / left (Platinum's own models). */
   | 'bench' | 'benchLeft'
 
-/** Footprint in tiles from the prop's (tx, ty); anything not listed is one tile. */
-const TOWN_PROP_SIZE: Partial<Record<TownPropKind, { readonly w: number; readonly d: number }>> = {
-  bench: { w: 1, d: 2 },
-  benchLeft: { w: 1, d: 2 },
-}
-
+/**
+ * Footprint in tiles from the prop's (tx, ty); anything not listed is one tile.
+ * A footprint is collision, so it is the shared one (`townLayout.js`, CAVES-4).
+ */
 export function townPropSize(kind: TownPropKind): { readonly w: number; readonly d: number } {
-  return TOWN_PROP_SIZE[kind] ?? { w: 1, d: 1 }
+  return sharedTownPropSize(kind)
 }
 
 /** The tiles a prop covers. */
 export function townPropTiles(p: { kind: TownPropKind; tx: number; ty: number }): { tx: number; ty: number }[] {
-  const { w, d } = townPropSize(p.kind)
-  const out: { tx: number; ty: number }[] = []
-  for (let dy = 0; dy < d; dy++) for (let dx = 0; dx < w; dx++) out.push({ tx: p.tx + dx, ty: p.ty + dy })
-  return out
+  return sharedTownPropTiles(p)
 }
 
 /**
