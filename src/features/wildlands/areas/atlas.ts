@@ -3,6 +3,8 @@
 // Ciudad Corazón is the lobby; each of its five gates leads to a procedural
 // world with its own seed and starting biome.
 
+import { isCaveInterior } from '../../../../services/realtime/src/world/caveLayouts.js'
+import { CaveArea } from '../../caves/world/caveArea'
 import { hearthomeDef } from './hearthome'
 import { TownArea, type TownDef } from './townArea'
 import { WildArea, type WorldDef } from './wildArea'
@@ -29,6 +31,9 @@ export class Atlas {
     if (!area) {
       if (id === LOBBY_ID) {
         area = new TownArea(HEARTHOME)
+      } else if (isCaveInterior(id)) {
+        // CAVES-3: an authored cave interior, entered through its mouth.
+        area = new CaveArea(id)
       } else {
         const def = WORLDS.find(w => w.id === id)
         if (!def) return this.get(LOBBY_ID)
@@ -40,6 +45,6 @@ export class Atlas {
   }
 
   static isKnown(id: string): boolean {
-    return id === LOBBY_ID || WORLDS.some(w => w.id === id)
+    return id === LOBBY_ID || WORLDS.some(w => w.id === id) || isCaveInterior(id)
   }
 }

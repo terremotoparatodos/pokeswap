@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import { Atlas } from '../../wildlands/areas/atlas'
 import { isPortalTile } from '../../wildlands/engine/area'
 import { WORLD_AREAS } from '../../../../services/realtime/src/world/areas.js'
+import { cavesIn } from '../../../../services/realtime/src/world/caves.js'
 import { PLOTS } from '../../../../services/realtime/src/world/plots.js'
 import { resourceAt } from '../../../../services/realtime/src/world/resourceLayout.js'
 import { standableTile, workPlacement } from '../../../../services/realtime/src/world/workPlacement.js'
@@ -32,9 +33,11 @@ function workableNodes() {
 }
 
 describe('Pradera return portal vs. automatic trainer relocation', () => {
-  it('the portal is where this guard expects it: one tile north of the spawn, and the only one', () => {
-    expect(pradera.portals.flatMap(portal => portal.tiles)).toEqual([PORTAL])
+  it('the portals are where this guard expects them: the return pad north of the spawn and (CAVES-3) the cave mouth', () => {
+    const [cave] = cavesIn('pradera')
+    expect(pradera.portals.flatMap(portal => portal.tiles)).toEqual([PORTAL, { ...cave.mouth }])
     expect(pradera.arrival(null)).toMatchObject(spawn)
+    // The sweep below checks every waiting tile against every portal, the cave mouth included.
   })
 
   it('no waiting tile computed for any workable node, from any valid side, is the portal', () => {
