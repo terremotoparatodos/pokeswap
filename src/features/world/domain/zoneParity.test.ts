@@ -1,17 +1,16 @@
 // MAP-2 on the browser side: the Pradera the client draws is the one the
-// server validates, the caves did not move, and lookalike scenery is never an
+// server validates, the cave stays where caves.js puts it, and lookalike scenery is never an
 // exact copy of a workable prop.
 
 import { describe, expect, it } from 'vitest'
 import { Atlas } from '../../wildlands/areas/atlas'
 import { isPortalTile } from '../../wildlands/engine/area'
 import { World } from '../../wildlands/engine/world'
-import { areaEntrances } from '../../dungeonEntrances/domain/entranceSpawns'
+import { CAVES, cavesIn } from '../../../../services/realtime/src/world/caves.js'
 import { backdropRockArt, backdropTreeArt } from '../../skills/scene/art/backdropArt'
 import { plainRockArt } from '../../skills/scene/art/miningNodes'
 import { plainTreeArt } from '../../skills/scene/art/loggingTrees'
 import { WORLD_AREAS } from '../../../../services/realtime/src/world/areas.js'
-import { PLOTS } from '../../../../services/realtime/src/world/plots.js'
 import { resourceAt } from '../../../../services/realtime/src/world/resourceLayout.js'
 import { RESOURCE_ZONES, decorAtArea, isPlannedTile, isSolidAtArea } from '../../../../services/realtime/src/world/resourceZones.js'
 import { standableTile, workPlacement } from '../../../../services/realtime/src/world/workPlacement.js'
@@ -23,30 +22,8 @@ const spawn = WORLD_AREAS.pradera.spawn!
 const seed = WORLD_AREAS.pradera.seed!
 const R = 64
 
-/** The caves as `DungeonEntrances.vue` places them, with the same seed derivation. */
-function seedOf(areaId: string): number {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < areaId.length; i++) hash = Math.imul(hash ^ areaId.charCodeAt(i), 0x01000193) >>> 0
-  return hash
-}
-/** The caves as `DungeonEntrances.vue` places them in Pradera (its port, answered from the real area). */
-function placedCaves() {
-  return areaEntrances({
-    areaId: 'pradera', origin: pradera.arrival(null), seed: seedOf('pradera'), now: Date.now(),
-    port: {
-      isSolid: (tx, ty) => pradera.isSolid(tx, ty),
-      isWater: (tx, ty) => pradera.isWater(tx, ty),
-      // What the component asks: the portal, planned zone ground, and what the professions own (nodes, plots).
-      isTaken: (tx, ty) => isPortalTile(pradera, tx, ty) || isPlannedTile('pradera', tx, ty)
-        || resourceAt('pradera', tx, ty) !== null || PLOTS.some(p => p.tx === tx && p.ty === ty),
-    },
-  })
-}
-
-/** MAP-1's measurement before any zone existed (docs/design/map-1/audit.json). */
-const CAVES_BEFORE_MAP2 = [
-  { tx: -26, ty: -74 }, { tx: 7, ty: -59 }, { tx: -24, ty: -43 }, { tx: 19, ty: -58 }, { tx: -30, ty: -85 }, { tx: 16, ty: -49 },
-]
+/** Every tile a cave keeps for itself in Pradera: rock and front clearance (CAVES-2). */
+const caveReserve = () => new Set(cavesIn('pradera').flatMap(cave => [...cave.footprint, ...cave.clearance].map(tile => `${tile.tx},${tile.ty}`)))
 
 describe('MAP-2 in the browser', () => {
   it('draws and collides exactly like the server layer, tile by tile', () => {
@@ -74,17 +51,24 @@ describe('MAP-2 in the browser', () => {
     expect(plain.decorAt(cleared[1], cleared[2])).not.toBeNull()
   })
 
-  it('keeps every cave where it was before the zones', () => {
-    const caves = placedCaves()
-    expect(caves.map(cave => cave.placement.anchor)).toEqual(CAVES_BEFORE_MAP2)
-    for (const cave of caves) for (const tile of cave.placement.footprint) expect(isPlannedTile('pradera', tile.tx, tile.ty)).toBe(false)
+  it('the cave is planned ground and sits in no resource zone', () => {
+    const caves = cavesIn('pradera')
+    expect(caves.length).toBe(CAVES.filter(cave => cave.areaId === 'pradera').length)
+    expect(caves.length).toBeGreaterThan(0)
+    for (const cave of caves) {
+      for (const tile of [...cave.footprint, ...cave.clearance]) {
+        expect(isPlannedTile('pradera', tile.tx, tile.ty)).toBe(true)
+        expect(RESOURCE_ZONES.some(zone => tile.tx >= zone.box.x0 && tile.tx <= zone.box.x1 && tile.ty >= zone.box.y0 && tile.ty <= zone.box.y1)).toBe(false)
+      }
+      for (const tile of cave.footprint) expect(pradera.isSolid(tile.tx, tile.ty)).toBe(true)
+    }
   })
 
-  it('no worker stand or trainer waiting tile ever lands on a cave (real caves, real placement)', () => {
-    const caveTiles = new Set(placedCaves().flatMap(cave => cave.placement.footprint.map(tile => `${tile.tx},${tile.ty}`)))
-    expect(caveTiles.size).toBe(36)
-    // Sides a player can actually walk to from the arrival, as the client allows.
-    const blocked = (tx: number, ty: number) => pradera.isSolid(tx, ty) || isPortalTile(pradera, tx, ty) || caveTiles.has(`${tx},${ty}`)
+  it('no worker stand or trainer waiting tile ever lands on a cave or its clearance (real caves, real placement)', () => {
+    const caveTiles = caveReserve()
+    expect(caveTiles.size).toBe(cavesIn('pradera').reduce((sum, cave) => sum + cave.footprint.length + cave.clearance.length, 0))
+    // Sides a player can actually walk to from the arrival, as the client allows (cave rock is solid terrain).
+    const blocked = (tx: number, ty: number) => pradera.isSolid(tx, ty) || isPortalTile(pradera, tx, ty)
     const reach = new Set([`${spawn.tx},${spawn.ty}`])
     for (const queue = [{ tx: spawn.tx, ty: spawn.ty }]; queue.length;) {
       const at = queue.shift()!

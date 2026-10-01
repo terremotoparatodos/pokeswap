@@ -1,23 +1,27 @@
-// MAP-1 — resource audit of Pradera Brisa, measured on the real world.
+// Resource and cave audit of Pradera Brisa, measured on the real world.
 //
 // Reads exactly what players get: the procedural terrain and props both sides
 // run (`terrain.js`), WORLD's node layout (`resourceLayout.js`), SKILLS'
 // node → resource mapping (`resourceMapping.ts`), the huerta plots, the return
-// portal and the caves as the client places them. Writes counts and
+// portal and the caves of `caves.js` (CAVES-2). Writes counts and
 // coordinates (JSON) and annotated maps (PNG) for the report.
 //
-//   npx vite-node scripts/map/audit-pradera.ts -- docs/design/map-2
+//   npx vite-node scripts/map/audit-pradera.ts -- <output folder>
 //
-// Since MAP-2 it reads the zone layer (`decorAtArea`) — the world players get
-// now. MAP-1's `docs/design/map-1/` keeps the measurement from before.
+// It reads the zone layer (`decorAtArea`) — the world players get now. The
+// output folder is required: `docs/design/map-1/` and `map-2/` are frozen
+// measurements of their phases and are not regenerated from here. MAP-1's
+// zone-siting proposal was retired in CAVES-2: it searched for room for zones
+// in a world that already has them, and its result lives on in map-1/.
 //
-// DESIGN TOOL. It reads the world and writes nothing but its output folder.
+// DESIGN TOOL. It reads the world, writes nothing but its output folder, and
+// exits non-zero when the canonical cave is not where CAVES-2 put it or cannot
+// be walked to (guarded by src/features/caves/praderaAudit.test.ts).
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { deflateSync } from 'node:zlib'
 import { Atlas } from '../../src/features/wildlands/areas/atlas'
-import { areaEntrances } from '../../src/features/dungeonEntrances/domain/entranceSpawns'
 import { skillsResourceFor } from '../../src/features/worldSkills/resourceMapping'
 import { workDuration } from '../../src/features/skills/domain/workRules'
 import { WORLD_AREAS } from '../../services/realtime/src/world/areas.js'
@@ -25,12 +29,17 @@ import { PLOTS } from '../../services/realtime/src/world/plots.js'
 import { RESOURCE_VARIANTS, ZONE_RING_TILES, resourceAt } from '../../services/realtime/src/world/resourceLayout.js'
 import { RESPAWN_MS } from '../../services/realtime/src/world/worldTuning.js'
 import { T, decorAt, isSolidDecor, tileTerrain } from '../../services/realtime/src/world/terrain.js'
-import { RESERVED_AREAS, RESOURCE_ZONES, ROUTES, decorAtArea, isPlannedTile, resourceZoneAt } from '../../services/realtime/src/world/resourceZones.js'
+import { RESERVED_AREAS, RESOURCE_ZONES, ROUTES, decorAtArea, resourceZoneAt } from '../../services/realtime/src/world/resourceZones.js'
 import { standableTile, workPlacement } from '../../services/realtime/src/world/workPlacement.js'
 import { WORLD_VIEW_TILES } from '../../services/realtime/src/world/worldInterest.js'
+import { cavesIn } from '../../services/realtime/src/world/caves.js'
 
 type Tile = { tx: number; ty: number }
-const OUT = process.argv.slice(2).find(arg => arg !== '--') ?? 'docs/design/map-1'
+const OUT = process.argv.slice(2).find(arg => arg !== '--')
+if (!OUT) {
+  process.stderr.write('usage: npx vite-node scripts/map/audit-pradera.ts -- <output folder>\n')
+  process.exit(2)
+}
 const { seed, spawn } = { seed: WORLD_AREAS.pradera.seed as number, spawn: WORLD_AREAS.pradera.spawn! }
 const area = new Atlas().get('pradera')
 /** The audit window: the part of an infinite world a player actually uses around the arrival. */
@@ -44,28 +53,14 @@ const PORTAL = area.portals[0].tiles[0]
 const TREE_KINDS = new Set(['tree', 'pine', 'snowpine', 'palm'])
 const ROCK_KINDS = new Set(['rock', 'boulder', 'icerock'])
 
-// ── Caves, placed like DungeonEntrances.vue does (same seed derivation) ─────
-function seedOf(areaId: string): number {
-  let hash = 0x811c9dc5
-  for (let i = 0; i < areaId.length; i++) hash = Math.imul(hash ^ areaId.charCodeAt(i), 0x01000193) >>> 0
-  return hash
-}
-const caves = areaEntrances({
-  areaId: 'pradera', origin: area.arrival(null), seed: seedOf('pradera'), now: Date.now(),
-  port: {
-    isSolid: (tx, ty) => area.isSolid(tx, ty),
-    isWater: (tx, ty) => area.isWater(tx, ty),
-    // As DungeonEntrances.vue asks since MAP-2: portal, planned zone ground, nodes and plots.
-    isTaken: (tx, ty) => (tx === PORTAL.tx && ty === PORTAL.ty) || isPlannedTile('pradera', tx, ty) || resourceAt('pradera', tx, ty) !== null || PLOTS.some(p => p.tx === tx && p.ty === ty),
-  },
-}).map(entrance => entrance.placement)
+// ── Caves: the canonical ones (CAVES-2), not a placement of their own ──────
+const caves = cavesIn('pradera')
 const caveTiles = new Set(caves.flatMap(cave => cave.footprint.map(key)))
 
 // ── Tiles ────────────────────────────────────────────────────────────────────
 type NodeClass = 'basic' | 'gated' | 'unmapped'
 interface Prop extends Tile { kind: string; node: string | null; resource: string | null; level: number | null; cls: NodeClass | 'decor'; backdrop: boolean }
 const LOOKALIKE = new Set(RESOURCE_ZONES.flatMap(zone => zone.nodes))
-const AFTER = OUT.includes('map-2')
 const props: Prop[] = []
 const terrainCount: Record<string, number> = {}
 const TERRAIN_NAME = Object.fromEntries(Object.entries(T).map(([name, id]) => [id, name.toLowerCase()]))
@@ -134,39 +129,6 @@ function busyShare(nodes: number, players: number, action: number, spacing: numb
   return Math.min(1, supported(nodes, action, spacing).playersBusy / players)
 }
 
-// ── Zone candidates, at the proposal's real sizes, within a short walk ──────
-/** A w×h site: props of `kinds` inside, share of open ground, walking steps from the arrival to its centre. */
-function site(cx: number, cy: number, w: number, h: number, kinds: Set<string>) {
-  let n = 0, basic = 0, open = 0, blockedTiles = 0
-  const x0 = cx - Math.floor(w / 2), y0 = cy - Math.floor(h / 2)
-  for (let ty = y0; ty < y0 + h; ty++) for (let tx = x0; tx < x0 + w; tx++) {
-    const kind = decorAtArea('pradera', seed, tx, ty)
-    if (kind && kinds.has(kind)) {
-      n++
-      const node = resourceAt('pradera', tx, ty)
-      if ((node ? skillsResourceFor(node) : null)?.requiredLevel === 1) basic++
-    }
-    if (!area.isSolid(tx, ty) && !area.isWater(tx, ty)) open++
-    if (caveTiles.has(`${tx},${ty}`) || PLOTS.some(p => p.tx === tx && p.ty === ty) || (tx === PORTAL.tx && ty === PORTAL.ty) || area.isWater(tx, ty)) blockedTiles++
-  }
-  return { center: { tx: cx, ty: cy }, w, h, props: n, basicToday: basic, open: +(open / (w * h)).toFixed(2), conflicts: blockedTiles, steps: dist.get(`${cx},${cy}`) ?? Infinity }
-}
-function candidates(kinds: Set<string>, w: number, h: number, rank: (s: ReturnType<typeof site>) => number, accept: (s: ReturnType<typeof site>) => boolean) {
-  const all: ReturnType<typeof site>[] = []
-  for (let cy = spawn.ty - 34; cy <= spawn.ty + 34; cy++) for (let cx = spawn.tx - 34; cx <= spawn.tx + 34; cx++) {
-    const s = site(cx, cy, w, h, kinds)
-    // Keep the arrival pad and its surroundings (9×9) out of every zone, plus a 3-tile ring to walk around it.
-    const clearOfArrival = Math.abs(cx - spawn.tx) > Math.floor(w / 2) + 4 + 3 || Math.abs(cy - spawn.ty) > Math.floor(h / 2) + 4 + 3
-    if (Number.isFinite(s.steps) && clearOfArrival && accept(s)) all.push(s)
-  }
-  const pick: typeof all = []
-  for (const s of all.sort((a, b) => rank(b) - rank(a) || a.steps - b.steps)) {
-    if (pick.every(p => Math.max(Math.abs(p.center.tx - s.center.tx), Math.abs(p.center.ty - s.center.ty)) > 10)) pick.push(s)
-    if (pick.length === 4) break
-  }
-  return pick
-}
-
 // ── Work sides (WORLD VISUAL-2) and what a client has to hold (MAP-2) ─────────
 const standable = standableTile('pradera')
 const workSides = (() => {
@@ -222,12 +184,6 @@ const data = {
   spacing: { trees: nearestNeighbour(basicTrees), rocks: nearestNeighbour(basicRocks) },
   reachableBasic: Object.fromEntries([12, 24, 36, 48].map(r => [r, { trees: reachable(basicTrees, r).length, rocks: reachable(basicRocks, r).length }])),
   capacity: { respawnS, actionS, overheadS: OVERHEAD_S, walkTilesPerS: WALK_TPS },
-  zoneCandidates: {
-    // Natural forest: most round trees (the common-tree look), still walkable, a short walk away.
-    forest: candidates(new Set(['tree', 'palm']), 22, 18, s => s.props, s => s.steps <= 30 && s.open >= 0.6 && s.conflicts === 0),
-    // Open meadow for an authored quarry: flat, dry, free of caves, plots and the portal, a short walk away.
-    quarry: candidates(new Set(['rock']), 16, 14, s => s.open * 100 - s.steps, s => s.steps >= 10 && s.steps <= 26 && s.open >= 0.93 && s.conflicts === 0),
-  },
   backdrop: { total: count(p => p.backdrop), byKind: Object.fromEntries([...LOOKALIKE].map(kind => [kind, count(p => p.backdrop && p.kind === kind)])) },
   workSides, aoi,
   zones: RESOURCE_ZONES.map(zone => ({ id: zone.id, box: zone.box, entry: zone.entry, entrySteps: dist.get(key(zone.entry)) ?? null, nodes: props.filter(p => p.node && resourceZoneAt('pradera', p.tx, p.ty) === zone).length })),
@@ -243,10 +199,7 @@ const capacityRows = (label: string, trees: number, rocks: number, spacingTrees:
     halfEach: +Math.min(busyShare(trees, n / 2, actionS.chop, spacingTrees), busyShare(rocks, n / 2, actionS.mine, spacingRocks)).toFixed(2),
   }])),
 })
-const near = data.reachableBasic[24]
-const today = AFTER
-  ? capacityRows('zonas MAP-2', basicTrees.length, basicRocks.length, data.spacing.trees.median ?? 8, data.spacing.rocks.median ?? 8)
-  : capacityRows('today (≤24 steps)', near.trees, near.rocks, data.spacing.trees.median ?? 8, data.spacing.rocks.median ?? 8)
+const today = capacityRows('zonas MAP-2', basicTrees.length, basicRocks.length, data.spacing.trees.median ?? 8, data.spacing.rocks.median ?? 8)
 const alternatives = [
   capacityRows('minimal', 24, 18, 3, 3),
   capacityRows('recommended', 60, 45, 2.5, 2.5),
@@ -301,104 +254,7 @@ function png(c: ReturnType<typeof canvas>, file: string) {
   writeFileSync(join(OUT, file), Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk('IHDR', ihdr), chunk('IDAT', deflateSync(raw)), chunk('IEND', Buffer.alloc(0))]))
 }
 
-if (!AFTER) {
-// 1 · Today: every prop, and which of them work.
-const today1 = canvas()
-base(today1)
-for (const p of props) {
-  if (p.cls === 'basic') today1.ring(p, TREE_KINDS.has(p.kind) ? [255, 255, 255] : [255, 150, 0])
-  else if (p.cls === 'gated') today1.ring(p, [170, 90, 230])
-  else if (p.cls === 'unmapped') today1.ring(p, [30, 30, 30])
-}
-today1.circle(spawn, WORLD_VIEW_TILES, [230, 40, 40])
-writeFileSync(join(OUT, 'README.txt'), 'Generated by scripts/map/audit-pradera.ts. Do not edit by hand.\n')
-png(today1, 'pradera-today.png')
-
-// 2 · Reach: walking distance from the arrival, empty areas stand out.
-const reachMap = canvas()
-base(reachMap, true)
-for (const [k, d] of dist) {
-  const [tx, ty] = k.split(',').map(Number)
-  if (area.isSolid(tx, ty)) continue
-  const band = d <= 12 ? [255, 235, 120] : d <= 24 ? [255, 200, 90] : d <= 36 ? [240, 160, 80] : [215, 120, 80]
-  if ((tx + ty) % 2 === 0) reachMap.fillTile({ tx, ty }, band as unknown as RGB, 2)
-}
-for (const p of props) if (p.cls === 'basic') reachMap.fillTile(p, TREE_KINDS.has(p.kind) ? [0, 120, 0] : [230, 110, 0], 1)
-png(reachMap, 'pradera-reach.png')
-
-// 3 · Proposal: the recommended forest and quarry, the huerta, reserved space.
-const box = (center: Tile, w: number, h: number): [Tile, Tile] => [{ tx: center.tx - Math.floor(w / 2), ty: center.ty - Math.floor(h / 2) }, { tx: center.tx - Math.floor(w / 2) + w - 1, ty: center.ty - Math.floor(h / 2) + h - 1 }]
-const forestSite = data.zoneCandidates.forest[0]
-// The quarry: the shortest walk on the other side of the arrival from the forest (along x), so the two flows do not cross.
-const side = Math.sign(forestSite.center.tx - spawn.tx)
-const quarrySite = [...data.zoneCandidates.quarry].filter(c => Math.sign(c.center.tx - spawn.tx) !== side).sort((a, b) => a.steps - b.steps)[0]
-const overlaps = (a: [Tile, Tile], b: [Tile, Tile]) => a[0].tx <= b[1].tx && b[0].tx <= a[1].tx && a[0].ty <= b[1].ty && b[0].ty <= a[1].ty
-const quarryBox = box(quarrySite.center, quarrySite.w, quarrySite.h)
-// Space kept for later tiers: the northern meadow toward the snow, clear of every other box.
-const reserveSite = data.zoneCandidates.quarry.filter(c => c !== quarrySite && !overlaps(box(c.center, c.w, c.h), quarryBox) && !overlaps(box(c.center, c.w, c.h), [{ tx: -12, ty: -75 }, { tx: -8, ty: -70 }])).sort((a, b) => a.center.ty - b.center.ty)[0]
-const huertaReserve: [Tile, Tile] = [{ tx: -12, ty: -75 }, { tx: -8, ty: -70 }]
-const forestPines = (() => { const [a, b] = box(forestSite.center, forestSite.w, forestSite.h); let n = 0, open = 0; for (let ty = a.ty; ty <= b.ty; ty++) for (let tx = a.tx; tx <= b.tx; tx++) { if (decorAtArea('pradera', seed, tx, ty) === 'pine') n++; if (!area.isSolid(tx, ty) && !area.isWater(tx, ty) && tileTerrain(seed, tx, ty) !== T.TALL) open++ } return { pines: n, plantable: open } })()
-const plan = canvas()
-base(plan, true)
-for (const p of props) if (p.cls === 'basic') plan.fillTile(p, TREE_KINDS.has(p.kind) ? [0, 120, 0] : [230, 110, 0], 1)
-plan.rect(...box(forestSite.center, forestSite.w, forestSite.h), [0, 90, 0], 3)
-plan.rect(...box(quarrySite.center, quarrySite.w, quarrySite.h), [200, 90, 0], 3)
-plan.rect(...box(reserveSite.center, reserveSite.w, reserveSite.h), [120, 60, 200], 2)
-plan.rect(...huertaReserve, [120, 80, 40], 2)
-plan.rect({ tx: spawn.tx - 4, ty: spawn.ty - 4 }, { tx: spawn.tx + 4, ty: spawn.ty + 4 }, [220, 40, 40], 2)
-plan.circle(spawn, WORLD_VIEW_TILES, [230, 40, 40])
-png(plan, 'pradera-proposal.png')
-writeFileSync(join(OUT, 'proposal.json'), `${JSON.stringify({ forest: { ...forestSite, box: box(forestSite.center, forestSite.w, forestSite.h), ...forestPines }, quarry: { ...quarrySite, box: box(quarrySite.center, quarrySite.w, quarrySite.h) }, reserve: { ...reserveSite, box: box(reserveSite.center, reserveSite.w, reserveSite.h) }, huertaReserve, arrivalClear: [{ tx: spawn.tx - 4, ty: spawn.ty - 4 }, { tx: spawn.tx + 4, ty: spawn.ty + 4 }] }, null, 1)}
-`)
-
-// 4 · Annotated SVGs: the same maps with labels, routes and a legend.
-const cx = (tx: number) => (tx - X0 + 0.5) * PX
-const cy = (ty: number) => (ty - Y0 + 0.5) * PX
-const esc = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;')
-function label(t: Tile, text: string, color = '#111', dx = 8, dy = -8) {
-  return `<g font-family="sans-serif" font-size="12" font-weight="700"><text x="${cx(t.tx) + dx}" y="${cy(t.ty) + dy}" fill="#fff" stroke="#fff" stroke-width="3">${esc(text)}</text><text x="${cx(t.tx) + dx}" y="${cy(t.ty) + dy}" fill="${color}">${esc(text)}</text></g>`
-}
-const arrow = (a: Tile, b: Tile, color: string) => `<line x1="${cx(a.tx)}" y1="${cy(a.ty)}" x2="${cx(b.tx)}" y2="${cy(b.ty)}" stroke="${color}" stroke-width="3" stroke-dasharray="8 5" marker-end="url(#head)"/>`
-function svg(pngFile: string, overlay: string, legend: [string, string][], title: string) {
-  const b64 = readFileSync(join(OUT, pngFile)).toString('base64')
-  const W = SIZE * PX, H = SIZE * PX, legendH = 22 + legend.length * 18
-  const items = legend.map(([color, text], i) => `<rect x="12" y="${H + 30 + i * 18}" width="12" height="12" fill="${color}" stroke="#333"/><text x="30" y="${H + 40 + i * 18}" font-family="sans-serif" font-size="12">${esc(text)}</text>`).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H + legendH + 16}" viewBox="0 0 ${W} ${H + legendH + 16}">
-<defs><marker id="head" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#222"/></marker></defs>
-<rect width="100%" height="100%" fill="#fff"/>
-<image href="data:image/png;base64,${b64}" x="0" y="0" width="${W}" height="${H}" style="image-rendering:pixelated"/>
-${overlay}
-<text x="12" y="${H + 18}" font-family="sans-serif" font-size="13" font-weight="700">${esc(title)}</text>${items}
-</svg>
-`
-}
-const common: [string, string][] = [['#e62828', 'Llegada (spawn -5,-69); círculo = radio de vista 24'], ['#d23cdc', 'Portal a Ciudad (-5,-70)'], ['#785028', 'Huerta: 4 parcelas'], ['#3c2d28', 'Cuevas (dungeons), 3×2']]
-const caveLabels = caves.map((c, i) => label(c.anchor, `Cueva ${i + 1}`, '#3c2d28', 6, 18)).join('')
-writeFileSync(join(OUT, 'pradera-today.svg'), svg('pradera-today.png',
-  label(spawn, 'Llegada', '#c00', 10, 22) + label(PORTAL, 'Portal', '#a0a', 10, -6) + label(PLOTS[0], 'Huerta', '#785028', -52, -6) + caveLabels
-  + label({ tx: spawn.tx + 8, ty: spawn.ty - 10 }, 'Pradera abierta: casi sin recursos', '#333', 0, 0)
-  + label({ tx: spawn.tx - 30, ty: spawn.ty + 26 }, 'Bosque natural (pinos = nivel 12)', '#063', 0, 0)
-  + label({ tx: spawn.tx - 40, ty: spawn.ty - 40 }, 'Nieve', '#446', 0, 0) + label({ tx: spawn.tx + 36, ty: spawn.ty - 20 }, 'Mar', '#036', 0, 0),
-  [...common, ['#ffffff', 'Árbol talable (nivel 1): borde blanco'], ['#ff9600', 'Roca picable (nivel 1): borde naranja'], ['#aa5ae6', 'Nodo que pide más nivel (pino 12, carbón 10, hierro 20…)'], ['#1e1e1e', 'Nodo sin recurso SKILLS (no se puede trabajar)'], ['#2d6e2d', 'Árbol / pino sin nodo (decoración idéntica)'], ['#78787d', 'Roca sin nodo']],
-  'Pradera hoy — ventana 97×97 alrededor de la llegada'))
-writeFileSync(join(OUT, 'pradera-reach.svg'), svg('pradera-reach.png',
-  label(spawn, 'Llegada', '#c00', 10, 22)
-  + label({ tx: spawn.tx - 2, ty: spawn.ty - 3 }, 'Cuello: portal + huerta + llegada', '#c00', 8, -2)
-  + label({ tx: -6, ty: -64 }, 'Árbol más cercano: 7 pasos', '#060', 8, -4) + label({ tx: -5, ty: -77 }, 'Roca más cercana: 9 pasos', '#b50', 8, -4)
-  + label({ tx: spawn.tx + 14, ty: spawn.ty + 4 }, 'Zona vacía', '#333', 0, 0) + label({ tx: spawn.tx - 22, ty: spawn.ty - 10 }, 'Zona vacía', '#333', 0, 0),
-  [['#ffeb78', '≤ 12 pasos desde la llegada'], ['#ffc85a', '13–24 pasos'], ['#f0a050', '25–36 pasos'], ['#d77850', '37–48 pasos'], ['#007800', 'Árbol talable nivel 1'], ['#e66e00', 'Roca picable nivel 1']],
-  'Pradera hoy — distancia caminando (pasos) y recursos básicos'))
-writeFileSync(join(OUT, 'pradera-proposal.svg'), svg('pradera-proposal.png',
-  arrow(spawn, forestSite.center, '#060') + arrow(spawn, quarrySite.center, '#b50') + arrow(spawn, reserveSite.center, '#63c')
-  + label({ tx: forestSite.center.tx - 10, ty: forestSite.center.ty - 9 }, `BOSQUE 22×18 · ~60 árboles comunes · ${forestSite.steps} pasos`, '#060', 0, -4)
-  + label({ tx: quarrySite.center.tx - 7, ty: quarrySite.center.ty - 7 }, `CANTERA 16×14 · ~45 rocas · ${quarrySite.steps} pasos`, '#b50', 0, -4)
-  + label({ tx: reserveSite.center.tx - 7, ty: reserveSite.center.ty - 7 }, 'RESERVA: minerales de mayor nivel', '#63c', 0, -4)
-  + label({ tx: -12, ty: -75 }, 'Reserva huerta', '#785028', 0, -4) + label({ tx: spawn.tx - 4, ty: spawn.ty + 4 }, 'Llegada libre 9×9', '#c00', 0, 16) + caveLabels,
-  [...common, ['#005a00', 'Bosque recomendado: todo árbol redondo = Árbol común (nivel 1)'], ['#c85a00', 'Cantera recomendada: rocas colocadas, todas picables'], ['#783cc8', 'Reserva para recursos de mayor nivel'], ['#007800', 'Árboles talables hoy (referencia)'], ['#e66e00', 'Rocas picables hoy (referencia)']],
-  'Propuesta recomendada — bosque, cantera y espacio reservado'))
-
-}
-if (AFTER) {
+{
 // MAP-2 · The zones as built: every prop, nodes ringed, backdrop lookalikes grey.
 const zoneBox = (b: { x0: number; y0: number; x1: number; y1: number }): [Tile, Tile] => [{ tx: b.x0, ty: b.y0 }, { tx: b.x1, ty: b.y1 }]
 const built = canvas()
@@ -448,12 +304,12 @@ ${overlay}
   const zoneText = (id: string) => data.zones.find(z => z.id === id)!
   const forest = RESOURCE_ZONES.find(z => z.id === 'bosque')!, quarry = RESOURCE_ZONES.find(z => z.id === 'cantera')!
   const overlay = label(spawn, 'Llegada', '#c00', 10, 22) + label(PORTAL, 'Portal', '#a0a', 10, -6) + label(PLOTS[0], 'Huerta', '#785028', -52, -6)
-    + caves.map((c, i) => label(c.anchor, `Cueva ${i + 1}`, '#3c2d28', 6, 18)).join('')
+    + caves.map(c => label(c.anchor, 'Cueva (cerrada)', '#3c2d28', 6, 18)).join('')
     + label({ tx: forest.box.x0, ty: forest.box.y0 }, `BOSQUE · ${zoneText('bosque').nodes} nodos · entrada a ${zoneText('bosque').entrySteps} pasos`, '#060', 0, -6)
     + label({ tx: quarry.box.x0, ty: quarry.box.y0 }, `CANTERA · ${zoneText('cantera').nodes} rocas · entrada a ${zoneText('cantera').entrySteps} pasos`, '#b50', 0, -6)
     + RESERVED_AREAS.map(r => label({ tx: r.box.x0, ty: r.box.y0 }, r.id === 'reserva-minerales' ? 'RESERVA minerales' : 'Reserva huerta', '#63c', 0, -6)).join('')
   writeFileSync(join(OUT, 'pradera-zones.svg'), svg('pradera-zones.png', overlay,
-    [['#e62828', 'Llegada (spawn -5,-69); círculo = radio de vista 24'], ['#d23cdc', 'Portal a Ciudad (-5,-70)'], ['#785028', 'Huerta: 4 parcelas'], ['#3c2d28', 'Cuevas (sin cambios)'],
+    [['#e62828', 'Llegada (spawn -5,-69); círculo = radio de vista 24'], ['#d23cdc', 'Portal a Ciudad (-5,-70)'], ['#785028', 'Huerta: 4 parcelas'], ['#3c2d28', 'Cueva canónica (caves.js), 3×2'],
       ['#ffffff', 'Árbol común talable (nivel 1): borde blanco'], ['#aa5ae6', 'Pino (Talar 12): borde violeta'], ['#ff9600', 'Roca picable (nivel 1): borde naranja'],
       ['#96968f', 'Árbol / pino / roca de fondo (se dibuja apagado, no es recurso)'], ['#c4a06e', 'Corredores y rutas (tierra pisada)'], ['#783cc8', 'Reservas']],
     'Pradera después de MAP-2 — ventana 97×97 alrededor de la llegada'))
@@ -464,4 +320,17 @@ ${overlay}
 
 }
 
-process.stdout.write(`${JSON.stringify({ trees: data.trees, rocks: data.rocks, ratios: data.ratios, nearestBasicTrees: data.nearestBasicTrees.slice(0, 2), nearestBasicRocks: data.nearestBasicRocks.slice(0, 2), spacing: data.spacing, reachableBasic: data.reachableBasic, caves: data.caves, plots: data.plots, forest: data.zoneCandidates.forest, quarry: data.zoneCandidates.quarry, today, alternatives }, null, 1)}\n`)
+process.stdout.write(`${JSON.stringify({ trees: data.trees, rocks: data.rocks, ratios: data.ratios, nearestBasicTrees: data.nearestBasicTrees.slice(0, 2), nearestBasicRocks: data.nearestBasicRocks.slice(0, 2), spacing: data.spacing, reachableBasic: data.reachableBasic, caves: data.caves, plots: data.plots, today, alternatives }, null, 1)}\n`)
+
+// ── Cave check (CAVES-2): the one canonical cave, where it was decided, walkable to ──
+const caveProblems: string[] = []
+if (data.caves.length !== 1) caveProblems.push(`expected exactly one cave in Pradera, found ${data.caves.length}`)
+for (const cave of data.caves) {
+  if (cave.anchor.tx !== -26 || cave.anchor.ty !== -74) caveProblems.push(`cave anchored at (${cave.anchor.tx},${cave.anchor.ty}), expected (-26,-74)`)
+  if (cave.steps === null) caveProblems.push(`cave approach (${cave.approach.tx},${cave.approach.ty}) is not reachable from the arrival`)
+}
+if (caveProblems.length) {
+  process.stderr.write(`cave check failed:\n  ${caveProblems.join('\n  ')}\n`)
+  process.exit(1)
+}
+process.stderr.write(`cave check: ok — ${data.caves.map(c => `(${c.anchor.tx},${c.anchor.ty}), approach (${c.approach.tx},${c.approach.ty}) at ${c.steps} steps`).join('; ')}\n`)

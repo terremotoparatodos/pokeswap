@@ -1270,6 +1270,56 @@ function worldArea(areaId) {
   return Object.hasOwn(WORLD_AREAS, areaId) ? WORLD_AREAS[areaId] : null;
 }
 
+// services/realtime/src/world/caves.js
+var CAVE_ENTRANCE = Object.freeze({ CLOSED: "closed", OPEN: "open" });
+var CAVE_CLEARANCE = Object.freeze({ width: 3, depth: 3 });
+var tile = (tx, ty) => Object.freeze({ tx, ty });
+function defineCave({ id, areaId, anchor, width, depth, facing, interiorAreaId, entrance }) {
+  if (facing !== "down") throw new Error(`cave ${id}: only 'down' is supported`);
+  if (width % 2 !== 1 || width < 3 || depth < 2) throw new Error(`cave ${id}: needs an odd width \u2265 3 and a depth \u2265 2`);
+  const footprint = [];
+  for (let dy = 0; dy < depth; dy++) for (let dx = 0; dx < width; dx++) footprint.push(tile(anchor.tx + dx, anchor.ty - dy));
+  const centre = anchor.tx + Math.floor(width / 2);
+  const clearance = [];
+  for (let dy = 1; dy <= CAVE_CLEARANCE.depth; dy++) {
+    for (let dx = -Math.floor(CAVE_CLEARANCE.width / 2); dx <= Math.floor(CAVE_CLEARANCE.width / 2); dx++) clearance.push(tile(centre + dx, anchor.ty + dy));
+  }
+  return Object.freeze({
+    id,
+    areaId,
+    anchor: tile(anchor.tx, anchor.ty),
+    width,
+    depth,
+    facing,
+    /** Every tile the rock covers, front row first. */
+    footprint: Object.freeze(footprint),
+    /** The front-row centre: rock today, the portal of CAVES-3. */
+    mouth: tile(centre, anchor.ty),
+    /** The walkable tile in front of the mouth. */
+    approach: tile(centre, anchor.ty + 1),
+    /** The ground kept free in front of the mouth (includes the approach). */
+    clearance: Object.freeze(clearance),
+    /** The area the mouth will lead to. Not registered anywhere until CAVES-3. */
+    interiorAreaId,
+    entrance
+  });
+}
+var CAVES = Object.freeze([
+  defineCave({
+    id: "pradera-cueva-inicial",
+    areaId: "pradera",
+    anchor: { tx: -26, ty: -74 },
+    width: 3,
+    depth: 2,
+    facing: "down",
+    interiorAreaId: "cueva-inicial",
+    entrance: CAVE_ENTRANCE.CLOSED
+  })
+]);
+var key = (areaId, tx, ty) => `${areaId}:${tx}:${ty}`;
+var ROCK = new Set(CAVES.flatMap((cave) => cave.footprint.map((t) => key(cave.areaId, t.tx, t.ty))));
+var RESERVED = new Set(CAVES.flatMap((cave) => [...cave.footprint, ...cave.clearance].map((t) => key(cave.areaId, t.tx, t.ty))));
+
 // services/realtime/src/world/resourceZones.js
 var box = (x0, y0, x1, y1) => Object.freeze({ x0, y0, x1, y1 });
 var inBox = (b, tx, ty) => tx >= b.x0 && tx <= b.x1 && ty >= b.y0 && ty <= b.y1;

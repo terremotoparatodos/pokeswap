@@ -83,36 +83,18 @@
       ref="professionRef"
       :area-kind="hud.areaKind"
       :game="game"
-      :skills="dungeonsInWorld"
+      :skills="worldPlaytestFeaturesEnabled"
       :world="sharedWorld"
       :owned-supplies="playtestStore?.supplies.value"
       @overlay="(open: boolean) => (professionOpen = open)"
       @panel="onHudPanel"
     />
 
-    <component
-      :is="DungeonEntrances"
-      v-if="DungeonEntrances"
-      ref="dungeonRef"
-      :game="game"
-      :is-taken="professionClaims"
-      @enter="dungeonRun = $event"
-    />
-
-    <component
-      :is="DungeonRunPanel"
-      v-if="DungeonRunPanel && dungeonRun"
-      :entrance="dungeonRun"
-      :party="playtestStore?.party.value"
-      :inventory="playtestStore?.supplies.value"
-      @close="leaveDungeon"
-    />
-
     <WorldHintTray :hints="worldHints" />
 
     <component
       :is="ChatPanel"
-      v-if="ChatPanel && !dungeonRun && !playtestSurface"
+      v-if="ChatPanel && !playtestSurface"
       ref="chatRef"
       @open="(open: boolean) => { chatOpen = open; onHudPanel('chat', open) }"
     />
@@ -182,8 +164,7 @@ import { isPlaytest } from '../../playtest/playtestBuild'
 import { usePlaytestContext } from '../../playtest/state/playtestContext'
 import { playtestSurfaceFor, type PlaytestSurface } from '../../playtest/domain/cityFeatures'
 import type { PlaytestStore } from '../../playtest/state/usePlaytestStore'
-import type { AreaEntrance } from '../../dungeonEntrances/domain/entranceSpawns'
-import type { PokemonInstance } from '../../dungeonPrototype/domain/party'
+import { CaveMouthOverlay } from '../../caves/world/caveMouthOverlay'
 import type { SceneOverlay } from '../engine/sceneOverlay'
 import type { PerfCapture } from '../perf/usePerfCapture'
 
@@ -196,20 +177,19 @@ const PlaytestPerformanceHud = isPlaytest || performanceMode
 // PERF-1 capture panel and hooks: VITE_PERF=on builds only (see perf/usePerfCapture.ts).
 const PerfPanel = performanceMode ? defineAsyncComponent(() => import('../perf/PerfPanel.vue')) : null
 const perfCapture = shallowRef<PerfCapture | null>(null)
-// R31-B profession prototype: development builds, and Community Playtest 0.1,
-// where the same local session is what the Skills panel reads. A normal
-// production build still never mounts it.
+// World features that exist only in development builds and Community Playtest
+// 0.1: the professions layer, area chat, and the wait for them to mount. A
+// normal production build mounts none of them. (No Dungeon hangs off this any
+// more: since CAVES-2 the world only draws the closed Pradera cave, in every build.)
+const worldPlaytestFeaturesEnabled = import.meta.env.DEV || isPlaytest
+// R31-B profession prototype: in a playtest the same local session is what
+// the Skills panel reads. Same condition as the flag above, spelled out on the
+// import's own line on purpose: skillsIsolation.test.ts reads that line to
+// prove Skills is only reachable behind a build gate.
 const ProfessionWorldDemo = import.meta.env.DEV || isPlaytest ? defineAsyncComponent(() => import('../../skills/components/SkillsWorldLayer.vue')) : null
-// Dungeons appear physically in WildLands. Same two gates as the professions
-// above, for the same two reasons: a playtest build is where players meet them,
-// and a development build is where they are worked on. A normal production
-// build mounts neither, so nobody outside the playtest ever finds a cave.
-const dungeonsInWorld = import.meta.env.DEV || isPlaytest
-const DungeonEntrances = dungeonsInWorld ? defineAsyncComponent(() => import('../../dungeonEntrances/components/DungeonEntrances.vue')) : null
-const DungeonRunPanel = dungeonsInWorld ? defineAsyncComponent(() => import('../../dungeonEntrances/components/DungeonRunPanel.vue')) : null
-// Area chat rides the presence socket. Same gates again: playtest builds have
-// players to talk to, development builds have the server to talk to.
-const ChatPanel = dungeonsInWorld ? defineAsyncComponent(() => import('../../chat/components/ChatPanel.vue')) : null
+// Area chat rides the presence socket: playtest builds have players to talk
+// to, development builds have the server to talk to.
+const ChatPanel = worldPlaytestFeaturesEnabled ? defineAsyncComponent(() => import('../../chat/components/ChatPanel.vue')) : null
 // The city during the playtest: two doors open, the rest say why they are not.
 const CityPanel = isPlaytest ? defineAsyncComponent(() => import('../../playtest/components/CityPanel.vue')) : null
 
@@ -311,16 +291,8 @@ const professionRef = ref<{
 } | null>(null)
 const professionOpen = ref(false)
 
-// Community Playtest 0.1 only. With the flag off these stay null, the
-// components are never imported and every expression below folds away.
-const dungeonRef = ref<{
-  inspect: (target: WorldObjectTarget) => boolean
-  isWorldObject: (target: WorldObjectTarget) => boolean
-  placedObjects: (area: Area) => readonly PlacedObjectSpec[]
-  overlay: SceneOverlay
-  hint: WorldHint | null
-} | null>(null)
-const dungeonRun = shallowRef<AreaEntrance | null>(null)
+/** The cave mouths of `caves.js`: drawn in every build, because their rock collides in every build. */
+const caveOverlay = new CaveMouthOverlay({ player: () => game.value?.playerSnapshot() ?? null })
 
 // Every feature's hint in one tray above the area pill, out of the way while
 // the chat or a profession action card owns the bottom of the screen.
@@ -361,21 +333,18 @@ const onHudEscape = (event: KeyboardEvent) => {
   closeHudPanel()
 }
 const worldHints = computed(() => visibleWorldHints(
-  [dungeonRef.value?.hint, professionRef.value?.hint],
+  [professionRef.value?.hint],
   { chatOpen: chatOpen.value, actionOpen: professionRef.value?.actionOpen ?? false },
 ))
 
-/** Tiles the professions already own, so a cave never lands on a node or a bench. */
-const professionClaims = (area: Area, tx: number, ty: number): boolean =>
-  professionRef.value?.isWorldObject({ area, tx, ty }) ?? false
-
 /**
- * The engine takes one provider per world probe; the playtest has two. Asking
- * the refs per call rather than capturing them means a component that mounts
- * late is picked up without re-creating the game.
+ * The engine takes one provider per world probe. Asking the ref per call
+ * rather than capturing it means a component that mounts late is picked up
+ * without re-creating the game. Caves are not a provider: their rock is the
+ * shared terrain (`caves.js` through `isSolidAtArea`), not a mounted object.
  */
-const worldProbes = composeWorldProbes(() => [professionRef.value, dungeonRef.value])
-const hasWorldProviders = !!(ProfessionWorldDemo || DungeonEntrances)
+const worldProbes = composeWorldProbes(() => [professionRef.value])
+const hasWorldProviders = !!ProfessionWorldDemo
 
 /**
  * Session-only player state (coins, tools, party, boxes).
@@ -409,17 +378,6 @@ function openFeature(feature: LobbyFeature, origin: 'menu' | 'door'): void {
   playtestSurface.value = playtestSurfaceFor(feature)
 }
 
-/**
- * Coming out of a Dungeon. The party comes back as the expedition left it —
- * hurt, out of PP, maybe fainted — which is the whole reason the Centro
- * Pokémon exists. Nothing else crosses back: a capture made in there is
- * client-side loot and stays client-side loot.
- */
-function leaveDungeon(party?: readonly PokemonInstance[] | null): void {
-  playtestStore.value?.returnFromExpedition(party)
-  dungeonRun.value = null
-}
-
 function closePlaytestSurface(): void {
   playtestSurface.value = null
   if (playtestDoorFeature) game.value?.placeAtDoor(playtestDoorFeature)
@@ -428,7 +386,7 @@ function closePlaytestSurface(): void {
 
 const covered = computed(() =>
   panel.feature.value !== null || menuOpen.value || authOpen.value
-  || dungeonRun.value !== null || playtestSurface.value !== null)
+  || playtestSurface.value !== null)
 
 /**
  * Where the player is and what is on top of them, for the bug reporter.
@@ -445,7 +403,7 @@ const reduceMotion = ref(motionMedia.matches)
 const hidden = ref(document.visibilityState === 'hidden')
 
 watchEffect(() => {
-  if (isPlaytest) playtest.setSurface(dungeonRun.value ? 'dungeon' : playtestSurface.value?.kind ?? null)
+  if (isPlaytest) playtest.setSurface(playtestSurface.value?.kind ?? null)
   game.value?.setPaused(covered.value || plazaOpen.value || professionOpen.value)
   game.value?.setVisibilityPaused(hidden.value)
   game.value?.setReducedMotion(reduceMotion.value)
@@ -556,13 +514,14 @@ onMounted(async () => {
   created.setVisibilityPaused(hidden.value)
   created.setReducedMotion(reduceMotion.value)
   created.start()
-  // Playtest: the professions and the dungeon entrances both draw into the
-  // scene and the engine holds exactly one overlay. Compose after the children
-  // have mounted, so this is the installation that wins.
+  // The shared world, the cave mouths and (playtest) the professions all draw
+  // into the scene and the engine holds exactly one overlay. Compose after the
+  // children have mounted, so this is the installation that wins (the
+  // professions layer only exists when the playtest features are on).
   // WORLD-1: the shared world draws first, so a node that is depleted for
   // everyone is a stump whatever a local overlay would have drawn there.
-  if (dungeonsInWorld) await nextTick()
-  const parts = [sharedWorld.overlay, professionRef.value?.overlay, dungeonRef.value?.overlay]
+  if (worldPlaytestFeaturesEnabled) await nextTick()
+  const parts = [sharedWorld.overlay, caveOverlay, professionRef.value?.overlay]
     .filter((part): part is SceneOverlay => !!part)
   created.setSceneOverlay(parts.length === 1 ? parts[0] : new CompositeOverlay(...parts))
   loading.value = false
