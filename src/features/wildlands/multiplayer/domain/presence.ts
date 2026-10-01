@@ -1,10 +1,10 @@
 import type { Dir } from '../../engine/characters'
 
-export type PresenceAreaId = 'ciudad-corazon' | 'pradera'
+export type PresenceAreaId = 'ciudad-corazon' | 'pradera' | 'cueva-inicial'
 
-/** R30 has one shared town and one shared wild zone; no product instances. */
+/** One shared town, one shared wild zone and (CAVES-3) one shared cave interior; no product instances. */
 export function isPresenceAreaId(areaId: string): areaId is PresenceAreaId {
-  return areaId === 'ciudad-corazon' || areaId === 'pradera'
+  return areaId === 'ciudad-corazon' || areaId === 'pradera' || areaId === 'cueva-inicial'
 }
 export interface RemotePresenceActor {
   id: string

@@ -3,6 +3,7 @@ import { authenticateSupabase, authorizedCompanion } from '../auth/supabaseAuth.
 import { ChatLog, acceptChat, chatIntent, chatMessage } from '../chat/chat.js'
 import { CONNECTION_LIMIT, hasCapacity } from '../presence/capacity.js'
 import { areaTransition, stepAllowed } from '../presence/areaTransition.js'
+import { AREA_TRANSITION_DENIED } from '../protocol/crossing.js'
 import { applyMove } from '../presence/movement.js'
 import { ReconnectCache } from '../presence/reconnectCache.js'
 import { visibleActors } from '../presence/interest.js'
@@ -178,7 +179,7 @@ export class PresenceRoom extends Room {
     // for the area it asked for and reconciles to where it actually is.
     const arrival = areaTransition(actor, intent.areaId)
     if (!arrival) {
-      this.reject(client, 'area transition denied', 'area')
+      this.reject(client, AREA_TRANSITION_DENIED, 'area')
       this.sendSnapshot(client, actor)
       return
     }
