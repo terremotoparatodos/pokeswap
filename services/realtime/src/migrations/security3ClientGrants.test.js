@@ -25,7 +25,7 @@ const MIRROR = repo('scripts/integration/rc03-staging/01_prod_mirror.sql')
 const MIRROR_FUNCTIONS = repo('scripts/integration/rc03-staging/02_prod_mirror_functions.sql')
 const VIOLATIONS = repo('scripts/security-3/client-grants-violations.sql')
 const SNAPSHOT = repo('scripts/security-3/grants-snapshot.sql')
-const SECURITY3_FILE = '20261001020637_security3_close_client_writes.sql'
+const SECURITY3_FILE = '20261001032040_security3_close_client_writes.sql'
 const SECURITY3 = `${MIGRATIONS_DIR}/${SECURITY3_FILE}`
 const migration = name => `${MIGRATIONS_DIR}/${name}`
 

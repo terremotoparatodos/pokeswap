@@ -239,13 +239,18 @@ tables in the public schema:
 | `rate_limits` | None (DEFINER fn only) | None | None | None |
 | `kofi_payments` | ⚠️ **No RLS** | ⚠️ **No RLS** | ⚠️ **No RLS** | ⚠️ **No RLS** |
 
-¹ Migration `20261001020637_security3_close_client_writes.sql` (SECURITY-3, not applied to hosted
-yet) revokes INSERT/UPDATE/DELETE/TRUNCATE on both tables from `PUBLIC`, `anon` and
+¹ Migration `20261001032040_security3_close_client_writes.sql` (SECURITY-3) — **applied and verified in
+production, registered by hosted as `20261001032040`**; the local file was renamed from `20261001020637_…` to match
+(pure rename, identical content). The client-privilege violations query went from 19 rows to 0. It
+revokes INSERT/UPDATE/DELETE/TRUNCATE on both tables from `PUBLIC`, `anon` and
 `authenticated`, and client EXECUTE on the market RPCs, the latent 005/008/009 RPCs and the
 dungeon RPCs of 010/011 (`award_dungeon_reward`, `consume_dungeon_energy`). The policies stay; the
 privileges no longer let a client use them. The dungeon RPCs do not exist in production and the
 `dungeon-reward`/`dungeon-start` Edge Functions are not deployed: they are closed preventively.
 Dungeon must reintroduce server-side authority later; never grant them to `authenticated`.
+`anon`/`authenticated` still hold `MAINTAIN`, `REFERENCES` and `TRIGGER` on `pokemon_xp` and
+`pokedex_entries` (Supabase defaults). PostgREST does not expose them and clients have no direct SQL
+connection; cleaning them up is separate debt for a new migration, never an edit of this one.
 
 ### 2.2 Notable policy gaps
 

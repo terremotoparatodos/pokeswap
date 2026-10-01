@@ -1,6 +1,6 @@
 -- SECURITY-3: read-only snapshot of every ACL entry on the objects the migration
 -- touches. Run it before and after applying
--- 20261001020637_security3_close_client_writes.sql and diff the two results:
+-- 20261001032040_security3_close_client_writes.sql and diff the two results:
 -- only rows whose grantee is PUBLIC, anon or authenticated may disappear, and
 -- no row may appear except a postgres/service_role privilege that was held
 -- only through PUBLIC before.

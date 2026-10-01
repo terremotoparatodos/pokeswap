@@ -1,5 +1,5 @@
 -- SECURITY-3: read-only check. Lists every client privilege that must not exist
--- after 20261001020637_security3_close_client_writes.sql. Zero rows = closed.
+-- after 20261001032040_security3_close_client_writes.sql. Zero rows = closed.
 --
 -- Safe to run anywhere: one SELECT over the catalog, no writes, no locks beyond
 -- catalog reads. Objects that do not exist are simply absent from the result.

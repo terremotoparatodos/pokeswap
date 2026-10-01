@@ -1,7 +1,19 @@
 # SECURITY-3 HOTFIX — Retirar Free Claim y cerrar escrituras cliente
 
 Rama `security/retire-free-claim-client-writes-0.3`, base `origin/integration/world-skills-0.3`
-(`0274d30`). Nada de esta rama está desplegado ni aplicado en hosted.
+(`0274d30`).
+
+> **Estado vigente (2026-10-01).** Producción aplicó y verificó la migración SECURITY-3. Hosted la
+> registró como **`20261001032040 security3_close_client_writes`**; el archivo local se renombró de
+> `20261001020637_…` a `supabase/migrations/20261001032040_security3_close_client_writes.sql` para coincidir
+> (renombre puro: mismo blob, contenido idéntico byte por byte; el SQL aplicado no cambió).
+> `client-grants-violations.sql` pasó de **19 filas a 0** en producción.
+>
+> Siguen otorgados a `anon`/`authenticated` sobre `pokemon_xp` y `pokedex_entries` los privilegios
+> `MAINTAIN`, `REFERENCES` y `TRIGGER` (defaults de Supabase; la migración nunca los tocó, §6.2).
+> No están expuestos por PostgREST, y los clientes no tienen conexión SQL directa, así que no son
+> explotables hoy. Su limpieza es **deuda separada**: se resuelve en una migración nueva, **nunca
+> modificando esta migración histórica**.
 
 ## 1. Contexto (FACT, verificado en producción por la estación principal)
 
@@ -48,7 +60,7 @@ Tests (`handler.test.ts`, 14):
   comportamiento falla con un handler que responde 200, otorga un reclamo, salta auth, acepta
   sin token, lee el cuerpo, filtra el error de auth, varía entre llamadas o rompe OPTIONS.
 
-## 3. Migración `20261001020637_security3_close_client_writes.sql`
+## 3. Migración `20261001032040_security3_close_client_writes.sql` (antes `20261001020637_…`)
 
 Versión única y posterior a todas (`20260930230308` era la última). Un solo bloque `DO`:
 
@@ -224,20 +236,20 @@ tokens ni ledger, ni ninguna función SQL existente. Los cuatro slots legacy blo
    `transactions`/`activity_feed` con `free_claim`.
 4. Rollback: re-desplegar el respaldo de v19 (reabre la vulnerabilidad).
 
-## 9. Plan para aplicar solo esta migración (no ejecutado)
+## 9. Plan para aplicar solo esta migración (ejecutado por la estación principal; hosted la registró como `20261001032040`)
 
 **No usar `supabase db push`** (§6.6).
 
 1. Foto previa (solo lectura) en el SQL Editor: `scripts/security-3/grants-snapshot.sql` y
    `scripts/security-3/client-grants-violations.sql` (se espera ver filas de `authenticated` en ambas
    tablas y en las tres RPC de mercado).
-2. Aplicar únicamente `supabase/migrations/20261001020637_security3_close_client_writes.sql`, en una
+2. Aplicar únicamente `supabase/migrations/20261001032040_security3_close_client_writes.sql` (entonces `20261001020637_…`), en una
    transacción: o `psql "$DB_URL" -v ON_ERROR_STOP=1 --single-transaction -f <archivo>`, o el SQL Editor
    / `apply_migration` con el contenido exacto del archivo. El `NOTICE` debe decir 2 tablas y 3
    sobrecargas (o más, si hosted tiene sobrecargas no versionadas; las de Dungeon no existen allí).
-3. Registrar la versión: con `psql`, `supabase migration repair --status applied 20261001020637`
-   (solo escribe el historial). Si se usó `apply_migration` y hosted asignó otra versión, renombrar
-   el archivo local a esa versión (como en `20260930230308`) y actualizar `SECURITY3_FILE` en el test.
+3. Registrar la versión. **Resultado:** hosted asignó `20261001032040`; el archivo local se renombró a esa
+   versión (como en `20260930230308`) y `SECURITY3_FILE` en el test apunta al nombre nuevo. No hace
+   falta `migration repair`.
 4. Verificar: `client-grants-violations.sql` → **0 filas**; diff de `grants-snapshot.sql`: solo
    desaparecen filas `PUBLIC`/`anon`/`authenticated` de INSERT/UPDATE/DELETE/TRUNCATE/EXECUTE.
    Con un usuario de prueba: `UPDATE pokemon_xp` → permiso denegado; `SELECT` propio funciona;
