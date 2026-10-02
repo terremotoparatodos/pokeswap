@@ -16,6 +16,8 @@
 //
 // Uso: node docs/design/world-location-1/cas-model.mjs
 
+import process from 'node:process'
+
 const RULES = {
   epoch: {
     claim: row => ({ ...row, epoch: row.epoch + 1, seq: 0 }),
@@ -35,7 +37,7 @@ const RULES = {
 
 // Eventos. A escribió a1 (entregado antes) y tiene a2 en vuelo (escritura tardía).
 // B hace claim y luego escribe b1 y b2 (b2 puede adelantar a b1 en la red).
-function scenario(rule) {
+function scenario() {
   const A_SKEW = 2_000
   return [
     { id: 'A2', who: 'A', w: { epoch: 1, seq: 2, ts: 1_000 + A_SKEW, pos: 'a2' } },
@@ -57,7 +59,7 @@ function run(ruleName) {
   const rule = RULES[ruleName]
   let total = 0
   const failures = { I1: 0, I2: 0, I3: 0 }
-  for (const order of orders(scenario(ruleName))) {
+  for (const order of orders(scenario())) {
     total++
     // Estado inicial: A ya escribió a1 con epoch 1.
     let row = { epoch: 1, seq: 1, ts: 900 + 2_000, pos: 'a1' }
