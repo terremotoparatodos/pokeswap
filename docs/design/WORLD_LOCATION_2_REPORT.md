@@ -6,7 +6,7 @@
 > **Revisión 2 (2026-10-02):** fixes de tests y documentación sobre `b3fbab3`: F1 (R2 por la rama `UPDATE`), F2 (garantía exacta de B2 y condición de activación) y F3 (mutaciones deterministas). **Sin cambios de código productivo, SQL ni semántica** (§R2).
 > **Condición de activación (F2):** no habilitar `on` públicamente hasta medir en `shadow` la carrera entre dos sockets vivos (§5.1, §12). Si su frecuencia no es despreciable, diseñar identidad de sesión persistida antes de activar.
 > **Nada aplicado ni desplegado:** ni migración hosted, ni `world-authority`, ni secretos, ni flag en el entorno oscuro, ni merges. No se tocaron Playtest, producción, el gate, los testers ni otros worktrees.
-> **Staging sigue pendiente:** Docker/WSL no funcionan en esta máquina y no se intentó repararlos ni liberar espacio. **No se declara staging aprobado.**
+> **Staging local ejecutado y aprobado (2 de octubre de 2026, sobre `f03fbb1`):** `staging.test.js` + `locationStaging.test.js` contra un stack Supabase local real, 31/31 en Node 24.19.0 y en Node 22.23.2, 0 fallos, 0 omitidos; los 10 tests de ubicación corrieron en PostgreSQL (§S). La rama se descongeló solo para este commit documental. **Sigue sin ejecutarse** el benchmark contra el stack real (el benchmark no tiene ese adaptador), D-L10 en Colyseus Cloud sigue pendiente y `on` sigue bloqueado por F2 hasta medir en `shadow`.
 > Etiquetas: **FACT** (ejecutado o leído), **INFERENCE** (deducido, a verificar), **NO EJECUTADO** (gate pedido que no pudo correr).
 
 ## 0. Resumen
@@ -35,7 +35,8 @@
   - **54/54 mutaciones** detectadas por el test y la causa esperados, sin ningún `timedOut`, con el árbol restaurado (revisión 2);
   - simulación de **dos procesos reales**: 17/17 chequeos;
   - benchmark de 100 jugadores: p99 del event loop dentro de ±1,2 % de `off` y **≤ 1 invocación/s**.
-- **No ejecutado:** el stack Supabase local y el staging completo (§8).
+- **Staging local** (FACT, 2 de octubre de 2026, §S): 31/31 en Node 24 y en Node 22, sin omitidos, con los 10 tests de ubicación ejecutados en PostgreSQL real (grants efectivos, 20 claims concurrentes → 1 aplicado + 19 `conflict`, R2 tardío, lotes cruzados sin deadlock, dos instancias con 4001, autoridad caída, cascada desde Auth).
+- **No ejecutado:** el benchmark contra el stack Supabase real (§S.5) y D-L10 en Colyseus Cloud (§12).
 - **Cambios respecto de la auditoría:**
   - el `await` del claim no va antes del reemplazo atómico: el brief pidió reservar la sesión sin esperar la base e hidratar después (§3);
   - el claim es condicional (§5.1);
@@ -90,6 +91,81 @@ El test de F1 hace exactamente esto:
 | M44 | «R2 in the database» (PGlite) **y** «on, 1 instance(s): an abandoned second-round claim (UPDATE, expected = E)» (sala) | sala: `the zombie answers conflict` | CAUGHT en las dos corridas (39 s), árbol restaurado |
 | M50 | primero «a claim given up (claimWaitMs)…» | `a claim on a hung store did not settle within 2000 ms` | CAUGHT en 2 s (antes: 240 s y un *unhandled rejection* del mutante), `timedOut: false`, árbol restaurado |
 
+## S. Staging local (2 de octubre de 2026)
+
+FACT: ejecutado sobre `f03fbb1`, sin cambios de código, tests, SQL ni herramientas. Solo stack local; ninguna acción hosted.
+
+### S.1 Entorno
+
+| Componente | Versión |
+| --- | --- |
+| Docker Engine | 29.8.0 (Docker Desktop 4.91.0) |
+| WSL | 3.0.1 (kernel 6.18.40.1) |
+| Supabase CLI | 2.114.0 |
+| Postgres / PostgREST / Auth / Edge Runtime | 17.6.1.158 / v16.1 / v2.195.0 / 1.74.3 (Deno 2.1.4) |
+| Node | 24.19.0 y 22.23.2 (`npx --offline node@22`) |
+
+**Bloqueo previo resuelto:** una actualización automática de WSL (2.7.14 → 3.0.1) había fallado el 1 de octubre y dejó `WSLService` colgado en `StopPending`; un reinicio de Windows la completó. No se tocó la configuración de Docker ni el disco de datos.
+
+### S.2 Procedimiento
+
+El loop de `scripts/integration/rc03-staging/README.md`, en un directorio temporal fuera del repo:
+1. stack nuevo (`supabase start` sin studio, imgproxy, vector, logflare, mailpit, realtime, storage-api, postgres-meta ni supavisor) con el espejo de producción (`01_prod_mirror.sql`, `02_prod_mirror_functions.sql`);
+2. las 8 migraciones bajo prueba, una por una con `ON_ERROR_STOP` y transacción única, hasta `20261001220000_world_player_locations.sql`: todas con código 0 (solo NOTICEs esperables del espejo, por ejemplo `pokemon_xp` inexistente en SECURITY-3);
+3. `supabase functions serve --no-verify-jwt` con un `WORLD_AUTHORITY_SECRET` descartable (sin secreto: 401);
+4. `node --test --test-concurrency=1 --test-reporter=spec staging.test.js locationStaging.test.js` con las variables `RC03_*` locales.
+
+### S.3 Resultados
+
+| Corrida | Tests | Aprobados | Fallos | Cancelados | Omitidos |
+| --- | --- | --- | --- | --- | --- |
+| Node 24.19.0 | 31 | 31 | 0 | 0 | 0 |
+| Node 22.23.2 | 31 | 31 | 0 | 0 | 0 |
+
+**Los 10 tests de ubicación corrieron de verdad en PostgreSQL** (0 omitidos; cada nombre aparece aprobado en las dos salidas):
+
+| Test | Qué probó contra el stack real |
+| --- | --- |
+| Clientes no leen, escriben ni llaman nada del store | **Grants efectivos** vistos desde PostgREST: `anon` y un jugador autenticado sin acceso a `world_player_locations` ni a sus RPC (caso 11) |
+| Operaciones de ubicación exigen el secreto | 401 sin secreto; un lote malformado nunca llega a la base |
+| 20 claims condicionales concurrentes con la misma expectativa | **1 aplicado + 19 `conflict`** |
+| R2 en Postgres real | Un claim abandonado que llega tarde nunca valla a la sesión viva del journal |
+| Dos lotes cruzados en órdenes opuestos | **Sin deadlock**, respuesta por usuario |
+| Dos instancias (dos journals por el Edge real) | El claim más nuevo valla al escritor viejo (caso 5) |
+| Autoridad caída al guardar y de vuelta | La misma fila se aplica una vez, sin duplicado (caso 15) |
+| Borrado del usuario de Auth | **Cascada**: se borra su fila de ubicación (caso 27) |
+| Salas por el Edge real | Restauración tras reinicio y dos instancias que se vallan con **4001** (casos 1, 3, 5, 16) |
+| **Autoridad caída** al entrar | El jugador entra en < 1,6 s en Ciudad, `unclaimed`, y reclama cuando vuelve (caso 14) |
+
+Los 21 tests restantes (`staging.test.js`: slots, market, tablas y funciones de WORLD, settlement, concurrencia, atomicidad, ownership, feature gate, WORLD sobre Supabase, identidad) también pasaron en las dos corridas.
+
+### S.4 Errores del log de la función: correlación comprobada
+
+El handler registra **toda** falla de RPC con el nombre de la función (`world-authority/index.ts`: `world-authority rpc failed <fn> <code>`). El log tuvo exactamente 10 líneas de error, todas `world_commit_work`, **5 por corrida**, y ninguna de otra RPC: 0 de `world_location_claim` o `world_location_save` (un `conflict` es una respuesta, no un error), ni de grants (42501), Auth, Edge Runtime o infraestructura.
+
+Los tests solo esperan un 500 de `commit_work` en 5 llamadas, y `locationStaging.test.js` no llama a `commit_work`. Cada código coincide con la validación SQL (`20261001051958_world_multi_yield.sql`, la última definición de `world_commit_work`), y el orden y los tiempos coinciden con el orden de los tests:
+
+| # | Test que lo provoca a propósito | Entrada inválida | Código | Origen en SQL | Node 24 (UTC) | Node 22 (UTC) |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | «world-authority: nothing works without the server secret; errors leak nothing» (el error de base llega como código pelado) | recompensa con cantidad 0 | P0001 | `invalid_reward` | 15:31:57,68 | 15:32:34,36 |
+| 2 | «settlement: X once …» (reintento absurdo) | XP 999.999 (> 100.000) | P0001 | `invalid_xp` | 15:31:57,87 | 15:32:34,48 |
+| 3 | «atomicity: …», falla 1 | 2.ª recompensa con cantidad 0 | P0001 | `invalid_reward` | 15:31:58,26 | 15:32:34,84 |
+| 4 | «atomicity: …», falla 2 | estado de nodo inválido | 23514 | `CHECK` de `state` | 15:31:58,29 | 15:32:34,87 |
+| 5 | «atomicity: …», falla 3 | id de material inválido | 23514 | `CHECK` de `material_id` | 15:31:58,32 | 15:32:34,90 |
+
+Los cinco tests que los provocan exigen el 500 y que no quede efecto (XP, material, settlement ni nodo), y pasaron. Las tres fallas de atomicidad salen en 60 ms, en el orden del bucle del test.
+
+Otras líneas, fuera de las corridas:
+- 15:34:54 UTC, unos 2 min después del último request: aviso de reloj y terminación del isolate. INFERENCE: reciclado del worker inactivo del Edge Runtime; no había ningún request en curso.
+- `unexpected EOF` al final: cuando Docker Desktop se cerró desde la bandeja (16:15 UTC), más de 40 min después de los tests.
+
+### S.5 Lo que este staging no cubre
+
+- **Benchmark contra el stack Supabase real: no ejecutado.** `scripts/benchmark-navigation.mjs --location` solo soporta la autoridad local (el handler real sobre PGlite); no tiene un adaptador hacia el stack. Agregarlo es un cambio de herramientas fuera de este commit.
+- **El benchmark local `off`/`shadow`/`on` sí pasó (§7), pero no reemplaza esa medición:** no pasa por PostgREST, Edge Runtime ni la red local.
+- **D-L10 en Colyseus Cloud sigue pendiente** (solapamiento de procesos y `onShutdown`; §11, §12).
+- **`on` sigue bloqueado por F2** hasta medir en `shadow` la carrera entre dos sockets vivos (§12.11).
+
 ## 1. Commits
 
 | SHA | Commit |
@@ -117,7 +193,9 @@ El test de F1 hace exactamente esto:
 | `b3fbab3` | **R** · `docs`: informe y baselines de la revisión 1 |
 | `9aaf9ee` | **R2** · `test(presence)`: R2 por la rama `UPDATE`, zombi de segunda ronda (F1) |
 | `a4bea8e` | **R2** · `test(world-location)`: tests colgados deterministas y veredictos del runner (F3) |
-| *(este)* | **R2** · `docs`: garantía exacta de B2, condición de activación, M22/M50 y gates (F2) |
+| `f7a358d` | **R2** · `docs`: garantía exacta de B2, condición de activación, M22/M50 y gates (F2) |
+| `f03fbb1` | **R2** · `chore`: reporter `spec` en el runner de mutaciones; alcance por proceso de la regla del epoch más nuevo |
+| *(este)* | **S** · `docs`: resultado del staging local (§S) |
 
 Commits nuevos, sin amend ni rebase.
 
@@ -382,12 +460,12 @@ Además, `world.playerData` suma `locationClaim` y `locationSave` (llamadas, fal
 | --- | --- |
 | Reproducción invertida de R1, R2 y R3 | Fallaron sobre el código anterior a cada corrección y pasan después (§R). La segunda revisión lo volvió a comprobar sobre una copia de `7c3b723`: 12/12 por la causa correcta |
 | R2 por la rama `UPDATE` (F1: `on`/`shadow` × una/dos instancias) | 4/4 |
-| Tests de ubicación (sala con persistencia, journal, journal + PGlite, política, flag, layout, adaptadores, migración PGlite, staging de ubicación) | 126/126; 10 omitidos (staging de ubicación) |
+| Tests de ubicación (sala con persistencia, journal, journal + PGlite, política, flag, layout, adaptadores, migración PGlite, staging de ubicación) | 126/126; 10 omitidos en esta corrida sin stack (staging de ubicación, ejecutado aparte: §S) |
 | PGlite de la migración (`worldLocations.database.test.js`) | 20/20 |
 | Contratos Deno `world-authority` | 11/11 |
 | Deno `_shared` (guard de webhooks, `--allow-read`) | 27/27 |
 | Guard de webhooks: tests y `check` | 28/28 y ✓ |
-| **Realtime completo, Node 24** (v24.19.0) | 461 aprobados, 0 fallos, 0 cancelados, 31 omitidos (21 de staging + 10 de staging de ubicación) |
+| **Realtime completo, Node 24** (v24.19.0) | 461 aprobados, 0 fallos, 0 cancelados, 31 omitidos (21 de staging + 10 de staging de ubicación, sin stack; ejecutados aparte: §S) |
 | **Realtime completo, Node 22** (`npx --offline node@22`, v22.23.2) | 461 / 0 / 0 / 31 |
 | Revisión 1, primera corrida completa | 1 fallo en los dos Node: la cota de reloj del test de costo de M2 (376 ms con la suite en paralelo). Corregido en `11c31b0` sin tocar código de producto |
 | Vitest completo | 191 archivos, 1829/1829 |
@@ -407,7 +485,7 @@ Además, `world.playerData` suma `locationClaim` y `locationSave` (llamadas, fal
 | **Simulación de dos procesos** (`scripts/world-location/two-instances.mjs`) | **17/17** (§11) |
 | Mutaciones: M22, M44 y M50 individuales | CAUGHT por el test y la causa esperados (2 s, 39 s y 2 s), `timedOut: false`, árbol restaurado (§R2) |
 | Mutaciones completas | **54/54** detectadas, 0 `timedOut`, `restored: true`, sin procesos `node` residuales, árbol limpio (§10) |
-| **Supabase local y staging completo** (`staging.test.js` + `locationStaging.test.js`) | **NO EJECUTADO.** Docker Desktop responde «unable to start», `wsl.exe` no responde y C: está al 98 %. No se tocó WSL, Docker ni el disco. Los 10 tests de staging de ubicación, actualizados al claim condicional (uno nuevo: R2 en Postgres real), cargan y se omiten sin las variables |
+| **Supabase local y staging completo** (`staging.test.js` + `locationStaging.test.js`; 2 de octubre de 2026, sobre `f03fbb1`) | **31/31 en Node 24.19.0 y en Node 22.23.2**, 0 fallos, 0 omitidos; los 10 de ubicación ejecutados en PostgreSQL; los 10 errores del log de la función, correlacionados con tests negativos (§S) |
 
 ## 9. Casos de la matriz (§7 de la auditoría)
 
@@ -421,9 +499,9 @@ Además, `world.playerData` suma `locationClaim` y `locationSave` (llamadas, fal
 | 6–8 | Escritura tardía, lotes reordenados, reintento | PGlite |
 | 9 | Posición manipulada | PGlite (`CHECK`s, filas inválidas), política, sala |
 | 10 | Payload del cliente con área o casilla | sala (ignorado) |
-| 11 | Cliente lee o escribe la tabla o la RPC | PGlite (`anon`/`authenticated` + catálogo + check hosted); staging **no ejecutado** |
+| 11 | Cliente lee o escribe la tabla o la RPC | PGlite (`anon`/`authenticated` + catálogo + check hosted); staging: grants efectivos desde PostgREST (§S) |
 | 12–13 | Área retirada, layout cambiado | política, sala, layout (M2: cualquier dato canónico de la Pradera) |
-| 14 | Autoridad caída o lenta al entrar | sala (1,5 s reales, Ciudad, `unclaimed`, sin saves; claim tardío adoptado sin mover), dos procesos (claim retenido); staging no ejecutado |
+| 14 | Autoridad caída o lenta al entrar | sala (1,5 s reales, Ciudad, `unclaimed`, sin saves; claim tardío adoptado sin mover), dos procesos (claim retenido); staging: < 1,6 s en Ciudad y claim al volver (§S) |
 | 15 | Autoridad caída al guardar | journal (backoff, mismo seq, `duplicate` confirmado) |
 | 16 | Doble reconexión | journal (claims encadenados, entrada retenida), sala (tres joins seguidos) |
 | 17 | Transición + desconexión | PGlite (los dos órdenes), sala |
@@ -436,9 +514,9 @@ Además, `world.playerData` suma `locationClaim` y `locationSave` (llamadas, fal
 | 24 | Rollback a `off` | sala (en caliente), flag (al arrancar), suites de CAVES-4 con `off` |
 | 25 | Playtest 0.2 intacto | no se tocó `main`, el tag, Playtest ni secretos (sin acciones remotas salvo el push de esta rama) |
 | 26 | Cliente anterior a CAVES-3 | política, sala |
-| 27 | Usuario borrado | PGlite (cascada); staging no ejecutado |
+| 27 | Usuario borrado | PGlite (cascada); staging: cascada desde Auth (§S) |
 | R1 | `shadow` + `stale` | sala (sin desconexión ni cambio de presencia, cache, `wouldFence`; reemplazo local; sesión legítima en otra instancia) |
-| R2 | Claim abandonado tardío | sala (`on`/`shadow` × 1/2 instancias), journal, PGlite, dos procesos; staging (escrito, no ejecutado) |
+| R2 | Claim abandonado tardío | sala (`on`/`shadow` × 1/2 instancias), journal, PGlite, dos procesos; staging: R2 tardío en PostgreSQL (§S) |
 | R3 | Claim tardío tras publicar | sala (nada, chat, `cancelWork`, paso rechazado, área rechazada; claim antes de admitir sí restaura) |
 
 Además, con controles negativos: backoff acotado, cola coalescida y acotada, `stale` → 4001 solo en `on`, lote parcial por usuario, jitter, lotes ≤ 200, conflicto con límite de rondas y `off`/`shadow`/`on`.
@@ -496,15 +574,13 @@ Cada una rompe una protección, exige que su test **falle** y restaura el archiv
 
 **Qué no prueba:**
 - que Colyseus Cloud solape procesos en un deploy;
-- que llame a `onShutdown` (INFERENCE §2.7, a verificar en staging);
+- que llame a `onShutdown` (INFERENCE §2.7, a verificar en un deploy real: D-L10; el staging local no lo cubre);
 - el apagado ordenado por señal: en Windows `SIGTERM`/`SIGINT` matan el proceso sin handler, así que el flush de apagado se probó a nivel de sala (§8).
 
 ## 12. Limitaciones y riesgos
 
-1. **Staging (Supabase local) no ejecutado.**
-   - Sin cubrir en Postgres real y PostgREST: grants, concurrencia real de claims condicionales (20 a la vez con la misma expectativa), lotes cruzados, cascada desde Auth y Edge Runtime real.
-   - Solo los cubren PGlite y la simulación.
-   - Es el primer gate cuando Docker funcione. **No se declara aprobado.**
+1. **Staging (Supabase local) ejecutado y aprobado** el 2 de octubre de 2026 (§S): grants, 20 claims condicionales concurrentes, R2 tardío, lotes cruzados, dos instancias con 4001, autoridad caída y cascada desde Auth, en Postgres, PostgREST y Edge Runtime reales.
+   - **Benchmark contra el stack real: no ejecutado.** El benchmark actual no soporta ese adaptador; el benchmark local `off`/`shadow`/`on` (§7) pasó, pero no reemplaza esa medición (§S.5).
 2. **D-L10 sin verificar** en Colyseus Cloud: solapamiento y `onShutdown`.
 3. **Pérdida ante una caída simultánea** de autoridad y proceso:
    - se pierde el último checkpoint (≤ ~12 s) y, si la autoridad sigue caída, también los cruces pendientes;
@@ -539,18 +615,16 @@ Cada una rompe una protección, exige que su test **falle** y restaura el archiv
   - La sesión nueva en A reclama igual un epoch nuevo y guarda donde realmente está, así que la fila no queda corrupta; pero el jugador ve la posición vieja de A.
   - Opciones futuras: invalidar o descartar la entrada de la cache cuando el claim de la sesión nueva devuelve una fila guardada por un epoch posterior al de la sesión cacheada, o comparar epochs antes de usarla.
 
-## 13. Plan separado (nada de esto se hizo)
+## 13. Plan separado (salvo el punto 2, nada de esto se hizo)
 
 1. **Revisión:** leer §R y los commits de la revisión. Mirar sobre todo:
    - `locationJournal.js` (`#claimOnce`, `#mayClaim`, `claimsInFlight`);
    - la función `world_location_claim`;
    - `locationJoin.js` (`fence`, `left`, `#adopt`);
    - `layoutVersion.js`/`terrain.js`.
-2. **Staging local** (antes de integrar, cuando Docker funcione):
-   - aplicar la migración en el loop de `scripts/integration/rc03-staging/README.md`;
-   - `supabase functions serve`;
-   - `staging.test.js` + `locationStaging.test.js` (incluye R2 en Postgres real y 20 claims concurrentes condicionales);
-   - repetir el benchmark contra el stack.
+2. **Staging local — HECHO** el 2 de octubre de 2026 (§S):
+   - migración aplicada en el loop de `scripts/integration/rc03-staging/README.md`, `supabase functions serve`, `staging.test.js` + `locationStaging.test.js`: 31/31 en Node 24 y 22;
+   - **pendiente:** repetir el benchmark contra el stack; necesita un adaptador nuevo en el benchmark (cambio de herramientas, brief aparte).
 3. **Integración:**
    - merge a `integration/world-skills-0.3` con el flag en `off`;
    - volver a correr los gates sobre el merge.
