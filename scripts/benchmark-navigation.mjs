@@ -3,6 +3,15 @@
 // WebSockets against a real realtime process (benchmark mode, never production).
 //
 //   node scripts/benchmark-navigation.mjs --players 100 --duration 60 [--probes 0.05] [--seed 4]
+//   node scripts/benchmark-navigation.mjs --players 100 --duration 60 --location off|shadow|on
+//
+// `--location` (WORLD LOCATION-2): the server uses a local authority (the real
+// world-authority handler on an embedded Postgres, scripts/world-location/
+// localAuthority.mjs) with WORLD_LOCATION_PERSISTENCE set to that mode, and the
+// walkers sign in with tokens (UUID players that persist) instead of synthetic
+// ids; everyone starts in Ciudad and walks out. Compare the three modes with
+// the same seed: only the flag differs. The output adds the authority's
+// location calls and rows per second.
 //
 // Every walker plans with the shared navigation (`routeBetween`), so a
 // legitimate run expects zero refusals. `--probes p` makes each action a
@@ -22,12 +31,16 @@ import { Client } from '@colyseus/sdk'
 import { ARRIVALS } from '../services/realtime/src/protocol/arrival.js'
 import { isWalkable, portalAt, portalTo } from '../services/realtime/src/world/navigation.js'
 import { routeBetween } from '../services/realtime/src/world/testing.js'
+import { startLocalAuthority } from './world-location/localAuthority.mjs'
 
 const option = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : fallback }
 const players = Math.max(1, Math.min(100, Number(option('players', 100))))
 const durationMs = Math.max(5, Number(option('duration', 60))) * 1000
 const port = Number(option('port', 2600))
 const probes = Math.max(0, Math.min(1, Number(option('probes', 0))))
+const locationMode = option('location', null)
+if (locationMode !== null && !['off', 'shadow', 'on'].includes(locationMode)) throw new Error('--location must be off, shadow or on')
+const authority = locationMode === null ? null : await startLocalAuthority({ secret: 'b'.repeat(48) })
 let seed = Number(option('seed', 4)) >>> 0
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const percentile = (values, p) => { if (!values.length) return 0; const s = [...values].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.ceil(s.length * p) - 1)] }
@@ -65,6 +78,7 @@ const server = spawn(process.execPath, ['services/realtime/src/index.js'], {
   env: {
     ...process.env, PORT: String(port), HEALTH_PORT: String(port + 1), NODE_ENV: 'development', PRESENCE_BENCHMARK: 'on',
     WORLD_DEMO_SKILLS: 'on', WORLD_WILD_CATALOG: 'synthetic', ALLOWED_ORIGINS: 'http://localhost:5173',
+    ...(authority ? authority.env(locationMode) : {}),
   },
   stdio: ['ignore', 'ignore', 'inherit'],
 })
@@ -76,9 +90,10 @@ try {
   const joinStarted = performance.now()
   for (let i = 0; i < players; i++) {
     const startArea = AREAS[i % AREAS.length]
-    const room = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate('presence', {
-      benchmark: { id: `nav-${i}`, username: `Ruta ${i}`, area: startArea }, presenceProtocol: 2,
-    })
+    const identity = authority
+      ? { token: (await authority.player()).token, worldProtocol: 3 }
+      : { benchmark: { id: `nav-${i}`, username: `Ruta ${i}`, area: startArea } }
+    const room = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate('presence', { ...identity, presenceProtocol: 2 })
     room.reconnection.enabled = false
     const state = {
       room, i, startArea, areaId: null, tx: 0, ty: 0, sequence: 0, ready: false,
@@ -123,6 +138,7 @@ try {
       state.route = []
     })
     for (const type of ['chat:history', 'chat:line', 'world:snapshot', 'world:batch', 'world:wild', 'player:state']) room.onMessage(type, () => {})
+    room.onMessage('*', () => {})
     room.onError(() => { state.errors++ })
     room.onLeave(code => { if (code !== 1000 && code !== 4000) state.errors++ })
     room.send('presence:ready')
@@ -132,6 +148,7 @@ try {
   await delay(500)
   const distribution = Object.fromEntries(AREAS.map(a => [a, clients.filter(c => c.areaId === a).length]))
   const before = await metrics()
+  const callsBefore = authority ? { ...authority.calls } : null
   const started = performance.now()
 
   const sendMove = (state, direction) => {
@@ -187,6 +204,7 @@ try {
   await delay(300)
   const seconds = (performance.now() - started) / 1000
   const after = await metrics()
+  const callsAfter = authority ? { ...authority.calls } : null
   const finalDistribution = Object.fromEntries(AREAS.map(a => [a, clients.filter(c => c.areaId === a).length]))
   for (const state of clients) await state.room.leave()
 
@@ -210,8 +228,21 @@ try {
       eventLoopDelayMs: after.eventLoopDelayMs, memoryMb: after.memoryMb,
       memoryPeakMb: { rss: Math.max(0, ...samples.map(s => s.rss ?? 0)), heapUsed: Math.max(0, ...samples.map(s => s.heap ?? 0)) },
       loopP99MaxSampleMs: Math.max(0, ...samples.map(s => s.loopP99 ?? 0)),
+      ...(after.location ? { location: { mode: after.location.mode, effective: after.location.effective, restores: after.location.restores, journal: after.location.journal } } : {}),
     },
+    ...(authority ? {
+      authority: {
+        mode: locationMode,
+        locationClaims: callsAfter.location_claim - callsBefore.location_claim,
+        locationSaves: callsAfter.location_save - callsBefore.location_save,
+        locationRows: callsAfter.location_rows - callsBefore.location_rows,
+        savesPerSecond: round((callsAfter.location_save - callsBefore.location_save) / seconds),
+        rowsPerSecond: round((callsAfter.location_rows - callsBefore.location_rows) / seconds),
+        joinClaims: callsBefore.location_claim,
+      },
+    } : {}),
   }, null, 2))
 } finally {
   server.kill()
+  await authority?.close()
 }

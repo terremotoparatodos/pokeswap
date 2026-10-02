@@ -1,0 +1,122 @@
+// WORLD LOCATION-2 — negative controls. Each critical protection is broken on
+// purpose, its test is run and MUST fail, and the file is restored byte for
+// byte. The tree must be clean before and after (checked with git).
+//
+//   node scripts/world-location/mutations.mjs            all
+//   node scripts/world-location/mutations.mjs M3 M12     some
+//
+// Prints one line per mutation and a JSON summary; exit 0 only if every
+// mutation was caught and the tree is restored.
+
+import { spawnSync } from 'node:child_process'
+import { readFileSync, writeFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
+
+const root = fileURLToPath(new URL('../..', import.meta.url))
+const RT = 'services/realtime/'
+const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-timeout=60000', ...files] })
+const deno = file => ({ cwd: root, cmd: 'deno', args: ['test', file] })
+
+const MIGRATION = 'supabase/migrations/20261001220000_world_player_locations.sql'
+const HANDLER = 'supabase/functions/world-authority/handler.ts'
+const JOURNAL = `${RT}src/presence/locationJournal.js`
+const POLICY = `${RT}src/presence/locationPolicy.js`
+const SERVICE = `${RT}src/presence/locationService.js`
+const JOIN = `${RT}src/rooms/locationJoin.js`
+const ROOM = `${RT}src/rooms/PresenceRoom.js`
+const ADAPTER = `${RT}src/world/persistence/playerData.js`
+
+const DB_TEST = node('src/world/persistence/worldLocations.database.test.js')
+const JOURNAL_TEST = node('src/presence/locationJournal.test.js')
+const JOURNAL_DB_TEST = node('src/presence/locationJournal.database.test.js')
+const POLICY_TEST = node('src/presence/locationPolicy.test.js')
+const ROOM_TEST = node('src/rooms/PresenceRoomLocation.test.js')
+const FLAG_TEST = node('src/presence/locationFlag.test.js')
+const ADAPTER_TEST = node('src/world/persistence/locationAdapters.test.js')
+const LAYOUT_TEST = node('src/world/layoutVersion.test.js')
+const DENO_TEST = deno('supabase/functions/world-authority/handler.test.ts')
+
+const MUTATIONS = [
+  // Database: CAS, trust boundary, NULL safety, epoch reset.
+  { id: 'M1', what: 'save CAS ignores the epoch (a fenced session could write)', file: MIGRATION, from: 'WHERE user_id = v_user AND epoch = v_epoch AND seq < v_seq', to: 'WHERE user_id = v_user AND seq < v_seq', test: DB_TEST },
+  { id: 'M2', what: 'save CAS ignores the seq (retries and reordered batches overwrite)', file: MIGRATION, from: 'WHERE user_id = v_user AND epoch = v_epoch AND seq < v_seq', to: 'WHERE user_id = v_user AND epoch = v_epoch', test: DB_TEST },
+  { id: 'M3', what: 'client privileges on the table are not revoked', file: MIGRATION, from: 'REVOKE ALL ON TABLE public.world_player_locations FROM PUBLIC, anon, authenticated, service_role;', to: '-- (mutated: no revoke)', test: DB_TEST },
+  { id: 'M4', what: 'clients keep EXECUTE on the claim function', file: MIGRATION, from: 'REVOKE ALL ON FUNCTION public.world_location_claim(uuid) FROM PUBLIC, anon, authenticated;', to: '-- (mutated: no revoke)', test: DB_TEST },
+  { id: 'M5', what: 'a missing key slips through (NULL <> compared)', file: MIGRATION, from: "IF jsonb_typeof(v_r.row -> 'epoch') IS DISTINCT FROM 'number'", to: "IF jsonb_typeof(v_r.row -> 'epoch') <> 'number'", test: DB_TEST },
+  { id: 'M6', what: 'a claim does not reset seq (a restarted writer is stuck as duplicate)', file: MIGRATION, from: 'DO UPDATE SET epoch = l.epoch + 1, seq = 0, updated_at = now()', to: 'DO UPDATE SET epoch = l.epoch + 1, updated_at = now()', test: JOURNAL_DB_TEST },
+  { id: 'M7', what: 'service_role keeps DELETE (no revoke from it)', file: MIGRATION, from: 'FROM PUBLIC, anon, authenticated, service_role;', to: 'FROM PUBLIC, anon, authenticated;', test: DB_TEST },
+  // Edge Function: validation before the database.
+  { id: 'M8', what: 'location_save accepts out-of-range tiles', file: HANDLER, from: 'if (!counter(r.epoch) || !counter(r.seq) || !tile(r.tx) || !tile(r.ty)) return null', to: 'if (!counter(r.epoch) || !counter(r.seq)) return null', test: DENO_TEST },
+  { id: 'M9', what: 'location_save accepts a repeated player in one batch', file: HANDLER, from: '    if (seen.has(key)) return null\n', to: '', test: DENO_TEST },
+  { id: 'M10', what: 'location_claim accepts any user id', file: HANDLER, from: "        if (typeof body.userId !== 'string' || !UUID.test(body.userId)) return json(400, { error: 'invalid_user' })\n        return json(200, { claim:", to: "        return json(200, { claim:", test: DENO_TEST },
+  // Adapter: per-user parsing.
+  { id: 'M11', what: 'an answer about another user confirms the sent one', file: ADAPTER, from: "given.get(row.userId.toLowerCase()) ?? 'unknown'", to: "given.get(row.userId.toLowerCase()) ?? [...given.values()][0] ?? 'unknown'", test: ADAPTER_TEST },
+  // Journal.
+  { id: 'M12', what: 'the client moveSequence becomes the seq', file: JOURNAL, from: 'const seq = reuse ? pending.attempt.seq : ++entry.seq', to: 'const seq = reuse ? pending.attempt.seq : (++entry.seq, pending.actor.moveSequence || entry.seq)', test: JOURNAL_TEST },
+  { id: 'M13', what: 'a batch is confirmed whole (results not read per user)', file: JOURNAL, from: "const result = results.get(row.userId.toLowerCase()) ?? 'unknown'", to: "const result = 'applied'", test: JOURNAL_TEST },
+  { id: 'M14', what: 'a stale answer does not fence the writer', file: JOURNAL, from: "      } else if (result === 'stale') {", to: "      } else if (result === 'stale-disabled') {", test: JOURNAL_TEST },
+  { id: 'M15', what: 'an unclaimed session saves anyway', file: JOURNAL, from: "if (!pending || pending.inflight || entry.status !== 'claimed' || pending.session !== entry.session) return false", to: 'if (!pending || pending.inflight || pending.session !== entry.session) return false', test: JOURNAL_TEST },
+  { id: 'M16', what: 'memory is unbounded (no eviction)', file: JOURNAL, from: '    if (this.entries.size <= this.maxEntries) return\n    const idle', to: '    return\n    const idle', test: JOURNAL_TEST },
+  { id: 'M17', what: 'no backoff after a failed batch', file: JOURNAL, from: 'this.nextFlushAt = this.now() + backoffMs(this.failures - 1)', to: 'this.nextFlushAt = 0', test: JOURNAL_TEST },
+  { id: 'M18', what: 'no checkpoint jitter (stampede)', file: JOURNAL, from: 'return hash % span', to: 'return 0 * (hash % span)', test: JOURNAL_TEST },
+  { id: 'M19', what: 'batches larger than 200 rows', file: JOURNAL, from: 'export const MAX_BATCH_ROWS = 200', to: 'export const MAX_BATCH_ROWS = 1_000', test: JOURNAL_TEST },
+  { id: 'M20', what: 'a changed location reuses the seq of a failed attempt', file: JOURNAL, from: 'pending.attempt.epoch === entry.epoch && sameLocation(pending.attempt.location, location)', to: 'pending.attempt.epoch === entry.epoch', test: JOURNAL_TEST },
+  { id: 'M21', what: 'claims of one player are not chained', file: JOURNAL, from: 'const attempt = entry.chain.then(() => this.#claimOnce(entry, session))', to: 'const attempt = this.#claimOnce(entry, session)', test: JOURNAL_TEST },
+  { id: 'M22', what: 'the shutdown flush waits past its deadline', file: JOURNAL, from: "const within = async promise => (await Promise.race([promise.then(() => true), sleep(remaining()).then(() => false)]))", to: 'const within = async promise => { await promise; return true }', test: node('--test-timeout=8000', 'src/presence/locationJournal.test.js') },
+  { id: 'M23', what: 'an unclaimed session retries its claim without backoff', file: JOURNAL, from: 'entry.nextClaimAt = this.now() + backoffMs(entry.claimAttempts) + jitterFor(session.userId, 250)', to: 'entry.nextClaimAt = this.now()', test: JOURNAL_TEST },
+  // Restore policy.
+  { id: 'M24', what: 'a restored tile is not checked (solid, portal, unreachable)', file: POLICY, from: "  if (!isSafeLanding(areaId, tx, ty)) return placed(areaId, arrival, 'tile')\n", to: '', test: POLICY_TEST },
+  { id: 'M25', what: 'a changed layout version is ignored (D-L8)', file: POLICY, from: "  if (location.layoutVersion !== layoutVersion(areaId)) return placed(areaId, arrival, 'layout')\n", to: '', test: POLICY_TEST },
+  { id: 'M26', what: 'an unknown area is trusted', file: POLICY, from: "  if (!isPersistableArea(areaId)) return placed(TOWN_AREA_ID, TOWN_SPAWN, 'area')\n", to: "  if (!isPersistableArea(areaId) && !String(areaId).startsWith('tundra')) return placed(TOWN_AREA_ID, TOWN_SPAWN, 'area')\n", test: POLICY_TEST },
+  { id: 'M27', what: 'pre-CAVES-3 clients are restored inside a cave (D-L6)', file: POLICY, from: '  if (cave && !(Number.isInteger(worldProtocol) && worldProtocol >= WORLD_PROTOCOL)) {', to: '  if (false) {', test: POLICY_TEST },
+  { id: 'M28', what: 'a Dungeon floor is saved as is (D-L9)', file: POLICY, from: "const DUNGEON_FLOOR = /^dg:([a-z0-9][a-z0-9-]{0,47}):([1-9][0-9]{0,2})$/", to: "const DUNGEON_FLOOR = /^$/", test: POLICY_TEST },
+  // Room: connection rules.
+  { id: 'M29', what: 'no hydration: a provisional Ciudad position is published at once', file: JOIN, from: 'return Boolean(session && !live && !restored && this.location().restores)', to: 'return false', test: ROOM_TEST },
+  { id: 'M30', what: 'the stale writer is not disconnected', file: JOIN, from: '    client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n  }\n}', to: '  }\n}', test: ROOM_TEST },
+  { id: 'M31', what: 'a fenced session is remembered for reconnects', file: ROOM, from: '      if (rememberable) reconnectingActors.remember(id, actor)', to: '      reconnectingActors.remember(id, actor)', test: ROOM_TEST },
+  { id: 'M32', what: 'a late claim moves a player who already acted', file: JOIN, from: 'const fresh = session.pristine && location.now() - session.enabledAt <= location.lateApplyWindowMs', to: 'const fresh = true', test: ROOM_TEST },
+  { id: 'M33', what: 'the hydration timeout is not 1.5 s', file: SERVICE, from: 'export const HYDRATION_TIMEOUT_MS = 1_500', to: 'export const HYDRATION_TIMEOUT_MS = 3_000', test: ROOM_TEST },
+  { id: 'M34', what: 'guests and synthetic ids persist', file: JOURNAL, from: "export const persistableIdentity = userId => typeof userId === 'string' && UUID.test(userId)", to: "export const persistableIdentity = userId => typeof userId === 'string'", test: ROOM_TEST },
+  { id: 'M35', what: 'moves during hydration are accepted (actor visible early)', file: ROOM, from: "      locationJoin.hydrate(this, client, session, join)\n      return", to: "      locationJoin.hydrate(this, client, session, join)\n      actors.set(auth.userId, this.freshActor(auth, characterId))\n      return", test: ROOM_TEST },
+  // Flag.
+  { id: 'M36', what: 'the flag accepts loose values', file: SERVICE, from: "return LOCATION_MODES.includes(value) ? value : 'off'", to: "return LOCATION_MODES.includes(String(value).trim().toLowerCase()) ? String(value).trim().toLowerCase() : 'off'", test: FLAG_TEST },
+  { id: 'M37', what: 'off still claims (rollback not immediate)', file: SERVICE, from: "this.effective = this.mode === 'off' ? 'off' : supportsLocation(store) ? this.mode : 'unavailable'", to: "this.effective = supportsLocation(store) ? (this.mode === 'off' ? 'shadow' : this.mode) : 'unavailable'", test: ROOM_TEST },
+  // Load (found by the 100-player benchmark).
+  { id: 'M39', what: 'two location batches per second (500 ms tick)', file: JOURNAL, from: 'export const LOCATION_TICK_MS = 1_000', to: 'export const LOCATION_TICK_MS = 500', test: FLAG_TEST },
+  { id: 'M40', what: 'layout fingerprints computed on the first live save, not at start', file: SERVICE, from: '    if (this.active) for (const areaId of PERSISTABLE_AREAS) layoutVersion(areaId)\n', to: '', test: FLAG_TEST },
+  // Layout versions are frozen.
+  { id: 'M38', what: 'a cave map change without a new frozen version', file: `${RT}src/world/caveLayouts.js`, from: "  '##....###.....##...##',\n  '##....###.....##...##',", to: "  '##....###.....##...##',\n  '##....##......##...##',", test: LAYOUT_TEST },
+]
+
+function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }
+const clean = () => git('status', '--porcelain', '--untracked-files=no', '--', 'supabase', 'services', 'scripts').stdout.trim() === ''
+
+const wanted = new Set(process.argv.slice(2))
+const selected = MUTATIONS.filter(m => wanted.size === 0 || wanted.has(m.id))
+if (!clean()) { console.error('the tree is not clean: commit or stash first'); process.exit(2) }
+
+const results = []
+for (const m of selected) {
+  const path = `${root}${m.file}`
+  const original = readFileSync(path)
+  const text = original.toString('utf8').replace(/\r\n/g, '\n')
+  const count = text.split(m.from).length - 1
+  if (count !== 1) { results.push({ id: m.id, caught: false, error: `pattern found ${count} times` }); console.log(`${m.id} PATTERN ${count}x — ${m.what}`); continue }
+  writeFileSync(path, text.replace(m.from, m.to))
+  const started = Date.now()
+  let run
+  try {
+    run = spawnSync(m.test.cmd, m.test.args, { cwd: m.test.cwd, encoding: 'utf8', timeout: 240_000, shell: m.test.cmd === 'deno' })
+  } finally {
+    writeFileSync(path, original)
+  }
+  const out = `${run.stdout ?? ''}${run.stderr ?? ''}`
+  const failed = (out.match(/^✖ (?!failing tests)(.+?) \(\d/mu) ?? out.match(/^(.+?) \.\.\. .*FAILED/mu))?.[1]?.trim() ?? null
+  const caught = run.status !== 0
+  results.push({ id: m.id, what: m.what, caught, exit: run.status, firstFailure: failed, ms: Date.now() - started })
+  console.log(`${m.id} ${caught ? 'CAUGHT' : 'MISSED'} (${Math.round((Date.now() - started) / 1000)} s) — ${m.what}${failed ? ` → ${failed}` : ''}`)
+}
+const restored = clean()
+const caught = results.filter(r => r.caught).length
+console.log(JSON.stringify({ total: results.length, caught, restored, results }, null, 2))
+process.exit(caught === results.length && restored ? 0 : 1)

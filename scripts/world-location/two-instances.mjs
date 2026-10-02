@@ -29,67 +29,25 @@
 // Exit code 0 only if every check passes. Prints a JSON summary.
 
 import { spawn } from 'node:child_process'
-import { createServer } from 'node:http'
 import net from 'node:net'
-import { randomUUID } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { Client } from '@colyseus/sdk'
+import { startLocalAuthority } from './localAuthority.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const realtime = `${root}services/realtime/src/`
-const { openLocalDatabase, serviceQuery } = await import(pathToFileURL(`${realtime}world/persistence/dev/localDatabase.js`).href)
-const { handleWorldAuthority } = await import(pathToFileURL(`${root}supabase/functions/world-authority/handler.ts`).href)
 const { routeBetween } = await import(pathToFileURL(`${realtime}world/testing.js`).href)
 const { portalTo } = await import(pathToFileURL(`${realtime}world/navigation.js`).href)
 const { ARRIVALS, TOWN_FROM_PRADERA } = await import(pathToFileURL(`${realtime}protocol/arrival.js`).href)
 
-const SECRET = 'l'.repeat(48)
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const checks = []
 const check = (name, ok, detail = '') => { checks.push({ name, ok: Boolean(ok), detail }); if (!ok) console.error(`FAIL ${name} ${detail}`) }
 
-// ── The authority and the auth stand-in ──────────────────────────────────
+// ── The authority and the auth stand-in (scripts/world-location/localAuthority.mjs) ──
 
-const db = await openLocalDatabase()
-const query = serviceQuery(db)
-const rpc = async (fn, args) => {
-  try {
-    const names = Object.keys(args)
-    const sql = fn === 'world_load_nodes'
-      ? 'SELECT coalesce(json_agg(n), \'[]\'::json) AS data FROM public.world_load_nodes() n'
-      : `SELECT public.${fn}(${names.map((name, i) => `${name} => $${i + 1}`).join(', ')}) AS data`
-    const values = names.map(name => (args[name] !== null && typeof args[name] === 'object' ? JSON.stringify(args[name]) : args[name]))
-    const { rows } = await query(sql, values)
-    return { data: rows[0]?.data ?? null, error: null }
-  } catch (error) {
-    return { data: null, error: { message: error.message } }
-  }
-}
-const tokens = new Map()
-const calls = { claim: 0, save: 0 }
-const authority = createServer(async (request, response) => {
-  const chunks = []
-  for await (const chunk of request) chunks.push(chunk)
-  const body = Buffer.concat(chunks)
-  const send = (status, json) => { response.writeHead(status, { 'content-type': 'application/json' }); response.end(JSON.stringify(json)) }
-  if (request.url.startsWith('/functions/v1/world-authority')) {
-    const op = (() => { try { return JSON.parse(body.toString()).op } catch { return null } })()
-    if (op === 'location_claim') calls.claim++
-    if (op === 'location_save') calls.save++
-    const reply = await handleWorldAuthority(new Request('http://local/world-authority', { method: request.method, headers: request.headers, body }), { secret: SECRET, rpc })
-    response.writeHead(reply.status, { 'content-type': 'application/json' })
-    response.end(await reply.text())
-    return
-  }
-  if (request.url.startsWith('/auth/v1/user')) {
-    const token = String(request.headers.authorization ?? '').replace(/^Bearer /, '')
-    const id = tokens.get(token)
-    return id ? send(200, { id, user_metadata: { username: `p${id.slice(0, 4)}` } }) : send(401, {})
-  }
-  send(200, []) // REST reads: no wild catalog, no companions
-})
-await new Promise(resolve => authority.listen(0, '127.0.0.1', resolve))
-const base = `http://127.0.0.1:${authority.address().port}`
+const local = await startLocalAuthority({ secret: 'l'.repeat(48) })
+const { query } = local
 
 // ── Realtime processes ───────────────────────────────────────────────────
 
@@ -110,12 +68,7 @@ async function waitForPort(port, timeoutMs = 20_000) {
 async function startRealtime(name, port) {
   const child = spawn(process.execPath, [`${realtime}index.js`], {
     cwd: root,
-    env: {
-      ...process.env, PORT: String(port), HEALTH_PORT: String(port + 1), NODE_ENV: 'development', PRESENCE_BENCHMARK: 'on',
-      SUPABASE_URL: base, SUPABASE_PUBLISHABLE_KEY: 'local-publishable', WORLD_WILD_CATALOG: 'synthetic',
-      WORLD_AUTHORITY_URL: `${base}/functions/v1/world-authority`, WORLD_AUTHORITY_SECRET: SECRET,
-      WORLD_LOCATION_PERSISTENCE: 'on', WORLD_PLAYERDATA: '',
-    },
+    env: { ...process.env, PORT: String(port), HEALTH_PORT: String(port + 1), NODE_ENV: 'development', PRESENCE_BENCHMARK: 'on', ...local.env('on') },
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   let log = ''
@@ -169,10 +122,7 @@ async function row(userId) {
 
 // ── Scenario ─────────────────────────────────────────────────────────────
 
-const userId = randomUUID()
-const token = `tok-${randomUUID()}`
-tokens.set(token, userId)
-await db.query('INSERT INTO auth.users VALUES ($1)', [userId])
+const { userId, token } = await local.player()
 const summary = {}
 
 let A = await startRealtime('A', 2611)
@@ -213,14 +163,13 @@ try {
   check('B\': a restart restores the last saved tile', again.self.areaId === 'ciudad-corazon' && again.self.tx === TOWN_FROM_PRADERA.tx && again.self.ty === TOWN_FROM_PRADERA.ty, JSON.stringify(again.self))
   check('B\': epoch 3', (await row(userId))?.epoch === 3, JSON.stringify(await row(userId)))
   again.room.leave()
-  summary.authorityCalls = { ...calls }
+  summary.authorityCalls = { ...local.calls }
 } catch (error) {
   check('scenario ran to the end', false, String(error?.stack ?? error))
 } finally {
   if (A) await kill(A)
   if (B) await kill(B)
-  authority.close()
-  await db.close()
+  await local.close()
 }
 
 const passed = checks.every(c => c.ok)
