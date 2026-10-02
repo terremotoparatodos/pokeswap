@@ -241,7 +241,7 @@ Commits nuevos, sin amend ni rebase.
 - **Identidad:** solo `userId` de Supabase (UUID) verificado en el join. Invitados, `benchmark-*` y cualquier id no UUID no persisten nunca. Nada del payload del cliente (área, coordenadas, layout, epoch, seq) se usa: el journal lee el actor autoritativo.
 - **Epoch:**
   - lo emite la base, con un claim condicional (§5.1);
-  - los claims de un mismo jugador se **encadenan** en el proceso, y la sesión más nueva siempre obtiene el epoch más alto.
+  - los claims de un mismo jugador se **encadenan** dentro de un proceso: entre las sesiones que ese mismo proceso coordina, la más nueva siempre obtiene el epoch más alto. Entre instancias no hay tal coordinación: con dos sockets todavía vivos en procesos distintos gana el último claim confirmado por la base, no necesariamente la conexión más nueva (F2, §5.1).
 - **Seq:**
   - es un contador del journal por epoch, que empieza en 0 tras cada claim. **Nunca `moveSequence`** (test con `moveSequence = 2^53−1`; mutación M12);
   - un reintento de la **misma** ubicación reusa `(epoch, seq)`;

@@ -20,7 +20,9 @@ import { fileURLToPath } from 'node:url'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const RT = 'services/realtime/'
-const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-timeout=60000', ...files] })
+// The spec reporter is requested explicitly: without it Node picks one by itself (TAP when stdout is
+// not a TTY on some versions), and the verdicts below parse spec's `✖ <name> (<ms>ms)` lines.
+const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-reporter=spec', '--test-timeout=60000', ...files] })
 const deno = file => ({ cwd: root, cmd: 'deno', args: ['test', file] })
 /** The same command, with the failure it must produce: `expect` a test name (prefix), `first` it must be the first failure, `cause` a regex over the output. */
 const expecting = (command, expect, { first = false, cause = null } = {}) => ({ ...command, expect, first, cause })
