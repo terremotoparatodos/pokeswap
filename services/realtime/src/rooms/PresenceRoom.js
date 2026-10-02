@@ -14,7 +14,7 @@ import { metrics } from '../observability/metrics.js'
 import { WORLD_MESSAGE } from '../world/worldProtocol.js'
 import { WorldRoom } from '../world/worldRoom.js'
 import { worldDependencies } from '../world/worldConfig.js'
-import { LocationService } from '../presence/locationService.js'
+import { LocationService, locationMode } from '../presence/locationService.js'
 import { LocationJoin } from './locationJoin.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
@@ -45,11 +45,14 @@ let presenceRoom = null
 const initialDependencies = worldDependencies()
 let world = createWorld(initialDependencies)
 void world.start()
-// WORLD LOCATION-2: persisted locations, `off` unless configured (presence/locationService.js).
+// WORLD LOCATION-2: persisted locations. WORLD_LOCATION_PERSISTENCE=off|shadow|on,
+// one process-wide flag (no per-user gate, D-L4); missing or unknown = off.
+// Rollback: set it to off and restart; the database is not touched.
 // Per-socket sessions, hydration and fencing live in rooms/locationJoin.js.
 let location = null
 const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location, world: () => world })
-location = createLocation({ mode: 'off' })
+location = createLocation({ mode: locationMode(process.env.WORLD_LOCATION_PERSISTENCE), store: initialDependencies.playerData })
+if (location.mode !== 'off') console.log(`[location] persistence ${location.mode} (effective: ${location.effective})`)
 
 function createLocation(options) {
   const service = new LocationService({
