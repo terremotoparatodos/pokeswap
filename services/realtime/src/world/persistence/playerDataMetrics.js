@@ -4,15 +4,18 @@
  * user id, node or payload — so it can be exposed on /metrics in any mode.
  *
  * In production each call is one Edge Function request (one database round
- * trip): `commitWork` is the write path, the rest are reads.
+ * trip): `commitWork` and `locationSave` write, `locationClaim` reads and bumps
+ * the session epoch, the rest are reads. An adapter without an operation (an
+ * older or partial one) keeps it absent, so callers can tell it is unsupported.
  */
-const OPS = ['playerState', 'ownsPokemon', 'commitWork', 'loadNodes']
+const OPS = ['playerState', 'ownsPokemon', 'commitWork', 'loadNodes', 'locationClaim', 'locationSave']
 const WINDOW = 512
 
 export function withPlayerDataMetrics(playerData) {
   const stats = Object.fromEntries(OPS.map(op => [op, { calls: 0, failures: 0, recent: [] }]))
   const wrapped = {}
   for (const op of OPS) {
+    if (typeof playerData[op] !== 'function') continue
     wrapped[op] = async (...args) => {
       const entry = stats[op]
       entry.calls++
@@ -28,7 +31,7 @@ export function withPlayerDataMetrics(playerData) {
       }
     }
   }
-  wrapped.metrics = () => Object.fromEntries(OPS.map(op => {
+  wrapped.metrics = () => Object.fromEntries(OPS.filter(op => wrapped[op]).map(op => {
     const { calls, failures, recent } = stats[op]
     return [op, { calls, failures, ms: { p50: percentile(recent, 0.5), p95: percentile(recent, 0.95), max: round(Math.max(0, ...recent)) } }]
   }))

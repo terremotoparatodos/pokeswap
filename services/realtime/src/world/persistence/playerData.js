@@ -13,6 +13,10 @@
  *   commitWork(commit): Promise<{ applied: boolean, settlement }>
  *   // Node overrides still in force, for a restart.
  *   loadNodes(): Promise<NodeOverride[]>
+ *   // WORLD LOCATION-2: a new session's epoch and the stored location (restore source).
+ *   locationClaim(userId): Promise<{ status: 'claimed', epoch, location: StoredLocation | null } | { status: 'unknown_user' }>
+ *   // A batch (1–200) of { userId, epoch, seq, areaId, tx, ty, layoutVersion }: one result per user.
+ *   locationSave(rows): Promise<Map<userId, 'applied' | 'duplicate' | 'stale' | 'invalid' | 'unknown'>>
  * }
  * ```
  *
@@ -76,6 +80,38 @@ function readCommit(raw) {
   }
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const SAVE_RESULTS = new Set(['applied', 'duplicate', 'stale', 'invalid'])
+
+/**
+ * A claim answer from either adapter. Anything that is not exactly a claim is
+ * an error (the session stays unclaimed and retries); a stored location of the
+ * wrong shape is dropped (restores as "no location") rather than trusted.
+ */
+export function readClaim(raw) {
+  const claim = typeof raw === 'string' ? JSON.parse(raw) : raw
+  if (claim?.status === 'unknown_user') return { status: 'unknown_user' }
+  if (claim?.status !== 'claimed' || !Number.isSafeInteger(claim.epoch) || claim.epoch < 1) throw new Error('malformed location claim')
+  const l = claim.location
+  const location = l && typeof l.areaId === 'string' && Number.isInteger(l.tx) && Number.isInteger(l.ty) && typeof l.layoutVersion === 'string'
+    ? { areaId: l.areaId, tx: l.tx, ty: l.ty, layoutVersion: l.layoutVersion } : null
+  return { status: 'claimed', epoch: claim.epoch, location }
+}
+
+/**
+ * The result of each SENT row, by user id (lower case). A row the answer does
+ * not mention, or mentions with anything unexpected, is 'unknown': the journal
+ * retries that user only. One row's answer never stands for another's.
+ */
+export function readSaveResults(rows, raw) {
+  const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
+  const given = new Map()
+  for (const entry of Array.isArray(answer) ? answer : []) {
+    if (typeof entry?.userId === 'string' && SAVE_RESULTS.has(entry.result)) given.set(entry.userId.toLowerCase(), entry.result)
+  }
+  return new Map(rows.map(row => [row.userId.toLowerCase(), given.get(row.userId.toLowerCase()) ?? 'unknown']))
+}
+
 /** `query(sql, params)` runs as service_role and resolves to `{ rows }`. */
 export function createSqlPlayerData(query) {
   return {
@@ -99,19 +135,38 @@ export function createSqlPlayerData(query) {
       const { rows } = await query('SELECT * FROM public.world_load_nodes()', [])
       return rows.map(nodeOverride)
     },
+    async locationClaim(userId) {
+      if (!UUID.test(userId)) throw new Error('invalid user id')
+      const { rows } = await query('SELECT public.world_location_claim($1::uuid) AS claim', [userId])
+      return readClaim(rows[0]?.claim)
+    },
+    async locationSave(batch) {
+      const { rows } = await query('SELECT public.world_location_save($1::jsonb) AS results', [JSON.stringify(batch)])
+      return readSaveResults(batch, rows[0]?.results)
+    },
   }
 }
 
 export const EDGE_TIMEOUT_MS = 6_000
+/**
+ * WORLD LOCATION-2: the claim sits on the join path, so it gets its own short
+ * budget (the room enables the session with a safe fallback at 1.5 s anyway);
+ * a save batch is off any player's path.
+ */
+export const LOCATION_CLAIM_TIMEOUT_MS = 1_500
+export const LOCATION_SAVE_TIMEOUT_MS = 5_000
 
 /**
  * The production adapter. `secret` is WORLD_AUTHORITY_SECRET: server-held,
  * never in a frontend build, compared in constant time by the function.
  */
-export function createEdgePlayerData({ url, secret, publishableKey, fetcher = fetch, timeoutMs = EDGE_TIMEOUT_MS }) {
-  async function call(op, body) {
+export function createEdgePlayerData({
+  url, secret, publishableKey, fetcher = fetch, timeoutMs = EDGE_TIMEOUT_MS,
+  claimTimeoutMs = LOCATION_CLAIM_TIMEOUT_MS, saveTimeoutMs = LOCATION_SAVE_TIMEOUT_MS,
+}) {
+  async function call(op, body, budgetMs = timeoutMs) {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
+    const timer = setTimeout(() => controller.abort(), budgetMs)
     timer.unref?.()
     try {
       const response = await fetcher(url, {
@@ -142,5 +197,10 @@ export function createEdgePlayerData({ url, secret, publishableKey, fetcher = fe
       return readCommit((await call('commit_work', { commit })).result)
     },
     async loadNodes() { return ((await call('load_nodes', {})).nodes ?? []).map(nodeOverride) },
+    async locationClaim(userId) {
+      if (!UUID.test(userId)) throw new Error('invalid user id')
+      return readClaim((await call('location_claim', { userId }, claimTimeoutMs)).claim)
+    },
+    async locationSave(rows) { return readSaveResults(rows, (await call('location_save', { rows }, saveTimeoutMs)).results) },
   }
 }
