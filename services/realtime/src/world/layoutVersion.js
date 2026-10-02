@@ -3,8 +3,10 @@ import { ARRIVALS } from '../protocol/arrival.js'
 import { WORLD_AREAS } from './areas.js'
 import { CAVES } from './caves.js'
 import { CAVE_INTERIORS, caveInterior } from './caveLayouts.js'
-import { AREA_BOUNDS, PORTALS, isReachable, isWalkable, portalAt } from './navigation.js'
+import { AREA_BOUNDS, PORTALS, PRADERA_RETURN_PAD, isReachable, isWalkable, portalAt } from './navigation.js'
 import { ARRIVAL_CLEARANCE, RESERVED_AREAS, RESOURCE_ZONES, ROUTES } from './resourceZones.js'
+import { AUTHORED_DECOR } from './resourceZoneLayout.js'
+import { TERRAIN_GENERATOR_VERSION } from './terrain.js'
 import { TOWN_AREA_ID, TOWN_HEIGHT, TOWN_WIDTH } from './townLayout.js'
 
 /**
@@ -20,13 +22,17 @@ import { TOWN_AREA_ID, TOWN_HEIGHT, TOWN_WIDTH } from './townLayout.js'
  * to a client: `1.<first 12 hex of sha256>`.
  *   Ciudad and cave interiors: every tile of the grid (plus a one-tile rim),
  *     classified as solid, walkable-unreachable, safe or portal.
- *   Pradera (procedural, ±4096): the authored facts (seed, bounds, zones,
- *     reserves, routes, caves, portals, arrival), every tile of the authored
- *     region plus a margin, and a sparse 64-tile lattice over the whole area.
- *     A procedural change far from every authored place and between lattice
- *     points could slip through; `isSafeLanding` still guards the tile itself.
+ *   Pradera (procedural, ±4096; review M2): ALL of its canonical data, whole
+ *     — the generator version (`TERRAIN_GENERATOR_VERSION`, next to the
+ *     generator), seed, bounds, arrival and return pad, every zone, reserve,
+ *     route, cave and portal, and every tile of the authored layer — plus
+ *     every tile of the authored region with a margin. Nothing is sampled: a
+ *     change to any of that data, anywhere in the ±4096 square, changes the
+ *     version by itself; a change to the generator or collision CODE changes
+ *     it through the version constant, which a guard test forces.
  *
- * Computed once per area, on first use (Pradera: ~60 ms), then cached.
+ * Computed once per area when the service starts (Pradera: a few ms, the
+ * authored window only), then cached: never on a player's first save.
  */
 
 export const LAYOUT_VERSION_ALGORITHM = '1'
@@ -43,7 +49,6 @@ export function isPersistableArea(areaId) {
 export const CANONICAL_NAVIGATION = Object.freeze({ isWalkable, isReachable, portalAt })
 
 const PRADERA_MARGIN = 24
-const PRADERA_LATTICE = 64
 
 function tileClass(nav, areaId, tx, ty) {
   if (!nav.isWalkable(areaId, tx, ty)) return '#'
@@ -51,11 +56,11 @@ function tileClass(nav, areaId, tx, ty) {
   return nav.isReachable(areaId, tx, ty) ? '.' : 'u'
 }
 
-function scan(nav, areaId, minTx, minTy, maxTx, maxTy, step = 1) {
+function scan(nav, areaId, minTx, minTy, maxTx, maxTy) {
   const rows = []
-  for (let ty = minTy; ty <= maxTy; ty += step) {
+  for (let ty = minTy; ty <= maxTy; ty++) {
     let line = ''
-    for (let tx = minTx; tx <= maxTx; tx += step) line += tileClass(nav, areaId, tx, ty)
+    for (let tx = minTx; tx <= maxTx; tx++) line += tileClass(nav, areaId, tx, ty)
     rows.push(line)
   }
   return rows.join('\n')
@@ -84,8 +89,23 @@ function praderaAuthoredBox() {
 /** The dense window of Pradera's fingerprint (guard tests). */
 export const praderaFingerprintWindow = () => praderaAuthoredBox()
 
+/**
+ * Every canonical datum Pradera's collision is built from, whole. Exported for
+ * the guard tests, which change one field to prove the version follows it.
+ */
+export function praderaFacts() {
+  const own = list => list.filter(item => item.areaId === 'pradera')
+  return {
+    areaId: 'pradera', generator: TERRAIN_GENERATOR_VERSION, seed: WORLD_AREAS.pradera.seed,
+    bounds: AREA_BOUNDS.pradera, arrival: ARRIVALS.pradera, returnPad: PRADERA_RETURN_PAD,
+    zones: own(RESOURCE_ZONES), reserved: own(RESERVED_AREAS), clearance: ARRIVAL_CLEARANCE, routes: own(ROUTES),
+    caves: own(CAVES), portals: own(PORTALS),
+    authored: [...AUTHORED_DECOR].filter(([key]) => key.startsWith('pradera:')).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
+  }
+}
+
 /** What the fingerprint of an area hashes. Exported for the guard tests only. */
-export function layoutSource(areaId, nav = CANONICAL_NAVIGATION) {
+export function layoutSource(areaId, nav = CANONICAL_NAVIGATION, facts = areaId === 'pradera' ? praderaFacts() : null) {
   if (areaId === TOWN_AREA_ID) {
     return JSON.stringify({ areaId, arrival: ARRIVALS[areaId] }) + '\n' + scan(nav, areaId, -1, -1, TOWN_WIDTH, TOWN_HEIGHT)
   }
@@ -94,16 +114,8 @@ export function layoutSource(areaId, nav = CANONICAL_NAVIGATION) {
     return JSON.stringify({ areaId, arrival: interior.arrival, exit: interior.exit }) + '\n' + scan(nav, areaId, -1, -1, interior.width, interior.height)
   }
   if (areaId === 'pradera') {
-    const authored = praderaAuthoredBox()
-    const bounds = AREA_BOUNDS.pradera
-    const facts = {
-      areaId, seed: WORLD_AREAS.pradera.seed, bounds, arrival: ARRIVALS.pradera, authored,
-      zones: RESOURCE_ZONES.filter(z => z.areaId === areaId), reserved: RESERVED_AREAS.filter(r => r.areaId === areaId),
-      routes: ROUTES.filter(r => r.areaId === areaId), caves: CAVES.filter(c => c.areaId === areaId),
-      portals: PORTALS.filter(p => p.areaId === areaId),
-    }
-    return JSON.stringify(facts) + '\n' + scan(nav, areaId, authored.minTx, authored.minTy, authored.maxTx, authored.maxTy) +
-      '\n' + scan(nav, areaId, bounds.minTx, bounds.minTy, bounds.maxTx, bounds.maxTy, PRADERA_LATTICE)
+    const window = praderaAuthoredBox()
+    return JSON.stringify({ ...facts, window }) + '\n' + scan(nav, areaId, window.minTx, window.minTy, window.maxTx, window.maxTy)
   }
   return null
 }
