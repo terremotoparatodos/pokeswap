@@ -14,8 +14,10 @@ import { restoreFromRow } from '../presence/locationPolicy.js'
  *     validated row, or at Ciudad (unclaimed: plays on, never saves);
  *   - a claim that answers after that (`late`) moves the player only if it has
  *     done nothing yet and is within the late window (see `#late`);
- *   - a session whose save came back 'stale' is closed with 4001
- *     'session-replaced', and its tile is not remembered for reconnects.
+ *   - in mode `on`, a session whose save came back 'stale' is closed with
+ *     4001 'session-replaced', and its tile is not remembered for reconnects;
+ *     in shadow it is only counted (`wouldFence`): shadow never changes what
+ *     a player or an observer sees.
  *
  * Owns only per-socket location state; the room keeps the actors.
  */
@@ -31,9 +33,12 @@ export class LocationJoin {
     this.hydrations = new Map()
   }
 
-  /** Closes a socket replaced by a newer join of the same player. */
+  /**
+   * Closes a socket replaced by a newer join of the same player. Only `on`
+   * names the reason; off and shadow close it exactly as before WORLD LOCATION.
+   */
   replace(previous) {
-    if (this.location().active) previous.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
+    if (this.location().restores) previous.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
     else previous.leave(4001)
   }
 
@@ -97,7 +102,8 @@ export class LocationJoin {
 
   /**
    * The socket closed. `current`: it was still the player's socket. Returns
-   * whether its actor may be remembered for a reconnect (not when fenced).
+   * whether its actor may be remembered for a reconnect: not when fenced in
+   * `on`. Shadow changes nothing the player sees, so it always may.
    */
   left(client, current, actor) {
     const session = this.sessionByClient.get(client)
@@ -106,7 +112,7 @@ export class LocationJoin {
     const location = this.location()
     const fenced = location.status(session) === 'fenced'
     location.end(session, current ? actor ?? null : null)
-    return !fenced
+    return !(fenced && location.restores)
   }
 
   hydrate(room, client, session, join) {
@@ -189,12 +195,17 @@ export class LocationJoin {
   /**
    * A save came back 'stale' for this session's epoch: a newer session of the
    * same player claimed (another instance, or a join here). The writer is
-   * already fenced; its socket goes too (D-L2), as a local replacement would.
+   * already fenced. In `on` its socket goes too (D-L2), as a local
+   * replacement would. In shadow nothing the player sees changes (no
+   * disconnect, no presence change, still remembered for a reconnect): it is
+   * only counted as `wouldFence`.
    */
   fence(userId, epoch, session) {
     const client = this.clientsByActor.get(userId)
     if (!client || this.sessionByClient.get(client) !== session || session.epoch !== epoch) return
-    this.location().counters.fencedDisconnects++
+    const location = this.location()
+    if (!location.restores) { location.counters.shadow.wouldFence++; return }
+    location.counters.fencedDisconnects++
     client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
   }
 }

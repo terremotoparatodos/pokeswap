@@ -7,7 +7,8 @@ import { PERSISTABLE_AREAS, layoutVersion } from '../world/layoutVersion.js'
  *
  *   off      (default; also for a missing or unknown value) nothing: today's behaviour
  *   shadow   every player session claims and saves, but nothing is restored from
- *            the database; would-be restores and repairs are only counted
+ *            the database and nothing a player sees changes: would-be restores,
+ *            repairs and fences (`wouldFence`) are only counted
  *   on       a session with no live actor and no reconnect memory is restored
  *            from its validated row
  *
@@ -46,7 +47,7 @@ export class LocationService {
       restores: { live: 0, cache: 0, row: 0, noRow: 0, failed: 0, timeout: 0, unknownUser: 0 },
       repairs: { area: 0, layout: 0, tile: 0, protocol: 0 },
       late: { applied: 0, ignored: 0 },
-      shadow: { wouldRestore: 0, wouldRepair: { area: 0, layout: 0, tile: 0, protocol: 0 } },
+      shadow: { wouldRestore: 0, wouldRepair: { area: 0, layout: 0, tile: 0, protocol: 0 }, wouldFence: 0 },
       fencedDisconnects: 0,
       hydration: { started: 0, maxMs: 0 },
     }
@@ -94,7 +95,7 @@ export class LocationService {
     return {
       mode: this.mode, effective: this.effective,
       restores: { ...c.restores }, repairs: { ...c.repairs }, late: { ...c.late },
-      shadow: { wouldRestore: c.shadow.wouldRestore, wouldRepair: { ...c.shadow.wouldRepair } },
+      shadow: { wouldRestore: c.shadow.wouldRestore, wouldRepair: { ...c.shadow.wouldRepair }, wouldFence: c.shadow.wouldFence },
       fencedDisconnects: c.fencedDisconnects, hydration: { ...c.hydration },
       ...(this.journal ? { journal: this.journal.stats() } : {}),
     }

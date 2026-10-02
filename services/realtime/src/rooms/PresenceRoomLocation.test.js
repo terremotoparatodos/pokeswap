@@ -71,10 +71,16 @@ async function stored(userId) {
   return rows[0] ?? null
 }
 
+/** Another session's claim, as another instance would make it (it reads the epoch, then claims after it). */
+async function claimNewer(userId) {
+  const first = await data.locationClaim(userId, 0)
+  return first.status === 'conflict' ? data.locationClaim(userId, first.epoch) : first
+}
+
 /** A saved row as a past session would have left it (claim + one save). */
 async function seed(userId, place, version = layoutVersion(place.areaId)) {
   await db.query('INSERT INTO auth.users VALUES ($1) ON CONFLICT DO NOTHING', [userId])
-  const { epoch } = await data.locationClaim(userId)
+  const { epoch } = await claimNewer(userId)
   await data.locationSave([{ userId, epoch, seq: 1, areaId: place.areaId, tx: place.tx, ty: place.ty, layoutVersion: version }])
 }
 
@@ -324,7 +330,7 @@ test('stale → the writer is fenced and its socket closed with 4001 session-rep
   const c = await r.joinPlaced(u)
   r.travel(c, 'pradera')
   await r.flush()
-  await data.locationClaim(u) // another instance's session claims a newer epoch
+  await claimNewer(u) // another instance's session claims a newer epoch
   r.step(c, 'down')
   r.travel(c, 'ciudad-corazon') // urgent save → stale
   await r.flush()
@@ -377,6 +383,74 @@ test('two instances (two module copies, one database): the newer session wins, t
   assert.equal((await stored(u)).area_id, 'ciudad-corazon')
   assert.deepEqual(onB.leaves, [])
 })
+
+// ── Shadow is not invasive (review B1, repro R1) ───────────────────────────
+
+test('shadow + stale: no disconnect, no presence change, the tile still goes to the reconnect cache, wouldFence counts it (R1)', async t => {
+  const r = await locationRoom(t, { mode: 'shadow' })
+  const watcher = await r.joinPlaced(nextUser())
+  const u = nextUser()
+  const c = await r.joinPlaced(u)
+  await waitFor(() => r.service.journal.stats().sessions.live.claimed === 2, 'claims')
+  r.travel(c, 'pradera')
+  await r.flush()
+  await claimNewer(u) // another instance's session claims a newer epoch
+  r.travel(c, 'ciudad-corazon') // urgent save → stale
+  r.room.flushDeltaBatches()
+  const seen = deltasAbout(watcher, u).length
+  const at = r.where(c)
+  await r.flush()
+  assert.deepEqual(c.leaves, [], 'shadow never disconnects')
+  assert.equal(r.service.stats().shadow.wouldFence, 1)
+  assert.equal(r.service.stats().fencedDisconnects, 0)
+  r.room.flushDeltaBatches()
+  assert.equal(deltasAbout(watcher, u).length, seen, 'observers hear nothing about it')
+  assert.deepEqual(r.where(c), at, 'the player is not moved')
+  r.step(c, openDirection('ciudad-corazon', at))
+  assert.equal(messagesOf(c, MESSAGE.ERROR).length, 0, 'it keeps playing')
+  const last = r.where(c)
+  r.room.onLeave(c)
+  const again = await r.join(u)
+  assert.deepEqual(r.where(again), last, 'remembered for a reconnect, as before WORLD LOCATION')
+})
+
+test('shadow: a local replacement closes the old socket exactly as off does (4001, no reason)', async t => {
+  const r = await locationRoom(t, { mode: 'shadow' })
+  const u = nextUser()
+  const first = await r.joinPlaced(u)
+  await r.join(u)
+  assert.deepEqual(first.leaves, [[4001, undefined]])
+  await waitFor(() => r.service.journal.stats().sessions.live.claimed === 1, 'claim')
+})
+
+for (const mode of ['on', 'shadow']) {
+  test(`${mode}: a legitimate newer session on another instance ${mode === 'on' ? 'displaces the older one (4001 session-replaced)' : 'only counts wouldFence'}`, async t => {
+    const instanceB = await import(new URL(`./PresenceRoom.js?instance=legit-${mode}`, import.meta.url).href)
+    const a = await locationRoom(t, { mode })
+    const b = await locationRoom(t, { mode, module: instanceB, store: instrumented(data) })
+    const u = nextUser()
+    const onA = await a.joinPlaced(u)
+    await waitFor(() => a.service.journal.stats().sessions.live.claimed === 1, 'claim on A')
+    a.travel(onA, 'pradera')
+    await a.flush()
+    const onB = await b.joinPlaced(u)
+    await waitFor(() => b.service.journal.stats().sessions.live.claimed === 1, 'claim on B')
+    a.travel(onA, 'ciudad-corazon') // A's writer is now behind: stale
+    await a.flush()
+    if (mode === 'on') {
+      assert.deepEqual(onA.leaves, [[4001, SESSION_REPLACED]])
+      assert.equal(a.service.stats().fencedDisconnects, 1)
+    } else {
+      assert.deepEqual(onA.leaves, [])
+      assert.equal(a.service.stats().shadow.wouldFence, 1)
+      assert.equal(a.service.stats().fencedDisconnects, 0)
+    }
+    b.travel(onB, mode === 'on' ? 'ciudad-corazon' : 'pradera')
+    await b.flush()
+    assert.deepEqual(onB.leaves, [], 'the newer session is never fenced')
+    assert.equal((await stored(u)).area_id, mode === 'on' ? 'ciudad-corazon' : 'pradera')
+  })
+}
 
 // ── Restart, transitions and saves (cases 3, 17, 22) ───────────────────────
 
@@ -509,7 +583,7 @@ test('shadow: claims and saves, restores nothing, and counts what `on` would hav
   const c = await r.join(u)
   assert.deepEqual(r.where(c), { areaId: 'ciudad-corazon', tx: 31, ty: 20 }, 'placed synchronously, as today')
   await waitFor(() => r.service.journal.stats().sessions.live.claimed === 1, 'claim')
-  assert.deepEqual(r.service.stats().shadow, { wouldRestore: 1, wouldRepair: { area: 0, layout: 0, tile: 1, protocol: 0 } })
+  assert.deepEqual(r.service.stats().shadow, { wouldRestore: 1, wouldRepair: { area: 0, layout: 0, tile: 1, protocol: 0 }, wouldFence: 0 })
   r.travel(c, 'pradera')
   await r.flush()
   assert.equal((await stored(u)).area_id, 'pradera', 'shadow writes what really happens')
