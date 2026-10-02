@@ -28,7 +28,7 @@ supabase start -x studio,imgproxy,vector,logflare,mailpit,realtime,storage-api,p
 for m in 20260926001322_slots_client_write_revoke 20260926001502_market_require_session \
          20260926002154_world_skills_authority 20260926002207_world_skills_gate \
          20260930230308_retire_skip_swap_cooldown 20261001032040_security3_close_client_writes \
-         20261001051958_world_multi_yield; do
+         20261001051958_world_multi_yield 20261001220000_world_player_locations; do
   docker exec -i supabase_db_stage psql -U postgres -v ON_ERROR_STOP=1 --single-transaction -f - \
     < ../supabase/migrations/$m.sql
 done
@@ -41,8 +41,15 @@ supabase functions serve --no-verify-jwt --env-file functions.env &
 supabase status -o env > local.env; set -a; . ./local.env; . ./functions.env; set +a
 cd ../services/realtime && RC03_SUPABASE_URL=http://127.0.0.1:54321 RC03_ANON_KEY="$ANON_KEY" \
   RC03_SERVICE_KEY="$SERVICE_ROLE_KEY" RC03_AUTHORITY_SECRET="$WORLD_AUTHORITY_SECRET" RC03_JWT_SECRET="$JWT_SECRET" \
-  node --test --test-concurrency=1 src/world/persistence/staging.test.js
+  node --test --test-concurrency=1 src/world/persistence/staging.test.js src/world/persistence/locationStaging.test.js
 ```
+
+**WORLD LOCATION-2.** `locationStaging.test.js` uses the same variables: grants and RLS of
+`world_player_locations` seen from PostgREST, the two operations through the served function, real
+concurrent claims and overlapping batches, two journals and two room instances fencing each other,
+the authority down at join and while saving, and the cascade on user deletion. Without Docker,
+`node scripts/world-location/two-instances.mjs` runs two real realtime processes against the real
+handler on an embedded Postgres (not a substitute for this stack: no PostgREST, Auth or Edge Runtime).
 
 The tests refuse any `RC03_SUPABASE_URL` that is not `127.0.0.1` or `localhost`.
 
