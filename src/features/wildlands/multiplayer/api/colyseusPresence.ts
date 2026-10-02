@@ -1,7 +1,7 @@
 import { Client, type Room } from '@colyseus/sdk'
 import { supabase } from '../../../../shared/api/supabase'
 import type { Dir } from '../../engine/characters'
-import type { ChatTransportPort, LocalPresencePort, RemoteActorsPort, RemotePresenceActor } from '../domain/presence'
+import type { ChatTransportPort, LocalPresencePort, PresenceConnectionStatus, RemoteActorsPort, RemotePresenceActor } from '../domain/presence'
 import type { PlayerVisualIdentity } from '../../identity/playerIdentity'
 import type { WorldTransportSink } from '../../../world/api/worldTransport'
 import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../../../../../services/realtime/src/world/worldProtocol.js'
@@ -16,6 +16,8 @@ const CHAT = 'chat'
 const CHAT_HISTORY = 'chat:history'
 const CHAT_LINE = 'chat:line'
 const REALTIME_URL = import.meta.env.VITE_REALTIME_URL as string | undefined
+/** Without a realtime URL the world is the local one (PRESENCE UX-1 `offline`). */
+export const REALTIME_CONFIGURED = !!REALTIME_URL
 // Synthetic identities exist only in the local BenchmarkPresenceRoom; a
 // production server ignores the option. PERF-1 measurement builds use it too,
 // so captures run on production-built code without accounts.
@@ -57,6 +59,8 @@ export class ColyseusPresence implements LocalPresencePort {
     private readonly chat: ChatTransportPort | null = null,
     /** WORLD-1: shared resources and dynamic entities. Same rule as chat: absent means not declared. */
     private readonly world: WorldTransportSink | null = null,
+    /** PRESENCE UX-1: how far this socket got, for the world-entry controller. */
+    private readonly status: PresenceConnectionStatus | null = null,
   ) {}
 
   async connect(identity?: PlayerVisualIdentity): Promise<void> {
@@ -91,12 +95,16 @@ export class ColyseusPresence implements LocalPresencePort {
       room.reconnection.enabled = false
       this.room = room; this.reconnectAttempt = 0
       room.onMessage<Snapshot>(SNAPSHOT, snapshot => {
+        // A room this adapter already left must not place the player or reveal the scene.
+        if (this.room !== room) return
         this.remote.setPresenceAccess(snapshot.access)
         // A guest reads the area and cannot speak into it, which the panel
         // has to know in order to say so instead of dropping the message.
         this.chat?.setAccess(snapshot.access)
         this.remote.setAuthoritativeActor(snapshot.self ?? null, 'snapshot')
         this.replace(snapshot.actors)
+        // After the engine has the area: the controller then prepares it.
+        this.status?.snapshot(snapshot.access)
       })
       room.onMessage<RemotePresenceActor>(SELF, actor => this.remote.setAuthoritativeActor(actor, 'self'))
       room.onMessage<Delta>(DELTA, delta => this.apply(delta))
@@ -131,6 +139,7 @@ export class ColyseusPresence implements LocalPresencePort {
         if (this.room !== room) return
         this.room = null
         this.clearActors()
+        this.status?.lost()
         this.scheduleReconnect(identity)
       }
       room.onDrop(recoverTransport)
@@ -144,8 +153,10 @@ export class ColyseusPresence implements LocalPresencePort {
         if (code === REPLACED_SESSION_CODE) {
           this.stopped = true
           this.clearReconnect()
+          this.status?.replaced()
           return
         }
+        this.status?.lost()
         this.scheduleReconnect(identity)
       })
     } catch {
