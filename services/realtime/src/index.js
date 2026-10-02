@@ -1,6 +1,6 @@
 import { Server } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
-import { PresenceRoom } from './rooms/PresenceRoom.js'
+import { PresenceRoom, flushLocationsForShutdown } from './rooms/PresenceRoom.js'
 import { BenchmarkPresenceRoom } from './rooms/BenchmarkPresenceRoom.js'
 import { createHealthServer } from './observability/health.js'
 import { metrics } from './observability/metrics.js'
@@ -21,5 +21,13 @@ const gameServer = new Server({
   express: app => { app.get('/version', (_request, response) => { response.set('cache-control', 'no-store').json(version) }) },
 })
 gameServer.define('presence', benchmarkMode ? BenchmarkPresenceRoom : PresenceRoom)
+// WORLD LOCATION-2: on a graceful shutdown Colyseus first disconnects every
+// client (each onLeave marks its location urgent), then calls this. A final
+// save within SHUTDOWN_LOCATION_FLUSH_MS: best effort, never relied on.
+const SHUTDOWN_LOCATION_FLUSH_MS = 3_000
+gameServer.onShutdown(async () => {
+  const { sent, left, timedOut } = await flushLocationsForShutdown(SHUTDOWN_LOCATION_FLUSH_MS)
+  if (sent || left) console.log(`[location] shutdown flush: ${sent} saved, ${left} not saved${timedOut ? ' (deadline reached)' : ''}`)
+})
 await gameServer.listen(port)
 createHealthServer({ port: Number(process.env.HEALTH_PORT ?? port + 1), metrics, version, ready: () => Boolean(process.env.SUPABASE_URL && process.env.SUPABASE_PUBLISHABLE_KEY) })

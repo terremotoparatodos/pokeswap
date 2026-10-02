@@ -7,8 +7,11 @@
 // Who can call it: only a holder of WORLD_AUTHORITY_SECRET, a server-side
 // secret set in the function's env and in the realtime process's env. It is
 // never in a frontend build. A browser that finds this URL gets 401.
-// What it can do: exactly five operations, each one SQL function that is
+// What it can do: exactly seven operations, each one SQL function that is
 // executable by service_role only. No generic table access, no user-chosen SQL.
+// WORLD LOCATION-2 adds location_claim / location_save: a player's last shared
+// area and tile, fenced by a session epoch and a server sequence. They are not
+// behind the WORLD x SKILLS gate (a location is not a game value).
 // Feature gate (RC-0.3 dark launch): world_skills_access() decides per user.
 // A 'closed' user has no workable Pokemon and cannot settle completed work,
 // whatever the realtime server asks; a missing or odd answer counts as closed.
@@ -32,6 +35,12 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const ACTION_ID = /^[0-9a-f-]{8,64}$/
 const SKILL = new Set(['woodcutting', 'mining', 'farming'])
 const MIN_SECRET_LENGTH = 32
+/** WORLD LOCATION-2 shapes: the same bounds the table's CHECKs enforce. */
+const AREA_ID = /^[a-z][a-z0-9-]{2,47}$/
+const LAYOUT_VERSION = /^[a-z0-9.-]{1,32}$/
+const MAX_LOCATION_ROWS = 200
+const TILE_MIN = -4096
+const TILE_MAX = 4095
 const ACCESS = new Set(['open', 'tester', 'closed'])
 type Access = 'open' | 'tester' | 'closed'
 
@@ -63,6 +72,33 @@ function commitArgs(commit: unknown): Record<string, unknown> | null {
     p_xp_gained: c.xpGained, p_rewards: c.rewards, p_level_before: c.levelBefore, p_level_after: c.levelAfter,
     p_rules_version: c.rulesVersion, p_node: c.node ?? null,
   }
+}
+
+const tile = (value: unknown) => Number.isInteger(value) && (value as number) >= TILE_MIN && (value as number) <= TILE_MAX
+const counter = (value: unknown) => Number.isSafeInteger(value) && (value as number) >= 1
+
+/**
+ * A location batch, rebuilt field by field (anything else in a row is dropped).
+ * Null when ANY row is malformed or a player appears twice: a healthy realtime
+ * never sends that, so the whole batch is refused before the database.
+ */
+export function locationRows(rows: unknown): Record<string, unknown>[] | null {
+  if (!Array.isArray(rows) || rows.length < 1 || rows.length > MAX_LOCATION_ROWS) return null
+  const seen = new Set<string>()
+  const out: Record<string, unknown>[] = []
+  for (const raw of rows) {
+    if (!raw || typeof raw !== 'object') return null
+    const r = raw as Record<string, unknown>
+    if (typeof r.userId !== 'string' || !UUID.test(r.userId)) return null
+    const key = r.userId.toLowerCase()
+    if (seen.has(key)) return null
+    seen.add(key)
+    if (!counter(r.epoch) || !counter(r.seq) || !tile(r.tx) || !tile(r.ty)) return null
+    if (typeof r.areaId !== 'string' || !AREA_ID.test(r.areaId)) return null
+    if (typeof r.layoutVersion !== 'string' || !LAYOUT_VERSION.test(r.layoutVersion)) return null
+    out.push({ userId: r.userId, epoch: r.epoch, seq: r.seq, areaId: r.areaId, tx: r.tx, ty: r.ty, layoutVersion: r.layoutVersion })
+  }
+  return out
 }
 
 export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): Promise<Response> {
@@ -120,6 +156,18 @@ export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): P
       }
       case 'load_nodes':
         return json(200, { nodes: await call('world_load_nodes', {}) })
+      case 'location_claim': {
+        if (typeof body.userId !== 'string' || !UUID.test(body.userId)) return json(400, { error: 'invalid_user' })
+        // The epoch the realtime last read (0 = no row): the claim writes only if it is still current.
+        if (!Number.isSafeInteger(body.expectedEpoch) || (body.expectedEpoch as number) < 0) return json(400, { error: 'invalid_epoch' })
+        return json(200, { claim: await call('world_location_claim', { p_user_id: body.userId, p_expected_epoch: body.expectedEpoch }) })
+      }
+      case 'location_save': {
+        const rows = locationRows(body.rows)
+        if (!rows) return json(400, { error: 'invalid_rows' })
+        // One answer per row ('applied' | 'duplicate' | 'stale' | 'invalid'); the realtime reads each on its own.
+        return json(200, { results: await call('world_location_save', { p_rows: rows }) })
+      }
       default:
         return json(400, { error: 'unknown_op' })
     }

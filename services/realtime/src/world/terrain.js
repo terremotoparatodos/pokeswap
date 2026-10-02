@@ -12,6 +12,25 @@
  * that changes a single tile is a different world, not a refactor.
  */
 
+/**
+ * The version of what Pradera's collision is made of (WORLD LOCATION-2, review M2).
+ *
+ * OBLIGATION: bump it in the same commit as any CODE change that can move a
+ * single tile's terrain, biome, decor or solidity, for any seed, in this file
+ * (the generator and SOLID_DECOR) or in the collision rules that read it
+ * (`resourceZones.js`, `caves.js`, `navigation.js`). Authored data (zones,
+ * caves, portals, bounds, arrivals, the authored layer) needs no bump: it is
+ * hashed whole into the layout version. A saved Pradera location carries that
+ * version (`layoutVersion.js`); a bump sends every saved Pradera player to the
+ * arrival once, the safe answer to a changed world.
+ *
+ * Guard: `layoutVersion.test.js` freezes a digest of the code of those four
+ * files (comments and whitespace stripped) for each version; a code change
+ * without a new version fails there. `worldFingerprint.test.ts` freezes
+ * sampled output too. Never edit an existing entry: add the new version.
+ */
+export const TERRAIN_GENERATOR_VERSION = 1
+
 /** Integer hash of a 2D lattice point, returned in [0, 1). */
 export function hash2(x, y, seed) {
   let h = Math.imul(x | 0, 0x27d4eb2d) ^ Math.imul(y | 0, 0x165667b1) ^ Math.imul(seed | 0, 0x9e3779b9)

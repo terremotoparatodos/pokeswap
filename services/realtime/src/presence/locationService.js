@@ -1,0 +1,101 @@
+import { LocationJournal, persistableIdentity } from './locationJournal.js'
+import { savedLocationOf } from './locationPolicy.js'
+import { PERSISTABLE_AREAS, layoutVersion } from '../world/layoutVersion.js'
+
+/**
+ * WORLD LOCATION-2: the presence room's view of location persistence.
+ *
+ *   off      (default; also for a missing or unknown value) nothing: today's behaviour
+ *   shadow   every player session claims and saves, but nothing is restored from
+ *            the database and nothing a player sees changes: would-be restores,
+ *            repairs and fences (`wouldFence`) are only counted
+ *   on       a session with no live actor and no reconnect memory is restored
+ *            from its validated row
+ *
+ * Without a store that implements locationClaim and locationSave (the demo and
+ * unavailable world modes) the effective mode is 'unavailable', which behaves
+ * like off. Guests and synthetic ids never persist.
+ */
+
+export const LOCATION_MODES = Object.freeze(['off', 'shadow', 'on'])
+/** How long a join may wait for its claim before it plays on with a safe fallback. */
+export const HYDRATION_TIMEOUT_MS = 1_500
+/** The close reason of a session displaced by a later epoch (D-L2), with code 4001. */
+export const SESSION_REPLACED = 'session-replaced'
+export const SESSION_REPLACED_CODE = 4001
+
+export function locationMode(value) {
+  return LOCATION_MODES.includes(value) ? value : 'off'
+}
+
+const supportsLocation = store => typeof store?.locationClaim === 'function' && typeof store?.locationSave === 'function'
+
+export class LocationService {
+  constructor({ mode = 'off', store = null, now = Date.now, hydrationTimeoutMs = HYDRATION_TIMEOUT_MS, locate = savedLocationOf, onFenced = () => {}, onClaimed = () => {}, log } = {}) {
+    this.mode = locationMode(mode)
+    this.effective = this.mode === 'off' ? 'off' : supportsLocation(store) ? this.mode : 'unavailable'
+    this.now = now
+    this.hydrationTimeoutMs = hydrationTimeoutMs
+    this.journal = this.active ? new LocationJournal({ store, locate, now, onFenced, onClaimed, ...(log ? { log } : {}) }) : null
+    // The layout fingerprints cost ~100-200 ms once (Pradera). Pay it at start,
+    // before any player is served, not on the first save of a live session.
+    if (this.active) for (const areaId of PERSISTABLE_AREAS) layoutVersion(areaId)
+    this.counters = {
+      restores: { live: 0, cache: 0, row: 0, noRow: 0, failed: 0, timeout: 0, unknownUser: 0 },
+      repairs: { area: 0, layout: 0, tile: 0, protocol: 0 },
+      // A claim that answered after the fallback was published: epoch only, position adopted (B3).
+      late: { adopted: 0 },
+      shadow: { wouldRestore: 0, wouldRepair: { area: 0, layout: 0, tile: 0, protocol: 0 }, wouldFence: 0 },
+      fencedDisconnects: 0,
+      hydration: { started: 0, maxMs: 0 },
+    }
+  }
+
+  get active() { return this.effective === 'shadow' || this.effective === 'on' }
+  get restores() { return this.effective === 'on' }
+
+  /** Whether this identity's sessions claim and save. */
+  persists(userId) { return this.active && persistableIdentity(userId) }
+
+  begin(userId) { return this.journal.beginSession(userId) }
+  claim(session) { return this.journal.claim(session) }
+  note(session, actor, options) { if (session && this.journal) this.journal.note(session, actor, options) }
+  end(session, actor) { if (session && this.journal) this.journal.endSession(session, actor) }
+  markUnclaimed(session) { this.journal?.markUnclaimed(session) }
+  status(session) { return session && this.journal ? this.journal.statusOf(session) : 'off' }
+
+  start() { this.journal?.start() }
+  /** Rollback to off at runtime: no claim or save leaves the process afterwards. */
+  disable() {
+    this.journal?.disable()
+    this.effective = 'off'
+  }
+
+  /** Best-effort final flush on shutdown; never part of correctness. */
+  async shutdown(deadlineMs = 3_000) {
+    if (!this.journal) return { sent: 0, left: 0, timedOut: false }
+    this.journal.stop()
+    return this.journal.flushAll(deadlineMs)
+  }
+
+  restored(kind) { this.counters.restores[kind]++ }
+  repaired(kind) { if (kind) this.counters.repairs[kind]++ }
+  shadowed(result) {
+    if (!result) return
+    this.counters.shadow.wouldRestore++
+    if (result.repair) this.counters.shadow.wouldRepair[result.repair]++
+  }
+  hydrated(ms) { if (ms > this.counters.hydration.maxMs) this.counters.hydration.maxMs = Math.round(ms) }
+
+  /** For /metrics only (never /version): aggregate counts, no ids, areas or tiles. */
+  stats() {
+    const c = this.counters
+    return {
+      mode: this.mode, effective: this.effective,
+      restores: { ...c.restores }, repairs: { ...c.repairs }, late: { ...c.late },
+      shadow: { wouldRestore: c.shadow.wouldRestore, wouldRepair: { ...c.shadow.wouldRepair }, wouldFence: c.shadow.wouldFence },
+      fencedDisconnects: c.fencedDisconnects, hydration: { ...c.hydration },
+      ...(this.journal ? { journal: this.journal.stats() } : {}),
+    }
+  }
+}

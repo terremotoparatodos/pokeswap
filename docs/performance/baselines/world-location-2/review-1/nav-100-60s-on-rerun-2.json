@@ -1,0 +1,139 @@
+{
+  "benchmark": "caves-4-navigation",
+  "players": 100,
+  "seconds": 60.32,
+  "seed": 4,
+  "probes": 0,
+  "joinMs": 2337.47,
+  "distribution": {
+    "start": {
+      "ciudad-corazon": 100,
+      "pradera": 0,
+      "cueva-inicial": 0
+    },
+    "end": {
+      "ciudad-corazon": 39,
+      "pradera": 53,
+      "cueva-inicial": 8
+    }
+  },
+  "client": {
+    "movesSent": 40900,
+    "movesAccepted": 40900,
+    "crossingsAccepted": 505,
+    "probesSent": 0,
+    "refusals": {
+      "expected": {},
+      "unexpected": {}
+    },
+    "leaks": 0,
+    "errors": 0,
+    "pendingExpected": 0,
+    "ackRttMs": {
+      "p50": 8.58,
+      "p95": 49.36,
+      "p99": 75.49,
+      "max": 193.51
+    }
+  },
+  "server": {
+    "moves": 40900,
+    "areaChanges": 505,
+    "transitions": {
+      "portal": 505,
+      "resync": 0
+    },
+    "rejections": {
+      "capacity": 0,
+      "invalid": 0,
+      "rate": 0,
+      "area": 0,
+      "replay": 0,
+      "sequence": 0,
+      "blocked": 0
+    },
+    "eventLoopDelayMs": {
+      "p50": 29.82,
+      "p99": 38.9,
+      "max": 53.15
+    },
+    "memoryMb": {
+      "rss": 209,
+      "heapUsed": 62
+    },
+    "memoryPeakMb": {
+      "rss": 211,
+      "heapUsed": 79
+    },
+    "loopP99MaxSampleMs": 43.91,
+    "location": {
+      "mode": "on",
+      "effective": "on",
+      "restores": {
+        "live": 0,
+        "cache": 0,
+        "row": 0,
+        "noRow": 100,
+        "failed": 0,
+        "timeout": 0,
+        "unknownUser": 0
+      },
+      "journal": {
+        "sessions": {
+          "started": 100,
+          "live": {
+            "claiming": 0,
+            "unclaimed": 0,
+            "claimed": 100,
+            "fenced": 0,
+            "disabled": 0
+          }
+        },
+        "entries": 100,
+        "pending": 100,
+        "urgent": 6,
+        "inflight": false,
+        "backoffMs": 0,
+        "claims": {
+          "ok": 100,
+          "unknownUser": 0,
+          "failed": 0,
+          "superseded": 0,
+          "retries": 0,
+          "conflicts": 0,
+          "abandoned": 0
+        },
+        "saves": {
+          "batches": 52,
+          "rows": 872,
+          "applied": 872,
+          "duplicate": 0,
+          "stale": 0,
+          "staleOldEpoch": 0,
+          "invalid": 0,
+          "unknown": 0,
+          "failedBatches": 0,
+          "unchanged": 14,
+          "maxBatch": 41,
+          "lastBatchMs": 15
+        },
+        "fenced": 0,
+        "dropped": {
+          "evicted": 0,
+          "unclaimed": 0,
+          "invalid": 0,
+          "disabled": 0
+        }
+      }
+    }
+  },
+  "authority": {
+    "mode": "on",
+    "locationClaims": 0,
+    "locationSaves": 52,
+    "locationRows": 872,
+    "savesPerSecond": 0.86,
+    "rowsPerSecond": 14.46,
+    "joinClaims": 100
+  }
+}

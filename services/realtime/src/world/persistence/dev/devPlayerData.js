@@ -57,6 +57,9 @@ export async function createDevPlayerData({ dataDir = null } = {}) {
     async ownsPokemon(playerId, instanceId) { return sql.ownsPokemon(await provision(playerId), instanceId) },
     async commitWork(commit) { return sql.commitWork({ ...commit, userId: await provision(commit.userId) }) },
     loadNodes: () => sql.loadNodes(),
+    // A dev identity is provisioned on its first claim, like on its first state read.
+    async locationClaim(playerId, expectedEpoch) { return sql.locationClaim(await provision(playerId), expectedEpoch) },
+    locationSave: rows => sql.locationSave(rows),
     close: () => db.close(),
   }
 }

@@ -15,11 +15,13 @@ import { fileURLToPath } from 'node:url'
  * outside production (see worldConfig.js).
  */
 const STUBS = new URL('./supabaseStubs.sql', import.meta.url)
-// In order: the WORLD x SKILLS tables and functions, its feature gate, then multi-yield stock (YIELD-2).
+// In order: the WORLD x SKILLS tables and functions, its feature gate, multi-yield stock (YIELD-2),
+// then player locations (WORLD LOCATION-2). Every file is idempotent: a persisted dataDir re-runs them.
 const MIGRATIONS = [
   new URL('../../../../../../supabase/migrations/20260926002154_world_skills_authority.sql', import.meta.url),
   new URL('../../../../../../supabase/migrations/20260926002207_world_skills_gate.sql', import.meta.url),
   new URL('../../../../../../supabase/migrations/20261001051958_world_multi_yield.sql', import.meta.url),
+  new URL('../../../../../../supabase/migrations/20261001220000_world_player_locations.sql', import.meta.url),
 ]
 
 export async function openLocalDatabase(dataDir = null) {

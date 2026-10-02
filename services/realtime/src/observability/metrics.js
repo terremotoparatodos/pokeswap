@@ -16,6 +16,8 @@ export class PresenceMetrics {
     this.loopDelay = loopDelay
     /** WORLD-1 aggregate counters, installed by the room (no ids, no coordinates). */
     this.world = null
+    /** WORLD LOCATION-2: flag state and aggregate counters (D-L5: here only, never on /version). */
+    this.location = null
   }
   joined(kind) { this.connections++; if (kind === 'guest') this.guests++; else this.players++ }
   left(kind) { this.connections = Math.max(0, this.connections - 1); if (kind === 'guest') this.guests = Math.max(0, this.guests - 1); else this.players = Math.max(0, this.players - 1) }
@@ -39,6 +41,7 @@ export class PresenceMetrics {
     return {
       moves: this.moves, areaChanges: this.areaChanges, transitions: { ...this.transitions }, reconnectRestores: this.reconnectRestores, reconnectRepairs: this.reconnectRepairs, batching: { ...this.batching },
       ...(this.world ? { world: this.world() } : {}),
+      ...(this.location ? { location: this.location() } : {}),
       uptimeSeconds: Math.round(process.uptime()),
       memoryMb: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
       eventLoopDelayMs: { p50: ms(delay.percentile(50)), p99: ms(delay.percentile(99)), max: ms(delay.max) },

@@ -14,6 +14,8 @@ import { metrics } from '../observability/metrics.js'
 import { WORLD_MESSAGE } from '../world/worldProtocol.js'
 import { WorldRoom } from '../world/worldRoom.js'
 import { worldDependencies } from '../world/worldConfig.js'
+import { LocationService, locationMode } from '../presence/locationService.js'
+import { LocationJoin } from './locationJoin.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
 const MOVE_REJECTION_REASON = Object.freeze({
@@ -40,8 +42,28 @@ let chatSequence = 0
 // so the world survives a room dispose; it rides this room's socket and tick.
 /** The live room, for moves the world makes on a player's behalf (WORLD VISUAL-2). */
 let presenceRoom = null
-let world = createWorld(worldDependencies())
+const initialDependencies = worldDependencies()
+let world = createWorld(initialDependencies)
 void world.start()
+// WORLD LOCATION-2: persisted locations. WORLD_LOCATION_PERSISTENCE=off|shadow|on,
+// one process-wide flag (no per-user gate, D-L4); missing or unknown = off.
+// Rollback: set it to off and restart; the database is not touched.
+// Per-socket sessions, hydration and fencing live in rooms/locationJoin.js.
+let location = null
+const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location })
+location = createLocation({ mode: locationMode(process.env.WORLD_LOCATION_PERSISTENCE), store: initialDependencies.playerData })
+if (location.mode !== 'off') console.log(`[location] persistence ${location.mode} (effective: ${location.effective})`)
+
+function createLocation(options) {
+  const service = new LocationService({
+    ...options,
+    onFenced: (userId, epoch, session) => locationJoin.fence(userId, epoch, session),
+    onClaimed: (session, result) => { if (presenceRoom) locationJoin.claimSettled(presenceRoom, session, result) },
+  })
+  metrics.location = () => service.stats()
+  service.start()
+  return service
+}
 
 function createWorld(dependencies) {
   const created = new WorldRoom({
@@ -64,6 +86,22 @@ function createWorld(dependencies) {
  */
 export function liveActorForTesting(userId) {
   return actors.get(userId) ?? null
+}
+
+/**
+ * Replaces the location persistence (tests, and the process entry point with
+ * the env flag). `store` defaults to the world's player data. The previous
+ * service is disabled first: nothing it held is written afterwards.
+ */
+export function configureLocationPersistence({ mode, store = initialDependencies.playerData, ...options } = {}) {
+  location.disable()
+  location = createLocation({ mode, store, ...options })
+  return location
+}
+
+/** Best-effort final flush of every pending location (graceful shutdown). */
+export function flushLocationsForShutdown(deadlineMs) {
+  return location.shutdown(deadlineMs)
 }
 
 /** Replaces the world's SKILLS/ownership adapters (tests and local tooling). Drops all world state. */
@@ -110,12 +148,15 @@ export class PresenceRoom extends Room {
       return
     }
     const previous = clientsByActor.get(auth.userId)
-    if (previous && previous !== client) previous.leave(4001)
+    if (previous && previous !== client) locationJoin.replace(previous)
     const visual = options?.visual
     const characterId = ['lucas', 'dawn-pink', 'dawn-yellow'].includes(visual?.characterId) ? visual.characterId : 'lucas'
+    // WORLD LOCATION-2: the new session of a persisting player (synchronous: no database wait).
+    const session = locationJoin.begin(client, auth, options)
     // Replace the old socket before any optional visual lookup. Otherwise a
     // reload can let the old onLeave remove presence seen by other clients.
-    const restored = actors.has(auth.userId) ? null : reconnectingActors.take(auth.userId)
+    const live = actors.has(auth.userId)
+    const restored = live ? null : reconnectingActors.take(auth.userId)
     if (restored) {
       metrics.restored()
       // CAVES-4: a remembered tile is only trusted if it is still a safe
@@ -127,13 +168,32 @@ export class PresenceRoom extends Room {
         metrics.restoreRepaired()
       }
     }
-    const actor = actors.get(auth.userId) ?? restored ??
-      { id: auth.userId, areaId: AREA.TOWN, tx: 31, ty: 20, username: auth.username, characterId, companionId: null, dir: 'down', speed: 3.75, moveSequence: 0, lastMoveAt: 0, moves: [] }
+    // The session owns the player id from here on, placed or not.
+    clientsByActor.set(auth.userId, client); observers.set(client.sessionId, client); client.userData = { actorId: auth.userId }; metrics.joined('player')
+    const join = { auth, characterId, visual }
+    if (locationJoin.mustHydrate(session, live, restored)) {
+      // Mode `on`, nothing in memory: placed once the claim answers (or at the
+      // 1.5 s timeout). Until then nobody sees it and it can do nothing.
+      locationJoin.hydrate(this, client, session, join)
+      return
+    }
+    locationJoin.claimInBackground(session, live, restored)
+    this.admit(client, actors.get(auth.userId) ?? restored ?? this.freshActor(auth, characterId), join)
+  }
+
+  /** A new actor at Ciudad's spawn, or at a validated restored place. */
+  freshActor(auth, characterId, place = { areaId: AREA.TOWN, tx: 31, ty: 20, dir: 'down' }) {
+    return { id: auth.userId, areaId: place.areaId, tx: place.tx, ty: place.ty, username: auth.username, characterId, companionId: null, dir: place.dir, speed: 3.75, moveSequence: 0, lastMoveAt: 0, moves: [] }
+  }
+
+  /** Puts a reserved player's actor in the world: visible, steerable, published. */
+  admit(client, actor, { auth, characterId, visual }) {
     actor.username = auth.username
     actor.characterId = characterId
-    actors.set(actor.id, actor); clientsByActor.set(actor.id, client); observers.set(client.sessionId, client); client.userData = { actorId: actor.id }; metrics.joined('player')
+    actors.set(actor.id, actor)
     world.actorPlaced(actor)
     this.publish(actor)
+    locationJoin.admitted(client, actor)
     // Companion ownership is a display enhancement. It must never delay or
     // invalidate the atomic actor replacement above.
     void authorizedCompanion(auth.userId, visual?.companionPokemonId, auth.token, process.env)
@@ -149,6 +209,8 @@ export class PresenceRoom extends Room {
   // the browser. A client-ready signal guarantees its message handlers exist
   // before the first server-authoritative spawn is emitted.
   ready(client) {
+    // A player still waiting for its claim gets its first snapshot once placed.
+    if (locationJoin.deferReady(client)) return
     const viewer = actors.get(client.userData?.actorId) ?? client.userData?.observer
     if (!viewer) return this.reject(client, 'ready denied', 'invalid')
     this.sendSnapshot(client, viewer)
@@ -165,10 +227,12 @@ export class PresenceRoom extends Room {
     if (!id) return
     // A replaced browser may finish closing after the new session has joined.
     // It must not remove the newer actor with the same user id.
-    if (clientsByActor.get(id) !== client) return
+    if (clientsByActor.get(id) !== client) { locationJoin.left(client, false); return }
     const actor = actors.get(id); actors.delete(id); clientsByActor.delete(id)
+    // A fenced session lost its player to a newer one elsewhere: not remembered here.
+    const rememberable = locationJoin.left(client, true, actor)
     if (actor) {
-      reconnectingActors.remember(id, actor)
+      if (rememberable) reconnectingActors.remember(id, actor)
       this.broadcastDelta({ type: 'leave', actor: publicActor(actor) }, actor)
     }
   }
@@ -188,6 +252,7 @@ export class PresenceRoom extends Room {
       return
     }
     metrics.moved()
+    locationJoin.moved(client, actor)
     this.publish(actor, stepActor(actor))
     // Moving the viewport changes its whole interest set even when every
     // other actor is stationary. Reconcile entrants/leavers for this client.
@@ -222,6 +287,8 @@ export class PresenceRoom extends Room {
     actor.areaId = intent.areaId
     actor.tx = arrival.tx; actor.ty = arrival.ty; actor.dir = arrival.dir
     metrics.changedArea()
+    // A crossing is saved first (urgent): losing the area is worse than losing a tile.
+    locationJoin.moved(client, actor, true)
     world.actorPlaced(actor)
     this.publish(actor); this.sendSnapshot(client, actor)
   }
@@ -293,6 +360,7 @@ export class PresenceRoom extends Room {
     this.publish(actor, stepActor(actor))
     const client = clientsByActor.get(actor.id)
     if (!client) return
+    locationJoin.moved(client, actor)
     this.syncVisibility(client, actor)
     world.viewerMoved(client, actor)
     this.sendSelf(client, actor)

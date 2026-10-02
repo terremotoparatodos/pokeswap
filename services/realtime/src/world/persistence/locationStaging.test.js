@@ -1,0 +1,253 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { randomUUID } from 'node:crypto'
+import { createEdgePlayerData } from './playerData.js'
+import { LocationJournal } from '../../presence/locationJournal.js'
+import { ARRIVALS } from '../../protocol/arrival.js'
+import { MESSAGE } from '../../protocol/messages.js'
+import { createDemoSkillPolicy } from '../demoSkillPolicy.js'
+import { layoutVersion } from '../layoutVersion.js'
+import { portalTo } from '../navigation.js'
+import { createStaticOwnership } from '../pokemonOwnership.js'
+import { lastMessage, routeBetween, settle } from '../testing.js'
+import { WORLD_PROTOCOL } from '../worldProtocol.js'
+
+// WORLD LOCATION-2 staging gate, against a REAL local Supabase stack
+// (Postgres, PostgREST, Auth, Edge Runtime) with the new migration applied and
+// the world-authority function served locally (see scripts/integration/
+// rc03-staging/README.md; the location migration runs after multi-yield).
+//
+// LOCAL STACK ONLY: it creates users and refuses any URL that is not
+// 127.0.0.1/localhost. Same variables as staging.test.js:
+//   RC03_SUPABASE_URL RC03_ANON_KEY RC03_SERVICE_KEY RC03_AUTHORITY_SECRET
+// Without them every test here is skipped.
+//
+// Matrix cases (WORLD_LOCATION_1_AUDIT §7): 1, 3, 5, 11, 14, 15, 16, 27, plus
+// real concurrency (claims and crossing batches) and two room instances over
+// the real Edge path.
+
+const env = process.env
+const BASE = env.RC03_SUPABASE_URL ?? ''
+const LOCAL = /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/.test(BASE)
+const skip = LOCAL && env.RC03_ANON_KEY && env.RC03_SERVICE_KEY && env.RC03_AUTHORITY_SECRET
+  ? false : 'WORLD LOCATION-2 staging: needs a LOCAL Supabase stack (RC03_* variables)'
+const ANON = env.RC03_ANON_KEY
+const SERVICE = env.RC03_SERVICE_KEY
+const FUNCTION_URL = `${BASE}/functions/v1/world-authority`
+const DEAD_URL = 'http://127.0.0.1:9/functions/v1/world-authority' // nothing listens: refused at once
+
+async function http(path, { method = 'GET', key = ANON, jwt = null, body, prefer } = {}) {
+  const response = await fetch(`${BASE}${path}`, {
+    method,
+    headers: { apikey: key, authorization: `Bearer ${jwt ?? key}`, 'content-type': 'application/json', ...(prefer ? { prefer } : {}) },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  })
+  const text = await response.text()
+  let json = null
+  try { json = text ? JSON.parse(text) : null } catch { json = text }
+  return { status: response.status, body: json, text }
+}
+const asService = (path, options = {}) => http(path, { ...options, key: SERVICE })
+const denied = status => status === 401 || status === 403 || status === 404
+const edge = (overrides = {}) => createEdgePlayerData({ url: FUNCTION_URL, secret: env.RC03_AUTHORITY_SECRET, publishableKey: ANON, ...overrides })
+/** What a new session does: read the current epoch (conditional claim with 0), then claim after it. */
+async function claim(userId, data = edge()) {
+  const first = await data.locationClaim(userId, 0)
+  return first.status === 'conflict' ? data.locationClaim(userId, first.epoch) : first
+}
+
+async function user() {
+  const email = `wloc2-${randomUUID().slice(0, 8)}@example.test`
+  const password = `pw-${randomUUID()}`
+  const created = await asService('/auth/v1/admin/users', { method: 'POST', body: { email, password, email_confirm: true } })
+  assert.equal(created.status, 200, created.text)
+  const session = await http('/auth/v1/token?grant_type=password', { method: 'POST', body: { email, password } })
+  assert.equal(session.status, 200, session.text)
+  return { id: created.body.id, jwt: session.body.access_token }
+}
+
+async function stored(userId) {
+  const { status, body, text } = await asService(`/rest/v1/world_player_locations?select=area_id,tx,ty,layout_version,epoch,seq&user_id=eq.${userId}`)
+  assert.equal(status, 200, text)
+  return body[0] ?? null
+}
+
+const row = (userId, epoch, seq, extra = {}) => ({ userId, epoch, seq, areaId: 'pradera', tx: 1, ty: -60, layoutVersion: layoutVersion('pradera'), ...extra })
+
+// ── Trust boundary (case 11) ───────────────────────────────────────────────
+
+test('clients (anon and a signed-in player) cannot read, write or call anything of the location store', { skip }, async () => {
+  const a = await user()
+  const b = await user()
+  await claim(b.id)
+  await edge().locationSave([row(b.id, 1, 1)])
+  for (const [who, jwt] of [['anon', null], ['authenticated', a.jwt], ['the owner', b.jwt]]) {
+    const read = await http(`/rest/v1/world_player_locations?select=*`, { jwt })
+    assert.ok(denied(read.status) || (read.status === 200 && read.body.length === 0), `${who} SELECT → ${read.status} ${read.text}`)
+    const insert = await http('/rest/v1/world_player_locations', { method: 'POST', jwt, body: { user_id: a.id } })
+    assert.ok(denied(insert.status), `${who} INSERT → ${insert.status}`)
+    await http(`/rest/v1/world_player_locations?user_id=eq.${b.id}`, { method: 'PATCH', jwt, body: { tx: 99 } })
+    await http(`/rest/v1/world_player_locations?user_id=eq.${b.id}`, { method: 'DELETE', jwt })
+    for (const [fn, args] of [['world_location_claim', { p_user_id: b.id, p_expected_epoch: 1 }], ['world_location_save', { p_rows: [row(b.id, 9, 9)] }]]) {
+      const call = await http(`/rest/v1/rpc/${fn}`, { method: 'POST', jwt, body: args })
+      assert.ok(denied(call.status), `${who} ${fn} → ${call.status} ${call.text}`)
+      assert.equal(call.body?.code, '42501', `${who} ${fn}: refused by the ACL`)
+    }
+  }
+  assert.deepEqual(await stored(b.id), { area_id: 'pradera', tx: 1, ty: -60, layout_version: layoutVersion('pradera'), epoch: 1, seq: 1 }, 'untouched')
+})
+
+test('world-authority: location operations need the secret; a malformed batch never reaches the database', { skip }, async () => {
+  const a = await user()
+  await assert.rejects(edge({ secret: 'w'.repeat(48) }).locationClaim(a.id, 0), /401/)
+  assert.equal(await stored(a.id), null)
+  await claim(a.id)
+  await assert.rejects(edge().locationSave([row(a.id, 1, 1, { tx: 0.5 })]), /400/)
+  await assert.rejects(edge().locationSave([row(a.id, 1, 1, { areaId: 'dg:x:1' })]), /400/)
+  assert.equal((await stored(a.id)).seq, 0)
+})
+
+// ── CAS on real Postgres ───────────────────────────────────────────────────
+
+test('20 concurrent conditional claims of one player with the same expectation: exactly one writes, 19 answer conflict', { skip }, async () => {
+  const a = await user()
+  for (const expected of [0, 1]) {
+    const answers = await Promise.all(Array.from({ length: 20 }, () => edge().locationClaim(a.id, expected)))
+    assert.equal(answers.filter(c => c.status === 'claimed').length, 1, `expected ${expected}`)
+    assert.deepEqual(answers.filter(c => c.status === 'conflict').map(c => c.epoch), Array(19).fill(expected + 1))
+  }
+  const results = await Promise.all([1, 2].map(epoch => edge().locationSave([row(a.id, epoch, 1, { tx: epoch })])))
+  assert.deepEqual(results.map(r => r.get(a.id)), ['stale', 'applied'])
+  assert.equal((await stored(a.id)).tx, 2)
+})
+
+test('R2 on real Postgres: a claim given up by the realtime that lands late never fences the live journal session', { skip }, async () => {
+  const a = await user()
+  const journal = new LocationJournal({ store: edge(), locate: actor => ({ ...actor, layoutVersion: layoutVersion(actor.areaId) }), log: () => {} })
+  const s = journal.beginSession(a.id); await journal.claim(s)
+  assert.equal(s.epoch, 1)
+  // The abandoned claim had read "no row" (0) before the live session claimed.
+  assert.deepEqual(await edge().locationClaim(a.id, 0), { status: 'conflict', epoch: 1 })
+  journal.note(s, { areaId: 'pradera', tx: 4, ty: -60 }, { urgent: true }); journal.tick(); await journal.idle()
+  assert.deepEqual({ tx: (await stored(a.id)).tx, epoch: (await stored(a.id)).epoch }, { tx: 4, epoch: 1 })
+  assert.equal(journal.stats().fenced, 0)
+})
+
+test('two overlapping batches written at once, in opposite orders, never deadlock and answer per user', { skip }, async () => {
+  const players = await Promise.all(Array.from({ length: 40 }, () => user()))
+  for (const p of players) await claim(p.id)
+  const forward = players.map(p => row(p.id, 1, 1, { tx: 1 }))
+  const backward = [...players].reverse().map(p => row(p.id, 1, 2, { tx: 2 }))
+  const [first, second] = await Promise.all([edge().locationSave(forward), edge().locationSave(backward)])
+  for (const p of players) {
+    assert.ok(['applied', 'duplicate'].includes(first.get(p.id)))
+    assert.equal(second.get(p.id), 'applied', 'seq 2 always wins over seq 1')
+    assert.equal((await stored(p.id)).tx, 2)
+  }
+})
+
+test('two instances (two journals over the real Edge path): the newer claim fences the older writer (case 5)', { skip }, async () => {
+  const a = await user()
+  const fenced = []
+  const make = name => new LocationJournal({ store: edge(), locate: actor => ({ ...actor, layoutVersion: layoutVersion(actor.areaId) }), log: () => {}, onFenced: (u, e) => fenced.push({ name, epoch: e }) })
+  const old = make('old'), next = make('new')
+  const s1 = old.beginSession(a.id); await old.claim(s1)
+  old.note(s1, { areaId: 'pradera', tx: 2, ty: -60 }, { urgent: true }); old.tick(); await old.idle()
+  const s2 = next.beginSession(a.id); await next.claim(s2)
+  old.note(s1, { areaId: 'pradera', tx: 3, ty: -60 }, { urgent: true }); old.tick(); await old.idle()
+  assert.deepEqual(fenced, [{ name: 'old', epoch: 1 }])
+  assert.equal((await stored(a.id)).tx, 2)
+  next.note(s2, { areaId: 'ciudad-corazon', tx: 31, ty: 21 }, { urgent: true }); next.tick(); await next.idle()
+  assert.deepEqual(await stored(a.id), { area_id: 'ciudad-corazon', tx: 31, ty: 21, layout_version: layoutVersion('ciudad-corazon'), epoch: 2, seq: 1 })
+})
+
+test('authority down while saving, then back: the same row applies once, with no duplicate (case 15)', { skip }, async () => {
+  const a = await user()
+  let current = edge({ url: DEAD_URL })
+  const store = { locationClaim: (id, expected) => edge().locationClaim(id, expected), locationSave: rows => current.locationSave(rows) }
+  let now = 1_000_000
+  const journal = new LocationJournal({ store, locate: actor => ({ ...actor, layoutVersion: layoutVersion(actor.areaId) }), now: () => now, log: () => {} })
+  const s = journal.beginSession(a.id); await journal.claim(s)
+  journal.note(s, { areaId: 'pradera', tx: 5, ty: -60 }, { urgent: true })
+  journal.tick(); await journal.idle()
+  assert.equal(journal.stats().saves.failedBatches, 1)
+  current = edge()
+  now += 1_000; journal.tick(); await journal.idle()
+  assert.deepEqual({ tx: (await stored(a.id)).tx, seq: (await stored(a.id)).seq }, { tx: 5, seq: 1 })
+  assert.equal(journal.stats().pending, 0)
+})
+
+test('deleting the auth user deletes its location row (case 27)', { skip }, async () => {
+  const a = await user()
+  await claim(a.id)
+  const removed = await asService(`/auth/v1/admin/users/${a.id}`, { method: 'DELETE' })
+  assert.ok(removed.status < 300, removed.text)
+  assert.equal(await stored(a.id), null)
+  assert.deepEqual(await edge().locationClaim(a.id, 0), { status: 'unknown_user' })
+})
+
+// ── Room instances over the real Edge path (cases 1, 3, 14, 16) ────────────
+
+async function roomOn(t, name, store, { hydrationTimeoutMs = 1_500 } = {}) {
+  const module = await import(new URL(`../../rooms/PresenceRoom.js?staging=${name}`, import.meta.url).href)
+  module.configureWorld({ skills: createDemoSkillPolicy({ durationMs: 3_000 }), ownership: createStaticOwnership({}) })
+  const service = module.configureLocationPersistence({ mode: 'on', store, hydrationTimeoutMs })
+  service.journal.stop()
+  const room = new module.PresenceRoom()
+  room.onCreate()
+  const sockets = []
+  t.after(() => { for (const c of sockets) room.onLeave(c); room.setSimulationInterval(null); room.clock.clear(); module.configureLocationPersistence({ mode: 'off' }) })
+  const join = async userId => {
+    const messages = [], leaves = []
+    const c = { sessionId: `${name}-${sockets.length}`, userData: undefined, messages, leaves, send: (type, payload) => messages.push({ type, payload }), leave: (code, reason) => leaves.push([code, reason]) }
+    sockets.push(c)
+    await room.onJoin(c, { worldProtocol: WORLD_PROTOCOL, presenceProtocol: 2 }, { kind: 'player', userId, username: 'S', token: null })
+    room.ready(c)
+    const started = Date.now()
+    while (!lastMessage(c, MESSAGE.SNAPSHOT)?.self) { if (Date.now() - started > 5_000) throw new Error('not placed'); await new Promise(r => setTimeout(r, 10)) }
+    return c
+  }
+  const self = c => { const e = [...c.messages].reverse().find(m => m.type === MESSAGE.SELF || (m.type === MESSAGE.SNAPSHOT && m.payload.self)); return e.type === MESSAGE.SELF ? e.payload : e.payload.self }
+  let seq = 0
+  const walk = (c, to) => { const at = self(c); for (const direction of routeBetween(at.areaId, at, to)) { const realNow = Date.now; let fake = realNow() + (++seq) * 300; Date.now = () => fake; try { room.move(c, { direction, running: false, sequence: self(c).moveSequence + 1 }) } finally { Date.now = realNow } } }
+  const cross = (c, to) => { walk(c, portalTo(self(c).areaId, to)); room.changeArea(c, { areaId: to }); assert.equal(self(c).areaId, to) }
+  const flush = async () => { service.journal.tick(); await service.journal.idle(); await settle() }
+  return { module, room, service, join, self, cross, flush }
+}
+
+test('rooms over the real Edge path: restore after a restart, and two instances fence with 4001 (cases 1, 3, 5, 16)', { skip }, async t => {
+  const a = await user()
+  const one = await roomOn(t, 'one', edge())
+  const first = await one.join(a.id)
+  assert.equal(one.self(first).areaId, 'ciudad-corazon')
+  one.cross(first, 'pradera')
+  await one.flush()
+  assert.equal((await stored(a.id)).area_id, 'pradera')
+  // A second instance (a deploy): the player's new socket lands there.
+  const two = await roomOn(t, 'two', edge())
+  const second = await two.join(a.id)
+  assert.deepEqual({ areaId: two.self(second).areaId, tx: two.self(second).tx, ty: two.self(second).ty }, { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty })
+  // The old instance still writes (it has not noticed): stale → its socket is closed with 4001 session-replaced.
+  one.cross(first, 'ciudad-corazon')
+  await one.flush()
+  assert.deepEqual(first.leaves, [[4001, 'session-replaced']])
+  assert.equal((await stored(a.id)).area_id, 'pradera', 'the old instance changed nothing')
+  assert.deepEqual(second.leaves, [])
+})
+
+test('authority down at join: the player enters in < 1.6 s at Ciudad, unclaimed, then claims when it is back (case 14)', { skip }, async t => {
+  const a = await user()
+  await claim(a.id)
+  await edge().locationSave([row(a.id, 1, 1, { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty })])
+  let current = edge({ url: DEAD_URL })
+  const store = { locationClaim: (id, expected) => current.locationClaim(id, expected), locationSave: rows => current.locationSave(rows) }
+  const r = await roomOn(t, 'down', store)
+  const started = performance.now()
+  const c = await r.join(a.id)
+  assert.ok(performance.now() - started < 1_600, `entered in ${Math.round(performance.now() - started)} ms`)
+  assert.equal(r.self(c).areaId, 'ciudad-corazon')
+  current = edge()
+  for (let i = 0; i < 40 && r.service.journal.stats().sessions.live.claimed === 0; i++) { r.service.journal.tick(Date.now() + 2_000 * (i + 1)); await new Promise(res => setTimeout(res, 50)) }
+  assert.equal(r.service.journal.stats().sessions.live.claimed, 1)
+  assert.equal((await stored(a.id)).epoch, 2)
+})
