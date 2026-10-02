@@ -1,5 +1,6 @@
 import { LocationJournal, persistableIdentity } from './locationJournal.js'
 import { savedLocationOf } from './locationPolicy.js'
+import { PERSISTABLE_AREAS, layoutVersion } from '../world/layoutVersion.js'
 
 /**
  * WORLD LOCATION-2: the presence room's view of location persistence.
@@ -38,6 +39,9 @@ export class LocationService {
     this.hydrationTimeoutMs = hydrationTimeoutMs
     this.lateApplyWindowMs = lateApplyWindowMs
     this.journal = this.active ? new LocationJournal({ store, locate, now, onFenced, onClaimed, ...(log ? { log } : {}) }) : null
+    // The layout fingerprints cost ~100-200 ms once (Pradera). Pay it at start,
+    // before any player is served, not on the first save of a live session.
+    if (this.active) for (const areaId of PERSISTABLE_AREAS) layoutVersion(areaId)
     this.counters = {
       restores: { live: 0, cache: 0, row: 0, noRow: 0, failed: 0, timeout: 0, unknownUser: 0 },
       repairs: { area: 0, layout: 0, tile: 0, protocol: 0 },

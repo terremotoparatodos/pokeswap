@@ -74,3 +74,24 @@ test('/metrics location section is aggregates only (no ids, areas, tiles, epochs
   const text = JSON.stringify(service.stats())
   assert.doesNotMatch(text, /1111|cueva|pradera|ciudad|1234|4321|1\.[0-9a-f]{12}/)
 })
+
+test('active persistence makes at most one location_save per second and pays the layout fingerprints at start', async () => {
+  const { LOCATION_TICK_MS } = await import('./locationJournal.js')
+  const { layoutVersion } = await import('../world/layoutVersion.js')
+  assert.equal(LOCATION_TICK_MS, 1_000, 'one batch per tick, one in flight: <= 1 invocation/s')
+  const realSetInterval = globalThis.setInterval
+  const intervals = []
+  globalThis.setInterval = (fn, ms) => { intervals.push(ms); return realSetInterval(fn, 1e9) }
+  let service
+  try {
+    service = new LocationService({ mode: 'shadow', store })
+    service.start()
+  } finally {
+    globalThis.setInterval = realSetInterval
+    service?.journal.stop()
+  }
+  assert.deepEqual(intervals, [1_000])
+  const started = performance.now()
+  layoutVersion('pradera')
+  assert.ok(performance.now() - started < 10, 'already computed when the service was built')
+})

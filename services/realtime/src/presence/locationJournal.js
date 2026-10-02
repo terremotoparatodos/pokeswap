@@ -5,7 +5,9 @@
  * a disconnect only marks the entry (O(1)); `tick()` sends what is due in one
  * batch (≤ 200 rows) with a single batch in flight at a time.
  *
- *   portal / disconnect   urgent: the next tick (ticks run every 500 ms)
+ *   portal / disconnect   urgent: the next tick (ticks run every second; with one
+ *                         batch per tick and one in flight, a process makes at
+ *                         most one location_save per second, however busy)
  *   any other move        a checkpoint: ≥ 10 s after the player's last write,
  *                         plus a per-player jitter in [0, 2 s) derived from
  *                         the user id (deterministic and bounded), so players
@@ -39,7 +41,7 @@ const AREA_ID = /^[a-z][a-z0-9-]{2,47}$/
 const LAYOUT_VERSION = /^[a-z0-9.-]{1,32}$/
 const tile = value => Number.isInteger(value) && value >= -4096 && value <= 4095
 
-export const LOCATION_TICK_MS = 500
+export const LOCATION_TICK_MS = 1_000
 export const CHECKPOINT_MS = 10_000
 export const CHECKPOINT_JITTER_MS = 2_000
 export const MAX_BATCH_ROWS = 200
