@@ -14,7 +14,7 @@ import { PRADERA_RETURN_PAD, portalTo } from '../world/navigation.js'
 import { createStaticOwnership } from '../world/pokemonOwnership.js'
 import { openLocalDatabase, serviceQuery } from '../world/persistence/dev/localDatabase.js'
 import { createSqlPlayerData } from '../world/persistence/playerData.js'
-import { lastMessage, messagesOf, praderaNodesNearSpawn, routeBetween, settle } from '../world/testing.js'
+import { lastMessage, messagesOf, openDirection, praderaNodesNearSpawn, routeBetween, settle } from '../world/testing.js'
 import { standableTile, workPlacement } from '../world/workPlacement.js'
 import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../world/worldProtocol.js'
 
@@ -559,4 +559,47 @@ test('on: active work and a reconnect within 15 s behave exactly as today: same 
   assert.equal(lastMessage(again, WORLD_MESSAGE.WORK_DONE), undefined, 'not cancelled by the reconnect')
   // The new session still claims its epoch (in the background); let it land before the database closes.
   await waitFor(() => r.service.journal.stats().sessions.live.claimed === 1, 'claim')
+})
+
+// ── Graceful shutdown (case 4) ─────────────────────────────────────────────
+
+test('graceful shutdown: after every socket closes, one final flush saves each last tile exactly (case 4)', async t => {
+  const r = await locationRoom(t)
+  const users = [nextUser(), nextUser(), nextUser()]
+  const sockets = []
+  for (const u of users) sockets.push(await r.joinPlaced(u))
+  const direction = openDirection('pradera', ARRIVALS.pradera)
+  const DELTA = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] }[direction]
+  const last = { tx: ARRIVALS.pradera.tx + DELTA[0], ty: ARRIVALS.pradera.ty + DELTA[1] }
+  for (const c of sockets) r.travel(c, 'pradera')
+  await r.flush() // the crossings
+  for (const c of sockets) r.step(c, direction) // the last step of each is only marked
+  for (const c of sockets) r.room.onLeave(c) // Colyseus disconnects everyone first…
+  const result = await r.module.flushLocationsForShutdown(3_000) // …then calls onShutdown
+  assert.deepEqual(result, { sent: 3, left: 0, timedOut: false })
+  for (const u of users) assert.deepEqual({ area: (await stored(u)).area_id, tx: (await stored(u)).tx, ty: (await stored(u)).ty }, { area: 'pradera', ...last })
+  r.advance(RECONNECT_GRACE_MS + 1)
+  const fresh = await import(new URL('./PresenceRoom.js?instance=after-shutdown', import.meta.url).href)
+  const b = await locationRoom(t, { module: fresh, store: instrumented(data) })
+  assert.deepEqual(b.where(await b.joinPlaced(users[0])), { areaId: 'pradera', ...last })
+})
+
+test('graceful shutdown is best effort: a hung authority never holds the exit past the deadline', async t => {
+  const r = await locationRoom(t)
+  const u = nextUser()
+  const c = await r.joinPlaced(u)
+  r.travel(c, 'pradera')
+  r.room.onLeave(c)
+  r.store.locationSave = () => new Promise(() => {})
+  const started = performance.now()
+  const result = await r.module.flushLocationsForShutdown(100)
+  assert.equal(result.timedOut, true)
+  assert.ok(performance.now() - started < 1_000)
+})
+
+test('the process entry point wires the shutdown flush into Colyseus onShutdown', async () => {
+  const { readFile } = await import('node:fs/promises')
+  const source = await readFile(new URL('../index.js', import.meta.url), 'utf8')
+  assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*const \{ sent, left, timedOut \} = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
+  assert.match(source, /SHUTDOWN_LOCATION_FLUSH_MS = 3_000/)
 })
