@@ -349,8 +349,11 @@ test('flushAll (shutdown): sends everything pending at once; never waits past it
   const s = await hung.join(A)
   hung.journal.note(s, hung.actor(), { urgent: true })
   hung.store.hang = true
+  // A hung authority holds no handle here (a real one holds its socket); the
+  // journal's own deadline timer is unref'd, so keep the loop alive (Node 22).
+  const alive = setInterval(() => {}, 1_000)
   const started = Date.now()
-  const result = await hung.journal.flushAll(50)
+  const result = await hung.journal.flushAll(50).finally(() => clearInterval(alive))
   assert.equal(result.timedOut, true)
   assert.ok(Date.now() - started < 1_000)
 })

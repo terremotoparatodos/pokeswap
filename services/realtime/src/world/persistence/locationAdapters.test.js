@@ -68,8 +68,10 @@ test('Edge adapter: the claim has its own short budget (1.5 s by default), indep
   assert.equal(LOCATION_CLAIM_TIMEOUT_MS, 1_500)
   const hanging = (_url, init) => new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted'))))
   const data = createEdgePlayerData({ url: 'https://x', secret: SECRET, publishableKey: 'k', fetcher: hanging, claimTimeoutMs: 30, timeoutMs: 60_000 })
+  // The adapter's abort timer is unref'd and the fake fetch holds no socket: keep the loop alive (Node 22).
+  const alive = setInterval(() => {}, 1_000)
   const started = Date.now()
-  await assert.rejects(data.locationClaim(A), /aborted/)
+  await assert.rejects(data.locationClaim(A), /aborted/).finally(() => clearInterval(alive))
   assert.ok(Date.now() - started < 1_000)
 })
 
