@@ -3,6 +3,8 @@
 > Rama `world/location-persistence-0.3`, desde `f558fca` (auditoría aprobada `design/world-location-persistence-0.3`).
 > Integración de referencia: `integration/world-skills-0.3 @ 15f5f4f`.
 > **Revisión 1 (2026-10-02):** la rama se descongeló en `7c3b723` solo para corregir los findings B1, B2, B3 y M2 de la revisión (§R).
+> **Revisión 2 (2026-10-02):** fixes de tests y documentación sobre `b3fbab3`: F1 (R2 por la rama `UPDATE`), F2 (garantía exacta de B2 y condición de activación) y F3 (mutaciones deterministas). **Sin cambios de código productivo, SQL ni semántica** (§R2).
+> **Condición de activación (F2):** no habilitar `on` públicamente hasta medir en `shadow` la carrera entre dos sockets vivos (§5.1, §12). Si su frecuencia no es despreciable, diseñar identidad de sesión persistida antes de activar.
 > **Nada aplicado ni desplegado:** ni migración hosted, ni `world-authority`, ni secretos, ni flag en el entorno oscuro, ni merges. No se tocaron Playtest, producción, el gate, los testers ni otros worktrees.
 > **Staging sigue pendiente:** Docker/WSL no funcionan en esta máquina y no se intentó repararlos ni liberar espacio. **No se declara staging aprobado.**
 > Etiquetas: **FACT** (ejecutado o leído), **INFERENCE** (deducido, a verificar), **NO EJECUTADO** (gate pedido que no pudo correr).
@@ -28,9 +30,9 @@
   - Los tres repros del revisor (R1, R2, R3) son tests permanentes. Fallaron sobre el código anterior y pasan ahora (§R).
 - **Protocolo de cliente y `/version`:** sin cambios. Nada nuevo llega al bundle del navegador (FACT: 0 coincidencias en `dist/` normal y Playtest).
 - **Pruebas** (FACT, punta de la rama):
-  - realtime: 457 aprobados y 0 fallos en Node 22 y en Node 24 (31 omitidos: 21 de staging general y 10 de staging de ubicación);
+  - realtime: 461 aprobados y 0 fallos en Node 22 y en Node 24 (31 omitidos: 21 de staging general y 10 de staging de ubicación);
   - 11/11 contratos Deno de `world-authority`;
-  - **54/54 mutaciones** detectadas, con el árbol restaurado;
+  - **54/54 mutaciones** detectadas por el test y la causa esperados, sin ningún `timedOut`, con el árbol restaurado (revisión 2);
   - simulación de **dos procesos reales**: 17/17 chequeos;
   - benchmark de 100 jugadores: p99 del event loop dentro de ±1,2 % de `off` y **≤ 1 invocación/s**.
 - **No ejecutado:** el stack Supabase local y el staging completo (§8).
@@ -62,6 +64,32 @@ Los mismos tres efectos se vuelven a provocar en cada corrida de mutaciones: M41
 
 **Recomendaciones no bloqueantes L1, L3 y L4:** registradas en §12, sin ampliar el alcance.
 
+## R2. Revisión 2: fixes de tests y documentación
+
+Veredicto de la segunda revisión sobre `b3fbab3`: **APPROVE WITH REQUIRED FIXES**. Solo pidió tests y docs; no hay cambios de código productivo, SQL ni semántica.
+
+| Fix | Commit | Qué |
+| --- | --- | --- |
+| **F1** — la rama `UPDATE` del claim no tenía cobertura integrada | `9aaf9ee` | Variante permanente de R2 (`on`/`shadow` × una/dos instancias), descrita debajo de la tabla. M44 (sacar `AND epoch = p_expected_epoch` del `UPDATE`) ahora debe hacer fallar **también** el test de sala, no solo el unitario SQL |
+| **F2** — la garantía de B2 estaba sobredicha | (este) | §5.1 dice ahora exactamente qué se garantiza y qué no. Entre dos sockets vivos gana el último claim confirmado, no la conexión más nueva. Queda como **condición previa a `on`** (encabezado, §12, §13) |
+| **F3** — M22 y M50 se detectaban por un proceso colgado | `a4bea8e` | Ver §10: `within(promise, ms, label)` en los tests colgados, M50 sin promesa huérfana y runner que distingue `timedOut` y valida test y causa esperados |
+
+El test de F1 hace exactamente esto:
+- parte de una fila existente (epoch `E`);
+- la primera ronda de C1 recibe `conflict E`;
+- su segunda llamada (`expected_epoch = E`) se abandona: se retiene la operación y se aborta la respuesta;
+- C2 confirma `E+1` primero;
+- recién entonces se libera el zombi, que debe responder `{conflict, epoch: E+1}` sin cambiar el epoch;
+- C2 sigue guardando, sin `stale` ni 4001.
+
+**Individuales (FACT):**
+
+| Mutación | Test(s) que deben fallar | Causa exigida | Resultado |
+| --- | --- | --- | --- |
+| M22 | primero «flushAll (shutdown)…» | `flushAll on a hung authority did not settle within 2000 ms` | CAUGHT en 2 s (antes: 240 s colgado), `timedOut: false`, árbol restaurado |
+| M44 | «R2 in the database» (PGlite) **y** «on, 1 instance(s): an abandoned second-round claim (UPDATE, expected = E)» (sala) | sala: `the zombie answers conflict` | CAUGHT en las dos corridas (39 s), árbol restaurado |
+| M50 | primero «a claim given up (claimWaitMs)…» | `a claim on a hung store did not settle within 2000 ms` | CAUGHT en 2 s (antes: 240 s y un *unhandled rejection* del mutante), `timedOut: false`, árbol restaurado |
+
 ## 1. Commits
 
 | SHA | Commit |
@@ -86,7 +114,10 @@ Los mismos tres efectos se vuelven a provocar en cada corrida de mutaciones: M41
 | `c57a8fb` | **R** · `fix(world)`: la versión de la Pradera hashea todos sus datos canónicos (M2) |
 | `74d34fa` | **R** · `test(world-location)`: controles negativos M41–M54 |
 | `11c31b0` | **R** · `test(world)`: costo de la huella por casillas leídas, no por reloj |
-| *(este)* | **R** · `docs`: este informe y los baselines de la revisión |
+| `b3fbab3` | **R** · `docs`: informe y baselines de la revisión 1 |
+| `9aaf9ee` | **R2** · `test(presence)`: R2 por la rama `UPDATE`, zombi de segunda ronda (F1) |
+| `a4bea8e` | **R2** · `test(world-location)`: tests colgados deterministas y veredictos del runner (F3) |
+| *(este)* | **R2** · `docs`: garantía exacta de B2, condición de activación, M22/M50 y gates (F2) |
 
 Commits nuevos, sin amend ni rebase.
 
@@ -268,6 +299,23 @@ Abortar el `fetch` no alcanza: la Edge Function o PostgreSQL pueden seguir ejecu
 - **C2 confirmó antes de que C1 llegara:** el epoch ya no coincide y C1 es un no-op (`conflict`), aunque llegue minutos después.
 - **C1 confirmó antes de que C2 leyera:** C2 ve el epoch nuevo y reclama después de él, así que C2 termina con el más alto.
 - **C1 confirmó entre la lectura y la escritura de C2:** la escritura de C2 da `conflict`; C2 relee, reclama después y también termina arriba.
+
+**Alcance exacto de la garantía (revisión 2, F2).** Lo anterior vale cuando C1 está **cerrada, abandonada o dejó de ser la sesión autorizada antes de reintentar**: socket cerrado, sesión reemplazada en su proceso o respuesta abandonada. En esos casos el journal de C1 no vuelve a enviar nada (`#mayClaim`), y su única operación posible es la que ya estaba en vuelo, que es condicional. C2 nunca queda `stale` por C1.
+
+**No se garantiza que C2 gane entre dos sockets todavía vivos.**
+- Si C1 sigue abierta en otra instancia (dos pestañas, o un deploy con solapamiento antes de que la instancia vieja cierre sus sockets) y está `unclaimed` reintentando su claim con backoff (`#retryClaims`), su instancia no sabe que existe C2.
+- Su reintento lee el epoch de C2 y reclama después: **gana el último claim confirmado por la base, que no necesariamente es la conexión más nueva.**
+- En `on` eso produce un **4001 `session-replaced` visible** en la sesión más nueva. Se resuelve sola: la siguiente conexión reclama después y cierra a C1, pero el 4001 se ve.
+- Ceder ante un epoch mayor no lo arreglaría: rompería la intercalación de arriba (el zombi que confirma entre la lectura y la escritura de C2) y el caso de una sola sesión cuyo propio claim abandonado confirma tarde.
+- Distinguir «más nuevo» de «zombi» exige una **identidad de sesión persistida** en la fila, es decir, un cambio de esquema. Queda fuera de esta fase.
+- No es una regresión: antes del claim condicional pasaba lo mismo.
+
+**Cómo se mide en `shadow`, sin afectar al jugador:**
+- `location.shadow.wouldFence`: cada sesión que `on` habría cerrado;
+- `journal.claims.conflicts` y `claims.retries`;
+- `restores.timeout` y `hydration.maxMs`.
+
+**Condición de activación:** no habilitar `on` públicamente hasta medir esta carrera en `shadow`. Si su frecuencia no es despreciable, diseñar la identidad de sesión persistida antes de activar.
 - No se compara ningún reloj, ni de cliente ni de servidor, ni `moveSequence`, ni nada del payload.
 - Funciona igual entre dos instancias, porque decide la fila en la base.
 
@@ -328,19 +376,20 @@ Además, `world.playerData` suma `locationClaim` y `locationSave` (llamadas, fal
 
 **Primera entrega** (`2eecbc4`+, archivos `nav-100-60s-{off,shadow,on}.json`; antes de `2eecbc4`, archivos `*-before-2eecbc4.json`): p99 de 37,98 / 37,95 / 37,49 ms, 0,86 / 0,88 `location_save`/s. Los dos problemas de entonces, tick de 500 ms y huella calculada en el primer guardado, siguen corregidos (M39, M40).
 
-## 8. Gates (FACT: ejecutados en la punta de código `11c31b0`)
+## 8. Gates (FACT: ejecutados en `a4bea8e`, revisión 2; todos con código de salida 0)
 
 | Gate | Resultado |
 | --- | --- |
-| Reproducción invertida de R1, R2 y R3 | Fallaron sobre el código anterior a cada corrección y pasan después (§R) |
-| Tests de ubicación (sala con persistencia, journal, journal + PGlite, política, flag, layout, adaptadores, migración PGlite, staging de ubicación) | 122/122; 10 omitidos (staging de ubicación) |
+| Reproducción invertida de R1, R2 y R3 | Fallaron sobre el código anterior a cada corrección y pasan después (§R). La segunda revisión lo volvió a comprobar sobre una copia de `7c3b723`: 12/12 por la causa correcta |
+| R2 por la rama `UPDATE` (F1: `on`/`shadow` × una/dos instancias) | 4/4 |
+| Tests de ubicación (sala con persistencia, journal, journal + PGlite, política, flag, layout, adaptadores, migración PGlite, staging de ubicación) | 126/126; 10 omitidos (staging de ubicación) |
 | PGlite de la migración (`worldLocations.database.test.js`) | 20/20 |
 | Contratos Deno `world-authority` | 11/11 |
 | Deno `_shared` (guard de webhooks, `--allow-read`) | 27/27 |
 | Guard de webhooks: tests y `check` | 28/28 y ✓ |
-| **Realtime completo, Node 24** (v24.19.0) | 457 aprobados, 0 fallos, 0 cancelados, 31 omitidos (21 de staging + 10 de staging de ubicación) |
-| **Realtime completo, Node 22** (`npx --offline node@22`, v22.23.2) | 457 / 0 / 0 / 31 |
-| Primera corrida completa de la revisión | 1 fallo en los dos Node: la cota de reloj del test de costo de M2 (376 ms con la suite en paralelo). Corregido en `11c31b0` sin tocar código de producto |
+| **Realtime completo, Node 24** (v24.19.0) | 461 aprobados, 0 fallos, 0 cancelados, 31 omitidos (21 de staging + 10 de staging de ubicación) |
+| **Realtime completo, Node 22** (`npx --offline node@22`, v22.23.2) | 461 / 0 / 0 / 31 |
+| Revisión 1, primera corrida completa | 1 fallo en los dos Node: la cota de reloj del test de costo de M2 (376 ms con la suite en paralelo). Corregido en `11c31b0` sin tocar código de producto |
 | Vitest completo | 191 archivos, 1829/1829 |
 | typecheck | OK |
 | lint | **0 errores**, 9 warnings preexistentes (`AuthModal.vue`). Los 2 errores de `docs/design/world-location-1/cas-model.mjs` que señalaba la primera entrega se corrigieron en `7c3b723` |
@@ -356,7 +405,8 @@ Además, `world.playerData` suma `locationClaim` y `locationSave` (llamadas, fal
 | Navegación y presencia de CAVES-4 (navegación, Ciudad, cuevas, interiores, zonas, terreno, salas de presencia/cueva/navegación/benchmark, presencia, interés, reconexión, llegada) | 115/115 |
 | Benchmark de 100 jugadores `off`/`shadow`/`on` | §7 |
 | **Simulación de dos procesos** (`scripts/world-location/two-instances.mjs`) | **17/17** (§11) |
-| Mutaciones | **54/54** detectadas, árbol restaurado (§10) |
+| Mutaciones: M22, M44 y M50 individuales | CAUGHT por el test y la causa esperados (2 s, 39 s y 2 s), `timedOut: false`, árbol restaurado (§R2) |
+| Mutaciones completas | **54/54** detectadas, 0 `timedOut`, `restored: true`, sin procesos `node` residuales, árbol limpio (§10) |
 | **Supabase local y staging completo** (`staging.test.js` + `locationStaging.test.js`) | **NO EJECUTADO.** Docker Desktop responde «unable to start», `wsl.exe` no responde y C: está al 98 %. No se tocó WSL, Docker ni el disco. Los 10 tests de staging de ubicación, actualizados al claim condicional (uno nuevo: R2 en Postgres real), cargan y se omiten sin las variables |
 
 ## 9. Casos de la matriz (§7 de la auditoría)
@@ -395,10 +445,26 @@ Además, con controles negativos: backoff acotado, cola coalescida y acotada, `s
 
 ## 10. Mutaciones (`node scripts/world-location/mutations.mjs`)
 
-Cada una rompe una protección, exige que su test **falle** y restaura el archivo byte a byte. Al final verifica con git que el árbol esté limpio. **54/54 detectadas** y árbol restaurado (corrida final sobre `74d34fa`; el commit siguiente, `11c31b0`, solo cambia el test de costo, que ninguna mutación usa).
+Cada una rompe una protección, exige que su test **falle** y restaura el archivo byte a byte. Al final verifica con git que el árbol esté limpio. Resultado de la corrida completa de la revisión 2: §R2 y §8.
 
-- **Detección por tiempo:** M22 y M50 se detectan porque el test cuelga hasta el plazo del runner (240 s). No fallan por una aserción. Que una espera no esté acotada se manifiesta justamente así.
-- **M32:** el primer test que falla es «a failed claim retries…», que exige que un claim tardío no mueva al jugador. **M45** falla primero en el repro R2 de la sala.
+**Qué cuenta como detectado** (revisión 2, F3). Cada comando de test de la mutación debe salir con código ≠ 0 **por sí mismo**, y además:
+- una corrida que el runner tuvo que matar en su plazo de 240 s es `timedOut` y **nunca** cuenta como detectada;
+- si la mutación declara un test esperado, ese test tiene que estar entre los fallos (o ser el primero, con `first`);
+- si declara una causa esperada (regex), la causa tiene que aparecer en la salida;
+- una mutación puede exigir varios comandos, y todos deben fallar (M44: PGlite y sala).
+
+**M22 y M50 (corregido en la revisión 2).** En la revisión 1 se «detectaban» por un proceso colgado.
+- Los tests de autoridad colgada mantenían vivo el event loop con un `setInterval` que solo se limpiaba en el `.finally` de la promesa esperada. Con el mutante esa promesa nunca termina, así que el test fallaba a los 8 s, pero el proceso quedaba colgado hasta el corte de 240 s.
+- Además, M50 dejaba huérfana la promesa `giveUp`, que rechazaba sin handler: el test fallaba por ese *unhandled rejection* y no por su aserción.
+- Ahora:
+  - los tests usan `within(promise, ms, label)` (`world/testing.js`), una carrera con un temporizador propio que siempre se limpia;
+  - M50 elimina todo el `giveUp`;
+  - las dos exigen ser el **primer** fallo de su archivo, con la causa `… did not settle within 2000 ms`;
+  - las dos fallan en 2 s y el proceso termina.
+
+**Otros detalles:**
+- **M32:** el primer test que falla es «a failed claim retries…», que exige que un claim tardío no mueva al jugador.
+- **M45:** falla primero en el repro R2 de la sala.
 
 | Capa | Mutaciones |
 | --- | --- |
@@ -453,6 +519,11 @@ Cada una rompe una protección, exige que su test **falle** y restaura el archiv
 9. **`PresenceRoom.js` tiene 452 líneas** (franja 300–500). La lógica de ubicación está en `rooms/locationJoin.js` (187).
 10. **Dungeons:** el registro `dungeonId → cueva` está vacío. Hoy un piso `dg:*` no se guarda; se conserva la última ubicación persistible.
 
+11. **Carrera entre dos sockets vivos (revisión 2, F2) — CONDICIÓN PREVIA A `on`.**
+    - Si una sesión anterior sigue abierta en otra instancia y reintenta su claim, puede reclamar después de la sesión más nueva. En `on`, la más nueva recibe un 4001 visible (§5.1).
+    - Se mide en `shadow` con `wouldFence`, `claims.conflicts`, `claims.retries`, `restores.timeout` y `hydration.maxMs`, sin afectar al jugador.
+    - **No habilitar `on` públicamente hasta medirla.** Si su frecuencia no es despreciable, diseñar una identidad de sesión persistida antes de activar. No se amplía el esquema en esta fase.
+
 **Recomendaciones no bloqueantes de la revisión (registradas, sin ampliar el alcance):**
 - **L1 — clasificación de errores definitivos.**
   - Hoy toda falla de un claim o de un lote se trata como transitoria y se reintenta con backoff: red, 5xx, 400 por un bug propio (`invalid_epoch`, `invalid_rows`) o respuesta malformada (`malformed location claim`).
@@ -494,9 +565,10 @@ Cada una rompe una protección, exige que su test **falle** y restaura el archiv
    - `WORLD_LOCATION_PERSISTENCE=shadow`, reinicio autorizado;
    - smoke normal y leer `/metrics` → `location`;
    - esperado: `stale` inesperados 0, `wouldFence` 0 salvo dos pestañas o instancias reales, `failedBatches` 0, `claims.failed` 0, `wouldRepair` razonables, ≤ 1 `location_save`/s;
+   - **medir la carrera entre dos sockets vivos** (§5.1, §12.11): `wouldFence`, `claims.conflicts`, `claims.retries`, `restores.timeout`. Es la condición para pasar al punto 7;
    - en `shadow` ningún jugador debe notar nada;
    - verificar D-L10 en un deploy real.
-7. **Activación:**
+7. **Activación** (solo si el punto 6 midió una frecuencia despreciable de la carrera entre dos sockets vivos; si no, primero la identidad de sesión persistida):
    - `on` con reinicio;
    - smoke humano de §8 de la auditoría (cueva > 30 s, reinicio, cruce y cierre, dos pestañas → 4001, trabajo, aislamiento, rollback a `off`).
 8. **Rollback** en cualquier punto:
