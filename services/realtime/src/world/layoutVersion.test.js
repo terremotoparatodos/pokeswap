@@ -152,13 +152,21 @@ test('guard: client, server and persistence run the same generator (no browser f
   assert.equal(praderaFacts().generator, TERRAIN_GENERATOR_VERSION)
 })
 
-test('cost: a fresh Pradera fingerprint is cheap, and never paid on a save (the service computes it at start)', async () => {
-  const started = performance.now()
-  versionOf(layoutSource('pradera'))
-  const ms = performance.now() - started
-  assert.ok(ms < 150, `fresh Pradera fingerprint took ${ms.toFixed(1)} ms`)
+test('cost: a fresh Pradera fingerprint reads a bounded window only, and is never paid on a save (the service computes it at start)', async () => {
+  // Deterministic, not wall time (the full suite runs files in parallel): count the tiles it reads.
+  // Wall time is measured where it matters, in the 100-player benchmark (event-loop max).
   const window = praderaFingerprintWindow()
-  assert.ok((window.maxTx - window.minTx + 1) * (window.maxTy - window.minTy + 1) < 20_000, 'a bounded window, never the ±4096 square')
+  const tiles = (window.maxTx - window.minTx + 1) * (window.maxTy - window.minTy + 1)
+  assert.ok(tiles < 20_000, `a bounded window, never the ±4096 square (${tiles} tiles)`)
+  const read = new Set()
+  let outside = 0
+  const counted = fn => (a, tx, ty) => {
+    if (a === 'pradera') { read.add(`${tx},${ty}`); if (tx < window.minTx || tx > window.maxTx || ty < window.minTy || ty > window.maxTy) outside++ }
+    return fn(a, tx, ty)
+  }
+  versionOf(layoutSource('pradera', { isWalkable: counted(CANONICAL_NAVIGATION.isWalkable), isReachable: counted(CANONICAL_NAVIGATION.isReachable), portalAt: counted(CANONICAL_NAVIGATION.portalAt) }))
+  assert.equal(outside, 0, 'no tile outside the authored window is read')
+  assert.equal(read.size, tiles, 'each window tile is read, nothing else')
   const { LocationService } = await import('../presence/locationService.js')
   const { savedLocationOf } = await import('../presence/locationPolicy.js')
   new LocationService({ mode: 'on', store: { locationClaim: async () => ({}), locationSave: async () => new Map() } }).disable()
