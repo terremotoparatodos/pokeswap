@@ -50,9 +50,11 @@ test.after(() => { Date.now = realNow })
 function instrumented(base) {
   const store = {
     claims: [], batches: [], claimDelayMs: 0, claimHang: false, claimFail: false, saveFail: false, gates: [], abandonMs: 0, late: [],
+    // Which calls `abandonMs` gives up: every one by default; `expected => expected > 0` only the second round (UPDATE).
+    abandonWhen: () => true,
     async locationClaim(userId, expectedEpoch) {
       store.claims.push(userId)
-      if (store.abandonMs) {
+      if (store.abandonMs && store.abandonWhen(expectedEpoch)) {
         // The HTTP answer is given up (an aborted fetch), but the operation itself
         // still reaches the database later: the test runs it with `late.shift()()`.
         store.late.push(() => base.locationClaim(userId, expectedEpoch))
@@ -526,6 +528,45 @@ for (const [mode, instances] of [['on', 1], ['shadow', 1], ['on', 2], ['shadow',
     assert.equal(b.service.stats().shadow.wouldFence, 0)
     assert.equal(b.service.journal.stats().saves.stale, 0, 'C2 never sees stale')
     assert.deepEqual({ area: (await stored(u)).area_id, epoch: (await stored(u)).epoch }, { area: to, epoch })
+  })
+}
+
+// Review 2 (F1): the zombie of the SECOND round. C1's first call reads the
+// existing row (conflict, epoch E); its second call — the conditional UPDATE
+// with expected_epoch = E — is given up and only reaches the database after
+// the live session's claim. It must answer conflict and leave the epoch alone.
+for (const [mode, instances] of [['on', 1], ['shadow', 1], ['on', 2], ['shadow', 2]]) {
+  test(`${mode}, ${instances} instance(s): an abandoned second-round claim (UPDATE, expected = E) that lands after the live session's never fences it (R2, F1)`, async t => {
+    const a = await locationRoom(t, { mode, hydrationTimeoutMs: 200 })
+    const instanceB = instances === 2 ? await import(new URL(`./PresenceRoom.js?instance=abandon-update-${mode}`, import.meta.url).href) : null
+    const b = instanceB ? await locationRoom(t, { mode, module: instanceB, store: instrumented(data) }) : a
+    const u = nextUser()
+    await seed(u, { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty })
+    const E = (await stored(u)).epoch
+    a.store.abandonMs = 20
+    a.store.abandonWhen = expected => expected > 0 // the first round (expected 0) answers: conflict E
+    const first = await a.join(u)
+    await waitFor(() => lastMessage(first, MESSAGE.SNAPSHOT)?.self, 'first session placed')
+    // Shadow places the player at once: wait for the second round to be sent and given up.
+    await waitFor(() => a.store.late.length === 1, 'the second round given up')
+    await waitFor(() => a.service.journal.stats().claims.failed >= 1, 'C1 counted as failed')
+    assert.equal((await stored(u)).epoch, E, 'nothing landed yet')
+    a.room.onLeave(first)
+    a.store.abandonMs = 0
+    const second = await b.joinPlaced(u) // C2, the live session
+    await waitFor(() => b.service.journal.stats().sessions.live.claimed === 1, 'C2 claimed')
+    assert.equal((await stored(u)).epoch, E + 1, 'C2 confirmed first')
+    const zombie = await a.store.late.shift()() // C1's UPDATE with expected_epoch = E runs only now
+    assert.deepEqual(zombie, { status: 'conflict', epoch: E + 1 }, 'the zombie answers conflict')
+    assert.equal((await stored(u)).epoch, E + 1, 'and leaves the epoch alone')
+    const to = b.where(second).areaId === 'pradera' ? 'ciudad-corazon' : 'pradera'
+    b.travel(second, to)
+    await b.flush()
+    assert.deepEqual(second.leaves, [], 'C2 is never disconnected')
+    assert.equal(b.service.stats().fencedDisconnects, 0)
+    assert.equal(b.service.stats().shadow.wouldFence, 0)
+    assert.equal(b.service.journal.stats().saves.stale, 0)
+    assert.deepEqual({ area: (await stored(u)).area_id, epoch: (await stored(u)).epoch }, { area: to, epoch: E + 1 })
   })
 }
 
