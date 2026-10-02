@@ -883,7 +883,8 @@ export class WildlandsGame {
   private readonly loop = (now: number): void => {
     this.frameId = 0
     if (!this.running) return
-    if (this.visibilityPaused || this.sceneHeld) return
+    if (this.visibilityPaused) return
+    if (this.sceneHeld) return
     if (this.last === 0) {
       this.last = now
       this.frameId = requestAnimationFrame(this.loop)

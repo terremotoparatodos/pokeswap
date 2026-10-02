@@ -170,7 +170,7 @@ function boot() {
   const phase = () => controller.current.phase
   /** Area sequence actually drawn, consecutive repeats folded. */
   const visible = () => drawn.filter((id, i) => id !== drawn[i - 1])
-  const room = (index = -1) => sdk.rooms.at(index) as FakeRoom
+  const room = (index = -1) => sdk.rooms[index < 0 ? sdk.rooms.length + index : index] as FakeRoom
   return { game, internals, controller, drawn, visible, huds, enterArea, goTo, states, phase, room }
 }
 
@@ -406,7 +406,7 @@ describe('errors, retry and replaced sessions', () => {
     void socket.connect()
     await settle()
     const joins = sdk.joins
-    ;(sdk.rooms.at(-1) as FakeRoom).leaveHandler!(4001)
+    ;(sdk.rooms[sdk.rooms.length - 1] as FakeRoom).leaveHandler!(4001)
     expect(replaced).toHaveBeenCalledOnce()
     await vi.advanceTimersByTimeAsync(300_000)
     void socket.connect()

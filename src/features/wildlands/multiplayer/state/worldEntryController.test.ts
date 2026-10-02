@@ -32,7 +32,7 @@ function stage(prepare: () => Promise<void> = () => Promise.resolve(), onFailure
   const fire = (ms: number) => {
     for (const [id, timer] of [...timers]) if (timer.ms === ms) { timers.delete(id); timer.run() }
   }
-  return { controller, calls, sockets, timers, states, fire, socket: () => sockets.at(-1)! }
+  return { controller, calls, sockets, timers, states, fire, socket: () => sockets[sockets.length - 1] }
 }
 const settle = async () => { for (let i = 0; i < 5; i++) await Promise.resolve() }
 
@@ -71,7 +71,7 @@ describe('WorldEntryController', () => {
     s.socket().status.snapshot('player')
     await settle()
     s.socket().status.lost()
-    expect(s.calls.at(-1)).toBe('hold')
+    expect(s.calls[s.calls.length - 1]).toBe('hold')
     expect([...s.timers.values()].map(timer => timer.ms)).toEqual([15_000])
     s.socket().status.lost()
     expect(s.timers.size).toBe(1)
