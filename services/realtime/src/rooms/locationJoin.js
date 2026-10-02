@@ -12,8 +12,10 @@ import { restoreFromRow } from '../presence/locationPolicy.js'
  *     position is published and no intent is accepted until its claim
  *     answers or `hydrationTimeoutMs` (1.5 s) passes, then it is placed at its
  *     validated row, or at Ciudad (unclaimed: plays on, never saves);
- *   - a claim that answers after that (`late`) moves the player only if it has
- *     done nothing yet and is within the late window (see `#late`);
+ *   - the boundary is publication (review B3): a claim that answers before the
+ *     actor is admitted restores it; once the fallback was published, a claim
+ *     that answers later only brings the epoch. The current authoritative
+ *     position is adopted and saved at once; nothing moves (see `#adopt`);
  *   - in mode `on`, a session whose save came back 'stale' is closed with
  *     4001 'session-replaced', and its tile is not remembered for reconnects;
  *     in shadow it is only counted (`wouldFence`): shadow never changes what
@@ -22,12 +24,11 @@ import { restoreFromRow } from '../presence/locationPolicy.js'
  * Owns only per-socket location state; the room keeps the actors.
  */
 export class LocationJoin {
-  /** `location()` and `world()` are getters: both can be replaced at runtime (tests, rollback). */
-  constructor({ actors, clientsByActor, location, world }) {
+  /** `location()` is a getter: the service can be replaced at runtime (tests, rollback). */
+  constructor({ actors, clientsByActor, location }) {
     this.actors = actors
     this.clientsByActor = clientsByActor
     this.location = location
-    this.world = world
     this.sessionByClient = new WeakMap()
     /** Reserved sockets waiting for their claim: client → { session, join, timer, readyPending, startedAt }. */
     this.hydrations = new Map()
@@ -70,33 +71,19 @@ export class LocationJoin {
   /** The session was just placed: its starting position is its first save. */
   admitted(client, actor) {
     const session = this.sessionByClient.get(client)
-    if (!session) return
-    const location = this.location()
-    session.enabledAt = location.now()
-    session.pristine = true
-    location.note(session, actor)
+    if (session) this.location().note(session, actor)
   }
 
-  /** O(1). Any accepted move, crossing or server placement also ends the late-claim window. */
+  /** O(1): any accepted move, crossing or server placement. */
   moved(client, actor, urgent = false) {
     const session = this.sessionByClient.get(client)
-    if (!session) return
-    session.pristine = false
-    this.location().note(session, actor, { urgent })
-  }
-
-  /** A work request ends the late-claim window too (the player acted). */
-  acted(client) {
-    const session = this.sessionByClient.get(client)
-    if (session) session.pristine = false
+    if (session) this.location().note(session, actor, { urgent })
   }
 
   /** True when the socket is still hydrating: its ready is answered once placed. */
   deferReady(client) {
     const waiting = this.hydrations.get(client)
     if (waiting) { waiting.readyPending = true; return true }
-    const session = this.sessionByClient.get(client)
-    if (session) session.readySent = true
     return false
   }
 
@@ -147,7 +134,7 @@ export class LocationJoin {
     if (!actor || this.clientsByActor.get(session.userId) !== client) return
     // Shadow: count what `on` would have restored or repaired; nothing moves.
     if (location.effective === 'shadow' && session.origin === 'new') location.shadowed(restoreFromRow(result.location, { worldProtocol: session.worldProtocol }))
-    if (location.restores && session.origin === 'fallback') this.#late(room, client, session, actor, result.location)
+    if (location.restores && session.origin === 'fallback') this.#adopt(session, actor)
   }
 
   #finish(room, client, pending, stored, claimed) {
@@ -167,29 +154,18 @@ export class LocationJoin {
 
   /**
    * A claim that answered after the session was placed with the Ciudad
-   * fallback (timeout or failed claim, then a background retry). The stored
-   * location is applied only if the player has done NOTHING yet (no accepted
-   * step, crossing, work request or server move) and it is still within the
-   * late window (LATE_APPLY_WINDOW_MS) of being placed: then it is exactly a
-   * slow join, applied as a server placement with a fresh snapshot.
-   * Otherwise it is ignored and the journal saves where the player really is.
+   * fallback (timeout or failed claim, then a background retry). The
+   * fallback was already published to the player and its observers, so the
+   * stored location is never applied, whatever the player did or did not do
+   * since: the claim only brings the epoch. The current authoritative
+   * position is adopted and saved at the next tick (urgent), so the old row
+   * is never restored later either. No area, tile, presence or work changes.
    */
-  #late(room, client, session, actor, stored) {
+  #adopt(session, actor) {
     const location = this.location()
-    const place = restoreFromRow(stored, { worldProtocol: session.worldProtocol })
-    const fresh = session.pristine && location.now() - session.enabledAt <= location.lateApplyWindowMs
-    if (!place || !fresh || (place.areaId === actor.areaId && place.tx === actor.tx && place.ty === actor.ty)) {
-      if (place) location.counters.late.ignored++
-      return
-    }
-    location.counters.late.applied++
-    location.repaired(place.repair)
-    session.origin = 'row'
-    actor.areaId = place.areaId; actor.tx = place.tx; actor.ty = place.ty; actor.dir = place.dir
-    this.world().actorPlaced(actor)
-    room.publish(actor)
-    if (session.readySent) room.sendSnapshot(client, actor)
-    location.note(session, actor)
+    location.counters.late.adopted++
+    session.origin = 'adopted'
+    location.note(session, actor, { urgent: true })
   }
 
   /**

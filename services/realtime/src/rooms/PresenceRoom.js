@@ -50,7 +50,7 @@ void world.start()
 // Rollback: set it to off and restart; the database is not touched.
 // Per-socket sessions, hydration and fencing live in rooms/locationJoin.js.
 let location = null
-const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location, world: () => world })
+const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location })
 location = createLocation({ mode: locationMode(process.env.WORLD_LOCATION_PERSISTENCE), store: initialDependencies.playerData })
 if (location.mode !== 'off') console.log(`[location] persistence ${location.mode} (effective: ${location.effective})`)
 
@@ -341,7 +341,6 @@ export class PresenceRoom extends Room {
   work(client, payload) {
     const actor = actors.get(client.userData?.actorId)
     if (!actor) return this.reject(client, 'world denied', 'invalid')
-    locationJoin.acted(client)
     void world.work(actor, payload, client)
   }
 

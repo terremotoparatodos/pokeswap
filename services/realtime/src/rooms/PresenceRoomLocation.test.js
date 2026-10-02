@@ -4,7 +4,7 @@ import * as instanceA from './PresenceRoom.js'
 import { ARRIVALS } from '../protocol/arrival.js'
 import { MESSAGE } from '../protocol/messages.js'
 import { RECONNECT_GRACE_MS } from '../presence/reconnectCache.js'
-import { HYDRATION_TIMEOUT_MS, LATE_APPLY_WINDOW_MS, SESSION_REPLACED } from '../presence/locationService.js'
+import { HYDRATION_TIMEOUT_MS, SESSION_REPLACED } from '../presence/locationService.js'
 import { CHECKPOINT_JITTER_MS, CHECKPOINT_MS } from '../presence/locationJournal.js'
 import { cavesIn } from '../world/caves.js'
 import { caveInterior } from '../world/caveLayouts.js'
@@ -98,9 +98,10 @@ function client(id) {
 }
 
 async function waitFor(condition, label, timeoutMs = 4_000) {
-  const started = Date.now()
+  // Real time: Date.now is the file's fake clock and only moves when a test moves it.
+  const started = performance.now()
   while (!condition()) {
-    if (Date.now() - started > timeoutMs) throw new Error(`timed out waiting for ${label}`)
+    if (performance.now() - started > timeoutMs) throw new Error(`timed out waiting for ${label}`)
     await new Promise(resolve => setTimeout(resolve, 5))
   }
 }
@@ -289,29 +290,67 @@ test('on: a failed claim retries with backoff; once claimed the session saves wh
   r.service.journal.tick()
   await waitFor(() => r.service.journal.stats().sessions.live.claimed === 1, 'retry claim')
   assert.equal(r.where(c).areaId, 'pradera', 'a player who already moved is never moved by a late claim')
-  assert.equal(r.service.stats().late.ignored, 1)
+  assert.equal(r.service.stats().late.adopted, 1)
   r.advance(CHECKPOINT_MS + CHECKPOINT_JITTER_MS)
   await r.flush()
   assert.equal((await stored(u)).area_id, 'pradera')
 })
 
-test('on: a late claim moves a player who has done nothing yet, within the window, with a fresh snapshot', async t => {
-  const r = await locationRoom(t, { hydrationTimeoutMs: 30 })
-  const watcher = await r.joinPlaced(nextUser())
-  r.store.claimHang = true
+// Review B3 (repro R3): the boundary is publication. A claim that answers
+// before the actor is admitted restores it; once the fallback was published
+// to the client or an observer, a claim only brings the epoch: the current
+// authoritative position is adopted and saved at once, nothing moves.
+const QUIET_ACTIONS = {
+  nothing: () => {},
+  chat: (r, c) => r.room.chat(c, { text: 'hola' }),
+  cancelWork: (r, c) => r.room.cancelWork(c, { actionId: 'x', requestId: 1 }),
+  rejectedStep: (r, c) => r.room.move(c, { direction: 'up', running: false, sequence: 2 ** 40 }),
+  rejectedArea: (r, c) => r.room.changeArea(c, { areaId: 'pradera' }),
+}
+
+for (const [name, act] of Object.entries(QUIET_ACTIONS)) {
+  test(`on: a claim answering after the fallback was published never moves the player (${name}) (R3)`, async t => {
+    const r = await locationRoom(t, { hydrationTimeoutMs: 30 })
+    const watcher = await r.joinPlaced(nextUser())
+    r.store.claimHang = true
+    const u = nextUser()
+    await seed(u, { areaId: INSIDE.id, tx: 12, ty: 8 }) // the old row: inside the cave
+    const c = await r.join(u)
+    await waitFor(() => lastMessage(c, MESSAGE.SNAPSHOT)?.self, 'fallback published')
+    const at = r.where(c)
+    assert.deepEqual(at, { areaId: 'ciudad-corazon', tx: 31, ty: 20 })
+    act(r, c)
+    r.room.flushDeltaBatches()
+    const seen = deltasAbout(watcher, u).length
+    const snapshots = messagesOf(c, MESSAGE.SNAPSHOT).length
+    r.store.claimHang = false
+    r.store.gates.shift()()
+    await waitFor(() => r.service.journal.stats().sessions.live.claimed === 2, 'claim landed')
+    await settle()
+    assert.deepEqual(r.where(c), at, 'no area or tile change')
+    assert.equal(r.service.stats().late.adopted, 1)
+    assert.equal(r.module.liveActorForTesting(u).areaId, 'ciudad-corazon')
+    assert.equal(messagesOf(c, MESSAGE.SNAPSHOT).length, snapshots, 'no new snapshot to the player')
+    r.room.flushDeltaBatches()
+    assert.equal(deltasAbout(watcher, u).length, seen, 'observers receive no leave or upsert')
+    await r.flush() // urgent: the next tick, no checkpoint wait
+    const row = await stored(u)
+    assert.deepEqual({ area: row.area_id, tx: row.tx, ty: row.ty }, { area: 'ciudad-corazon', tx: 31, ty: 20 }, 'the current position replaces the old row')
+    // Later restores never bring the old cave tile back.
+    r.room.onLeave(c)
+    r.advance(RECONNECT_GRACE_MS + 1)
+    assert.deepEqual(r.where(await r.joinPlaced(u)), { areaId: 'ciudad-corazon', tx: 31, ty: 20 })
+  })
+}
+
+test('on: a claim answering BEFORE admission still restores the row (the boundary is publication)', async t => {
+  const r = await locationRoom(t, { hydrationTimeoutMs: 2_000 })
+  r.store.claimDelayMs = 50
   const u = nextUser()
-  await seed(u, { areaId: 'ciudad-corazon', tx: 31, ty: 22 })
-  const c = await r.join(u)
-  await waitFor(() => lastMessage(c, MESSAGE.SNAPSHOT)?.self, 'fallback placement')
-  assert.deepEqual(r.where(c), { areaId: 'ciudad-corazon', tx: 31, ty: 20 })
-  r.store.claimHang = false
-  r.store.gates.shift()()
-  await waitFor(() => r.service.stats().late.applied === 1, 'late apply')
-  assert.deepEqual(lastMessage(c, MESSAGE.SNAPSHOT).self.ty, 22)
-  r.room.flushDeltaBatches()
-  assert.equal(deltasAbout(watcher, u).at(-1).actor.ty, 22)
-  // Outside the window it would have been ignored.
-  assert.ok(LATE_APPLY_WINDOW_MS >= 1_000)
+  await seed(u, { areaId: INSIDE.id, tx: 12, ty: 8 })
+  const c = await r.joinPlaced(u)
+  assert.deepEqual(r.where(c), { areaId: INSIDE.id, tx: 12, ty: 8 })
+  assert.equal(r.service.stats().late.adopted, 0)
 })
 
 test('on: leaving while the claim is pending places nobody and saves nothing', async t => {

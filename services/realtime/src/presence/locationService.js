@@ -20,8 +20,6 @@ import { PERSISTABLE_AREAS, layoutVersion } from '../world/layoutVersion.js'
 export const LOCATION_MODES = Object.freeze(['off', 'shadow', 'on'])
 /** How long a join may wait for its claim before it plays on with a safe fallback. */
 export const HYDRATION_TIMEOUT_MS = 1_500
-/** A late claim may still move a player who has not acted yet, for this long after the session was enabled. */
-export const LATE_APPLY_WINDOW_MS = 5_000
 /** The close reason of a session displaced by a later epoch (D-L2), with code 4001. */
 export const SESSION_REPLACED = 'session-replaced'
 export const SESSION_REPLACED_CODE = 4001
@@ -33,12 +31,11 @@ export function locationMode(value) {
 const supportsLocation = store => typeof store?.locationClaim === 'function' && typeof store?.locationSave === 'function'
 
 export class LocationService {
-  constructor({ mode = 'off', store = null, now = Date.now, hydrationTimeoutMs = HYDRATION_TIMEOUT_MS, lateApplyWindowMs = LATE_APPLY_WINDOW_MS, locate = savedLocationOf, onFenced = () => {}, onClaimed = () => {}, log } = {}) {
+  constructor({ mode = 'off', store = null, now = Date.now, hydrationTimeoutMs = HYDRATION_TIMEOUT_MS, locate = savedLocationOf, onFenced = () => {}, onClaimed = () => {}, log } = {}) {
     this.mode = locationMode(mode)
     this.effective = this.mode === 'off' ? 'off' : supportsLocation(store) ? this.mode : 'unavailable'
     this.now = now
     this.hydrationTimeoutMs = hydrationTimeoutMs
-    this.lateApplyWindowMs = lateApplyWindowMs
     this.journal = this.active ? new LocationJournal({ store, locate, now, onFenced, onClaimed, ...(log ? { log } : {}) }) : null
     // The layout fingerprints cost ~100-200 ms once (Pradera). Pay it at start,
     // before any player is served, not on the first save of a live session.
@@ -46,7 +43,8 @@ export class LocationService {
     this.counters = {
       restores: { live: 0, cache: 0, row: 0, noRow: 0, failed: 0, timeout: 0, unknownUser: 0 },
       repairs: { area: 0, layout: 0, tile: 0, protocol: 0 },
-      late: { applied: 0, ignored: 0 },
+      // A claim that answered after the fallback was published: epoch only, position adopted (B3).
+      late: { adopted: 0 },
       shadow: { wouldRestore: 0, wouldRepair: { area: 0, layout: 0, tile: 0, protocol: 0 }, wouldFence: 0 },
       fencedDisconnects: 0,
       hydration: { started: 0, maxMs: 0 },
