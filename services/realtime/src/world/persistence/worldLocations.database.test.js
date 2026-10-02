@@ -19,10 +19,15 @@ async function setup() {
   const db = await openLocalDatabase()
   await db.exec(`INSERT INTO auth.users VALUES ('${A}'), ('${B}'), ('${C}')`)
   const service = serviceQuery(db)
-  const claim = async userId => (await service('SELECT public.world_location_claim($1::uuid) AS r', [userId])).rows[0].r
+  // The raw conditional claim, and what a new session does with it: read the current epoch, claim after it.
+  const claimAt = async (userId, expected) => (await service('SELECT public.world_location_claim($1::uuid, $2::bigint) AS r', [userId, expected])).rows[0].r
+  const claim = async userId => {
+    const first = await claimAt(userId, 0)
+    return first.status === 'conflict' ? claimAt(userId, first.epoch) : first
+  }
   const save = async rows => (await service('SELECT public.world_location_save($1::jsonb) AS r', [JSON.stringify(rows)])).rows[0].r
   const stored = async userId => (await service('SELECT area_id, tx, ty, layout_version, epoch::int, seq::int FROM public.world_player_locations WHERE user_id = $1', [userId])).rows[0] ?? null
-  return { db, service, claim, save, stored }
+  return { db, service, claim, claimAt, save, stored }
 }
 
 const row = (userId, epoch, seq, extra = {}) => ({ userId, epoch, seq, areaId: 'pradera', tx: 3, ty: -60, layoutVersion: 'p.abc123', ...extra })
@@ -40,7 +45,7 @@ test('no client role can read, write or execute anything of the location store',
       `INSERT INTO public.world_player_locations (user_id) VALUES ('${B}')`,
       `UPDATE public.world_player_locations SET tx = 0`,
       'DELETE FROM public.world_player_locations',
-      `SELECT public.world_location_claim('${A}'::uuid)`,
+      `SELECT public.world_location_claim('${A}'::uuid, 0)`,
       `SELECT public.world_location_save('[]'::jsonb)`,
     ]) await assert.rejects(asRole(db, role, sql, [], A), /permission denied/, `${role}: ${sql.slice(0, 50)}`)
   }
@@ -58,7 +63,7 @@ test('catalog: RLS on with no policy, service_role without DELETE, both function
   assert.deepEqual(await privileges('anon'), [])
   assert.deepEqual(await privileges('authenticated'), [])
   assert.deepEqual(await privileges('service_role'), ['SELECT', 'INSERT', 'UPDATE'])
-  for (const fn of ['public.world_location_claim(uuid)', 'public.world_location_save(jsonb)']) {
+  for (const fn of ['public.world_location_claim(uuid, bigint)', 'public.world_location_save(jsonb)']) {
     const [meta] = await one(`SELECT prosecdef, proconfig FROM pg_proc WHERE oid = '${fn}'::regprocedure`)
     assert.equal(meta.prosecdef, false, `${fn} must be SECURITY INVOKER`)
     assert.deepEqual(meta.proconfig, ['search_path=public'])
@@ -80,7 +85,7 @@ test('the read-only hosted check finds nothing after the migration, and catches 
   const check = await readFile(GRANTS_CHECK, 'utf8')
   assert.deepEqual((await db.query(check)).rows, [])
   await db.exec(`GRANT SELECT (area_id) ON public.world_player_locations TO authenticated;
-    GRANT EXECUTE ON FUNCTION public.world_location_claim(uuid) TO anon;
+    GRANT EXECUTE ON FUNCTION public.world_location_claim(uuid, bigint) TO anon;
     CREATE POLICY leak ON public.world_player_locations FOR SELECT TO authenticated USING (true);
     GRANT DELETE ON public.world_player_locations TO service_role;`)
   const found = (await db.query(check)).rows.map(r => `${r.kind}:${r.grantee ?? ''}:${r.detail ?? ''}`)
@@ -109,11 +114,60 @@ test('claim: an id that is not an auth user writes nothing', async () => {
 
 test('claim: back-to-back claims of one player get distinct, increasing epochs (one writer wins)', async () => {
   const { db, claim, save } = await setup()
-  const epochs = await Promise.all([claim(A), claim(A), claim(A)])
-  assert.deepEqual(epochs.map(e => e.epoch).sort(), [1, 2, 3])
+  const epochs = []
+  for (let i = 0; i < 3; i++) epochs.push((await claim(A)).epoch)
+  assert.deepEqual(epochs, [1, 2, 3])
   // Only the highest epoch can write; every other one is fenced.
   assert.deepEqual(results(await save([row(A, 3, 1)])), { [A]: 'applied' })
   for (const old of [1, 2]) assert.deepEqual(results(await save([row(A, old, 99)])), { [A]: 'stale' })
+  await db.close()
+})
+
+// ── Claim: conditional on the epoch read (review B2) ───────────────────────
+
+test('claim is conditional: it writes only if the stored epoch is still the expected one; otherwise conflict + current epoch, nothing written', async () => {
+  const { db, claimAt, save, stored } = await setup()
+  assert.deepEqual(await claimAt(A, 0), { status: 'claimed', epoch: 1, location: null })
+  assert.deepEqual(await claimAt(A, 0), { status: 'conflict', epoch: 1 }, 'a row exists: 0 is no longer the truth')
+  assert.deepEqual(results(await save([row(A, 1, 4)])), { [A]: 'applied' })
+  assert.deepEqual(await claimAt(A, 7), { status: 'conflict', epoch: 1 }, 'an epoch from the future claims nothing')
+  assert.deepEqual(await stored(A), { area_id: 'pradera', tx: 3, ty: -60, layout_version: 'p.abc123', epoch: 1, seq: 4 }, 'conflicts write nothing')
+  assert.equal((await claimAt(A, 1)).epoch, 2)
+  assert.deepEqual(await claimAt(A, 1), { status: 'conflict', epoch: 2 })
+  assert.deepEqual(await claimAt(B, 3), { status: 'conflict', epoch: 0 }, 'no row yet: the current epoch is 0')
+  assert.deepEqual(await claimAt(GHOST, 0), { status: 'unknown_user' })
+  for (const bad of [-1, null]) await assert.rejects(claimAt(A, bad), /invalid_expected_epoch/)
+  await db.close()
+})
+
+test('R2 in the database: an abandoned claim that runs after the live session\'s claim writes nothing, and the live session keeps writing', async () => {
+  const { db, claimAt, save, stored } = await setup()
+  // C1 read epoch 0 (no row) and was given up before its claim ran; C2 read 0 too and claimed.
+  const c2 = await claimAt(A, 0)
+  assert.equal(c2.epoch, 1)
+  assert.deepEqual(await claimAt(A, 0), { status: 'conflict', epoch: 1 }, 'C1 lands late: no effect')
+  assert.deepEqual(results(await save([row(A, 1, 1)])), { [A]: 'applied' }, 'C2 is not stale')
+  // The same with a row: both read epoch 1, C2 claims 2, C1's claim with epoch 1 lands late.
+  const c2again = await claimAt(A, 1)
+  assert.equal(c2again.epoch, 2)
+  assert.deepEqual(await claimAt(A, 1), { status: 'conflict', epoch: 2 })
+  assert.deepEqual(results(await save([row(A, 2, 1, { tx: 9 })])), { [A]: 'applied' })
+  assert.deepEqual({ epoch: (await stored(A)).epoch, tx: (await stored(A)).tx }, { epoch: 2, tx: 9 })
+  // A late claim that DID land before the live session read is simply older: the live one claims after it.
+  assert.equal((await claimAt(A, 2)).epoch, 3) // C1 lands first
+  assert.deepEqual(await claimAt(A, 2), { status: 'conflict', epoch: 3 }) // C2, which had read 2, learns 3…
+  assert.equal((await claimAt(A, 3)).epoch, 4) // …and claims after it
+  assert.deepEqual(results(await save([row(A, 3, 1)])), { [A]: 'stale' }, 'the late one is the fenced one')
+  await db.close()
+})
+
+test('concurrent claims with the same expectation: exactly one writes, the others answer conflict with its epoch', async () => {
+  const { db, claimAt, stored } = await setup()
+  await claimAt(A, 0)
+  const answers = await Promise.all([claimAt(A, 1), claimAt(A, 1), claimAt(A, 1)])
+  assert.equal(answers.filter(a => a.status === 'claimed').length, 1)
+  assert.deepEqual(answers.filter(a => a.status === 'conflict'), [{ status: 'conflict', epoch: 2 }, { status: 'conflict', epoch: 2 }])
+  assert.equal((await stored(A)).epoch, 2)
   await db.close()
 })
 
@@ -254,7 +308,7 @@ test('the migration is idempotent, and the rollback script removes the table and
   await db.exec(await readFile(fileURLToPath(new URL('../../../../../supabase/migrations/20261001220000_world_player_locations.sql', import.meta.url)), 'utf8'))
   await db.exec(await readFile(ROLLBACK, 'utf8'))
   const left = await db.query(`SELECT to_regclass('public.world_player_locations') AS t,
-    to_regprocedure('public.world_location_claim(uuid)') AS c, to_regprocedure('public.world_location_save(jsonb)') AS s`)
+    to_regprocedure('public.world_location_claim(uuid, bigint)') AS c, to_regprocedure('public.world_location_save(jsonb)') AS s`)
   assert.deepEqual(left.rows[0], { t: null, c: null, s: null })
   await db.close()
 })

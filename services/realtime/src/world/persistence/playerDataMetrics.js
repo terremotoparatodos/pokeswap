@@ -4,8 +4,8 @@
  * user id, node or payload — so it can be exposed on /metrics in any mode.
  *
  * In production each call is one Edge Function request (one database round
- * trip): `commitWork` and `locationSave` write, `locationClaim` reads and bumps
- * the session epoch, the rest are reads. An adapter without an operation (an
+ * trip): `commitWork` and `locationSave` write, `locationClaim` bumps the session
+ * epoch if it is still the one read (or answers the current one), the rest are reads. An adapter without an operation (an
  * older or partial one) keeps it absent, so callers can tell it is unsupported.
  */
 const OPS = ['playerState', 'ownsPokemon', 'commitWork', 'loadNodes', 'locationClaim', 'locationSave']

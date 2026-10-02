@@ -158,7 +158,9 @@ export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): P
         return json(200, { nodes: await call('world_load_nodes', {}) })
       case 'location_claim': {
         if (typeof body.userId !== 'string' || !UUID.test(body.userId)) return json(400, { error: 'invalid_user' })
-        return json(200, { claim: await call('world_location_claim', { p_user_id: body.userId }) })
+        // The epoch the realtime last read (0 = no row): the claim writes only if it is still current.
+        if (!Number.isSafeInteger(body.expectedEpoch) || (body.expectedEpoch as number) < 0) return json(400, { error: 'invalid_epoch' })
+        return json(200, { claim: await call('world_location_claim', { p_user_id: body.userId, p_expected_epoch: body.expectedEpoch }) })
       }
       case 'location_save': {
         const rows = locationRows(body.rows)

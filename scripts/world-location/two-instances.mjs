@@ -26,6 +26,11 @@
 //   5. B dies hard; a fresh B' starts; the player joins after the 15 s grace
 //      window would have expired anyway (no memory in a new process) and is
 //      restored at B's last saved tile.
+//   6. Review B2 (abandoned claim): a second player joins B' but its claim
+//      hangs in the authority; B' gives up (1.5 s), places it at Ciudad, and
+//      the socket goes. The player joins a fresh A' (claims normally). Only
+//      then does the abandoned claim run in the database. A' keeps writing:
+//      no stale, no 4001.
 // Exit code 0 only if every check passes. Prints a JSON summary.
 
 import { spawn } from 'node:child_process'
@@ -163,6 +168,28 @@ try {
   check('B\': a restart restores the last saved tile', again.self.areaId === 'ciudad-corazon' && again.self.tx === TOWN_FROM_PRADERA.tx && again.self.ty === TOWN_FROM_PRADERA.ty, JSON.stringify(again.self))
   check('B\': epoch 3', (await row(userId))?.epoch === 3, JSON.stringify(await row(userId)))
   again.room.leave()
+
+  // 6. An abandoned claim on B' lands in the database after the live session's claim on A'.
+  const late = await local.player()
+  local.holdClaims(late.userId)
+  const abandoned = await connect(B, late.token)
+  check('B\': a hung claim places the player at Ciudad after the 1.5 s timeout', abandoned.self.areaId === 'ciudad-corazon', JSON.stringify(abandoned.self))
+  check('B\': the claim was held, not answered', local.calls.held === 1, JSON.stringify(local.calls))
+  abandoned.room.leave()
+  for (let i = 0; i < 40 && abandoned.left === null; i++) await delay(25)
+  A = await startRealtime('A2', 2641)
+  const live = await connect(A, late.token)
+  for (let i = 0; i < 40 && (await row(late.userId))?.epoch !== 1; i++) await delay(50)
+  const epoch = (await row(late.userId))?.epoch
+  check('A\': the live session claimed', epoch === 1, JSON.stringify(await row(late.userId)))
+  const answer = await local.releaseHeld()
+  check('the abandoned claim runs late and writes nothing (conflict)', answer?.claim?.status === 'conflict' && (await row(late.userId))?.epoch === epoch, JSON.stringify({ answer, row: await row(late.userId) }))
+  await cross(live, 'pradera')
+  await delay(1_200)
+  check('A\': the live session keeps writing, never fenced', (await row(late.userId))?.area_id === 'pradera' && live.left === null, JSON.stringify({ row: await row(late.userId), left: live.left }))
+  const metricsA2 = (await A.metrics()).location
+  check('A\': no stale and no fenced disconnect on /metrics', metricsA2?.journal?.saves?.stale === 0 && metricsA2?.fencedDisconnects === 0, JSON.stringify(metricsA2?.journal?.saves))
+  live.room.leave()
   summary.authorityCalls = { ...local.calls }
 } catch (error) {
   check('scenario ran to the end', false, String(error?.stack ?? error))

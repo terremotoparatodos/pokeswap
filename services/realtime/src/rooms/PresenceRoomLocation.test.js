@@ -49,13 +49,20 @@ test.after(() => { Date.now = realNow })
 /** The real SQL adapter with dials: delay or hang a claim, fail claims or saves, count calls. */
 function instrumented(base) {
   const store = {
-    claims: [], batches: [], claimDelayMs: 0, claimHang: false, claimFail: false, saveFail: false, gates: [],
-    async locationClaim(userId) {
+    claims: [], batches: [], claimDelayMs: 0, claimHang: false, claimFail: false, saveFail: false, gates: [], abandonMs: 0, late: [],
+    async locationClaim(userId, expectedEpoch) {
       store.claims.push(userId)
+      if (store.abandonMs) {
+        // The HTTP answer is given up (an aborted fetch), but the operation itself
+        // still reaches the database later: the test runs it with `late.shift()()`.
+        store.late.push(() => base.locationClaim(userId, expectedEpoch))
+        await new Promise(resolve => setTimeout(resolve, store.abandonMs))
+        throw new Error('aborted')
+      }
       if (store.claimHang) await new Promise(resolve => store.gates.push(resolve))
       if (store.claimDelayMs) await new Promise(resolve => setTimeout(resolve, store.claimDelayMs))
       if (store.claimFail) throw new Error('authority down')
-      return base.locationClaim(userId)
+      return base.locationClaim(userId, expectedEpoch)
     },
     async locationSave(rows) {
       store.batches.push(rows.map(r => ({ ...r })))
@@ -449,6 +456,37 @@ for (const mode of ['on', 'shadow']) {
     await b.flush()
     assert.deepEqual(onB.leaves, [], 'the newer session is never fenced')
     assert.equal((await stored(u)).area_id, mode === 'on' ? 'ciudad-corazon' : 'pradera')
+  })
+}
+
+// ── Abandoned or out-of-order claims (review B2, repro R2) ────────────────
+
+for (const [mode, instances] of [['on', 1], ['shadow', 1], ['on', 2], ['shadow', 2]]) {
+  test(`${mode}, ${instances} instance(s): an abandoned claim (C1) that lands in the database after the live session's (C2) never fences C2 (R2)`, async t => {
+    const a = await locationRoom(t, { mode, hydrationTimeoutMs: 100 })
+    const instanceB = instances === 2 ? await import(new URL(`./PresenceRoom.js?instance=abandon-${mode}`, import.meta.url).href) : null
+    const b = instanceB ? await locationRoom(t, { mode, module: instanceB, store: instrumented(data) }) : a
+    const u = nextUser()
+    await seed(u, { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty })
+    a.store.abandonMs = 20 // C1: its answer is given up after 20 ms; its database operation runs later
+    const first = await a.join(u)
+    await waitFor(() => lastMessage(first, MESSAGE.SNAPSHOT)?.self, 'first session placed')
+    assert.equal(a.store.late.length, 1, 'C1 was abandoned, not answered')
+    a.room.onLeave(first) // the first socket disappears
+    a.store.abandonMs = 0
+    const second = await b.joinPlaced(u) // C2: the live session
+    await waitFor(() => b.service.journal.stats().sessions.live.claimed === 1, 'C2 claimed')
+    const epoch = (await stored(u)).epoch
+    await a.store.late.shift()() // C1 reaches the database only now, after C2
+    assert.equal((await stored(u)).epoch, epoch, 'C1 displaced nobody')
+    const to = b.where(second).areaId === 'pradera' ? 'ciudad-corazon' : 'pradera'
+    b.travel(second, to)
+    await b.flush()
+    assert.deepEqual(second.leaves, [], 'C2 is never disconnected')
+    assert.equal(b.service.stats().fencedDisconnects, 0)
+    assert.equal(b.service.stats().shadow.wouldFence, 0)
+    assert.equal(b.service.journal.stats().saves.stale, 0, 'C2 never sees stale')
+    assert.deepEqual({ area: (await stored(u)).area_id, epoch: (await stored(u)).epoch }, { area: to, epoch })
   })
 }
 

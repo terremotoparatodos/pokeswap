@@ -9,5 +9,5 @@
 -- The PGlite test (worldLocations.database.test.js) runs this exact file.
 
 DROP FUNCTION IF EXISTS public.world_location_save(jsonb);
-DROP FUNCTION IF EXISTS public.world_location_claim(uuid);
+DROP FUNCTION IF EXISTS public.world_location_claim(uuid, bigint);
 DROP TABLE IF EXISTS public.world_player_locations;

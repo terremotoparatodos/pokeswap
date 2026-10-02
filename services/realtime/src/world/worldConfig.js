@@ -67,7 +67,7 @@ function lazyDevPlayerData(dataDir) {
     ownsPokemon: async (userId, instanceId) => (await data()).ownsPokemon(userId, instanceId),
     commitWork: async commit => (await data()).commitWork(commit),
     loadNodes: async () => (await data()).loadNodes(),
-    locationClaim: async userId => (await data()).locationClaim(userId),
+    locationClaim: async (userId, expectedEpoch) => (await data()).locationClaim(userId, expectedEpoch),
     locationSave: async rows => (await data()).locationSave(rows),
   }
 }

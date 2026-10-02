@@ -7,6 +7,10 @@
 //   - /auth/v1/user: a token → user id map (Supabase Auth stand-in);
 //   - any other path: an empty JSON array (wild catalog, companion reads).
 //
+// `holdClaims(userId)` makes the next location_claim of that player hang: no
+// answer, and the operation itself waits until `releaseHeld()` runs it — an
+// aborted request whose database work lands late (review B2).
+//
 // Not a substitute for the local Supabase stack (no PostgREST grants, Auth or
 // Edge Runtime): it exercises the realtime ↔ authority ↔ SQL contract only.
 
@@ -35,7 +39,9 @@ export async function startLocalAuthority({ secret }) {
     }
   }
   const tokens = new Map()
-  const calls = { location_claim: 0, location_save: 0, location_rows: 0, other: 0 }
+  const calls = { location_claim: 0, location_save: 0, location_rows: 0, other: 0, held: 0 }
+  const holding = new Set()
+  const held = []
   const server = createServer(async (request, response) => {
     const chunks = []
     for await (const chunk of request) chunks.push(chunk)
@@ -47,7 +53,13 @@ export async function startLocalAuthority({ secret }) {
       if (parsed?.op === 'location_claim') calls.location_claim++
       else if (parsed?.op === 'location_save') { calls.location_save++; calls.location_rows += Array.isArray(parsed.rows) ? parsed.rows.length : 0 }
       else calls.other++
-      const reply = await handleWorldAuthority(new Request('http://local/world-authority', { method: request.method, headers: request.headers, body }), { secret, rpc })
+      const run = () => handleWorldAuthority(new Request('http://local/world-authority', { method: request.method, headers: request.headers, body }), { secret, rpc })
+      if (parsed?.op === 'location_claim' && holding.delete(parsed.userId)) {
+        calls.held++
+        held.push(async () => { const late = await run(); return late.json() })
+        return // never answered: the realtime gives up and aborts
+      }
+      const reply = await run()
       response.writeHead(reply.status, { 'content-type': 'application/json' })
       response.end(await reply.text())
       return
@@ -78,6 +90,10 @@ export async function startLocalAuthority({ secret }) {
         WORLD_LOCATION_PERSISTENCE: mode, WORLD_PLAYERDATA: '', WORLD_DEMO_SKILLS: '',
       }
     },
-    async close() { server.close(); await db.close() },
+    /** The next location_claim of this player hangs until releaseHeld(). */
+    holdClaims(userId) { holding.add(userId) },
+    /** Runs the oldest held claim now, against the database; resolves to its answer. */
+    async releaseHeld() { return held.shift()() },
+    async close() { server.closeAllConnections?.(); server.close(); await db.close() },
   }
 }

@@ -13,8 +13,11 @@
  *   commitWork(commit): Promise<{ applied: boolean, settlement }>
  *   // Node overrides still in force, for a restart.
  *   loadNodes(): Promise<NodeOverride[]>
- *   // WORLD LOCATION-2: a new session's epoch and the stored location (restore source).
- *   locationClaim(userId): Promise<{ status: 'claimed', epoch, location: StoredLocation | null } | { status: 'unknown_user' }>
+ *   // WORLD LOCATION-2: a new session's epoch and the stored location (restore source), only
+ *   // if the stored epoch is still `expectedEpoch` (0 = no row yet); otherwise 'conflict' and
+ *   // the current epoch, with nothing written (review B2).
+ *   locationClaim(userId, expectedEpoch): Promise<{ status: 'claimed', epoch, location: StoredLocation | null }
+ *     | { status: 'conflict', epoch } | { status: 'unknown_user' }>
  *   // A batch (1–200) of { userId, epoch, seq, areaId, tx, ty, layoutVersion }: one result per user.
  *   locationSave(rows): Promise<Map<userId, 'applied' | 'duplicate' | 'stale' | 'invalid' | 'unknown'>>
  * }
@@ -81,6 +84,7 @@ function readCommit(raw) {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const expectation = value => Number.isSafeInteger(value) && value >= 0
 const SAVE_RESULTS = new Set(['applied', 'duplicate', 'stale', 'invalid'])
 
 /**
@@ -91,6 +95,10 @@ const SAVE_RESULTS = new Set(['applied', 'duplicate', 'stale', 'invalid'])
 export function readClaim(raw) {
   const claim = typeof raw === 'string' ? JSON.parse(raw) : raw
   if (claim?.status === 'unknown_user') return { status: 'unknown_user' }
+  if (claim?.status === 'conflict') {
+    if (!Number.isSafeInteger(claim.epoch) || claim.epoch < 0) throw new Error('malformed location claim')
+    return { status: 'conflict', epoch: claim.epoch }
+  }
   if (claim?.status !== 'claimed' || !Number.isSafeInteger(claim.epoch) || claim.epoch < 1) throw new Error('malformed location claim')
   const l = claim.location
   const location = l && typeof l.areaId === 'string' && Number.isInteger(l.tx) && Number.isInteger(l.ty) && typeof l.layoutVersion === 'string'
@@ -135,9 +143,10 @@ export function createSqlPlayerData(query) {
       const { rows } = await query('SELECT * FROM public.world_load_nodes()', [])
       return rows.map(nodeOverride)
     },
-    async locationClaim(userId) {
+    async locationClaim(userId, expectedEpoch) {
       if (!UUID.test(userId)) throw new Error('invalid user id')
-      const { rows } = await query('SELECT public.world_location_claim($1::uuid) AS claim', [userId])
+      if (!expectation(expectedEpoch)) throw new Error('invalid expected epoch')
+      const { rows } = await query('SELECT public.world_location_claim($1::uuid, $2::bigint) AS claim', [userId, expectedEpoch])
       return readClaim(rows[0]?.claim)
     },
     async locationSave(batch) {
@@ -197,9 +206,12 @@ export function createEdgePlayerData({
       return readCommit((await call('commit_work', { commit })).result)
     },
     async loadNodes() { return ((await call('load_nodes', {})).nodes ?? []).map(nodeOverride) },
-    async locationClaim(userId) {
+    async locationClaim(userId, expectedEpoch) {
       if (!UUID.test(userId)) throw new Error('invalid user id')
-      return readClaim((await call('location_claim', { userId }, claimTimeoutMs)).claim)
+      if (!expectation(expectedEpoch)) throw new Error('invalid expected epoch')
+      // Aborting at the budget only stops waiting: the call may still land later. That is
+      // safe because the claim is conditional on `expectedEpoch` (see the migration).
+      return readClaim((await call('location_claim', { userId, expectedEpoch }, claimTimeoutMs)).claim)
     },
     async locationSave(rows) { return readSaveResults(rows, (await call('location_save', { rows }, saveTimeoutMs)).results) },
   }

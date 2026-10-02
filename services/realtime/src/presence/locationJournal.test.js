@@ -6,7 +6,8 @@ import {
 import { manualClock, settle } from '../world/testing.js'
 
 // WORLD LOCATION-2, commit 5: the journal on a fake store that applies the
-// same CAS as world_location_save (applied / duplicate / stale).
+// same CAS as world_location_save (applied / duplicate / stale) and the same
+// conditional claim as world_location_claim (claimed / conflict, review B2).
 
 const uid = n => `aaaaaaaa-0000-4000-8000-${String(n).padStart(12, '0')}`
 const A = uid(1), B = uid(2), C = uid(3)
@@ -16,13 +17,19 @@ const locate = actor => ['ciudad-corazon', 'pradera', 'cueva-inicial'].includes(
 function fakeStore() {
   const rows = new Map()
   const store = {
-    rows, claims: [], batches: [],
+    rows, claims: [], expectations: [], batches: [],
     down: false, hang: false, claimDown: false, lose: new Set(), override: new Map(),
-    async locationClaim(userId) {
+    async locationClaim(userId, expectedEpoch) {
       store.claims.push(userId)
+      store.expectations.push(expectedEpoch)
       if (store.claimDown) throw new Error('authority down')
       if (store.claimGate) await store.claimGate(userId)
+      return store.claimNow(userId, expectedEpoch)
+    },
+    /** world_location_claim: writes only if the stored epoch is still the expected one (0 = no row). */
+    claimNow(userId, expectedEpoch) {
       const row = rows.get(userId)
+      if ((row?.epoch ?? 0) !== expectedEpoch) return { status: 'conflict', epoch: row?.epoch ?? 0 }
       const next = { epoch: (row?.epoch ?? 0) + 1, seq: 0, location: row?.location ?? null }
       rows.set(userId, next)
       return { status: 'claimed', epoch: next.epoch, location: next.location }
@@ -281,6 +288,7 @@ test('claims of one player are chained: the newest session always gets the highe
   const { journal } = setup({ store })
   const first = journal.beginSession(A)
   const firstClaim = journal.claim(first)
+  await settle() // the first claim is in flight
   const second = journal.beginSession(A)
   const secondClaim = journal.claim(second)
   await settle()
@@ -291,6 +299,101 @@ test('claims of one player are chained: the newest session always gets the highe
   assert.equal((await secondClaim).epoch, 2)
   assert.equal(second.epoch, 2)
   assert.equal(journal.statusOf(first), 'replaced')
+})
+
+// ── Abandoned or out-of-order claims (review B2) ───────────────────────────
+
+test('conflict: a claim reads the current epoch and claims after it (another instance claimed meanwhile)', async () => {
+  const { journal, store, join } = setup()
+  store.rows.set(A, { epoch: 5, seq: 3, location: null })
+  const s = await join(A)
+  assert.equal(s.epoch, 6)
+  assert.deepEqual(store.expectations, [0, 5])
+  assert.equal(journal.stats().claims.conflicts, 1)
+  // The process now knows the epoch: the next session of this player needs one call.
+  journal.endSession(s, null)
+  const again = journal.beginSession(A)
+  await journal.claim(again)
+  assert.deepEqual(store.expectations, [0, 5, 6])
+  assert.equal(again.epoch, 7)
+})
+
+test('an entry is kept while one of its claims is in flight: a new session after a hung claim is chained after it', async () => {
+  const store = fakeStore()
+  const gates = []
+  store.claimGate = () => new Promise(resolve => gates.push(resolve))
+  const { journal } = setup({ store })
+  const first = journal.beginSession(A)
+  const firstClaim = journal.claim(first)
+  await settle()
+  journal.endSession(first, null) // its socket goes while the claim is pending
+  assert.equal(journal.entries.has(A), true, 'not forgotten: a claim of it is still pending')
+  const second = journal.beginSession(A)
+  const secondClaim = journal.claim(second)
+  await settle()
+  assert.equal(store.claims.length, 1, 'the new claim waits for the pending one')
+  gates.shift()() // the first claim lands (epoch 1), for a session that is gone
+  assert.deepEqual(await firstClaim, { status: 'superseded' })
+  await settle(); await settle()
+  gates.shift()()
+  assert.equal((await secondClaim).epoch, 2, 'the live session claims after it')
+  assert.deepEqual(store.expectations, [0, 1])
+})
+
+test('a claim given up (claimWaitMs) that lands in the store late never displaces the live session (R2)', async () => {
+  const store = fakeStore()
+  const late = []
+  // The first call never answers, but its operation still runs later (an aborted fetch, a slow database).
+  store.locationClaim = async (userId, expectedEpoch) => {
+    store.claims.push(userId)
+    if (late.length === 0 && store.claims.length === 1) { late.push(() => store.claimNow(userId, expectedEpoch)); return new Promise(() => {}) }
+    return store.claimNow(userId, expectedEpoch)
+  }
+  const { journal, run, actor } = setup({ store, claimWaitMs: 20 })
+  const first = journal.beginSession(A)
+  // The give-up timer is unref'd and the hung call holds no socket: keep the loop alive (Node 22).
+  const alive = setInterval(() => {}, 1_000)
+  const given = await journal.claim(first).finally(() => clearInterval(alive))
+  assert.deepEqual(given, { status: 'failed' })
+  assert.equal(journal.stats().claims.abandoned, 1)
+  journal.endSession(first, null)
+  const second = journal.beginSession(A)
+  assert.equal((await journal.claim(second)).epoch, 1)
+  assert.deepEqual(late.shift()(), { status: 'conflict', epoch: 1 }, 'the abandoned claim lands late and writes nothing')
+  journal.note(second, actor('cueva-inicial'), { urgent: true })
+  await run()
+  assert.deepEqual(store.rows.get(A).location?.areaId, 'cueva-inicial')
+  assert.equal(journal.stats().fenced, 0)
+  assert.equal(journal.statusOf(second), 'claimed')
+})
+
+test('no claim is ever sent for a session that is no longer live, or no longer the current one', async () => {
+  const { journal, store } = setup()
+  const gone = journal.beginSession(A)
+  journal.endSession(gone, null)
+  assert.deepEqual(await journal.claim(gone), { status: 'superseded' })
+  const replaced = journal.beginSession(B)
+  journal.beginSession(B)
+  assert.deepEqual(await journal.claim(replaced), { status: 'superseded' })
+  assert.deepEqual(store.claims, [])
+  // Between conflict rounds too: a session that ends after a conflict does not claim again.
+  store.rows.set(C, { epoch: 4, seq: 0, location: null })
+  const s = journal.beginSession(C)
+  const original = store.locationClaim
+  store.locationClaim = async (userId, expected) => { const answer = await original(userId, expected); journal.endSession(s, null); return answer }
+  assert.deepEqual(await journal.claim(s), { status: 'superseded' })
+  assert.deepEqual(store.expectations, [0], 'the conflict was read, and nothing was claimed after the session ended')
+  assert.equal(store.rows.get(C).epoch, 4)
+})
+
+test('a claim that keeps meeting conflicts (a storm of other claims) fails after a few rounds and backs off', async () => {
+  const { journal, store } = setup()
+  let epoch = 10
+  store.locationClaim = async (userId, expected) => { store.claims.push(userId); return { status: 'conflict', epoch: ++epoch } }
+  const s = journal.beginSession(A)
+  assert.deepEqual(await journal.claim(s), { status: 'failed' })
+  assert.equal(store.claims.length, 3)
+  assert.equal(journal.statusOf(s), 'unclaimed')
 })
 
 test('unknown user: no saves and no retries', async () => {

@@ -6,9 +6,12 @@
 --                            server confirmed, the layout version of that area, and the CAS
 --                            fence (epoch, seq). Not a game value: no XP, tokens or items.
 --
---   world_location_claim(u)  a NEW session of a player: epoch + 1 and seq back to 0, in one
---                            statement. Returns the new epoch and the location as stored
---                            (the restore source). Any older session is fenced from here on.
+--   world_location_claim(u, e)  a NEW session of a player: epoch + 1 and seq back to 0, in one
+--                            statement, ONLY IF the stored epoch is still `e` (0: no row yet).
+--                            Returns the new epoch and the location as stored (the restore
+--                            source); any older session is fenced from here on. If another
+--                            claim landed since `e` was read, nothing is written and the
+--                            answer is 'conflict' with the current epoch (read it, claim again).
 --   world_location_save(r)   a batch (1–200) of { userId, epoch, seq, areaId, tx, ty,
 --                            layoutVersion }. Each row is independent and answers
 --                            'applied', 'duplicate', 'stale' or 'invalid'; one row's answer
@@ -63,32 +66,58 @@ GRANT SELECT, INSERT, UPDATE ON TABLE public.world_player_locations TO service_r
 
 -- ── world_location_claim ────────────────────────────────────────────────────
 --
+-- p_expected_epoch: the epoch the caller last read for this player (0 = no row yet).
 -- Returns { status: 'claimed', epoch, location: { areaId, tx, ty, layoutVersion } | null }
+--      or { status: 'conflict', epoch } when the stored epoch is no longer p_expected_epoch
+--         (0 = still no row): nothing was written; the caller may claim again with it,
 --      or { status: 'unknown_user' } when the id is not an auth user (nothing written).
--- One statement: two concurrent claims of the same player serialize on the row and get
--- two different epochs; the higher one is the only writer from then on.
+--
+-- Why conditional (review B2): a claim whose HTTP answer was given up can still reach the
+-- database later. Unconditional, it would bump the epoch past the session that replaced it
+-- and fence that live session. Conditional, it can only land if NO other claim landed since
+-- it read the epoch, so a claim always loses to any claim that committed after its read, at
+-- whatever time it finally runs; the realtime only sends a claim for a session that is still
+-- live, and a live session that loses the race reads again and claims after it. No clock is
+-- compared. One statement: two concurrent claims with the same expectation serialize on the
+-- row, and exactly one of them writes.
 
-CREATE OR REPLACE FUNCTION public.world_location_claim(p_user_id uuid)
+CREATE OR REPLACE FUNCTION public.world_location_claim(p_user_id uuid, p_expected_epoch bigint)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY INVOKER
 SET search_path = public
 AS $$
 DECLARE
-  v_row public.world_player_locations;
+  v_row     public.world_player_locations;
+  v_current bigint;
 BEGIN
   IF p_user_id IS NULL THEN
     RETURN jsonb_build_object('status', 'unknown_user');
   END IF;
+  IF p_expected_epoch IS NULL OR p_expected_epoch < 0 THEN
+    RAISE EXCEPTION 'invalid_expected_epoch';
+  END IF;
 
-  -- The foreign key decides whether the user exists: service_role needs no access to auth.users.
-  BEGIN
-    INSERT INTO public.world_player_locations AS l (user_id) VALUES (p_user_id)
-    ON CONFLICT (user_id) DO UPDATE SET epoch = l.epoch + 1, seq = 0, updated_at = now()
+  IF p_expected_epoch = 0 THEN
+    -- The foreign key decides whether the user exists: service_role needs no access to auth.users.
+    BEGIN
+      INSERT INTO public.world_player_locations (user_id) VALUES (p_user_id)
+      ON CONFLICT (user_id) DO NOTHING
+      RETURNING * INTO v_row;
+    EXCEPTION WHEN foreign_key_violation THEN
+      RETURN jsonb_build_object('status', 'unknown_user');
+    END;
+  ELSE
+    UPDATE public.world_player_locations
+       SET epoch = epoch + 1, seq = 0, updated_at = now()
+     WHERE user_id = p_user_id AND epoch = p_expected_epoch
     RETURNING * INTO v_row;
-  EXCEPTION WHEN foreign_key_violation THEN
-    RETURN jsonb_build_object('status', 'unknown_user');
-  END;
+  END IF;
+
+  IF NOT FOUND THEN
+    SELECT epoch INTO v_current FROM public.world_player_locations WHERE user_id = p_user_id;
+    RETURN jsonb_build_object('status', 'conflict', 'epoch', COALESCE(v_current, 0));
+  END IF;
 
   RETURN jsonb_build_object(
     'status', 'claimed',
@@ -189,7 +218,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.world_location_claim(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.world_location_claim(uuid, bigint) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.world_location_save(jsonb) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.world_location_claim(uuid) TO service_role;
+GRANT EXECUTE ON FUNCTION public.world_location_claim(uuid, bigint) TO service_role;
 GRANT EXECUTE ON FUNCTION public.world_location_save(jsonb) TO service_role;

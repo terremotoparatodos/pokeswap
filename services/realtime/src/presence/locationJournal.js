@@ -18,6 +18,15 @@
  *   - every new session of a player claims a fresh epoch from the database
  *     (`locationClaim`); claims of one player are chained, so the newest
  *     session always ends up with the highest epoch on this process;
+ *   - a claim is CONDITIONAL on the epoch last read (review B2): it writes
+ *     only if no other claim landed since, else it answers 'conflict' with
+ *     the current epoch and a still-live session claims again after it. A
+ *     claim is only ever sent for the live, current session of its player,
+ *     and the entry is kept while any of its claims is in flight. So a claim
+ *     that is abandoned (its answer given up, its socket gone) and lands in
+ *     the database late, here or from another instance, can never displace
+ *     the session that replaced it: whatever claim committed after its read
+ *     makes it a no-op;
  *   - the seq is this journal's own counter, per epoch. Never `moveSequence`
  *     (the client drives that one);
  *   - a session without a confirmed claim ('claiming' or 'unclaimed') keeps
@@ -49,6 +58,10 @@ export const MAX_JOURNAL_ENTRIES = 1_000
 export const BACKOFF_BASE_MS = 1_000
 export const BACKOFF_MAX_MS = 30_000
 export const MAX_CLAIMS_PER_TICK = 10
+/** Conflicts one claim attempt may meet (each one: read the current epoch, claim after it) before it counts as failed. */
+export const MAX_CLAIM_ROUNDS = 3
+/** The journal never waits longer than this for one claim call, whatever the adapter (the Edge one gives up at 1.5 s). */
+export const CLAIM_WAIT_MS = 5_000
 
 /** A persistable identity: a Supabase user id. Guests and `benchmark-*` ids are never persisted. */
 export const persistableIdentity = userId => typeof userId === 'string' && UUID.test(userId)
@@ -69,11 +82,11 @@ const validRow = row => UUID.test(row.userId) && AREA_ID.test(row.areaId) && til
 
 export class LocationJournal {
   /**
-   * `store`: { locationClaim(userId), locationSave(rows) → Map<userId, result> }.
+   * `store`: { locationClaim(userId, expectedEpoch), locationSave(rows) → Map<userId, result> }.
    * `locate(actor)`: the location to save for an actor ({ areaId, tx, ty, layoutVersion })
    *   or null when its area is not saved (the journal then keeps the last saved one).
    */
-  constructor({ store, locate, now = Date.now, onFenced = () => {}, onClaimed = () => {}, log = message => console.warn(message), maxEntries = MAX_JOURNAL_ENTRIES }) {
+  constructor({ store, locate, now = Date.now, onFenced = () => {}, onClaimed = () => {}, log = message => console.warn(message), maxEntries = MAX_JOURNAL_ENTRIES, claimWaitMs = CLAIM_WAIT_MS }) {
     this.store = store
     this.locate = locate
     this.now = now
@@ -81,6 +94,7 @@ export class LocationJournal {
     this.onClaimed = onClaimed
     this.log = log
     this.maxEntries = maxEntries
+    this.claimWaitMs = claimWaitMs
     this.entries = new Map()
     this.inflight = null
     this.failures = 0
@@ -89,7 +103,7 @@ export class LocationJournal {
     this.timer = null
     this.counters = {
       sessions: 0,
-      claims: { ok: 0, unknownUser: 0, failed: 0, superseded: 0, retries: 0 },
+      claims: { ok: 0, unknownUser: 0, failed: 0, superseded: 0, retries: 0, conflicts: 0, abandoned: 0 },
       saves: { batches: 0, rows: 0, applied: 0, duplicate: 0, stale: 0, staleOldEpoch: 0, invalid: 0, unknown: 0, failedBatches: 0, unchanged: 0, maxBatch: 0, lastBatchMs: 0 },
       fenced: 0,
       dropped: { evicted: 0, unclaimed: 0, invalid: 0, disabled: 0 },
@@ -110,7 +124,8 @@ export class LocationJournal {
     if (this.disabled) return { userId, live: true, epoch: null, startedAt: now }
     let entry = this.entries.get(userId)
     if (!entry) {
-      entry = { userId, session: null, status: 'claiming', epoch: null, seq: 0, pending: null, saved: null, lastWriteAt: now, claimAttempts: 0, nextClaimAt: 0, chain: Promise.resolve(), touchedAt: now }
+      // `knownEpoch`: the last epoch this process read for the player (0: none), the expectation of its next claim.
+      entry = { userId, session: null, status: 'claiming', epoch: null, seq: 0, pending: null, saved: null, lastWriteAt: now, claimAttempts: 0, nextClaimAt: 0, chain: Promise.resolve(), claimsInFlight: 0, knownEpoch: 0, touchedAt: now }
       this.entries.set(userId, entry)
       this.#evict()
     }
@@ -139,25 +154,54 @@ export class LocationJournal {
   claim(session) {
     const entry = this.entries.get(session.userId)
     if (!entry || entry.session !== session || this.disabled) return Promise.resolve({ status: 'superseded' })
-    entry.claiming = true
-    const attempt = entry.chain.then(() => this.#claimOnce(entry, session))
+    // Counted from now: the entry is not forgotten or evicted while a claim of it is queued or in flight.
+    entry.claimsInFlight++
+    const attempt = entry.chain.then(() => this.#claimOnce(entry, session)).finally(() => {
+      entry.claimsInFlight--
+      this.#forgetIfIdle(entry)
+    })
     entry.chain = attempt.then(() => undefined, () => undefined)
     return attempt
   }
 
-  async #claimOnce(entry, session) {
-    let result
+  /** Only the live, current session of a player may send a claim. */
+  #mayClaim(entry, session) {
+    return !this.disabled && session.live && entry.session === session && this.entries.get(entry.userId) === entry
+  }
+
+  /** One store call, never waited on past `claimWaitMs` (the late call stays harmless: it is conditional). */
+  async #claimCall(userId, expectedEpoch) {
+    let timer
+    const giveUp = new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error('claim abandoned')), this.claimWaitMs)
+      timer.unref?.()
+    })
     try {
-      result = await this.store.locationClaim(session.userId)
-    } catch {
-      result = { status: 'failed' }
+      return await Promise.race([this.store.locationClaim(userId, expectedEpoch), giveUp])
+    } catch (error) {
+      if (error?.message === 'claim abandoned') this.counters.claims.abandoned++
+      return { status: 'failed' }
+    } finally {
+      clearTimeout(timer)
     }
-    if (entry.session !== session || this.disabled) {
+  }
+
+  async #claimOnce(entry, session) {
+    let result = null
+    for (let round = 0; round < MAX_CLAIM_ROUNDS; round++) {
+      if (!this.#mayClaim(entry, session)) break
+      result = await this.#claimCall(session.userId, entry.knownEpoch)
+      if (result?.status !== 'conflict') break
+      // Another claim landed since our read (another instance, or one of ours given up and
+      // landed late): read its epoch and, if this session is still the live one, claim after it.
+      this.counters.claims.conflicts++
+      entry.knownEpoch = result.epoch
+    }
+    if (result?.status === 'claimed') entry.knownEpoch = result.epoch
+    if (result === null || !this.#mayClaim(entry, session)) {
       this.counters.claims.superseded++
-      if (entry.session === session) entry.claiming = false
       return { status: 'superseded' }
     }
-    entry.claiming = false
     if (result?.status === 'claimed') {
       this.counters.claims.ok++
       entry.status = 'claimed'
@@ -303,7 +347,7 @@ export class LocationJournal {
     for (const entry of this.entries.values()) {
       if (fired >= MAX_CLAIMS_PER_TICK) break
       const session = entry.session
-      if (entry.status !== 'unclaimed' || entry.claiming || !session?.live || now < entry.nextClaimAt) continue
+      if (entry.status !== 'unclaimed' || entry.claimsInFlight > 0 || !session?.live || now < entry.nextClaimAt) continue
       fired++
       this.counters.claims.retries++
       void this.claim(session)
@@ -410,13 +454,14 @@ export class LocationJournal {
     return { rows: rows.length }
   }
 
+  /** A player is forgotten only when nothing of it is live, pending or being claimed (the claim chain lives on the entry). */
   #forgetIfIdle(entry) {
-    if (!entry.pending && !entry.session?.live && this.entries.get(entry.userId) === entry) this.entries.delete(entry.userId)
+    if (!entry.pending && !entry.session?.live && entry.claimsInFlight === 0 && this.entries.get(entry.userId) === entry) this.entries.delete(entry.userId)
   }
 
   #evict() {
     if (this.entries.size <= this.maxEntries) return
-    const idle = [...this.entries.values()].filter(e => !e.session?.live && !e.pending?.inflight).sort((a, b) => a.touchedAt - b.touchedAt)
+    const idle = [...this.entries.values()].filter(e => !e.session?.live && !e.pending?.inflight && e.claimsInFlight === 0).sort((a, b) => a.touchedAt - b.touchedAt)
     for (const entry of idle) {
       if (this.entries.size <= this.maxEntries) break
       this.entries.delete(entry.userId)

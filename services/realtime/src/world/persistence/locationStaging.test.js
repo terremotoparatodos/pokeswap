@@ -50,6 +50,11 @@ async function http(path, { method = 'GET', key = ANON, jwt = null, body, prefer
 const asService = (path, options = {}) => http(path, { ...options, key: SERVICE })
 const denied = status => status === 401 || status === 403 || status === 404
 const edge = (overrides = {}) => createEdgePlayerData({ url: FUNCTION_URL, secret: env.RC03_AUTHORITY_SECRET, publishableKey: ANON, ...overrides })
+/** What a new session does: read the current epoch (conditional claim with 0), then claim after it. */
+async function claim(userId, data = edge()) {
+  const first = await data.locationClaim(userId, 0)
+  return first.status === 'conflict' ? data.locationClaim(userId, first.epoch) : first
+}
 
 async function user() {
   const email = `wloc2-${randomUUID().slice(0, 8)}@example.test`
@@ -74,7 +79,7 @@ const row = (userId, epoch, seq, extra = {}) => ({ userId, epoch, seq, areaId: '
 test('clients (anon and a signed-in player) cannot read, write or call anything of the location store', { skip }, async () => {
   const a = await user()
   const b = await user()
-  await edge().locationClaim(b.id)
+  await claim(b.id)
   await edge().locationSave([row(b.id, 1, 1)])
   for (const [who, jwt] of [['anon', null], ['authenticated', a.jwt], ['the owner', b.jwt]]) {
     const read = await http(`/rest/v1/world_player_locations?select=*`, { jwt })
@@ -83,7 +88,7 @@ test('clients (anon and a signed-in player) cannot read, write or call anything 
     assert.ok(denied(insert.status), `${who} INSERT → ${insert.status}`)
     await http(`/rest/v1/world_player_locations?user_id=eq.${b.id}`, { method: 'PATCH', jwt, body: { tx: 99 } })
     await http(`/rest/v1/world_player_locations?user_id=eq.${b.id}`, { method: 'DELETE', jwt })
-    for (const [fn, args] of [['world_location_claim', { p_user_id: b.id }], ['world_location_save', { p_rows: [row(b.id, 9, 9)] }]]) {
+    for (const [fn, args] of [['world_location_claim', { p_user_id: b.id, p_expected_epoch: 1 }], ['world_location_save', { p_rows: [row(b.id, 9, 9)] }]]) {
       const call = await http(`/rest/v1/rpc/${fn}`, { method: 'POST', jwt, body: args })
       assert.ok(denied(call.status), `${who} ${fn} → ${call.status} ${call.text}`)
       assert.equal(call.body?.code, '42501', `${who} ${fn}: refused by the ACL`)
@@ -94,9 +99,9 @@ test('clients (anon and a signed-in player) cannot read, write or call anything 
 
 test('world-authority: location operations need the secret; a malformed batch never reaches the database', { skip }, async () => {
   const a = await user()
-  await assert.rejects(edge({ secret: 'w'.repeat(48) }).locationClaim(a.id), /401/)
+  await assert.rejects(edge({ secret: 'w'.repeat(48) }).locationClaim(a.id, 0), /401/)
   assert.equal(await stored(a.id), null)
-  await edge().locationClaim(a.id)
+  await claim(a.id)
   await assert.rejects(edge().locationSave([row(a.id, 1, 1, { tx: 0.5 })]), /400/)
   await assert.rejects(edge().locationSave([row(a.id, 1, 1, { areaId: 'dg:x:1' })]), /400/)
   assert.equal((await stored(a.id)).seq, 0)
@@ -104,19 +109,33 @@ test('world-authority: location operations need the secret; a malformed batch ne
 
 // ── CAS on real Postgres ───────────────────────────────────────────────────
 
-test('20 concurrent claims of one player get 20 distinct epochs; only the highest writes', { skip }, async () => {
+test('20 concurrent conditional claims of one player with the same expectation: exactly one writes, 19 answer conflict', { skip }, async () => {
   const a = await user()
-  const claims = await Promise.all(Array.from({ length: 20 }, () => edge().locationClaim(a.id)))
-  const epochs = claims.map(c => c.epoch).sort((x, y) => x - y)
-  assert.deepEqual(epochs, Array.from({ length: 20 }, (_, i) => i + 1))
-  const results = await Promise.all(epochs.map(epoch => edge().locationSave([row(a.id, epoch, 1, { tx: epoch })])))
-  assert.deepEqual(results.map(r => r.get(a.id)), [...Array(19).fill('stale'), 'applied'])
-  assert.equal((await stored(a.id)).tx, 20)
+  for (const expected of [0, 1]) {
+    const answers = await Promise.all(Array.from({ length: 20 }, () => edge().locationClaim(a.id, expected)))
+    assert.equal(answers.filter(c => c.status === 'claimed').length, 1, `expected ${expected}`)
+    assert.deepEqual(answers.filter(c => c.status === 'conflict').map(c => c.epoch), Array(19).fill(expected + 1))
+  }
+  const results = await Promise.all([1, 2].map(epoch => edge().locationSave([row(a.id, epoch, 1, { tx: epoch })])))
+  assert.deepEqual(results.map(r => r.get(a.id)), ['stale', 'applied'])
+  assert.equal((await stored(a.id)).tx, 2)
+})
+
+test('R2 on real Postgres: a claim given up by the realtime that lands late never fences the live journal session', { skip }, async () => {
+  const a = await user()
+  const journal = new LocationJournal({ store: edge(), locate: actor => ({ ...actor, layoutVersion: layoutVersion(actor.areaId) }), log: () => {} })
+  const s = journal.beginSession(a.id); await journal.claim(s)
+  assert.equal(s.epoch, 1)
+  // The abandoned claim had read "no row" (0) before the live session claimed.
+  assert.deepEqual(await edge().locationClaim(a.id, 0), { status: 'conflict', epoch: 1 })
+  journal.note(s, { areaId: 'pradera', tx: 4, ty: -60 }, { urgent: true }); journal.tick(); await journal.idle()
+  assert.deepEqual({ tx: (await stored(a.id)).tx, epoch: (await stored(a.id)).epoch }, { tx: 4, epoch: 1 })
+  assert.equal(journal.stats().fenced, 0)
 })
 
 test('two overlapping batches written at once, in opposite orders, never deadlock and answer per user', { skip }, async () => {
   const players = await Promise.all(Array.from({ length: 40 }, () => user()))
-  for (const p of players) await edge().locationClaim(p.id)
+  for (const p of players) await claim(p.id)
   const forward = players.map(p => row(p.id, 1, 1, { tx: 1 }))
   const backward = [...players].reverse().map(p => row(p.id, 1, 2, { tx: 2 }))
   const [first, second] = await Promise.all([edge().locationSave(forward), edge().locationSave(backward)])
@@ -145,7 +164,7 @@ test('two instances (two journals over the real Edge path): the newer claim fenc
 test('authority down while saving, then back: the same row applies once, with no duplicate (case 15)', { skip }, async () => {
   const a = await user()
   let current = edge({ url: DEAD_URL })
-  const store = { locationClaim: id => edge().locationClaim(id), locationSave: rows => current.locationSave(rows) }
+  const store = { locationClaim: (id, expected) => edge().locationClaim(id, expected), locationSave: rows => current.locationSave(rows) }
   let now = 1_000_000
   const journal = new LocationJournal({ store, locate: actor => ({ ...actor, layoutVersion: layoutVersion(actor.areaId) }), now: () => now, log: () => {} })
   const s = journal.beginSession(a.id); await journal.claim(s)
@@ -160,11 +179,11 @@ test('authority down while saving, then back: the same row applies once, with no
 
 test('deleting the auth user deletes its location row (case 27)', { skip }, async () => {
   const a = await user()
-  await edge().locationClaim(a.id)
+  await claim(a.id)
   const removed = await asService(`/auth/v1/admin/users/${a.id}`, { method: 'DELETE' })
   assert.ok(removed.status < 300, removed.text)
   assert.equal(await stored(a.id), null)
-  assert.deepEqual(await edge().locationClaim(a.id), { status: 'unknown_user' })
+  assert.deepEqual(await edge().locationClaim(a.id, 0), { status: 'unknown_user' })
 })
 
 // ── Room instances over the real Edge path (cases 1, 3, 14, 16) ────────────
@@ -218,10 +237,10 @@ test('rooms over the real Edge path: restore after a restart, and two instances 
 
 test('authority down at join: the player enters in < 1.6 s at Ciudad, unclaimed, then claims when it is back (case 14)', { skip }, async t => {
   const a = await user()
-  await edge().locationClaim(a.id)
+  await claim(a.id)
   await edge().locationSave([row(a.id, 1, 1, { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty })])
   let current = edge({ url: DEAD_URL })
-  const store = { locationClaim: id => current.locationClaim(id), locationSave: rows => current.locationSave(rows) }
+  const store = { locationClaim: (id, expected) => current.locationClaim(id, expected), locationSave: rows => current.locationSave(rows) }
   const r = await roomOn(t, 'down', store)
   const started = performance.now()
   const c = await r.join(a.id)
