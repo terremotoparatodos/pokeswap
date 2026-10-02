@@ -40,7 +40,7 @@ describe('world-authority Edge Function', () => {
     expect(sameSecret(SECRET, SECRET)).toBe(true)
   })
 
-  it('only knows five operations, each one fixed SQL function', async () => {
+  it('the WORLD x SKILLS operations each map to one fixed SQL function; an unknown op is refused', async () => {
     const calls: { fn: string; args: Record<string, unknown> }[] = []
     expect((await handleWorldAuthority(post({ op: 'access', userId: USER }), deps(calls))).status).toBe(200)
     expect((await handleWorldAuthority(post({ op: 'player_state', userId: USER }), deps(calls))).status).toBe(200)
@@ -93,5 +93,64 @@ describe('world-authority Edge Function', () => {
     const response = await handleWorldAuthority(post({ op: 'load_nodes' }), failing)
     expect(response.status).toBe(500)
     expect(await response.text()).not.toContain('db.internal')
+  })
+})
+
+// ── WORLD LOCATION-2 ───────────────────────────────────────────────────────
+
+const OTHER = '22222222-2222-4222-8222-222222222222'
+const locationRow = (extra: Record<string, unknown> = {}) =>
+  ({ userId: USER, epoch: 3, seq: 7, areaId: 'pradera', tx: -5, ty: -69, layoutVersion: 'p.0123456789ab', ...extra })
+
+describe('world-authority location operations', () => {
+  it('location_claim: needs the secret and a UUID, calls exactly world_location_claim, no access gate', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    expect((await handleWorldAuthority(post({ op: 'location_claim', userId: USER }, null), deps(calls))).status).toBe(401)
+    for (const userId of ['me', 42, null, `${USER}x`]) {
+      expect((await handleWorldAuthority(post({ op: 'location_claim', userId }), deps(calls))).status).toBe(400)
+    }
+    expect(calls).toEqual([])
+    const ok = await handleWorldAuthority(post({ op: 'location_claim', userId: USER, areaId: 'pradera', epoch: 99 }), deps(calls, SECRET, 'closed'))
+    expect(ok.status).toBe(200)
+    // A closed WORLD x SKILLS user still claims: a location is not a value. Extra fields never reach SQL.
+    expect(calls).toEqual([{ fn: 'world_location_claim', args: { p_user_id: USER } }])
+  })
+
+  it('location_save: rows are rebuilt field by field and passed whole to world_location_save', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    const response = await handleWorldAuthority(post({ op: 'location_save', rows: [locationRow({ dir: 'up', admin: true }), locationRow({ userId: OTHER })] }), deps(calls))
+    expect(response.status).toBe(200)
+    expect(calls).toEqual([{ fn: 'world_location_save', args: { p_rows: [locationRow(), locationRow({ userId: OTHER })] } }])
+  })
+
+  it('location_save: one malformed row refuses the whole batch before the database', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    const bad = [
+      { userId: 'me' }, { epoch: 0 }, { epoch: 1.5 }, { epoch: '3' }, { seq: 0 }, { seq: 2 ** 53 }, { tx: 4096 }, { ty: -4097 }, { tx: 0.5 },
+      { areaId: 'Pradera' }, { areaId: 'dg:cave:1' }, { areaId: 'ab' }, { layoutVersion: 'UPPER' }, { layoutVersion: '' }, { layoutVersion: 'x'.repeat(33) },
+    ]
+    for (const extra of bad) {
+      expect((await handleWorldAuthority(post({ op: 'location_save', rows: [locationRow({ userId: OTHER }), locationRow(extra)] }), deps(calls))).status).toBe(400)
+    }
+    for (const rows of [[], 'rows', null, [locationRow(), locationRow({ seq: 8 })], [locationRow(), locationRow({ userId: USER.toUpperCase() })], Array.from({ length: 201 }, () => locationRow())]) {
+      expect((await handleWorldAuthority(post({ op: 'location_save', rows }), deps(calls))).status).toBe(400)
+    }
+    expect(calls).toEqual([])
+  })
+
+  it('location_save: 200 rows is the limit, and accepted', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    const rows = Array.from({ length: 200 }, (_, i) => locationRow({ userId: `aaaaaaaa-0000-4000-8000-${String(i).padStart(12, '0')}` }))
+    expect((await handleWorldAuthority(post({ op: 'location_save', rows }), deps(calls))).status).toBe(200)
+    expect(calls.length).toBe(1)
+  })
+
+  it('location operations do not leak database errors either', async () => {
+    const failing: AuthorityDeps = { secret: SECRET, rpc: async () => ({ data: null, error: { message: 'world_player_locations on db.internal' } }) }
+    for (const body of [{ op: 'location_claim', userId: USER }, { op: 'location_save', rows: [locationRow()] }]) {
+      const response = await handleWorldAuthority(post(body), failing)
+      expect(response.status).toBe(500)
+      expect(await response.text()).not.toContain('db.internal')
+    }
   })
 })
