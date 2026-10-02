@@ -7,6 +7,12 @@
 //
 // Prints one line per mutation and a JSON summary; exit 0 only if every
 // mutation was caught and the tree is restored.
+//
+// What counts as caught (review 2, F3): EVERY test command of the mutation
+// exits non-zero on its own — a run killed at the runner's deadline is
+// `timedOut` and is never counted as caught, whatever its output — and, when
+// the mutation names them, the expected test is among the failures (or is the
+// first one, `first: true`) and the expected cause appears in the output.
 
 import { spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -16,6 +22,8 @@ const root = fileURLToPath(new URL('../..', import.meta.url))
 const RT = 'services/realtime/'
 const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-timeout=60000', ...files] })
 const deno = file => ({ cwd: root, cmd: 'deno', args: ['test', file] })
+/** The same command, with the failure it must produce: `expect` a test name (prefix), `first` it must be the first failure, `cause` a regex over the output. */
+const expecting = (command, expect, { first = false, cause = null } = {}) => ({ ...command, expect, first, cause })
 
 const MIGRATION = 'supabase/migrations/20261001220000_world_player_locations.sql'
 const HANDLER = 'supabase/functions/world-authority/handler.ts'
@@ -64,7 +72,7 @@ const MUTATIONS = [
   { id: 'M19', what: 'batches larger than 200 rows', file: JOURNAL, from: 'export const MAX_BATCH_ROWS = 200', to: 'export const MAX_BATCH_ROWS = 1_000', test: JOURNAL_TEST },
   { id: 'M20', what: 'a changed location reuses the seq of a failed attempt', file: JOURNAL, from: 'pending.attempt.epoch === entry.epoch && sameLocation(pending.attempt.location, location)', to: 'pending.attempt.epoch === entry.epoch', test: JOURNAL_TEST },
   { id: 'M21', what: 'claims of one player are not chained', file: JOURNAL, from: 'const attempt = entry.chain.then(() => this.#claimOnce(entry, session))', to: 'const attempt = this.#claimOnce(entry, session)', test: JOURNAL_TEST },
-  { id: 'M22', what: 'the shutdown flush waits past its deadline', file: JOURNAL, from: "const within = async promise => (await Promise.race([promise.then(() => true), sleep(remaining()).then(() => false)]))", to: 'const within = async promise => { await promise; return true }', test: node('--test-timeout=8000', 'src/presence/locationJournal.test.js') },
+  { id: 'M22', what: 'the shutdown flush waits past its deadline', file: JOURNAL, from: "const within = async promise => (await Promise.race([promise.then(() => true), sleep(remaining()).then(() => false)]))", to: 'const within = async promise => { await promise; return true }', test: expecting(node('--test-timeout=8000', 'src/presence/locationJournal.test.js'), 'flushAll (shutdown): sends everything pending at once', { first: true, cause: /flushAll on a hung authority did not settle within 2000 ms/ }) },
   { id: 'M23', what: 'an unclaimed session retries its claim without backoff', file: JOURNAL, from: 'entry.nextClaimAt = this.now() + backoffMs(entry.claimAttempts) + jitterFor(session.userId, 250)', to: 'entry.nextClaimAt = this.now()', test: JOURNAL_TEST },
   // Restore policy.
   { id: 'M24', what: 'a restored tile is not checked (solid, portal, unreachable)', file: POLICY, from: "  if (!isSafeLanding(areaId, tx, ty)) return placed(areaId, arrival, 'tile')\n", to: '', test: POLICY_TEST },
@@ -91,13 +99,18 @@ const MUTATIONS = [
   { id: 'M42', what: 'shadow keeps a stale session out of the reconnect cache', file: JOIN, from: 'return !(fenced && location.restores)', to: 'return !fenced', test: ROOM_TEST },
   { id: 'M43', what: 'shadow names the close reason of a local replacement', file: JOIN, from: 'if (this.location().restores) previous.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)', to: 'if (this.location().active) previous.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)', test: ROOM_TEST },
   // Review B2: abandoned or out-of-order claims.
-  { id: 'M44', what: 'the claim is unconditional for an existing row (R2)', file: MIGRATION, from: 'WHERE user_id = p_user_id AND epoch = p_expected_epoch', to: 'WHERE user_id = p_user_id', test: DB_TEST },
+  { id: 'M44', what: 'the claim is unconditional for an existing row (R2)', file: MIGRATION, from: 'WHERE user_id = p_user_id AND epoch = p_expected_epoch', to: 'WHERE user_id = p_user_id', tests: [
+    expecting(DB_TEST, 'R2 in the database'),
+    // Review 2 (F1): the room must catch it too, through the second-round zombie.
+    expecting(ROOM_TEST, 'on, 1 instance(s): an abandoned second-round claim (UPDATE, expected = E)', { cause: /the zombie answers conflict/ }),
+  ] },
   { id: 'M45', what: 'a claim expecting no row bumps an existing one', file: MIGRATION, from: 'ON CONFLICT (user_id) DO NOTHING', to: 'ON CONFLICT (user_id) DO UPDATE SET epoch = world_player_locations.epoch + 1, seq = 0', test: ROOM_TEST },
   { id: 'M46', what: 'a claim is sent for a session that ended or was replaced', file: JOURNAL, from: 'return !this.disabled && session.live && entry.session === session && this.entries.get(entry.userId) === entry', to: 'return !this.disabled', test: JOURNAL_TEST },
   { id: 'M47', what: 'an entry is forgotten while one of its claims is in flight (chain lost)', file: JOURNAL, from: "if (!entry.pending && !entry.session?.live && entry.claimsInFlight === 0 && this.entries.get(entry.userId) === entry)", to: "if (!entry.pending && !entry.session?.live && this.entries.get(entry.userId) === entry)", test: JOURNAL_TEST },
   { id: 'M48', what: 'a conflict is not followed by a claim after the current epoch', file: JOURNAL, from: "if (result?.status !== 'conflict') break", to: 'break', test: JOURNAL_TEST },
   { id: 'M49', what: 'world-authority passes a claim with no expected epoch', file: HANDLER, from: "        if (!Number.isSafeInteger(body.expectedEpoch) || (body.expectedEpoch as number) < 0) return json(400, { error: 'invalid_epoch' })\n", to: '', test: DENO_TEST },
-  { id: 'M50', what: 'the journal waits on a hung claim forever', file: JOURNAL, from: 'return await Promise.race([this.store.locationClaim(userId, expectedEpoch), giveUp])', to: 'return await this.store.locationClaim(userId, expectedEpoch)', test: node('--test-timeout=8000', 'src/presence/locationJournal.test.js') },
+  // The whole give-up is removed (no orphan timer left to reject unhandled): the claim simply waits on the store.
+  { id: 'M50', what: 'the journal waits on a hung claim forever', file: JOURNAL, from: "    const giveUp = new Promise((_, reject) => {\n      timer = setTimeout(() => reject(new Error('claim abandoned')), this.claimWaitMs)\n      timer.unref?.()\n    })\n    try {\n      return await Promise.race([this.store.locationClaim(userId, expectedEpoch), giveUp])", to: '    try {\n      return await this.store.locationClaim(userId, expectedEpoch)', test: expecting(node('--test-timeout=8000', 'src/presence/locationJournal.test.js'), 'a claim given up (claimWaitMs) that lands in the store late', { first: true, cause: /a claim on a hung store did not settle within 2000 ms/ }) },
   // Review B3: a late claim never moves a published player.
   { id: 'M51', what: 'an adopted position is not saved at once (the old row could come back)', file: JOIN, from: 'location.note(session, actor, { urgent: true })', to: 'location.note(session, actor)', test: ROOM_TEST },
   // Review M2: Pradera's version covers its whole canonical data.
@@ -124,17 +137,35 @@ for (const m of selected) {
   if (count !== 1) { results.push({ id: m.id, caught: false, error: `pattern found ${count} times` }); console.log(`${m.id} PATTERN ${count}x — ${m.what}`); continue }
   writeFileSync(path, text.replace(m.from, m.to))
   const started = Date.now()
-  let run
+  const runs = []
   try {
-    run = spawnSync(m.test.cmd, m.test.args, { cwd: m.test.cwd, encoding: 'utf8', timeout: 240_000, shell: m.test.cmd === 'deno' })
+    for (const test of m.tests ?? [m.test]) runs.push(judge(test, spawnSync(test.cmd, test.args, { cwd: test.cwd, encoding: 'utf8', timeout: 240_000, shell: test.cmd === 'deno' })))
   } finally {
     writeFileSync(path, original)
   }
+  const caught = runs.every(r => r.caught)
+  const timedOut = runs.some(r => r.timedOut)
+  results.push({ id: m.id, what: m.what, caught, timedOut, runs, ms: Date.now() - started })
+  const label = caught ? 'CAUGHT' : timedOut ? 'TIMED OUT (not caught)' : 'MISSED'
+  console.log(`${m.id} ${label} (${Math.round((Date.now() - started) / 1000)} s) — ${m.what} → ${runs.map(r => r.firstFailure ?? r.why ?? '?').join(' | ')}`)
+}
+
+/** One test command's verdict. A run the runner had to kill is never a catch. */
+function judge(test, run) {
   const out = `${run.stdout ?? ''}${run.stderr ?? ''}`
-  const failed = (out.match(/^✖ (?!failing tests)(.+?) \(\d/mu) ?? out.match(/^(.+?) \.\.\. .*FAILED/mu))?.[1]?.trim() ?? null
-  const caught = run.status !== 0
-  results.push({ id: m.id, what: m.what, caught, exit: run.status, firstFailure: failed, ms: Date.now() - started })
-  console.log(`${m.id} ${caught ? 'CAUGHT' : 'MISSED'} (${Math.round((Date.now() - started) / 1000)} s) — ${m.what}${failed ? ` → ${failed}` : ''}`)
+  const timedOut = run.error?.code === 'ETIMEDOUT' || run.signal !== null
+  const failures = [...new Set([
+    ...[...out.matchAll(/^✖ (?!failing tests)(.+?) \(\d/gmu)].map(match => match[1].trim()),
+    ...[...out.matchAll(/^(.+?) \.\.\. .*FAILED/gmu)].map(match => match[1].trim()),
+  ])]
+  const firstFailure = failures[0] ?? null
+  let why = null
+  if (timedOut) why = 'killed at the runner deadline'
+  else if (run.status === 0) why = 'the tests passed'
+  else if (test.expect && test.first && !firstFailure?.startsWith(test.expect)) why = `first failure is not "${test.expect}"`
+  else if (test.expect && !failures.some(name => name.startsWith(test.expect))) why = `"${test.expect}" did not fail`
+  else if (test.cause && !test.cause.test(out)) why = `cause ${test.cause} not in the output`
+  return { caught: why === null, timedOut, exit: run.status, signal: run.signal, firstFailure, expect: test.expect ?? null, why }
 }
 const restored = clean()
 const caught = results.filter(r => r.caught).length

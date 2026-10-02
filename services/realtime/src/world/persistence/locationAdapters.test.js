@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { openLocalDatabase, serviceQuery } from './dev/localDatabase.js'
 import { LOCATION_CLAIM_TIMEOUT_MS, createEdgePlayerData, createSqlPlayerData, readClaim, readSaveResults } from './playerData.js'
 import { withPlayerDataMetrics } from './playerDataMetrics.js'
+import { within } from '../testing.js'
 
 // WORLD LOCATION-2, commit 3: the PlayerDataAuthority location operations on
 // both adapters, the Edge path end to end (real handler, real SQL), the
@@ -71,10 +72,9 @@ test('Edge adapter: the claim has its own short budget (1.5 s by default), indep
   assert.equal(LOCATION_CLAIM_TIMEOUT_MS, 1_500)
   const hanging = (_url, init) => new Promise((_resolve, reject) => init.signal.addEventListener('abort', () => reject(new Error('aborted'))))
   const data = createEdgePlayerData({ url: 'https://x', secret: SECRET, publishableKey: 'k', fetcher: hanging, claimTimeoutMs: 30, timeoutMs: 60_000 })
-  // The adapter's abort timer is unref'd and the fake fetch holds no socket: keep the loop alive (Node 22).
-  const alive = setInterval(() => {}, 1_000)
+  // The adapter's abort timer is unref'd and the fake fetch holds no socket: `within` keeps the loop alive (Node 22).
   const started = Date.now()
-  await assert.rejects(data.locationClaim(A, 0), /aborted/).finally(() => clearInterval(alive))
+  await assert.rejects(within(data.locationClaim(A, 0), 2_000, 'the claim budget'), /aborted/)
   assert.ok(Date.now() - started < 1_000)
 })
 

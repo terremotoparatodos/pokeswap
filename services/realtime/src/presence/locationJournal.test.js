@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import {
   BACKOFF_MAX_MS, CHECKPOINT_JITTER_MS, CHECKPOINT_MS, LocationJournal, MAX_BATCH_ROWS, backoffMs, jitterFor, persistableIdentity,
 } from './locationJournal.js'
-import { manualClock, settle } from '../world/testing.js'
+import { manualClock, settle, within } from '../world/testing.js'
 
 // WORLD LOCATION-2, commit 5: the journal on a fake store that applies the
 // same CAS as world_location_save (applied / duplicate / stale) and the same
@@ -351,9 +351,8 @@ test('a claim given up (claimWaitMs) that lands in the store late never displace
   }
   const { journal, run, actor } = setup({ store, claimWaitMs: 20 })
   const first = journal.beginSession(A)
-  // The give-up timer is unref'd and the hung call holds no socket: keep the loop alive (Node 22).
-  const alive = setInterval(() => {}, 1_000)
-  const given = await journal.claim(first).finally(() => clearInterval(alive))
+  // `within` keeps the loop alive (the give-up timer is unref'd) and fails, never hangs, if the claim never settles.
+  const given = await within(journal.claim(first), 2_000, 'a claim on a hung store')
   assert.deepEqual(given, { status: 'failed' })
   assert.equal(journal.stats().claims.abandoned, 1)
   journal.endSession(first, null)
@@ -452,11 +451,11 @@ test('flushAll (shutdown): sends everything pending at once; never waits past it
   const s = await hung.join(A)
   hung.journal.note(s, hung.actor(), { urgent: true })
   hung.store.hang = true
-  // A hung authority holds no handle here (a real one holds its socket); the
-  // journal's own deadline timer is unref'd, so keep the loop alive (Node 22).
-  const alive = setInterval(() => {}, 1_000)
+  // A hung authority holds no handle here (a real one holds its socket) and the
+  // journal's own deadline timer is unref'd: `within` keeps the loop alive, and
+  // fails (never hangs) if flushAll does not return.
   const started = Date.now()
-  const result = await hung.journal.flushAll(50).finally(() => clearInterval(alive))
+  const result = await within(hung.journal.flushAll(50), 2_000, 'flushAll on a hung authority')
   assert.equal(result.timedOut, true)
   assert.ok(Date.now() - started < 1_000)
 })

@@ -40,6 +40,23 @@ export const messagesOf = (client, type) => client.messages.filter(entry => entr
 export const settle = () => new Promise(resolve => setImmediate(resolve))
 
 /**
+ * Awaits `promise`, but never longer than `ms`: past it, rejects with
+ * "<label> did not settle within <ms> ms". Its own (ref'd) timer keeps the
+ * event loop alive while waiting (the code under test may hold only unref'd
+ * timers) and is always cleared, so a promise that never settles fails the
+ * test at the deadline and never leaves the process hanging.
+ */
+export async function within(promise, ms, label) {
+  let timer
+  const deadline = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`${label} did not settle within ${ms} ms`)), ms) })
+  try {
+    return await Promise.race([promise, deadline])
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+/**
  * The server's PRIVATE duration of a running action (SKILLS PROB-2): attempts ×
  * tick from the secret draw. Tests read it from the authority; no client ever
  * receives it.
