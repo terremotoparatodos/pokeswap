@@ -389,6 +389,42 @@ describe('errors, retry and replaced sessions', () => {
     expect(s.phase()).toBe('connecting')
   })
 
+  it('a snapshot that arrives after the timeout, before any retry, is ignored: no place, no reveal, no input, no socket', async () => {
+    const s = boot()
+    await settle()
+    const old = s.room()
+    expect(old.sent).toContain('presence:ready')
+    await vi.advanceTimersByTimeAsync(12_000)
+    expect(s.phase()).toBe('connection-error')
+    const clients = sdk.clients
+    const joins = sdk.joins
+    const reveal = vi.spyOn(s.game, 'revealScene')
+    const attach = vi.spyOn(s.internals.keys, 'attach')
+    const before = s.game.playerSnapshot()
+    old.emit('presence:snapshot', { access: 'player', self: self('cueva-inicial'), actors: [] })
+    await settle()
+    runFrames(10)
+    // Input: tap, drag and a held arrow key all go nowhere.
+    s.internals.spectator = false
+    s.game.tap(10, 10)
+    s.game.drag(40, 40)
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', key: 'ArrowRight' }))
+    runFrames(10)
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowRight', key: 'ArrowRight' }))
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(s.phase()).toBe('connection-error')
+    expect(s.controller.current).toMatchObject({ authority: false, live: false })
+    expect(s.drawn).toEqual([])
+    expect(s.visible()).toEqual([])
+    expect(s.enterArea).not.toHaveBeenCalled()
+    expect(reveal).not.toHaveBeenCalled()
+    expect(attach).not.toHaveBeenCalled()
+    expect(s.goTo).not.toHaveBeenCalled()
+    expect(s.game.playerSnapshot()).toEqual(before)
+    expect(sdk.clients).toBe(clients)
+    expect(sdk.joins).toBe(joins)
+  })
+
   it('4001: replaced, no automatic retry and no reconnect on a session change', async () => {
     const s = boot()
     await enter(s, { access: 'player', self: self('pradera'), actors: [] })

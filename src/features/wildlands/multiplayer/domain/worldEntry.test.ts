@@ -65,6 +65,18 @@ describe('world entry machine (PRESENCE UX-1)', () => {
     expect(nextWorldEntry(ready, { type: 'retry' })).toBe(ready)
   })
 
+  it('out of connection-error only retry starts a new wait: a late snapshot or preparation changes nothing', () => {
+    for (const error of [run(online(), 'timeout'), run(online(), 'snapshot', 'prepared', 'lost', 'timeout'), run(online(), 'snapshot', 'prepare-failed')]) {
+      expect(error.phase).toBe('connection-error')
+      for (const type of ['snapshot', 'prepared', 'lost', 'timeout', 'prepare-failed', 'renew'] as const) {
+        expect(nextWorldEntry(error, { type })).toBe(error)
+      }
+      expect(nextWorldEntry(error, { type: 'retry' })).toMatchObject({ phase: error.failed === 'reconnect' ? 'reconnecting' : 'connecting', authority: false, live: false })
+      // 4001 is final, not another attempt.
+      expect(nextWorldEntry(error, { type: 'replaced' }).phase).toBe('replaced')
+    }
+  })
+
   it('a replaced session is final: no retry, no renew, no loss brings it back', () => {
     const replaced = run(online(), 'snapshot', 'prepared', 'replaced')
     expect(replaced).toMatchObject({ phase: 'replaced', live: false })

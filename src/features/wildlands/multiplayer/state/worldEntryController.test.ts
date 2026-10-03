@@ -98,6 +98,29 @@ describe('WorldEntryController', () => {
     expect(s.calls).not.toContain('prepare')
   })
 
+  it('after a timeout the old socket is muted and only retry opens the next one', async () => {
+    const s = stage()
+    s.controller.start()
+    s.fire(12_000)
+    const old = s.socket()
+    expect(old.disconnected).toBe(1)
+    const states = s.states.length
+    old.status.snapshot('player')
+    old.status.lost()
+    old.status.replaced()
+    s.controller.renew()
+    await settle()
+    expect(s.controller.current.phase).toBe('connection-error')
+    expect(s.states).toHaveLength(states)
+    expect(s.calls).not.toContain('prepare')
+    expect(s.calls).not.toContain('reveal')
+    expect(s.sockets).toHaveLength(1)
+    expect(s.timers.size).toBe(0)
+    s.controller.retry()
+    expect(s.sockets).toHaveLength(2)
+    expect(s.controller.current.phase).toBe('connecting')
+  })
+
   it('a session change replaces the socket: the old one is disconnected, one timer runs', () => {
     const s = stage()
     s.controller.start()
