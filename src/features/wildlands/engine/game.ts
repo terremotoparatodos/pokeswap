@@ -202,6 +202,12 @@ export class WildlandsGame {
   private paused = false
   private spectator = false
   private visibilityPaused = false
+  /**
+   * PRESENCE UX-1: online, the scene waits for the server's area. While held
+   * nothing is simulated, drawn or accepted as input; the canvas keeps its
+   * last frame (none before the first reveal).
+   */
+  private sceneHeld = false
   private reduceMotion = false
   private frameId = 0
   private last = 0
@@ -336,6 +342,24 @@ export class WildlandsGame {
   start(): void {
     if (this.running) return
     this.running = true
+    if (!this.spectator && !this.paused && !this.visibilityPaused && !this.sceneHeld) this.keys.attach()
+    this.resumeFrameLoop()
+  }
+
+  /** Freezes the scene on its last frame and refuses all input until `revealScene`. */
+  holdScene(): void {
+    if (this.sceneHeld) return
+    this.sceneHeld = true
+    this.nav.cancel()
+    this.keys.detach()
+    this.stopFrameLoop()
+  }
+
+  /** Draws the (prepared) current area again and gives input back. */
+  revealScene(): void {
+    if (!this.sceneHeld) return
+    this.sceneHeld = false
+    if (!this.running) return
     if (!this.spectator && !this.paused && !this.visibilityPaused) this.keys.attach()
     this.resumeFrameLoop()
   }
@@ -353,7 +377,7 @@ export class WildlandsGame {
     this.nav.cancel()
     if (!this.running) return
     if (paused || this.visibilityPaused) this.keys.detach()
-    else if (!this.spectator) this.keys.attach()
+    else if (!this.spectator && !this.sceneHeld) this.keys.attach()
   }
 
   /** Stops simulation while the document is hidden without conflating it with UI pause. */
@@ -366,7 +390,7 @@ export class WildlandsGame {
       this.keys.detach()
       this.stopFrameLoop()
     } else if (!this.paused) {
-      if (!this.spectator) this.keys.attach()
+      if (!this.spectator && !this.sceneHeld) this.keys.attach()
       this.resumeFrameLoop()
     }
   }
@@ -378,7 +402,7 @@ export class WildlandsGame {
   }
 
   private resumeFrameLoop(): void {
-    if (!this.running || this.visibilityPaused || this.frameId !== 0) return
+    if (!this.running || this.visibilityPaused || this.sceneHeld || this.frameId !== 0) return
     // Presence keeps receiving while a hidden document is frozen. Start a
     // fresh rate window so its first HUD sample is not an accumulated burst.
     this.remoteUpdatesSinceSample = 0
@@ -448,7 +472,7 @@ export class WildlandsGame {
     this.spectator = spectator
     this.nav.cancel()
     if (spectator) this.keys.detach()
-    else if (this.running && !this.paused && !this.visibilityPaused) this.keys.attach()
+    else if (this.running && !this.paused && !this.visibilityPaused && !this.sceneHeld) this.keys.attach()
   }
 
   /** The presence service, not a browser session guess, decides actor access. */
@@ -719,7 +743,7 @@ export class WildlandsGame {
    * walks beside it (and talks); tapping ground walks there.
    */
   tap(cssX: number, cssY: number): void {
-    if (this.spectator || this.travel.active || this.paused || this.inputLocked) return
+    if (this.spectator || this.sceneHeld || this.travel.active || this.paused || this.inputLocked) return
     // A tap on a placed object's art resolves to it in the renderer, behind
     // actors and props (F-1); everything else still answers with the ground.
     const pick = this.renderer.pick(cssX, cssY)
@@ -754,7 +778,7 @@ export class WildlandsGame {
 
   /** Press-and-drag retargeting: only re-plans when the finger moves to another tile. */
   drag(cssX: number, cssY: number): void {
-    if (this.spectator || this.travel.active || this.paused || this.inputLocked) return
+    if (this.spectator || this.sceneHeld || this.travel.active || this.paused || this.inputLocked) return
     const pick = this.renderer.pick(cssX, cssY)
     const current = this.nav.route(this.player).target
     if (!pick.tile || (current && current.tx === pick.tile.tx && current.ty === pick.tile.ty)) return
@@ -860,6 +884,7 @@ export class WildlandsGame {
     this.frameId = 0
     if (!this.running) return
     if (this.visibilityPaused) return
+    if (this.sceneHeld) return
     if (this.last === 0) {
       this.last = now
       this.frameId = requestAnimationFrame(this.loop)
@@ -908,7 +933,7 @@ export class WildlandsGame {
 
     // Player (input is ignored mid-trip)
     const player = this.player
-    const keyDir = this.travel.active || this.paused || this.spectator || this.inputLocked ? null : this.keys.direction
+    const keyDir = this.travel.active || this.paused || this.spectator || this.sceneHeld || this.inputLocked ? null : this.keys.direction
     if (keyDir) this.nav.cancel() // Keyboard always wins over a tap route.
     const navigating = !keyDir && this.nav.active
     // The gait is latched per tile so a step never changes pace halfway

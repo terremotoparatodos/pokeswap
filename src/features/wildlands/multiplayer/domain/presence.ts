@@ -30,6 +30,19 @@ export interface RemoteActorsPort {
   /** Optional: an intent the service refused, by its public reason text. Diagnostics only. */
   presenceRejected?(reason: string): void
 }
+/**
+ * PRESENCE UX-1: how far one socket got, for the world-entry controller.
+ * Events only, no positions: the area itself reaches the engine through
+ * `RemoteActorsPort.setAuthoritativeActor` before `snapshot` is reported.
+ */
+export interface PresenceConnectionStatus {
+  /** A snapshot of this socket's room was applied (join, ready and every area change). */
+  snapshot(access: 'player' | 'guest'): void
+  /** The room was lost; the adapter retries on its own. */
+  lost(): void
+  /** Closed with 4001: a newer session owns the account and the adapter stopped for good. */
+  replaced(): void
+}
 export interface LocalPresencePort {
   move(direction: Dir, running: boolean, sequence: number): void
   changeArea(areaId: string): void

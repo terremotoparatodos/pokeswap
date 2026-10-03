@@ -12,7 +12,9 @@
       @contextmenu.prevent
     />
 
-    <div v-if="loading" class="wl-loading">Llegando a Ciudad Corazón…</div>
+    <!-- Offline only: online, the server says where the player is (PRESENCE UX-1). -->
+    <div v-if="loading && entry.phase === 'offline'" class="wl-loading">Llegando a Ciudad Corazón…</div>
+    <WorldEntryOverlay :state="entry" @retry="entryController?.retry()" />
 
     <transition name="wl-fade">
       <p v-if="hud.toast" class="wl-toast" role="status">{{ hud.toast }}</p>
@@ -123,7 +125,8 @@
       <router-view v-else />
     </LobbyPanel>
 
-    <AuthModal :open="authOpen" @success="authSucceeded = true" @close="onAuthClose" />
+    <!-- The only thing the world-entry overlay leaves usable (entryInert.ts): the attribute lands on its root. -->
+    <AuthModal data-world-entry-keep-interactive :open="authOpen" @success="authSucceeded = true" @close="onAuthClose" />
   </div>
 </template>
 
@@ -151,9 +154,12 @@ import LobbyPlaza from './LobbyPlaza.vue'
 import WorldHintTray from './WorldHintTray.vue'
 import { visibleWorldHints, type WorldHint } from './worldHints'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
-import { ColyseusPresence } from '../multiplayer/api/colyseusPresence'
+import { ColyseusPresence, REALTIME_CONFIGURED } from '../multiplayer/api/colyseusPresence'
+import { initialWorldEntry, type WorldEntryState } from '../multiplayer/domain/worldEntry'
+import { WorldEntryController } from '../multiplayer/state/worldEntryController'
+import WorldEntryOverlay from './WorldEntryOverlay.vue'
 import type { Chat } from '../../chat/state/useChat'
-import type { LocalPresencePort } from '../multiplayer/domain/presence'
+import type { LocalPresencePort, PresenceConnectionStatus } from '../multiplayer/domain/presence'
 import { useAuth } from '../../auth/composables/useAuth'
 import { composeWorldProbes } from '../engine/worldProbes'
 import { CompositeOverlay } from '../engine/compositeOverlay'
@@ -224,9 +230,15 @@ let disposed = false
  * store: a module with top-level state is a module a bundler must keep.
  */
 const chat = shallowRef<Chat | null>(null)
+/**
+ * Online, the entry controller owns the socket and decides when the scene is
+ * drawn; null in the offline world, which keeps its pre-UX-1 path.
+ */
+let entryController: WorldEntryController | null = null
+const entry = shallowRef<WorldEntryState>(initialWorldEntry(REALTIME_CONFIGURED))
 /** One socket, two passengers: presence and chat. */
-function connectPresence(target: WildlandsGame): ColyseusPresence {
-  const socket = new ColyseusPresence(perfCapture.value?.port(target) ?? target, chat.value?.sink ?? null, sharedWorld)
+function connectPresence(target: WildlandsGame, status: PresenceConnectionStatus | null = null): ColyseusPresence {
+  const socket = new ColyseusPresence(perfCapture.value?.port(target) ?? target, chat.value?.sink ?? null, sharedWorld, status)
   chat.value?.attach(text => socket.sendChat(text))
   return socket
 }
@@ -478,12 +490,16 @@ onMounted(async () => {
     playtestStore.value = usePlaytestStore()
   }
   if (!canvasRef.value) return
+  // Online, neither the URL nor the saved town tile is a place: the server's
+  // first snapshot is (PRESENCE UX-1). The engine starts on a held, never
+  // drawn default area and is moved before anything is shown.
+  const online = REALTIME_CONFIGURED
   // ?area=<world>&x=&y= jumps straight to a spot, handy for sharing places in the (deterministic) worlds.
   const x = Number(route.query.x)
   const y = Number(route.query.y)
-  const querySpawn = Number.isInteger(x) && Number.isInteger(y) && route.query.x !== undefined ? { tx: x, ty: y } : null
-  const startArea = typeof route.query.area === 'string' ? route.query.area : undefined
-  const savedSpawn = !querySpawn && !panel.feature.value && (!startArea || startArea === LOBBY_ID)
+  const querySpawn = !online && Number.isInteger(x) && Number.isInteger(y) && route.query.x !== undefined ? { tx: x, ty: y } : null
+  const startArea = !online && typeof route.query.area === 'string' ? route.query.area : undefined
+  const savedSpawn = !online && !querySpawn && !panel.feature.value && (!startArea || startArea === LOBBY_ID)
     ? identity.initialTownPosition()
     : null
   const spawn = querySpawn ?? savedSpawn
@@ -498,19 +514,37 @@ onMounted(async () => {
     presence: presencePort,
   })
   // A direct link to a feature shows the town from that building's door.
-  if (panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
+  if (!online && panel.feature.value && !querySpawn) created.placeAtDoor(panel.feature.value)
   game.value = created
   created.setWorldLayer(sharedWorld)
   if (performanceMode) {
     const { usePerfCapture } = await import('../perf/usePerfCapture')
+    // Unmounted while the module loaded: no capture, controller, socket or timer.
+    if (disposed) return
     perfCapture.value = usePerfCapture()
     perfCapture.value.attach(created)
   }
-  await created.prepare()
-  if (disposed) return
-  created.setPresenceAccess('pending')
-  presence = connectPresence(created)
-  void presence.connect(identity.visualIdentity.value)
+  if (online) {
+    entryController = new WorldEntryController({
+      scene: created,
+      openSocket: status => {
+        created.setPresenceAccess('pending')
+        const socket = connectPresence(created, status)
+        presence = socket
+        return { connect: () => void socket.connect(identity.visualIdentity.value), disconnect: () => socket.disconnect() }
+      },
+      onChange: state => { entry.value = state },
+      onFailure: error => devWarn('[wildlands] the server area could not be prepared', error),
+    })
+    // Holds the scene before the frame loop can draw the default area.
+    entryController.start()
+  } else {
+    await created.prepare()
+    if (disposed) return
+    created.setPresenceAccess('pending')
+    presence = connectPresence(created)
+    void presence.connect(identity.visualIdentity.value)
+  }
   created.setVisibilityPaused(hidden.value)
   created.setReducedMotion(reduceMotion.value)
   created.start()
@@ -542,6 +576,7 @@ onUnmounted(() => {
   document.removeEventListener('visibilitychange', onVisibilityChange)
   perfCapture.value?.detach()
   game.value?.destroy()
+  entryController?.dispose()
   presence?.disconnect()
   stopChatBubbles?.()
   chat.value?.attach(null)
@@ -550,6 +585,9 @@ onUnmounted(() => {
 // A session change replaces the socket rather than keeping an authenticated actor after logout.
 watch(user, () => {
   if (!game.value) return
+  // Online the controller replaces the socket (a session that changes before it
+  // exists needs nothing: its first socket reads the session when it connects).
+  if (REALTIME_CONFIGURED) { entryController?.renew(); return }
   game.value.setPresenceAccess('pending')
   presence?.disconnect()
   presence = connectPresence(game.value)

@@ -1,0 +1,34 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`WorldEntryOverlay (PRESENCE UX-1) > markup per state (visual guard) 1`] = `
+{
+  "connecting": "<div data-v-b12fc206="" class="wl-entry" role="status" aria-busy="true" aria-labelledby="wl-entry-text" data-testid="world-entry">
+  <div data-v-b12fc206="" class="wl-entry-box">
+    <p data-v-b12fc206="" id="wl-entry-text" class="wl-entry-text">Entrando al mundo…</p>
+    <!--v-if-->
+  </div>
+</div>",
+  "entryError": "<div data-v-b12fc206="" class="wl-entry" role="alert" aria-labelledby="wl-entry-text" data-testid="world-entry">
+  <div data-v-b12fc206="" class="wl-entry-box">
+    <p data-v-b12fc206="" id="wl-entry-text" class="wl-entry-text">No pudimos entrar al mundo.</p><button data-v-b12fc206="" type="button" class="wl-entry-retry">Reintentar</button>
+  </div>
+</div>",
+  "reconnectError": "<div data-v-b12fc206="" class="wl-entry wl-entry--scene" role="alert" aria-labelledby="wl-entry-text" data-testid="world-entry">
+  <div data-v-b12fc206="" class="wl-entry-box">
+    <p data-v-b12fc206="" id="wl-entry-text" class="wl-entry-text">No pudimos reconectar.</p><button data-v-b12fc206="" type="button" class="wl-entry-retry">Reintentar</button>
+  </div>
+</div>",
+  "reconnecting": "<div data-v-b12fc206="" class="wl-entry wl-entry--scene" role="status" aria-busy="true" aria-labelledby="wl-entry-text" data-testid="world-entry">
+  <div data-v-b12fc206="" class="wl-entry-box">
+    <p data-v-b12fc206="" id="wl-entry-text" class="wl-entry-text">Reconectando…</p>
+    <!--v-if-->
+  </div>
+</div>",
+  "replaced": "<div data-v-b12fc206="" class="wl-entry" role="alert" aria-labelledby="wl-entry-text" data-testid="world-entry">
+  <div data-v-b12fc206="" class="wl-entry-box">
+    <p data-v-b12fc206="" id="wl-entry-text" class="wl-entry-text" tabindex="-1">Tu sesión se abrió en otra pestaña o dispositivo.</p>
+    <!--v-if-->
+  </div>
+</div>",
+}
+`;
