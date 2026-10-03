@@ -83,9 +83,11 @@ export class PresenceHosting {
    */
   async admit(client, options, auth, liveClientOf) {
     const host = this.host
-    // Between listen and activation a join waits (one round trip in practice). A host that will
-    // not serve refuses in `on`; shadow admits anyway (the session simply gets no key).
-    if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS)) && this.location().restores) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
+    // The mode decides first (review F5): only `on` (restores and authorizes) waits for the
+    // activation that follows listen (one round trip in practice), then refuses with 4503.
+    // Shadow never waits: a starting or refused host admits at once (the session gets no key,
+    // so it never claims, and nobody is closed for it).
+    if (host && this.location().restores && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
     if (this.draining) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
     // Only a fresh join (opening the page, reloading, «Jugar acá») replaces another tab.
     const tabId = tabIdOf(options)

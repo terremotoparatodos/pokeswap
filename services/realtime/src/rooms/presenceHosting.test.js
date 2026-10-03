@@ -208,6 +208,36 @@ test('displaced in on (activation refused, newer host, expired lease): stays ali
   assert.deepEqual(exits, [], 'no displaced host ever calls process.exit')
 })
 
+test('shadow never waits for the activation (F5): a starting host admits at once, without asking whenActive (controlled clock)', async () => {
+  const shadow = hosting({ location: fakeLocation({ restores: false }) })
+  // A host that stays 'starting' until the test's clock moves: whenActive would hold the join.
+  const clock = { waiters: [] }
+  const starting = fakeHost('starting')
+  starting.whenActive = () => { starting.calls.push('whenActive'); return new Promise(resolve => clock.waiters.push(resolve)) }
+  shadow.h.host = starting
+  let admitted = false
+  const join = shadow.h.admit(client(), { presenceProtocol: 3 }, player('u'), () => null).then(() => { admitted = true })
+  for (let i = 0; i < 5; i++) await Promise.resolve() // microtasks only: the clock never moves
+  assert.equal(admitted, true, 'admitted with the clock stopped: no activation wait in shadow')
+  assert.deepEqual(starting.calls, [], 'whenActive is never asked in shadow')
+  assert.equal(clock.waiters.length, 0)
+  await join
+
+  // In on the same join waits on the clock (it is the activation wait), and is admitted once active.
+  const on = hosting()
+  const waiting = fakeHost('starting')
+  waiting.whenActive = () => { waiting.calls.push('whenActive'); return new Promise(resolve => clock.waiters.push(resolve)) }
+  on.h.host = waiting
+  let onAdmitted = false
+  const onJoin = on.h.admit(client(), {}, player('v'), () => null).then(() => { onAdmitted = true })
+  for (let i = 0; i < 5; i++) await Promise.resolve()
+  assert.equal(onAdmitted, false, 'on waits for the activation')
+  assert.deepEqual(waiting.calls, ['whenActive'])
+  clock.waiters.shift()(true)
+  await onJoin
+  assert.equal(onAdmitted, true)
+})
+
 test('shadow never refuses a join for its host: a stopped or starting host admits (no key), and /readyz stays ready', async () => {
   const shadow = hosting({ location: fakeLocation({ restores: false }) })
   for (const state of ['stopped', 'starting']) {
