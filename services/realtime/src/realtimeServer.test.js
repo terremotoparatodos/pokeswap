@@ -62,8 +62,18 @@ test('bootstrap: the host acquires before listen (starting), activates after lis
 
   // C11: a graceful shutdown (deploy, restart) closes every socket with 4503, never with
   // Colyseus' default 4001 (which clients read as "replaced" and stop); `presence:closing`
-  // reaches only the protocol-3 client, before its close.
-  await gameServer.gracefullyShutdown(false)
+  // reaches only the protocol-3 client, before its close. A join that arrives while the
+  // process drains is refused with 4503 too (it reconnects to the next host).
+  // The drain is slowed (an authority that takes 300 ms to answer), so the join below lands
+  // while the process drains: Colyseus keeps the transport open during onBeforeShutdown.
+  const drain = host.drain.bind(host)
+  host.drain = async () => { await wait(300); return drain() }
+  const shutting = gameServer.gracefullyShutdown(false)
+  await wait(20)
+  const joiner = await new Client(`ws://127.0.0.1:${PORT}`, ORIGIN).joinOrCreate('presence', { token: null, presenceProtocol: 3, tabId: 'tab-joiner-0000' })
+    .then(late => ({ joined: true, room: late }), error => ({ joined: false, code: error?.code }))
+  await shutting
+  assert.deepEqual(joiner, { joined: false, code: 4503 }, 'a join during the shutdown is refused with 4503, never 4001')
   for (let i = 0; i < 100 && guests.some(g => g.code === null); i++) await wait(20)
   assert.deepEqual(guests.map(g => g.code), [4503, 4503], 'every client reconnects: 4503 host-draining, never 4001')
   assert.deepEqual(guests[0].closing, [])

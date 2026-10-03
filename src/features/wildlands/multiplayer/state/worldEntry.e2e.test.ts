@@ -577,3 +577,45 @@ describe('WORLD LOCATION-4: close codes, resume and «Jugar acá»', () => {
     expect(s.phase()).toBe('ready')
   })
 })
+
+describe('WORLD LOCATION-4 compatibility: this client against an older realtime (no protocol echo)', () => {
+  const oldServer = { access: 'player', self: self('pradera'), actors: [] }
+
+  it('a 4001 on a socket that lived ≥ 30 s reconnects once with resume; another 4001 within a minute stops as replaced (no loop)', async () => {
+    // The socket's lifetime is read from Date: fake it too (beforeEach faked only the timers).
+    vi.useRealTimers()
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] })
+    const s = boot()
+    await enter(s, oldServer)
+    runFrames(3)
+    await vi.advanceTimersByTimeAsync(31_000)
+    s.room().leaveHandler!(4001) // an older server's shutdown (or replacement): ambiguous
+    expect(s.phase()).toBe('reconnecting')
+    await vi.advanceTimersByTimeAsync(600)
+    expect(sdk.options[sdk.options.length - 1]).toMatchObject({ resume: true })
+    await enter(s, oldServer)
+    runFrames(3)
+    expect(s.phase()).toBe('ready')
+    await vi.advanceTimersByTimeAsync(31_000)
+    const joins = sdk.joins
+    s.room().leaveHandler!(4001) // a second one within a minute: a replacement, for good
+    expect(s.phase()).toBe('replaced')
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(sdk.joins).toBe(joins)
+  })
+
+  it('an older server ignores tabId and resume (it never sends 4409/4503): a 1006 reconnects as before, a 4000 does nothing', async () => {
+    const s = boot()
+    await enter(s, oldServer)
+    s.room().drop!()
+    await vi.advanceTimersByTimeAsync(600)
+    expect(s.phase()).toBe('reconnecting')
+    await enter(s, oldServer)
+    runFrames(3)
+    expect(s.phase()).toBe('ready')
+    const joins = sdk.joins
+    s.room().leaveHandler!(4000)
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(sdk.joins).toBe(joins)
+  })
+})

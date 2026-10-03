@@ -48,13 +48,14 @@ async function closeRoom(t, { mode = 'on' } = {}) {
   const room = new module.PresenceRoom()
   room.onCreate()
   const clients = []
-  t.after(() => {
+  // Awaited: the file closes the database after the last test, never under a host's last call.
+  t.after(async () => {
     for (const c of clients) room.onLeave(c)
     room.setSimulationInterval(null)
     room.clock.clear()
     module.configureLocationPersistence({ mode: 'off' })
     module.configurePresenceHost(null)
-    void host.stop()
+    await host.stop()
   })
   const join = async (userId, options = {}) => {
     await db.query('INSERT INTO auth.users VALUES ($1) ON CONFLICT DO NOTHING', [userId])
@@ -183,4 +184,35 @@ test('shadow: a newer active host only counts wouldDrain; nobody is closed and t
   assert.deepEqual(closings(c), [])
   assert.equal(r.host.state, 'active')
   await r.join(nextUser()) // still admitting
+})
+
+// ── Compatibility: today's clients against this server (design §5.2, C5) ─────
+
+test('compat: a protocol-2 client sending resume without a tab id is a fresh join (old clients never get the resume rule)', async t => {
+  const r = await closeRoom(t)
+  const u = nextUser()
+  const first = await r.placed(await r.join(u, { presenceProtocol: 2 }), u)
+  const second = await r.join(u, { presenceProtocol: 2, resume: true })
+  assert.deepEqual(first.leaves, [[4001, SESSION_REPLACED]], 'replaced as before WORLD LOCATION-4')
+  assert.deepEqual(closings(first), [])
+  await r.placed(second, u)
+})
+
+test('compat: a client older than protocol 2 (no presenceProtocol) is replaced with 4001, hears nothing new, and still joins', async t => {
+  const r = await closeRoom(t)
+  const u = nextUser()
+  const first = await r.placed(await r.join(u, { presenceProtocol: undefined }), u)
+  assert.equal(lastMessage(first, MESSAGE.SNAPSHOT).presenceProtocol, 3, 'an extra snapshot field older clients ignore')
+  await r.join(u, { presenceProtocol: undefined })
+  assert.deepEqual(first.leaves, [[4001, SESSION_REPLACED]])
+  assert.deepEqual(closings(first), [])
+})
+
+test('compat: a malformed presenceProtocol or tab id changes nothing (treated as an old client, fresh join)', async t => {
+  const r = await closeRoom(t)
+  const u = nextUser()
+  const first = await r.placed(await r.join(u, { presenceProtocol: '3', tabId: 'x' }), u)
+  await r.join(u, { presenceProtocol: 3.5, tabId: { id: 'tab-object-01' }, resume: true })
+  assert.deepEqual(first.leaves, [[4001, SESSION_REPLACED]], 'a string protocol is not protocol 3: legacy close')
+  assert.deepEqual(closings(first), [])
 })

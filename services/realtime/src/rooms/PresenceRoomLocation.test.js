@@ -148,13 +148,14 @@ async function locationRoom(t, { mode = 'on', module = instanceA, owners = {}, h
   const room = new module.PresenceRoom()
   room.onCreate()
   const clients = []
-  t.after(() => {
+  // Awaited: the file closes the database after the last test, never under a host's last call.
+  t.after(async () => {
     for (const c of clients) room.onLeave(c)
     room.setSimulationInterval(null)
     room.clock.clear()
     module.configureLocationPersistence({ mode: 'off' })
     module.configurePresenceHost(null)
-    void host.stop()
+    await host.stop()
   })
   const join = async (userId, options = {}) => {
     await db.query('INSERT INTO auth.users VALUES ($1) ON CONFLICT DO NOTHING', [userId])
