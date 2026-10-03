@@ -216,7 +216,7 @@ export const MUTATIONS = [
     from: '  get serving() { return !this.host || this.host.admitting || !this.location().restores }', to: '  get serving() { return true }',
     test: HOSTING_TEST('displaced in on') },
   { id: 'S3', what: 'a displaced host exits on its own (code 0: an autorestart supervisor loops)', file: HOSTING,
-    from: 'until its deploy or supervisor ends it`)\n', to: 'until its deploy or supervisor ends it`)\n    setImmediate(() => process.exit(0))\n',
+    from: 'until its deploy or supervisor ends it`)\n', to: 'until its deploy or supervisor ends it`)\n    process.exit(0)\n',
     test: HOSTING_TEST('displaced in on') },
   // ── SQL: drain of an expired host (review F6) ──
   { id: 'O26', what: 'drain revives a host whose lease ran out (draining with a new window, it can flush)', file: MIGRATION,
