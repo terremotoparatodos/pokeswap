@@ -1,0 +1,466 @@
+{
+  "tree": "this checkout",
+  "reps": 200,
+  "width": 25,
+  "seed": 7,
+  "modes": {
+    "same-process": {
+      "applicable": true,
+      "results": {
+        "T3": {
+          "reps": 200,
+          "ms": 22536,
+          "violated": 0,
+          "variants": {
+            "cross": 150,
+            "same": 50
+          },
+          "olderOutcomes": {
+            "4409": 200
+          },
+          "examples": []
+        },
+        "T4": {
+          "reps": 200,
+          "ms": 63482,
+          "violated": 0,
+          "variants": {
+            "cross": 150,
+            "same": 50
+          },
+          "olderOutcomes": {
+            "4409": 200
+          },
+          "examples": []
+        },
+        "T7": {
+          "reps": 200,
+          "ms": 16208,
+          "violated": 0,
+          "variants": {
+            "cross": 150,
+            "same": 50
+          },
+          "olderOutcomes": {
+            "4409": 62,
+            "open": 138
+          },
+          "examples": []
+        }
+      }
+    },
+    "two-process": {
+      "applicable": true,
+      "results": {
+        "T3": {
+          "reps": 200,
+          "ms": 24552,
+          "violated": 0,
+          "gaps": {
+            "n": 200,
+            "min": 20,
+            "p50": 104,
+            "p95": 185,
+            "max": 198
+          },
+          "injected": {
+            "n": 200,
+            "min": 301,
+            "p50": 789,
+            "p95": 1134,
+            "max": 1196
+          },
+          "olderOutcomes": {
+            "4409": 50,
+            "open": 150
+          },
+          "examples": []
+        },
+        "T4": {
+          "reps": 200,
+          "ms": 57349,
+          "violated": 0,
+          "gaps": {
+            "n": 200,
+            "min": 300,
+            "p50": 300,
+            "p95": 300,
+            "max": 300
+          },
+          "injected": null,
+          "olderOutcomes": {
+            "4409": 50,
+            "open": 150
+          },
+          "examples": []
+        },
+        "T7": {
+          "reps": 200,
+          "ms": 19254,
+          "violated": 0,
+          "gaps": {
+            "n": 200,
+            "min": 2,
+            "p50": 146,
+            "p95": 276,
+            "max": 297
+          },
+          "injected": null,
+          "olderOutcomes": {
+            "4409": 50,
+            "open": 150
+          },
+          "examples": []
+        }
+      },
+      "hosts": [
+        {
+          "generation": 1,
+          "state": "active",
+          "activated_at": "2026-10-03T20:42:08.057Z",
+          "draining_at": null,
+          "stopped_at": null,
+          "live": true
+        },
+        {
+          "generation": 2,
+          "state": "active",
+          "activated_at": "2026-10-03T20:42:08.669Z",
+          "draining_at": null,
+          "stopped_at": null,
+          "live": true
+        }
+      ],
+      "authorityCalls": {
+        "location_claim": 1202,
+        "location_save": 72,
+        "location_rows": 746,
+        "presence": 44,
+        "other": 1202,
+        "held": 200,
+        "lost": 0,
+        "failed": 0
+      }
+    },
+    "candidates": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "round 0: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[1,\"stopped\"],[2,\"active\"]]"
+        },
+        {
+          "name": "round 0: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T20:43:51.257Z\"]"
+        },
+        {
+          "name": "round 0: one process stays ready",
+          "ok": true,
+          "detail": "[200,0]"
+        },
+        {
+          "name": "round 0: the stopped candidate exited with code 0, the active one runs",
+          "ok": true,
+          "detail": "[null,0]"
+        },
+        {
+          "name": "round 1: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[3,\"stopped\"],[4,\"active\"]]"
+        },
+        {
+          "name": "round 1: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T20:43:58.839Z\"]"
+        },
+        {
+          "name": "round 1: one process stays ready",
+          "ok": true,
+          "detail": "[0,200]"
+        },
+        {
+          "name": "round 1: the stopped candidate exited with code 0, the active one runs",
+          "ok": true,
+          "detail": "[0,null]"
+        },
+        {
+          "name": "round 2: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[5,\"stopped\"],[6,\"active\"]]"
+        },
+        {
+          "name": "round 2: the older never activated after the newer",
+          "ok": true,
+          "detail": "[\"2026-10-03T20:44:06.566Z\",\"2026-10-03T20:44:06.570Z\"]"
+        },
+        {
+          "name": "round 2: one process stays ready",
+          "ok": true,
+          "detail": "[0,200]"
+        },
+        {
+          "name": "round 2: the stopped candidate exited with code 0, the active one runs",
+          "ok": true,
+          "detail": "[0,null]"
+        },
+        {
+          "name": "round 3: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[7,\"stopped\"],[8,\"active\"]]"
+        },
+        {
+          "name": "round 3: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T20:44:14.684Z\"]"
+        },
+        {
+          "name": "round 3: a late activation of the older candidate is refused (never active)",
+          "ok": true,
+          "detail": "{\"generation\":7,\"state\":\"stopped\",\"activated_at\":null,\"draining_at\":null,\"stopped_at\":\"2026-10-03T20:44:18.143Z\",\"live\":true}"
+        },
+        {
+          "name": "round 3: one process stays ready",
+          "ok": true,
+          "detail": "[0,200]"
+        },
+        {
+          "name": "round 3: the stopped candidate exited with code 0, the active one runs",
+          "ok": true,
+          "detail": "[0,null]"
+        },
+        {
+          "name": "round 3: the refused one is the older (R)",
+          "ok": true,
+          "detail": "[0,null]"
+        },
+        {
+          "name": "round 4: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[9,\"stopped\"],[10,\"active\"]]"
+        },
+        {
+          "name": "round 4: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T20:44:22.775Z\"]"
+        },
+        {
+          "name": "round 4: a late activation of the older candidate is refused (never active)",
+          "ok": true,
+          "detail": "{\"generation\":9,\"state\":\"stopped\",\"activated_at\":null,\"draining_at\":null,\"stopped_at\":\"2026-10-03T20:44:26.341Z\",\"live\":true}"
+        },
+        {
+          "name": "round 4: one process stays ready",
+          "ok": true,
+          "detail": "[0,200]"
+        },
+        {
+          "name": "round 4: the stopped candidate exited with code 0, the active one runs",
+          "ok": true,
+          "detail": "[0,null]"
+        },
+        {
+          "name": "round 4: the refused one is the older (R)",
+          "ok": true,
+          "detail": "[0,null]"
+        },
+        {
+          "name": "round 5: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[11,\"stopped\"],[12,\"active\"]]"
+        },
+        {
+          "name": "round 5: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T20:44:30.886Z\"]"
+        },
+        {
+          "name": "round 5: a late activation of the older candidate is refused (never active)",
+          "ok": true,
+          "detail": "{\"generation\":11,\"state\":\"stopped\",\"activated_at\":null,\"draining_at\":null,\"stopped_at\":\"2026-10-03T20:44:34.388Z\",\"live\":true}"
+        },
+        {
+          "name": "round 5: one process stays ready",
+          "ok": true,
+          "detail": "[0,200]"
+        },
+        {
+          "name": "round 5: the stopped candidate exited with code 0, the active one runs",
+          "ok": true,
+          "detail": "[0,null]"
+        },
+        {
+          "name": "round 5: the refused one is the older (R)",
+          "ok": true,
+          "detail": "[0,null]"
+        }
+      ]
+    },
+    "shadow-refused": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "the older shadow candidate was refused (stopped, never active)",
+          "ok": true,
+          "detail": "{\"generation\":1,\"state\":\"stopped\",\"activated_at\":null,\"draining_at\":null,\"stopped_at\":\"2026-10-03T20:44:43.382Z\",\"live\":true}"
+        },
+        {
+          "name": "the refused shadow process keeps running and ready",
+          "ok": true,
+          "detail": "[null,200]"
+        },
+        {
+          "name": "every player is admitted and placed (no 4503, no wait beyond the activation wait)",
+          "ok": true,
+          "detail": "[null,null,null,null]"
+        },
+        {
+          "name": "nobody is closed and nobody hears presence:closing",
+          "ok": true,
+          "detail": "[[null,[]],[null,[]],[null,[]],[null,[]]]"
+        },
+        {
+          "name": "players move as usual",
+          "ok": true
+        },
+        {
+          "name": "no claim is sent for them (no active host: no key)",
+          "ok": true,
+          "detail": "{\"location_claim\":0,\"location_save\":0,\"location_rows\":0,\"presence\":7,\"other\":6,\"held\":0,\"lost\":0,\"failed\":0}"
+        }
+      ]
+    },
+    "failed-startup": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "without a generation the process still serves (no persistence)",
+          "ok": true
+        },
+        {
+          "name": "no claim and no save is ever sent without an active host",
+          "ok": true,
+          "detail": "{\"location_claim\":0,\"location_save\":0,\"location_rows\":0,\"presence\":6,\"other\":2,\"held\":0,\"lost\":0,\"failed\":6}"
+        },
+        {
+          "name": "no row written",
+          "ok": true
+        },
+        {
+          "name": "once the authority is back the host acquires and activates in the background",
+          "ok": true,
+          "detail": "[{\"generation\":1,\"state\":\"active\",\"activated_at\":\"2026-10-03T20:45:12.349Z\",\"draining_at\":null,\"stopped_at\":null,\"live\":true}]"
+        },
+        {
+          "name": "a join after activation claims with its key",
+          "ok": true,
+          "detail": "[{\"claim\":{\"epoch\":1,\"status\":\"claimed\",\"location\":null,\"newerActive\":false}}]"
+        },
+        {
+          "name": "the early session never claims afterwards",
+          "ok": true
+        }
+      ]
+    },
+    "drain": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "the older host closes every socket after a newer one activates (within a renewal)",
+          "ok": true,
+          "detail": "[4503,4503,4503,4503,4503,4503,4503,4503,4503,4503]"
+        },
+        {
+          "name": "every close is 4503 host-draining, never 4001",
+          "ok": true,
+          "detail": "[4503,4503,4503,4503,4503,4503,4503,4503,4503,4503]"
+        },
+        {
+          "name": "protocol-3 clients hear presence:closing {draining} first",
+          "ok": true
+        },
+        {
+          "name": "every last position was saved by the drain",
+          "ok": true,
+          "detail": "[]"
+        },
+        {
+          "name": "after its drain the older process exits with code 0",
+          "ok": true,
+          "detail": "0"
+        },
+        {
+          "name": "the older host is stopped (terminal), the newer active",
+          "ok": true,
+          "detail": "[[1,\"stopped\"],[2,\"active\"]]"
+        },
+        {
+          "name": "players resume on the newer host exactly where they were",
+          "ok": true,
+          "detail": "[[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}],[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}],[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}]]"
+        }
+      ]
+    },
+    "shutdown": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "every connected client (protocol 2 and 3) is closed with 4503, none with 4001",
+          "ok": true,
+          "detail": "[4503,4503,4503,4503,4503,4503,4503,4503,4503,4503]"
+        },
+        {
+          "name": "protocol-3 clients hear presence:closing {draining}; protocol 2 hears nothing new",
+          "ok": true
+        },
+        {
+          "name": "a join during the shutdown gets 4503 (refused or closed), never 4001",
+          "ok": true,
+          "detail": "{\"refused\":4503,\"left\":null}"
+        },
+        {
+          "name": "every last position was saved",
+          "ok": true,
+          "detail": "[]"
+        },
+        {
+          "name": "the process exits cleanly",
+          "ok": true,
+          "detail": "0"
+        },
+        {
+          "name": "the shutdown log counts saved, refused and unsaved rows",
+          "ok": true,
+          "detail": "[location] shutdown flush: 10 guardadas, 0 rechazadas (otra sesión ya reclamó), 0 sin guardar"
+        },
+        {
+          "name": "the host is stopped",
+          "ok": true,
+          "detail": "[\"stopped\"]"
+        }
+      ]
+    },
+    "lost": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "a lost claim answer: the retry carries the same key and adopts the same epoch (20/20)",
+          "ok": true
+        },
+        {
+          "name": "a lost save answer: the retry answers duplicate and the row is the last position (20/20)",
+          "ok": true
+        }
+      ]
+    }
+  },
+  "passed": true,
+  "failed": []
+}
