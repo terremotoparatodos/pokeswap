@@ -204,7 +204,7 @@ export const MUTATIONS = [
     test: expecting(node('src/presence/shutdownSummary.test.js'), 'L1: a flush whose only row is stale') },
   { id: 'L2', what: 'rows dropped by an inactive host are not reported', file: JOURNAL,
     from: 'this.counters.dropped.hostInactive++; counts.hostRefused++;', to: 'this.counters.dropped.hostInactive++;',
-    test: JOURNAL_TEST('host refusals: expired pauses') },
+    test: JOURNAL_TEST('saves follow the host') },
 ]
 
 function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }
