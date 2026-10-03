@@ -108,7 +108,8 @@ export class ColyseusPresence implements LocalPresencePort {
       // presence only in memory and deliberately does not reserve Colyseus
       // reconnection tokens, so SDK-level session restoration cannot succeed.
       room.reconnection.enabled = false
-      this.room = room; this.reconnectAttempt = 0
+      // The backoff is NOT reset here (review F7): only a ready connection (its snapshot) resets it.
+      this.room = room
       const joinedAt = Date.now()
       let serverProtocol: number | null = null
       let closing: ClosingReason | null = null
@@ -119,6 +120,8 @@ export class ColyseusPresence implements LocalPresencePort {
         // A room this adapter already left must not place the player or reveal the scene.
         if (this.room !== room) return
         if (typeof snapshot.presenceProtocol === 'number') serverProtocol = snapshot.presenceProtocol
+        // Authoritative and placed: the connection is stable, so the reconnect backoff starts over.
+        this.reconnectAttempt = 0
         this.remote.setPresenceAccess(snapshot.access)
         // A guest reads the area and cannot speak into it, which the panel
         // has to know in order to say so instead of dropping the message.
@@ -259,8 +262,7 @@ export class ColyseusPresence implements LocalPresencePort {
     }
     this.status?.lost()
     if (decision.action === 'none') return
-    // A drain or a restart is not a failure: the backoff starts over.
-    if (decision.immediate) this.reconnectAttempt = 0
+    // A drain keeps backing off (bounded); repeated 4503 refusals never bring it back to 500 ms.
     this.scheduleReconnect(identity)
   }
   private scheduleReconnect(identity?: PlayerVisualIdentity): void {

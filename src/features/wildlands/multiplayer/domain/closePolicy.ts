@@ -29,7 +29,11 @@ export type ClosingReason = 'replaced' | 'draining'
 export type CloseAction =
   /** Stop for good: the overlay offers «Jugar acá». */
   | 'replaced'
-  /** Reconnect with `resume`; `immediate` restarts the backoff (a drain is not a failure). */
+  /**
+   * Reconnect with `resume`, on the transport's bounded backoff. A drain does not reset it
+   * (review F7): repeated 4503 refusals during a drain keep backing off; only a stable
+   * (ready) connection resets it.
+   */
   | 'reconnect'
   /** Nothing to retry (the client's own leave). */
   | 'none'
@@ -49,26 +53,25 @@ export interface ClosedSocket {
 
 export interface CloseDecision {
   action: CloseAction
-  immediate: boolean
   /** This decision spent the once-a-minute ambiguous 4001 allowance. */
   ambiguous: boolean
 }
 
-const decision = (action: CloseAction, immediate = false, ambiguous = false): CloseDecision => ({ action, immediate, ambiguous })
+const decision = (action: CloseAction, ambiguous = false): CloseDecision => ({ action, ambiguous })
 
 export function closeDecision(closed: ClosedSocket): CloseDecision {
   // The server said why before closing: that wins over the code.
   if (closed.closing === 'replaced') return decision('replaced')
-  if (closed.closing === 'draining') return decision('reconnect', true)
+  if (closed.closing === 'draining') return decision('reconnect')
   switch (closed.code) {
     case CLOSE_CODE.REPLACED: return decision('replaced')
-    case CLOSE_CODE.DRAINING: return decision('reconnect', true)
+    case CLOSE_CODE.DRAINING: return decision('reconnect')
     case CLOSE_CODE.CONSENTED: return decision('none')
     case CLOSE_CODE.LEGACY: {
       // A protocol-3 server never replaces a protocol-3 client with 4001: only Colyseus sends it.
-      if ((closed.serverProtocol ?? 0) >= PRESENCE_PROTOCOL) return decision('reconnect', true)
+      if ((closed.serverProtocol ?? 0) >= PRESENCE_PROTOCOL) return decision('reconnect')
       const recent = closed.lastAmbiguousAt !== null && closed.now - closed.lastAmbiguousAt < AMBIGUOUS_WINDOW_MS
-      if (closed.livedMs >= AMBIGUOUS_MIN_LIFETIME_MS && !recent) return decision('reconnect', false, true)
+      if (closed.livedMs >= AMBIGUOUS_MIN_LIFETIME_MS && !recent) return decision('reconnect', true)
       return decision('replaced')
     }
     default: return decision('reconnect')
@@ -78,6 +81,6 @@ export function closeDecision(closed: ClosedSocket): CloseDecision {
 /** A refused join (ServerError code): replaced stops, anything else is retried with `resume`. */
 export function joinRefusalDecision(code: unknown): CloseDecision {
   if (code === CLOSE_CODE.REPLACED) return decision('replaced')
-  if (code === CLOSE_CODE.DRAINING) return decision('reconnect', true)
+  if (code === CLOSE_CODE.DRAINING) return decision('reconnect')
   return decision('reconnect')
 }

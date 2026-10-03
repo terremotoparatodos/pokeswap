@@ -11,9 +11,9 @@ const closed = (over: Partial<ClosedSocket>): ClosedSocket =>
 describe('closeDecision', () => {
   it('declares protocol 3', () => expect(PRESENCE_PROTOCOL).toBe(3))
 
-  it('4409 stops as replaced; 4503 reconnects at once; 1006 / 4002 / 4010 reconnect; 4000 does nothing', () => {
+  it('4409 stops as replaced; 4503 reconnects (bounded backoff); 1006 / 4002 / 4010 reconnect; 4000 does nothing', () => {
     expect(closeDecision(closed({ code: CLOSE_CODE.REPLACED })).action).toBe('replaced')
-    expect(closeDecision(closed({ code: CLOSE_CODE.DRAINING }))).toEqual({ action: 'reconnect', immediate: true, ambiguous: false })
+    expect(closeDecision(closed({ code: CLOSE_CODE.DRAINING }))).toEqual({ action: 'reconnect', ambiguous: false })
     for (const code of [1006, 4002, 4003, 4010]) expect(closeDecision(closed({ code })).action).toBe('reconnect')
     expect(closeDecision(closed({ code: CLOSE_CODE.CONSENTED })).action).toBe('none')
   })
@@ -24,14 +24,14 @@ describe('closeDecision', () => {
   })
 
   it('4001 from a server that echoed protocol 3 can only be Colyseus\' shutdown: reconnect', () => {
-    expect(closeDecision(closed({ code: CLOSE_CODE.LEGACY }))).toEqual({ action: 'reconnect', immediate: true, ambiguous: false })
+    expect(closeDecision(closed({ code: CLOSE_CODE.LEGACY }))).toEqual({ action: 'reconnect', ambiguous: false })
   })
 
   it('4001 from an older server (no echo) stops as replaced, unless the socket lived ≥ 30 s and no other 4001 in 60 s (§5.3 case 7)', () => {
     const old = { code: CLOSE_CODE.LEGACY, serverProtocol: null }
     expect(closeDecision(closed({ ...old, livedMs: 5_000 })).action).toBe('replaced')
     const long = closed({ ...old, livedMs: AMBIGUOUS_MIN_LIFETIME_MS })
-    expect(closeDecision(long)).toEqual({ action: 'reconnect', immediate: false, ambiguous: true })
+    expect(closeDecision(long)).toEqual({ action: 'reconnect', ambiguous: true })
     expect(closeDecision({ ...long, lastAmbiguousAt: long.now - AMBIGUOUS_WINDOW_MS + 1 }).action).toBe('replaced')
     expect(closeDecision({ ...long, lastAmbiguousAt: long.now - AMBIGUOUS_WINDOW_MS }).action).toBe('reconnect')
   })
@@ -52,9 +52,9 @@ describe('closeDecision', () => {
 })
 
 describe('joinRefusalDecision', () => {
-  it('a resume refused with 4409 stops as replaced; a draining host is retried at once; others are retried', () => {
+  it('a resume refused with 4409 stops as replaced; a draining host and others are retried', () => {
     expect(joinRefusalDecision(CLOSE_CODE.REPLACED).action).toBe('replaced')
-    expect(joinRefusalDecision(CLOSE_CODE.DRAINING)).toEqual({ action: 'reconnect', immediate: true, ambiguous: false })
+    expect(joinRefusalDecision(CLOSE_CODE.DRAINING)).toEqual({ action: 'reconnect', ambiguous: false })
     expect(joinRefusalDecision(4210).action).toBe('reconnect')
     expect(joinRefusalDecision(undefined).action).toBe('reconnect')
   })

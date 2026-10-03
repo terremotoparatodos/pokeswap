@@ -619,3 +619,40 @@ describe('WORLD LOCATION-4 compatibility: this client against an older realtime 
     expect(sdk.joins).toBe(joins)
   })
 })
+
+describe('WORLD LOCATION-4, review F7: 4503 backoff', () => {
+  it('repeated 4503 refusals during a drain back off (bounded, never back to 500 ms); resume kept; only a ready connection resets it', async () => {
+    const remote = { replaceRemoteActors: vi.fn(), upsertRemoteActor: vi.fn(), removeRemoteActor: vi.fn(), setAuthoritativeActor: vi.fn(), setPresenceAccess: vi.fn() }
+    const socket = new m.ColyseusPresence(remote, null, null, { snapshot: vi.fn(), lost: vi.fn(), replaced: vi.fn() })
+    void socket.connect()
+    await settle()
+    ;(sdk.rooms[sdk.rooms.length - 1] as FakeRoom).emit('presence:snapshot', { access: 'player', self: self('pradera'), actors: [], presenceProtocol: 3 })
+    sdk.refuse = 4503 // the whole drain: every join is refused
+    ;(sdk.rooms[sdk.rooms.length - 1] as FakeRoom).leaveHandler!(4503)
+    const attempts: number[] = []
+    let joins = sdk.joins
+    for (let t = 0; t <= 120_000; t += 100) {
+      await vi.advanceTimersByTimeAsync(100)
+      if (sdk.joins !== joins) { joins = sdk.joins; attempts.push(t + 100) }
+    }
+    const gaps = attempts.map((at, i) => at - (attempts[i - 1] ?? 0))
+    expect(gaps[0]).toBeLessThanOrEqual(600) // the first retry is quick
+    for (let i = 1; i < gaps.length; i++) expect(gaps[i]).toBeGreaterThanOrEqual(gaps[i - 1] - 100) // never reset by a refusal
+    expect(Math.max(...gaps)).toBeLessThanOrEqual(10_100) // bounded
+    expect(gaps.slice(-3).every(gap => gap >= 9_900)).toBe(true) // and it stays at the cap
+    expect(attempts.length).toBeLessThanOrEqual(20) // no aggressive loop: about 15 tries in two minutes
+    expect(sdk.options.slice(-attempts.length).every(options => options.resume === true)).toBe(true)
+
+    sdk.refuse = null // the new host is up
+    for (let i = 0; i < 120 && sdk.rooms.length === 0; i++) await vi.advanceTimersByTimeAsync(100)
+    for (let i = 0; i < 120 && sdk.joins === joins; i++) await vi.advanceTimersByTimeAsync(100)
+    await settle()
+    const room = sdk.rooms[sdk.rooms.length - 1] as FakeRoom
+    room.emit('presence:snapshot', { access: 'player', self: self('pradera'), actors: [], presenceProtocol: 3 }) // ready: stable
+    joins = sdk.joins
+    room.leaveHandler!(4503) // a later drain starts quick again
+    await vi.advanceTimersByTimeAsync(600)
+    expect(sdk.joins).toBe(joins + 1)
+    socket.disconnect()
+  })
+})
