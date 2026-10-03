@@ -40,7 +40,7 @@ export interface PresenceConnectionStatus {
   snapshot(access: 'player' | 'guest'): void
   /** The room was lost; the adapter retries on its own. */
   lost(): void
-  /** Closed with 4001: a newer session owns the account and the adapter stopped for good. */
+  /** Another tab or device owns the account's session (4409, or 4001 read as one): the adapter stopped for good. */
   replaced(): void
 }
 export interface LocalPresencePort {

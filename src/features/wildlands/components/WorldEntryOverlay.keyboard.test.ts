@@ -96,14 +96,14 @@ describe('world entry overlay: keyboard and focus (PRESENCE UX-1 R4)', () => {
     expect(tabOrder()).toEqual(['Reintentar'])
   })
 
-  it('replaced (4001) focuses its message, offers no button and nothing to tab to', async () => {
+  it('replaced focuses its message, not «Jugar acá»: a key held while playing never takes the session back', async () => {
     const w = await host(ready)
     await w.setProps({ state: nextWorldEntry(ready, { type: 'replaced' }) })
     await settle()
     expect(document.activeElement?.textContent).toBe('Tu sesión se abrió en otra pestaña o dispositivo.')
     expect(document.activeElement?.getAttribute('tabindex')).toBe('-1')
-    expect(document.querySelector('[data-testid="world-entry"] button')).toBeNull()
-    expect(tabOrder()).toEqual([])
+    expect(document.querySelector('[data-testid="world-entry"] button')?.textContent).toBe('Jugar acá')
+    expect(tabOrder()).toEqual(['Jugar acá'])
   })
 
   it('once ready nothing stays inert and the keyboard is not left on the gone overlay', async () => {

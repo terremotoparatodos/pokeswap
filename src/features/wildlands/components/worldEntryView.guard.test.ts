@@ -22,7 +22,7 @@ describe('WildlandsView world entry', () => {
   it('shows the town’s arrival text only in the offline world', () => {
     expect(view.match(/Llegando a Ciudad Corazón…/g)).toHaveLength(1)
     expect(view).toMatch(/<div v-if="loading && entry\.phase === 'offline'" class="wl-loading">Llegando a Ciudad Corazón…<\/div>/)
-    expect(view).toMatch(/<WorldEntryOverlay :state="entry" @retry="entryController\?\.retry\(\)" \/>/)
+    expect(view).toMatch(/<WorldEntryOverlay :state="entry" @retry="entryController\?\.retry\(\)" @takeover="entryController\?\.takeover\(\)" \/>/)
   })
 
   it('decides online from the realtime configuration, not from the session', () => {

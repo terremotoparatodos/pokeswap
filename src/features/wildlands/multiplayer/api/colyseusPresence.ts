@@ -5,12 +5,14 @@ import type { ChatTransportPort, LocalPresencePort, PresenceConnectionStatus, Re
 import type { PlayerVisualIdentity } from '../../identity/playerIdentity'
 import type { WorldTransportSink } from '../../../world/api/worldTransport'
 import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../../../../../services/realtime/src/world/worldProtocol.js'
+import { PRESENCE_PROTOCOL, closeDecision, joinRefusalDecision, type CloseDecision, type ClosingReason } from '../domain/closePolicy'
 
 const SNAPSHOT = 'presence:snapshot'
 const SELF = 'presence:self'
 const DELTA = 'presence:delta'
 const BATCH = 'presence:batch'
 const ERROR = 'presence:error'
+const CLOSING = 'presence:closing'
 // Community Playtest 0.1 — area chat rides the same socket.
 const CHAT = 'chat'
 const CHAT_HISTORY = 'chat:history'
@@ -22,10 +24,18 @@ export const REALTIME_CONFIGURED = !!REALTIME_URL
 // production server ignores the option. PERF-1 measurement builds use it too,
 // so captures run on production-built code without accounts.
 const BENCHMARK_PLAYER = (import.meta.env.DEV || import.meta.env.VITE_PERF === 'on') && import.meta.env.VITE_PRESENCE_BENCHMARK === 'on'
-/** Server code used when a newer browser replaces this authenticated session. */
-const REPLACED_SESSION_CODE = 4001
+/**
+ * WORLD LOCATION-4: this page load's tab, sent on every join. It only lets an automatic
+ * reconnection (`resume`) yield to another live tab; it never takes part in who owns the
+ * account's session (the server and the database decide that).
+ */
+const TAB_ID = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+  ? crypto.randomUUID()
+  : `tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+/** The last ambiguous 4001 taken as a restart, for the whole page (at most one a minute). */
+let lastAmbiguousCloseAt: number | null = null
 
-interface Snapshot { access: 'player' | 'guest'; self?: RemotePresenceActor; actors: RemotePresenceActor[] }
+interface Snapshot { access: 'player' | 'guest'; self?: RemotePresenceActor; actors: RemotePresenceActor[]; presenceProtocol?: number }
 type StepFields = Pick<RemotePresenceActor, 'id' | 'tx' | 'ty' | 'dir' | 'speed' | 'moveSequence'>
 type Delta =
   | { type: 'upsert' | 'leave'; actor: RemotePresenceActor }
@@ -35,8 +45,6 @@ type Delta =
    * window, oldest first (services/realtime protocol/messages.js stackStep).
    */
   | { type: 'step'; actor: StepFields; via?: Omit<StepFields, 'id'>[] }
-/** Declared on join; the service then sends compact `step` deltas (see services/realtime protocol/messages.js). */
-const PRESENCE_PROTOCOL = 2
 
 /** Socket adapter: no polling, no persistence and no Supabase writes. */
 export class ColyseusPresence implements LocalPresencePort {
@@ -63,7 +71,12 @@ export class ColyseusPresence implements LocalPresencePort {
     private readonly status: PresenceConnectionStatus | null = null,
   ) {}
 
-  async connect(identity?: PlayerVisualIdentity): Promise<void> {
+  /**
+   * `resume`: an automatic join (a reconnection, a retry, a renewed session). It never
+   * displaces another tab's live session: the server refuses it with 4409 and this stops as
+   * replaced. Only the page's first join and «Jugar acá» go without it.
+   */
+  async connect(identity?: PlayerVisualIdentity, { resume = false }: { resume?: boolean } = {}): Promise<void> {
     if (!REALTIME_URL || this.room || this.stopped || this.suspended || this.connecting) return
     this.connecting = true
     try {
@@ -79,6 +92,8 @@ export class ColyseusPresence implements LocalPresencePort {
       const room = await client.joinOrCreate('presence', {
         token: data.session?.access_token ?? null,
         presenceProtocol: PRESENCE_PROTOCOL,
+        tabId: TAB_ID,
+        ...(resume ? { resume: true } : {}),
         ...(this.world ? { worldProtocol: WORLD_PROTOCOL } : {}),
         visual: identity ? { characterId: identity.character.id, companionPokemonId: identity.companion?.id ?? null } : null,
         ...(BENCHMARK_PLAYER ? {
@@ -94,9 +109,16 @@ export class ColyseusPresence implements LocalPresencePort {
       // reconnection tokens, so SDK-level session restoration cannot succeed.
       room.reconnection.enabled = false
       this.room = room; this.reconnectAttempt = 0
+      const joinedAt = Date.now()
+      let serverProtocol: number | null = null
+      let closing: ClosingReason | null = null
+      room.onMessage<{ reason?: unknown }>(CLOSING, message => {
+        if (message?.reason === 'replaced' || message?.reason === 'draining') closing = message.reason
+      })
       room.onMessage<Snapshot>(SNAPSHOT, snapshot => {
         // A room this adapter already left must not place the player or reveal the scene.
         if (this.room !== room) return
+        if (typeof snapshot.presenceProtocol === 'number') serverProtocol = snapshot.presenceProtocol
         this.remote.setPresenceAccess(snapshot.access)
         // A guest reads the area and cannot speak into it, which the panel
         // has to know in order to say so instead of dropping the message.
@@ -148,19 +170,14 @@ export class ColyseusPresence implements LocalPresencePort {
         if (this.room !== room) return
         this.room = null
         this.clearActors()
-        // The newer browser owns this account now. Retrying here would evict it
-        // in return and create an endless two-tab reconnect loop.
-        if (code === REPLACED_SESSION_CODE) {
-          this.stopped = true
-          this.clearReconnect()
-          this.status?.replaced()
-          return
-        }
-        this.status?.lost()
-        this.scheduleReconnect(identity)
+        const now = Date.now()
+        const decision = closeDecision({ code, closing, serverProtocol, livedMs: now - joinedAt, now, lastAmbiguousAt: lastAmbiguousCloseAt })
+        if (decision.ambiguous) lastAmbiguousCloseAt = now
+        this.follow(decision, identity)
       })
-    } catch {
-      this.scheduleReconnect(identity)
+    } catch (error) {
+      // A refused join: a resume that yields to another tab (4409) stops; a draining host is retried.
+      this.follow(joinRefusalDecision((error as { code?: unknown } | null)?.code), identity)
     } finally {
       this.connecting = false
     }
@@ -188,7 +205,7 @@ export class ColyseusPresence implements LocalPresencePort {
   resume(identity?: PlayerVisualIdentity): void {
     if (this.stopped) return
     this.suspended = false
-    void this.connect(identity)
+    void this.connect(identity, { resume: true })
   }
 
   private replace(next: readonly RemotePresenceActor[]): void {
@@ -230,12 +247,29 @@ export class ColyseusPresence implements LocalPresencePort {
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer)
     this.reconnectTimer = null
   }
+  /** Acts on a close or a refused join (domain/closePolicy.ts). */
+  private follow(decision: CloseDecision, identity?: PlayerVisualIdentity): void {
+    if (decision.action === 'replaced') {
+      // Another tab or device owns this account now. Retrying here would evict it in return
+      // and create an endless two-tab loop: only the player's «Jugar acá» joins again.
+      this.stopped = true
+      this.clearReconnect()
+      this.status?.replaced()
+      return
+    }
+    this.status?.lost()
+    if (decision.action === 'none') return
+    // A drain or a restart is not a failure: the backoff starts over.
+    if (decision.immediate) this.reconnectAttempt = 0
+    this.scheduleReconnect(identity)
+  }
   private scheduleReconnect(identity?: PlayerVisualIdentity): void {
     if (this.stopped || this.suspended || this.room || this.reconnectTimer) return
     const delay = Math.min(10_000, 500 * 2 ** this.reconnectAttempt++)
     this.reconnectTimer = setTimeout(() => {
       this.reconnectTimer = null
-      void this.connect(identity)
+      // Every automatic join resumes: it never displaces another tab.
+      void this.connect(identity, { resume: true })
     }, delay)
   }
 }

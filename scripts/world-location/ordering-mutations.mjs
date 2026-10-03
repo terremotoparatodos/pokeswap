@@ -16,6 +16,7 @@ const root = fileURLToPath(new URL('../..', import.meta.url))
 const RT = 'services/realtime/'
 const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-reporter=spec', '--test-timeout=60000', ...files] })
 const deno = file => ({ cwd: root, cmd: 'deno', args: ['test', file] })
+const vitest = file => ({ cwd: root, cmd: process.execPath, args: ['node_modules/vitest/vitest.mjs', 'run', file] })
 const expecting = (command, expect) => ({ ...command, expect })
 
 const MIGRATION = 'supabase/migrations/20261003120000_world_location_ordering.sql'
@@ -205,6 +206,22 @@ export const MUTATIONS = [
   { id: 'L2', what: 'rows dropped by an inactive host are not reported', file: JOURNAL,
     from: 'this.counters.dropped.hostInactive++; counts.hostRefused++;', to: 'this.counters.dropped.hostInactive++;',
     test: JOURNAL_TEST('saves follow the host') },
+  // ── Client: close codes, resume and «Jugar acá» (design §5.2, §3.6) ──
+  { id: 'K1', what: 'automatic reconnections join fresh (they displace the other tab)', file: 'src/features/wildlands/multiplayer/api/colyseusPresence.ts',
+    from: '      void this.connect(identity, { resume: true })\n    }, delay)', to: '      void this.connect(identity)\n    }, delay)',
+    test: expecting(vitest('src/features/wildlands/multiplayer/state/worldEntry.e2e.test.ts'), 'declares protocol 3 and one tabId per page') },
+  { id: 'K2', what: '4409 reconnects (two tabs evict each other)', file: 'src/features/wildlands/multiplayer/domain/closePolicy.ts',
+    from: "    case CLOSE_CODE.REPLACED: return decision('replaced')\n", to: '',
+    test: expecting(vitest('src/features/wildlands/multiplayer/domain/closePolicy.test.ts'), '4409 stops as replaced') },
+  { id: 'K3', what: 'the ambiguous 4001 is retried every time (no once-a-minute bound)', file: 'src/features/wildlands/multiplayer/domain/closePolicy.ts',
+    from: '      if (closed.livedMs >= AMBIGUOUS_MIN_LIFETIME_MS && !recent)', to: '      if (closed.livedMs >= AMBIGUOUS_MIN_LIFETIME_MS || recent)',
+    test: expecting(vitest('src/features/wildlands/multiplayer/domain/closePolicy.test.ts'), 'no loop') },
+  { id: 'K4', what: '«Jugar acá» joins with resume (it could never take the session back)', file: 'src/features/wildlands/multiplayer/state/worldEntryController.ts',
+    from: "    this.dispatch({ type: 'takeover' })\n    this.open(false)", to: "    this.dispatch({ type: 'takeover' })\n    this.open(true)",
+    test: expecting(vitest('src/features/wildlands/multiplayer/state/worldEntryController.test.ts'), 'Jugar acá') },
+  { id: 'K5', what: 'a resume refused with 4409 is retried (the yielding tab keeps knocking)', file: 'src/features/wildlands/multiplayer/domain/closePolicy.ts',
+    from: "  if (code === CLOSE_CODE.REPLACED) return decision('replaced')\n", to: '',
+    test: expecting(vitest('src/features/wildlands/multiplayer/state/worldEntry.e2e.test.ts'), 'a resume refused with 4409') },
 ]
 
 function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }

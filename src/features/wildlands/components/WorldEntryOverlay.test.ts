@@ -51,11 +51,14 @@ describe('WorldEntryOverlay (PRESENCE UX-1)', () => {
     expect(wrapper.get('button').text()).toBe('Reintentar')
   })
 
-  it('replaced (4001): says so, with no retry offered', () => {
+  it('replaced: says so and offers only «Jugar acá», the explicit takeover (no Reintentar)', async () => {
     const wrapper = view(run('snapshot', 'prepared', 'replaced'))
     expect(wrapper.attributes('role')).toBe('alert')
-    expect(wrapper.text()).toBe('Tu sesión se abrió en otra pestaña o dispositivo.')
-    expect(wrapper.find('button').exists()).toBe(false)
+    expect(wrapper.find('.wl-entry-text').text()).toBe('Tu sesión se abrió en otra pestaña o dispositivo.')
+    expect(wrapper.findAll('button').map(b => b.text())).toEqual(['Jugar acá'])
+    await wrapper.get('button').trigger('click')
+    expect(wrapper.emitted('takeover')).toHaveLength(1)
+    expect(wrapper.emitted('retry')).toBeUndefined()
   })
 
   it('markup per state (visual guard)', () => {

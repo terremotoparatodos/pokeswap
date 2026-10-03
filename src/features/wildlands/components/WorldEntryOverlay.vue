@@ -12,6 +12,7 @@
     <div class="wl-entry-box">
       <p id="wl-entry-text" ref="messageRef" class="wl-entry-text" :tabindex="state.phase === 'replaced' ? -1 : undefined">{{ message }}</p>
       <button v-if="state.phase === 'connection-error'" ref="retryRef" type="button" class="wl-entry-retry" @click="emit('retry')">Reintentar</button>
+      <button v-else-if="state.phase === 'replaced'" ref="takeoverRef" type="button" class="wl-entry-retry" data-testid="world-entry-takeover" @click="emit('takeover')">Jugar acá</button>
     </div>
   </div>
 </template>
@@ -22,17 +23,19 @@
 // it); afterwards it dims the last frame, which stays frozen underneath.
 // While it shows, what it covers is inert (entryInert.ts; only the sign-in
 // dialog stays usable) and the keyboard lands on the overlay itself: the
-// retry button, or the replaced message.
+// retry button, or the replaced message (WORLD LOCATION-4: its «Jugar acá»
+// button is the only way to take the session back; nothing does it on its own).
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { WorldEntryState } from '../multiplayer/domain/worldEntry'
 import { KEEP_INTERACTIVE, inertSiblings } from './entryInert'
 
 const props = defineProps<{ state: WorldEntryState }>()
-const emit = defineEmits<{ retry: [] }>()
+const emit = defineEmits<{ retry: []; takeover: [] }>()
 
 const rootRef = ref<HTMLElement | null>(null)
 const messageRef = ref<HTMLElement | null>(null)
 const retryRef = ref<HTMLButtonElement | null>(null)
+const takeoverRef = ref<HTMLButtonElement | null>(null)
 
 const waiting = computed(() => props.state.phase === 'connecting' || props.state.phase === 'reconnecting')
 const actionable = computed(() => props.state.phase === 'connection-error' || props.state.phase === 'replaced')

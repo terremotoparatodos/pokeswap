@@ -15,7 +15,7 @@ const AREA = WIRE_AREA as { readonly TOWN: string }
 // Colyseus SDK (a fake room the test speaks for) and Supabase are replaced.
 // "Visible" means what the engine handed its renderer, frame by frame.
 
-const sdk = vi.hoisted(() => ({ clients: 0, joins: 0, down: false, rooms: [] as unknown[] }))
+const sdk = vi.hoisted(() => ({ clients: 0, joins: 0, down: false, refuse: null as number | null, rooms: [] as unknown[], options: [] as Record<string, unknown>[] }))
 
 vi.mock('../../../../shared/api/supabase', () => ({
   supabase: { auth: { getSession: vi.fn(async () => ({ data: { session: null } })) } },
@@ -39,9 +39,12 @@ vi.mock('@colyseus/sdk', () => {
   }
   class Client {
     constructor() { sdk.clients++ }
-    async joinOrCreate() {
+    async joinOrCreate(_name: string, options: Record<string, unknown>) {
       sdk.joins++
+      sdk.options.push(options)
       if (sdk.down) throw new Error('realtime down')
+      // The SDK rejects a refused join with a ServerError carrying the server's code.
+      if (sdk.refuse !== null) throw Object.assign(new Error('refused'), { code: sdk.refuse })
       const room = new FakeRoom()
       sdk.rooms.push(room)
       return room
@@ -110,7 +113,7 @@ async function settle(): Promise<void> {
 }
 
 beforeEach(() => {
-  sdk.clients = 0; sdk.joins = 0; sdk.down = false; sdk.rooms = []
+  sdk.clients = 0; sdk.joins = 0; sdk.down = false; sdk.refuse = null; sdk.rooms = []; sdk.options = []
   frames.clear()
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })
   vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(stubContext() as never)
@@ -161,11 +164,11 @@ function boot() {
   const states: WorldEntryState[] = []
   const controller: Controller = new m.WorldEntryController({
     scene: game,
-    openSocket: status => {
+    openSocket: (status, { resume }) => {
       game.setPresenceAccess('pending')
       const socket = new m.ColyseusPresence(game, null, null, status)
       presence = socket
-      return { connect: () => void socket.connect(), disconnect: () => socket.disconnect() }
+      return { connect: () => void socket.connect(undefined, { resume }), disconnect: () => socket.disconnect() }
     },
     onChange: state => states.push(state),
   })
@@ -458,7 +461,7 @@ describe('errors, retry and replaced sessions', () => {
     expect(sdk.joins).toBe(joins)
   })
 
-  it('4001: replaced, no automatic retry and no reconnect on a session change', async () => {
+  it('4001 from a server that did not echo protocol 3 (an older server): replaced, no automatic retry and no reconnect on a session change', async () => {
     const s = boot()
     await enter(s, { access: 'player', self: self('pradera'), actors: [] })
     runFrames(3)
@@ -492,6 +495,85 @@ describe('errors, retry and replaced sessions', () => {
     const s = boot()
     await enter(s, { access: 'player', self: self('pradera'), actors: [] })
     s.room().emit('presence:error', { code: 'invalid-intent', reason: 'client-outdated' })
+    expect(s.phase()).toBe('ready')
+  })
+})
+
+describe('WORLD LOCATION-4: close codes, resume and «Jugar acá»', () => {
+  const placed = { access: 'player', self: self('pradera'), actors: [], presenceProtocol: 3 }
+
+  it('declares protocol 3 and one tabId per page; the first join is fresh, every automatic one resumes', async () => {
+    const s = boot()
+    await enter(s, placed)
+    expect(sdk.options[0]).toMatchObject({ presenceProtocol: 3 })
+    expect(sdk.options[0].resume).toBeUndefined()
+    expect(sdk.options[0].tabId).toMatch(/^[A-Za-z0-9_-]{8,64}$/)
+    s.room().drop!()
+    await vi.advanceTimersByTimeAsync(600)
+    expect(sdk.options[1]).toMatchObject({ resume: true, tabId: sdk.options[0].tabId })
+  })
+
+  it('4409: replaced, no automatic join; presence:closing replaced wins over any code', async () => {
+    const s = boot()
+    await enter(s, placed)
+    const joins = sdk.joins
+    s.room().leaveHandler!(4409)
+    expect(s.phase()).toBe('replaced')
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(sdk.joins).toBe(joins)
+    const t = boot()
+    await enter(t, placed)
+    t.room().emit('presence:closing', { reason: 'replaced' })
+    t.room().leaveHandler!(4002)
+    expect(t.phase()).toBe('replaced')
+  })
+
+  it('4503 (drain, deploy): reconnecting, then one resume join at once; 4001 from a protocol-3 server is a shutdown too', async () => {
+    for (const code of [4503, 4001]) {
+      sdk.options = []
+      const s = boot()
+      await enter(s, placed)
+      s.room().leaveHandler!(code)
+      expect(s.phase()).toBe('reconnecting')
+      await vi.advanceTimersByTimeAsync(600)
+      expect(sdk.options[sdk.options.length - 1]).toMatchObject({ resume: true })
+      await enter(s, placed)
+      runFrames(3)
+      expect(s.phase()).toBe('ready')
+    }
+  })
+
+  it('a resume refused with 4409 (another tab is live) stops as replaced; «Jugar acá» joins fresh and takes the session back', async () => {
+    const s = boot()
+    await enter(s, placed)
+    s.room().drop!()
+    sdk.refuse = 4409
+    await vi.advanceTimersByTimeAsync(600)
+    expect(sdk.options[sdk.options.length - 1]).toMatchObject({ resume: true })
+    expect(s.phase()).toBe('replaced')
+    const joins = sdk.joins
+    await vi.advanceTimersByTimeAsync(300_000)
+    expect(sdk.joins).toBe(joins)
+    sdk.refuse = null
+    s.controller.takeover()
+    await settle()
+    expect(sdk.joins).toBe(joins + 1)
+    expect(sdk.options[sdk.options.length - 1].resume).toBeUndefined()
+    await enter(s, placed)
+    runFrames(3)
+    expect(s.phase()).toBe('ready')
+  })
+
+  it('a join refused with 4503 (a draining host) is retried with resume', async () => {
+    sdk.refuse = 4503
+    const s = boot()
+    await settle()
+    expect(s.phase()).toBe('connecting')
+    sdk.refuse = null
+    await vi.advanceTimersByTimeAsync(600)
+    expect(sdk.options[sdk.options.length - 1]).toMatchObject({ resume: true })
+    await enter(s, placed)
+    runFrames(3)
     expect(s.phase()).toBe('ready')
   })
 })
