@@ -293,6 +293,39 @@ describe('transient reconnection', () => {
     expect(s.goTo).not.toHaveBeenCalled()
   })
 
+  it('keyboard (arrows, Space, E) moves and triggers nothing while connecting or reconnecting', async () => {
+    const press = (code: string, key = code) => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { code, key }))
+      runFrames(10)
+      window.dispatchEvent(new KeyboardEvent('keyup', { code, key }))
+    }
+    const s = boot()
+    const interact = vi.spyOn(s.game, 'interact')
+    const goingIn = s.game.playerSnapshot()
+    press('ArrowRight'); press('KeyD'); press('Space', ' '); press('KeyE', 'e')
+    expect(s.game.playerSnapshot()).toEqual(goingIn)
+    expect(s.drawn).toEqual([])
+    await enter(s, { access: 'player', self: self('pradera'), actors: [] })
+    runFrames(5)
+    s.room().drop!()
+    expect(s.phase()).toBe('reconnecting')
+    const frozen = s.game.playerSnapshot()
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowLeft', key: 'ArrowLeft' }))
+    runFrames(30)
+    press('Space', ' '); press('KeyE', 'e')
+    expect(s.game.playerSnapshot()).toEqual(frozen)
+    expect(interact).not.toHaveBeenCalled()
+    // A key held through the wait does not walk the player once the scene is back.
+    await vi.advanceTimersByTimeAsync(600)
+    await settle()
+    s.room().emit('presence:snapshot', { access: 'player', self: self('pradera'), actors: [] })
+    await settle()
+    runFrames(30)
+    expect(s.phase()).toBe('ready')
+    expect({ tx: s.game.playerSnapshot().tx, ty: s.game.playerSnapshot().ty }).toEqual({ tx: frozen.tx, ty: frozen.ty })
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowLeft', key: 'ArrowLeft' }))
+  })
+
   it('same area: zero enterArea, one reveal', async () => {
     const s = await ready()
     s.room().drop!()

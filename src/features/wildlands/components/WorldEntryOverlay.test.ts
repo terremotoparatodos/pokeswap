@@ -54,7 +54,7 @@ describe('WorldEntryOverlay (PRESENCE UX-1)', () => {
   it('replaced (4001): says so, with no retry offered', () => {
     const wrapper = view(run('snapshot', 'prepared', 'replaced'))
     expect(wrapper.attributes('role')).toBe('alert')
-    expect(wrapper.text()).toBe('Tu sesión se abrió en otra pestaña.')
+    expect(wrapper.text()).toBe('Tu sesión se abrió en otra pestaña o dispositivo.')
     expect(wrapper.find('button').exists()).toBe(false)
   })
 
