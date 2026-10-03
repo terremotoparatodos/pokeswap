@@ -3,6 +3,7 @@
 //
 //   candidates      two processes start at once: one active host remains, the older never
 //                   activates after the newer, the older drains within one renewal
+//   shadow-refused  a shadow candidate refused at activation keeps serving players unchanged
 //   failed-startup  the authority refuses presence calls at start: the process serves without
 //                   persistence (no claim, no row), then acquires and activates once it is back
 //   drain           a newer host starts: the older closes every socket with 4503 (never 4001)
@@ -74,6 +75,40 @@ async function candidates(context) {
   })
 }
 
+/**
+ * Shadow never changes what players see: a shadow process whose activation is refused (an older
+ * candidate activating after a newer one) keeps running and admitting players, never closes them,
+ * and never claims (its sessions get no key).
+ */
+async function shadowRefused(context) {
+  return withAuthority(context, async (local, start) => {
+    if (!(await lifecycleOnly(local))) return { applicable: false, reason: 'this tree has no presence hosts (pre WORLD LOCATION-4)' }
+    const checks = []
+    local.rule({ op: 'presence_activate', inst: 'R', mode: 'delay', ms: 4_000 })
+    const R = await start({ name: 'R', port: context.basePort, env: local.env('shadow', 'R') })
+    await start({ name: 'S', port: context.basePort + 10, env: local.env('shadow', 'S') })
+    await delay(7_000)
+    const [older] = (await local.hosts()).slice(-2)
+    checks.push({ name: 'the older shadow candidate was refused (stopped, never active)', ok: older.state === 'stopped' && older.activated_at === null, detail: JSON.stringify(older) })
+    checks.push({ name: 'the refused shadow process keeps running and ready', ok: R.child.exitCode === null && (await R.ready()) === 200, detail: JSON.stringify([R.child.exitCode, await R.ready()]) })
+    const players = []
+    for (let i = 0; i < 4; i++) {
+      const player = await local.player()
+      const presenceProtocol = i < 2 ? 3 : 2
+      const socket = await connect(R, player.token, { presenceProtocol, tabId: presenceProtocol === 3 ? `tab-shadow-${i}-harness` : null, waitSelf: false })
+      await waitFor(() => socket.self || socket.left !== null || socket.refused !== null, 5_000)
+      players.push({ ...player, socket, moved: socket.self ? await nudge(socket, openDirectionFor(context)) : false })
+    }
+    await delay(6_000)
+    checks.push({ name: 'every player is admitted and placed (no 4503, no wait beyond the activation wait)', ok: players.every(p => p.socket.refused === null && p.socket.self), detail: JSON.stringify(players.map(p => p.socket.refused)) })
+    checks.push({ name: 'nobody is closed and nobody hears presence:closing', ok: players.every(p => p.socket.left === null && p.socket.closing.length === 0), detail: JSON.stringify(players.map(p => [p.socket.left, p.socket.closing])) })
+    checks.push({ name: 'players move as usual', ok: players.every(p => p.moved) })
+    checks.push({ name: 'no claim is sent for them (no active host: no key)', ok: !local.events.some(e => e.op === 'location_claim' && e.inst === 'R'), detail: JSON.stringify(local.calls) })
+    for (const p of players) await leave(p.socket)
+    return verdict(checks)
+  })
+}
+
 async function failedStartup(context) {
   return withAuthority(context, async (local, start) => {
     if (!(await lifecycleOnly(local))) return { applicable: false, reason: 'this tree has no presence hosts (pre WORLD LOCATION-4)' }
@@ -128,10 +163,11 @@ async function drain(context) {
     checks.push({ name: 'protocol-3 clients hear presence:closing {draining} first', ok: players.every(p => p.socket.closing.includes('draining')) })
     const rows = await Promise.all(players.map(p => rowOf(local)(p.userId)))
     checks.push({ name: 'every last position was saved by the drain', ok: players.every((p, i) => same(rows[i], p.at)), detail: JSON.stringify(rows.map((r, i) => [r, players[i].at]).filter(([r, at]) => !same(r, at)).slice(0, 3)) })
-    const hosts = await local.hosts()
-    checks.push({ name: 'the older host is stopped (terminal), the newer active', ok: hosts !== null && hosts[0]?.state === 'stopped' && hosts.at(-1)?.state === 'active', detail: JSON.stringify(hosts?.map(h => [h.generation, h.state])) })
+    // Sockets close before the drain ends (the host stops after the flush): read it once P exited.
     const exit = await Promise.race([P.exited, delay(15_000).then(() => 'still running')])
     checks.push({ name: 'after its drain the older process exits with code 0', ok: exit === 0, detail: String(exit) })
+    const hosts = await local.hosts()
+    checks.push({ name: 'the older host is stopped (terminal), the newer active', ok: hosts !== null && hosts[0]?.state === 'stopped' && hosts.at(-1)?.state === 'active', detail: JSON.stringify(hosts?.map(h => [h.generation, h.state])) })
     const resumed = []
     for (const p of players) resumed.push(await connect(Q, p.token, { tabId: p.socket.room ? `tab-drain-${players.indexOf(p)}-harness` : null, resume: true }))
     checks.push({ name: 'players resume on the newer host exactly where they were', ok: resumed.every((s, i) => s.self && s.self.areaId === players[i].at.areaId && s.self.tx === players[i].at.tx && s.self.ty === players[i].at.ty), detail: JSON.stringify(resumed.map((s, i) => [place(s.self), players[i].at]).slice(0, 3)) })
@@ -208,6 +244,7 @@ async function lost(context) {
 const geometry = scenario => async context => { await loadGeometry(context); return scenario(context) }
 export const LIFECYCLE = {
   candidates: geometry(candidates),
+  'shadow-refused': geometry(shadowRefused),
   'failed-startup': geometry(failedStartup),
   drain: geometry(drain),
   shutdown: geometry(shutdown),

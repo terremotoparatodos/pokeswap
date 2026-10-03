@@ -2,7 +2,7 @@
 // a per-run local secret, an embedded Postgres; no hosted project, JWT or real account.
 //
 //   node scripts/world-location/ordering-harness.mjs [--tree DIR] [--reps 200] [--width 25]
-//        [--seed 1] [--port 2800] [--only same-process,two-process,candidates,failed-startup,drain,shutdown,lost]
+//        [--seed 1] [--port 2800] [--only same-process,two-process,candidates,shadow-refused,failed-startup,drain,shutdown,lost]
 //        [--out results.json]
 //
 // --tree runs another checkout (its realtime, world-authority handler and migrations end to
@@ -13,7 +13,7 @@
 //   same-process  two presence hosts in one process, T3/T4/T7 × reps (orderingSameProcess.mjs)
 //   two-process   two real realtime processes (P older, Q newer; shadow, as LOCATION-3B),
 //                 T3/T4/T7 × reps; black box: sockets and the database row only
-//   candidates, failed-startup, drain, shutdown, lost   host lifecycle (orderingLifecycle.mjs)
+//   candidates, shadow-refused, failed-startup, drain, shutdown, lost   host lifecycle (orderingLifecycle.mjs)
 //
 // Exit 0 only if every applicable check passed. Prints a JSON summary.
 
@@ -38,7 +38,7 @@ const reps = Number(arg('reps', 200))
 const width = Number(arg('width', 25))
 const seed = Number(arg('seed', 1))
 const basePort = Number(arg('port', 2800))
-const only = new Set(arg('only', 'same-process,two-process,candidates,failed-startup,drain,shutdown,lost').split(','))
+const only = new Set(arg('only', 'same-process,two-process,candidates,shadow-refused,failed-startup,drain,shutdown,lost').split(','))
 const out = arg('out', null)
 const random = seeded(seed)
 const { openDirection } = await import(pathToFileURL(`${tree}services/realtime/src/world/testing.js`).href)

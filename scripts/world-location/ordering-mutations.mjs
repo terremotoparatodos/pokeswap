@@ -248,6 +248,7 @@ MUTATIONS.push(
   harnessed('C6', 'X5', 'drain'),
   harnessed('C1', 'X6', 'shutdown'),
   harnessed('S2', 'X8', 'drain'),
+  harnessed('S1', 'X9', 'shadow-refused'),
   { id: 'X7', what: 'a host acquired in the background never activates (a failed startup never recovers) [harness: failed-startup]', file: HOST,
     from: "if (this.state === 'starting') { this.#startRenewing(); await this.activate() }", to: "if (this.state === 'starting') { this.#startRenewing() }",
     test: HARNESS('failed-startup') },

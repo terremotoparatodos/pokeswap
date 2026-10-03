@@ -18,7 +18,7 @@
 //      player's new socket lands on B and is restored in Pradera from the row.
 //   3. A learns of the newer host (its next renewal or authority answer) and drains:
 //      the old socket is closed with 4503 (or 4409 if its save was refused first),
-//      never 4001; A's host is stopped and the process exits with code 0. The row
+//      never 4001; the process exits with code 0 and its host is stopped. The row
 //      keeps B's state.
 //   4. A dies hard. The player on B crosses back to Ciudad (saved).
 //   5. B dies hard (its lease simply runs out); a fresh B' starts and restores the
@@ -91,10 +91,11 @@ try {
   for (let i = 0; i < 200 && onA.left === null; i++) await delay(50) // within one renewal
   check('A: the old socket is closed with 4503 (drain) or 4409, never 4001', onA.left === 4503 || onA.left === 4409, `left=${onA.left}`)
   check('A: the row keeps B\'s state', (await row(userId))?.area_id === 'pradera' && (await row(userId))?.epoch === 2, JSON.stringify(await row(userId)))
+  // The socket closes before the drain ends (stop comes after the flush): read the host once A exited.
+  const exit = await Promise.race([A.exited, delay(15_000).then(() => 'still running')])
+  check('A: after its drain the process exits with code 0 (what the supervisor does next is a Cloud question, design §3.5)', exit === 0, String(exit))
   const hosts = await local.hosts()
   check('A: its host is stopped, B\'s is active', hosts?.[0]?.state === 'stopped' && hosts?.[1]?.state === 'active', JSON.stringify(hosts?.map(h => [h.generation, h.state])))
-  const exit = await Promise.race([A.exited, delay(15_000).then(() => 'still running')])
-  check('A: after its drain the process exits with code 0 (the platform starts a fresh candidate)', exit === 0, String(exit))
 
   await A.kill() // A is gone (it exited after its drain); nothing to kill
   A = null

@@ -19,9 +19,11 @@ export const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 delete globalThis.WebSocket
 const { Client } = await import('@colyseus/sdk')
 
-async function waitForPort(port, timeoutMs = 30_000) {
+/** Resolves once the port accepts connections, or as soon as `stopped()` (the process ended). */
+async function waitForPort(port, stopped = () => false, timeoutMs = 30_000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
+    if (stopped()) return
     const open = await new Promise(resolve => {
       const socket = net.createConnection({ host: '127.0.0.1', port })
       socket.once('connect', () => { socket.destroy(); resolve(true) })
@@ -56,7 +58,9 @@ export async function startRealtime({ tree = here, name, port, env, waitForListe
     async shutdown() { child.stdin.write('shutdown\n'); return exited },
     async kill() { if (child.exitCode === null) child.kill('SIGKILL'); return exited },
   }
-  if (waitForListen) await waitForPort(port)
+  // A process may legitimately end right after listening (WORLD LOCATION-4: in `on`, a refused
+  // activation exits with code 0): that is a start outcome for the caller to check, not an error.
+  if (waitForListen) await waitForPort(port, () => child.exitCode !== null)
   return server
 }
 
