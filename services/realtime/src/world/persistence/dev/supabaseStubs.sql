@@ -24,6 +24,8 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated, service_role;
 -- Supabase default privileges on new objects in public (the worst case).
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON FUNCTIONS TO anon, authenticated, service_role;
+-- WORLD LOCATION-4: Supabase grants new sequences too (USAGE, SELECT, UPDATE = nextval/currval/setval).
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
 
 -- Production's ownership table, reduced to the columns WORLD reads.
 CREATE TABLE IF NOT EXISTS public.slots (
