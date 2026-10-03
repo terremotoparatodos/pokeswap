@@ -7,11 +7,16 @@
 // Who can call it: only a holder of WORLD_AUTHORITY_SECRET, a server-side
 // secret set in the function's env and in the realtime process's env. It is
 // never in a frontend build. A browser that finds this URL gets 401.
-// What it can do: exactly seven operations, each one SQL function that is
+// What it can do: a fixed list of operations, each one SQL function that is
 // executable by service_role only. No generic table access, no user-chosen SQL.
 // WORLD LOCATION-2 adds location_claim / location_save: a player's last shared
 // area and tile, fenced by a session epoch and a server sequence. They are not
 // behind the WORLD x SKILLS gate (a location is not a game value).
+// WORLD LOCATION-4 (additive) adds the host lifecycle (presence_acquire,
+// presence_activate, presence_renew, presence_drain, presence_stop) and the
+// keyed shapes of location_claim / location_save, which name the realtime host
+// (generation + host id) and, for a claim, the session's key. The v1 shapes stay
+// for the realtime builds that still use them; a body never mixes both.
 // Feature gate (RC-0.3 dark launch): world_skills_access() decides per user.
 // A 'closed' user has no workable Pokemon and cannot settle completed work,
 // whatever the realtime server asks; a missing or odd answer counts as closed.
@@ -101,6 +106,65 @@ export function locationRows(rows: unknown): Record<string, unknown>[] | null {
   return out
 }
 
+// ── WORLD LOCATION-4: host lifecycle and keyed location operations ──────────
+
+const LEASE_MIN_MS = 1_000
+const LEASE_MAX_MS = 120_000
+const DRAIN_MAX_MS = 60_000
+/** Fields only the keyed claim has; one of them in a body selects (and requires) the keyed shape. */
+const KEYED_CLAIM_FIELDS = ['generation', 'seq', 'sessionId', 'hostId']
+const uuid = (value: unknown): value is string => typeof value === 'string' && UUID.test(value)
+const within = (value: unknown, min: number, max: number) => Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max
+
+/** The realtime host a keyed call speaks for: its generation and host id, or null if malformed. */
+function hostArgs(body: Record<string, unknown>): { p_generation: number; p_host_id: string } | null {
+  if (!counter(body.generation) || !uuid(body.hostId)) return null
+  return { p_generation: body.generation as number, p_host_id: body.hostId }
+}
+
+type Call = (fn: string, args: Record<string, unknown>) => Promise<unknown>
+
+/** presence_*: one SQL function each; the answer is the function's own object. */
+async function presenceOp(op: string, body: Record<string, unknown>, call: Call): Promise<Response> {
+  if (op === 'presence_acquire') {
+    if (!uuid(body.hostId) || !within(body.leaseMs, LEASE_MIN_MS, LEASE_MAX_MS)) return json(400, { error: 'invalid_host' })
+    return json(200, await call('world_presence_acquire', { p_host_id: body.hostId, p_lease_ms: body.leaseMs }))
+  }
+  const host = hostArgs(body)
+  if (!host) return json(400, { error: 'invalid_host' })
+  if (op === 'presence_stop') return json(200, await call('world_presence_stop', host))
+  if (op === 'presence_drain') {
+    if (!within(body.drainMs, LEASE_MIN_MS, DRAIN_MAX_MS)) return json(400, { error: 'invalid_host' })
+    return json(200, await call('world_presence_drain', { ...host, p_drain_ms: body.drainMs }))
+  }
+  if (!within(body.leaseMs, LEASE_MIN_MS, LEASE_MAX_MS)) return json(400, { error: 'invalid_host' })
+  return json(200, await call(op === 'presence_activate' ? 'world_presence_activate' : 'world_presence_renew', { ...host, p_lease_ms: body.leaseMs }))
+}
+
+/** The keyed claim: the session's key (generation, seq, session id) and its host. Never mixed with v1's expectedEpoch. */
+async function keyedClaim(body: Record<string, unknown>, call: Call): Promise<Response> {
+  if (!uuid(body.userId)) return json(400, { error: 'invalid_user' })
+  if ('expectedEpoch' in body) return json(400, { error: 'mixed_claim' })
+  const host = hostArgs(body)
+  if (!host || !counter(body.seq) || !uuid(body.sessionId)) return json(400, { error: 'invalid_key' })
+  return json(200, {
+    claim: await call('world_location_claim_keyed', {
+      p_user_id: body.userId, p_generation: host.p_generation, p_seq: body.seq, p_session: body.sessionId, p_host_id: host.p_host_id,
+    }),
+  })
+}
+
+/** The keyed save: the v1 rows plus the writing host. Answer: { status, results?, newerActive? }. */
+async function keyedSave(body: Record<string, unknown>, call: Call): Promise<Response> {
+  const host = hostArgs(body)
+  if (!host) return json(400, { error: 'invalid_host' })
+  const rows = locationRows(body.rows)
+  if (!rows) return json(400, { error: 'invalid_rows' })
+  return json(200, await call('world_location_save_keyed', { p_rows: rows, ...host }))
+}
+
+const PRESENCE_OPS = new Set(['presence_acquire', 'presence_activate', 'presence_renew', 'presence_drain', 'presence_stop'])
+
 export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): Promise<Response> {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   if (!sameSecret(req.headers.get('x-world-authority-secret'), deps.secret)) return json(401, { error: 'unauthorized' })
@@ -127,6 +191,7 @@ export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): P
   }
 
   try {
+    if (typeof body.op === 'string' && PRESENCE_OPS.has(body.op)) return await presenceOp(body.op, body, call)
     switch (body.op) {
       case 'access': {
         if (typeof body.userId !== 'string' || !UUID.test(body.userId)) return json(400, { error: 'invalid_user' })
@@ -157,12 +222,15 @@ export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): P
       case 'load_nodes':
         return json(200, { nodes: await call('world_load_nodes', {}) })
       case 'location_claim': {
+        // WORLD LOCATION-4: any keyed field selects the keyed shape (validated as a whole there).
+        if (KEYED_CLAIM_FIELDS.some(field => field in body)) return await keyedClaim(body, call)
         if (typeof body.userId !== 'string' || !UUID.test(body.userId)) return json(400, { error: 'invalid_user' })
         // The epoch the realtime last read (0 = no row): the claim writes only if it is still current.
         if (!Number.isSafeInteger(body.expectedEpoch) || (body.expectedEpoch as number) < 0) return json(400, { error: 'invalid_epoch' })
         return json(200, { claim: await call('world_location_claim', { p_user_id: body.userId, p_expected_epoch: body.expectedEpoch }) })
       }
       case 'location_save': {
+        if ('generation' in body || 'hostId' in body) return await keyedSave(body, call)
         const rows = locationRows(body.rows)
         if (!rows) return json(400, { error: 'invalid_rows' })
         // One answer per row ('applied' | 'duplicate' | 'stale' | 'invalid'); the realtime reads each on its own.

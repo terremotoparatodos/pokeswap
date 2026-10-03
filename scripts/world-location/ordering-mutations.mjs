@@ -19,6 +19,8 @@ const deno = file => ({ cwd: root, cmd: 'deno', args: ['test', file] })
 const expecting = (command, expect) => ({ ...command, expect })
 
 const MIGRATION = 'supabase/migrations/20261003120000_world_location_ordering.sql'
+const HANDLER = 'supabase/functions/world-authority/handler.ts'
+const DENO_TEST = name => expecting(deno('supabase/functions/world-authority/handler.test.ts'), name)
 const DB = file => `src/world/persistence/${file}`
 const DB_TEST = name => expecting(node(DB('worldLocationOrdering.database.test.js')), name)
 
@@ -99,13 +101,29 @@ export const MUTATIONS = [
     test: DB_TEST('privileges: anon, authenticated and PUBLIC cannot touch') },
   { id: 'O23', what: 'acquire keeps the default EXECUTE (PUBLIC, anon, authenticated)', file: MIGRATION,
     from: 'REVOKE ALL ON FUNCTION public.world_presence_acquire(uuid, integer) FROM PUBLIC, anon, authenticated, service_role;\n', to: '',
-    test: DB_TEST('privileges: anon, authenticated and PUBLIC cannot touch') },
+    // Defence in depth: an INVOKER function still hits the table REVOKE, so the role test passes; the catalog check catches it.
+    test: DB_TEST('catalog: the ordering grants check returns zero rows') },
   { id: 'O24', what: 'service_role cannot nextval (no USAGE on the sequence)', file: MIGRATION,
     from: 'GRANT USAGE ON SEQUENCE public.world_presence_generation_seq TO service_role;\n', to: '',
     test: DB_TEST('privileges: service_role does everything') },
   { id: 'O25', what: 'RLS off on the hosts table', file: MIGRATION,
     from: 'ALTER TABLE public.world_presence_hosts ENABLE ROW LEVEL SECURITY;', to: '-- (mutated: RLS off)',
     test: DB_TEST('catalog: the ordering grants check returns zero rows') },
+  // ── Edge Function: the v5 contract validates before the database ──
+  { id: 'E1', what: 'a keyed claim also carrying a v1 expectedEpoch is accepted', file: HANDLER,
+    from: "  if ('expectedEpoch' in body) return json(400, { error: 'mixed_claim' })\n", to: '',
+    test: DENO_TEST('location_claim (keyed): any missing or malformed key field') },
+  { id: 'E2', what: 'a keyed claim without a session id reaches SQL', file: HANDLER,
+    from: " || !uuid(body.sessionId)) return json(400, { error: 'invalid_key' })", to: ") return json(400, { error: 'invalid_key' })",
+    test: DENO_TEST('location_claim (keyed): any missing or malformed key field') },
+  { id: 'E3', what: 'a keyed save without its host reaches SQL', file: HANDLER,
+    from: "  const host = hostArgs(body)\n  if (!host) return json(400, { error: 'invalid_host' })\n  const rows = locationRows(body.rows)",
+    to: "  const host = hostArgs(body)\n  const rows = locationRows(body.rows)",
+    test: DENO_TEST('location_save (keyed): the writing host travels') },
+  { id: 'E4', what: 'presence_acquire accepts any lease', file: HANDLER,
+    from: "if (!uuid(body.hostId) || !within(body.leaseMs, LEASE_MIN_MS, LEASE_MAX_MS)) return json(400, { error: 'invalid_host' })\n    return json(200, await call('world_presence_acquire'",
+    to: "if (!uuid(body.hostId)) return json(400, { error: 'invalid_host' })\n    return json(200, await call('world_presence_acquire'",
+    test: DENO_TEST('a malformed host, lease or drain window is refused') },
 ]
 
 function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }
