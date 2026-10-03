@@ -20,6 +20,13 @@
  *     | { status: 'conflict', epoch } | { status: 'unknown_user' }>
  *   // A batch (1–200) of { userId, epoch, seq, areaId, tx, ty, layoutVersion }: one result per user.
  *   locationSave(rows): Promise<Map<userId, 'applied' | 'duplicate' | 'stale' | 'invalid' | 'unknown'>>
+ *   // WORLD LOCATION-4: this process as a presence host (world_presence_* in the ordering
+ *   // migration). Each resolves to the SQL function's own object (see hostLifecycle.js).
+ *   presenceAcquire(hostId, leaseMs): Promise<{ generation, state }>
+ *   presenceActivate(generation, hostId, leaseMs): Promise<{ status, state? }>
+ *   presenceRenew(generation, hostId, leaseMs): Promise<{ status, state?, newerActive?, leaseLive? }>
+ *   presenceDrain(generation, hostId, drainMs): Promise<{ status, state }>
+ *   presenceStop(generation, hostId): Promise<{ status }>
  * }
  * ```
  *
@@ -120,9 +127,22 @@ export function readSaveResults(rows, raw) {
   return new Map(rows.map(row => [row.userId.toLowerCase(), given.get(row.userId.toLowerCase()) ?? 'unknown']))
 }
 
+/** A host-lifecycle answer from either adapter: an object, never a string; anything else is an error. */
+export function readHostAnswer(raw) {
+  const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
+  if (!answer || typeof answer !== 'object' || Array.isArray(answer)) throw new Error('malformed host answer')
+  return answer
+}
+
 /** `query(sql, params)` runs as service_role and resolves to `{ rows }`. */
 export function createSqlPlayerData(query) {
+  const host = async (sql, params) => readHostAnswer((await query(sql, params)).rows[0]?.r)
   return {
+    presenceAcquire: (hostId, leaseMs) => host('SELECT public.world_presence_acquire($1::uuid, $2::int) AS r', [hostId, leaseMs]),
+    presenceActivate: (generation, hostId, leaseMs) => host('SELECT public.world_presence_activate($1::bigint, $2::uuid, $3::int) AS r', [generation, hostId, leaseMs]),
+    presenceRenew: (generation, hostId, leaseMs) => host('SELECT public.world_presence_renew($1::bigint, $2::uuid, $3::int) AS r', [generation, hostId, leaseMs]),
+    presenceDrain: (generation, hostId, drainMs) => host('SELECT public.world_presence_drain($1::bigint, $2::uuid, $3::int) AS r', [generation, hostId, drainMs]),
+    presenceStop: (generation, hostId) => host('SELECT public.world_presence_stop($1::bigint, $2::uuid) AS r', [generation, hostId]),
     async playerState(userId) {
       const { rows } = await query('SELECT public.world_player_state($1::uuid) AS state', [userId])
       return readState(rows[0]?.state)
@@ -214,5 +234,10 @@ export function createEdgePlayerData({
       return readClaim((await call('location_claim', { userId, expectedEpoch }, claimTimeoutMs)).claim)
     },
     async locationSave(rows) { return readSaveResults(rows, (await call('location_save', { rows }, saveTimeoutMs)).results) },
+    presenceAcquire: async (hostId, leaseMs) => readHostAnswer(await call('presence_acquire', { hostId, leaseMs })),
+    presenceActivate: async (generation, hostId, leaseMs) => readHostAnswer(await call('presence_activate', { generation, hostId, leaseMs })),
+    presenceRenew: async (generation, hostId, leaseMs) => readHostAnswer(await call('presence_renew', { generation, hostId, leaseMs })),
+    presenceDrain: async (generation, hostId, drainMs) => readHostAnswer(await call('presence_drain', { generation, hostId, drainMs })),
+    presenceStop: async (generation, hostId) => readHostAnswer(await call('presence_stop', { generation, hostId })),
   }
 }

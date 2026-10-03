@@ -21,6 +21,10 @@ const expecting = (command, expect) => ({ ...command, expect })
 const MIGRATION = 'supabase/migrations/20261003120000_world_location_ordering.sql'
 const HANDLER = 'supabase/functions/world-authority/handler.ts'
 const DENO_TEST = name => expecting(deno('supabase/functions/world-authority/handler.test.ts'), name)
+const HOST = `${RT}src/presence/hostLifecycle.js`
+const ROOM = `${RT}src/rooms/PresenceRoom.js`
+const HOST_TEST = name => expecting(node('src/presence/hostLifecycle.test.js'), name)
+const ROOM_HOST_TEST = name => expecting(node('src/rooms/PresenceRoomHost.test.js'), name)
 const DB = file => `src/world/persistence/${file}`
 const DB_TEST = name => expecting(node(DB('worldLocationOrdering.database.test.js')), name)
 
@@ -124,6 +128,25 @@ export const MUTATIONS = [
     from: "if (!uuid(body.hostId) || !within(body.leaseMs, LEASE_MIN_MS, LEASE_MAX_MS)) return json(400, { error: 'invalid_host' })\n    return json(200, await call('world_presence_acquire'",
     to: "if (!uuid(body.hostId)) return json(400, { error: 'invalid_host' })\n    return json(200, await call('world_presence_acquire'",
     test: DENO_TEST('a malformed host, lease or drain window is refused') },
+  // ── Realtime: host lifecycle (C1) ──
+  { id: 'H1', what: 'a starting host hands out session keys (claims before activation)', file: HOST,
+    from: "    if (this.state !== 'active') return null\n    this.counters.keys++", to: '    this.counters.keys++',
+    test: HOST_TEST('acquire before listen') },
+  { id: 'H2', what: 'newerActive is reported again on every answer (repeated drains)', file: HOST,
+    from: 'if (answer.newerActive === true && !this.newerSeen) {', to: 'if (answer.newerActive === true) {',
+    test: HOST_TEST('refused answers end or pause') },
+  { id: 'H3', what: 'a refused activation is taken as active (newer_active ignored)', file: HOST,
+    from: "      if (answer?.status === 'active') {\n        this.state = 'active'", to: "      if (answer) {\n        this.state = 'active'",
+    test: HOST_TEST('two concurrent candidates') },
+  { id: 'H4', what: 'joins are admitted before the host is active', file: ROOM,
+    from: "    if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')\n", to: '',
+    test: ROOM_HOST_TEST('a join that arrives before activation waits') },
+  { id: 'H5', what: 'a starting host admits joins', file: HOST,
+    from: "get admitting() { return this.state === 'active' || this.state === 'unavailable' }", to: "get admitting() { return this.state === 'active' || this.state === 'unavailable' || this.state === 'starting' }",
+    test: HOST_TEST('acquire before listen') },
+  { id: 'H6', what: 'a draining host tries to activate again', file: HOST,
+    from: "  async activate() {\n    if (this.state !== 'starting') return this.state", to: "  async activate() {\n    if (this.state === 'active') return this.state",
+    test: HOST_TEST('a newer active host: the old one learns') },
 ]
 
 function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }

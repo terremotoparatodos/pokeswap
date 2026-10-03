@@ -60,6 +60,11 @@ export async function createDevPlayerData({ dataDir = null } = {}) {
     // A dev identity is provisioned on its first claim, like on its first state read.
     async locationClaim(playerId, expectedEpoch) { return sql.locationClaim(await provision(playerId), expectedEpoch) },
     locationSave: rows => sql.locationSave(rows),
+    presenceAcquire: (hostId, leaseMs) => sql.presenceAcquire(hostId, leaseMs),
+    presenceActivate: (generation, hostId, leaseMs) => sql.presenceActivate(generation, hostId, leaseMs),
+    presenceRenew: (generation, hostId, leaseMs) => sql.presenceRenew(generation, hostId, leaseMs),
+    presenceDrain: (generation, hostId, drainMs) => sql.presenceDrain(generation, hostId, drainMs),
+    presenceStop: (generation, hostId) => sql.presenceStop(generation, hostId),
     close: () => db.close(),
   }
 }

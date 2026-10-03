@@ -16,6 +16,8 @@ import { WorldRoom } from '../world/worldRoom.js'
 import { worldDependencies } from '../world/worldConfig.js'
 import { LocationService, locationMode } from '../presence/locationService.js'
 import { LocationJoin } from './locationJoin.js'
+import { ACTIVATION_WAIT_MS, HostLifecycle } from '../presence/hostLifecycle.js'
+import { HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
 const MOVE_REJECTION_REASON = Object.freeze({
@@ -99,6 +101,35 @@ export function configureLocationPersistence({ mode, store = initialDependencies
   return location
 }
 
+// WORLD LOCATION-4: this process as a presence host (generation + lifecycle), when
+// location persistence is active and the store supports it. Null otherwise: joins
+// are accepted at once and nothing is acquired (today's behaviour).
+let host = null
+const supportsHost = store => ['presenceAcquire', 'presenceActivate', 'presenceRenew', 'presenceDrain', 'presenceStop'].every(op => typeof store?.[op] === 'function')
+metrics.host = () => host?.stats() ?? null
+
+/**
+ * Before listen (realtimeServer.js): acquire this process's generation. The host stays
+ * 'starting' (it owns nothing and drains nobody) until `activate()` after listen.
+ */
+export async function preparePresenceHost({ hostId, acquireWaitMs } = {}) {
+  const store = initialDependencies.playerData
+  if (!location.active || !supportsHost(store)) return null
+  host = new HostLifecycle({
+    store, ...(hostId ? { hostId } : {}),
+    onNewerActive: () => metrics.hostEvent?.('newerActive'),
+    onExpired: () => metrics.hostEvent?.('expired'),
+  })
+  await host.acquire(acquireWaitMs === undefined ? {} : { waitMs: acquireWaitMs })
+  return host
+}
+
+/** Tests and tooling: replace this process's host (null: none). */
+export function configurePresenceHost(next) {
+  host = next
+  return host
+}
+
 /** Best-effort final flush of every pending location (graceful shutdown). */
 export function flushLocationsForShutdown(deadlineMs) {
   return location.shutdown(deadlineMs)
@@ -137,6 +168,9 @@ export class PresenceRoom extends Room {
   }
 
   async onJoin(client, options, auth) {
+    // WORLD LOCATION-4: between listen and activation a join waits (one round trip in
+    // practice); a host that will not accept (draining, stopped) refuses: reconnect elsewhere.
+    if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
     if (!hasCapacity(PresenceRoom.connections)) { metrics.rejected('capacity'); throw new ServerError(4210, 'capacity reached') }
     PresenceRoom.connections++
     if (Number.isInteger(options?.presenceProtocol) && options.presenceProtocol >= COMPACT_STEP_PROTOCOL) compactClients.add(client)

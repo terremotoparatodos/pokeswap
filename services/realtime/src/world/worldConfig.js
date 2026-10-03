@@ -69,5 +69,10 @@ function lazyDevPlayerData(dataDir) {
     loadNodes: async () => (await data()).loadNodes(),
     locationClaim: async (userId, expectedEpoch) => (await data()).locationClaim(userId, expectedEpoch),
     locationSave: async rows => (await data()).locationSave(rows),
+    presenceAcquire: async (hostId, leaseMs) => (await data()).presenceAcquire(hostId, leaseMs),
+    presenceActivate: async (generation, hostId, leaseMs) => (await data()).presenceActivate(generation, hostId, leaseMs),
+    presenceRenew: async (generation, hostId, leaseMs) => (await data()).presenceRenew(generation, hostId, leaseMs),
+    presenceDrain: async (generation, hostId, drainMs) => (await data()).presenceDrain(generation, hostId, drainMs),
+    presenceStop: async (generation, hostId) => (await data()).presenceStop(generation, hostId),
   }
 }

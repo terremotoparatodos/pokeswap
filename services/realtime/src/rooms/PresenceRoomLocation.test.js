@@ -789,9 +789,9 @@ test('graceful shutdown is best effort: a hung authority never holds the exit pa
   assert.ok(performance.now() - started < 1_000)
 })
 
-test('the process entry point wires the shutdown flush into Colyseus onShutdown', async () => {
+test('the process entry point (realtimeServer.js) wires the shutdown flush into Colyseus onShutdown', async () => {
   const { readFile } = await import('node:fs/promises')
-  const source = await readFile(new URL('../index.js', import.meta.url), 'utf8')
+  const source = await readFile(new URL('../realtimeServer.js', import.meta.url), 'utf8')
   assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*const \{ sent, left, timedOut \} = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
   assert.match(source, /SHUTDOWN_LOCATION_FLUSH_MS = 3_000/)
 })
