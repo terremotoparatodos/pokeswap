@@ -24,6 +24,8 @@ const HANDLER = 'supabase/functions/world-authority/handler.ts'
 const DENO_TEST = name => expecting(deno('supabase/functions/world-authority/handler.test.ts'), name)
 const HOST = `${RT}src/presence/hostLifecycle.js`
 const ROOM = `${RT}src/rooms/PresenceRoom.js`
+const HOSTING = `${RT}src/rooms/presenceHosting.js`
+const HOSTING_TEST = name => expecting(node('src/rooms/presenceHosting.test.js'), name)
 const HOST_TEST = name => expecting(node('src/presence/hostLifecycle.test.js'), name)
 const ROOM_HOST_TEST = name => expecting(node('src/rooms/PresenceRoomHost.test.js'), name)
 const JOURNAL = `${RT}src/presence/locationJournal.js`
@@ -145,7 +147,7 @@ export const MUTATIONS = [
   { id: 'H3', what: 'a refused activation is taken as active (newer_active ignored)', file: HOST,
     from: "      if (answer?.status === 'active') {\n        this.state = 'active'", to: "      if (answer) {\n        this.state = 'active'",
     test: HOST_TEST('two concurrent candidates') },
-  { id: 'H4', what: 'joins are admitted before the host is active', file: ROOM,
+  { id: 'H4', what: 'joins are admitted before the host is active', file: HOSTING,
     from: "    if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')\n", to: '',
     test: ROOM_HOST_TEST('a join that arrives before activation waits') },
   { id: 'H5', what: 'a starting host admits joins', file: HOST,
@@ -184,21 +186,21 @@ export const MUTATIONS = [
   { id: 'C1', what: 'shutdown keeps Colyseus\' default close (4001 SERVER_SHUTDOWN): clients stop as replaced', file: ROOM,
     from: '  onBeforeShutdown() {\n', to: '  onBeforeShutdownDisabled() {\n',
     test: BOOT_TEST('bootstrap:') },
-  { id: 'C2', what: 'a protocol-3 client is replaced with the legacy 4001', file: ROOM,
-    from: '  if (modern(client)) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n  else if (named)', to: '  if (named)',
-    test: CLOSE_TEST('replacement:') },
-  { id: 'C3', what: 'a resume from another tab displaces the live session', file: ROOM,
-    from: "      if (previous && tabOf.get(previous) !== tabId) { metrics.rejected('resume'); throw new ServerError(SESSION_REPLACED_CODE, 'session-replaced') }\n", to: '',
-    test: CLOSE_TEST('resume:') },
+  { id: 'C2', what: 'a protocol-3 client is replaced with the legacy 4001', file: HOSTING,
+    from: '    if (this.#modern(client)) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n    else if (named)', to: '    if (named)',
+    tests: [CLOSE_TEST('replacement:'), HOSTING_TEST('closeReplaced:')] },
+  { id: 'C3', what: 'a resume from another tab displaces the live session', file: HOSTING,
+    from: "      if (previous && this.tabOf.get(previous) !== tabId) {", to: '      if (false) {',
+    tests: [CLOSE_TEST('resume:'), HOSTING_TEST('admit: a resume from another tab yields')] },
   { id: 'C4', what: 'movement is accepted while draining', file: ROOM,
-    from: '  move(client, payload) {\n    if (draining) return this.frozen(client)\n', to: '  move(client, payload) {\n',
+    from: '  move(client, payload) {\n    if (hosting.draining) return this.frozen(client)\n', to: '  move(client, payload) {\n',
     test: CLOSE_TEST('drain:') },
-  { id: 'C5', what: 'shadow drains on a newer host (shadow becomes invasive)', file: ROOM,
-    from: '  if (!location.restores) { location.counters.shadow.wouldDrain++; return }\n', to: '',
-    test: CLOSE_TEST('shadow: a newer active host') },
-  { id: 'C6', what: 'on: a newer active host is ignored (two hosts keep serving)', file: ROOM,
-    from: '    next.onNewerActive = () => { void drainForHostChange() }\n', to: '',
-    test: CLOSE_TEST('on: a newer active host') },
+  { id: 'C5', what: 'shadow drains on a newer host (shadow becomes invasive)', file: HOSTING,
+    from: '    if (!location.restores) { location.counters.shadow.wouldDrain++; return }\n', to: '',
+    tests: [CLOSE_TEST('shadow: a newer active host'), HOSTING_TEST('a newer host in on')] },
+  { id: 'C6', what: 'on: a newer active host is ignored (two hosts keep serving)', file: HOSTING,
+    from: '      next.onNewerActive = () => { void this.#hostChanged() }\n', to: '',
+    tests: [CLOSE_TEST('on: a newer active host'), HOSTING_TEST('a newer host in on')] },
   // ── Realtime: shutdown log (design L1) ──
   { id: 'L1', what: 'rows refused because another session owns them are reported as saved', file: `${RT}src/presence/shutdownSummary.js`,
     from: "    saved: sum('applied') + sum('duplicate'),", to: "    saved: sum('applied') + sum('duplicate') + sum('stale'),",
