@@ -15,9 +15,20 @@ import { MESSAGE } from '../protocol/messages.js'
 //              shutdown is 4503 for every client; protocol 3 hears `presence:closing` first;
 //   drain      joins refused, movement frozen (the room asks `draining`), host → draining,
 //              every pending location saved, before any socket closes;
-//   stopping   in `on`, a host that stops (activation refused, a newer host, an expired lease)
-//              ends the process with code 0 (`onStopped`); shadow never changes what players
-//              see: it keeps admitting, without persistence.
+//
+// Three different endings, never confused (review F1):
+//   displaced  the authority says this host is over (activation refused, a newer active host,
+//              a lease that stayed expired). In `on` the process drains if it served anyone,
+//              then stays alive but stopped: /readyz 503, joins refused with 4503, no renew,
+//              no claim, no movement. It never exits on its own: a supervisor that restarts
+//              any exit (PM2 autorestart) would start a new candidate with a newer generation
+//              that would displace the current host in turn (a loop). The deploy or the
+//              supervisor ends it. Shadow never changes what players see: it keeps admitting,
+//              without persistence.
+//   shutdown   the system asks for it (SIGTERM/SIGINT): Colyseus' graceful shutdown drains,
+//              closes with 4503 and exits (realtimeServer.js).
+//   startup    no generation within the acquire wait: the process serves without persistence
+//              and keeps acquiring in the background (HostLifecycle.acquire); recoverable.
 
 /** A tab id the client sends on join (UX and resume only; never part of the session key). */
 const TAB_ID = /^[A-Za-z0-9_-]{8,64}$/
@@ -35,8 +46,6 @@ export class PresenceHosting {
     this.sockets = sockets
     this.metrics = metrics
     this.log = log
-    /** In `on`, called once when this process must exit (realtimeServer.js: a graceful shutdown). */
-    this.onStopped = () => {}
     /** This process's HostLifecycle, or null (location off, or a store without host operations). */
     this.host = null
     /** While draining: no join is accepted and no movement either. Never reverts in a process. */
@@ -136,21 +145,23 @@ export class PresenceHosting {
   /** Tests and tooling: undo a drain (a fresh process never starts draining). */
   resetDraining() { this.draining = false }
 
-  stats() { return this.host?.stats() ?? null }
+  stats() { const host = this.host?.stats() ?? null; return host && { ...host, displaced: this.displaced ?? null } }
 
   /** Readiness: no host, a host that admits, or shadow (which serves whatever its host's state). */
   get serving() { return !this.host || this.host.admitting || !this.location().restores }
 
-  /** A stopped host ends the process in `on` (once); shadow keeps serving without persistence. */
+  /**
+   * Displaced by the authority. In `on` the process stays alive and stopped (never exits on its
+   * own: see the header); shadow keeps serving without persistence.
+   */
   #stopped(reason) {
+    if (this.displaced) return
+    this.displaced = reason
     if (!this.location().restores) {
       this.log(`[host] ${reason}: shadow keeps serving, without location persistence`)
       return
     }
-    if (this.exiting) return
-    this.exiting = true
-    this.log(`[host] ${reason}: this process stops serving and exits (code 0); more than 3 of these an hour means an unexpected topology`)
-    this.onStopped(reason)
+    this.log(`[host] ${reason}: this process stays stopped (/readyz 503, joins 4503) until its deploy or supervisor ends it`)
   }
 
   /**

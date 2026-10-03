@@ -47,7 +47,8 @@ export async function startRealtime({ tree = here, name, port, env, waitForListe
   child.stderr.on('data', chunk => { log += chunk })
   const exited = new Promise(resolve => child.once('exit', code => resolve(code)))
   const health = async path => {
-    try { const response = await fetch(`http://127.0.0.1:${port + 1}${path}`); return { status: response.status, body: await response.json().catch(() => null) } } catch { return { status: 0, body: null } }
+    // Bounded: a process that is dying or restarting must never stall the caller.
+    try { const response = await fetch(`http://127.0.0.1:${port + 1}${path}`, { signal: AbortSignal.timeout(2_000) }); return { status: response.status, body: await response.json().catch(() => null) } } catch { return { status: 0, body: null } }
   }
   const server = {
     name, port, child, exited,
@@ -72,10 +73,12 @@ export async function startRealtime({ tree = here, name, port, env, waitForListe
 export async function connect(server, token, { presenceProtocol = 3, tabId = null, resume = false, waitSelf = true } = {}) {
   const state = { room: null, self: null, left: null, closing: [], refused: null, errors: [], joinedAt: null }
   try {
-    state.room = await new Client(`ws://127.0.0.1:${server.port}`, { headers: { Origin: ORIGIN } }).joinOrCreate('presence', {
+    const joining = new Client(`ws://127.0.0.1:${server.port}`, { headers: { Origin: ORIGIN } }).joinOrCreate('presence', {
       token, presenceProtocol, worldProtocol: 3,
       ...(tabId ? { tabId } : {}), ...(resume ? { resume: true } : {}),
     })
+    // Bounded too: a join against a process that dies mid-handshake counts as refused ('timeout').
+    state.room = await Promise.race([joining, delay(10_000).then(() => { throw Object.assign(new Error('join timeout'), { code: 'timeout' }) })])
   } catch (error) {
     state.refused = error?.code ?? -1
     return state

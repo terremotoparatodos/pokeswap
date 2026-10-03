@@ -121,9 +121,6 @@ export function drainPresence(options) {
 /** Tests and tooling: undo a drain (a fresh process never starts draining). */
 export function resetDrainingForTesting() { hosting.resetDraining() }
 
-/** realtimeServer.js: what to do when, in `on`, this process's host stops (exit, code 0). */
-export function onPresenceHostStopped(callback) { hosting.onStopped = callback }
-
 /** Readiness for /readyz: serving players (shadow always serves). */
 export function presenceServing() { return hosting.serving }
 

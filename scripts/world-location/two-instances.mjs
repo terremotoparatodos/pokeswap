@@ -18,8 +18,8 @@
 //      player's new socket lands on B and is restored in Pradera from the row.
 //   3. A learns of the newer host (its next renewal or authority answer) and drains:
 //      the old socket is closed with 4503 (or 4409 if its save was refused first),
-//      never 4001; the process exits with code 0 and its host is stopped. The row
-//      keeps B's state.
+//      never 4001; its host is stopped and the process stays alive refusing joins
+//      with 4503 (it never exits on its own). The row keeps B's state.
 //   4. A dies hard. The player on B crosses back to Ciudad (saved).
 //   5. B dies hard (its lease simply runs out); a fresh B' starts and restores the
 //      player at B's last saved tile.
@@ -91,13 +91,14 @@ try {
   for (let i = 0; i < 200 && onA.left === null; i++) await delay(50) // within one renewal
   check('A: the old socket is closed with 4503 (drain) or 4409, never 4001', onA.left === 4503 || onA.left === 4409, `left=${onA.left}`)
   check('A: the row keeps B\'s state', (await row(userId))?.area_id === 'pradera' && (await row(userId))?.epoch === 2, JSON.stringify(await row(userId)))
-  // The socket closes before the drain ends (stop comes after the flush): read the host once A exited.
-  const exit = await Promise.race([A.exited, delay(15_000).then(() => 'still running')])
-  check('A: after its drain the process exits with code 0 (what the supervisor does next is a Cloud question, design §3.5)', exit === 0, String(exit))
+  // The socket closes before the drain ends (stop comes after the flush): wait for A's stop.
+  for (let i = 0; i < 300 && (await local.hosts())?.[0]?.state !== 'stopped'; i++) await delay(50)
+  const late = await connect(A, token, { tabId: 'tab-two-late-harness', waitSelf: false })
+  check('A: displaced, it stays alive and stopped: /readyz 503, joins refused with 4503 (it never exits on its own)', A.child.exitCode === null && (await A.ready()) === 503 && late.refused === 4503, JSON.stringify({ exit: A.child.exitCode, ready: await A.ready(), refused: late.refused }))
   const hosts = await local.hosts()
   check('A: its host is stopped, B\'s is active', hosts?.[0]?.state === 'stopped' && hosts?.[1]?.state === 'active', JSON.stringify(hosts?.map(h => [h.generation, h.state])))
 
-  await A.kill() // A is gone (it exited after its drain); nothing to kill
+  await A.kill() // the deploy ends the displaced process
   A = null
   await cross(onB, 'ciudad-corazon')
   await delay(1_200)

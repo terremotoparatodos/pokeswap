@@ -2,12 +2,14 @@
 // its own local authority (orderingHarness.mjs runs them; LOCAL ONLY).
 //
 //   candidates      two processes start at once: one active host remains, the older never
-//                   activates after the newer, the older drains within one renewal
+//                   activates after the newer, the older drains within one renewal and stays
+//                   alive but stopped (/readyz 503, joins 4503: it never exits on its own)
 //   shadow-refused  a shadow candidate refused at activation keeps serving players unchanged
 //   failed-startup  the authority refuses presence calls at start: the process serves without
 //                   persistence (no claim, no row), then acquires and activates once it is back
 //   drain           a newer host starts: the older closes every socket with 4503 (never 4001)
-//                   after saving every position; players resume on the newer one, in place
+//                   after saving every position, then stays alive and stopped; players resume
+//                   on the newer one, in place
 //   shutdown        a graceful shutdown (SIGTERM): every socket 4503 (protocol 2 and 3), a
 //                   join during the shutdown refused or closed with 4503, every position saved
 //   lost            claim and save answers lost after the database applied them: the retries
@@ -65,10 +67,14 @@ async function candidates(context) {
       if (inverted) checks.push({ name: `round ${round}: a late activation of the older candidate is refused (never active)`, ok: older.activated_at === null && older.state === 'stopped', detail: JSON.stringify(older) })
       const ready = await Promise.all([r.ready(), s.ready()])
       checks.push({ name: `round ${round}: one process stays ready`, ok: ready.filter(code => code === 200).length === 1, detail: JSON.stringify(ready) })
-      // The older one stopped (refused, or drained for the newer): in `on` it leaves with code 0.
+      // The older one is displaced (refused, or drained for the newer): it stays alive and stopped
+      // (review F1: never exits on its own, so an autorestart supervisor cannot loop).
       const exits = [r.child.exitCode, s.child.exitCode]
-      checks.push({ name: `round ${round}: the stopped candidate exited with code 0, the active one runs`, ok: exits.filter(code => code === 0).length === 1 && exits.includes(null), detail: JSON.stringify(exits) })
-      if (inverted) checks.push({ name: `round ${round}: the refused one is the older (R)`, ok: r.child.exitCode === 0 && s.child.exitCode === null, detail: JSON.stringify(exits) })
+      checks.push({ name: `round ${round}: both processes stay alive (the displaced one never exits)`, ok: exits.every(code => code === null), detail: JSON.stringify(exits) })
+      if (inverted) checks.push({ name: `round ${round}: the refused one is the older (R): 503`, ok: ready[0] === 503 && ready[1] === 200, detail: JSON.stringify(ready) })
+      const displaced = ready[0] === 503 ? r : s
+      const knock = await connect(displaced, (await local.player()).token, { tabId: `tab-knock-${round}-harness`, waitSelf: false })
+      checks.push({ name: `round ${round}: the displaced process refuses joins with 4503`, ok: knock.refused === 4503, detail: JSON.stringify({ refused: knock.refused, left: knock.left }) })
       await r.kill(); await s.kill()
     }
     return verdict(checks)
@@ -163,9 +169,9 @@ async function drain(context) {
     checks.push({ name: 'protocol-3 clients hear presence:closing {draining} first', ok: players.every(p => p.socket.closing.includes('draining')) })
     const rows = await Promise.all(players.map(p => rowOf(local)(p.userId)))
     checks.push({ name: 'every last position was saved by the drain', ok: players.every((p, i) => same(rows[i], p.at)), detail: JSON.stringify(rows.map((r, i) => [r, players[i].at]).filter(([r, at]) => !same(r, at)).slice(0, 3)) })
-    // Sockets close before the drain ends (the host stops after the flush): read it once P exited.
-    const exit = await Promise.race([P.exited, delay(15_000).then(() => 'still running')])
-    checks.push({ name: 'after its drain the older process exits with code 0', ok: exit === 0, detail: String(exit) })
+    // Sockets close before the drain ends (the host stops after the flush): wait for the stop.
+    await waitFor(async () => (await local.hosts())[0]?.state === 'stopped', 15_000)
+    checks.push({ name: 'after its drain the older process stays alive and stopped: /readyz 503, joins 4503', ok: P.child.exitCode === null && (await P.ready()) === 503 && (await connect(P, (await local.player()).token, { tabId: 'tab-drain-knock-harness', waitSelf: false })).refused === 4503, detail: JSON.stringify([P.child.exitCode, await P.ready()]) })
     const hosts = await local.hosts()
     checks.push({ name: 'the older host is stopped (terminal), the newer active', ok: hosts !== null && hosts[0]?.state === 'stopped' && hosts.at(-1)?.state === 'active', detail: JSON.stringify(hosts?.map(h => [h.generation, h.state])) })
     const resumed = []

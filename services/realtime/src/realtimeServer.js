@@ -1,6 +1,6 @@
 import { Server } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
-import { PresenceRoom, drainPresence, flushLocationsForShutdown, onPresenceHostStopped, preparePresenceHost, presenceServing } from './rooms/PresenceRoom.js'
+import { PresenceRoom, drainPresence, flushLocationsForShutdown, preparePresenceHost, presenceServing } from './rooms/PresenceRoom.js'
 import { shutdownFlushLine } from './presence/shutdownSummary.js'
 import { BenchmarkPresenceRoom } from './rooms/BenchmarkPresenceRoom.js'
 import { createHealthServer } from './observability/health.js'
@@ -28,7 +28,7 @@ export const SHUTDOWN_LOCATION_FLUSH_MS = 3_000
  *      arrive in between wait for it (ACTIVATION_WAIT_MS, then 4503).
  * With location off nothing is acquired and the process starts exactly as before.
  */
-export async function startRealtimeServer({ env = process.env, port = Number(env.PORT ?? 2567), healthPort = Number(env.HEALTH_PORT ?? port + 1), log = message => console.log(message), trace = () => {}, exitOnHostStop = true } = {}) {
+export async function startRealtimeServer({ env = process.env, port = Number(env.PORT ?? 2567), healthPort = Number(env.HEALTH_PORT ?? port + 1), log = message => console.log(message), trace = () => {} } = {}) {
   const benchmarkMode = env.PRESENCE_BENCHMARK === 'on' && env.NODE_ENV !== 'production'
   const productionOriginPolicy = originPolicy(env)
   const beforeUpgrade = benchmarkMode
@@ -46,9 +46,9 @@ export async function startRealtimeServer({ env = process.env, port = Number(env
   trace('acquired', host?.state ?? null)
   let drained = null
   gameServer.onBeforeShutdown(async () => { drained = await drainPresence({ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS }) })
-  // In `on`, a host that stops (activation refused, a newer host, an expired lease) ends the
-  // process with code 0 after its drain (design §3.3.2): the platform starts a fresh candidate.
-  onPresenceHostStopped(() => { void gameServer.gracefullyShutdown(exitOnHostStop) })
+  // A host displaced by the authority (activation refused, a newer host, an expired lease) does
+  // NOT end the process (review F1): it stays stopped, /readyz 503, until its deploy or
+  // supervisor ends it. Only a real shutdown (SIGTERM/SIGINT) exits, through Colyseus.
   gameServer.onShutdown(async () => {
     const late = await flushLocationsForShutdown(SHUTDOWN_LOCATION_FLUSH_MS)
     const line = shutdownFlushLine(drained, late)
