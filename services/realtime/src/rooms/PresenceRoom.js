@@ -97,7 +97,7 @@ export function liveActorForTesting(userId) {
  */
 export function configureLocationPersistence({ mode, store = initialDependencies.playerData, ...options } = {}) {
   location.disable()
-  location = createLocation({ mode, store, ...options })
+  location = createLocation({ mode, store, host, ...options })
   return location
 }
 
@@ -120,6 +120,8 @@ export async function preparePresenceHost({ hostId, acquireWaitMs } = {}) {
     onNewerActive: () => metrics.hostEvent?.('newerActive'),
     onExpired: () => metrics.hostEvent?.('expired'),
   })
+  // Sessions get their keys from this host from now on (none persist before it is active).
+  location.attachHost(host)
   await host.acquire(acquireWaitMs === undefined ? {} : { waitMs: acquireWaitMs })
   return host
 }
@@ -127,6 +129,7 @@ export async function preparePresenceHost({ hostId, acquireWaitMs } = {}) {
 /** Tests and tooling: replace this process's host (null: none). */
 export function configurePresenceHost(next) {
   host = next
+  location.attachHost(next)
   return host
 }
 

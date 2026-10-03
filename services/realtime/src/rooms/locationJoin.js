@@ -16,10 +16,11 @@ import { restoreFromRow } from '../presence/locationPolicy.js'
  *     actor is admitted restores it; once the fallback was published, a claim
  *     that answers later only brings the epoch. The current authoritative
  *     position is adopted and saved at once; nothing moves (see `#adopt`);
- *   - in mode `on`, a session whose save came back 'stale' is closed with
- *     4001 'session-replaced', and its tile is not remembered for reconnects;
- *     in shadow it is only counted (`wouldFence`): shadow never changes what
- *     a player or an observer sees.
+ *   - in mode `on`, a session whose save came back 'stale', or whose claim was
+ *     superseded (a greater key owns the row: WORLD LOCATION-4), is closed as
+ *     replaced, and its tile is not remembered for reconnects; in shadow it is
+ *     only counted (`wouldFence`, `wouldReplace`): shadow never changes what a
+ *     player or an observer sees.
  *
  * Owns only per-socket location state; the room keeps the actors.
  */
@@ -126,15 +127,40 @@ export class LocationJoin {
     const location = this.location()
     const pending = client ? this.hydrations.get(client) : null
     if (pending?.session === session) {
+      // A greater key owns the row while this socket was still hydrating: it never plays here.
+      if (result.status === 'superseded') return this.#supersededWhileHydrating(client, pending)
       if (result.status !== 'claimed') location.restored(result.status === 'unknown_user' ? 'unknownUser' : 'failed')
       return this.#finish(room, client, pending, result.status === 'claimed' ? result.location : null, result.status === 'claimed')
     }
+    if (result.status === 'superseded') return this.#superseded(session)
     if (result.status !== 'claimed' || !client || this.sessionByClient.get(client) !== session) return
     const actor = this.actors.get(session.userId)
     if (!actor || this.clientsByActor.get(session.userId) !== client) return
     // Shadow: count what `on` would have restored or repaired; nothing moves.
     if (location.effective === 'shadow' && session.origin === 'new') location.shadowed(restoreFromRow(result.location, { worldProtocol: session.worldProtocol }))
     if (location.restores && session.origin === 'fallback') this.#adopt(session, actor)
+  }
+
+  /**
+   * WORLD LOCATION-4: the claim of a live, placed session was superseded: a session with a
+   * greater key (newer in this host, or on a newer host) owns the row. In `on` its socket
+   * goes, as a replacement; in shadow only `wouldReplace` counts.
+   */
+  #superseded(session) {
+    const client = session.client
+    if (!client || this.sessionByClient.get(client) !== session || this.clientsByActor.get(session.userId) !== client) return
+    const location = this.location()
+    if (!location.restores) { location.counters.shadow.wouldReplace++; return }
+    location.counters.supersededDisconnects++
+    client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
+  }
+
+  #supersededWhileHydrating(client, pending) {
+    clearTimeout(pending.timer)
+    this.hydrations.delete(client)
+    const location = this.location()
+    location.counters.supersededDisconnects++
+    if (this.clientsByActor.get(pending.join.auth.userId) === client) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
   }
 
   #finish(room, client, pending, stored, claimed) {

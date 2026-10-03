@@ -25,6 +25,10 @@ const HOST = `${RT}src/presence/hostLifecycle.js`
 const ROOM = `${RT}src/rooms/PresenceRoom.js`
 const HOST_TEST = name => expecting(node('src/presence/hostLifecycle.test.js'), name)
 const ROOM_HOST_TEST = name => expecting(node('src/rooms/PresenceRoomHost.test.js'), name)
+const JOURNAL = `${RT}src/presence/locationJournal.js`
+const JOIN = `${RT}src/rooms/locationJoin.js`
+const JOURNAL_TEST = name => expecting(node('src/presence/locationJournal.test.js'), name)
+const ROOM_TEST = name => expecting(node('src/rooms/PresenceRoomLocation.test.js'), name)
 const DB = file => `src/world/persistence/${file}`
 const DB_TEST = name => expecting(node(DB('worldLocationOrdering.database.test.js')), name)
 
@@ -147,6 +151,29 @@ export const MUTATIONS = [
   { id: 'H6', what: 'a draining host tries to activate again', file: HOST,
     from: "  async activate() {\n    if (this.state !== 'starting') return this.state", to: "  async activate() {\n    if (this.state === 'active') return this.state",
     test: HOST_TEST('a newer active host: the old one learns') },
+  // ── Realtime: keyed journal (ordering) ──
+  { id: 'J1', what: 'superseded is not final (the session keeps claiming)', file: JOURNAL,
+    from: "      this.counters.claims.outranked++\n      entry.status = 'superseded'", to: "      this.counters.claims.outranked++\n      entry.status = 'unclaimed'",
+    test: JOURNAL_TEST('superseded is final') },
+  { id: 'J2', what: 'a retry asks the host for a new key (re-read: T4 again)', file: JOURNAL,
+    from: '    if (counted) this.counters.claims.failed++', to: '    if (counted) this.counters.claims.failed++\n    if (this.host?.sessionKey) { const fresh = this.host.sessionKey(); if (fresh) session.key = fresh }',
+    test: JOURNAL_TEST('T4 (old claim abandoned, lands late, retried)') },
+  { id: 'J3', what: 'claims are sent while the host cannot claim', file: JOURNAL,
+    from: ' && this.entries.get(entry.userId) === entry && Boolean(this.host?.canClaim)', to: ' && this.entries.get(entry.userId) === entry',
+    test: JOURNAL_TEST('host refusals: expired pauses') },
+  { id: 'J4', what: 'saves are sent while the host cannot save', file: JOURNAL,
+    from: '    if (!this.host?.canSave) return null\n    const due = []', to: '    const due = []',
+    test: JOURNAL_TEST('a host that cannot save sends nothing') },
+  { id: 'J5', what: 'newerActive in a save answer is ignored', file: JOURNAL,
+    from: '    if (answer.newerActive) this.host.observe?.({ newerActive: true })\n', to: '',
+    test: JOURNAL_TEST('newerActive in any answer reaches the host once') },
+  // ── Realtime: the room reacts to a superseded claim ──
+  { id: 'R1', what: 'on: a superseded session keeps playing (never closed)', file: JOIN,
+    from: "    location.counters.supersededDisconnects++\n    client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n  }\n\n  #supersededWhileHydrating", to: "    location.counters.supersededDisconnects++\n  }\n\n  #supersededWhileHydrating",
+    test: ROOM_TEST('on: T3 in the room') },
+  { id: 'R2', what: 'shadow: a superseded session is disconnected (shadow becomes invasive)', file: JOIN,
+    from: '    if (!location.restores) { location.counters.shadow.wouldReplace++; return }\n', to: '',
+    test: ROOM_TEST('shadow: T3 in the room') },
 ]
 
 function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }

@@ -13,13 +13,18 @@
  *   commitWork(commit): Promise<{ applied: boolean, settlement }>
  *   // Node overrides still in force, for a restart.
  *   loadNodes(): Promise<NodeOverride[]>
- *   // WORLD LOCATION-2: a new session's epoch and the stored location (restore source), only
- *   // if the stored epoch is still `expectedEpoch` (0 = no row yet); otherwise 'conflict' and
- *   // the current epoch, with nothing written (review B2).
- *   locationClaim(userId, expectedEpoch): Promise<{ status: 'claimed', epoch, location: StoredLocation | null }
- *     | { status: 'conflict', epoch } | { status: 'unknown_user' }>
- *   // A batch (1–200) of { userId, epoch, seq, areaId, tx, ty, layoutVersion }: one result per user.
- *   locationSave(rows): Promise<Map<userId, 'applied' | 'duplicate' | 'stale' | 'invalid' | 'unknown'>>
+ *   // WORLD LOCATION-4: a session's claim by its KEY { generation, seq, sessionId, hostId }
+ *   // (fixed at acceptance, the same on every retry). A strictly greater key takes the row
+ *   // (new epoch, the stored location as restore source); the same key adopts it (a lost
+ *   // answer retried); a smaller one is 'superseded' for good. Only from an active host with
+ *   // a live lease: otherwise host_inactive / host_expired / unknown_host, nothing written.
+ *   locationClaim(userId, key): Promise<{ status: 'claimed', epoch, location: StoredLocation | null, newerActive }
+ *     | { status: 'superseded', newerActive } | { status: 'host_inactive', state } | { status: 'host_expired' }
+ *     | { status: 'unknown_host' } | { status: 'unknown_user' }>
+ *   // A batch (1–200) of { userId, epoch, seq, areaId, tx, ty, layoutVersion } written by
+ *   // `host` { generation, hostId }: one result per user, or a refusal for the whole batch.
+ *   locationSave(rows, host): Promise<{ status: 'ok', results: Map<userId, 'applied' | 'duplicate' | 'stale'
+ *     | 'invalid' | 'unknown'>, newerActive } | { status: 'host_inactive' | 'host_expired', state } | { status: 'unknown_host' }>
  *   // WORLD LOCATION-4: this process as a presence host (world_presence_* in the ordering
  *   // migration). Each resolves to the SQL function's own object (see hostLifecycle.js).
  *   presenceAcquire(hostId, leaseMs): Promise<{ generation, state }>
@@ -91,26 +96,58 @@ function readCommit(raw) {
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-const expectation = value => Number.isSafeInteger(value) && value >= 0
 const SAVE_RESULTS = new Set(['applied', 'duplicate', 'stale', 'invalid'])
+const HOST_STATES = new Set(['starting', 'active', 'draining', 'stopped'])
+const positive = value => Number.isSafeInteger(value) && value >= 1
+
+/** A session key { generation, seq, sessionId, hostId }: anything else is a caller bug. */
+export function checkKey(key) {
+  if (!key || !positive(key.generation) || !positive(key.seq) || !UUID.test(key.sessionId ?? '') || !UUID.test(key.hostId ?? '')) throw new Error('invalid session key')
+  return key
+}
+/** A writing host { generation, hostId }. */
+export function checkHost(host) {
+  if (!host || !positive(host.generation) || !UUID.test(host.hostId ?? '')) throw new Error('invalid writing host')
+  return host
+}
+
+/** A host refusal (claim or save): its status, and the host's state when the database gave one. */
+function refusal(answer) {
+  if (answer.status === 'unknown_host' || answer.status === 'unknown_user') return { status: answer.status }
+  if (answer.status === 'host_expired') return { status: 'host_expired', ...(HOST_STATES.has(answer.state) ? { state: answer.state } : {}) }
+  if (answer.status === 'host_inactive' && HOST_STATES.has(answer.state)) return { status: 'host_inactive', state: answer.state }
+  return null
+}
 
 /**
- * A claim answer from either adapter. Anything that is not exactly a claim is
- * an error (the session stays unclaimed and retries); a stored location of the
- * wrong shape is dropped (restores as "no location") rather than trusted.
+ * A keyed claim answer from either adapter. Anything that is not exactly one of the
+ * documented answers is an error (the session retries with the SAME key); a stored location
+ * of the wrong shape is dropped (restores as "no location") rather than trusted.
  */
 export function readClaim(raw) {
   const claim = typeof raw === 'string' ? JSON.parse(raw) : raw
-  if (claim?.status === 'unknown_user') return { status: 'unknown_user' }
-  if (claim?.status === 'conflict') {
-    if (!Number.isSafeInteger(claim.epoch) || claim.epoch < 0) throw new Error('malformed location claim')
-    return { status: 'conflict', epoch: claim.epoch }
-  }
-  if (claim?.status !== 'claimed' || !Number.isSafeInteger(claim.epoch) || claim.epoch < 1) throw new Error('malformed location claim')
+  if (!claim || typeof claim !== 'object') throw new Error('malformed location claim')
+  const refused = refusal(claim)
+  if (refused) return refused
+  const newerActive = claim.newerActive === true
+  if (claim.status === 'superseded') return { status: 'superseded', newerActive }
+  if (claim.status !== 'claimed' || !positive(claim.epoch)) throw new Error('malformed location claim')
   const l = claim.location
   const location = l && typeof l.areaId === 'string' && Number.isInteger(l.tx) && Number.isInteger(l.ty) && typeof l.layoutVersion === 'string'
     ? { areaId: l.areaId, tx: l.tx, ty: l.ty, layoutVersion: l.layoutVersion } : null
-  return { status: 'claimed', epoch: claim.epoch, location }
+  return { status: 'claimed', epoch: claim.epoch, location, newerActive }
+}
+
+/** A keyed save answer: per-row results, or one refusal for the whole batch. */
+export function readSaveAnswer(rows, raw) {
+  const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
+  if (!answer || typeof answer !== 'object') throw new Error('malformed location save')
+  if (answer.status !== 'ok') {
+    const refused = refusal(answer)
+    if (!refused || refused.status === 'unknown_user') throw new Error('malformed location save')
+    return refused
+  }
+  return { status: 'ok', results: readSaveResults(rows, answer.results), newerActive: answer.newerActive === true }
 }
 
 /**
@@ -163,26 +200,29 @@ export function createSqlPlayerData(query) {
       const { rows } = await query('SELECT * FROM public.world_load_nodes()', [])
       return rows.map(nodeOverride)
     },
-    async locationClaim(userId, expectedEpoch) {
+    async locationClaim(userId, key) {
       if (!UUID.test(userId)) throw new Error('invalid user id')
-      if (!expectation(expectedEpoch)) throw new Error('invalid expected epoch')
-      const { rows } = await query('SELECT public.world_location_claim($1::uuid, $2::bigint) AS claim', [userId, expectedEpoch])
+      const { generation, seq, sessionId, hostId } = checkKey(key)
+      const { rows } = await query('SELECT public.world_location_claim_keyed($1::uuid, $2::bigint, $3::bigint, $4::uuid, $5::uuid) AS claim', [userId, generation, seq, sessionId, hostId])
       return readClaim(rows[0]?.claim)
     },
-    async locationSave(batch) {
-      const { rows } = await query('SELECT public.world_location_save($1::jsonb) AS results', [JSON.stringify(batch)])
-      return readSaveResults(batch, rows[0]?.results)
+    async locationSave(batch, host) {
+      const { generation, hostId } = checkHost(host)
+      const { rows } = await query('SELECT public.world_location_save_keyed($1::jsonb, $2::bigint, $3::uuid) AS answer', [JSON.stringify(batch), generation, hostId])
+      return readSaveAnswer(batch, rows[0]?.answer)
     },
   }
 }
 
 export const EDGE_TIMEOUT_MS = 6_000
 /**
- * WORLD LOCATION-2: the claim sits on the join path, so it gets its own short
- * budget (the room enables the session with a safe fallback at 1.5 s anyway);
- * a save batch is off any player's path.
+ * WORLD LOCATION-4: the claim's request budget is separate from the 1.5 s the room
+ * waits before placing the player with a safe fallback (HYDRATION_TIMEOUT_MS). Measured
+ * hosted p99 ≈ 1.45 s (LOCATION-3B), so 4 s ≈ 2.7 × p99. This only makes abandoned
+ * claims rarer; it is not what orders sessions (the key is). A save batch is off any
+ * player's path.
  */
-export const LOCATION_CLAIM_TIMEOUT_MS = 1_500
+export const LOCATION_CLAIM_TIMEOUT_MS = 4_000
 export const LOCATION_SAVE_TIMEOUT_MS = 5_000
 
 /**
@@ -226,14 +266,17 @@ export function createEdgePlayerData({
       return readCommit((await call('commit_work', { commit })).result)
     },
     async loadNodes() { return ((await call('load_nodes', {})).nodes ?? []).map(nodeOverride) },
-    async locationClaim(userId, expectedEpoch) {
+    async locationClaim(userId, key) {
       if (!UUID.test(userId)) throw new Error('invalid user id')
-      if (!expectation(expectedEpoch)) throw new Error('invalid expected epoch')
+      const { generation, seq, sessionId, hostId } = checkKey(key)
       // Aborting at the budget only stops waiting: the call may still land later. That is
-      // safe because the claim is conditional on `expectedEpoch` (see the migration).
-      return readClaim((await call('location_claim', { userId, expectedEpoch }, claimTimeoutMs)).claim)
+      // safe: a late claim carries the same key, so it can only adopt or be superseded.
+      return readClaim((await call('location_claim', { userId, generation, seq, sessionId, hostId }, claimTimeoutMs)).claim)
     },
-    async locationSave(rows) { return readSaveResults(rows, (await call('location_save', { rows }, saveTimeoutMs)).results) },
+    async locationSave(rows, host) {
+      const { generation, hostId } = checkHost(host)
+      return readSaveAnswer(rows, await call('location_save', { rows, generation, hostId }, saveTimeoutMs))
+    },
     presenceAcquire: async (hostId, leaseMs) => readHostAnswer(await call('presence_acquire', { hostId, leaseMs })),
     presenceActivate: async (generation, hostId, leaseMs) => readHostAnswer(await call('presence_activate', { generation, hostId, leaseMs })),
     presenceRenew: async (generation, hostId, leaseMs) => readHostAnswer(await call('presence_renew', { generation, hostId, leaseMs })),
