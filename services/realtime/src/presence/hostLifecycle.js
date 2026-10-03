@@ -19,6 +19,12 @@ import { randomUUID } from 'node:crypto'
  * two coexist for at most one renew period plus one round trip. Ordering never depends on
  * that window: keys do it (a newer host's sessions always outrank an older host's).
  *
+ * Serialization (review F3): activate, drain, stop and renew run one at a time, in call order,
+ * on one lane, so this process never holds two of the database's host locks at once (activate
+ * takes a table lock; renew, drain and stop a row lock) and never inverts their order. A renew is
+ * not started while activate, drain or stop is queued or running (the next tick renews). Every
+ * operation catches its own failures: nothing on the lane can reject unobserved.
+ *
  * Clocks: leases are the database's now(); this process only schedules (monotonic timers).
  * No answer here is ever retried forever: transport failures back off and stop with the
  * process state; host_inactive / unknown_host stop the host; host_expired pauses claims and
@@ -35,6 +41,8 @@ export const ACQUIRE_WAIT_MS = 10_000
 export const ACTIVATION_WAIT_MS = 2_000
 /** Renewals with the lease still expired before the host gives up and drains. */
 export const EXPIRED_RENEWALS = 3
+/** Attempts of drain and stop on transport errors (40P01 included), backing off between them. */
+export const HOST_CALL_ATTEMPTS = 3
 const RETRY_BASE_MS = 500
 const RETRY_MAX_MS = 5_000
 
@@ -73,6 +81,10 @@ export class HostLifecycle {
     this.accepted = 0
     this.timer = null
     this.renewing = null
+    /** The lane: activate, drain, stop and renew, one at a time (never rejects). */
+    this.lane = Promise.resolve()
+    /** activate / drain / stop queued or running: no renew starts meanwhile. */
+    this.exclusive = 0
     this.waiters = new Set()
     this.counters = { acquireRetries: 0, activation: null, renewals: 0, renewFailures: 0, newerActive: 0, expired: 0, refusedAnswers: 0, keys: 0 }
   }
@@ -128,13 +140,28 @@ export class HostLifecycle {
     }
   }
 
+  /** Runs `op` on the lane after everything already on it. `exclusive`: no renew starts meanwhile. */
+  #serial(op, exclusive) {
+    if (exclusive) this.exclusive++
+    const run = this.lane.then(op).finally(() => { if (exclusive) this.exclusive-- })
+    this.lane = run.catch(() => {})
+    return run
+  }
+
   /**
-   * After listen: starting → active. Transport failures are retried (activate is idempotent);
-   * any refusal (newer_active, host_expired, host_inactive, unknown_host) stops this host.
+   * After listen: starting → active. Waits for any renew in flight. Transport failures
+   * (40P01 included) are retried a bounded number of times (activate is idempotent); any
+   * refusal (newer_active, host_expired, host_inactive, unknown_host) stops this host.
    */
-  async activate() {
-    if (this.state !== 'starting') return this.state
+  activate() {
+    if (this.state !== 'starting') return Promise.resolve(this.state)
+    return this.#serial(() => this.#activate(), true)
+  }
+
+  async #activate() {
     for (let attempt = 0; attempt < 6; attempt++) {
+      // A drain or stop that came first wins: never bring a host back.
+      if (this.state !== 'starting') return this.state
       let answer
       try {
         answer = await this.store.presenceActivate(this.generation, this.hostId, this.leaseMs)
@@ -144,47 +171,87 @@ export class HostLifecycle {
       }
       this.counters.activation = answer?.status ?? 'malformed'
       if (answer?.status === 'active') {
-        this.state = 'active'
+        if (this.state === 'starting') this.state = 'active'
         this.#settleWaiters()
         return this.state
       }
       this.log(`[host] activation refused (${this.counters.activation}): this process stops serving as a presence host`)
-      await this.stop()
+      await this.#stopNow()
       this.onActivationRefused(this.counters.activation)
       return this.state
     }
     this.counters.activation = 'unreachable'
     this.log('[host] activation unreachable: this process stops serving as a presence host')
-    await this.stop()
+    await this.#stopNow()
     this.onActivationRefused('unreachable')
     return this.state
   }
 
-  /** active → draining (fixed flush window). Idempotent; never throws. */
-  async drain() {
-    if (this.state !== 'active' && this.state !== 'starting') return this.state
-    const from = this.state
-    this.state = from === 'active' ? 'draining' : 'stopped'
+  /**
+   * active → draining (fixed flush window); starting → stopped. The local state changes at once
+   * (claims stop now); the database call waits for any renew in flight. A host whose lease
+   * already ran out is NOT revived (host_expired): it stops and cannot flush. Idempotent;
+   * never throws.
+   */
+  drain() {
+    if (this.state !== 'active' && this.state !== 'starting') return Promise.resolve(this.state)
+    this.state = this.state === 'active' ? 'draining' : 'stopped'
     this.#settleWaiters()
-    try {
-      const answer = await this.store.presenceDrain(this.generation, this.hostId, this.drainWindowMs)
-      if (answer?.state === 'stopped') this.state = 'stopped'
-    } catch (error) {
-      this.log(`[host] drain call failed (${String(error?.message ?? error).slice(0, 60)}); the lease runs out on its own`)
+    return this.#serial(() => this.#drainCall(), true)
+  }
+
+  async #drainCall() {
+    for (let attempt = 0; attempt < HOST_CALL_ATTEMPTS; attempt++) {
+      try {
+        const answer = await this.store.presenceDrain(this.generation, this.hostId, this.drainWindowMs)
+        if (answer?.status === 'host_expired') {
+          // The last positions of this host are lost rather than handing authority back to a
+          // host whose lease ran out (review F6); the save CAS is only a second line of defence.
+          this.log('[host] drain refused: the lease already ran out; nothing is flushed')
+          this.state = 'stopped'
+          this.#settleWaiters()
+        } else if (answer?.state === 'stopped') this.state = 'stopped'
+        break
+      } catch (error) {
+        if (attempt === HOST_CALL_ATTEMPTS - 1) this.log(`[host] drain call failed (${String(error?.message ?? error).slice(0, 60)}); the lease runs out on its own`)
+        else await this.sleep(retryMs(attempt))
+      }
     }
     if (this.state === 'stopped') this.#stopRenewing()
     return this.state
   }
 
-  /** Any → stopped (terminal). Idempotent; never throws. */
-  async stop() {
+  /** Any → stopped (terminal), at once locally; the database call waits its turn. Idempotent; never throws. */
+  stop() {
     const had = this.generation !== null && this.state !== 'stopped'
+    this.#markStopped()
+    if (!had) return Promise.resolve(this.state)
+    return this.#serial(() => this.#stopCall(), true)
+  }
+
+  /** stop from inside the lane (activate's refusal): already this operation's turn. */
+  async #stopNow() {
+    const had = this.generation !== null && this.state !== 'stopped'
+    this.#markStopped()
+    if (had) await this.#stopCall()
+    return this.state
+  }
+
+  #markStopped() {
     this.state = 'stopped'
     this.#stopRenewing()
     this.#settleWaiters()
-    if (!had) return this.state
-    try { await this.store.presenceStop(this.generation, this.hostId) } catch (error) {
-      this.log(`[host] stop call failed (${String(error?.message ?? error).slice(0, 60)}); the lease runs out on its own`)
+  }
+
+  async #stopCall() {
+    for (let attempt = 0; attempt < HOST_CALL_ATTEMPTS; attempt++) {
+      try {
+        await this.store.presenceStop(this.generation, this.hostId)
+        return this.state
+      } catch (error) {
+        if (attempt === HOST_CALL_ATTEMPTS - 1) this.log(`[host] stop call failed (${String(error?.message ?? error).slice(0, 60)}); the lease runs out on its own`)
+        else await this.sleep(retryMs(attempt))
+      }
     }
     return this.state
   }
@@ -202,11 +269,19 @@ export class HostLifecycle {
     this.timer = null
   }
 
-  /** One renewal (also run at once after a refused answer). Single-flight; never throws. */
+  /**
+   * One renewal (also run at once after a refused answer). Single-flight, on the lane; never
+   * started while activate, drain or stop is queued or running; never throws.
+   */
   renew() {
     if (this.renewing) return this.renewing
+    if (this.exclusive > 0) return Promise.resolve(this.state)
     if (this.state !== 'starting' && this.state !== 'active' && this.state !== 'draining') return Promise.resolve(this.state)
-    this.renewing = (async () => {
+    this.renewing = this.#serial(async () => {
+      if (this.state !== 'starting' && this.state !== 'active' && this.state !== 'draining') {
+        this.renewing = null
+        return this.state
+      }
       try {
         const answer = await this.store.presenceRenew(this.generation, this.hostId, this.leaseMs)
         this.counters.renewals++
@@ -221,7 +296,7 @@ export class HostLifecycle {
         this.renewing = null
       }
       return this.state
-    })()
+    }, false)
     return this.renewing
   }
 

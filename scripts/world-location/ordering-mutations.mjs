@@ -27,6 +27,7 @@ const ROOM = `${RT}src/rooms/PresenceRoom.js`
 const HOSTING = `${RT}src/rooms/presenceHosting.js`
 const HOSTING_TEST = name => expecting(node('src/rooms/presenceHosting.test.js'), name)
 const HOST_TEST = name => expecting(node('src/presence/hostLifecycle.test.js'), name)
+const SERIAL_TEST = name => expecting(node('src/presence/hostLifecycleSerial.test.js'), name)
 const ROOM_HOST_TEST = name => expecting(node('src/rooms/PresenceRoomHost.test.js'), name)
 const JOURNAL = `${RT}src/presence/locationJournal.js`
 const JOIN = `${RT}src/rooms/locationJoin.js`
@@ -214,6 +215,13 @@ export const MUTATIONS = [
   { id: 'S2', what: 'in on, a stopped host leaves the process alive (refusing every join)', file: HOSTING,
     from: '    this.onStopped(reason)\n', to: '',
     test: HOSTING_TEST('a stopped host in on ends the process once') },
+  // ── Realtime: lifecycle serialization (review F3) ──
+  { id: 'T1', what: 'activate, drain, stop and renew are not serialized (lock inversion possible)', file: HOST,
+    from: '    const run = this.lane.then(op).finally(', to: '    const run = Promise.resolve().then(op).finally(',
+    test: SERIAL_TEST('activate ↔ renew') },
+  { id: 'T2', what: 'an activate answer brings back a host stopped meanwhile', file: HOST,
+    from: "        if (this.state === 'starting') this.state = 'active'\n", to: "        this.state = 'active'\n",
+    test: SERIAL_TEST('a drain or stop asked while activate runs wins') },
   // ── Client: close codes, resume and «Jugar acá» (design §5.2, §3.6) ──
   { id: 'K1', what: 'automatic reconnections join fresh (they displace the other tab)', file: 'src/features/wildlands/multiplayer/api/colyseusPresence.ts',
     from: '      void this.connect(identity, { resume: true })\n    }, delay)', to: '      void this.connect(identity)\n    }, delay)',
