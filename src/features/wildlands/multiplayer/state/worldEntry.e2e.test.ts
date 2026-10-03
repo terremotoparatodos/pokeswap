@@ -4,6 +4,10 @@ import type { WildlandsGame as Game } from '../../engine/game'
 import type { RemotePresenceActor } from '../domain/presence'
 import type { WorldEntryState } from '../domain/worldEntry'
 import type { WorldEntryController as Controller } from './worldEntryController'
+// @ts-expect-error -- the server's wire module ships no declaration file; this test reads one constant from it.
+import { AREA as WIRE_AREA } from '../../../../../services/realtime/src/protocol/messages.js'
+
+const AREA = WIRE_AREA as { readonly TOWN: string }
 
 // PRESENCE UX-1 end to end through the REAL client pieces: the WildlandsGame
 // engine (its frame loop, renderer call and input guards), the ColyseusPresence
@@ -223,7 +227,8 @@ describe('first online entry (PRESENCE UX-1)', () => {
     expect(s.drawn).toEqual([])
     await enter(s, { access: 'guest', actors: [] })
     runFrames(10)
-    expect(s.visible()).toEqual(['ciudad-corazon'])
+    // The server starts every observer in AREA.TOWN (guestAreaContract.test.ts).
+    expect(s.visible()).toEqual([AREA.TOWN])
     expect(s.internals.spectator).toBe(true)
     expect(s.phase()).toBe('ready')
   })
