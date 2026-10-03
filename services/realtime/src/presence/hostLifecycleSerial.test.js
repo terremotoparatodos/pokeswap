@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { HOST_CALL_ATTEMPTS, HostLifecycle } from './hostLifecycle.js'
+import { EXPIRED_RENEWALS, HOST_CALL_ATTEMPTS, HOST_LEASE_MS, HOST_RENEW_MS, HostLifecycle } from './hostLifecycle.js'
 
 // WORLD LOCATION-4, review F3: activate, drain, stop and renew are serialized in this process,
 // so it never holds two of the database's host locks at once (activate: a table lock; renew,
@@ -180,6 +180,26 @@ test('40P01 forever: every operation gives up after its bound, without throwing 
   } finally {
     process.off('unhandledRejection', onUnhandled)
   }
+})
+
+test('an expired lease drains only after two full lease periods of renewals (design §3.3.4)', async () => {
+  assert.equal(EXPIRED_RENEWALS, 6)
+  assert.ok(EXPIRED_RENEWALS * HOST_RENEW_MS >= 2 * HOST_LEASE_MS)
+  assert.ok((EXPIRED_RENEWALS - 1) * HOST_RENEW_MS < 2 * HOST_LEASE_MS, 'and not one renewal more')
+  const store = barrierStore()
+  store.answers.presenceRenew = () => ({ status: 'ok', state: 'active', newerActive: false, leaseLive: false })
+  const expired = []
+  // The production lease and renewal (the helper's host renews every 60 s).
+  const h = new HostLifecycle({ store, log: () => {}, sleep: () => Promise.resolve(), onExpired: () => expired.push(1) })
+  h.generation = 7
+  h.state = 'active'
+  assert.equal(h.expiredRenewals, 6, 'the default follows the lease and the renewal')
+  for (let i = 0; i < 5; i++) await h.renew()
+  assert.deepEqual(expired, [], 'five renewals (25 s) are not yet two leases')
+  await h.renew()
+  assert.deepEqual(expired, [1], 'the sixth (30 s) gives up: the room drains')
+  const custom = new HostLifecycle({ store, leaseMs: 20_000, renewMs: 4_000, log: () => {} })
+  assert.equal(custom.expiredRenewals, 10)
 })
 
 test('drain refused with host_expired: the host stops and cannot flush (never revived)', async () => {

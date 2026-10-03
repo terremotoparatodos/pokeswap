@@ -39,8 +39,13 @@ export const HOST_DRAIN_WINDOW_MS = 10_000
 export const ACQUIRE_WAIT_MS = 10_000
 /** How long a join waits for the activation that follows listen. */
 export const ACTIVATION_WAIT_MS = 2_000
-/** Renewals with the lease still expired before the host gives up and drains. */
-export const EXPIRED_RENEWALS = 3
+/**
+ * Renewals with the lease still expired before the host gives up and drains: as many as cover two
+ * full lease periods (design §3.3.4: "still expired after 2 lease periods"). 15 s lease, 5 s
+ * renewal: 6 renewals, 30 s. Derived, so the lease and the renewal can never contradict it.
+ */
+export const expiredRenewalsFor = (leaseMs, renewMs) => Math.ceil((2 * leaseMs) / renewMs)
+export const EXPIRED_RENEWALS = expiredRenewalsFor(HOST_LEASE_MS, HOST_RENEW_MS)
 /** Attempts of drain and stop on transport errors (40P01 included), backing off between them. */
 export const HOST_CALL_ATTEMPTS = 3
 const RETRY_BASE_MS = 500
@@ -59,7 +64,7 @@ export class HostLifecycle {
    */
   constructor({
     store, hostId = randomUUID(), leaseMs = HOST_LEASE_MS, renewMs = HOST_RENEW_MS, drainWindowMs = HOST_DRAIN_WINDOW_MS,
-    expiredRenewals = EXPIRED_RENEWALS, onNewerActive = () => {}, onExpired = () => {}, onActivationRefused = () => {}, log = message => console.warn(message), sleep = wait,
+    expiredRenewals = expiredRenewalsFor(leaseMs, renewMs), onNewerActive = () => {}, onExpired = () => {}, onActivationRefused = () => {}, log = message => console.warn(message), sleep = wait,
   }) {
     this.store = store
     this.hostId = hostId

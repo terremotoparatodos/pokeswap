@@ -242,6 +242,9 @@ export const MUTATIONS = [
   { id: 'T2', what: 'an activate answer brings back a host stopped meanwhile', file: HOST,
     from: "        if (this.state === 'starting') this.state = 'active'\n", to: "        this.state = 'active'\n",
     test: SERIAL_TEST('a drain or stop asked while activate runs wins') },
+  { id: 'U1', what: 'an expired lease gives up after one lease period, not two (contradicts the design)', file: HOST,
+    from: 'export const expiredRenewalsFor = (leaseMs, renewMs) => Math.ceil((2 * leaseMs) / renewMs)', to: 'export const expiredRenewalsFor = (leaseMs, renewMs) => Math.ceil(leaseMs / renewMs)',
+    test: SERIAL_TEST('an expired lease drains only after two full lease periods') },
   // ── Client: close codes, resume and «Jugar acá» (design §5.2, §3.6) ──
   { id: 'K1', what: 'automatic reconnections join fresh (they displace the other tab)', file: 'src/features/wildlands/multiplayer/api/colyseusPresence.ts',
     from: '      void this.connect(identity, { resume: true })\n    }, delay)', to: '      void this.connect(identity)\n    }, delay)',
