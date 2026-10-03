@@ -47,8 +47,8 @@ overlay opaco "Entrando al mundo…" (escena retenida, nada dibujado, sin HUD, s
 | `connecting` | fondo neutro opaco, «Entrando al mundo…» | bloqueado | `prepared` → `ready`; 12 s sin autoridad → `connection-error` (`entry`); 4001 → `replaced` |
 | `ready` | la escena | normal | pérdida o cambio de sesión → `reconnecting`; 4001 → `replaced` |
 | `reconnecting` | último frame atenuado, «Reconectando…» | bloqueado | `prepared` → `ready`; 15 s sin autoridad → `connection-error` (`reconnect`); 4001 → `replaced` |
-| `connection-error` | «No pudimos entrar al mundo.» o «No pudimos reconectar.» + **Reintentar** | bloqueado | Reintentar → la espera que falló |
-| `replaced` | «Tu sesión se abrió en otra pestaña.», sin botón | bloqueado | — (final) |
+| `connection-error` | «No pudimos entrar al mundo.» o «No pudimos reconectar.» + **Reintentar** (con foco) | bloqueado | Reintentar → la espera que falló |
+| `replaced` | «Tu sesión se abrió en otra pestaña o dispositivo.» (con foco), sin botón | bloqueado | — (final) |
 
 Tres condiciones separadas en el estado:
 - `authority`: el socket actual recibió un snapshot;
@@ -96,14 +96,16 @@ WildlandsView (cableado)
 - **Overlay (`WorldEntryOverlay.vue`):**
   - z-index 50: tapa el HUD del mundo (≤ 35) y deja el botón de bugs del playtest (60) y el modal de auth;
   - toma todos los punteros;
-  - `role="status"` con `aria-busy` mientras espera, `role="alert"` en error y en `replaced`;
+  - mientras se ve, todo lo que tapa queda `inert` (`components/entryInert.ts`), incluso lo que aparece después; solo un diálogo modal por encima (el de ingreso) sigue usable (R4);
+  - `role="status"` con `aria-busy` mientras espera, `role="alert"` en error y en `replaced`, rotulado por su mensaje (`aria-labelledby`);
+  - el foco va a Reintentar en error y al mensaje (`tabindex="-1"`) en `replaced` (R4);
   - el botón es nativo, con `type="button"` y 44 px mínimos.
 
 ### Decisiones y rótulos
 
-- **INFERENCE — área del invitado:** el snapshot de invitado no trae área (`{ access: 'guest', actors }`). El servidor ubica a todo observador nuevo en Ciudad (`PresenceRoom.onJoin`: `observer: { areaId: AREA.TOWN, … }`). El cliente muestra la escena por defecto, Ciudad, recién cuando llega ese snapshot. Ya no se usa `?area=` para invitados online.
+- **Área del invitado (contrato desde R1):** el snapshot de invitado no trae área (`{ access: 'guest', actors }`). El servidor ubica a todo observador nuevo en `AREA.TOWN` (`PresenceRoom.onJoin`, fijado por `PresenceRoom.test.js`). El cliente muestra su área por defecto, `LOBBY_ID`, recién cuando llega ese snapshot. `guestAreaContract.test.ts` importa `AREA` del módulo de protocolo del servidor y exige `LOBBY_ID === AREA.TOWN`; el e2e de invitado compara contra `AREA.TOWN`. Ya no se usa `?area=` para invitados online.
 - **FACT — `?area=` del benchmark:** `ColyseusPresence` sigue mandando `benchmark.area` solo con `VITE_PRESENCE_BENCHMARK=on` en DEV/PERF, y solo lo lee `BenchmarkPresenceRoom`. No se tocó.
-- **Decisión — `replaced` sin botón:** el brief pide «sin reintento automático» y no menciona un botón. Ofrecer uno echaría a la otra pestaña. Se recarga la página.
+- **Decisión — `replaced` sin botón:** el brief pide «sin reintento automático» y no menciona un botón. Ofrecer uno echaría a la otra pestaña o dispositivo. Se recarga la página.
 - **PREEXISTENTE — `watch(user)`:** `useAuth` reasigna `user` en cada `onAuthStateChange`, incluidos los refrescos de token. Antes eso ya reemplazaba el socket. Ahora se ve como un «Reconectando…» breve, que no remonta el área si es la misma. No se cambió (fuera de alcance).
 - **Timer inicial:** los 12 s corren desde que se abre el socket, después de cargar la Pokédex y esperar la sesión, como el `connect()` anterior.
 - **Tamaño:** `game.ts` (1117 → 1142) y `WildlandsView.vue` (717 → 752) ya superaban las guías de tamaño. Lo nuevo vive en módulos propios; en esos dos archivos solo hay cableado.
@@ -238,7 +240,131 @@ Se hizo con un build de esta rama servido con `vite preview` en el puerto 5191 y
    - recargar estando en Pradera y en la cueva: nunca se ve Ciudad, ni siquiera el minimapa;
    - recargar como invitado: «Entrando al mundo…» y después Ciudad;
    - cortar la red unos segundos: «Reconectando…» sobre la última escena, sin moverse, y vuelve a la misma área;
-   - abrir la cuenta en otra pestaña: la vieja dice «Tu sesión se abrió en otra pestaña.» y no vuelve a conectarse;
+   - abrir la cuenta en otra pestaña: la vieja dice «Tu sesión se abrió en otra pestaña o dispositivo.», con el foco en ese mensaje, y no vuelve a conectarse;
+   - con teclado: en «Entrando al mundo…» Tab no llega a nada del mundo; en error Tab queda en Reintentar y Enter reintenta;
    - realtime caído: «No pudimos entrar al mundo.» a los 12 s, y Reintentar entra cuando vuelve.
 
 **Integración:** merge `--no-ff` en `integration/world-skills-0.3`. El realtime no cambia, así que para la validación oscura alcanza con reiniciar el cliente. Requiere autorización aparte.
+
+## 8. Revisión 1 y correcciones (R1–R4)
+
+La revisión de `20af2d0` dio **APPROVE WITH REQUIRED FIXES**. Correcciones, una por commit, sobre la misma rama:
+
+| Commit | Qué |
+| --- | --- |
+| `3dcc3b2` | **R1** contrato del área invitada: `guestAreaContract.test.ts` (`LOBBY_ID === AREA.TOWN`, importado de `services/realtime/src/protocol/messages.js`); el e2e de invitado compara contra `AREA.TOWN` |
+| `9e2323e` | **R2** snapshot posterior al timeout: e2e, máquina y controlador |
+| `9e96acb` | **R3** `if (disposed) return` después del `await import('../perf/usePerfCapture')` en `WildlandsView`, más una prueba que monta la vista real |
+| `849c657` | **R4** overlay accesible: `inert`, foco y el texto de 4001 |
+| `0c3f6ae` | **R4** ciclo de vida completo de `inert`, con el `AuthModal` real |
+| `6c144ed` | **R4** `holdScene` suelta el teclado por sí mismo (cierra el control negativo N14) |
+
+Sin cambios en `services/`, `supabase/`, `scripts/`, `package*.json`, el protocolo, SQL, Edge Functions ni la persistencia: `git diff --name-only 80c6ab8..HEAD -- services supabase scripts package.json package-lock.json` está vacío.
+
+### 8.1 Qué prueba cada corrección
+
+- **R1:**
+  - el import de `messages.js` vive solo en dos tests, con `@ts-expect-error` porque el módulo no trae `.d.ts` y agregarle uno tocaría `services/`;
+  - en `dist` (normal y Playtest) no aparecen `TOWN:"ciudad-corazon"`, `OBSERVE:"observe"`, `CHAT_HISTORY:"chat:history"`, `guestAreaContract` ni `WIRE_AREA`;
+  - control positivo del método: `WORK_RESULT:` de `worldProtocol.js`, que sí se bundlea, aparece en 1 archivo.
+- **R2:**
+  - e2e: timeout de la entrada → la room vieja entrega un snapshot tardío de `cueva-inicial` **antes** de reintentar. Sigue en `connection-error`; no se dibuja nada; 0 `enterArea`; no hay `revealScene` ni `keys.attach`. Tap, drag y una flecha no hacen nada; la posición queda igual; no se crea `Client` ni join durante 60 s;
+  - máquina: desde `connection-error`, `snapshot`, `prepared`, `lost`, `timeout`, `prepare-failed` y `renew` devuelven el mismo estado; solo `retry` vuelve a esperar (`replaced` sigue siendo final);
+  - controlador: tras el timeout, el estado del socket viejo y `renew` no cambian nada; solo `retry` abre el segundo socket.
+- **R3:** `worldEntryView.unmount.test.ts` monta `WildlandsView` (build de medición online) con el import de captura retenido. Desmonta, libera el import y comprueba:
+  - 0 controladores, 0 `Client` y sin `attach` de la captura;
+  - sin timers, frames ni listeners nuevos;
+  - `entry`, `loading` y `perfCapture` sin cambios.
+- **R4:**
+  - `entryInert.test.ts`: cubre a todos los hermanos menos a sí mismo; respeta un diálogo modal; deja como estaba lo que ya era `inert`; cubre lo que aparece después; al liberar deja de observar; saca el foco de un input tapado;
+  - `WorldEntryOverlay.keyboard.test.ts`, con el overlay entre sus hermanos reales:
+    - en `connecting` el orden de tabulación queda vacío;
+    - una pérdida saca el foco del chat;
+    - en error y en el error de reconexión el foco va a Reintentar, único destino de Tab;
+    - en `replaced` el foco va al mensaje, sin botón ni destinos;
+    - en `ready` no queda nada `inert` ni foco en el overlay que ya no está;
+    - lo que aparece mientras está cubierto queda cubierto y el diálogo de ingreso no;
+    - desmontar libera todo;
+  - `entryInert.lifecycle.test.ts`:
+    - recorre connecting → error → retry → ready → reconnecting → error → retry → ready → replaced → unmount con el `AuthModal` real;
+    - lo que ya era `inert` sigue igual y nada más queda `inert` en `ready` ni al desmontar;
+    - como máximo 1 `MutationObserver` activo; se crean 3 (una por aparición) y ninguno sobrevive;
+    - el `AuthModal` sigue usable, abierto antes o durante el overlay;
+  - e2e de teclado: flechas, WASD, Space y E no mueven ni interactúan en `connecting` ni en `reconnecting`, y una flecha sostenida durante la espera no camina después del reveal;
+  - `sceneHold`: con acceso de jugador intacto, `holdScene` suelta el teclado y una flecha apretada mientras está retenida no camina después del reveal.
+
+### 8.2 Controles negativos
+
+Runner `mutants-r.py` sobre una copia `git archive` (no sobre el worktree). Corre la batería focalizada (`multiplayer`, `sceneHold`, `components`) y restaura cada archivo.
+
+- **Los 22 originales: 22/22 muertos**, cada uno en el test que nombra su causa.
+- **Nuevos: 16/16 muertos** (N14 al segundo intento, ver abajo).
+
+| # | Mutante | Muere en |
+| --- | --- | --- |
+| N1 | R2: el timeout no cierra el socket | e2e snapshot tardío + controlador |
+| N2 | R2: `closeSocket` no avanza la generación **y** el adaptador aplica la room dejada | e2e snapshot tardío + e2e retry + controlador |
+| N3 | R2: la máquina sale de `connection-error` con un snapshot | máquina |
+| N4 | R2: la máquina sale de `connection-error` con `prepared` | máquina |
+| N5 | R3: sin el guard después del import de captura | prueba de montaje (`controllers` = 1) |
+| N6 | R4: el overlay no hace `inert` | teclado y foco (6 tests) |
+| N7 | R4: el error no enfoca Reintentar | teclado y foco |
+| N8 | R4: `replaced` no enfoca su mensaje | teclado y foco |
+| N9 | R4: liberar deja el mundo `inert` | `entryInert` + teclado |
+| N10 | R4: el diálogo de ingreso también queda `inert` | `entryInert` + teclado |
+| N11 | R4: lo que aparece después no se cubre | `entryInert` + teclado |
+| N12 | R4: el foco se queda en un input tapado | `entryInert` + teclado |
+| N13 | R4: el texto viejo de 4001 | overlay + teclado |
+| N14 | R4: `holdScene` no suelta el teclado | `sceneHold` (agregado en `6c144ed`) |
+| N15 | R1: el servidor ubica observadores en otra área (solo en la copia) | contrato + e2e invitado |
+| N16 | R1: el área por defecto del cliente no es Ciudad | e2e invitado y entrada + `sceneHold` |
+
+N14 sobrevivía en la primera corrida (37/38). Todo camino actual hacia el hold pone el acceso en `pending`, que también suelta el teclado, así que el mutante era equivalente en los flujos existentes. Se agregó el test directo del contrato de `holdScene` y el mutante muere.
+
+### 8.3 Gates (código de `849c657`; después solo se agregaron tests, que corrieron aparte)
+
+| Gate | Resultado |
+| --- | --- |
+| Focalizados UX-1 (`multiplayer`, `sceneHold`, `components`) | 26 archivos, 127/127 |
+| Presencia/reconciliación cliente | 94/94 |
+| CAVES-4 cliente | 45/45 |
+| WORLD × SKILLS cliente | 84/84 |
+| Vitest completo | 201 archivos, 1905/1905 |
+| typecheck | OK |
+| lint | 0 errores, los 9 warnings ya existentes (AuthModal) |
+| Build normal + `bundle-check normal` + chequeo de `dist` | ✓ |
+| Build Playtest + `bundle-check playtest` + chequeo de `dist` | ✓ |
+| Realtime Node 24.19 | 492: 461 aprobados, 0 fallos, 31 omitidos |
+| Realtime Node 22.23.2 | 492: 461 aprobados, 0 fallos, 31 omitidos |
+| CAVES-4 + presencia realtime | 126/126 |
+| Drift de SKILLS / `zone-layout --check` | OK / al día |
+
+Todo corrió en copias `git archive` del scratchpad con `node_modules` como junction a int1. No se borró ninguna caché (`.vite` incluida).
+
+### 8.4 Verificación en navegador (teclado real, aislada)
+
+- **Montaje:**
+  - build online de esta rama, con `VITE_REALTIME_URL=ws://127.0.0.1:2690` y Supabase placeholder;
+  - servido con `vite preview` en el 5192 (entrada temporal de `launch.json`, ya quitada);
+  - realtime aislado en modo benchmark en 2690/2691;
+  - el entorno oscuro (2567/2568/5173, `startedAt` 20:28:31Z) y su monitor no se tocaron.
+- **Realtime caído:**
+  - «Entrando al mundo…» con `role="status"`; 9 de los 10 hermanos del overlay `inert` y 0 controles alcanzables;
+  - 4 Tab reales no llegan a nada;
+  - a los 12 s, «No pudimos entrar al mundo.» con `role="alert"` y el foco en Reintentar; 3 Tab reales siguen ahí.
+- **Enter real sobre Reintentar, con el realtime ya levantado:** «Entrando al mundo…» → mundo; 0 `inert`; 7 controles alcanzables; el siguiente Tab cae en un control del mundo («Arriba»).
+- **Pérdida con el foco en «Menú»:**
+  - «Reconectando…» sobre la escena; el foco sale de «Menú»; 9 `inert`; 0 alcanzables;
+  - a los 15 s, «No pudimos reconectar.» con el foco en Reintentar;
+  - Enter real → «Reconectando…» → mundo, 0 `inert`.
+- **Corte breve:** el adaptador reconecta solo («Reconectando…» → mundo, 0 `inert`).
+- **Consola:** solo los errores esperables del placeholder de Supabase (puerto 1).
+- **No verificado en navegador:**
+  - el teclado sobre el motor: en este build el visitante entra como invitado, que nunca camina; lo prueban el e2e y `sceneHold` con acceso de jugador;
+  - 4001 y el `AuthModal` sobre el overlay: los prueban los tests de componente con el `AuthModal` real.
+
+### 8.5 Deudas registradas (no se implementan en este encargo)
+
+1. **Errores y timeout internos de `prepare()`.** Una excepción dentro del callback de `requestIdleCallback` (`engine/chunks.ts`, `buildWhenIdle`) nunca resuelve ni rechaza la promesa. Como `waitLimitMs` ya es `null` con autoridad, la pantalla queda en «Entrando al mundo…» sin timeout ni Reintentar. Hace falta propagar el error o poner un límite que termine en `prepare-failed`. Mismo riesgo que tenía el `prepare` previo a UX-1.
+2. **Refresco de token sin cambio de usuario.** `useAuth` reasigna `user` en cada `onAuthStateChange`, incluidos los refrescos, y `watch(user)` llama a `renew()`. Resultado: hold, «Reconectando…», ruta cancelada y pasos predichos sin confirmar rebobinados. No hay loop ni remontaje. Habría que renovar solo si cambia `user.id`. PREEXISTENTE (antes se reemplazaba el socket igual, sin overlay).
+3. **Cierre de sesión de un invitado dentro de la cueva.** Al pasar de jugador a invitado dentro de `cueva-inicial`, el motor se queda en la cueva y el `observe` de invitado se rechaza (`OBSERVABLE_AREAS` no la incluye). El invitado ve la cueva sin actores. PREEXISTENTE.
