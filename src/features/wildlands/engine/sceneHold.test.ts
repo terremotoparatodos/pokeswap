@@ -107,6 +107,24 @@ describe('scene hold (PRESENCE UX-1)', () => {
     expect(s.attach).not.toHaveBeenCalled()
   })
 
+  it('holding a live player scene lets go of the keyboard itself: a key pressed while held is not walked after the reveal', () => {
+    const s = make({ startArea: 'pradera', presence: true })
+    s.game.setPresenceAccess('player')
+    s.game.start()
+    runFrames(3)
+    const detach = vi.spyOn(s.internals.keys, 'detach')
+    // The player still has access: only the hold stands between the keys and the engine.
+    s.game.holdScene()
+    expect(detach).toHaveBeenCalled()
+    const at = { tx: s.internals.player.tx, ty: s.internals.player.ty }
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'ArrowRight', key: 'ArrowRight' }))
+    runFrames(10)
+    s.game.revealScene()
+    runFrames(60)
+    expect({ tx: s.internals.player.tx, ty: s.internals.player.ty }).toEqual(at)
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'ArrowRight', key: 'ArrowRight' }))
+  })
+
   it('a held scene keeps its last frame: no draw while held, even with a direction pressed', () => {
     const s = make({ startArea: 'pradera', presence: true })
     s.game.setPresenceAccess('player')
