@@ -96,7 +96,9 @@ WildlandsView (cableado)
 - **Overlay (`WorldEntryOverlay.vue`):**
   - z-index 50: tapa el HUD del mundo (≤ 35) y deja el botón de bugs del playtest (60) y el modal de auth;
   - toma todos los punteros;
-  - mientras se ve, todo lo que tapa queda `inert` (`components/entryInert.ts`), incluso lo que aparece después; solo un diálogo modal por encima (el de ingreso) sigue usable (R4);
+  - mientras se ve, todo lo que tapa queda `inert` (`components/entryInert.ts`), incluso lo que aparece después y los otros diálogos (`LobbyPanel`, `PlazaPokemonCard`, `WildPokemonCard`) (R4);
+  - la única excepción es el hermano que lleva `data-world-entry-keep-interactive`. `WildlandsView` se lo pone al `AuthModal` y el atributo cae en su raíz (`.auth-overlay`), que solo contiene el diálogo de ingreso. Se lee en el hermano mismo, nunca en sus descendientes. `aria-modal`, z-index y texto no deciden nada;
+  - si el foco ya está en el diálogo de ingreso, el overlay no lo mueve;
   - `role="status"` con `aria-busy` mientras espera, `role="alert"` en error y en `replaced`, rotulado por su mensaje (`aria-labelledby`);
   - el foco va a Reintentar en error y al mensaje (`tabindex="-1"`) en `replaced` (R4);
   - el botón es nativo, con `type="button"` y 44 px mínimos.
@@ -258,6 +260,7 @@ La revisión de `20af2d0` dio **APPROVE WITH REQUIRED FIXES**. Correcciones, una
 | `849c657` | **R4** overlay accesible: `inert`, foco y el texto de 4001 |
 | `0c3f6ae` | **R4** ciclo de vida completo de `inert`, con el `AuthModal` real |
 | `6c144ed` | **R4** `holdScene` suelta el teclado por sí mismo (cierra el control negativo N14) |
+| `5148b60` | **R4** solo el diálogo de ingreso escapa del `inert`: marcador explícito en lugar de la regla `aria-modal` (finding de la revisión final, §8.6) |
 
 Sin cambios en `services/`, `supabase/`, `scripts/`, `package*.json`, el protocolo, SQL, Edge Functions ni la persistencia: `git diff --name-only 80c6ab8..HEAD -- services supabase scripts package.json package-lock.json` está vacío.
 
@@ -276,14 +279,21 @@ Sin cambios en `services/`, `supabase/`, `scripts/`, `package*.json`, el protoco
   - sin timers, frames ni listeners nuevos;
   - `entry`, `loading` y `perfCapture` sin cambios.
 - **R4:**
-  - `entryInert.test.ts`: cubre a todos los hermanos menos a sí mismo; respeta un diálogo modal; deja como estaba lo que ya era `inert`; cubre lo que aparece después; al liberar deja de observar; saca el foco de un input tapado;
+  - `entryInert.test.ts`: cubre a todos los hermanos menos a sí mismo; solo respeta al hermano marcado (un `aria-modal` queda `inert`, y un contenedor con un descendiente marcado también); deja como estaba lo que ya era `inert`; cubre lo que aparece después; al liberar deja de observar; saca el foco de un input tapado;
+  - `entryInert.panels.test.ts`, con `AuthModal`, `LobbyPanel`, `PlazaPokemonCard` y `WildPokemonCard` reales, en `connecting`, `reconnecting`, `connection-error` y `replaced`:
+    - panel y cartas quedan `inert`, incluidos sus links, inputs y botones;
+    - el `AuthModal` sigue usable (foco, escritura y cierre);
+    - quien escribe en él no pierde el foco cuando llega el error;
+    - abrir y cerrar panel, cartas e ingreso con el overlay ya visible los cubre bien, dos vueltas;
+    - en `ready` vuelve exactamente el `inert` previo; al desmontar no queda `inert` ni observer;
+  - guard de la vista: el marcador aparece una sola vez, en `<AuthModal`. Cae en la raíz `.auth-overlay` y no cambian clase, `role`, `aria-modal` ni `aria-label`. `AuthModal.vue` no lo menciona y ningún estilo lo usa;
   - `WorldEntryOverlay.keyboard.test.ts`, con el overlay entre sus hermanos reales:
     - en `connecting` el orden de tabulación queda vacío;
     - una pérdida saca el foco del chat;
     - en error y en el error de reconexión el foco va a Reintentar, único destino de Tab;
     - en `replaced` el foco va al mensaje, sin botón ni destinos;
     - en `ready` no queda nada `inert` ni foco en el overlay que ya no está;
-    - lo que aparece mientras está cubierto queda cubierto y el diálogo de ingreso no;
+    - lo que aparece mientras está cubierto queda cubierto y el diálogo de ingreso (marcado) no;
     - desmontar libera todo;
   - `entryInert.lifecycle.test.ts`:
     - recorre connecting → error → retry → ready → reconnecting → error → retry → ready → replaced → unmount con el `AuthModal` real;
@@ -321,6 +331,19 @@ Runner `mutants-r.py` sobre una copia `git archive` (no sobre el worktree). Corr
 
 N14 sobrevivía en la primera corrida (37/38). Todo camino actual hacia el hold pone el acceso en `pending`, que también suelta el teclado, así que el mutante era equivalente en los flujos existentes. Se agregó el test directo del contrato de `holdScene` y el mutante muere.
 
+Controles del marcador explícito (`mutants-r4b.py`, sobre una copia de `5148b60`): **11/11 muertos**.
+
+| # | Mutante | Muere en |
+| --- | --- | --- |
+| P1 | vuelve la exclusión genérica por `aria-modal`, junto al marcador | paneles y cartas en las 4 fases + abrir/cerrar + `entryInert` |
+| P2 | la regla anterior: solo `aria-modal`, sin marcador | idem |
+| P3 | un descendiente marcado deja usable a todo su contenedor | `entryInert` |
+| P4 | sin excepción: el ingreso también queda `inert` | paneles (4 fases) + ciclo de vida + teclado |
+| P5 | la vista no marca el `AuthModal` | guard de la vista |
+| P6 | el overlay le roba el foco al diálogo de ingreso | paneles (foco al llegar el error) |
+| N6, N9, N11, N12 | sin `inert`, liberar deja `inert`, sin cubrir lo nuevo, foco en input tapado (repetidos sobre el código nuevo) | paneles, ciclo de vida, `entryInert`, teclado |
+| N17 | liberar no desconecta el observer | paneles + ciclo de vida + `entryInert` |
+
 ### 8.3 Gates (código de `849c657`; después solo se agregaron tests, que corrieron aparte)
 
 | Gate | Resultado |
@@ -339,7 +362,17 @@ N14 sobrevivía en la primera corrida (37/38). Todo camino actual hacia el hold 
 | CAVES-4 + presencia realtime | 126/126 |
 | Drift de SKILLS / `zone-layout --check` | OK / al día |
 
-Sobre la punta final (`086ff5d`, que suma los tests de `0c3f6ae` y `6c144ed` y este reporte): Vitest completo 202 archivos, 1908/1908; focalizados 27 archivos, 130/130; typecheck OK; lint 0 errores. Builds y realtime no se repitieron porque esos commits solo agregan tests y docs.
+Sobre `086ff5d` (los tests de `0c3f6ae` y `6c144ed`): Vitest completo 202 archivos, 1908/1908; focalizados 27 archivos, 130/130; typecheck OK; lint 0 errores.
+
+Sobre `5148b60` (§8.6), en una copia `git archive`:
+- focalizados: 28 archivos, 139/139;
+- presencia cliente: 94/94; CAVES-4 cliente: 45/45;
+- Vitest completo: 203 archivos, 1917/1917;
+- typecheck OK; lint 0 errores (9 warnings ya existentes);
+- builds normal y Playtest con `bundle-check` ✓;
+- `dist`: el marcador aparece en 1 archivo (la vista); los marcadores de `messages.js` siguen en 0.
+
+Realtime no se repitió: el delta no toca `services/`.
 
 Todo corrió en copias `git archive` del scratchpad con `node_modules` como junction a int1. No se borró ninguna caché (`.vite` incluida).
 
@@ -363,10 +396,29 @@ Todo corrió en copias `git archive` del scratchpad con `node_modules` como junc
 - **Consola:** solo los errores esperables del placeholder de Supabase (puerto 1).
 - **No verificado en navegador:**
   - el teclado sobre el motor: en este build el visitante entra como invitado, que nunca camina; lo prueban el e2e y `sceneHold` con acceso de jugador;
-  - 4001 y el `AuthModal` sobre el overlay: los prueban los tests de componente con el `AuthModal` real.
+  - 4001, el `AuthModal` sobre el overlay y paneles o cartas abiertos debajo: los prueban los tests de componente con los componentes reales (§8.1).
 
 ### 8.5 Deudas registradas (no se implementan en este encargo)
 
 1. **Errores y timeout internos de `prepare()`.** Una excepción dentro del callback de `requestIdleCallback` (`engine/chunks.ts`, `buildWhenIdle`) nunca resuelve ni rechaza la promesa. Como `waitLimitMs` ya es `null` con autoridad, la pantalla queda en «Entrando al mundo…» sin timeout ni Reintentar. Hace falta propagar el error o poner un límite que termine en `prepare-failed`. Mismo riesgo que tenía el `prepare` previo a UX-1.
 2. **Refresco de token sin cambio de usuario.** `useAuth` reasigna `user` en cada `onAuthStateChange`, incluidos los refrescos, y `watch(user)` llama a `renew()`. Resultado: hold, «Reconectando…», ruta cancelada y pasos predichos sin confirmar rebobinados. No hay loop ni remontaje. Habría que renovar solo si cambia `user.id`. PREEXISTENTE (antes se reemplazaba el socket igual, sin overlay).
 3. **Cierre de sesión de un invitado dentro de la cueva.** Al pasar de jugador a invitado dentro de `cueva-inicial`, el motor se queda en la cueva y el `observe` de invitado se rechaza (`OBSERVABLE_AREAS` no la incluye). El invitado ve la cueva sin actores. PREEXISTENTE.
+
+### 8.6 Revisión final: diálogos debajo del overlay
+
+La revisión final de `786bb96` encontró que `entryInert` dejaba usable a cualquier hermano que fuera o contuviera `[aria-modal="true"]`. Esto incluía, además del ingreso:
+- `LobbyPanel` (z 20);
+- las cartas de la plaza (z 12), que son hijas directas de `.wl` porque `LobbyPlaza` es un fragmento.
+
+Las tres quedan debajo del overlay (z 50), y sus controles seguían alcanzables con teclado. Pasaba en dos casos:
+- un link directo a una función con sesión iniciada, durante «Entrando al mundo…»;
+- un panel o una carta abiertos al perder la conexión.
+
+No era una regresión frente a `20af2d0` (que no tenía nada `inert`) ni un problema de seguridad (esas acciones son del servidor), pero contradecía R4.
+
+Corrección (`5148b60`):
+- sin regla genérica: solo queda fuera el hermano que lleva `data-world-entry-keep-interactive`;
+- `WildlandsView` lo pone al `AuthModal` como atributo heredado, así que `AuthModal.vue` no cambia;
+- el overlay no mueve el foco si ya está dentro de ese diálogo.
+
+Pruebas y controles: §8.1 y §8.2.
