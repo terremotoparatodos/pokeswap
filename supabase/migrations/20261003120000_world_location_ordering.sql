@@ -153,7 +153,10 @@ END;
 $$;
 
 -- drain: active → draining with a fixed flush window (renew never extends it); starting → stopped
--- (a candidate that aborts). Idempotent.
+-- (a candidate that aborts). Idempotent. An active host whose lease already ran out is NOT
+-- revived by draining (review F6): host_expired, nothing changes (no draining, no new lease), so
+-- it cannot flush. Losing that host's last positions is preferable to handing authority back to
+-- a host whose lease expired; the save CAS stays a second line of defence, not the rule.
 CREATE OR REPLACE FUNCTION public.world_presence_drain(p_generation bigint, p_host_id uuid, p_drain_ms integer)
 RETURNS jsonb
 LANGUAGE plpgsql
@@ -168,6 +171,9 @@ BEGIN
   END IF;
   SELECT * INTO v FROM public.world_presence_hosts WHERE generation = p_generation AND host_id = p_host_id FOR UPDATE;
   IF NOT FOUND THEN RETURN jsonb_build_object('status', 'unknown_host'); END IF;
+  IF v.state = 'active' AND v.lease_expires_at <= now() THEN
+    RETURN jsonb_build_object('status', 'host_expired', 'state', 'active');
+  END IF;
   IF v.state = 'active' THEN
     UPDATE public.world_presence_hosts
        SET state = 'draining', draining_at = now(), lease_expires_at = now() + make_interval(secs => p_drain_ms / 1000.0)

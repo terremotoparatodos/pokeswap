@@ -215,6 +215,13 @@ export const MUTATIONS = [
   { id: 'S2', what: 'in on, a stopped host leaves the process alive (refusing every join)', file: HOSTING,
     from: '    this.onStopped(reason)\n', to: '',
     test: HOSTING_TEST('a stopped host in on ends the process once') },
+  // ── SQL: drain of an expired host (review F6) ──
+  { id: 'O26', what: 'drain revives a host whose lease ran out (draining with a new window, it can flush)', file: MIGRATION,
+    from: "  IF v.state = 'active' AND v.lease_expires_at <= now() THEN\n    RETURN jsonb_build_object('status', 'host_expired', 'state', 'active');\n  END IF;\n", to: '',
+    test: DB_TEST('drain never revives an expired host') },
+  { id: 'O27', what: 'a drain answered host_expired leaves the host draining (it would try to flush)', file: HOST,
+    from: "          this.state = 'stopped'\n          this.#settleWaiters()\n        } else if", to: "          this.#settleWaiters()\n        } else if",
+    test: SERIAL_TEST('drain refused with host_expired') },
   // ── Realtime: lifecycle serialization (review F3) ──
   { id: 'T1', what: 'activate, drain, stop and renew are not serialized (lock inversion possible)', file: HOST,
     from: '    const run = this.lane.then(op).finally(', to: '    const run = Promise.resolve().then(op).finally(',

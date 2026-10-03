@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
@@ -114,6 +115,20 @@ test('draining never returns to active; stopped is terminal; acquire of a stoppe
   const { generation: c } = await t.acquire(H2)
   assert.deepEqual(await t.drain(c, H2), { status: 'ok', state: 'stopped' })
   assert.deepEqual(await t.stop(c + 50, H2), { status: 'unknown_host' })
+  await t.db.close()
+})
+
+test('drain never revives an expired host (F6): host_expired, still active and expired, no new lease, and it cannot save', async () => {
+  const t = await setup()
+  const g = await t.active(H1)
+  assert.equal((await t.claim(A, g, 1, randomUUID(), H1)).status, 'claimed')
+  await t.expire(g)
+  const before = await t.host(g)
+  assert.deepEqual(await t.drain(g, H1), { status: 'host_expired', state: 'active' })
+  const after = await t.host(g)
+  assert.equal(after.state, 'active', 'not draining')
+  assert.equal(after.lease_expires_at.getTime(), before.lease_expires_at.getTime(), 'no new lease')
+  assert.equal((await t.save([row(A, 1, 1)], g, H1)).status, 'host_expired', 'no flush from a host whose lease ran out')
   await t.db.close()
 })
 
