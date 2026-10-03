@@ -339,6 +339,8 @@ N14 sobrevivía en la primera corrida (37/38). Todo camino actual hacia el hold 
 | CAVES-4 + presencia realtime | 126/126 |
 | Drift de SKILLS / `zone-layout --check` | OK / al día |
 
+Sobre la punta final (`086ff5d`, que suma los tests de `0c3f6ae` y `6c144ed` y este reporte): Vitest completo 202 archivos, 1908/1908; focalizados 27 archivos, 130/130; typecheck OK; lint 0 errores. Builds y realtime no se repitieron porque esos commits solo agregan tests y docs.
+
 Todo corrió en copias `git archive` del scratchpad con `node_modules` como junction a int1. No se borró ninguna caché (`.vite` incluida).
 
 ### 8.4 Verificación en navegador (teclado real, aislada)
