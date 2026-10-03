@@ -506,6 +506,21 @@ test('saves follow the host: refused batches are kept (expired) or dropped (inac
   assert.equal(journal.stats().dropped.hostInactive, 1, 'inactive: dropped and counted, not retried')
 })
 
+test('a claim is never sent while the host cannot claim (paused): the session waits, then claims with its key', async () => {
+  const { journal, store, host, run, begin } = setup()
+  host.paused = true
+  const s = begin(A)
+  assert.deepEqual(await journal.claim(s), { status: 'failed' })
+  assert.equal(store.claims.length, 0, 'nothing sent while paused')
+  assert.equal(journal.statusOf(s), 'unclaimed')
+  await run(10_000)
+  assert.equal(store.claims.length, 0)
+  host.paused = false
+  await run(2_000)
+  assert.equal(journal.statusOf(s), 'claimed')
+  assert.deepEqual(store.keys, [s.key])
+})
+
 test('a host that cannot save sends nothing: paused (lease expired), starting or stopped', async () => {
   for (const state of ['paused', 'starting', 'stopped']) {
     const { journal, store, host, run, actor, join } = setup()

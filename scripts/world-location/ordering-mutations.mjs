@@ -160,7 +160,7 @@ export const MUTATIONS = [
     test: JOURNAL_TEST('T4 (old claim abandoned, lands late, retried)') },
   { id: 'J3', what: 'claims are sent while the host cannot claim', file: JOURNAL,
     from: ' && this.entries.get(entry.userId) === entry && Boolean(this.host?.canClaim)', to: ' && this.entries.get(entry.userId) === entry',
-    test: JOURNAL_TEST('host refusals: expired pauses') },
+    test: JOURNAL_TEST('a claim is never sent while the host cannot claim') },
   { id: 'J4', what: 'saves are sent while the host cannot save', file: JOURNAL,
     from: '    if (!this.host?.canSave) return null\n    const due = []', to: '    const due = []',
     test: JOURNAL_TEST('a host that cannot save sends nothing') },
@@ -170,6 +170,9 @@ export const MUTATIONS = [
   // ── Realtime: the room reacts to a superseded claim ──
   { id: 'R1', what: 'on: a superseded session keeps playing (never closed)', file: JOIN,
     from: "    location.counters.supersededDisconnects++\n    client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n  }\n\n  #supersededWhileHydrating", to: "    location.counters.supersededDisconnects++\n  }\n\n  #supersededWhileHydrating",
+    test: ROOM_TEST('on: T4 in the room') },
+  { id: 'R3', what: 'on: a session superseded while hydrating is not closed', file: JOIN,
+    from: '    if (this.clientsByActor.get(pending.join.auth.userId) === client) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n', to: '',
     test: ROOM_TEST('on: T3 in the room') },
   { id: 'R2', what: 'shadow: a superseded session is disconnected (shadow becomes invasive)', file: JOIN,
     from: '    if (!location.restores) { location.counters.shadow.wouldReplace++; return }\n', to: '',
