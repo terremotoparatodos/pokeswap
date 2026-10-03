@@ -5,6 +5,8 @@
 //                   activates after the newer, the older drains within one renewal and stays
 //                   alive but stopped (/readyz 503, joins 4503: it never exits on its own)
 //   shadow-refused  a shadow candidate refused at activation keeps serving players unchanged
+//   inverted        a new tab on the old host before it learns of the newer one: drained (4503),
+//                   resumes on the newer host, yields to a live tab, «Jugar acá» takes over
 //   failed-startup  the authority refuses presence calls at start: the process serves without
 //                   persistence (no claim, no row), then acquires and activates once it is back
 //   drain           a newer host starts: the older closes every socket with 4503 (never 4001)
@@ -113,6 +115,100 @@ async function shadowRefused(context) {
     for (const p of players) await leave(p.socket)
     return verdict(checks)
   })
+}
+
+/**
+ * The browser client's reaction to a drain (domain/closePolicy.ts + colyseusPresence.ts): a 4503
+ * reconnects automatically WITH resume (it never displaces another tab). A 4409 stops and offers
+ * «Jugar acá», whose join is fresh (an explicit takeover).
+ */
+const reconnectAfterDrain = (server, token, tabId) => connect(server, token, { tabId, resume: true, waitSelf: false })
+const playHere = (server, token, tabId) => connect(server, token, { tabId, waitSelf: false })
+
+/**
+ * Review F4 — the inverted case (design §3.4): Q (newer) is already active; a NEW tab opens on the
+ * old host P before P learns of Q. Two real orders, both bounded:
+ *   drain        every claim answer of the tab on P is slowed (30 s), so P learns through its
+ *                renewals: they fail until the tab is in P (it enters before P can learn), then
+ *                answer d late (the chosen drain moment; d stays under the realtime's 6 s
+ *                authority timeout, or the renewal would fail instead of being heard). P drains
+ *                and closes the tab with 4503; the tab resumes on Q: with another live tab there
+ *                it yields (4409) and the player may press «Jugar acá» (a fresh join: the
+ *                takeover); alone it is admitted.
+ *   claim-first  only the first claim answer is slowed: the journal gives up (5 s) and retries
+ *                with the same key; the answer is superseded (the tab on Q owns the row), so the
+ *                tab is closed with 4409 and the player may press «Jugar acá».
+ * Never does the new tab take anything from the live tab on Q without the explicit takeover.
+ */
+async function inverted(context) {
+  const checks = []
+  const runs = []
+  const cases = [
+    ...[0, 1_500, 3_000, 4_500].flatMap(d => [{ path: 'drain', d, withOther: true }, { path: 'drain', d, withOther: false }]),
+    { path: 'claim-first', d: 0, withOther: true },
+  ]
+  for (const [k, c] of cases.entries()) {
+    const { path, d, withOther } = c
+    const run = await withAuthority(context, async (local, start) => {
+      if (!(await lifecycleOnly(local))) return { applicable: false }
+      const port = context.basePort + k * 20
+      // P must not hear of Q before the new tab is inside: its renewals fail until then.
+      local.rule({ op: 'presence_renew', inst: 'P', mode: 'fail', times: 1_000 })
+      const P = await start({ name: 'P', port, env: local.env('on', 'P') })
+      const Q = await start({ name: 'Q', port: port + 10, env: local.env('on', 'Q') })
+      await waitFor(async () => (await local.hosts()).filter(h => h.state === 'active').length === 2, 10_000)
+      const { userId, token } = await local.player()
+      const other = withOther ? await connect(Q, token, { tabId: 'tab-other-harness' }) : null
+      // The new tab, on the old host, before P learns of Q.
+      local.rule({ op: 'location_claim', inst: 'P', userId, mode: 'slow', ms: 30_000, times: path === 'drain' ? 100 : 1 })
+      const joinedAt = performance.now()
+      const tab = await connect(P, token, { tabId: 'tab-inverted-harness', waitSelf: false })
+      await waitFor(() => tab.self || tab.left !== null || tab.refused !== null, 5_000)
+      local.clearRules('presence_renew')
+      // drain: the next renewal answers d late. claim-first: renewals stay silent (failing), so the
+      // retried claim (after the 5 s claim wait) is what P hears first.
+      local.rule(path === 'drain' ? { op: 'presence_renew', inst: 'P', mode: 'slow', ms: d, times: 1_000 } : { op: 'presence_renew', inst: 'P', mode: 'fail', times: 1_000 })
+      await waitFor(() => tab.left !== null, 30_000)
+      const onP = Math.round(performance.now() - joinedAt)
+      const outcome = { path, d, withOther, tabJoinRefused: tab.refused, closedBy: tab.left, onP }
+      let final = null
+      if (tab.left === 4503) {
+        // It reconnects on its own, with resume.
+        final = await reconnectAfterDrain(Q, token, 'tab-inverted-harness')
+        outcome.resume = final.refused ?? (final.room ? 'admitted' : 'none')
+        outcome.otherAfterResume = other?.left ?? null
+      }
+      if (withOther && (tab.left === 4409 || final?.refused === 4409)) {
+        // «Jugar acá»: the explicit takeover.
+        final = await playHere(Q, token, 'tab-inverted-harness')
+        await waitFor(() => other.left !== null, 5_000)
+        outcome.otherAfterTakeover = other.left
+      }
+      await waitFor(() => final?.self || final?.left !== null, 5_000)
+      await waitFor(async () => (await local.hosts())[0]?.state === 'stopped', 25_000)
+      const row = (await local.query('SELECT owner_generation::int AS g FROM public.world_player_locations WHERE user_id = $1', [userId])).rows[0]
+      const hosts = await local.hosts()
+      outcome.rowOwner = row?.g === hosts.at(-1).generation ? 'Q' : row?.g === hosts[0].generation ? 'P' : String(row?.g)
+      outcome.P = { exit: P.child.exitCode, ready: await P.ready(), state: hosts[0].state }
+      for (const socket of [final, other]) if (socket?.room && socket.left === null) await leave(socket)
+      return { applicable: true, outcome }
+    })
+    if (!run.applicable) return { applicable: false, reason: 'this tree has no presence hosts (pre WORLD LOCATION-4)' }
+    const o = run.outcome
+    runs.push(o)
+    const label = `${path}, d=${d} ms, ${withOther ? 'another tab live on Q' : 'alone'}`
+    if (path === 'drain') {
+      checks.push({ name: `${label}: the new tab entered the old host and was closed by its drain with 4503 (never 4001)`, ok: o.tabJoinRefused === null && o.closedBy === 4503, detail: JSON.stringify(o) })
+      checks.push({ name: `${label}: bounded window on P (≤ one renewal + injected delay + round trips)`, ok: o.onP <= 5_000 + d + 4_000, detail: String(o.onP) })
+      if (withOther) checks.push({ name: `${label}: the resume yields to the live tab (4409) and leaves it untouched`, ok: o.resume === 4409 && o.otherAfterResume === null, detail: JSON.stringify(o) })
+      else checks.push({ name: `${label}: alone, the resume is admitted and owns the row on Q`, ok: o.resume === 'admitted' && o.rowOwner === 'Q', detail: JSON.stringify(o) })
+    } else {
+      checks.push({ name: `${label}: the retried claim is superseded: the tab is closed with 4409, within the claim wait + a round trip`, ok: o.closedBy === 4409 && o.onP <= 5_000 + 3_000, detail: JSON.stringify(o) })
+    }
+    if (withOther) checks.push({ name: `${label}: «Jugar acá» takes over explicitly (only then the other tab gets 4409)`, ok: o.otherAfterTakeover === 4409 && o.rowOwner === 'Q', detail: JSON.stringify(o) })
+    checks.push({ name: `${label}: P ends alive and stopped (503)`, ok: o.P.exit === null && o.P.ready === 503 && o.P.state === 'stopped', detail: JSON.stringify(o.P) })
+  }
+  return verdict(checks, { runs })
 }
 
 async function failedStartup(context) {
@@ -251,6 +347,7 @@ const geometry = scenario => async context => { await loadGeometry(context); ret
 export const LIFECYCLE = {
   candidates: geometry(candidates),
   'shadow-refused': geometry(shadowRefused),
+  inverted: geometry(inverted),
   'failed-startup': geometry(failedStartup),
   drain: geometry(drain),
   shutdown: geometry(shutdown),

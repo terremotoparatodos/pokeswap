@@ -143,7 +143,8 @@ export async function startLocalAuthority({ secret, tree = here, latency = () =>
     },
     /** Inject a fault: { op, inst?, userId?, mode: 'delay'|'slow'|'hold'|'lose'|'fail', ms?, times? = 1 }. */
     rule(rule) { rules.push({ times: 1, ...rule }) },
-    clearRules() { rules.length = 0 },
+    /** Removes every rule, or only those of one operation. */
+    clearRules(op = null) { for (let i = rules.length - 1; i >= 0; i--) if (!op || rules[i].op === op) rules.splice(i, 1) },
     /** The next location_claim of this player hangs until releaseHeld(). */
     holdClaims(userId) { rules.push({ op: 'location_claim', userId, mode: 'hold', times: 1 }) },
     /** Runs the oldest held operation now, against the database; resolves to its answer. */

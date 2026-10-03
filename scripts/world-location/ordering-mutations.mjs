@@ -276,6 +276,12 @@ MUTATIONS.push(
   harnessed('C1', 'X6', 'shutdown'),
   harnessed('S2', 'X8', 'drain'),
   harnessed('S1', 'X9', 'shadow-refused'),
+  // The inverted case (review F4): resume treated as a fresh join (server), or not sent (client).
+  harnessed('C3', 'X10', 'inverted'),
+  { id: 'X11', what: 'the tab reconnects after a drain without resume (a fresh join displaces the live tab) [harness: inverted]', file: 'scripts/world-location/orderingLifecycle.mjs',
+    from: 'const reconnectAfterDrain = (server, token, tabId) => connect(server, token, { tabId, resume: true, waitSelf: false })',
+    to: 'const reconnectAfterDrain = (server, token, tabId) => connect(server, token, { tabId, waitSelf: false })',
+    tests: [HARNESS('inverted')] },
   // A supervisor that restarts every exit (PM2 autorestart=true), for 60 s: the old exit loops.
   { ...MUTATIONS.find(m => m.id === 'S3'), id: 'X12', what: 'a displaced host exits on its own [supervisor-loop, 60 s]',
     tests: [{ cwd: root, cmd: process.execPath, args: ['scripts/world-location/supervisor-loop.mjs', '--seconds', '60', '--port', '3400'] }] },
