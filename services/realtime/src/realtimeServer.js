@@ -1,6 +1,7 @@
 import { Server } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
 import { PresenceRoom, drainPresence, flushLocationsForShutdown, preparePresenceHost } from './rooms/PresenceRoom.js'
+import { shutdownFlushLine } from './presence/shutdownSummary.js'
 import { BenchmarkPresenceRoom } from './rooms/BenchmarkPresenceRoom.js'
 import { createHealthServer } from './observability/health.js'
 import { metrics } from './observability/metrics.js'
@@ -47,10 +48,8 @@ export async function startRealtimeServer({ env = process.env, port = Number(env
   gameServer.onBeforeShutdown(async () => { drained = await drainPresence({ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS }) })
   gameServer.onShutdown(async () => {
     const late = await flushLocationsForShutdown(SHUTDOWN_LOCATION_FLUSH_MS)
-    const sent = (drained?.sent ?? 0) + late.sent
-    const left = late.left
-    const timedOut = Boolean(drained?.timedOut || late.timedOut)
-    if (sent || left) log(`[location] shutdown flush: ${sent} saved, ${left} not saved${timedOut ? ' (deadline reached)' : ''}`)
+    const line = shutdownFlushLine(drained, late)
+    if (line) log(line)
     await host?.stop()
   })
   await gameServer.listen(port)

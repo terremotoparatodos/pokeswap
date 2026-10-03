@@ -87,7 +87,7 @@ export class LocationService {
 
   /** Best-effort final flush on shutdown; never part of correctness. */
   async shutdown(deadlineMs = 3_000) {
-    if (!this.journal) return { sent: 0, left: 0, timedOut: false }
+    if (!this.journal) return { sent: 0, applied: 0, duplicate: 0, stale: 0, hostRefused: 0, left: 0, timedOut: false }
     this.journal.stop()
     return this.journal.flushAll(deadlineMs)
   }

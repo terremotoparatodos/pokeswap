@@ -502,7 +502,7 @@ test('saves follow the host: refused batches are kept (expired) or dropped (inac
   assert.equal(late.key, null, 'a draining host gives no keys')
   store.hosts.set(1, { state: 'stopped', leaseLive: false })
   journal.note(s, actor('pradera', 3, -60), { urgent: true })
-  await journal.flushAll(3_000)
+  assert.equal((await journal.flushAll(3_000)).hostRefused, 1, 'reported as not saved in the shutdown log')
   assert.equal(journal.stats().dropped.hostInactive, 1, 'inactive: dropped and counted, not retried')
 })
 
@@ -617,7 +617,7 @@ test('flushAll (shutdown): sends everything pending at once and counts applied v
   for (let i = 0; i < 250; i++) { const s = await join(uid(i)); sessions.push(s); journal.note(s, actor('pradera', i % 40, -60)) }
   store.rows.get(uid(7)).epoch = 99 // one row was taken by a newer session meanwhile
   const done = await journal.flushAll(3_000)
-  assert.deepEqual(done, { sent: 250, applied: 249, duplicate: 0, stale: 1, left: 0, timedOut: false })
+  assert.deepEqual(done, { sent: 250, applied: 249, duplicate: 0, stale: 1, hostRefused: 0, left: 0, timedOut: false })
   assert.deepEqual(store.batches.map(b => b.length), [200, 50])
   const hung = setup()
   const s = await hung.join(A)

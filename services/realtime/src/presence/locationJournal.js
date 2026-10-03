@@ -343,16 +343,17 @@ export class LocationJournal {
    * Shutdown or drain (best effort, never part of correctness): sends every pending
    * position of a claimed session, ignoring cadence and backoff, until done or
    * `deadlineMs` passes. Resolves with
-   *   { sent, applied, duplicate, stale, left, timedOut }
+   *   { sent, applied, duplicate, stale, hostRefused, left, timedOut }
    * where `sent` counts rows sent, `applied` rows the database wrote, `stale` rows it
-   * refused because another session already owns them, and `left` rows not sent.
+   * refused because another session already owns them, `hostRefused` rows dropped because
+   * this host was no longer active, and `left` rows not sent.
    */
   async flushAll(deadlineMs = 3_000, { sleep = ms => new Promise(resolve => { const t = setTimeout(resolve, ms); t.unref?.() }) } = {}) {
     const started = this.now()
     const remaining = () => Math.max(0, deadlineMs - (this.now() - started))
     // Never wait past the deadline, even on a hung authority: the process is exiting anyway.
     const within = async promise => (await Promise.race([promise.then(() => true), sleep(remaining()).then(() => false)]))
-    const total = { sent: 0, applied: 0, duplicate: 0, stale: 0 }
+    const total = { sent: 0, applied: 0, duplicate: 0, stale: 0, hostRefused: 0 }
     const add = counts => { for (const key of Object.keys(total)) total[key] += counts[key] ?? 0 }
     for (const entry of this.entries.values()) if (entry.pending) entry.pending.urgent = true
     const waiting = () => [...this.entries.values()].filter(e => e.pending && e.status === 'claimed').length
@@ -432,9 +433,9 @@ export class LocationJournal {
     return this.inflight
   }
 
-  /** Sends one batch; resolves with what happened to it: { sent, applied, duplicate, stale }. */
+  /** Sends one batch; resolves with what happened to it: { sent, applied, duplicate, stale, hostRefused }. */
   async #send(rows, sent, started) {
-    const counts = { sent: 0, applied: 0, duplicate: 0, stale: 0 }
+    const counts = { sent: 0, applied: 0, duplicate: 0, stale: 0, hostRefused: 0 }
     let answer = null
     try {
       answer = await this.store.locationSave(rows, this.host.identity)
@@ -457,7 +458,7 @@ export class LocationJournal {
       for (const { entry, pending } of sent) {
         pending.inflight = false
         // An inactive or unknown host will never write again: these positions are lost (counted).
-        if (answer.status !== 'host_expired' && entry.pending === pending) { entry.pending = null; this.counters.dropped.hostInactive++; this.#forgetIfIdle(entry) }
+        if (answer.status !== 'host_expired' && entry.pending === pending) { entry.pending = null; this.counters.dropped.hostInactive++; counts.hostRefused++; this.#forgetIfIdle(entry) }
       }
       counts.sent = 0
       return counts

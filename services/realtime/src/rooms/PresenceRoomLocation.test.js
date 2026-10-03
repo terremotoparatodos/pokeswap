@@ -831,7 +831,7 @@ test('graceful shutdown: after every socket closes, one final flush saves each l
   for (const c of sockets) r.step(c, direction) // the last step of each is only marked
   for (const c of sockets) r.room.onLeave(c) // Colyseus disconnects everyone first…
   const result = await r.module.flushLocationsForShutdown(3_000) // …then calls onShutdown
-  assert.deepEqual(result, { sent: 3, applied: 3, duplicate: 0, stale: 0, left: 0, timedOut: false })
+  assert.deepEqual(result, { sent: 3, applied: 3, duplicate: 0, stale: 0, hostRefused: 0, left: 0, timedOut: false })
   for (const u of users) assert.deepEqual({ area: (await stored(u)).area_id, tx: (await stored(u)).tx, ty: (await stored(u)).ty }, { area: 'pradera', ...last })
   r.advance(RECONNECT_GRACE_MS + 1)
   const fresh = await import(new URL('./PresenceRoom.js?instance=after-shutdown', import.meta.url).href)
@@ -857,6 +857,7 @@ test('the process entry point (realtimeServer.js) drains in onBeforeShutdown (be
   const source = await readFile(new URL('../realtimeServer.js', import.meta.url), 'utf8')
   assert.match(source, /gameServer\.onBeforeShutdown\(async \(\) => \{ drained = await drainPresence\(\{ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS \}\) \}\)/)
   assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*const late = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
+  assert.match(source, /const line = shutdownFlushLine\(drained, late\)/)
   assert.match(source, /await host\?\.stop\(\)/)
   assert.match(source, /SHUTDOWN_LOCATION_FLUSH_MS = 3_000/)
 })

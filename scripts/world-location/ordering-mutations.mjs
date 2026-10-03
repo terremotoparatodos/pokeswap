@@ -198,6 +198,13 @@ export const MUTATIONS = [
   { id: 'C6', what: 'on: a newer active host is ignored (two hosts keep serving)', file: ROOM,
     from: '    next.onNewerActive = () => { void drainForHostChange() }\n', to: '',
     test: CLOSE_TEST('on: a newer active host') },
+  // ── Realtime: shutdown log (design L1) ──
+  { id: 'L1', what: 'rows refused because another session owns them are reported as saved', file: `${RT}src/presence/shutdownSummary.js`,
+    from: "    saved: sum('applied') + sum('duplicate'),", to: "    saved: sum('applied') + sum('duplicate') + sum('stale'),",
+    test: expecting(node('src/presence/shutdownSummary.test.js'), 'L1: a flush whose only row is stale') },
+  { id: 'L2', what: 'rows dropped by an inactive host are not reported', file: JOURNAL,
+    from: 'this.counters.dropped.hostInactive++; counts.hostRefused++;', to: 'this.counters.dropped.hostInactive++;',
+    test: JOURNAL_TEST('host refusals: expired pauses') },
 ]
 
 function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }
