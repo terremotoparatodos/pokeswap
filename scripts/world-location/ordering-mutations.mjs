@@ -146,7 +146,7 @@ export const MUTATIONS = [
     from: 'if (answer.newerActive === true && !this.newerSeen) {', to: 'if (answer.newerActive === true) {',
     test: HOST_TEST('refused answers end or pause') },
   { id: 'H3', what: 'a refused activation is taken as active (newer_active ignored)', file: HOST,
-    from: "      if (answer?.status === 'active') {\n        this.state = 'active'", to: "      if (answer) {\n        this.state = 'active'",
+    from: "      if (answer?.status === 'active') {\n        if (this.state === 'starting') this.state = 'active'", to: "      if (answer) {\n        if (this.state === 'starting') this.state = 'active'",
     test: HOST_TEST('two concurrent candidates') },
   { id: 'H4', what: 'joins are admitted before the host is active', file: HOSTING,
     from: "    if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS)) && this.location().restores) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')\n", to: '',
@@ -155,7 +155,7 @@ export const MUTATIONS = [
     from: "get admitting() { return this.state === 'active' || this.state === 'unavailable' }", to: "get admitting() { return this.state === 'active' || this.state === 'unavailable' || this.state === 'starting' }",
     test: HOST_TEST('acquire before listen') },
   { id: 'H6', what: 'a draining host tries to activate again', file: HOST,
-    from: "  async activate() {\n    if (this.state !== 'starting') return this.state", to: "  async activate() {\n    if (this.state === 'active') return this.state",
+    from: "  activate() {\n    if (this.state !== 'starting') return Promise.resolve(this.state)\n    return this.#serial(() => this.#activate(), true)\n  }\n\n  async #activate() {\n    for (let attempt = 0; attempt < 6; attempt++) {\n      // A drain or stop that came first wins: never bring a host back.\n      if (this.state !== 'starting') return this.state", to: "  activate() {\n    if (this.state === 'active') return Promise.resolve(this.state)\n    return this.#serial(() => this.#activate(), true)\n  }\n\n  async #activate() {\n    for (let attempt = 0; attempt < 6; attempt++) {\n      // A drain or stop that came first wins: never bring a host back.\n      if (this.state === 'active') return this.state",
     test: HOST_TEST('a newer active host: the old one learns') },
   // ── Realtime: keyed journal (ordering) ──
   { id: 'J1', what: 'superseded is not final (the session keeps claiming)', file: JOURNAL,
