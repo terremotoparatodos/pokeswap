@@ -1,0 +1,76 @@
+
+== S1 graceful shutdown, pending position
+  55 P claim 0→conflict124 @519
+  536 P claim 124→claimed125 @992
+  2718 P save e125s1 ciudad-corazon:33,22→applied @3137
+  {"last":{"areaId":"ciudad-corazon","tx":33,"ty":22},"savesBefore":0,"shutdown":{"exitAfterMs":440,"code":0,"flushLog":["3138 [location] shutdown flush: 1 saved, 0 not saved"]},"clientClose":4001,"finalSaved":{"result":"applied","isLast":true}}
+
+== S2 graceful shutdown, hosted slower than the deadline
+  39 P claim 0→conflict125 @433
+  447 P claim 125→claimed126 @862
+  3023 P save e126s1 ciudad-corazon:34,23→applied (aborted) [delay:5000] @8481
+  {"last":{"areaId":"ciudad-corazon","tx":34,"ty":23},"shutdown":{"exitAfterMs":3022,"code":0,"flushLog":["6025 [location] shutdown flush: 0 saved, 1 not saved (deadline reached)"]},"lateWrite":{"result":"applied","hostedAfterExitMs":2444,"isLast":true}}
+
+== S3 shutdown P → reconnect on Q after 0 ms (P final save extra delay 0 ms)
+  38 P claim 0→conflict126 @492
+  507 P claim 126→claimed127 @921
+  3178 P save e127s1 ciudad-corazon:34,22→applied @3656
+  3200 Q claim 0→conflict127 @3780
+  3787 Q claim 127→claimed128 @4183
+  6436 Q save e128s1 ciudad-corazon:31,20→applied @6874
+  {"last":{"areaId":"ciudad-corazon","tx":34,"ty":22},"pExitAfterMs":500,"pFinalSave":"applied","qClaimSawFinalPosition":true,"qFrom":"34,22","lastPos":"34,22"}
+
+== S3 shutdown P → reconnect on Q after 200 ms (P final save extra delay 0 ms)
+  43 P claim 0→conflict128 @493
+  509 P claim 128→claimed129 @941
+  2705 P save e129s1 ciudad-corazon:33,22→applied @3151
+  2912 Q claim 0→conflict129 @3325
+  3334 Q claim 129→claimed130 @3748
+  5872 Q save e130s1 ciudad-corazon:31,20→applied @6300
+  {"last":{"areaId":"ciudad-corazon","tx":33,"ty":22},"pExitAfterMs":465,"pFinalSave":"applied","qClaimSawFinalPosition":true,"qFrom":"33,22","lastPos":"33,22"}
+
+== S3 shutdown P → reconnect on Q after 1000 ms (P final save extra delay 0 ms)
+  26 P claim 0→conflict130 @466
+  475 P claim 130→claimed131 @925
+  2543 P save e131s1 ciudad-corazon:33,21→applied @3114
+  3560 Q claim 0→conflict131 @3957
+  3961 Q claim 131→claimed132 @4389
+  6817 Q save e132s1 ciudad-corazon:31,20→applied @7315
+  {"last":{"areaId":"ciudad-corazon","tx":33,"ty":21},"pExitAfterMs":591,"pFinalSave":"applied","qClaimSawFinalPosition":true,"qFrom":"33,21","lastPos":"33,21"}
+
+== S3 shutdown P → reconnect on Q after 0 ms (P final save extra delay 800 ms)
+  38 P claim 0→conflict132 @501
+  502 P claim 132→claimed133 @963
+  3026 P save e133s1 ciudad-corazon:34,23→stale [delay:800] @4272
+  3030 Q claim 0→conflict133 @3376
+  3393 Q claim 133→claimed134 @3822
+  {"last":{"areaId":"ciudad-corazon","tx":34,"ty":23},"pExitAfterMs":1266,"pFinalSave":"stale","qClaimSawFinalPosition":false,"qFrom":"31,20","lastPos":"34,23"}
+
+== S3 shutdown P → reconnect on Q after 500 ms (P final save extra delay 2000 ms)
+  43 P claim 0→conflict134 @535
+  553 P claim 134→claimed135 @953
+  2709 P save e135s1 ciudad-corazon:33,22→stale [delay:2000] @5159
+  3218 Q claim 0→conflict135 @3635
+  3638 Q claim 135→claimed136 @4052
+  {"last":{"areaId":"ciudad-corazon","tx":33,"ty":22},"pExitAfterMs":2471,"pFinalSave":"stale","qClaimSawFinalPosition":false,"qFrom":"31,20","lastPos":"33,22"}
+
+== S4 restart P while the player stays on Q
+  8 Q claim 0→conflict136 @463
+  464 Q claim 136→claimed137 @876
+  3790 Q save e137s1 ciudad-corazon:36,23→applied @4236
+  {"shutdown":{"exitAfterMs":17,"code":0,"flushLog":[]},"qFinal":{"result":"applied","isLast":true},"pCallsForUser":0,"bLeft":4000}
+
+== S5 disconnect during a save
+  22 P claim 0→conflict137 @487
+  490 P claim 137→claimed138 @968
+  11708 P save e138s1 ciudad-corazon:33,22→applied [delay:1500] @14416
+  14750 P save e138s2 ciudad-corazon:36,24→applied @15193
+  {"last":{"areaId":"ciudad-corazon","tx":36,"ty":24},"saves":["33,22:applied","36,24:applied"],"finalIsLast":true,"writesAfterwards":0}
+
+== S6 claim answer after the session closed (late)
+  11 P claim 0→conflict138 [late:900] @427
+  {"writesAfterClose":0,"laterCalls":0,"journal":{"entries":0,"pending":0,"inflight":false,"live":{"claiming":0,"unclaimed":0,"claimed":0,"fenced":0,"disabled":0},"claims":{"ok":1,"unknownUser":0,"failed":0,"superseded":1,"retries":0,"conflicts":2,"abandoned":0},"dropped":{"evicted":0,"unclaimed":1,"invalid":0,"disabled":0}}}
+
+== S6 claim answer after the session closed (hold)
+  9 P claim 0→conflict138 (aborted) [hold:] @3241
+  {"writesAfterClose":0,"laterCalls":0,"journal":{"entries":0,"pending":0,"inflight":false,"live":{"claiming":0,"unclaimed":0,"claimed":0,"fenced":0,"disabled":0},"claims":{"ok":1,"unknownUser":0,"failed":0,"superseded":2,"retries":0,"conflicts":2,"abandoned":0},"dropped":{"evicted":0,"unclaimed":2,"invalid":0,"disabled":0}}}

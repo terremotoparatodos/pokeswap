@@ -1,0 +1,75 @@
+
+== T1 handoff P→Q, old socket stays live  E0=71 E1=73 
+  24 P claim 0→conflict71 @431
+  444 P claim 71→claimed72 @896
+  2582 Q claim 0→conflict72 @3061
+  3077 Q claim 72→claimed73 @3413
+  12007 P save e72s1 ciudad-corazon:32,20→stale @12822
+  14509 Q save e73s1 ciudad-corazon:31,20→applied @14916
+  27637 Q save e73s2 ciudad-corazon:32,20→applied @28066
+  notes={"oldSave":"stale","pWritesAfterFence":0,"aStillConnected":true,"newSave":"applied","newSaveIsLastPos":true,"pWritesAfterOldLeave":0}
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":2,"st":0,"so":0,"u":0},"wf":0,"fd":0}
+  cas=ok
+
+== T2 newest wins across instances (Q then P)  E0=73 E1=75 
+  12 Q claim 0→conflict73 @441
+  457 Q claim 73→claimed74 @875
+  2536 P claim 0→conflict74 @2912
+  2927 P claim 74→claimed75 @3351
+  11892 Q save e74s1 ciudad-corazon:33,20→stale @12330
+  13370 P save e75s1 ciudad-corazon:35,20→applied @13768
+  notes={"olderSaveOnQ":"stale","newerSaveOnP":"applied","newerSaveIsLastPos":true}
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":0},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+  cas=ok
+
+== T3 older claim in flight when newer claims elsewhere  E0=75 E1=77 
+  9 P claim 0→conflict75 @374
+  376 P claim 75→conflict76 [delay:800] @1644
+  386 Q claim 0→conflict75 @818
+  826 Q claim 75→claimed76 @1224
+  1661 P claim 76→claimed77 @2100
+  11590 P save e77s1 ciudad-corazon:36,20→applied @12604
+  12127 Q save e76s1 ciudad-corazon:34,20→stale @12779
+  notes={"tNudge":"both moved","A":{"connected":true},"B":{"connected":true}}
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":1},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+  cas=ok
+
+== T4 older claim abandoned, retries while newer holds the epoch  E0=77 E1=79 
+  9 P claim 0→conflict77 @445
+  341 Q claim 0→conflict77 @788
+  455 P claim 77→conflict79 (aborted) [hold:] @5595
+  802 Q claim 77→claimed78 @1227
+  3216 P claim 77→conflict78 @3673
+  3675 P claim 78→claimed79 @4102
+  11791 Q save e78s1 ciudad-corazon:35,20→stale @12240
+  12284 P save e79s1 ciudad-corazon:37,20→applied @12694
+  notes={}
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":1,"superseded":0,"retries":1,"conflicts":2,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":1},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+  cas=ok
+
+== T5 old save in transit while newer claims  E0=79 E1=81 
+  8 P claim 0→conflict79 @411
+  425 P claim 79→claimed80 @872
+  12294 P save e80s1 ciudad-corazon:38,20→stale [delay:1500] @14246
+  12315 Q claim 0→conflict80 @12756
+  12767 Q claim 80→claimed81 @13224
+  15875 Q save e81s1 ciudad-corazon:32,20→applied @16291
+  notes={"aAt":{"areaId":"ciudad-corazon","tx":38,"ty":20},"bStart":{"areaId":"ciudad-corazon","tx":31,"ty":20},"newSave":"applied","aAtEnd":{"connected":true}}
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":0},"wf":0,"fd":0}
+  cas=ok
+
+== T6 old save lands before newer claim  E0=81 E1=82 
+  8 P claim 0→conflict81 @445
+  456 P claim 81→claimed82 @896
+  11460 P save e82s1 ciudad-corazon:39,20→applied [delay:200] @12026
+  11481 Q claim 0→conflict82 (aborted) [delay:1200] @13039
+  15026 Q claim 0→conflict82 @15825
+  notes={"aAt":{"areaId":"ciudad-corazon","tx":39,"ty":20},"claimRestoredOldPos":"no claim"}
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":1},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":0,"unknownUser":0,"failed":1,"superseded":1,"retries":1,"conflicts":1,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":0},"wf":0,"fd":0}
+  cas=ok

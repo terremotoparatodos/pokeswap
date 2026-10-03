@@ -1,0 +1,92 @@
+== T3 older claim in flight when newer claims elsewhere  E0=86 E1=88 
+  30 P claim 0→conflict86 @809
+  816 P claim 86→conflict87 [delay:800] @2073
+  871 Q claim 0→conflict86 @1274
+  1290 Q claim 86→claimed87 @1710
+  2082 P claim 87→claimed88 @2431
+  12048 P save e88s1 ciudad-corazon:32,20→applied @12485
+  12508 Q save e87s1 ciudad-corazon:32,20→stale @12944
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":1},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+== T3 older claim in flight when newer claims elsewhere  E0=88 E1=90 
+  26 P claim 0→conflict88 @477
+  480 P claim 88→conflict89 [delay:800] @1695
+  518 Q claim 0→conflict88 @879
+  881 Q claim 88→claimed89 @1268
+  1700 P claim 89→claimed90 @2134
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+== T3 older claim in flight when newer claims elsewhere  E0=90 E1=92 
+  28 P claim 0→conflict90 @560
+  576 P claim 90→conflict91 [delay:800] @1839
+  634 Q claim 0→conflict90 @1084
+  1096 Q claim 90→claimed91 @1557
+  1842 P claim 91→claimed92 @2279
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+== T4 older claim abandoned, retries while newer holds the epoch  E0=92 E1=94 
+  27 P claim 0→conflict92 @428
+  373 Q claim 0→conflict92 @650
+  444 P claim 92→conflict94 (aborted) [hold:] @5360
+  667 Q claim 92→claimed93 @1006
+  3982 P claim 92→conflict93 @4393
+  4395 P claim 93→claimed94 @4883
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":1,"superseded":0,"retries":1,"conflicts":2,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+== T4 older claim abandoned, retries while newer holds the epoch  E0=94 E1=96 
+  30 P claim 0→conflict94 @456
+  393 Q claim 0→conflict94 @845
+  465 P claim 94→conflict96 (aborted) [hold:] @5337
+  860 Q claim 94→claimed95 @1276
+  3979 P claim 94→conflict95 @4416
+  4419 P claim 95→claimed96 @4837
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":1,"superseded":0,"retries":1,"conflicts":2,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+== T7 natural race gap 100  E0=96 E1=98 
+  26 P claim 0→conflict96 @463
+  152 Q claim 0→conflict96 @569
+  480 P claim 96→claimed97 @907
+  576 Q claim 96→conflict97 @1464
+  1478 Q claim 97→claimed98 @1865
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":0,"st":0,"so":0,"u":2},"wf":0,"fd":0}
+== T7 natural race gap 200  E0=98 E1=100 
+  8 P claim 0→conflict98 @470
+  218 Q claim 0→conflict98 @642
+  474 P claim 98→claimed99 @916
+  650 Q claim 98→conflict99 @1417
+  1429 Q claim 99→claimed100 @1862
+  11747 Q save e100s1 ciudad-corazon:33,20→applied @12112
+  12319 P save e99s1 ciudad-corazon:33,20→stale @12751
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":1},"wf":0,"fd":0}
+== T7 natural race gap 300  E0=100 E1=102 
+  11 P claim 0→conflict100 @421
+  320 Q claim 0→conflict100 @741
+  425 P claim 100→claimed101 @904
+  756 Q claim 100→conflict101 @1201
+  1217 Q claim 101→claimed102 @1628
+  11504 P save e101s1 ciudad-corazon:34,20→stale @11923
+  11948 Q save e102s1 ciudad-corazon:34,20→applied @12380
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":1},"wf":0,"fd":0}
+== T7 natural race gap 150  E0=102 E1=104 
+  7 P claim 0→conflict102 @441
+  157 Q claim 0→conflict102 @537
+  449 P claim 102→claimed103 @880
+  544 Q claim 102→conflict103 @943
+  958 Q claim 103→claimed104 @1393
+  11534 P save e103s1 ciudad-corazon:35,20→stale @12314
+  12057 Q save e104s1 ciudad-corazon:35,20→applied @12501
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":1},"wf":0,"fd":0}
+== T7 natural race gap 250  E0=104 E1=106 
+  8 P claim 0→conflict104 @435
+  257 Q claim 0→conflict104 @721
+  443 P claim 104→conflict105 @1265
+  729 Q claim 104→claimed105 @1131
+  1267 P claim 105→claimed106 @1660
+  11865 P save e106s1 ciudad-corazon:36,20→applied @12338
+  12374 Q save e105s1 ciudad-corazon:36,20→stale @12832
+  ΔP={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":2,"abandoned":0},"s":{"a":1,"st":0,"so":0,"u":1},"wf":0,"fd":0}
+  ΔQ={"c":{"ok":1,"unknownUser":0,"failed":0,"superseded":0,"retries":0,"conflicts":1,"abandoned":0},"s":{"a":0,"st":1,"so":0,"u":0},"wf":1,"fd":0}
