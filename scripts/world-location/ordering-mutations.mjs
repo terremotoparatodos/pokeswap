@@ -234,7 +234,7 @@ const harnessed = (id, newId, only) => {
 }
 MUTATIONS.push(
   harnessed('O14', 'X1', 'same-process,two-process'),
-  harnessed('J2', 'X2', 'same-process'),
+  harnessed('J2', 'X2', 'lost'),
   harnessed('O13', 'X3', 'lost'),
   harnessed('O5', 'X4', 'candidates'),
   harnessed('C6', 'X5', 'drain'),

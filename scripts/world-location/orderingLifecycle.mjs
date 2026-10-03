@@ -42,12 +42,18 @@ async function candidates(context) {
   return withAuthority(context, async (local, start) => {
     if (!(await lifecycleOnly(local))) return { applicable: false, reason: 'this tree has no presence hosts (pre WORLD LOCATION-4)' }
     const checks = []
-    for (let round = 0; round < 5; round++) {
+    for (let round = 0; round < 6; round++) {
       const port = context.basePort + round * 20
-      const [r, s] = await Promise.all([
-        start({ name: `R${round}`, port, env: local.env('on', `R${round}`) }),
-        start({ name: `S${round}`, port: port + 10, env: local.env('on', `S${round}`) }),
-      ])
+      // Rounds 0-2: both start at once. Rounds 3-5: R acquires first (older), but its activation
+      // reaches the database 4 s late, after S (newer) is active: it must be refused.
+      const inverted = round >= 3
+      if (inverted) local.rule({ op: 'presence_activate', inst: `R${round}`, mode: 'delay', ms: 4_000 })
+      const [r, s] = inverted
+        ? [await start({ name: `R${round}`, port, env: local.env('on', `R${round}`) }), await start({ name: `S${round}`, port: port + 10, env: local.env('on', `S${round}`) })]
+        : await Promise.all([
+          start({ name: `R${round}`, port, env: local.env('on', `R${round}`) }),
+          start({ name: `S${round}`, port: port + 10, env: local.env('on', `S${round}`) }),
+        ])
       // One renewal (5 s) is the bound in which an older active host learns of a newer one.
       await delay(7_000)
       const hosts = (await local.hosts()).slice(-2)
@@ -55,6 +61,7 @@ async function candidates(context) {
       const actives = hosts.filter(h => h.state === 'active')
       checks.push({ name: `round ${round}: exactly one active host, the newer`, ok: actives.length === 1 && actives[0].generation === newer.generation, detail: JSON.stringify(hosts.map(h => [h.generation, h.state])) })
       checks.push({ name: `round ${round}: the older never activated after the newer`, ok: !older.activated_at || !newer.activated_at || older.activated_at <= newer.activated_at, detail: JSON.stringify([older.activated_at, newer.activated_at]) })
+      if (inverted) checks.push({ name: `round ${round}: a late activation of the older candidate is refused (never active)`, ok: older.activated_at === null && older.state === 'stopped', detail: JSON.stringify(older) })
       const ready = await Promise.all([r.ready(), s.ready()])
       checks.push({ name: `round ${round}: one process stays ready`, ok: ready.filter(code => code === 200).length === 1, detail: JSON.stringify(ready) })
       await r.kill(); await s.kill()
