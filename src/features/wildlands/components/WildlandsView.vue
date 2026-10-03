@@ -518,6 +518,8 @@ onMounted(async () => {
   created.setWorldLayer(sharedWorld)
   if (performanceMode) {
     const { usePerfCapture } = await import('../perf/usePerfCapture')
+    // Unmounted while the module loaded: no capture, controller, socket or timer.
+    if (disposed) return
     perfCapture.value = usePerfCapture()
     perfCapture.value.attach(created)
   }
