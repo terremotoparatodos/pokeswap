@@ -183,15 +183,19 @@ test('no database within the wait: serves without persistence, keeps trying, and
   const store = dialed(base)
   store.failBefore = 3
   let ticks = 0
-  const host = new HostLifecycle({ store, renewMs: 60_000, log: () => {}, sleep: () => { ticks++; return Promise.resolve() } })
-  assert.equal(await host.acquire({ waitMs: 0 }), 'unavailable')
-  assert.equal(host.admitting, true, 'the game goes on')
-  assert.equal(host.sessionKey(), null, 'sessions do not persist')
-  assert.equal(await host.whenActive(10), true)
-  for (let i = 0; i < 50 && host.state !== 'active'; i++) await new Promise(resolve => setImmediate(resolve))
-  assert.equal(host.state, 'active', 'acquired and activated in the background')
-  assert.ok(ticks > 0)
-  await host.stop()
+  // The injected sleep yields to the loop; stop() in finally ends the background retries even if an assertion fails.
+  const host = new HostLifecycle({ store, renewMs: 60_000, log: () => {}, sleep: () => { ticks++; return new Promise(resolve => setImmediate(resolve)) } })
+  try {
+    assert.equal(await host.acquire({ waitMs: 0 }), 'unavailable')
+    assert.equal(host.admitting, true, 'the game goes on')
+    assert.equal(host.sessionKey(), null, 'sessions do not persist')
+    assert.equal(await host.whenActive(10), true)
+    for (let i = 0; i < 200 && host.state !== 'active'; i++) await new Promise(resolve => setImmediate(resolve))
+    assert.equal(host.state, 'active', 'acquired and activated in the background')
+    assert.ok(ticks > 0)
+  } finally {
+    await host.stop()
+  }
 })
 
 test('stats are aggregates: no host id', () => {
