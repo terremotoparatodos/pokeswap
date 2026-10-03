@@ -228,6 +228,13 @@ export const MUTATIONS = [
   { id: 'O27', what: 'a drain answered host_expired leaves the host draining (it would try to flush)', file: HOST,
     from: "          this.state = 'stopped'\n          this.#settleWaiters()\n        } else if", to: "          this.#settleWaiters()\n        } else if",
     test: SERIAL_TEST('drain refused with host_expired') },
+  // ── SQL: rollback, one transaction with a partial-state guard (review F8) ──
+  { id: 'B1', what: 'the rollback is not one transaction (a failure leaves it half done)', file: 'scripts/world-location/rollback_world_location_ordering.sql',
+    from: '\nBEGIN;\n', to: '\n-- (no transaction)\n',
+    test: DB_TEST('rollback (F8): one transaction') },
+  { id: 'B2', what: 'the rollback proceeds over a partial state', file: 'scripts/world-location/rollback_world_location_ordering.sql',
+    from: '  IF v_present <> 12 THEN', to: '  IF false THEN',
+    test: DB_TEST('rollback (F8): a partial state is refused') },
   // ── Realtime: lifecycle serialization (review F3) ──
   { id: 'T1', what: 'activate, drain, stop and renew are not serialized (lock inversion possible)', file: HOST,
     from: '    const run = this.lane.then(op).finally(', to: '    const run = Promise.resolve().then(op).finally(',

@@ -9,6 +9,44 @@
 -- 20261001220000 defined them (they must not reference owner_* once those columns are gone),
 -- then drops the keyed functions, the owner columns, the hosts table and its sequence.
 -- The data is disposable. The PGlite test (worldLocationOrdering.database.test.js) runs this file.
+--
+-- One transaction (review F8): every statement here is transactional in Postgres, so the rollback
+-- is all or nothing. A pre-check refuses a partial state (some ordering objects missing: nothing is
+-- changed) and a post-check verifies the result before COMMIT; any failure aborts the whole
+-- transaction. Run it as one unit and stop on the first error:
+--   psql -v ON_ERROR_STOP=1 --single-transaction -f scripts/world-location/rollback_world_location_ordering.sql
+--
+-- Deploy order (mandatory; none of these phases is run in WORLD LOCATION-4):
+--   1. the migration 20261003120000_world_location_ordering.sql;
+--   2. world-authority v5 (the host lifecycle and keyed location ops);
+--   3. the new realtime.
+-- A new realtime against world-authority v4 is NOT an admitted order: v4 answers 400 to every
+-- presence_* and keyed call, so the realtime keeps retrying its acquire and serves without
+-- location persistence ('unavailable'). The rollback runs the same order backwards: the
+-- realtime first (an old version, or WORLD_LOCATION_PERSISTENCE=off), then world-authority v4,
+-- then this script.
+
+BEGIN;
+
+-- Pre-check: all 12 ordering objects present (5 host functions, 2 keyed functions, the hosts
+-- table, its sequence, 3 owner columns), or stop before changing anything.
+DO $$
+DECLARE
+  v_present integer;
+BEGIN
+  SELECT (to_regclass('public.world_presence_hosts') IS NOT NULL)::integer
+       + (to_regclass('public.world_presence_generation_seq') IS NOT NULL)::integer
+       + (SELECT count(*)::integer FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+           WHERE n.nspname = 'public' AND p.proname IN ('world_presence_acquire', 'world_presence_activate', 'world_presence_renew',
+             'world_presence_drain', 'world_presence_stop', 'world_location_claim_keyed', 'world_location_save_keyed'))
+       + (SELECT count(*)::integer FROM information_schema.columns
+           WHERE table_schema = 'public' AND table_name = 'world_player_locations' AND column_name IN ('owner_generation', 'owner_seq', 'owner_session'))
+    INTO v_present;
+  IF v_present <> 12 THEN
+    RAISE EXCEPTION 'world_location_ordering rollback: expected the 12 ordering objects, found % (partial state: nothing changed)', v_present;
+  END IF;
+END
+$$;
 
 DROP FUNCTION IF EXISTS public.world_location_save_keyed(jsonb, bigint, uuid);
 DROP FUNCTION IF EXISTS public.world_location_claim_keyed(uuid, bigint, bigint, uuid, uuid);
@@ -168,3 +206,21 @@ ALTER TABLE public.world_player_locations
   DROP COLUMN IF EXISTS owner_generation;
 DROP TABLE IF EXISTS public.world_presence_hosts; -- its OWNED BY sequence goes with it
 DROP SEQUENCE IF EXISTS public.world_presence_generation_seq;
+
+-- Post-check: nothing of the ordering is left and the v1 bodies no longer read owner_*.
+DO $$
+BEGIN
+  IF to_regclass('public.world_presence_hosts') IS NOT NULL
+     OR to_regclass('public.world_presence_generation_seq') IS NOT NULL
+     OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                 WHERE n.nspname = 'public' AND (p.proname LIKE 'world_presence_%' OR p.proname LIKE 'world_location_%_keyed'))
+     OR EXISTS (SELECT 1 FROM information_schema.columns
+                 WHERE table_schema = 'public' AND table_name = 'world_player_locations' AND column_name LIKE 'owner_%')
+     OR EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+                 WHERE n.nspname = 'public' AND p.proname IN ('world_location_claim', 'world_location_save') AND p.prosrc LIKE '%owner_%') THEN
+    RAISE EXCEPTION 'world_location_ordering rollback: post-check failed (the whole rollback is undone)';
+  END IF;
+END
+$$;
+
+COMMIT;

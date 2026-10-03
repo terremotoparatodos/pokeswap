@@ -374,11 +374,71 @@ test('catalog check is not vacuous: it reports a privilege a default would leave
 
 // ── Rollback ─────────────────────────────────────────────────────────────────
 
+/**
+ * Runs a script the way `psql -v ON_ERROR_STOP=1 -f` does: one statement at a time (dollar-quoted
+ * bodies kept whole), stopping at the first error. A single exec() would send the whole file as one
+ * multi-statement query, which Postgres already runs as one implicit transaction: atomicity has to
+ * come from the script itself.
+ */
+async function runAsPsql(db, script) {
+  let statement = ''
+  let quoted = false
+  for (const line of script.replace(/\r\n/g, '\n').split('\n')) {
+    statement += line + '\n'
+    quoted = (line.split('$$').length - 1) % 2 === 1 ? !quoted : quoted
+    if (!quoted && /;\s*(--.*)?$/.test(line)) {
+      if (statement.replace(/--.*$/gm, '').trim()) await db.exec(statement)
+      statement = ''
+    }
+  }
+  if (statement.replace(/--.*$/gm, '').trim()) await db.exec(statement)
+}
+
+/** What the ordering left in place: the 12 objects the rollback removes. */
+async function orderingObjects(db) {
+  const { rows } = await db.query(`SELECT
+      (to_regclass('public.world_presence_hosts') IS NOT NULL) AS hosts,
+      (to_regclass('public.world_presence_generation_seq') IS NOT NULL) AS seq,
+      (SELECT count(*)::int FROM pg_proc WHERE proname LIKE 'world_presence_%' OR proname LIKE 'world_location_%_keyed') AS functions,
+      (SELECT count(*)::int FROM information_schema.columns WHERE table_name = 'world_player_locations' AND column_name LIKE 'owner_%') AS columns`)
+  return rows[0]
+}
+
+test('rollback (F8): one transaction, all or nothing — a failure anywhere before COMMIT leaves every object in place', async () => {
+  const t = await setup()
+  const g = await t.active(H1)
+  await t.claim(A, g, 1, S1, H1)
+  const script = (await readFile(ROLLBACK, 'utf8')).replace(/\r\n/g, '\n')
+  assert.match(script, /^BEGIN;$/m)
+  assert.match(script, /^COMMIT;\s*$/m)
+  const full = await orderingObjects(t.db)
+  assert.deepEqual(full, { hosts: true, seq: true, functions: 7, columns: 3 })
+  // A failure just before COMMIT (everything already dropped inside the transaction): nothing stays dropped.
+  // A replacer function: in a replacement string, "$$" would collapse to "$".
+  const failing = script.replace(/^COMMIT;\s*$/m, () => "DO $$ BEGIN RAISE EXCEPTION 'injected failure'; END $$;\nCOMMIT;\n")
+  await assert.rejects(runAsPsql(t.db, failing), /injected failure/)
+  await t.db.exec('ROLLBACK')
+  assert.deepEqual(await orderingObjects(t.db), full)
+  assert.equal((await t.claim(A, g, 1, S1, H1)).status, 'claimed', 'the keyed protocol still works')
+  await t.db.close()
+})
+
+test('rollback (F8): a partial state is refused before anything changes', async () => {
+  const t = await setup()
+  await t.db.exec('DROP FUNCTION public.world_presence_stop(bigint, uuid)') // someone half-rolled back by hand
+  const before = await orderingObjects(t.db)
+  await assert.rejects(runAsPsql(t.db, await readFile(ROLLBACK, 'utf8')), /partial state: nothing changed/)
+  await t.db.exec('ROLLBACK')
+  assert.deepEqual(await orderingObjects(t.db), before, 'nothing else was dropped')
+  assert.deepEqual(before, { hosts: true, seq: true, functions: 6, columns: 3 })
+  await t.db.close()
+})
+
 test('rollback: drops the ordering objects and restores the v1 bodies; the migration re-applies cleanly', async () => {
   const t = await setup()
   const g = await t.active(H1)
   await t.claim(A, g, 1, S1, H1)
-  await t.db.exec(await readFile(ROLLBACK, 'utf8'))
+  await runAsPsql(t.db, await readFile(ROLLBACK, 'utf8'))
   const exists = async name => (await t.db.query('SELECT to_regclass($1) AS r', [name])).rows[0].r !== null
   assert.equal(await exists('public.world_presence_hosts'), false)
   assert.equal(await exists('public.world_presence_generation_seq'), false)
