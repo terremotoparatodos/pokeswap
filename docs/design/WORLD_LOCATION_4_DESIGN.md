@@ -11,6 +11,17 @@
 >
 > Ningún reloj de máquina se compara. La demostración está en §3.4 y la comprobación exhaustiva de los casos concretos en §2.3.
 
+> **Revisión 1 (C1–C5, 2026-10-03):** el diseño recibió `APPROVE WITH REQUIRED FIXES`. Esta revisión agrega:
+> - **ciclo de vida del host** con estados monótonos `starting → active → draining → stopped` y activación explícita y atómica (§3.3);
+> - **claims y guardados según el estado del host** (§3.3.4);
+> - **permisos explícitos** de tabla, secuencia y funciones (§7.4.1);
+> - la **topología como precondición bloqueante** (§3.5);
+> - la **prueba obligatoria de 4503 frente a 4001** (§5.3);
+> - las **decisiones de UX** aprobadas (§3.6);
+> - un segundo modelo exhaustivo con **mutantes** como controles negativos (§2.4).
+>
+> **No hay `READY FOR ON`** mientras la precondición de topología (§3.5) no esté verificada en Colyseus Cloud.
+
 Convenciones:
 
 - **FACT** es medido u observado; **INFERENCE** se deduce del código o de los datos; **OPEN QUESTION** queda sin resolver.
@@ -220,7 +231,7 @@ La sesión juega provisionalmente hasta que la base confirma. Ya existe en `on` 
 | **Proceso caído** | su lease vence; otro host toma una generación nueva (mayor) y sus sesiones ganan |
 | **Sesión abandonada** | su claim tardío solo gana si su clave es la mayor, es decir, si **era** la más nueva; nunca desplaza a una posterior |
 | **Cliente manipulado** | el cliente no aporta nada a la clave |
-| Migración | tabla de hosts, 3 columnas, 4 funciones, Edge v5, realtime y cliente (códigos de cierre). Ver §7.3 a §7.5 |
+| Migración | tabla y secuencia de hosts con ciclo de vida, 3 columnas, 7 funciones, Edge v5, realtime y cliente (códigos de cierre). Ver §3.3 y §7.3 a §7.5 |
 | Coste | medio. **Un RTT menos por join** (desaparece la lectura de conflicto; hoy son 2 llamadas por join, B2 de LOCATION-3B) y una renovación cada 5 s **por proceso** |
 
 ### 2.3 Comprobación exhaustiva (`world-location-4/ordering-model.mjs`)
@@ -259,6 +270,55 @@ Lectura:
   - asignar `n` fuera del `onJoin` rompía el orden en el host.
 - Límites del modelo (dos pestañas más sus reconexiones, un abandono por sesión, un guardado por sesión): ver la cabecera del archivo. La demostración general, sin esos límites, está en §3.4.
 
+### 2.4 Comprobación exhaustiva del ciclo de vida de hosts (`world-location-4/host-lifecycle-model.mjs`)
+
+El modelo recorre todas las intercalaciones de requests de varios procesos contra las funciones SQL propuestas en §7.4: `acquire`, `activate`, `renew`, `drain`, `stop`, `claim` con clave y `save`. Incluye llegada en cualquier orden, respuesta perdida con reintento, caída de un candidato y el paso del tiempo de la base (leases).
+
+Además del protocolo propuesto corre **11 mutantes** (controles negativos). Cada uno quita o cambia una regla y debe quedar **detectado**: alguna propiedad violada en algún escenario. Salida completa, con el contraejemplo más corto de cada mutante, en `host-lifecycle-model.out.txt`.
+
+**Propiedades:**
+
+- **H1:** `newerActive` solo es verdadero si existe un host más nuevo **activo, activado tras estar listo** y con lease vigente. Un `starting` nunca drena al vigente.
+- **H2:** los estados son monótonos.
+- **H3:** una generación por `hostId`; `acquire` nunca cambia una fila existente; el reintento devuelve la misma generación y el mismo estado.
+- **H4:** claims solo desde `active` con lease; guardados solo desde `active` con lease, o desde `draining` con lease sobre una fila propia.
+- **H5:** la activación solo ocurre desde `starting`, con lease vigente y sin un host más nuevo activo.
+- **H6:** un host que supo de uno más nuevo termina `draining` o `stopped`.
+- **H7:** un candidato caído antes de estar listo nunca queda activo, y el vigente sigue activo.
+
+**Escenarios:**
+
+- **S1:** candidato que falla antes de estar listo.
+- **S2:** candidato lento (su lease de arranque vence).
+- **S3:** dos candidatos concurrentes.
+- **S4:** respuesta perdida en `acquire` y en `activate`.
+- **S5:** intento de reactivar un host `draining` o `stopped` (y de renovarlo y guardar).
+- **S6:** claims y guardados hostiles fuera de estado, con el epoch vigente adivinado.
+- **S7:** guardado hostil de un host `draining` que ya perdió la fila.
+
+**Resultados:**
+
+| Variante | S1 | S2 | S3 | S4 | S5 | S6 | S7 | Resultado |
+|---|---|---|---|---|---|---|---|---|
+| **propuesta** | 0 | 0 | 0 | 0 | 0 | 0 | 0 | **0 violaciones** |
+| `acquire` crea `active` (el §7.4 original) | H1,H7 | H1 | H1 | 0 | H1 | 0 | H1 | detectado |
+| `newerActive` cuenta `starting` | H1,H7 | H1 | H1 | 0 | H1 | 0 | H1 | detectado |
+| `acquire` no idempotente | 0 | 0 | 0 | H3 | 0 | 0 | 0 | detectado |
+| `activate` sin chequeo de estado | 0 | 0 | 0 | 0 | H2,H5,H6 | 0 | 0 | detectado |
+| `activate` sin lease | 0 | H5 | H5 | H5 | H5 | H5 | H5 | detectado |
+| `activate` sin chequeo de host más nuevo | 0 | 0 | H5 | 0 | 0 | 0 | 0 | detectado |
+| claim solo por identidad (el §7.4 original) | 0 | 0 | 0 | 0 | 0 | H4 | H4 | detectado |
+| claim sin lease | 0 | 0 | 0 | 0 | 0 | H4 | H4 | detectado |
+| save sin estado | 0 | 0 | 0 | 0 | H4 | H4 | H4 | detectado |
+| save `draining` sin chequeo de dueño | 0 | 0 | 0 | 0 | 0 | 0 | H4 | detectado (solo con S7) |
+| `renew` reactiva `draining`/`stopped` | 0 | 0 | 0 | 0 | H2,H6 | 0 | 0 | detectado |
+
+Lectura:
+
+- El primer §7.4 tenía dos de estos defectos (`acquire` creaba `active`, y el claim chequeaba solo identidad). El modelo los detecta.
+- La regla de dueño para `draining` solo se detecta con S7, porque ante guardados honestos el CAS de epoch ya la implica. Se conserva como defensa en profundidad contra un epoch adivinado.
+- Estados recorridos por la propuesta: S1 672, S2 2.679, S3 106.634, S4 153, S5 8.719, S6 2.203 y S7 3.492 (unos 100 s en total).
+
 ---
 
 ## 3. Semántica de producto
@@ -279,22 +339,96 @@ Lectura:
 - **Nunca** una pestaña vieja le quita la partida a una más nueva, ni por claims (clave, §3.4) ni por reconexiones automáticas (`resume`).
 - **Seguridad de `resume`:** el `tabId` lo genera el cliente (uno por carga de página). Solo sirve para decidir si una reconexión automática **cede**. Un cliente que lo manipule solo logra ceder, o comportarse como un recargar, que de todos modos está permitido. No otorga autoridad (I8).
 
-### 3.3 Host vigente y drenaje
+### 3.3 Host vigente: ciclo de vida y drenaje (revisión C1/C2)
 
-- **Generación:** cada proceso realtime obtiene su generación `g` de la base **antes de aceptar jugadores**, junto con un lease (`now()` de la base + 15 s), y lo renueva cada 5 s. La renovación responde `newerActive`: si existe un host de generación mayor con lease vivo.
-- **Drenaje:** un host que se entera de que hay uno vigente más nuevo (`newerActive` en una renovación, un claim o un guardado) **drena**:
-  1. rechaza nuevos joins con «reconectar»;
-  2. congela el movimiento;
-  3. guarda todas las posiciones pendientes;
-  4. cierra cada socket con **4503 `host-draining`**.
+#### 3.3.1 Estados y transiciones
 
-  Los clientes reconectan con `resume: {tabId}`; el ruteo los lleva al host vigente.
+Los estados de un host son monótonos: `starting → active → draining → stopped`. Cada transición es una función SQL **atómica** con `WHERE state = <esperado>`. Ninguna otra transición es posible.
+
+| Transición | Función | Condición (en la base, `now()` de la base) | Reintento tras una respuesta perdida |
+|---|---|---|---|
+| — → `starting` | `world_presence_acquire(hostId, leaseMs)` | genera la generación (`nextval`) y el lease de arranque | **misma generación y mismo estado**: `ON CONFLICT (host_id) DO NOTHING` y después se lee la fila; `acquire` nunca modifica una fila existente |
+| `starting` → `starting` (lease) | `world_presence_renew` | el lease sigue vigente; si venció → `host_expired`, nunca revive | idempotente |
+| **`starting` → `active`** | **`world_presence_activate(generation, hostId, leaseMs)`** | identidad exacta, estado `starting`, lease vigente y **ningún host más nuevo `active` con lease vigente**. Se serializa con `LOCK TABLE … IN SHARE ROW EXCLUSIVE MODE` (dos candidatos no pasan a la vez) | sobre un `active`, devuelve `active` sin cambios |
+| `starting` → `stopped` | `world_presence_drain` o `world_presence_stop` | candidato que aborta | idempotente |
+| `active` → `active` (lease) | `world_presence_renew` | extiende el lease. Un `active` con lease vencido solo revive si no hay uno más nuevo activo; si lo hay, responde `newerActive` sin extender | idempotente |
+| `active` → `draining` | `world_presence_drain(generation, hostId, drainMs)` | fija la ventana de flush (`now() + drainMs`); `renew` **no** la extiende | idempotente |
+| `draining` → `stopped`; `*` → `stopped` | `world_presence_stop` | `stopped` es terminal | idempotente |
+| **prohibidas** | — | `draining → active`, `stopped → *`, `active → starting`, cualquier retroceso | — |
+
+- **`newerActive` solo cuenta hosts `active` con lease vigente.** Un `starting` no desplaza ni drena al vigente: no aparece en `newerActive`, no puede reclamar ni guardar (§3.3.4).
+- **Un proceso que falla durante el arranque** deja una fila `starting` inerte: su lease de arranque vence, no puede activarse (`host_expired`) y no afecta al activo. Si falla limpio, llama `stop`.
+- **Dos candidatos concurrentes:** las activaciones se serializan.
+  - Si el de mayor generación ya está activo, el menor recibe `newer_active` y se detiene.
+  - Si el menor se activó primero, la activación del mayor lo hace drenar (como en un deploy).
+- **Candidato lento:** renueva su lease de arranque mientras se prepara. Si se cuelga y el lease vence, ya no puede activarse.
+
+#### 3.3.2 En qué punto del ciclo de vida de Colyseus
+
+Orden propuesto para `services/realtime/src/index.js`. Solo se aplica cuando `WORLD_LOCATION_PERSISTENCE` es `shadow` u `on`; con `off` no se adquiere nada y el arranque queda como hoy.
+
+1. **Arranque del proceso:** `host.acquire()` con un `hostId` aleatorio nuevo, **antes** de `gameServer.listen()`, con backoff. El estado queda `starting`.
+   - Si hosted no responde en 10 s, el proceso sirve igual con la ubicación `unavailable` (sin generación: no reclama ni guarda, se cuenta `dropped.noGeneration`) y sigue intentando `acquire` en segundo plano.
+   - Las sesiones aceptadas sin generación quedan sin persistencia toda su vida.
+2. **Preparación:** `gameServer.define('presence', …)` y `await world.start()` (carga inicial). Mientras tanto, `host.renew()` cada 5 s mantiene vivo el lease de arranque.
+3. **`await gameServer.listen(port)`.** En Colyseus Cloud, `Server.listen` delega en `@colyseus/tools`, que abre `/run/colyseus/<2567 + NODE_APP_INSTANCE>.sock` y envía `process.send('ready')` a PM2 **antes** de devolver el control (FACT, `@colyseus/tools` 0.18.3).
+4. **Activación:** **inmediatamente después** de que `listen` resuelve, `host.activate()`.
+   - Con `active`: `accepting = true`, `/health` pasa a listo y empieza la renovación cada 5 s (lease de 15 s).
+   - Con `newer_active`, `host_expired` o `host_inactive`: `stop`, se registra y el proceso sale con código 0. Más de 3 salidas de este tipo por hora disparan una alarma de **topología** (§3.5).
+5. **Entre `listen` y la activación:** `onJoin` espera `host.whenActive()` hasta 2 s (sin cambios visibles en el caso normal; la activación es un RTT). Si vence, `ServerError(4503)` y el cliente reintenta con `resume`. El contador `n` se asigna **después** de esa espera, en la parte síncrona del `onJoin` (I13).
+6. **Régimen:** renovación cada 5 s. Con `newerActive` (de una renovación, un claim o un guardado), el host drena.
+7. **Apagado o drenaje:**
+   - `gameServer.onBeforeShutdown` (antes de `matchMaker.gracefullyShutdown`): `host.drain()` (`active → draining`), congelar el movimiento y `flushAll` (3 s);
+   - después, `PresenceRoom.onBeforeShutdown`: `presence:closing{draining}` y `this.disconnect(4503)`;
+   - por último, `gameServer.onShutdown`: `host.stop()`.
+
+   Un drenaje por `newerActive` sigue los mismos pasos sin salir del proceso; cuando queda vacío, `stop` y sale.
+
+#### 3.3.3 Drenaje y `resume`
+
+Un host que se entera de que hay uno vigente más nuevo **drena**:
+
+1. rechaza nuevos joins con 4503;
+2. congela el movimiento;
+3. guarda las posiciones pendientes (solo filas propias, §3.3.4);
+4. cierra cada socket con **4503 `host-draining`**.
+
+Los clientes reconectan con `resume: {tabId}`; el ruteo los lleva al host vigente.
+
 - **Join `resume` en el host vigente:**
-  - si hay una sesión viva del mismo usuario **de otra pestaña** (otro `tabId`), el join se rechaza con `ServerError(4409, 'session-replaced')`: el cliente muestra «otra pestaña» y se detiene;
-  - si es la misma pestaña (su propio socket viejo) o no hay ninguna, es una aceptación normal con clave mayor.
-- **Respuesta del claim con `newerActive`:** el claim también informa si existe un host más nuevo activo, para que el host viejo se entere en su primera interacción con la base y no recién en la siguiente renovación. Eso acorta la ventana de la excepción.
-- **Reanudación:** si un host ve que su generación no es la mayor **pero** ningún host más nuevo tiene lease vivo (el nuevo murió), toma una **generación nueva** y vuelve a aceptar. Ninguna sesión vieja recupera nada: las aceptaciones nuevas son las que ganan.
-- **OPEN QUESTION (ciclo de vida de Colyseus Cloud):** que durante un deploy las conexiones nuevas se ruteen al proceso nuevo, y que no haya dos procesos de presencia activos fuera de un traspaso. Si Cloud siguiera ruteando al host que drena, el cliente reintentaría con backoff (máximo 10 s) hasta que ese host termine. Es un costo acotado y nunca hay pérdida de autoridad. Queda como verificación de Cloud.
+  - si hay una sesión viva del mismo usuario **de otra pestaña** (otro `tabId`), el join se rechaza con `ServerError(4409, 'session-replaced')`: el cliente muestra el overlay con «Jugar acá» y se detiene;
+  - si es la misma pestaña o no hay ninguna, es una aceptación normal con clave mayor.
+- **`newerActive`** viaja en las respuestas de renovación, claim y guardado, para que el host viejo se entere en su primera interacción con la base.
+- **No hay reanudación:** un host `draining` **nunca** vuelve a `active`. Si el host nuevo muere, la plataforma reinicia un proceso, que es un candidato nuevo con una generación nueva.
+
+#### 3.3.4 Claims y guardados según el estado del host (C2)
+
+La base exige, en la misma transacción y con `FOR SHARE` sobre la fila del host (serializa con `drain` y `stop`):
+
+- **identidad exacta** `(generation, hostId)`;
+- el **estado**;
+- el **lease vigente** según `now()` de la base.
+
+| Estado del host | Claim | Guardado |
+|---|---|---|
+| no existe o la identidad no coincide | `unknown_host` | `unknown_host` |
+| `starting` | `host_inactive` | `host_inactive` |
+| `active`, lease vigente | según la clave (§3.4) | normal: CAS de epoch **y** `owner_generation` = generación del escritor |
+| `active`, lease vencido | `host_expired` | `host_expired` |
+| `draining`, lease vigente | `host_inactive` (no crea claims) | **solo el flush final de filas propias** (`owner_generation` = la del host) con CAS de epoch. La ventana la fija `drain` y no se extiende |
+| `draining`, lease vencido | `host_inactive` | `host_expired` |
+| `stopped` | `host_inactive` | `host_inactive` |
+
+Ningún guardado puede superar el CAS de epoch y dueño (Lema 3), cualquiera sea el estado.
+
+**Reacción del realtime (sin reintentos infinitos):**
+
+| Respuesta | Reacción |
+|---|---|
+| `unknown_host` | error de configuración o base reseteada: la ubicación pasa a `unavailable` en este proceso; se registra una vez; **no** se reintenta |
+| `host_inactive` estando el host convencido de que está `active` | renovación inmediata para conocer el estado real. Si es `draining` o `stopped`, se sigue el drenaje. La sesión que no tenía claim queda **sin persistencia** (contada) y no se reintenta |
+| `host_expired` | **pausa**: no se envían claims ni guardados y se renueva de inmediato. Si la renovación revive el lease, se reanuda: los guardados pendientes se reintentan una vez y las sesiones sin claim siguen su backoff (máximo 6 intentos, unos 2 min). Si responde `newerActive`, o sigue vencido tras 2 períodos de lease, el host drena y se detiene |
+| `host_expired` en el flush de un `draining` | se termina el drenaje; las posiciones sin guardar se cuentan («K sin guardar (lease vencido)») |
 
 ### 3.4 Demostración
 
@@ -323,6 +457,8 @@ Lectura:
 
 **Lema 4 (la más nueva llega).** Si B sigue viva y reintenta ante fallas de transporte hasta recibir una respuesta definitiva, termina con `K* = K(B)`, salvo que exista `C` con `K(C) > K(B)`.
 *Prueba:* cada intento de B da `claimed` (toma la fila o la adopta) o `superseded`. Este último solo ocurre si `K* > K(B)`, es decir, si existe tal C. ∎
+
+*Nota (revisión C2):* desde §3.3.4, un claim exige además que el host de la sesión esté `active` con lease vigente. Eso solo **restringe** qué claims se aplican, así que los Lemas 1–3 valen igual. El Lema 4 asume además que el host de B está `active`. Si no lo está, B no persiste (falla cerrada), y tampoco se reimpone nadie: I2 sigue valiendo.
 
 **Teorema (T3, T4, T7).** Sea A aceptada en el host P y B en Q, con `g(P) < g(Q)` (P es la instancia vieja). Entonces `K(A) < K(B)` y, **en toda intercalación**:
 
@@ -359,6 +495,52 @@ Gana A, la más vieja, y B ve «otra pestaña o dispositivo» con «Jugar acá»
 
 Por §2.1, esta ventana no se puede eliminar sin un coordinador común: P y Q todavía no comparten nada que ordene esas dos aceptaciones. (Modelo, caso invertido: R1 = 3, R2 = 4, todos dentro de la ventana; R2 = 0 si la renovación ocurre antes de aceptar B.)
 
+### 3.5 Precondición de topología (**BLOQUEANTE para `on`**)
+
+La propiedad «una generación por proceso» **solo es válida si WORLD tiene un único proceso activo en régimen**, y el solapamiento ocurre únicamente durante un deploy o un reinicio.
+
+**Lo que se sabe hoy:**
+
+- (FACT) `services/realtime/ecosystem.config.js` declara `instances: 1` y `exec_mode: 'fork'`.
+- (FACT) `@colyseus/tools` 0.18.3, cuando `COLYSEUS_CLOUD` está definido:
+  - escucha en `/run/colyseus/<2567 + NODE_APP_INSTANCE>.sock`, así que la plataforma admite varias instancias PM2;
+  - envía `process.send('ready')` al terminar `listen`.
+- (FACT) `index.js` le pasa a `listen` un `Server` ya construido, así que **la configuración Redis (driver y presencia) de Cloud no se aplica**.
+- (INFERENCE fuerte) Con más de un proceso, cada uno tendría su propio matchmaker y su propio mundo: `actors`, `world` y `clientsByActor` son de módulo. **El mundo ya estaría partido**, con o sin WORLD LOCATION.
+- (OPEN QUESTION) Si Cloud respeta `instances: 1`, cómo reemplaza el proceso en un deploy y qué señal envía.
+
+**Caso 1 — Colyseus ejecuta un único proceso WORLD:**
+
+- la propuesta es válida;
+- en un deploy, el proceso nuevo arranca `starting`, se activa después de `listen` (§3.3.2), y el viejo se entera por `newerActive` o recibe SIGTERM o SIGINT y drena;
+- los jugadores reconectan al nuevo con `resume`.
+
+**Caso 2 — Colyseus puede ejecutar varios workers WORLD permanentes:**
+
+- **una generación por proceso no es válida:** el worker de mayor generación haría drenar a los demás, y estos, al reiniciarse con una generación mayor, harían drenar al primero (drenaje mutuo);
+- habría que pasar a una **generación por deployment** (un id de deployment o revisión común a sus workers) **más** un coordinador o sharding común. Por ejemplo:
+  - fijar cada usuario a un worker por hash de `userId` con un driver y presencia compartidos (Redis), para que el orden en el host siga valiendo por usuario;
+  - o un lease de propiedad por usuario (alternativa D);
+- es un **rediseño de la propiedad**, fuera de esta propuesta, y además exige resolver antes la partición del mundo.
+
+**Verificación obligatoria en Colyseus Cloud antes de `on`** (con evidencia documentada; preferentemente en una segunda app de Cloud para el build oscuro, sin tocar la pública):
+
+1. **cantidad de procesos WORLD simultáneos** en régimen: `NODE_APP_INSTANCE` y el `hostId`/generación en el log de cada proceso; `/version` por proceso;
+2. **escalado horizontal:** si hay autoescalado o varias máquinas o regiones por app, y si se puede fijar en uno;
+3. **ruteo durante un deploy:** a qué proceso van las conexiones nuevas desde que el nuevo envía `ready`, y si el viejo sigue recibiendo conexiones;
+4. **cuándo se dispara el apagado:** qué señal (SIGINT o SIGTERM), en qué momento respecto del `ready` del nuevo, y con qué plazo hasta el SIGKILL (debe superar el drenaje: 3 s de flush más margen);
+5. **id de deployment o revisión:** si existe una variable de entorno común y confiable (para los logs y para el caso 2).
+
+**Regla:** mientras estos cinco puntos no estén verificados y resulten en el caso 1, el veredicto **no puede** ser `READY FOR ON`. Si resultan en el caso 2, el veredicto es `BLOCKED` con rediseño. Además, el realtime registra en `/metrics` las salidas por `newer_active` y los drenajes por `newerActive` sin deploy, como alarma de una topología inesperada.
+
+### 3.6 Decisiones de UX (aprobadas)
+
+- El texto del botón es **«Jugar acá»**.
+- Aparece en el **overlay de sesión cedida o reemplazada**: después de 4409, de un `ServerError` 4409 en un `resume`, o de 4001 interpretado como reemplazo.
+- Es una **acción explícita de takeover**: un join **sin** `resume`, que como aceptación nueva desplaza a la otra pestaña.
+- **Una reconexión automática nunca equivale a pulsarlo:** las reconexiones automáticas siempre llevan `resume` y ceden.
+- El `tabId` **solo** sirve para la UX y la reanudación. **Jamás** participa de la clave autoritativa de la base (I8): la clave es `(generation, seq)`, asignada por la base y por el `onJoin` del host.
+
 ---
 
 ## 4. Reintentos y tiempos de espera
@@ -374,8 +556,10 @@ Por §2.1, esta ventana no se puede eliminar sin un coordinador común: P y Q to
 | **Cuándo un conflicto es definitivo** | **siempre** que la respuesta sea `superseded`: no hay re-base. `unknown_user` y 4xx también son definitivos (sin persistencia, contados) | el re-base automático era el defecto |
 | **Adoptar una operación aplicada con respuesta perdida** | el reintento con la misma clave y la misma sesión devuelve `claimed` con el **epoch vigente, sin incrementarlo** | Lema 1; no quedan epochs huérfanos de la propia sesión |
 | **Impedir que un reintento abandonado desplace a una sesión posterior** | estructural: la clave del reintento es la de la aceptación original | Lema 2 |
-| `presence_acquire` al arrancar | reintento con backoff; hasta obtener `g`, la ubicación queda `unavailable` (no se reclama nada; se cuenta `dropped.noGeneration`). El mundo sigue funcionando | falla cerrada, sin bloquear el juego |
-| `presence_renew` | cada 5 s; lease de 15 s; timeout de 3 s | renovar falla → el host sigue sirviendo: la seguridad no depende del lease |
+| `presence_acquire` al arrancar | antes de `listen`, con backoff; tras 10 s sin respuesta, el proceso sirve con la ubicación `unavailable` y sigue intentando en segundo plano (`dropped.noGeneration`) | falla cerrada, sin bloquear el juego (§3.3.2) |
+| `presence_activate` | inmediatamente después de `listen`; reintento ante falla de transporte (idempotente); `newer_active`, `host_expired` o `host_inactive` → `stop` y salida | §3.3.2 |
+| `presence_renew` | cada 5 s; lease de 15 s; timeout de 3 s | un fallo de renovación no detiene al host: la seguridad no depende del lease |
+| `host_inactive` / `host_expired` / `unknown_host` en claims o guardados | pausa y renovación; **sin reintentos infinitos** (máximo de intentos y luego drenaje o `unavailable`) | §3.3.4 |
 
 ---
 
@@ -403,7 +587,7 @@ Por §2.1, esta ventana no se puede eliminar sin un coordinador común: P y Q to
 |---|---|---|---|
 | **4409 `session-replaced`** (nuevo, app) | reemplazo **autoritativo**: otra pestaña abierta por el jugador en este host, o `superseded`/`stale` porque otra sesión tiene una clave mayor. También como `ServerError` del join cuando un `resume` cede ante otra pestaña viva | se detiene y muestra «otra pestaña o dispositivo» con «Jugar acá» | no lo recibe: a los clientes ≤ 2 el servidor les sigue enviando **4001** para el reemplazo, que es lo que entienden, y nunca les aplica `resume` (no lo declaran) |
 | **4503 `host-draining`** (nuevo, app) | apagado, deploy o drenaje (también como `ServerError` del join en un host que drena) | reconexión `resume` inmediata (backoff reiniciado) | **reconecta** (≠ 4001): **corrige también a los clientes anteriores**, como join fresco |
-| 4001 | — | si el servidor anunció protocolo 3 (eco en el snapshot), es un apagado de Colyseus no interceptado → reconexión. Si no lo anunció (servidor viejo), es reemplazo → se detiene | reemplazo, como hoy |
+| 4001 | — | **caída o reinicio → reconexión `resume`**, si el servidor anunció protocolo 3 (eco en el snapshot): a un cliente de protocolo 3 el servidor nuevo nunca le envía 4001, así que solo puede venir de Colyseus. Si no lo anunció (servidor viejo, por ejemplo tras un rollback), 4001 es ambiguo: **una** reconexión `resume` si el socket cerrado vivió ≥ 30 s y no hubo otro 4001 en los últimos 60 s; si no, se trata como reemplazo y se muestra «Jugar acá». Como mucho un rebote por minuto: sin bucles | reemplazo, como hoy |
 | 4000 | salida voluntaria | sin reconexión (la inició el cliente) | igual |
 | 1006 / 4002 / 4003 / 4010 | red o error | reconexión `resume` | reconexión (join fresco, como hoy) |
 
@@ -423,9 +607,11 @@ Además, **antes** de cerrar el servidor envía un mensaje `presence:closing { r
 
 - **Cómo deja de emitirse 4001 en un apagado:** `PresenceRoom.onBeforeShutdown()` se sobrescribe para drenar (§6) y desconectar con 4503. Así `matchMaker.gracefullyShutdown()` ya no encuentra clientes a los que cerrar con 4001. Un test lo afirma.
 - **Versión de protocolo: sí, hay que subirla.** `presenceProtocol` pasa de 2 a 3 (lo declara el cliente) y la revisión del servidor de 5 a 6 (`/version`). El servidor elige el código de reemplazo según el protocolo declarado y hace eco de `presenceProtocol` en el snapshot, para que el cliente nuevo sepa cómo leer un 4001.
-- **Compatibilidad cruzada:**
-  - cliente nuevo con servidor viejo: 4001 sin eco → reemplazo (seguro, sin bucles);
-  - cliente viejo con servidor nuevo: reemplazo con 4001 y apagado con 4503 (reconecta).
+- **Compatibilidad (C5):**
+  - **4001 recibido durante una caída o un reinicio → reconectar** (con `resume`; para un servidor sin eco rige la regla acotada de la tabla);
+  - **4409 → sesión reemplazada: se detiene** y muestra «Jugar acá»;
+  - **4503 → host drenando: reconectar con `resume`**;
+  - **clientes anteriores (≤ 2), de forma segura:** reciben 4001 solo como reemplazo (se detienen) y 4503 en apagados y drenajes (reconectan con un join fresco). Como no envían `resume`, en un deploy con dos pestañas viejas la que reconecta puede desplazar a la otra, que recibe 4001 y se detiene: es el comportamiento preexistente, sin bucles.
 - **Ningún caso produce un bucle de dos pestañas:** solo el reemplazo detiene, y solo el apagado, el drenaje o la red reconectan.
 
 ### 5.3 Tests (en la implementación)
@@ -445,6 +631,13 @@ Además, **antes** de cerrar el servidor envía un mensaje `presence:closing { r
     - (c) sin otra pestaña → entra normal;
     - (d) corte de red en la pestaña vieja con la nueva viva → la vieja cede;
     - (e) recargar o «Jugar acá» (sin `resume`) → desplaza a la otra pestaña.
+11. **Integración obligatoria (C5): 4503 no se convierte en 4001 en el apagado.**
+    - Montaje: proceso real del realtime + clientes `@colyseus/sdk` reales, con varios clientes conectados y uno uniéndose durante el apagado.
+    - Se dispara el apagado ordenado (SIGTERM, o `process.emit` como en el arnés de 3B).
+    - `PresenceRoom.onBeforeShutdown` cierra con `this.disconnect(4503)`; `matchMaker.gracefullyShutdown` corre después.
+    - Se afirma que **todos** los clientes conectados observan **4503 y ninguno 4001**, que el join durante el apagado recibe `ServerError` 4503, y que el log de Colyseus no registra cierres `SERVER_SHUTDOWN`.
+    - Corre por dos caminos: `server.listen(port)` y el de `@colyseus/tools` (`COLYSEUS_CLOUD=1`, socket Unix, en Linux o CI).
+    - **Control negativo:** con el override deshabilitado, el mismo test debe ver 4001 y fallar.
 
 ### 5.4 Corrección menor: el log de apagado
 
@@ -485,21 +678,22 @@ Además, **antes** de cerrar el servidor envía un mensaje `presence:closing { r
 
 ### 7.1 Modelo de estado
 
-**Host (realtime):** `starting → active ⇄ draining → stopped`.
+**Host (fila en `world_presence_hosts` + proceso):** `starting → active → draining → stopped`, monótono, sin retrocesos (§3.3.1).
 
-- `starting`: sin generación; la ubicación queda `unavailable`; el juego sigue.
-- `active`: tiene `g` y renueva cada 5 s.
-- `draining`: conoce un host más nuevo, o recibió SIGTERM. Rechaza joins con 4503, congela el movimiento, guarda y cierra con 4503.
-- Reanudación `draining → active` (con una **generación nueva**) solo si ningún host más nuevo tiene lease vivo y el proceso no está apagándose.
+- `starting`: tiene generación, pero no acepta jugadores (el `onJoin` espera la activación hasta 2 s), no reclama, no guarda y no cuenta en `newerActive`.
+- `active`: acepta, reclama y guarda; renueva cada 5 s (lease de 15 s).
+- `draining`: rechaza joins (4503), congela el movimiento, hace el flush final de sus filas propias dentro de la ventana fijada por `drain` y cierra con 4503. **Nunca** vuelve a `active`.
+- `stopped`: terminal.
+- **Sin generación** (hosted inalcanzable al arrancar): la ubicación queda `unavailable`; las sesiones no persisten.
 
 **Sesión (journal):** `accepted(K, sessionId, tabId) → claiming → owner(epoch) → { closed | superseded | fenced }`.
 
-- `unpersisted` (sin generación al aceptar, o `unknown_user`) es terminal y no escribe.
+- `unpersisted` es terminal y no escribe. Ocurre sin generación, con `unknown_user`, con `host_inactive`, o al agotar los reintentos tras `host_expired`.
 - `superseded` y `fenced` son terminales: nunca vuelven a reclamar. En `on` se cierran con 4409 (o 4001 si el cliente es ≤ 2).
 
-**Pestaña (cliente):** `fresh-join → playing → { replaced (se detiene) | lost (reconecta con resume) | draining (reconecta con resume, inmediato) }`. `replaced` solo sale por acción del jugador («Jugar acá» o recargar).
+**Pestaña (cliente):** `fresh-join → playing → { replaced (overlay «Jugar acá», se detiene) | lost (reconecta con resume) | draining (reconecta con resume, inmediato) }`. Solo se sale de `replaced` por una acción del jugador («Jugar acá» o recargar).
 
-**Fila:** `(epoch, seq, location, owner_generation, owner_seq, owner_session)`. El orden de `(owner_generation, owner_seq)` es lexicográfico.
+**Fila de ubicación:** `(epoch, seq, location, owner_generation, owner_seq, owner_session)`. El orden de `(owner_generation, owner_seq)` es lexicográfico.
 
 ### 7.2 Invariantes
 
@@ -517,7 +711,14 @@ Además, **antes** de cerrar el servidor envía un mensaje `presence:closing { r
 | I10 | en un drenaje, el guardado se intenta antes de cerrar cualquier socket | `onBeforeShutdown` |
 | I11 | en shadow nadie se desconecta por ubicación; solo se cuenta (`wouldFence`, `wouldReplace`, `wouldDrain`) | realtime |
 | I12 | una reconexión automática (`resume`) nunca desplaza a una sesión viva de otra pestaña; solo una acción del jugador desplaza | realtime (join `resume`) + cliente |
-| I13 | el orden en el host `n` se asigna en `onJoin`, antes de cualquier `await` | realtime |
+| I13 | el orden en el host `n` se asigna en la parte síncrona de `onJoin` (después de la espera de activación y antes de cualquier otro `await`) | realtime |
+| I14 | un host `starting` no reclama, no guarda y no provoca drenajes (`newerActive` solo cuenta `active` con lease) | SQL (H1, H4) |
+| I15 | estados del host monótonos; `draining` nunca vuelve a `active`; `stopped` es terminal | SQL (`WHERE state = <esperado>`; H2) |
+| I16 | `acquire` y `activate` son idempotentes por `hostId`: misma generación y mismo estado | SQL (H3) |
+| I17 | claims solo desde `active` con lease vigente; guardados desde `active` con lease, o desde `draining` con lease sobre filas propias | SQL (H4) |
+| I18 | la activación solo ocurre desde `starting`, con lease vigente, sin un host más nuevo activo, serializada | SQL (`LOCK TABLE`; H5) |
+| I19 | la topología de §3.5 (caso 1) está verificada antes de `on` | compuerta manual |
+| I20 | ningún cliente conectado recibe 4001 en un apagado ordenado del servidor nuevo | `PresenceRoom.onBeforeShutdown` + test C11 |
 
 ### 7.3 Secuencias de mensajes
 
@@ -554,13 +755,14 @@ SQL: K* = (1,a) y owner_session = A → claimed e+1 (adopción, sin incremento)
 **Deploy:**
 
 ```
-Q arranca: presence_acquire → g_Q = g_P + 1; Q acepta conexiones nuevas
+Q arranca: presence_acquire → (g_Q > g_P, starting) → define + world.start → listen (ready a PM2)
+   → presence_activate → active (ahora sí cuenta en newerActive); antes de eso P no se entera de nada
 P: SIGTERM (o renew/claim → newerActive) → draining: rechaza joins (4503), congela, flushAll
    → presence:closing{draining} + cierre 4503 → clientes reconectan con resume{tabId}
 Q.onJoin(resume): ¿hay otra pestaña viva del usuario en Q? no → n := ++Q.accepted → claim (g_Q, n) > (g_P, *) → claimed
                                                            sí → ServerError 4409 (cede; «otra pestaña»)
    → el claim de Q lee la posición que P acaba de guardar
-P: presence_release → stopped
+P: presence_stop → stopped
 ```
 
 **Dos pestañas durante un deploy** (A en P, la vieja; B ya en Q): P drena → A reconecta con `resume` → en Q está B viva → A cede (4409). Gana B, la más nueva (Lema 5). Sin `resume`, A' habría entrado como aceptación nueva y le habría quitado la partida a B; el modelo encontró ese contraejemplo en una iteración anterior del diseño.
@@ -570,71 +772,147 @@ P: presence_release → stopped
 ### 7.4 Esquema SQL propuesto (migración nueva; **no se aplica en esta fase**)
 
 ```sql
--- 2026100Xxxxxxx_world_location_ordering.sql (propuesta)
+-- 2026100Xxxxxxx_world_location_ordering.sql (propuesta, revisión 1)
 
-CREATE SEQUENCE IF NOT EXISTS public.world_presence_generation_seq;
+-- ── Hosts: secuencia, tabla y permisos explícitos ───────────────────────────
+CREATE SEQUENCE IF NOT EXISTS public.world_presence_generation_seq AS bigint MINVALUE 1 NO CYCLE;
 
 CREATE TABLE IF NOT EXISTS public.world_presence_hosts (
   generation       bigint      PRIMARY KEY DEFAULT nextval('public.world_presence_generation_seq'),
   host_id          uuid        NOT NULL UNIQUE,          -- aleatorio por arranque, generado por el realtime
-  state            text        NOT NULL DEFAULT 'active' CHECK (state IN ('active', 'draining', 'stopped')),
-  started_at       timestamptz NOT NULL DEFAULT now(),
-  lease_expires_at timestamptz NOT NULL
+  state            text        NOT NULL DEFAULT 'starting'
+                               CHECK (state IN ('starting', 'active', 'draining', 'stopped')),
+  lease_expires_at timestamptz NOT NULL,
+  created_at       timestamptz NOT NULL DEFAULT now(),
+  activated_at     timestamptz NULL,                      -- diagnóstico
+  draining_at      timestamptz NULL,
+  stopped_at       timestamptz NULL
 );
-ALTER TABLE public.world_presence_hosts ENABLE ROW LEVEL SECURITY; -- sin políticas
-REVOKE ALL ON TABLE public.world_presence_hosts FROM PUBLIC, anon, authenticated, service_role;
-GRANT SELECT, INSERT, UPDATE ON TABLE public.world_presence_hosts TO service_role;
+ALTER SEQUENCE public.world_presence_generation_seq OWNED BY public.world_presence_hosts.generation;
+ALTER TABLE public.world_presence_hosts ENABLE ROW LEVEL SECURITY; -- sin políticas: ningún cliente
 
+-- No se depende de los privilegios por defecto de Supabase (que en el esquema public conceden
+-- ALL sobre tablas, secuencias y funciones a anon, authenticated y service_role, y EXECUTE de
+-- funciones a PUBLIC): se revoca TODO y se concede lo mínimo.
+REVOKE ALL ON TABLE    public.world_presence_hosts          FROM PUBLIC, anon, authenticated, service_role;
+REVOKE ALL ON SEQUENCE public.world_presence_generation_seq FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT, INSERT, UPDATE ON TABLE public.world_presence_hosts TO service_role;  -- sin DELETE ni TRUNCATE
+GRANT USAGE ON SEQUENCE public.world_presence_generation_seq TO service_role;      -- nextval (y currval); sin SELECT ni UPDATE (setval)
+
+-- ── Dueño por clave en la fila de ubicación ──────────────────────────────────
 ALTER TABLE public.world_player_locations
   ADD COLUMN IF NOT EXISTS owner_generation bigint NOT NULL DEFAULT 0 CHECK (owner_generation >= 0),
   ADD COLUMN IF NOT EXISTS owner_seq        bigint NOT NULL DEFAULT 0 CHECK (owner_seq >= 0),
   ADD COLUMN IF NOT EXISTS owner_session    uuid   NULL;
+-- (los permisos de world_player_locations no cambian: SELECT, INSERT, UPDATE solo para service_role)
 
--- Generación de un proceso. Idempotente por host_id: el reintento de una respuesta perdida
--- devuelve la MISMA generación. Poda hosts 'stopped' de más de 7 días.
+-- ── Ciclo de vida ─────────────────────────────────────────────────────────────
+-- acquire: crea el host en 'starting'. Idempotente por host_id: el reintento devuelve la MISMA
+-- generación y el estado actual; nunca modifica una fila existente.
 CREATE OR REPLACE FUNCTION public.world_presence_acquire(p_host_id uuid, p_lease_ms integer)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
-DECLARE v_row public.world_presence_hosts;
+DECLARE v public.world_presence_hosts;
 BEGIN
-  IF p_host_id IS NULL OR p_lease_ms NOT BETWEEN 1000 AND 120000 THEN RAISE EXCEPTION 'invalid_acquire'; END IF;
+  IF p_host_id IS NULL OR p_lease_ms IS NULL OR p_lease_ms NOT BETWEEN 1000 AND 120000 THEN
+    RAISE EXCEPTION 'invalid_acquire';
+  END IF;
   INSERT INTO public.world_presence_hosts (host_id, lease_expires_at)
   VALUES (p_host_id, now() + make_interval(secs => p_lease_ms / 1000.0))
-  ON CONFLICT (host_id) DO UPDATE SET lease_expires_at = EXCLUDED.lease_expires_at
-  RETURNING * INTO v_row;
-  DELETE FROM public.world_presence_hosts WHERE state = 'stopped' AND started_at < now() - interval '7 days';
-  RETURN jsonb_build_object('generation', v_row.generation);
+  ON CONFLICT (host_id) DO NOTHING;
+  SELECT * INTO v FROM public.world_presence_hosts WHERE host_id = p_host_id;
+  RETURN jsonb_build_object('generation', v.generation, 'state', v.state);
 END $$;
 
--- Renovación: extiende el lease y dice si existe un host MÁS NUEVO activo y vivo.
-CREATE OR REPLACE FUNCTION public.world_presence_renew(p_generation bigint, p_host_id uuid, p_lease_ms integer, p_state text)
+-- activate: starting → active, explícita y atómica. Serializada: dos candidatos no se activan a
+-- la vez, y nadie se activa si hay un host MÁS NUEVO activo con lease vigente.
+-- LOCK … SHARE ROW EXCLUSIVE requiere UPDATE (lo tiene service_role) y no bloquea los FOR SHARE
+-- de los claims.
+CREATE OR REPLACE FUNCTION public.world_presence_activate(p_generation bigint, p_host_id uuid, p_lease_ms integer)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
-DECLARE v_found boolean;
+DECLARE v public.world_presence_hosts;
 BEGIN
-  IF p_state NOT IN ('active', 'draining', 'stopped') OR p_lease_ms NOT BETWEEN 1000 AND 120000 THEN RAISE EXCEPTION 'invalid_renew'; END IF;
-  UPDATE public.world_presence_hosts
-     SET lease_expires_at = now() + make_interval(secs => p_lease_ms / 1000.0), state = p_state
-   WHERE generation = p_generation AND host_id = p_host_id AND state <> 'stopped'
-  RETURNING true INTO v_found;
+  IF p_generation IS NULL OR p_generation < 1 OR p_host_id IS NULL OR p_lease_ms NOT BETWEEN 1000 AND 120000 THEN
+    RAISE EXCEPTION 'invalid_activate';
+  END IF;
+  LOCK TABLE public.world_presence_hosts IN SHARE ROW EXCLUSIVE MODE;
+  SELECT * INTO v FROM public.world_presence_hosts WHERE generation = p_generation AND host_id = p_host_id;
   IF NOT FOUND THEN RETURN jsonb_build_object('status', 'unknown_host'); END IF;
-  RETURN jsonb_build_object('status', 'ok', 'newerActive', EXISTS (
-    SELECT 1 FROM public.world_presence_hosts
-     WHERE generation > p_generation AND state = 'active' AND lease_expires_at > now()));
+  IF v.state = 'active' THEN RETURN jsonb_build_object('status', 'active'); END IF;          -- reintento
+  IF v.state <> 'starting' THEN RETURN jsonb_build_object('status', 'host_inactive', 'state', v.state); END IF;
+  IF v.lease_expires_at <= now() THEN RETURN jsonb_build_object('status', 'host_expired'); END IF;
+  IF EXISTS (SELECT 1 FROM public.world_presence_hosts h
+              WHERE h.generation > p_generation AND h.state = 'active' AND h.lease_expires_at > now()) THEN
+    RETURN jsonb_build_object('status', 'newer_active');
+  END IF;
+  UPDATE public.world_presence_hosts
+     SET state = 'active', activated_at = now(), lease_expires_at = now() + make_interval(secs => p_lease_ms / 1000.0)
+   WHERE generation = p_generation AND state = 'starting';
+  RETURN jsonb_build_object('status', 'active');
 END $$;
 
--- Claim con clave. Atómico en una sentencia; el primero de dos concurrentes con la misma
--- clave toma la fila y el segundo adopta. Sin re-base: 'superseded' es definitivo.
+-- renew: NUNCA cambia el estado. starting y active extienden; un active vencido solo revive si no
+-- hay uno más nuevo activo; draining no se extiende (su ventana la fija drain); stopped no responde.
+CREATE OR REPLACE FUNCTION public.world_presence_renew(p_generation bigint, p_host_id uuid, p_lease_ms integer)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
+DECLARE v public.world_presence_hosts; v_newer boolean;
+BEGIN
+  IF p_generation IS NULL OR p_host_id IS NULL OR p_lease_ms NOT BETWEEN 1000 AND 120000 THEN RAISE EXCEPTION 'invalid_renew'; END IF;
+  SELECT * INTO v FROM public.world_presence_hosts WHERE generation = p_generation AND host_id = p_host_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('status', 'unknown_host'); END IF;
+  IF v.state = 'stopped' THEN RETURN jsonb_build_object('status', 'host_inactive', 'state', 'stopped'); END IF;
+  IF v.state = 'starting' AND v.lease_expires_at <= now() THEN RETURN jsonb_build_object('status', 'host_expired', 'state', 'starting'); END IF;
+  v_newer := EXISTS (SELECT 1 FROM public.world_presence_hosts h
+                      WHERE h.generation > p_generation AND h.state = 'active' AND h.lease_expires_at > now());
+  IF v.state = 'starting' OR (v.state = 'active' AND NOT (v.lease_expires_at <= now() AND v_newer)) THEN
+    UPDATE public.world_presence_hosts SET lease_expires_at = now() + make_interval(secs => p_lease_ms / 1000.0)
+     WHERE generation = p_generation AND state = v.state;
+  END IF;
+  RETURN jsonb_build_object('status', 'ok', 'state', v.state, 'newerActive', v_newer);
+END $$;
+
+-- drain: active → draining (ventana de flush fija), starting → stopped; idempotente.
+CREATE OR REPLACE FUNCTION public.world_presence_drain(p_generation bigint, p_host_id uuid, p_drain_ms integer)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
+DECLARE v public.world_presence_hosts;
+BEGIN
+  IF p_generation IS NULL OR p_host_id IS NULL OR p_drain_ms NOT BETWEEN 1000 AND 60000 THEN RAISE EXCEPTION 'invalid_drain'; END IF;
+  SELECT * INTO v FROM public.world_presence_hosts WHERE generation = p_generation AND host_id = p_host_id FOR UPDATE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('status', 'unknown_host'); END IF;
+  IF v.state = 'active' THEN
+    UPDATE public.world_presence_hosts
+       SET state = 'draining', draining_at = now(), lease_expires_at = now() + make_interval(secs => p_drain_ms / 1000.0)
+     WHERE generation = p_generation AND state = 'active';
+    RETURN jsonb_build_object('status', 'ok', 'state', 'draining');
+  ELSIF v.state = 'starting' THEN
+    UPDATE public.world_presence_hosts SET state = 'stopped', stopped_at = now() WHERE generation = p_generation AND state = 'starting';
+    RETURN jsonb_build_object('status', 'ok', 'state', 'stopped');
+  END IF;
+  RETURN jsonb_build_object('status', CASE WHEN v.state = 'stopped' THEN 'host_inactive' ELSE 'ok' END, 'state', v.state);
+END $$;
+
+-- stop: cualquier estado → stopped (terminal); idempotente.
+CREATE OR REPLACE FUNCTION public.world_presence_stop(p_generation bigint, p_host_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
+BEGIN
+  UPDATE public.world_presence_hosts SET state = 'stopped', stopped_at = coalesce(stopped_at, now())
+   WHERE generation = p_generation AND host_id = p_host_id AND state <> 'stopped';
+  RETURN jsonb_build_object('status', 'ok');
+END $$;
+
+-- ── Claim con clave: exige host active, lease vigente e identidad exacta ─────
 CREATE OR REPLACE FUNCTION public.world_location_claim_keyed(
   p_user_id uuid, p_generation bigint, p_seq bigint, p_session uuid, p_host_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
-DECLARE v_row public.world_player_locations; v_newer boolean; v_took boolean;
+DECLARE h public.world_presence_hosts; v_row public.world_player_locations; v_took boolean; v_newer boolean;
 BEGIN
-  IF p_user_id IS NULL OR p_session IS NULL OR p_generation IS NULL OR p_generation < 1 OR p_seq IS NULL OR p_seq < 1 THEN
+  IF p_user_id IS NULL OR p_session IS NULL OR p_host_id IS NULL OR p_generation IS NULL OR p_generation < 1 OR p_seq IS NULL OR p_seq < 1 THEN
     RAISE EXCEPTION 'invalid_claim';
   END IF;
-  -- La generación debe ser de ese host (defensa en profundidad; el llamador ya tiene el secreto).
-  IF NOT EXISTS (SELECT 1 FROM public.world_presence_hosts WHERE generation = p_generation AND host_id = p_host_id) THEN
-    RETURN jsonb_build_object('status', 'unknown_host');
-  END IF;
+  -- FOR SHARE: un drain/stop concurrente espera a que este claim termine (o el claim ve el estado nuevo).
+  SELECT * INTO h FROM public.world_presence_hosts WHERE generation = p_generation AND host_id = p_host_id FOR SHARE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('status', 'unknown_host'); END IF;
+  IF h.state <> 'active' THEN RETURN jsonb_build_object('status', 'host_inactive', 'state', h.state); END IF;
+  IF h.lease_expires_at <= now() THEN RETURN jsonb_build_object('status', 'host_expired'); END IF;
   BEGIN
     INSERT INTO public.world_player_locations (user_id, owner_generation, owner_seq, owner_session)
     VALUES (p_user_id, p_generation, p_seq, p_session)
@@ -647,14 +925,13 @@ BEGIN
     RETURN jsonb_build_object('status', 'unknown_user');
   END;
   v_took := FOUND; -- antes de cualquier otra sentencia
-  -- ¿Hay un host más nuevo activo? (el host viejo se entera en su primer claim, no en la próxima renovación)
-  v_newer := EXISTS (SELECT 1 FROM public.world_presence_hosts
-                      WHERE generation > p_generation AND state = 'active' AND lease_expires_at > now());
+  v_newer := EXISTS (SELECT 1 FROM public.world_presence_hosts x
+                      WHERE x.generation > p_generation AND x.state = 'active' AND x.lease_expires_at > now());
   IF NOT v_took THEN
     SELECT * INTO v_row FROM public.world_player_locations WHERE user_id = p_user_id;
     IF v_row.owner_generation = p_generation AND v_row.owner_seq = p_seq THEN
       IF v_row.owner_session IS DISTINCT FROM p_session THEN RAISE EXCEPTION 'key_reused'; END IF; -- bug del llamador
-      NULL; -- adopción: misma clave y misma sesión → claimed con el epoch vigente, sin incremento
+      -- adopción: misma clave y misma sesión → claimed con el epoch vigente, sin incremento
     ELSE
       RETURN jsonb_build_object('status', 'superseded', 'newerActive', v_newer);
     END IF;
@@ -664,120 +941,185 @@ BEGIN
       'areaId', v_row.area_id, 'tx', v_row.tx, 'ty', v_row.ty, 'layoutVersion', v_row.layout_version) END);
 END $$;
 
--- v1 (realtime 4d0ab64) deja de poder tomar filas con dueño por clave:
---   WHERE user_id = p_user_id AND epoch = p_expected_epoch AND owner_generation = 0
--- (con dueño por clave, v1 siempre responde 'conflict': el realtime viejo no persiste, falla cerrada).
--- Una migración posterior la elimina cuando los logs del Edge no muestren llamadas v1.
+-- ── Guardado con clave: regla por estado + CAS de epoch y dueño ──────────────
+-- Mismas validaciones de forma por fila que world_location_save v1 (se omiten aquí: se reutiliza
+-- su cuerpo). Cambian la cabecera y la condición del UPDATE.
+CREATE OR REPLACE FUNCTION public.world_location_save_keyed(p_rows jsonb, p_generation bigint, p_host_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY INVOKER SET search_path = public AS $$
+DECLARE h public.world_presence_hosts; v_newer boolean; /* … variables de v1 … */
+BEGIN
+  SELECT * INTO h FROM public.world_presence_hosts WHERE generation = p_generation AND host_id = p_host_id FOR SHARE;
+  IF NOT FOUND THEN RETURN jsonb_build_object('status', 'unknown_host'); END IF;
+  IF h.state IN ('starting', 'stopped') THEN RETURN jsonb_build_object('status', 'host_inactive', 'state', h.state); END IF;
+  IF h.lease_expires_at <= now() THEN RETURN jsonb_build_object('status', 'host_expired', 'state', h.state); END IF;
+  -- h.state ∈ {active, draining} con lease vigente. Para ambos, cada fila se aplica solo si:
+  --   UPDATE … WHERE user_id = v_user AND epoch = v_epoch AND seq < v_seq AND owner_generation = p_generation
+  -- En 'draining' la condición de dueño es la que restringe el flush a sus filas propias; en 'active'
+  -- es defensa en profundidad (el epoch ya identifica al dueño). Resultado por fila: applied |
+  -- duplicate (mismo epoch y dueño, seq <=) | stale | invalid, como en v1.
+  /* … cuerpo de v1 con esa condición … */
+  v_newer := EXISTS (SELECT 1 FROM public.world_presence_hosts x
+                      WHERE x.generation > p_generation AND x.state = 'active' AND x.lease_expires_at > now());
+  RETURN jsonb_build_object('status', 'ok', 'results', /* … */ NULL, 'newerActive', v_newer);
+END $$;
 
--- world_location_save: sin cambios en la regla CAS. Recibe opcionalmente la generación del
--- escritor (nivel lote) y devuelve además 'newerActive' (un EXISTS por lote), para que el host
--- viejo se entere también al guardar.
+-- ── v1 (realtime 4d0ab64): solo filas sin dueño por clave ────────────────────
+--   world_location_claim(uuid, bigint): … WHERE user_id = p_user_id AND epoch = p_expected_epoch AND owner_generation = 0
+--   world_location_save(jsonb):         … AND owner_generation = 0
+-- Con dueño por clave, v1 responde 'conflict' o 'stale': el realtime viejo no persiste (falla cerrada).
+-- Una migración posterior las elimina cuando los logs del Edge no muestren llamadas v1.
 
-REVOKE ALL ON FUNCTION public.world_presence_acquire(uuid, integer) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.world_presence_renew(bigint, uuid, integer, text) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.world_location_claim_keyed(uuid, bigint, bigint, uuid, uuid) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.world_presence_acquire(uuid, integer) TO service_role;
-GRANT EXECUTE ON FUNCTION public.world_presence_renew(bigint, uuid, integer, text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.world_location_claim_keyed(uuid, bigint, bigint, uuid, uuid) TO service_role;
+-- ── Permisos de funciones: explícitos ───────────────────────────────────────
+DO $grants$
+DECLARE f text;
+BEGIN
+  FOREACH f IN ARRAY ARRAY[
+    'public.world_presence_acquire(uuid, integer)',
+    'public.world_presence_activate(bigint, uuid, integer)',
+    'public.world_presence_renew(bigint, uuid, integer)',
+    'public.world_presence_drain(bigint, uuid, integer)',
+    'public.world_presence_stop(bigint, uuid)',
+    'public.world_location_claim_keyed(uuid, bigint, bigint, uuid, uuid)',
+    'public.world_location_save_keyed(jsonb, bigint, uuid)'
+  ] LOOP
+    EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC, anon, authenticated, service_role', f);
+    EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO service_role', f);
+  END LOOP;
+END $grants$;
 ```
 
-Notas:
+#### 7.4.1 Permisos: decisiones y pruebas (C3)
 
-- **Concurrencia del claim:** `INSERT … ON CONFLICT DO UPDATE … WHERE` toma un lock de fila. Dos claims concurrentes se serializan y el segundo evalúa el `WHERE` contra la fila ya actualizada (mismo argumento que B2 de WORLD LOCATION-2).
-- **Guardado con `newerActive`:** el escritor manda su generación en un campo de nivel lote, `generation` (no por fila). La respuesta agrega `newerActive` una sola vez por lote.
-- **Rollback:** `rollback_world_location_ordering.sql` elimina las funciones nuevas, las columnas y la tabla, y restaura el cuerpo de v1. Los datos son descartables.
+- **`SECURITY INVOKER` se mantiene.** Las funciones corren con los privilegios de `service_role`, que tiene exactamente lo necesario:
+  - tabla de hosts: `SELECT, INSERT, UPDATE` (`UPDATE` también habilita `FOR SHARE`/`FOR UPDATE` y el `LOCK … SHARE ROW EXCLUSIVE`);
+  - fila de ubicación: `SELECT, INSERT, UPDATE`, sin cambios;
+  - secuencia: **`USAGE`**, el permiso exacto para `nextval`, usado por el `DEFAULT` en el `INSERT` de `acquire`;
+  - `EXECUTE` de las 7 funciones.
+- **Nada para `PUBLIC`, `anon` ni `authenticated`:** ni tabla, ni secuencia, ni funciones.
+- **`SECURITY DEFINER` se descarta:** no hace falta escalar privilegios, y aumentaría el radio de daño de cualquier bug. Si algún día se justificara: owner fijo (`ALTER FUNCTION … OWNER TO postgres`), `SET search_path = pg_catalog, public` con nombres calificados, `REVOKE EXECUTE … FROM PUBLIC` y una prueba que verifique `prosecdef` y `proowner`.
+- **Sin poda en la base:** sin `DELETE` para nadie. Las filas `stopped` son una por arranque y la poda queda como mantenimiento manual documentado (§7.8).
+
+**Pruebas PGlite reales (Q7):**
+
+1. **Preparación:** los stubs de Supabase (`supabaseStubs.sql`) se extienden con `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role`. Hoy solo emulan tablas y funciones; esta línea reproduce el comportamiento real de Supabase. Así la migración prueba que **sus `REVOKE`** cierran todo, sin depender de los valores por defecto.
+2. **Como `service_role`** (`asRole`): `acquire`, `activate`, `renew`, `drain`, `stop`, `claim_keyed` y `save_keyed` funcionan, incluido el `nextval` implícito de `acquire` y el `LOCK` de `activate`.
+3. **Como `anon`, `authenticated` y un rol nuevo sin grants** (que solo hereda `PUBLIC`):
+   - `SELECT`, `INSERT` y `UPDATE` sobre `world_presence_hosts` → 42501;
+   - `nextval`, `currval`, `setval` y `SELECT last_value` sobre la secuencia → 42501;
+   - `EXECUTE` de cada una de las 7 RPC → 42501.
+4. **Catálogo** (extensión de `scripts/world-location/location-grants-check.sql`, cero filas = cerrado):
+   - `has_table_privilege`, `has_sequence_privilege(…, 'USAGE' | 'SELECT' | 'UPDATE')` y `has_function_privilege` en falso para `anon` y `authenticated`;
+   - `service_role` exactamente `SELECT/INSERT/UPDATE` + `USAGE` + `EXECUTE`, sin `DELETE` ni `TRUNCATE`;
+   - ninguna función `prosecdef`.
+5. **Mutaciones:** quitar cada `REVOKE` o `GRANT` de la migración por separado hace fallar al menos una de las pruebas 2–4.
 
 ### 7.5 Contrato de `world-authority` (v5, aditivo)
 
-Todas las operaciones siguen con `x-world-authority-secret` comparado en tiempo constante, sin gate WORLD×SKILLS (una ubicación no es un valor) y con errores sin filtrar detalles de la base.
+Todas las operaciones siguen con `x-world-authority-secret` comparado en tiempo constante, sin gate WORLD×SKILLS y con errores sin filtrar detalles de la base. Los enteros se validan como seguros (≤ 2^53 − 1) y los UUID como UUID. Un body con campos de la forma vieja y de la nueva a la vez es 400.
 
-| Op | Request | Response 200 | 400 si |
-|---|---|---|---|
-| `presence_acquire` | `{hostId: uuid, leaseMs: 1000..120000}` | `{generation}` | `hostId` o `leaseMs` inválidos |
-| `presence_renew` | `{generation: int ≥ 1, hostId, leaseMs, state: 'active'\|'draining'\|'stopped'}` | `{status: 'ok', newerActive: bool}` \| `{status: 'unknown_host'}` | campos inválidos |
-| `location_claim` (forma nueva) | `{userId, generation, seq: int ≥ 1, sessionId: uuid, hostId}` | `{claim: {status: 'claimed', epoch, location, newerActive} \| {status: 'superseded', newerActive} \| {status: 'unknown_user'} \| {status: 'unknown_host'}}` | cualquier campo inválido; **no** se mezclan campos de la forma vieja y la nueva |
-| `location_claim` (forma vieja) | `{userId, expectedEpoch}` | igual que v4 | se mantiene hasta retirar v1 |
-| `location_save` | `{rows, generation?}` | `{results}`, y `newerActive` (uno por lote) cuando hay `generation` | igual que v4 |
-
-Los enteros se validan como seguros (≤ 2^53 − 1) y se pasan a SQL como `bigint`.
+| Op | Request | Response 200 |
+|---|---|---|
+| `presence_acquire` | `{hostId, leaseMs: 1000..120000}` | `{generation, state}` (idempotente por `hostId`) |
+| `presence_activate` | `{generation, hostId, leaseMs}` | `{status: 'active' \| 'newer_active' \| 'host_expired' \| 'host_inactive' \| 'unknown_host', state?}` |
+| `presence_renew` | `{generation, hostId, leaseMs}` | `{status: 'ok', state, newerActive}` \| `{status: 'host_expired' \| 'host_inactive' \| 'unknown_host', state?}` |
+| `presence_drain` | `{generation, hostId, drainMs: 1000..60000}` | `{status: 'ok' \| 'host_inactive' \| 'unknown_host', state}` |
+| `presence_stop` | `{generation, hostId}` | `{status: 'ok'}` |
+| `location_claim` (con clave) | `{userId, generation, seq ≥ 1, sessionId, hostId}` | `{claim: {status: 'claimed', epoch, location, newerActive} \| {status: 'superseded', newerActive} \| {status: 'host_inactive', state} \| {status: 'host_expired'} \| {status: 'unknown_host'} \| {status: 'unknown_user'}}` |
+| `location_save` (con clave) | `{rows, generation, hostId}` | `{status: 'ok', results, newerActive}` \| `{status: 'host_inactive', state}` \| `{status: 'host_expired', state}` \| `{status: 'unknown_host'}` |
+| `location_claim` / `location_save` (forma v4) | como en v4 | como en v4, con la guarda `owner_generation = 0`; se retiran con v1 |
 
 ### 7.6 Compatibilidad, migración y matriz de pruebas
 
 **Fases, cada una con su propia autorización:**
 
-0. Este documento. Revisión.
-1. Implementación en una rama (commits de §7.7), con gates locales y el arnés de dos procesos contra PGlite.
-2. Migración SQL en hosted (aditiva; v1 sigue funcionando para el realtime viejo).
-3. Deploy de `world-authority` v5 (aditivo).
-4. Integración y **reinicio conjunto** del entorno oscuro, realtime + cliente (`presenceProtocol` 3), todavía en `shadow`.
-5. Recalificación en shadow: T3/T4/T7 con el arnés, T7 natural contra hosted, el caso invertido, apagado y benchmark. Se espera PASS.
-6. Migración que retira v1, cuando los logs del Edge no muestren llamadas v1.
-7. Decisión sobre `on`, después de verificar en Cloud el ruteo durante un deploy.
+0. Este documento (revisión 1). Revisión.
+1. Implementación en una rama (commits de §7.7), con gates locales, el arnés de dos procesos contra PGlite y los modelos en CI.
+2. **Verificación de topología en Colyseus Cloud (§3.5).** Es bloqueante. Puede hacerse en paralelo con la fase 1, pero **antes** de cualquier paso que lleve a `on`.
+3. Migración SQL en hosted (aditiva; v1 sigue funcionando para el realtime viejo sobre filas sin dueño por clave).
+4. Deploy de `world-authority` v5 (aditivo).
+5. Integración y **reinicio conjunto** del entorno oscuro, realtime + cliente (`presenceProtocol` 3), todavía en `shadow`.
+6. Recalificación en shadow: T3/T4/T7 con el arnés, T7 natural contra hosted, el caso invertido, el ciclo de vida de hosts (candidato que falla o es lento), apagado (C11) y benchmark.
+7. Migración que retira v1.
+8. Decisión sobre `on`, **solo** con la fase 2 resuelta en el caso 1.
 
 **Mezcla de versiones:**
 
-- El realtime viejo (v1) **no puede** tomar filas con dueño por clave (guarda en SQL).
-- El realtime nuevo **siempre** gana sobre filas tomadas por v1, porque `owner_generation = 0` es menor que cualquier generación.
-- La producción pública (0.2, `be360fd`) no usa ubicación y no se ve afectada.
+- El realtime viejo (v1) solo toca filas con `owner_generation = 0`.
+- El realtime nuevo siempre gana sobre ellas.
+- Un realtime nuevo sin generación (hosted caído al arrancar) no escribe.
+- La producción pública (0.2) no usa ubicación y no se ve afectada.
 
 **Matriz de pruebas:**
 
 | Id | Capa | Caso | Esperado |
 |---|---|---|---|
-| M1 | modelo (`ordering-model.mjs`, CI) | T3/T7, T4, mismo proceso, caso invertido | propuesta 0/0 en R1/R2 en T3/T7, T4 y mismo proceso; caso invertido solo dentro de la ventana (§3.4); `actual` > 0 (no vacuo) |
-| Q1 | SQL (PGlite, migración real) | claim con clave mayor, igual (adopción), menor (`superseded`); `newerActive` con y sin host más nuevo vivo; `key_reused`; `unknown_user`; `unknown_host` | según §7.4 |
-| Q2 | SQL | dos conexiones concurrentes con claves distintas: el final es la clave mayor; con la misma clave: un `claimed` y una adopción | sin epochs huérfanos de la misma sesión |
-| Q3 | SQL | v1 sobre una fila con dueño por clave | `conflict`, sin escribir |
-| Q4 | SQL | acquire idempotente; renew con `newerActive`; poda | |
-| E1 | Edge (Deno) | validación de cada op; formas mezcladas → 400; sin fugas de errores; el secreto es obligatorio | |
-| J1 | journal (unidad) | sin re-base; `superseded` definitivo; reintento por transporte con la misma clave; adopción; sin generación → `unpersisted` | |
-| J2 | journal (unidad) | **T3, T4, T7 con dos journals** sobre un almacén CAS compartido y latencias programadas | B dueña al final en todas; A sin `claimed` después de B |
-| H1 | host | acquire antes de aceptar; renew; `newerActive` → drenaje; reanudación con generación nueva | |
-| D1 | drenaje | join rechazado (4503); movimiento congelado; flush antes de cerrar; cierre 4503 | el claim del host nuevo lee la posición final |
-| D2 | join `resume` | otra pestaña viva → 4409; misma pestaña → reemplaza; ninguna → entra | I12 |
-| C1–C10 | cliente | §5.3 (incluye `resume`) | |
+| M1 | modelo de orden (`ordering-model.mjs`, CI) | T3/T7, T4, mismo proceso, caso invertido, **más los protocolos alternativos como controles negativos** | propuesta 0/0 en R1/R2 en T3/T7, T4 y mismo proceso; caso invertido solo dentro de la ventana (§3.4); `actual`, `ticket`, `rebaseUnico` y `reloj` desfasado > 0 (los controles muestran que el test no es vacuo) |
+| **M2** | **modelo de ciclo de vida** (`host-lifecycle-model.mjs`, CI) | S1–S7 × propuesta + 11 mutantes | propuesta 0 violaciones; **los 11 mutantes detectados**; el proceso sale con código ≠ 0 si la propuesta viola algo |
+| Q1 | SQL (PGlite, migración real) | claim con clave mayor, igual (adopción) y menor (`superseded`); `newerActive` con y sin host más nuevo; `key_reused`; `unknown_user` | según §7.4 |
+| Q2 | SQL | v1 sobre una fila con dueño por clave | `conflict` o `stale`, sin escribir |
+| **Q3** | **SQL: matriz estado × operación** | estados `starting`, `active`, `active` vencido, `draining`, `draining` vencido, `stopped` y desconocido × `claim`, `save` de fila propia, `save` de fila ajena con el epoch vigente adivinado, `activate`, `renew`, `drain`, `stop` | exactamente la tabla de §3.3.4 y las transiciones de §3.3.1. Ninguna transición prohibida |
+| **Q4** | **SQL: ciclo de vida** | `acquire` repetido (misma generación y mismo estado, sin tocar el lease); `activate` repetido; `activate` con lease de arranque vencido; `activate` con un host más nuevo activo; `renew` de un `draining` no extiende; `renew` de un `active` vencido con o sin uno más nuevo | según §3.3.1 |
+| **Q5** | **SQL: mutaciones** (como `scripts/world-location/mutations.mjs`) | quitar cada guarda: estado, lease, identidad, dueño en `draining`, `LOCK`, idempotencia de `acquire`, «no extender `draining`» | cada mutación hace fallar al menos un test de Q1–Q4 |
+| Q6 | SQL en el stack Supabase local (Postgres real, dos conexiones) | dos `activate` concurrentes; `claim` contra un `drain` concurrente; `acquire` concurrente con el mismo `hostId` | nunca dos activaciones con el menor después del mayor activo; el claim ve `active` y termina antes del drain, o ve `draining` y responde `host_inactive`; una sola generación por `hostId` |
+| **Q7** | **permisos PGlite** (§7.4.1) | `service_role` puede; `anon`, `authenticated` y `PUBLIC` no pueden leer la tabla, usar la secuencia ni ejecutar las RPC; catálogo en cero filas; mutaciones de los `REVOKE`/`GRANT` | 42501 en todo lo prohibido |
+| E1 | Edge (Deno) | validación de cada op; todos los estados de respuesta; formas mezcladas → 400; sin fugas; secreto obligatorio | |
+| J1 | journal (unidad) | sin re-base; `superseded` definitivo; reintento de transporte con la misma clave; adopción; reacciones a `host_inactive`, `host_expired` y `unknown_host` **sin reintentos infinitos** (máximo de intentos y pausa) | §3.3.4 |
+| J2 | journal (unidad) | T3, T4 y T7 con dos journals sobre un almacén CAS compartido | B dueña en todas |
+| H1 | host (realtime) | `acquire` antes de `listen`; activación después de `listen`; `onJoin` espera la activación hasta 2 s y si no, 4503; `newer_active` en la activación → `stop` y salida; `newerActive` en régimen → drenaje; sin generación → `unavailable` | §3.3.2 |
+| D1 | drenaje | join rechazado (4503); movimiento congelado; flush antes de cerrar (solo filas propias); cierre 4503 | el claim del host nuevo lee la posición final |
+| D2 | join `resume` | otra pestaña viva → 4409; misma pestaña → la reemplaza; ninguna → entra | I12 |
+| C1–C10 | cliente | §5.3 | |
+| **C11** | **integración obligatoria (C5)** | §5.3, punto 11 | todos los clientes ven **4503**, ninguno 4001; un mutante sin el override ve 4001 y el test falla |
 | L1 | log | flush con un `stale` | «0 guardadas, 1 rechazada» |
-| **A1** | **arnés de dos procesos** (PGlite + proxy de fallas) | **T3** (ronda vieja demorada 800 ms), **T4** (retenida → abandonada → reintento), **T7** (latencia muestreada del benchmark, ≥ 200 repeticiones con gaps de 50 a 500 ms) | en **todas**: dueña final = la sesión del host vigente; ninguna `claimed` de A después de la confirmación de B; `stale` solo para A; `cas=ok` |
-| A2 | arnés | **dos pestañas durante un deploy** (A en P, B en Q; P drena en distintos momentos) y **pestaña nueva en el host viejo** dentro y fuera de la ventana | deploy: gana B siempre; host viejo: fuera de la ventana gana la nueva; dentro, cede de forma estable (excepción §3.4) |
-| A3 | arnés | apagado, reinicio, desconexión durante un guardado, respuesta tardía (LOCATION-3B §4) | idem 3B, más **sin pérdida** con reconexión inmediata (flush antes del cierre) |
-| A4 | arnés | mismo proceso (las 10 intercalaciones de LOCATION-3B §2) | 41/41 |
-| **S1** | **shadow en el entorno oscuro contra hosted** (compuerta manual) | **T7 sin inyección**, T3, T4, benchmark | como A1; `wouldFence` / `wouldReplace` solo en la instancia vieja |
+| A1 | arnés de dos procesos | T3, T4 y T7 (latencia muestreada, ≥ 200 repeticiones) | en todas: dueña final = la sesión del host vigente; `cas=ok` |
+| A2 | arnés | dos pestañas durante un deploy; pestaña nueva en el host viejo dentro y fuera de la ventana | §3.4 |
+| A3 | arnés | apagado, reinicio, desconexión durante un guardado, respuesta tardía; **candidato que falla durante el arranque**; **candidato lento** | sin pérdida con reconexión inmediata; el vigente no se ve afectado por un candidato que no llegó a `active` |
+| A4 | arnés | mismo proceso (las 10 intercalaciones de 3B §2) | 41/41 |
+| S1 | shadow en el entorno oscuro contra hosted (compuerta manual) | T7 sin inyección, T3, T4 y benchmark | como A1 |
+| **T1** | **topología en Colyseus Cloud (compuerta manual bloqueante)** | los 5 puntos de §3.5 | caso 1 documentado; si no, `BLOCKED` |
 
-**Criterio de aceptación de T3/T4/T7:** el test A1 (y S1) **falla** con el journal de `4d0ab64` y **pasa** con la propuesta en el 100 % de las repeticiones. No se acepta ninguna tasa menor.
+**Criterio de aceptación de T3/T4/T7:** el test A1 (y S1) **falla** con el journal de `4d0ab64` y **pasa** con la propuesta en el 100 % de las repeticiones.
 
 ### 7.7 Plan en commits pequeños (implementación futura; nada de esto en esta rama)
 
-Es un cambio multicapa (AGENTS §17). Cada commit es atribuible y revisable por separado.
+Es un cambio multicapa (AGENTS §17). Cada commit es atribuible y revisable por separado. La verificación de topología (T1) **no es un commit**: es una compuerta que se documenta en el commit 11.
 
-1. `sql(location)`: migración de orden + script de rollback + tests PGlite Q1–Q4 (no se aplica).
-2. `edge(world-authority)`: ops `presence_*`, `location_claim` con clave, `newerActive` en claim y guardado, tests E1.
-3. `realtime(location)`: servicio de host (acquire, renew, estado) + tests H1.
-4. `realtime(location)`: claim con clave en el journal, sin re-base ni cadena; adaptadores Edge y PGlite; timeout del claim de 4 s; tests J1 y J2.
-5. `realtime(presence)`: drenaje (rechazo de joins, congelamiento, flush en `onBeforeShutdown`, `presence:closing`, 4409/4503 según protocolo), join `resume` con `tabId`; `/version` revisión 6; tests D1 y D2.
-6. `realtime(location)`: conteos del log de apagado (L1).
-7. `client(presence)`: `presenceProtocol` 3, `tabId` por carga de página, `resume` en toda reconexión automática, interpretación de códigos, eco en el snapshot, botón «Jugar acá»; tests C1–C10.
-8. `scripts(world-location)`: arnés de dos procesos con proxy de fallas (A1–A4) y modo benchmark contra el stack.
-9. `docs`: informe de resultados.
+1. `test(supabase-stubs)`: privilegios por defecto de Supabase para secuencias en `supabaseStubs.sql`. Solo infraestructura de test.
+2. `sql(location)`: migración (hosts con su ciclo de vida, permisos explícitos, claim y save con clave, guardas v1) + script de rollback + tests PGlite Q1–Q4 y Q7 + runner de mutaciones Q5. No se aplica.
+3. `sql(location)`: tests de concurrencia Q6 en el stack Supabase local.
+4. `edge(world-authority)`: ops `presence_*`, claim y save con clave, todos los estados; tests E1.
+5. `realtime(host)`: servicio de ciclo de vida (`acquire` antes de `listen`, `activate` después, `renew`, `drain`, `stop`, espera en `onJoin`, alarma de topología); tests H1.
+6. `realtime(location)`: claim y save con clave en el journal (sin re-base ni cadena), reacciones a `host_*` acotadas, timeout de claim de 4 s; tests J1 y J2.
+7. `realtime(presence)`: drenaje, join `resume` con `tabId`, 4409/4503 según protocolo, override de `onBeforeShutdown`, `presence:closing`, revisión 6; tests D1, D2 y **C11**.
+8. `realtime(location)`: conteos del log de apagado (L1).
+9. `client(presence)`: `presenceProtocol` 3, `tabId` y `resume`, interpretación de códigos (incluida la regla del 4001 ambiguo), overlay con «Jugar acá»; tests C1–C10.
+10. `scripts(world-location)`: arnés de dos procesos con proxy de fallas (A1–A4) y modo benchmark; incluye los modelos M1 y M2 en CI.
+11. `docs`: informe de resultados y evidencia de la verificación de topología en Cloud (T1).
 
 ### 7.8 Riesgos y rollback
 
 | Riesgo | Mitigación |
 |---|---|
-| Colyseus Cloud sigue ruteando al host que drena (OPEN QUESTION) | el cliente reintenta con backoff de hasta 10 s; nunca pierde autoridad. Verificar en Cloud antes de `on` |
-| Dos hosts activos por error de configuración | el mundo ya estaría partido (precondición). La clave sigue garantizando un solo escritor; el más nuevo gana y el viejo drena |
-| Hosted caído al arrancar | ubicación `unavailable` y el juego sigue (falla cerrada) |
-| Hosted caído durante el drenaje | el flush vence a los 3 s; las escrituras tardías son `stale` o `applied` según el CAS (nunca un escritor doble) |
-| Saltos del reloj de la base | solo afectan la duración de los leases (liveness), no la seguridad |
-| Regresión en clientes por los códigos | matriz C1–C10 y compatibilidad cruzada (§5.2) |
-| Pestaña nueva abierta en el host viejo durante la ventana (§3.4) | acotada a ≤ R + RTT por `newerActive` en claims, guardados y renovaciones; estable; «Jugar acá» |
+| **Cloud ejecuta varios workers WORLD permanentes (caso 2 de §3.5)** | **bloqueante**: sin `on`. Se rediseña la propiedad (generación por deployment + coordinador o sharding) y se resuelve la partición del mundo |
+| Cloud sigue ruteando al host que drena | el cliente reintenta con backoff de hasta 10 s; nunca hay pérdida de autoridad. Se verifica en T1 |
+| Bucle de reinicios por `newer_active` (síntoma de topología inesperada) | salida con código 0 y alarma si hay más de 3 por hora; además lo cubre T1 |
+| Candidato colgado en el arranque | su lease de arranque vence; nunca se activa; el vigente no se ve afectado (M2: S1 y S2) |
+| Hosted caído al arrancar | ubicación `unavailable`, el juego sigue y `acquire` se reintenta en segundo plano |
+| Hosted caído en régimen (`host_expired`) | pausa sin reintentos infinitos; si no revive en 2 leases, drena y se detiene (§3.3.4) |
+| Hosted caído durante el drenaje | el flush vence con el plazo o la ventana; las escrituras tardías son `stale` o `applied` según el CAS (nunca un escritor doble) |
+| Contención del `LOCK` de activación | solo `activate` lo toma (una vez por arranque); no bloquea claims (`FOR SHARE`) |
+| Saltos del reloj de la base | solo afectan la duración de los leases (disponibilidad), no la seguridad |
+| Privilegios por defecto de Supabase reabren algo | `REVOKE ALL` explícito más Q7 con los defaults emulados y sus mutaciones |
+| Regresión en clientes por los códigos | matriz C1–C11 y compatibilidad cruzada (§5.2) |
+| Pestaña nueva abierta en el host viejo durante la ventana (§3.4) | acotada a ≤ R + RTT; estable; «Jugar acá» |
 | Otra pestaña muerta con socket aún no expirado | el `resume` cede; «Jugar acá»; sin pérdida |
-| Crecimiento de `world_presence_hosts` | una fila por arranque, con poda a 7 días |
+| Crecimiento de `world_presence_hosts` | una fila por arranque; poda manual de filas `stopped` de más de 30 días (sin `DELETE` para `service_role`) |
 
 **Rollback:**
 
-- `WORLD_LOCATION_PERSISTENCE=off` deja de hacer llamadas de ubicación.
-- Volver a desplegar `world-authority` v4: el realtime nuevo recibe 400 en las ops nuevas, la ubicación queda `unavailable` y falla cerrada.
-- El script SQL de rollback elimina lo nuevo.
+- `WORLD_LOCATION_PERSISTENCE=off`: no hay `acquire` ni llamadas de ubicación, y el arranque queda como hoy.
+- Volver a desplegar `world-authority` v4: las ops nuevas dan 400, el realtime nuevo queda con la ubicación `unavailable` y falla cerrada.
+- El script SQL de rollback elimina las funciones nuevas, las columnas, la tabla y la secuencia, y restaura los cuerpos de v1. Los datos son descartables.
 - Los códigos de cierre se revierten con el cliente (el cliente viejo funciona con el servidor nuevo, §5.2).
 
 ### 7.9 Decisión explícita sobre 4001
@@ -786,11 +1128,13 @@ Es un cambio multicapa (AGENTS §17). Cada commit es atribuible y revisable por 
 - **El servidor deja de emitir 4001 en apagados y drenajes:** usa **4503 `host-draining`** mediante `PresenceRoom.onBeforeShutdown`. Así reconectan también los clientes anteriores.
 - **4001 se conserva solo** como código de reemplazo hacia clientes con `presenceProtocol` ≤ 2, mientras existan.
 - **Se sube `presenceProtocol` a 3** y la revisión del servidor a 6.
+- **Prueba obligatoria:** C11 (§5.3, punto 11). Después de cerrar con 4503, Colyseus no lo sustituye por 4001 durante el apagado, y hay un control negativo.
 
 ---
 
 ## 8. Preguntas abiertas
 
-1. **Colyseus Cloud** (antes de `on`): ruteo de conexiones nuevas durante un deploy, orden entre SIGTERM y drenaje, y cuántos procesos de presencia corren en un plan.
-2. **Botón «Jugar acá»:** texto y ubicación final (PRESENCE UX). El comportamiento (recargar = takeover) es el de §3.2.
-3. **Fila de `terremototw`:** quedó en el epoch 242, en Ciudad 14,41, tras LOCATION-3B. Se ajusta deliberadamente antes de habilitar la restauración real (indicación del usuario). No se toca en esta fase.
+1. **Colyseus Cloud (BLOQUEANTE, §3.5):** cantidad de procesos WORLD, escalado horizontal, ruteo durante un deploy, señal y plazo de apagado, y un id de deployment confiable. Hace falta una app de Cloud para el build oscuro (pendiente desde INTEGRATION-1).
+2. **Fila de `terremototw`:** quedó en el epoch 242, en Ciudad 14,41, tras LOCATION-3B. Se ajusta deliberadamente antes de habilitar la restauración real. No se toca en esta fase.
+
+Resueltas en esta revisión: el texto y la ubicación de «Jugar acá» (§3.6).

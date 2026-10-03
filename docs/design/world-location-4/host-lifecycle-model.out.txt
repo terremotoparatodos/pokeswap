@@ -1,0 +1,593 @@
+
+acquireCreaActive · S1 candidato falla antes de estar listo · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  tick (now=1)
+  tick (now=2)
+  base aplica P.renew
+  P recibe la respuesta de renew
+  C1 recibe la respuesta de acquire
+  C1 se cae
+  ⇒ H7: C1 (caído antes de estar listo) quedó active
+
+acquireCreaActive · S2 candidato lento · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  C1 envía renew
+  base aplica C1.renew
+  tick (now=1)
+  base aplica P.drain
+  tick (now=2)
+  P recibe la respuesta de drain
+  P envía stop
+  C1 recibe la respuesta de renew
+  base aplica P.stop
+  P recibe la respuesta de stop
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+acquireCreaActive · S3 dos candidatos concurrentes · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  C2 envía acquire
+  base aplica C2.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C2 recibe la respuesta de acquire
+  C2 queda listo
+  C2 envía activate
+  base aplica P.drain
+  tick (now=1)
+  base aplica C1.acquire
+  tick (now=2)
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  P recibe la respuesta de drain
+  P envía stop
+  base aplica C2.activate
+  C2 recibe la respuesta de activate
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  base aplica P.stop
+  P recibe la respuesta de stop
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+acquireCreaActive · S5 reactivar draining/stopped · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica P.drain
+  tick (now=1)
+  tick (now=2)
+  P recibe la respuesta de drain
+  P envía stop
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  base aplica P.stop
+  P recibe la respuesta de stop
+  P envía activate (hostil)
+  P envía save (hostil)
+  base aplica P.activate
+  base aplica P.save
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+acquireCreaActive · S7 guardado hostil de un host draining sin la fila · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica P.drain
+  tick (now=1)
+  P recibe la respuesta de drain
+  P envía stop
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  C1 envía claim
+  base aplica P.stop
+  P recibe la respuesta de stop
+  P envía save (hostil)
+  base aplica C1.claim
+  tick (now=2)
+  C1 recibe la respuesta de claim
+  base aplica P.save
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+newerCuentaStarting · S1 candidato falla antes de estar listo · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de acquire
+  C1 se cae
+  base aplica P.drain
+  tick (now=1)
+  tick (now=2)
+  P recibe la respuesta de drain
+  P envía stop
+  base aplica P.stop
+  P recibe la respuesta de stop
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+newerCuentaStarting · S2 candidato lento · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de acquire
+  C1 envía renew
+  base aplica P.drain
+  tick (now=1)
+  tick (now=2)
+  P recibe la respuesta de drain
+  P envía stop
+  base aplica C1.renew
+  C1 recibe la respuesta de renew
+  C1 envía stop
+  base aplica P.stop
+  P recibe la respuesta de stop
+  base aplica C1.stop
+  C1 recibe la respuesta de stop
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+newerCuentaStarting · S3 dos candidatos concurrentes · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  C2 envía acquire
+  base aplica C2.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C2 recibe la respuesta de acquire
+  C2 queda listo
+  C2 envía activate
+  base aplica C2.activate
+  tick (now=1)
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica P.drain
+  tick (now=2)
+  P recibe la respuesta de drain
+  P envía stop
+  C2 recibe la respuesta de activate
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  base aplica P.stop
+  P recibe la respuesta de stop
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+newerCuentaStarting · S5 reactivar draining/stopped · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  base aplica P.drain
+  tick (now=2)
+  P recibe la respuesta de drain
+  P envía stop
+  C1 recibe la respuesta de activate
+  base aplica P.stop
+  P recibe la respuesta de stop
+  P envía activate (hostil)
+  P envía save (hostil)
+  base aplica P.activate
+  base aplica P.save
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+newerCuentaStarting · S7 guardado hostil de un host draining sin la fila · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  C1 recibe la respuesta de activate
+  C1 envía claim
+  base aplica C1.claim
+  tick (now=2)
+  base aplica P.drain
+  P recibe la respuesta de drain
+  P envía stop
+  C1 recibe la respuesta de claim
+  base aplica P.stop
+  P recibe la respuesta de stop
+  P envía save (hostil)
+  base aplica P.save
+  ⇒ H1: 1 recibió newerActive sin un host más nuevo activo y listo
+
+acquireNoIdempotente · S4 respuesta perdida en acquire/activate · contraejemplo más corto:
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 pierde la respuesta de acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  tick (now=2)
+  C1 recibe la respuesta de activate
+  ⇒ H3: h-C1 recibió la generación 3 (antes 2)
+
+activateSinEstado · S5 reactivar draining/stopped · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de activate
+  base aplica P.drain
+  tick (now=2)
+  P recibe la respuesta de drain
+  P envía activate (hostil)
+  P envía stop
+  base aplica P.activate
+  base aplica P.stop
+  P recibe la respuesta de stop
+  P envía save (hostil)
+  base aplica P.save
+  ⇒ H2: host 1 draining → active
+
+activateSinLease · S2 candidato lento · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  tick (now=1)
+  base aplica P.renew
+  tick (now=2)
+  P recibe la respuesta de renew
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  C1 envía renew
+  base aplica C1.renew
+  C1 recibe la respuesta de renew
+  ⇒ H5: activación de 2 desde starting (lease 2, now 2)
+
+activateSinLease · S3 dos candidatos concurrentes · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  C2 envía acquire
+  base aplica C2.acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  C2 recibe la respuesta de acquire
+  C2 queda listo
+  C2 envía activate
+  base aplica C2.activate
+  tick (now=1)
+  tick (now=2)
+  base aplica P.renew
+  P recibe la respuesta de renew
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  C2 recibe la respuesta de activate
+  ⇒ H5: activación de 3 desde starting (lease 2, now 2)
+
+activateSinLease · S4 respuesta perdida en acquire/activate · contraejemplo más corto:
+  C1 envía acquire
+  base aplica C1.acquire
+  tick (now=1)
+  tick (now=2)
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  ⇒ H5: activación de 2 desde starting (lease 2, now 2)
+
+activateSinLease · S5 reactivar draining/stopped · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  tick (now=1)
+  base aplica P.renew
+  tick (now=2)
+  P recibe la respuesta de renew
+  P envía save
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica P.save
+  P recibe la respuesta de save
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  ⇒ H5: activación de 2 desde starting (lease 2, now 2)
+
+activateSinLease · S6 claims y guardados hostiles por estado · contraejemplo más corto:
+  P envía claim
+  C1 envía acquire
+  base aplica C1.acquire
+  tick (now=1)
+  tick (now=2)
+  base aplica P.claim
+  P recibe la respuesta de claim
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  ⇒ H5: activación de 2 desde starting (lease 2, now 2)
+
+activateSinLease · S7 guardado hostil de un host draining sin la fila · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  tick (now=1)
+  base aplica P.renew
+  tick (now=2)
+  P recibe la respuesta de renew
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  C1 envía claim
+  base aplica C1.claim
+  C1 recibe la respuesta de claim
+  ⇒ H5: activación de 2 desde starting (lease 2, now 2)
+
+activateSinMasNuevo · S3 dos candidatos concurrentes · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  C2 envía acquire
+  base aplica C2.acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  C2 recibe la respuesta de acquire
+  C2 queda listo
+  C2 envía activate
+  base aplica C1.activate
+  C1 recibe la respuesta de activate
+  base aplica C2.activate
+  tick (now=1)
+  tick (now=2)
+  base aplica P.renew
+  P recibe la respuesta de renew
+  C2 recibe la respuesta de activate
+  ⇒ H5: activación de 2 desde starting (lease 2, now 0)
+
+claimSoloIdentidad · S6 claims y guardados hostiles por estado · contraejemplo más corto:
+  P envía claim
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  tick (now=2)
+  base aplica P.claim
+  P recibe la respuesta de claim
+  C1 recibe la respuesta de activate
+  ⇒ H4: claim aplicado desde active (lease 2, now 2)
+
+claimSoloIdentidad · S7 guardado hostil de un host draining sin la fila · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  tick (now=2)
+  base aplica P.renew
+  P recibe la respuesta de renew
+  C1 recibe la respuesta de activate
+  C1 envía claim
+  base aplica C1.claim
+  C1 recibe la respuesta de claim
+  ⇒ H4: claim aplicado desde active (lease 2, now 2)
+
+claimSinLease · S6 claims y guardados hostiles por estado · contraejemplo más corto:
+  P envía claim
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  tick (now=2)
+  base aplica P.claim
+  P recibe la respuesta de claim
+  C1 recibe la respuesta de activate
+  ⇒ H4: claim aplicado desde active (lease 2, now 2)
+
+claimSinLease · S7 guardado hostil de un host draining sin la fila · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  tick (now=2)
+  base aplica P.renew
+  P recibe la respuesta de renew
+  C1 recibe la respuesta de activate
+  C1 envía claim
+  base aplica C1.claim
+  C1 recibe la respuesta de claim
+  ⇒ H4: claim aplicado desde active (lease 2, now 2)
+
+saveSinEstado · S5 reactivar draining/stopped · contraejemplo más corto:
+  P envía save
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  tick (now=2)
+  base aplica P.save
+  P recibe la respuesta de save
+  P envía renew
+  C1 recibe la respuesta de activate
+  base aplica P.renew
+  P recibe la respuesta de renew
+  ⇒ H4: guardado aplicado desde active (lease 2, now 2, dueño g1)
+
+saveSinEstado · S6 claims y guardados hostiles por estado · contraejemplo más corto:
+  P envía claim
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 envía save (hostil)
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  tick (now=1)
+  tick (now=2)
+  base aplica P.claim
+  P recibe la respuesta de claim
+  base aplica C1.save
+  C1 recibe la respuesta de activate
+  ⇒ H4: guardado aplicado desde active (lease 2, now 2, dueño g1)
+
+saveSinEstado · S7 guardado hostil de un host draining sin la fila · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de activate
+  C1 envía claim
+  base aplica P.drain
+  P recibe la respuesta de drain
+  base aplica C1.claim
+  P envía save (hostil)
+  P envía stop
+  C1 recibe la respuesta de claim
+  base aplica P.save
+  tick (now=1)
+  tick (now=2)
+  base aplica P.stop
+  P recibe la respuesta de stop
+  ⇒ H4: guardado aplicado desde draining (lease 2, now 0, dueño g2)
+
+drainingSaveSinDueño · S7 guardado hostil de un host draining sin la fila · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de activate
+  C1 envía claim
+  base aplica P.drain
+  P recibe la respuesta de drain
+  base aplica C1.claim
+  P envía save (hostil)
+  P envía stop
+  C1 recibe la respuesta de claim
+  base aplica P.save
+  tick (now=1)
+  tick (now=2)
+  base aplica P.stop
+  P recibe la respuesta de stop
+  ⇒ H4: guardado aplicado desde draining (lease 2, now 0, dueño g2)
+
+renewReactiva · S5 reactivar draining/stopped · contraejemplo más corto:
+  P envía renew
+  C1 envía acquire
+  base aplica C1.acquire
+  C1 recibe la respuesta de acquire
+  C1 queda listo
+  C1 envía activate
+  base aplica C1.activate
+  base aplica P.renew
+  P recibe la respuesta de renew
+  P envía drain
+  C1 recibe la respuesta de activate
+  base aplica P.drain
+  P recibe la respuesta de drain
+  P envía stop
+  base aplica P.stop
+  P recibe la respuesta de stop
+  P envía renew (hostil)
+  P envía save (hostil)
+  base aplica P.renew
+  tick (now=1)
+  tick (now=2)
+  base aplica P.save
+  ⇒ H2: host 1 stopped → active
+┌─────────┬────────────────────────┬─────────┬────────────┬──────┬────────────┬──────┬────────────┬──────┬────────────┬────────────┬────────────┬──────┬────────────┬──────┬────────────┬──────────────────────┐
+│ (index) │ variante               │ S1      │ S1 estados │ S2   │ S2 estados │ S3   │ S3 estados │ S4   │ S4 estados │ S5         │ S5 estados │ S6   │ S6 estados │ S7   │ S7 estados │ resultado            │
+├─────────┼────────────────────────┼─────────┼────────────┼──────┼────────────┼──────┼────────────┼──────┼────────────┼────────────┼────────────┼──────┼────────────┼──────┼────────────┼──────────────────────┤
+│ 0       │ 'propuesta'            │ '0'     │ 672        │ '0'  │ 2679       │ '0'  │ 106634     │ '0'  │ 153        │ '0'        │ 8719       │ '0'  │ 2203       │ '0'  │ 3492       │ 'OK (0 violaciones)' │
+│ 1       │ 'acquireCreaActive'    │ 'H1,H7' │            │ 'H1' │            │ 'H1' │            │ '0'  │            │ 'H1'       │            │ '0'  │            │ 'H1' │            │ 'detectado'          │
+│ 2       │ 'newerCuentaStarting'  │ 'H1,H7' │            │ 'H1' │            │ 'H1' │            │ '0'  │            │ 'H1'       │            │ '0'  │            │ 'H1' │            │ 'detectado'          │
+│ 3       │ 'acquireNoIdempotente' │ '0'     │            │ '0'  │            │ '0'  │            │ 'H3' │            │ '0'        │            │ '0'  │            │ '0'  │            │ 'detectado'          │
+│ 4       │ 'activateSinEstado'    │ '0'     │            │ '0'  │            │ '0'  │            │ '0'  │            │ 'H2,H5,H6' │            │ '0'  │            │ '0'  │            │ 'detectado'          │
+│ 5       │ 'activateSinLease'     │ '0'     │            │ 'H5' │            │ 'H5' │            │ 'H5' │            │ 'H5'       │            │ 'H5' │            │ 'H5' │            │ 'detectado'          │
+│ 6       │ 'activateSinMasNuevo'  │ '0'     │            │ '0'  │            │ 'H5' │            │ '0'  │            │ '0'        │            │ '0'  │            │ '0'  │            │ 'detectado'          │
+│ 7       │ 'claimSoloIdentidad'   │ '0'     │            │ '0'  │            │ '0'  │            │ '0'  │            │ '0'        │            │ 'H4' │            │ 'H4' │            │ 'detectado'          │
+│ 8       │ 'claimSinLease'        │ '0'     │            │ '0'  │            │ '0'  │            │ '0'  │            │ '0'        │            │ 'H4' │            │ 'H4' │            │ 'detectado'          │
+│ 9       │ 'saveSinEstado'        │ '0'     │            │ '0'  │            │ '0'  │            │ '0'  │            │ 'H4'       │            │ 'H4' │            │ 'H4' │            │ 'detectado'          │
+│ 10      │ 'drainingSaveSinDueño' │ '0'     │            │ '0'  │            │ '0'  │            │ '0'  │            │ '0'        │            │ '0'  │            │ 'H4' │            │ 'detectado'          │
+│ 11      │ 'renewReactiva'        │ '0'     │            │ '0'  │            │ '0'  │            │ '0'  │            │ 'H2,H6'    │            │ '0'  │            │ '0'  │            │ 'detectado'          │
+└─────────┴────────────────────────┴─────────┴────────────┴──────┴────────────┴──────┴────────────┴──────┴────────────┴────────────┴────────────┴──────┴────────────┴──────┴────────────┴──────────────────────┘
