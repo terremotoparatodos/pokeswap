@@ -1,10 +1,12 @@
 // PRESENCE UX-1 — while the world-entry overlay covers the world, everything
 // it covers is out of reach: not clickable (the overlay takes the pointer),
-// not focusable and not reachable with Tab (`inert`). Only a modal dialog
-// that sits above the overlay (sign-in) stays usable.
+// not focusable and not reachable with Tab (`inert`). The one exception is
+// the sign-in dialog, which sits above the overlay: WildlandsView marks its
+// root with KEEP_INTERACTIVE. Being a dialog (`aria-modal`) is not enough:
+// feature panels and plaza cards are dialogs too, and they sit under it.
 
-const isModal = (element: Element) =>
-  element.matches('[aria-modal="true"]') || element.querySelector('[aria-modal="true"]') !== null
+/** Marks the single sibling that stays usable while the overlay shows. Read on the sibling itself only. */
+export const KEEP_INTERACTIVE = 'data-world-entry-keep-interactive'
 
 /**
  * Makes every sibling of `cover` inert, including siblings that appear while
@@ -16,7 +18,7 @@ export function inertSiblings(cover: HTMLElement): () => void {
   if (!parent) return () => undefined
   const marked = new Set<HTMLElement>()
   const mark = (node: Node) => {
-    if (!(node instanceof HTMLElement) || node === cover || node.hasAttribute('inert') || isModal(node)) return
+    if (!(node instanceof HTMLElement) || node === cover || node.hasAttribute('inert') || node.hasAttribute(KEEP_INTERACTIVE)) return
     node.setAttribute('inert', '')
     marked.add(node)
     // Focus inside a subtree that just went inert would keep receiving keys.

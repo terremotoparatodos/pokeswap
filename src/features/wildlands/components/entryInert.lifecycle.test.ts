@@ -4,6 +4,7 @@ import { defineComponent, h, nextTick, type PropType } from 'vue'
 import { initialWorldEntry, nextWorldEntry, type WorldEntryEvent, type WorldEntryState } from '../multiplayer/domain/worldEntry'
 import AuthModal from '../../auth/components/AuthModal.vue'
 import WorldEntryOverlay from './WorldEntryOverlay.vue'
+import { KEEP_INTERACTIVE } from './entryInert'
 
 // PRESENCE UX-1 R4: the overlay's `inert` over a whole entry lifecycle, with
 // the real sign-in dialog among what it covers. Every phase change goes
@@ -37,7 +38,8 @@ const Host = defineComponent({
       // Inert before the overlay ever showed: it must stay exactly so.
       h('div', { id: 'was-inert', inert: '' }, [h('button', { type: 'button' }, 'oculto')]),
       h(WorldEntryOverlay, { state: props.state }),
-      h(AuthModal, { open: props.signIn }),
+      // Marked as WildlandsView marks it.
+      h(AuthModal, { open: props.signIn, [KEEP_INTERACTIVE]: '' }),
     ])
   },
 })

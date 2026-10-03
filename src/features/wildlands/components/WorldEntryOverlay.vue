@@ -20,11 +20,12 @@
 // PRESENCE UX-1: what covers the world while the server has not placed the
 // player yet. Before the first reveal it is opaque (nothing is drawn under
 // it); afterwards it dims the last frame, which stays frozen underneath.
-// While it shows, what it covers is inert (entryInert.ts) and the keyboard
-// lands on the overlay itself: the retry button, or the replaced message.
+// While it shows, what it covers is inert (entryInert.ts; only the sign-in
+// dialog stays usable) and the keyboard lands on the overlay itself: the
+// retry button, or the replaced message.
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { WorldEntryState } from '../multiplayer/domain/worldEntry'
-import { inertSiblings } from './entryInert'
+import { KEEP_INTERACTIVE, inertSiblings } from './entryInert'
 
 const props = defineProps<{ state: WorldEntryState }>()
 const emit = defineEmits<{ retry: [] }>()
@@ -56,6 +57,8 @@ watch(rootRef, root => {
   if (root) release = inertSiblings(root)
 }, { flush: 'post' })
 function focusFor(phase: WorldEntryState['phase']): void {
+  // Someone typing in the sign-in dialog keeps their place.
+  if (document.activeElement?.closest(`[${KEEP_INTERACTIVE}]`)) return
   if (phase === 'connection-error') retryRef.value?.focus()
   else if (phase === 'replaced') messageRef.value?.focus()
 }

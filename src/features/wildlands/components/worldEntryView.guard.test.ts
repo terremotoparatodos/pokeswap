@@ -2,10 +2,18 @@
 // controller are exercised end to end in multiplayer/state/worldEntry.e2e.test.ts;
 // this pins the view's own wiring, which those tests reproduce.
 
-import { describe, expect, it } from 'vitest'
+import { mount } from '@vue/test-utils'
+import { describe, expect, it, vi } from 'vitest'
+import AuthModal from '../../auth/components/AuthModal.vue'
+import { KEEP_INTERACTIVE } from './entryInert'
+
+vi.mock('../../auth/api/authApi', () => ({
+  loginWithEmail: vi.fn(), loginWithGoogle: vi.fn(), signUp: vi.fn(), resetPassword: vi.fn(),
+}))
 
 const view = import.meta.glob<string>('./WildlandsView.vue', { query: '?raw', import: 'default', eager: true })['./WildlandsView.vue']
 const script = view.slice(view.indexOf('<script setup'))
+const authModalSource = import.meta.glob<string>('../../auth/components/AuthModal.vue', { query: '?raw', import: 'default', eager: true })['../../auth/components/AuthModal.vue']
 const mounted = script.slice(script.indexOf('onMounted(async'), script.indexOf('onMounted(() =>'))
 const online = mounted.slice(mounted.indexOf('if (online) {'), mounted.indexOf('} else {', mounted.indexOf('if (online) {')))
 const offline = mounted.slice(mounted.indexOf('} else {', mounted.indexOf('if (online) {')))
@@ -50,6 +58,23 @@ describe('WildlandsView world entry', () => {
     const watcher = script.slice(script.indexOf('watch(user'))
     expect(watcher).toMatch(/if \(REALTIME_CONFIGURED\) \{ entryController\?\.renew\(\); return \}/)
     expect(watcher.indexOf('entryController?.renew()')).toBeLessThan(watcher.indexOf('connectPresence(game.value)'))
+  })
+
+  it('marks the sign-in dialog, and only it, as the one thing the entry overlay leaves usable', async () => {
+    const template = view.slice(0, view.indexOf('<script setup'))
+    expect(template.match(new RegExp(KEEP_INTERACTIVE, 'g'))).toHaveLength(1)
+    expect(template).toMatch(new RegExp(`<AuthModal ${KEEP_INTERACTIVE} :open="authOpen"`))
+    // The attribute falls through to AuthModal's own root, which holds nothing but the sign-in dialog;
+    // its role, label, classes and styles are untouched.
+    const wrapper = mount(AuthModal, { props: { open: true }, attrs: { [KEEP_INTERACTIVE]: '' } })
+    const root = wrapper.element as HTMLElement
+    expect(root.classList.value).toBe('auth-overlay')
+    expect(root.hasAttribute(KEEP_INTERACTIVE)).toBe(true)
+    expect(root.querySelectorAll(`[${KEEP_INTERACTIVE}]`)).toHaveLength(0)
+    const dialog = root.querySelector('.auth-modal')!
+    expect([dialog.getAttribute('role'), dialog.getAttribute('aria-modal'), dialog.getAttribute('aria-label')]).toEqual(['dialog', 'true', 'Autenticación'])
+    expect(authModalSource).not.toContain(KEEP_INTERACTIVE)
+    wrapper.unmount()
   })
 
   it('unmounting disposes the controller (its timers and socket)', () => {

@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { defineComponent, h, nextTick, type PropType } from 'vue'
 import { initialWorldEntry, nextWorldEntry, type WorldEntryEvent, type WorldEntryState } from '../multiplayer/domain/worldEntry'
 import WorldEntryOverlay from './WorldEntryOverlay.vue'
+import { KEEP_INTERACTIVE } from './entryInert'
 
 // PRESENCE UX-1 R4: the overlay with what it covers, as WildlandsView lays it
 // out (world canvas, HUD controls, chat input and the sign-in dialog are its
@@ -28,7 +29,7 @@ const Host = defineComponent({
       h(WorldEntryOverlay, { state: props.state, onRetry: () => emit('retry') }),
       props.toast ? h('button', { id: 'late', type: 'button' }, 'Aviso') : null,
       props.signIn
-        ? h('div', { class: 'auth-overlay' }, [h('div', { role: 'dialog', 'aria-modal': 'true' }, [h('button', { id: 'google', type: 'button' }, 'Google')])])
+        ? h('div', { class: 'auth-overlay', [KEEP_INTERACTIVE]: '' }, [h('div', { role: 'dialog', 'aria-modal': 'true' }, [h('button', { id: 'google', type: 'button' }, 'Google')])])
         : null,
     ])
   },

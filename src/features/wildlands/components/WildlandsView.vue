@@ -125,7 +125,8 @@
       <router-view v-else />
     </LobbyPanel>
 
-    <AuthModal :open="authOpen" @success="authSucceeded = true" @close="onAuthClose" />
+    <!-- The only thing the world-entry overlay leaves usable (entryInert.ts): the attribute lands on its root. -->
+    <AuthModal data-world-entry-keep-interactive :open="authOpen" @success="authSucceeded = true" @close="onAuthClose" />
   </div>
 </template>
 
