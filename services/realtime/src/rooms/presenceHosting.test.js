@@ -9,6 +9,16 @@ import { SESSION_REPLACED } from '../presence/locationService.js'
 // no room). The room-level and end-to-end behaviour is PresenceRoomClose.test.js and
 // scripts/world-location/ordering-harness.mjs.
 
+// No code path here may end the process (review F1). Every process.exit is recorded instead (a
+// real exit 0 would end this file early and read as a pass) and fails the file.
+const exits = []
+const realExit = process.exit
+test.before(() => { process.exit = code => { exits.push(code) } })
+test.after(() => {
+  process.exit = realExit
+  assert.deepEqual(exits, [], 'nothing in the hosting may call process.exit')
+})
+
 function client() {
   const sent = []
   const leaves = []
@@ -167,42 +177,35 @@ test('shuttingDown: nothing is admitted afterwards; protocol 3 hears why', async
 })
 
 test('displaced in on (activation refused, newer host, expired lease): stays alive and stopped — /readyz 503, joins 4503, never exits', async () => {
-  const exits = []
-  const realExit = process.exit
-  process.exit = code => { exits.push(code) }
-  try {
-    const sockets = [client()]
-    const on = hosting({ sockets })
-    on.h.log = () => {}
-    on.h.configure(fakeHost('active'))
-    on.h.host.onNewerActive()
-    await new Promise(resolve => setImmediate(resolve))
-    await new Promise(resolve => setImmediate(resolve))
-    assert.deepEqual(on.h.host.calls, ['drain', 'stop'], 'drained, then stopped: no renew, no claim (a stopped host has no key)')
-    assert.equal(on.h.serving, false, '/readyz 503')
-    await assert.rejects(on.h.admit(client(), {}, player('u'), () => null), e => e.code === HOST_DRAINING_CODE, 'joins 4503')
-    assert.equal(on.h.draining, true, 'movement stays frozen')
-    assert.equal(on.h.stats().displaced, 'newer host active')
+  const sockets = [client()]
+  const on = hosting({ sockets })
+  on.h.log = () => {}
+  on.h.configure(fakeHost('active'))
+  on.h.host.onNewerActive()
+  await new Promise(resolve => setImmediate(resolve))
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(on.h.host.calls, ['drain', 'stop'], 'drained, then stopped: no renew, no claim (a stopped host has no key)')
+  assert.equal(on.h.serving, false, '/readyz 503')
+  await assert.rejects(on.h.admit(client(), {}, player('u'), () => null), e => e.code === HOST_DRAINING_CODE, 'joins 4503')
+  assert.equal(on.h.draining, true, 'movement stays frozen')
+  assert.equal(on.h.stats().displaced, 'newer host active')
 
-    const refused = hosting()
-    refused.h.log = () => {}
-    refused.h.configure(fakeHost('stopped'))
-    refused.h.host.onActivationRefused('newer_active')
-    assert.equal(refused.h.serving, false)
-    await assert.rejects(refused.h.admit(client(), {}, player('u'), () => null), e => e.code === HOST_DRAINING_CODE)
+  const refused = hosting()
+  refused.h.log = () => {}
+  refused.h.configure(fakeHost('stopped'))
+  refused.h.host.onActivationRefused('newer_active')
+  assert.equal(refused.h.serving, false)
+  await assert.rejects(refused.h.admit(client(), {}, player('u'), () => null), e => e.code === HOST_DRAINING_CODE)
 
-    const expired = hosting({ sockets: [client()] })
-    expired.h.log = () => {}
-    expired.h.configure(fakeHost('active'))
-    expired.h.host.onExpired()
-    await new Promise(resolve => setImmediate(resolve))
-    await new Promise(resolve => setImmediate(resolve))
-    assert.equal(expired.h.serving, false)
-    assert.equal(expired.h.stats().displaced, 'lease expired')
-    assert.deepEqual(exits, [], 'no displaced host ever calls process.exit')
-  } finally {
-    process.exit = realExit
-  }
+  const expired = hosting({ sockets: [client()] })
+  expired.h.log = () => {}
+  expired.h.configure(fakeHost('active'))
+  expired.h.host.onExpired()
+  await new Promise(resolve => setImmediate(resolve))
+  await new Promise(resolve => setImmediate(resolve))
+  assert.equal(expired.h.serving, false)
+  assert.equal(expired.h.stats().displaced, 'lease expired')
+  assert.deepEqual(exits, [], 'no displaced host ever calls process.exit')
 })
 
 test('shadow never refuses a join for its host: a stopped or starting host admits (no key), and /readyz stays ready', async () => {
