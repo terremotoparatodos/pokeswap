@@ -17,7 +17,8 @@ import { worldDependencies } from '../world/worldConfig.js'
 import { LocationService, locationMode } from '../presence/locationService.js'
 import { LocationJoin } from './locationJoin.js'
 import { ACTIVATION_WAIT_MS, HostLifecycle } from '../presence/hostLifecycle.js'
-import { HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
+import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE, LEGACY_REPLACED_CODE, SESSION_REPLACED_CODE } from '../protocol/closeCodes.js'
+import { SESSION_REPLACED } from '../presence/locationService.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
 const MOVE_REJECTION_REASON = Object.freeze({
@@ -52,7 +53,27 @@ void world.start()
 // Rollback: set it to off and restart; the database is not touched.
 // Per-socket sessions, hydration and fencing live in rooms/locationJoin.js.
 let location = null
-const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location })
+// WORLD LOCATION-4 (design §5): how a socket is closed depends on what its client understands.
+const protocolOf = new WeakMap()
+const tabOf = new WeakMap()
+const TAB_ID = /^[A-Za-z0-9_-]{8,64}$/
+const modern = client => (protocolOf.get(client) ?? 0) >= CLOSE_CODES_PROTOCOL
+const closing = (client, reason) => { if (modern(client)) client.send(MESSAGE.CLOSING, { reason }) }
+/** An authoritative replacement: 4409 (protocol 3), else the legacy 4001 (with the reason only when named). */
+function closeReplaced(client, { named }) {
+  closing(client, 'replaced')
+  if (modern(client)) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
+  else if (named) client.leave(LEGACY_REPLACED_CODE, SESSION_REPLACED)
+  else client.leave(LEGACY_REPLACED_CODE)
+}
+/** Shutdown, deploy or drain: 4503 for every client (an older one reconnects too, as it would on 1006). */
+function closeDraining(client) {
+  closing(client, 'draining')
+  client.leave(HOST_DRAINING_CODE, 'host-draining')
+}
+/** While draining: no join is accepted and no movement either (the final flush saves where players are). */
+let draining = false
+const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location, closeReplaced })
 location = createLocation({ mode: locationMode(process.env.WORLD_LOCATION_PERSISTENCE), store: initialDependencies.playerData })
 if (location.mode !== 'off') console.log(`[location] persistence ${location.mode} (effective: ${location.effective})`)
 
@@ -115,20 +136,56 @@ metrics.host = () => host?.stats() ?? null
 export async function preparePresenceHost({ hostId, acquireWaitMs } = {}) {
   const store = initialDependencies.playerData
   if (!location.active || !supportsHost(store)) return null
-  host = new HostLifecycle({
-    store, ...(hostId ? { hostId } : {}),
-    onNewerActive: () => metrics.hostEvent?.('newerActive'),
-    onExpired: () => metrics.hostEvent?.('expired'),
-  })
+  host = reactingToHostChanges(new HostLifecycle({ store, ...(hostId ? { hostId } : {}) }))
   // Sessions get their keys from this host from now on (none persist before it is active).
   location.attachHost(host)
   await host.acquire(acquireWaitMs === undefined ? {} : { waitMs: acquireWaitMs })
   return host
 }
 
-/** Tests and tooling: replace this process's host (null: none). */
-export function configurePresenceHost(next) {
-  host = next
+/**
+ * Drain this process (design §3.3.3, §6.2): refuse joins, freeze movement, move the host to
+ * draining and flush every pending location of the sessions it still owns, BEFORE any socket
+ * closes (Colyseus calls this from onBeforeShutdown; the room closes sockets with 4503 after).
+ * Resolves with the flush counts. Idempotent.
+ */
+export async function drainPresence({ deadlineMs = 3_000 } = {}) {
+  draining = true
+  await host?.drain()
+  return location.shutdown(deadlineMs)
+}
+
+/**
+ * A newer presence host is active, or this host's lease cannot be renewed. In `on` this process
+ * drains and closes every socket with 4503 (clients reconnect, with resume, to the current
+ * host), then stops. Shadow never changes what players see: it only counts `wouldDrain`.
+ */
+async function drainForHostChange() {
+  if (!location.restores) { location.counters.shadow.wouldDrain++; return }
+  if (draining) return
+  await drainPresence()
+  for (const client of [...observers.values()]) closeDraining(client)
+  await host?.stop()
+}
+
+/** The room's reaction to what the database says about its host: drain (on) or count (shadow). */
+function reactingToHostChanges(next) {
+  if (next) {
+    next.onNewerActive = () => { void drainForHostChange() }
+    next.onExpired = () => { void drainForHostChange() }
+  }
+  return next
+}
+
+/** Tests and tooling: undo a drain (a fresh process never starts draining). */
+export function resetDrainingForTesting() { draining = false }
+
+/**
+ * Tests and tooling: replace this process's host (null: none). `reactToHostChanges: false`
+ * models the renew-bounded window in which this host has not yet learned of a newer one.
+ */
+export function configurePresenceHost(next, { reactToHostChanges = true } = {}) {
+  host = reactToHostChanges ? reactingToHostChanges(next) : next
   location.attachHost(next)
   return host
 }
@@ -174,6 +231,16 @@ export class PresenceRoom extends Room {
     // WORLD LOCATION-4: between listen and activation a join waits (one round trip in
     // practice); a host that will not accept (draining, stopped) refuses: reconnect elsewhere.
     if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
+    if (draining) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
+    // WORLD LOCATION-4: an automatic reconnection (resume) never displaces another tab's live
+    // session: it yields. Only a fresh join (opening the page, reloading, «Jugar acá») replaces.
+    const tabId = typeof options?.tabId === 'string' && TAB_ID.test(options.tabId) ? options.tabId : null
+    if (auth.kind !== 'guest' && options?.resume === true && tabId) {
+      const previous = clientsByActor.get(auth.userId)
+      if (previous && tabOf.get(previous) !== tabId) { metrics.rejected('resume'); throw new ServerError(SESSION_REPLACED_CODE, 'session-replaced') }
+    }
+    if (Number.isInteger(options?.presenceProtocol)) protocolOf.set(client, options.presenceProtocol)
+    if (tabId) tabOf.set(client, tabId)
     if (!hasCapacity(PresenceRoom.connections)) { metrics.rejected('capacity'); throw new ServerError(4210, 'capacity reached') }
     PresenceRoom.connections++
     if (Number.isInteger(options?.presenceProtocol) && options.presenceProtocol >= COMPACT_STEP_PROTOCOL) compactClients.add(client)
@@ -253,6 +320,25 @@ export class PresenceRoom extends Room {
     this.sendSnapshot(client, viewer)
   }
 
+  /** While draining nothing moves: refused, and answered with the actor where it really is. */
+  frozen(client) {
+    this.reject(client, 'host draining', 'draining')
+    const actor = actors.get(client.userData?.actorId)
+    if (actor) this.sendSelf(client, actor)
+  }
+
+  /**
+   * WORLD LOCATION-4 (design §5.2): Colyseus' default closes every client with 4001
+   * SERVER_SHUTDOWN, which clients read as "replaced" and stop. Here a shutdown closes with
+   * 4503 host-draining: every client reconnects. realtimeServer.js has already drained
+   * (saved) before Colyseus calls this.
+   */
+  onBeforeShutdown() {
+    draining = true
+    for (const client of this.clients) closing(client, 'draining')
+    this.disconnect(HOST_DRAINING_CODE).catch(() => {})
+  }
+
   onLeave(client) {
     PresenceRoom.connections = Math.max(0, PresenceRoom.connections - 1)
     metrics.left(client.userData?.actorId ? 'player' : 'guest')
@@ -275,6 +361,7 @@ export class PresenceRoom extends Room {
   }
 
   move(client, payload) {
+    if (draining) return this.frozen(client)
     const actor = actors.get(client.userData?.actorId); const intent = moveIntent(payload)
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
     const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence, stepAllowed)
@@ -299,6 +386,7 @@ export class PresenceRoom extends Room {
   }
 
   changeArea(client, payload) {
+    if (draining) return this.frozen(client)
     const actor = actors.get(client.userData?.actorId); const intent = areaIntent(payload)
     if (!actor || !intent) return this.reject(client, 'area denied', 'area')
     // CAVES-3/4: the service decides whether this crossing is allowed and
@@ -376,6 +464,7 @@ export class PresenceRoom extends Room {
    * Players only, like chat: a guest has no actor to stand beside a node.
    */
   work(client, payload) {
+    if (draining) return this.frozen(client)
     const actor = actors.get(client.userData?.actorId)
     if (!actor) return this.reject(client, 'world denied', 'invalid')
     void world.work(actor, payload, client)
@@ -472,6 +561,8 @@ export class PresenceRoom extends Room {
     visibleByClient.set(client.sessionId, new Set(visible.map(actor => actor.id)))
     const self = client.userData?.actorId ? actors.get(client.userData.actorId) : null
     client.send(MESSAGE.SNAPSHOT, {
+      // WORLD LOCATION-4: the close codes this server speaks (4409 / 4503; 4001 never replaces a protocol-3 client).
+      presenceProtocol: CLOSE_CODES_PROTOCOL,
       access: self ? 'player' : 'guest',
       actors: visible.map(publicActor),
       ...(self ? { self: publicActor(self) } : {}),

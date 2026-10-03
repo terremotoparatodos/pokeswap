@@ -29,6 +29,8 @@ const JOURNAL = `${RT}src/presence/locationJournal.js`
 const JOIN = `${RT}src/rooms/locationJoin.js`
 const JOURNAL_TEST = name => expecting(node('src/presence/locationJournal.test.js'), name)
 const ROOM_TEST = name => expecting(node('src/rooms/PresenceRoomLocation.test.js'), name)
+const CLOSE_TEST = name => expecting(node('src/rooms/PresenceRoomClose.test.js'), name)
+const BOOT_TEST = name => expecting(node('src/realtimeServer.test.js'), name)
 const DB = file => `src/world/persistence/${file}`
 const DB_TEST = name => expecting(node(DB('worldLocationOrdering.database.test.js')), name)
 
@@ -169,14 +171,33 @@ export const MUTATIONS = [
     test: JOURNAL_TEST('newerActive in any answer reaches the host once') },
   // ── Realtime: the room reacts to a superseded claim ──
   { id: 'R1', what: 'on: a superseded session keeps playing (never closed)', file: JOIN,
-    from: "    location.counters.supersededDisconnects++\n    client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n  }\n\n  #supersededWhileHydrating", to: "    location.counters.supersededDisconnects++\n  }\n\n  #supersededWhileHydrating",
+    from: "    location.counters.supersededDisconnects++\n    this.closeReplaced(client, { named: true })\n  }\n\n  #supersededWhileHydrating", to: "    location.counters.supersededDisconnects++\n  }\n\n  #supersededWhileHydrating",
     test: ROOM_TEST('on: T4 in the room') },
   { id: 'R3', what: 'on: a session superseded while hydrating is not closed', file: JOIN,
-    from: '    if (this.clientsByActor.get(pending.join.auth.userId) === client) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n', to: '',
+    from: '    if (this.clientsByActor.get(pending.join.auth.userId) === client) this.closeReplaced(client, { named: true })\n', to: '',
     test: ROOM_TEST('on: T3 in the room') },
   { id: 'R2', what: 'shadow: a superseded session is disconnected (shadow becomes invasive)', file: JOIN,
     from: '    if (!location.restores) { location.counters.shadow.wouldReplace++; return }\n', to: '',
     test: ROOM_TEST('shadow: T3 in the room') },
+  // ── Realtime: drain and close codes (design §5) ──
+  { id: 'C1', what: 'shutdown keeps Colyseus\' default close (4001 SERVER_SHUTDOWN): clients stop as replaced', file: ROOM,
+    from: '  onBeforeShutdown() {\n', to: '  onBeforeShutdownDisabled() {\n',
+    test: BOOT_TEST('bootstrap:') },
+  { id: 'C2', what: 'a protocol-3 client is replaced with the legacy 4001', file: ROOM,
+    from: '  if (modern(client)) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)\n  else if (named)', to: '  if (named)',
+    test: CLOSE_TEST('replacement:') },
+  { id: 'C3', what: 'a resume from another tab displaces the live session', file: ROOM,
+    from: "      if (previous && tabOf.get(previous) !== tabId) { metrics.rejected('resume'); throw new ServerError(SESSION_REPLACED_CODE, 'session-replaced') }\n", to: '',
+    test: CLOSE_TEST('resume:') },
+  { id: 'C4', what: 'movement is accepted while draining', file: ROOM,
+    from: '  move(client, payload) {\n    if (draining) return this.frozen(client)\n', to: '  move(client, payload) {\n',
+    test: CLOSE_TEST('drain:') },
+  { id: 'C5', what: 'shadow drains on a newer host (shadow becomes invasive)', file: ROOM,
+    from: '  if (!location.restores) { location.counters.shadow.wouldDrain++; return }\n', to: '',
+    test: CLOSE_TEST('shadow: a newer active host') },
+  { id: 'C6', what: 'on: a newer active host is ignored (two hosts keep serving)', file: ROOM,
+    from: '    next.onNewerActive = () => { void drainForHostChange() }\n', to: '',
+    test: CLOSE_TEST('on: a newer active host') },
 ]
 
 function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }

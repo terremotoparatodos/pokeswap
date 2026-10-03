@@ -26,7 +26,13 @@ import { restoreFromRow } from '../presence/locationPolicy.js'
  */
 export class LocationJoin {
   /** `location()` is a getter: the service can be replaced at runtime (tests, rollback). */
-  constructor({ actors, clientsByActor, location }) {
+  /**
+   * `closeReplaced(client, { named })`: the room closes a socket as an authoritative replacement
+   * (WORLD LOCATION-4: 4409 for protocol-3 clients; 4001 for older ones, with the reason only
+   * when `named`).
+   */
+  constructor({ actors, clientsByActor, location, closeReplaced = (client, { named }) => (named ? client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED) : client.leave(SESSION_REPLACED_CODE)) }) {
+    this.closeReplaced = closeReplaced
     this.actors = actors
     this.clientsByActor = clientsByActor
     this.location = location
@@ -40,8 +46,7 @@ export class LocationJoin {
    * names the reason; off and shadow close it exactly as before WORLD LOCATION.
    */
   replace(previous) {
-    if (this.location().restores) previous.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
-    else previous.leave(4001)
+    this.closeReplaced(previous, { named: this.location().restores })
   }
 
   /** A persisting player's new session, synchronously (no database wait), or null. */
@@ -152,7 +157,7 @@ export class LocationJoin {
     const location = this.location()
     if (!location.restores) { location.counters.shadow.wouldReplace++; return }
     location.counters.supersededDisconnects++
-    client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
+    this.closeReplaced(client, { named: true })
   }
 
   #supersededWhileHydrating(client, pending) {
@@ -160,7 +165,7 @@ export class LocationJoin {
     this.hydrations.delete(client)
     const location = this.location()
     location.counters.supersededDisconnects++
-    if (this.clientsByActor.get(pending.join.auth.userId) === client) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
+    if (this.clientsByActor.get(pending.join.auth.userId) === client) this.closeReplaced(client, { named: true })
   }
 
   #finish(room, client, pending, stored, claimed) {
@@ -208,6 +213,6 @@ export class LocationJoin {
     const location = this.location()
     if (!location.restores) { location.counters.shadow.wouldFence++; return }
     location.counters.fencedDisconnects++
-    client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
+    this.closeReplaced(client, { named: true })
   }
 }

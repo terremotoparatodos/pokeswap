@@ -1,15 +1,17 @@
 import { Server } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
-import { PresenceRoom, flushLocationsForShutdown, preparePresenceHost } from './rooms/PresenceRoom.js'
+import { PresenceRoom, drainPresence, flushLocationsForShutdown, preparePresenceHost } from './rooms/PresenceRoom.js'
 import { BenchmarkPresenceRoom } from './rooms/BenchmarkPresenceRoom.js'
 import { createHealthServer } from './observability/health.js'
 import { metrics } from './observability/metrics.js'
 import { originPolicy } from './security/originPolicy.js'
 import { resolveBuildCommit, versionInfo } from './observability/version.js'
 
-// WORLD LOCATION-2: on a graceful shutdown Colyseus first disconnects every
-// client (each onLeave marks its location urgent), then calls onShutdown: a
-// final save within SHUTDOWN_LOCATION_FLUSH_MS, best effort, never relied on.
+// WORLD LOCATION-4: on a graceful shutdown Colyseus calls onBeforeShutdown BEFORE it
+// disconnects anyone: the process drains there (refuses joins, freezes movement, host →
+// draining, saves every pending location within SHUTDOWN_LOCATION_FLUSH_MS); then the room
+// closes every socket with 4503 (PresenceRoom.onBeforeShutdown); onShutdown flushes whatever a
+// disconnect still marked (normally nothing: movement was frozen) and stops the host.
 export const SHUTDOWN_LOCATION_FLUSH_MS = 3_000
 
 /**
@@ -41,8 +43,13 @@ export async function startRealtimeServer({ env = process.env, port = Number(env
   gameServer.define('presence', benchmarkMode ? BenchmarkPresenceRoom : PresenceRoom)
   const host = benchmarkMode ? null : await preparePresenceHost()
   trace('acquired', host?.state ?? null)
+  let drained = null
+  gameServer.onBeforeShutdown(async () => { drained = await drainPresence({ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS }) })
   gameServer.onShutdown(async () => {
-    const { sent, left, timedOut } = await flushLocationsForShutdown(SHUTDOWN_LOCATION_FLUSH_MS)
+    const late = await flushLocationsForShutdown(SHUTDOWN_LOCATION_FLUSH_MS)
+    const sent = (drained?.sent ?? 0) + late.sent
+    const left = late.left
+    const timedOut = Boolean(drained?.timedOut || late.timedOut)
     if (sent || left) log(`[location] shutdown flush: ${sent} saved, ${left} not saved${timedOut ? ' (deadline reached)' : ''}`)
     await host?.stop()
   })

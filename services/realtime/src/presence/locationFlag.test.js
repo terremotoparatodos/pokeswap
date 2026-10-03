@@ -50,7 +50,7 @@ test('the process reads WORLD_LOCATION_PERSISTENCE once, at load: on alone → u
   }
 })
 
-test('D-L5: the flag and its counters are on /metrics only; /version and the presence protocol do not change', () => {
+test('D-L5: the flag and its counters are on /metrics only; /version does not change with the flag', () => {
   const metrics = new PresenceMetrics({ loopDelay: { percentile: () => 0, max: 0 } })
   const service = new LocationService({ mode: 'shadow', store })
   metrics.location = () => service.stats()
@@ -59,7 +59,9 @@ test('D-L5: the flag and its counters are on /metrics only; /version and the pre
   assert.equal(snapshot.location.effective, 'shadow')
   assert.ok(snapshot.location.journal)
   assert.deepEqual(Object.keys(versionInfo({ commit: 'abcdef1', startedAt: 'x' })).sort(), ['commit', 'protocol', 'service', 'startedAt'])
-  assert.equal(PRESENCE_PROTOCOL_REVISION, 5, 'no client-visible protocol change')
+  // Revision 6 is WORLD LOCATION-4's close codes (4409 / 4503), the same in every mode: the flag itself changes nothing a client sees.
+  assert.equal(PRESENCE_PROTOCOL_REVISION, 6)
+  assert.deepEqual(versionInfo({ commit: 'abcdef1', startedAt: 'x' }), { service: 'pokeswap-presence', commit: 'abcdef1', protocol: 6, startedAt: 'x' })
   assert.doesNotMatch(JSON.stringify(versionInfo({ commit: 'abcdef1', startedAt: 'x' })), /location|shadow|epoch/)
 })
 

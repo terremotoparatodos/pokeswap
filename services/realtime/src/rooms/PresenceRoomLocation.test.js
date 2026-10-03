@@ -140,7 +140,9 @@ async function locationRoom(t, { mode = 'on', module = instanceA, owners = {}, h
   const store = given ?? instrumented(data)
   const host = await newHost()
   module.configureWorld({ skills: createDemoSkillPolicy({ durationMs: 3_000 }), ownership: createStaticOwnership(owners) })
-  module.configurePresenceHost(host)
+  // These tests play the window before an older host learns of a newer one (bounded by its
+  // renew in production): the room's drain on a newer host is PresenceRoomClose.test.js'.
+  module.configurePresenceHost(host, { reactToHostChanges: false })
   const service = module.configureLocationPersistence({ mode, store, host, now: () => Date.now(), hydrationTimeoutMs })
   service.journal?.stop() // ticks are driven by the test
   const room = new module.PresenceRoom()
@@ -850,9 +852,11 @@ test('graceful shutdown is best effort: a hung authority never holds the exit pa
   assert.ok(performance.now() - started < 1_000)
 })
 
-test('the process entry point (realtimeServer.js) wires the shutdown flush into Colyseus onShutdown', async () => {
+test('the process entry point (realtimeServer.js) drains in onBeforeShutdown (before any socket closes) and stops the host in onShutdown', async () => {
   const { readFile } = await import('node:fs/promises')
   const source = await readFile(new URL('../realtimeServer.js', import.meta.url), 'utf8')
-  assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*const \{ sent, left, timedOut \} = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
+  assert.match(source, /gameServer\.onBeforeShutdown\(async \(\) => \{ drained = await drainPresence\(\{ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS \}\) \}\)/)
+  assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*const late = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
+  assert.match(source, /await host\?\.stop\(\)/)
   assert.match(source, /SHUTDOWN_LOCATION_FLUSH_MS = 3_000/)
 })

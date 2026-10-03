@@ -42,18 +42,33 @@ test('bootstrap: the host acquires before listen (starting), activates after lis
   const ready = await fetch(`http://127.0.0.1:${PORT + 1}/readyz`)
   assert.equal(ready.status, 200)
 
-  // A guest joins and gets a snapshot (the room accepts once active).
-  const guest = await new Client(`ws://127.0.0.1:${PORT}`, ORIGIN).joinOrCreate('presence', { token: null, presenceProtocol: 2 })
-  guest.reconnection.enabled = false
-  let snapshot = null
-  guest.onMessage('presence:snapshot', s => { snapshot = s })
-  guest.onMessage('*', () => {})
-  guest.send('presence:ready')
-  for (let i = 0; i < 100 && !snapshot; i++) await wait(20)
-  assert.ok(snapshot, 'the guest was served')
-  await guest.leave()
+  // Two guests join and get a snapshot (the room accepts once active): one of today's clients
+  // (presenceProtocol 2) and one that speaks the WORLD LOCATION-4 close codes (3).
+  const guests = []
+  for (const presenceProtocol of [2, 3]) {
+    const room = await new Client(`ws://127.0.0.1:${PORT}`, ORIGIN).joinOrCreate('presence', { token: null, presenceProtocol, tabId: `tab-guest-${presenceProtocol}000` })
+    room.reconnection.enabled = false
+    const seen = { protocol: presenceProtocol, snapshot: null, closing: [], code: null, order: [] }
+    room.onMessage('presence:snapshot', s => { seen.snapshot = s })
+    room.onMessage('presence:closing', m => { seen.closing.push(m.reason); seen.order.push('closing') })
+    room.onMessage('*', () => {})
+    room.onLeave(code => { seen.code = code; seen.order.push('close') })
+    room.send('presence:ready')
+    guests.push(seen)
+  }
+  for (let i = 0; i < 100 && guests.some(g => !g.snapshot); i++) await wait(20)
+  assert.ok(guests.every(g => g.snapshot), 'both guests were served')
+  assert.equal(guests[1].snapshot.presenceProtocol, 3)
 
+  // C11: a graceful shutdown (deploy, restart) closes every socket with 4503, never with
+  // Colyseus' default 4001 (which clients read as "replaced" and stop); `presence:closing`
+  // reaches only the protocol-3 client, before its close.
   await gameServer.gracefullyShutdown(false)
+  for (let i = 0; i < 100 && guests.some(g => g.code === null); i++) await wait(20)
+  assert.deepEqual(guests.map(g => g.code), [4503, 4503], 'every client reconnects: 4503 host-draining, never 4001')
+  assert.deepEqual(guests[0].closing, [])
+  assert.deepEqual(guests[1].order, ['closing', 'close'])
+  assert.deepEqual(guests[1].closing, ['draining'])
   assert.equal(host.state, 'stopped', 'onShutdown stops the host (terminal)')
   started.health.close()
   started = null
