@@ -92,13 +92,15 @@ test('lost answers: a retried acquire and a retried activate keep the same gener
 
 test('two concurrent candidates: the newer one activates, the older is refused and stops (never active)', async () => {
   const store = await sql()
-  const older = new HostLifecycle({ store, renewMs: 60_000, ...quiet })
+  const refused = []
+  const older = new HostLifecycle({ store, renewMs: 60_000, ...quiet, onActivationRefused: reason => refused.push(reason) })
   const newer = new HostLifecycle({ store, renewMs: 60_000, ...quiet })
   await older.acquire()
   await newer.acquire()
   assert.equal(await newer.activate(), 'active')
   assert.equal(await older.activate(), 'stopped')
   assert.equal(older.counters.activation, 'newer_active')
+  assert.deepEqual(refused, ['newer_active'], 'the room hears it once (the process exits in on)')
   assert.equal(await hostRow(older.generation), 'stopped')
   assert.equal(older.sessionKey(), null)
   assert.equal(await older.whenActive(10), false)

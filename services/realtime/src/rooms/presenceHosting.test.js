@@ -165,3 +165,50 @@ test('shuttingDown: nothing is admitted afterwards; protocol 3 hears why', async
   h.resetDraining()
   await h.admit(client(), {}, player('v'), () => null)
 })
+
+test('a stopped host in on ends the process once (activation refused, newer host, expired lease); shadow keeps serving', async () => {
+  const sockets = [client()]
+  const on = hosting({ sockets })
+  const stops = []
+  on.h.onStopped = reason => stops.push(reason)
+  on.h.log = () => {}
+  on.h.configure(fakeHost('active'))
+  on.h.host.onActivationRefused('newer_active')
+  on.h.host.onNewerActive()
+  await new Promise(resolve => setImmediate(resolve))
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(stops, ['activation newer_active'], 'exactly once, whatever stops it next')
+
+  const drained = hosting({ sockets: [client()] })
+  const reasons = []
+  drained.h.onStopped = reason => reasons.push(reason)
+  drained.h.log = () => {}
+  drained.h.configure(fakeHost('active'))
+  drained.h.host.onExpired()
+  await new Promise(resolve => setImmediate(resolve))
+  await new Promise(resolve => setImmediate(resolve))
+  assert.deepEqual(reasons, ['lease expired'], 'after its drain')
+
+  const shadow = hosting({ location: fakeLocation({ restores: false }) })
+  const never = []
+  shadow.h.onStopped = reason => never.push(reason)
+  shadow.h.log = () => {}
+  shadow.h.configure(fakeHost('stopped'))
+  shadow.h.host.onActivationRefused('newer_active')
+  assert.deepEqual(never, [])
+})
+
+test('shadow never refuses a join for its host: a stopped or starting host admits (no key), and /readyz stays ready', async () => {
+  const shadow = hosting({ location: fakeLocation({ restores: false }) })
+  for (const state of ['stopped', 'starting']) {
+    shadow.h.host = fakeHost(state)
+    await shadow.h.admit(client(), {}, player('u'), () => null)
+    assert.equal(shadow.h.serving, true, state)
+  }
+  const on = hosting()
+  on.h.host = fakeHost('stopped')
+  await assert.rejects(on.h.admit(client(), {}, player('u'), () => null), e => e.code === HOST_DRAINING_CODE)
+  assert.equal(on.h.serving, false)
+  on.h.host = null
+  assert.equal(on.h.serving, true, 'no host (location off): ready as before')
+})

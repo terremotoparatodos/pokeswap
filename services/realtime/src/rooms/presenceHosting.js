@@ -14,7 +14,10 @@ import { MESSAGE } from '../protocol/messages.js'
 //   closes     a replacement is 4409 for protocol-3 clients, 4001 for older ones; a drain or
 //              shutdown is 4503 for every client; protocol 3 hears `presence:closing` first;
 //   drain      joins refused, movement frozen (the room asks `draining`), host → draining,
-//              every pending location saved, before any socket closes.
+//              every pending location saved, before any socket closes;
+//   stopping   in `on`, a host that stops (activation refused, a newer host, an expired lease)
+//              ends the process with code 0 (`onStopped`); shadow never changes what players
+//              see: it keeps admitting, without persistence.
 
 /** A tab id the client sends on join (UX and resume only; never part of the session key). */
 const TAB_ID = /^[A-Za-z0-9_-]{8,64}$/
@@ -27,10 +30,13 @@ export class PresenceHosting {
    * `location()`: the current location service (it is replaced at runtime).
    * `sockets()`: every socket of the room (a drain for a host change closes them all).
    */
-  constructor({ location, sockets, metrics }) {
+  constructor({ location, sockets, metrics, log = message => console.warn(message) }) {
     this.location = location
     this.sockets = sockets
     this.metrics = metrics
+    this.log = log
+    /** In `on`, called once when this process must exit (realtimeServer.js: a graceful shutdown). */
+    this.onStopped = () => {}
     /** This process's HostLifecycle, or null (location off, or a store without host operations). */
     this.host = null
     /** While draining: no join is accepted and no movement either. Never reverts in a process. */
@@ -68,8 +74,9 @@ export class PresenceHosting {
    */
   async admit(client, options, auth, liveClientOf) {
     const host = this.host
-    // Between listen and activation a join waits (one round trip in practice).
-    if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
+    // Between listen and activation a join waits (one round trip in practice). A host that will
+    // not serve refuses in `on`; shadow admits anyway (the session simply gets no key).
+    if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS)) && this.location().restores) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
     if (this.draining) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
     // Only a fresh join (opening the page, reloading, «Jugar acá») replaces another tab.
     const tabId = tabIdOf(options)
@@ -131,25 +138,42 @@ export class PresenceHosting {
 
   stats() { return this.host?.stats() ?? null }
 
+  /** Readiness: no host, a host that admits, or shadow (which serves whatever its host's state). */
+  get serving() { return !this.host || this.host.admitting || !this.location().restores }
+
+  /** A stopped host ends the process in `on` (once); shadow keeps serving without persistence. */
+  #stopped(reason) {
+    if (!this.location().restores) {
+      this.log(`[host] ${reason}: shadow keeps serving, without location persistence`)
+      return
+    }
+    if (this.exiting) return
+    this.exiting = true
+    this.log(`[host] ${reason}: this process stops serving and exits (code 0); more than 3 of these an hour means an unexpected topology`)
+    this.onStopped(reason)
+  }
+
   /**
    * A newer presence host is active, or this host's lease cannot be renewed. In `on` this
    * process drains and closes every socket with 4503 (clients reconnect, with resume, to the
    * current host), then stops. Shadow never changes what players see: it counts `wouldDrain`.
    */
-  async #hostChanged() {
+  async #hostChanged(reason) {
     const location = this.location()
     if (!location.restores) { location.counters.shadow.wouldDrain++; return }
     if (this.draining) return
     await this.drain()
     for (const client of [...this.sockets()]) this.closeDraining(client)
     await this.host?.stop()
+    this.#stopped(reason)
   }
 
   /** The reaction to what the database says about this host: drain (on) or count (shadow). */
   #reacting(next) {
     if (next) {
-      next.onNewerActive = () => { void this.#hostChanged() }
-      next.onExpired = () => { void this.#hostChanged() }
+      next.onNewerActive = () => { void this.#hostChanged('newer host active') }
+      next.onExpired = () => { void this.#hostChanged('lease expired') }
+      next.onActivationRefused = reason => this.#stopped(`activation ${reason}`)
     }
     return next
   }

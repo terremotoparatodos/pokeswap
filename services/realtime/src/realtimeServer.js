@@ -1,6 +1,6 @@
 import { Server } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
-import { PresenceRoom, drainPresence, flushLocationsForShutdown, preparePresenceHost } from './rooms/PresenceRoom.js'
+import { PresenceRoom, drainPresence, flushLocationsForShutdown, onPresenceHostStopped, preparePresenceHost, presenceServing } from './rooms/PresenceRoom.js'
 import { shutdownFlushLine } from './presence/shutdownSummary.js'
 import { BenchmarkPresenceRoom } from './rooms/BenchmarkPresenceRoom.js'
 import { createHealthServer } from './observability/health.js'
@@ -28,7 +28,7 @@ export const SHUTDOWN_LOCATION_FLUSH_MS = 3_000
  *      arrive in between wait for it (ACTIVATION_WAIT_MS, then 4503).
  * With location off nothing is acquired and the process starts exactly as before.
  */
-export async function startRealtimeServer({ env = process.env, port = Number(env.PORT ?? 2567), healthPort = Number(env.HEALTH_PORT ?? port + 1), log = message => console.log(message), trace = () => {} } = {}) {
+export async function startRealtimeServer({ env = process.env, port = Number(env.PORT ?? 2567), healthPort = Number(env.HEALTH_PORT ?? port + 1), log = message => console.log(message), trace = () => {}, exitOnHostStop = true } = {}) {
   const benchmarkMode = env.PRESENCE_BENCHMARK === 'on' && env.NODE_ENV !== 'production'
   const productionOriginPolicy = originPolicy(env)
   const beforeUpgrade = benchmarkMode
@@ -46,6 +46,9 @@ export async function startRealtimeServer({ env = process.env, port = Number(env
   trace('acquired', host?.state ?? null)
   let drained = null
   gameServer.onBeforeShutdown(async () => { drained = await drainPresence({ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS }) })
+  // In `on`, a host that stops (activation refused, a newer host, an expired lease) ends the
+  // process with code 0 after its drain (design §3.3.2): the platform starts a fresh candidate.
+  onPresenceHostStopped(() => { void gameServer.gracefullyShutdown(exitOnHostStop) })
   gameServer.onShutdown(async () => {
     const late = await flushLocationsForShutdown(SHUTDOWN_LOCATION_FLUSH_MS)
     const line = shutdownFlushLine(drained, late)
@@ -58,7 +61,7 @@ export async function startRealtimeServer({ env = process.env, port = Number(env
   trace('activated', host?.state ?? null)
   const health = createHealthServer({
     port: healthPort, metrics, version,
-    ready: () => Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY) && (!host || host.admitting),
+    ready: () => Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY) && presenceServing(),
   })
   return { gameServer, host, health, version }
 }

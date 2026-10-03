@@ -46,10 +46,12 @@ export class HostLifecycle {
    * `store`: { presenceAcquire, presenceActivate, presenceRenew, presenceDrain, presenceStop }.
    * `onNewerActive()`: a newer host is active (the room decides: drain in `on`, count in shadow).
    * `onExpired()`: the lease stayed expired for `expiredRenewals` renewals (the room drains).
+   * `onActivationRefused(reason)`: activation was refused or unreachable; the host is stopped
+   *   (the room decides: the process exits in `on`, keeps serving without persistence in shadow).
    */
   constructor({
     store, hostId = randomUUID(), leaseMs = HOST_LEASE_MS, renewMs = HOST_RENEW_MS, drainWindowMs = HOST_DRAIN_WINDOW_MS,
-    expiredRenewals = EXPIRED_RENEWALS, onNewerActive = () => {}, onExpired = () => {}, log = message => console.warn(message), sleep = wait,
+    expiredRenewals = EXPIRED_RENEWALS, onNewerActive = () => {}, onExpired = () => {}, onActivationRefused = () => {}, log = message => console.warn(message), sleep = wait,
   }) {
     this.store = store
     this.hostId = hostId
@@ -59,6 +61,7 @@ export class HostLifecycle {
     this.expiredRenewals = expiredRenewals
     this.onNewerActive = onNewerActive
     this.onExpired = onExpired
+    this.onActivationRefused = onActivationRefused
     this.log = log
     this.sleep = sleep
     /** 'idle' | 'acquiring' | 'unavailable' | 'starting' | 'active' | 'draining' | 'stopped' */
@@ -147,11 +150,13 @@ export class HostLifecycle {
       }
       this.log(`[host] activation refused (${this.counters.activation}): this process stops serving as a presence host`)
       await this.stop()
+      this.onActivationRefused(this.counters.activation)
       return this.state
     }
     this.counters.activation = 'unreachable'
     this.log('[host] activation unreachable: this process stops serving as a presence host')
     await this.stop()
+    this.onActivationRefused('unreachable')
     return this.state
   }
 

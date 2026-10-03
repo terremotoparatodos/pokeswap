@@ -1,11 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { PresenceRoom, configurePresenceHost } from './PresenceRoom.js'
+import { PresenceRoom, configureLocationPersistence, configurePresenceHost } from './PresenceRoom.js'
 import { HostLifecycle } from '../presence/hostLifecycle.js'
 import { HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
 
-// WORLD LOCATION-4 (design §3.3.2): the room admits joins only while its host admits them.
-// Between listen and activation a join waits; a draining or stopped host refuses with 4503.
+// WORLD LOCATION-4 (design §3.3.2): in `on` the room admits joins only while its host admits
+// them. Between listen and activation a join waits; a draining or stopped host refuses with
+// 4503. (Shadow never refuses for its host: presenceHosting.test.js.)
 
 function client(id) {
   return { sessionId: id, userData: undefined, messages: [], send() {}, leave() {} }
@@ -19,7 +20,10 @@ function startingHost() {
   return host
 }
 
-test.afterEach(() => configurePresenceHost(null))
+/** Location `on` over a store that never answers a claim usefully (guests never claim anyway). */
+const quietStore = { locationClaim: async () => ({ status: 'failed' }), locationSave: async () => ({ status: 'ok', results: new Map() }) }
+test.beforeEach(() => { const service = configureLocationPersistence({ mode: 'on', store: quietStore, log: () => {} }); service.journal?.stop() })
+test.afterEach(() => { configurePresenceHost(null); configureLocationPersistence({ mode: 'off' }) })
 
 test('a join that arrives before activation waits for it, then is admitted', async () => {
   const room = new PresenceRoom()
@@ -57,6 +61,7 @@ test('a starting host that never activates refuses after the wait (2 s)', async 
 })
 
 test('without a host (location off) joins are admitted at once, as before', async () => {
+  configureLocationPersistence({ mode: 'off' })
   const room = new PresenceRoom()
   const c = client('g-off')
   await room.onJoin(c, {}, { kind: 'guest', token: null })

@@ -64,6 +64,10 @@ async function candidates(context) {
       if (inverted) checks.push({ name: `round ${round}: a late activation of the older candidate is refused (never active)`, ok: older.activated_at === null && older.state === 'stopped', detail: JSON.stringify(older) })
       const ready = await Promise.all([r.ready(), s.ready()])
       checks.push({ name: `round ${round}: one process stays ready`, ok: ready.filter(code => code === 200).length === 1, detail: JSON.stringify(ready) })
+      // The older one stopped (refused, or drained for the newer): in `on` it leaves with code 0.
+      const exits = [r.child.exitCode, s.child.exitCode]
+      checks.push({ name: `round ${round}: the stopped candidate exited with code 0, the active one runs`, ok: exits.filter(code => code === 0).length === 1 && exits.includes(null), detail: JSON.stringify(exits) })
+      if (inverted) checks.push({ name: `round ${round}: the refused one is the older (R)`, ok: r.child.exitCode === 0 && s.child.exitCode === null, detail: JSON.stringify(exits) })
       await r.kill(); await s.kill()
     }
     return verdict(checks)
@@ -126,6 +130,8 @@ async function drain(context) {
     checks.push({ name: 'every last position was saved by the drain', ok: players.every((p, i) => same(rows[i], p.at)), detail: JSON.stringify(rows.map((r, i) => [r, players[i].at]).filter(([r, at]) => !same(r, at)).slice(0, 3)) })
     const hosts = await local.hosts()
     checks.push({ name: 'the older host is stopped (terminal), the newer active', ok: hosts !== null && hosts[0]?.state === 'stopped' && hosts.at(-1)?.state === 'active', detail: JSON.stringify(hosts?.map(h => [h.generation, h.state])) })
+    const exit = await Promise.race([P.exited, delay(15_000).then(() => 'still running')])
+    checks.push({ name: 'after its drain the older process exits with code 0', ok: exit === 0, detail: String(exit) })
     const resumed = []
     for (const p of players) resumed.push(await connect(Q, p.token, { tabId: p.socket.room ? `tab-drain-${players.indexOf(p)}-harness` : null, resume: true }))
     checks.push({ name: 'players resume on the newer host exactly where they were', ok: resumed.every((s, i) => s.self && s.self.areaId === players[i].at.areaId && s.self.tx === players[i].at.tx && s.self.ty === players[i].at.ty), detail: JSON.stringify(resumed.map((s, i) => [place(s.self), players[i].at]).slice(0, 3)) })
