@@ -224,6 +224,26 @@ export const MUTATIONS = [
     test: expecting(vitest('src/features/wildlands/multiplayer/state/worldEntry.e2e.test.ts'), 'a resume refused with 4409') },
 ]
 
+// ── Harness-level negative controls: the same breakages, caught END TO END by
+// scripts/world-location/ordering-harness.mjs (real processes or two hosts in one process),
+// not only by the unit test next to the code.
+const HARNESS = only => ({ cwd: root, cmd: process.execPath, args: ['scripts/world-location/ordering-harness.mjs', '--only', only, '--reps', '24', '--width', '12', '--port', '3300'] })
+const harnessed = (id, newId, only) => {
+  const base = MUTATIONS.find(m => m.id === id)
+  return { ...base, id: newId, what: `${base.what} [harness: ${only}]`, test: HARNESS(only) }
+}
+MUTATIONS.push(
+  harnessed('O14', 'X1', 'same-process,two-process'),
+  harnessed('J2', 'X2', 'same-process'),
+  harnessed('O13', 'X3', 'lost'),
+  harnessed('O5', 'X4', 'candidates'),
+  harnessed('C6', 'X5', 'drain'),
+  harnessed('C1', 'X6', 'shutdown'),
+  { id: 'X7', what: 'a host acquired in the background never activates (a failed startup never recovers) [harness: failed-startup]', file: HOST,
+    from: "if (this.state === 'starting') { this.#startRenewing(); await this.activate() }", to: "if (this.state === 'starting') { this.#startRenewing() }",
+    test: HARNESS('failed-startup') },
+)
+
 function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }
 const clean = () => git('status', '--porcelain', '--untracked-files=no', '--', 'supabase', 'services', 'scripts', 'src').stdout.trim() === ''
 

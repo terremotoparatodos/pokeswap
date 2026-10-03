@@ -11,7 +11,10 @@
 // walkers sign in with tokens (UUID players that persist) instead of synthetic
 // ids; everyone starts in Ciudad and walks out. Compare the three modes with
 // the same seed: only the flag differs. The output adds the authority's
-// location calls and rows per second.
+// location calls and rows per second. With `--location` the process does NOT
+// run in benchmark mode (WORLD LOCATION-4: a benchmark process is never a
+// presence host, so it would persist nothing): the walkers connect like a
+// browser, with an allowed Origin header and their tokens.
 //
 // Every walker plans with the shared navigation (`routeBetween`), so a
 // legitimate run expects zero refusals. `--probes p` makes each action a
@@ -27,7 +30,6 @@
 import { spawn } from 'node:child_process'
 import net from 'node:net'
 import { performance } from 'node:perf_hooks'
-import { Client } from '@colyseus/sdk'
 import { ARRIVALS } from '../services/realtime/src/protocol/arrival.js'
 import { isWalkable, portalAt, portalTo } from '../services/realtime/src/world/navigation.js'
 import { routeBetween } from '../services/realtime/src/world/testing.js'
@@ -41,6 +43,10 @@ const probes = Math.max(0, Math.min(1, Number(option('probes', 0))))
 const locationMode = option('location', null)
 if (locationMode !== null && !['off', 'shadow', 'on'].includes(locationMode)) throw new Error('--location must be off, shadow or on')
 const authority = locationMode === null ? null : await startLocalAuthority({ secret: 'b'.repeat(48) })
+const ORIGIN = 'http://localhost:5173'
+// Node's global WebSocket cannot send an Origin header: the SDK falls back to `ws`, which can.
+if (authority) delete globalThis.WebSocket
+const { Client } = await import('@colyseus/sdk')
 let seed = Number(option('seed', 4)) >>> 0
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const percentile = (values, p) => { if (!values.length) return 0; const s = [...values].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.ceil(s.length * p) - 1)] }
@@ -76,8 +82,9 @@ async function waitForPort(target) {
 
 const server = spawn(process.execPath, ['services/realtime/src/index.js'], {
   env: {
-    ...process.env, PORT: String(port), HEALTH_PORT: String(port + 1), NODE_ENV: 'development', PRESENCE_BENCHMARK: 'on',
-    WORLD_DEMO_SKILLS: 'on', WORLD_WILD_CATALOG: 'synthetic', ALLOWED_ORIGINS: 'http://localhost:5173',
+    ...process.env, PORT: String(port), HEALTH_PORT: String(port + 1), NODE_ENV: 'development',
+    ...(authority ? {} : { PRESENCE_BENCHMARK: 'on' }),
+    WORLD_DEMO_SKILLS: 'on', WORLD_WILD_CATALOG: 'synthetic', ALLOWED_ORIGINS: ORIGIN,
     ...(authority ? authority.env(locationMode) : {}),
   },
   stdio: ['ignore', 'ignore', 'inherit'],
@@ -93,7 +100,7 @@ try {
     const identity = authority
       ? { token: (await authority.player()).token, worldProtocol: 3 }
       : { benchmark: { id: `nav-${i}`, username: `Ruta ${i}`, area: startArea } }
-    const room = await new Client(`ws://127.0.0.1:${port}`).joinOrCreate('presence', { ...identity, presenceProtocol: 2 })
+    const room = await new Client(`ws://127.0.0.1:${port}`, authority ? { headers: { Origin: ORIGIN } } : undefined).joinOrCreate('presence', { ...identity, presenceProtocol: 2 })
     room.reconnection.enabled = false
     const state = {
       room, i, startArea, areaId: null, tx: 0, ty: 0, sequence: 0, ready: false,
