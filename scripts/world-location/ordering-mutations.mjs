@@ -232,7 +232,7 @@ export const MUTATIONS = [
 const HARNESS = only => ({ cwd: root, cmd: process.execPath, args: ['scripts/world-location/ordering-harness.mjs', '--only', only, '--reps', '24', '--width', '12', '--port', '3300'] })
 const harnessed = (id, newId, only) => {
   const base = MUTATIONS.find(m => m.id === id)
-  return { ...base, id: newId, what: `${base.what} [harness: ${only}]`, test: HARNESS(only) }
+  return { ...base, id: newId, what: `${base.what} [harness: ${only}]`, tests: [HARNESS(only)] }
 }
 MUTATIONS.push(
   harnessed('O14', 'X1', 'same-process,two-process'),
