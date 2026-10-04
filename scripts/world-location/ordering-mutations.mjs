@@ -308,7 +308,8 @@ function judge(test, run) {
   // Vitest colours its report even without a TTY: parse the plain text.
   // eslint-disable-next-line no-control-regex
   const out = `${run.stdout ?? ''}${run.stderr ?? ''}`.replace(/\u001b\[[0-9;]*m/g, '')
-  const timedOut = run.error?.code === 'ETIMEDOUT' || run.signal !== null
+  // The runner's deadline, or the test framework's own timeout: never counted as a detection.
+  const timedOut = run.error?.code === 'ETIMEDOUT' || run.signal !== null || /test timed out after \d+ ?ms/.test(out)
   const failures = [...new Set([
     ...[...out.matchAll(/^\s*✖ (?!failing tests)(.+?) \(\d/gmu)].map(match => match[1].trim()),
     ...[...out.matchAll(/^(.+?) \.\.\. .*FAILED/gmu)].map(match => match[1].trim()),

@@ -59,10 +59,12 @@ const DENO_TEST = deno('supabase/functions/world-authority/handler.test.ts')
 
 const MUTATIONS = [
   // Database: CAS, trust boundary, NULL safety, epoch reset.
-  { id: 'M1', what: 'save CAS ignores the epoch (a fenced session could write)', file: MIGRATION, from: 'WHERE user_id = v_user AND epoch = v_epoch AND seq < v_seq', to: 'WHERE user_id = v_user AND seq < v_seq', test: DB_TEST },
-  { id: 'M2', what: 'save CAS ignores the seq (retries and reordered batches overwrite)', file: MIGRATION, from: 'WHERE user_id = v_user AND epoch = v_epoch AND seq < v_seq', to: 'WHERE user_id = v_user AND epoch = v_epoch', test: DB_TEST },
+  { id: 'M1', what: 'save CAS ignores the epoch (a fenced session could write)', file: ORDERING_MIGRATION, from: 'WHERE user_id = v_user AND epoch = v_epoch AND seq < v_seq AND owner_generation = 0', to: 'WHERE user_id = v_user AND seq < v_seq AND owner_generation = 0', test: DB_TEST },
+  { id: 'M2', what: 'save CAS ignores the seq (retries and reordered batches overwrite)', file: ORDERING_MIGRATION, from: 'WHERE user_id = v_user AND epoch = v_epoch AND seq < v_seq AND owner_generation = 0', to: 'WHERE user_id = v_user AND epoch = v_epoch AND owner_generation = 0', test: DB_TEST },
   { id: 'M3', what: 'client privileges on the table are not revoked', file: MIGRATION, from: 'REVOKE ALL ON TABLE public.world_player_locations FROM PUBLIC, anon, authenticated, service_role;', to: '-- (mutated: no revoke)', test: DB_TEST },
-  { id: 'M4', what: 'clients keep EXECUTE on the claim function', file: MIGRATION, from: 'REVOKE ALL ON FUNCTION public.world_location_claim(uuid, bigint) FROM PUBLIC, anon, authenticated;', to: '-- (mutated: no revoke)', test: DB_TEST },
+  // M4 (clients keep EXECUTE on the v1 claim) retired as an equivalent mutant: the v1 claim is revoked twice, by
+  // 20261001220000 and again by 20261003120000 (CREATE OR REPLACE keeps the ACL), so removing either REVOKE alone
+  // changes nothing. The final grants stay covered by the role tests, the catalog check and O23.
   { id: 'M5', what: 'a missing key slips through (NULL <> compared)', file: ORDERING_MIGRATION, after: V1_SAVE, from: "IF jsonb_typeof(v_r.row -> 'epoch') IS DISTINCT FROM 'number'", to: "IF jsonb_typeof(v_r.row -> 'epoch') <> 'number'", test: DB_TEST },
 
   { id: 'M6', what: 'a claim does not reset seq (a restarted writer is stuck as duplicate)', file: ORDERING_MIGRATION, after: V1_CLAIM, from: 'SET epoch = epoch + 1, seq = 0, updated_at = now()', to: 'SET epoch = epoch + 1, updated_at = now()', test: expecting(DB_TEST, 'claim: the first creates an empty row at epoch 1') },
@@ -184,7 +186,8 @@ for (const m of selected) {
 /** One test command's verdict. A run the runner had to kill is never a catch. */
 function judge(test, run) {
   const out = `${run.stdout ?? ''}${run.stderr ?? ''}`
-  const timedOut = run.error?.code === 'ETIMEDOUT' || run.signal !== null
+  // The runner's deadline, or the test framework's own timeout: never counted as a detection.
+  const timedOut = run.error?.code === 'ETIMEDOUT' || run.signal !== null || /test timed out after \d+ ?ms/.test(out)
   const failures = [...new Set([
     ...[...out.matchAll(/^✖ (?!failing tests)(.+?) \(\d/gmu)].map(match => match[1].trim()),
     ...[...out.matchAll(/^(.+?) \.\.\. .*FAILED/gmu)].map(match => match[1].trim()),
