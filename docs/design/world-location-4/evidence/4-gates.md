@@ -51,3 +51,53 @@ Entre las dos corridas solo cambiaron 5 scripts del arnés (`scripts/world-locat
 3. **Lint, control negativo, mutantes de orden y diff-check:** se repitieron porque `ae1c53e` cambió scripts que ellos usan. Los mutantes X1–X9 corren el arnés, y se agregó X9 (escenario `shadow-refused`).
 
 **No se repitió el runner WLOC-2:** sus 51 mutantes ejercitan código de producto y tests que no cambiaron después de `fd5c921`.
+
+## Corrida 3 — correcciones de la revisión (F1, F3–F8, renovaciones)
+
+**Contexto:**
+- Batería completa en `a78a7a0` (Node 22.23.2, Deno 2.8.3), secuencial, sin dos mutation runners a la vez.
+- Después hubo dos commits solo de scripts:
+  - `010c625`: juez de mutantes y M1/M2/M4;
+  - `7558d6c`: lectura nula de la tabla de hosts en el escenario `drain`.
+- Por eso se repitieron completos los dos mutation runners y el control negativo del arnés.
+
+| Gate | HEAD | rc | Duración | Resultado |
+|---|---|---|---|---|
+| Modelo de orden (`--trazas`) | `a78a7a0` | 0 | 10 s | idéntico a `ordering-model.out.txt` |
+| Modelo de ciclo de vida (`--trazas`) | `a78a7a0` | 0 | 266 s | idéntico a `host-lifecycle-model.out.txt` |
+| SQL sobre PGlite | `a78a7a0` | 0 | 64 s | 42/42 (incluye F6 y F8) |
+| Deno `world-authority` | `a78a7a0` | 0 | 2 s | 18/18 + `deno check handler.ts` |
+| Realtime focalizado (incluye `hostLifecycleSerial`) | `a78a7a0` | 0 | 14 s | 171/171 |
+| Realtime completo | `a78a7a0` | 0 | 117 s | 539 pass, 0 fail, 34 skipped (staging) |
+| Vitest | `a78a7a0` | 0 | 41 s | 1935/1935 |
+| Typecheck / lint / SKILLS drift | `a78a7a0` | 0 | — | OK (lint: 0 errores) |
+| Builds normal y Playtest + bundle-check + agujas | `a78a7a0` | 0 | — | OK, 0 agujas de ubicación |
+| Arnés completo, 200 repeticiones, semilla 7 | `a78a7a0` | 0 | 496 s | ver la nota 1 |
+| Control negativo del arnés sobre `4d0ab64` (debe fallar) | `7558d6c` | 1 (esperado) | 205 s | ver la nota 2 |
+| Supervisor `autorestart` (150 s, 6 jugadores) | `a78a7a0` | 0 | 152 s | ver la nota 3 |
+| Supervisor sobre `7b95e94` (debe fallar) | `a78a7a0` | 0 (`!`) | 156 s | ver la nota 4 |
+| `two-instances.mjs` | `a78a7a0` | 0 | 31 s | 17/17 |
+| `compat-check.mjs` | `a78a7a0` | 0 | 0 s | 6/6 |
+| Benchmark `--location shadow` (40 jugadores) | `a78a7a0` | 0 | 24 s | 40/40 claims al unirse, 76 filas |
+| Mutantes de orden | `a78a7a0` | 0 | 1519 s | 81/81 |
+| Mutantes de orden (repetido) | `010c625` | 0 | **1432 s** | **81/81**, sin timeouts, árbol restaurado |
+| Mutantes WLOC-2 | `a78a7a0` | 1 | 466 s | 48/51 (ver la nota 5) |
+| Mutantes WLOC-2 (repetido) | `010c625` | 0 | **438 s** | **50/50**, sin timeouts, árbol restaurado |
+| `git diff --check f97e546..HEAD` + árbol limpio | `7558d6c` | 0 | 0 s | limpio |
+
+**Notas:**
+
+1. **Arnés completo en `a78a7a0`** (ver `4-harness.json`):
+   - T3/T4/T7: 0 violaciones en 1200 repeticiones, mismo proceso y dos procesos;
+   - `candidates` 36/36, `shadow-refused` 6/6, `inverted` 39/39, `failed-startup` 6/6, `drain` 7/7, `shutdown` 7/7, `lost` 2/2.
+2. **Control negativo sobre `4d0ab64`** (ver `4-harness-negative-4d0ab64.json`): T3 150/200, T4 150/200 y T7 104/200 violadas; `drain` 2/7; `shutdown` 2/6. Su primera corrida (`a78a7a0`) también falló, pero el escenario `drain` lo hizo por un TypeError del arnés (el árbol viejo no tiene tabla de hosts) y no por sus checks. Por eso se corrigió (`7558d6c`) y se repitió.
+3. **Supervisor sobre este build:** 2 generaciones, 0 reinicios, un solo host activo después de asentarse y un cierre (4503) por jugador. Ver `4-supervisor.json`.
+4. **Supervisor sobre `7b95e94`:** 49 generaciones, 47 reinicios, host activo alternado y 14 desconexiones por jugador. Ver `4-supervisor-negative-7b95e94.json`.
+5. **WLOC-2: corrección del registro de las corridas 1 y 2.**
+   - M1, M2 y M4 figuraban como detectados en la corrida 1 solo porque el archivo de tests chocó con el **timeout de 60 s del propio Node**. El runner descartaba únicamente su propio deadline, no ese.
+   - En una corrida más rápida sobrevivieron: mutan la migración `20261001220000`, cuya `save` v1 y cuyos grants recrea `20261003120000`.
+   - Arreglo (`010c625`):
+     - los dos runners tratan «test timed out after N ms» como timeout, nunca como detección;
+     - M1 y M2 apuntan a la `save` v1 vigente;
+     - M4 se retira como equivalente (el claim v1 queda revocado por las dos migraciones).
+   - **El «51/51» de la corrida 1 incluía 3 detecciones falsas.** El resultado verificado es **50/50**.

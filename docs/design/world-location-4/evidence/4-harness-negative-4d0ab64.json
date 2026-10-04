@@ -13,21 +13,21 @@
       "results": {
         "T3": {
           "reps": 200,
-          "ms": 31927,
+          "ms": 24560,
           "violated": 150,
           "gaps": {
             "n": 200,
             "min": 20,
-            "p50": 113,
-            "p95": 191,
-            "max": 197
+            "p50": 111,
+            "p95": 190,
+            "max": 196
           },
           "injected": {
             "n": 200,
-            "min": 300,
-            "p50": 737,
-            "p95": 1138,
-            "max": 1200
+            "min": 314,
+            "p50": 767,
+            "p95": 1163,
+            "max": 1195
           },
           "olderOutcomes": {
             "4001": 50,
@@ -108,7 +108,7 @@
         },
         "T4": {
           "reps": 200,
-          "ms": 63238,
+          "ms": 62537,
           "violated": 150,
           "gaps": {
             "n": 200,
@@ -192,14 +192,14 @@
         },
         "T7": {
           "reps": 200,
-          "ms": 62015,
-          "violated": 112,
+          "ms": 58724,
+          "violated": 104,
           "gaps": {
             "n": 200,
-            "min": 0,
-            "p50": 159,
-            "p95": 278,
-            "max": 297
+            "min": 2,
+            "p50": 160,
+            "p95": 282,
+            "max": 296
           },
           "injected": null,
           "olderOutcomes": {
@@ -212,7 +212,7 @@
               "variant": "cross",
               "i": 0,
               "fault": null,
-              "gap": 50,
+              "gap": 4,
               "violations": [
                 "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
               ],
@@ -223,18 +223,7 @@
               "variant": "cross",
               "i": 1,
               "fault": null,
-              "gap": 78,
-              "violations": [
-                "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
-              ],
-              "aOutcome": "open"
-            },
-            {
-              "scenario": "T7",
-              "variant": "cross",
-              "i": 2,
-              "fault": null,
-              "gap": 283,
+              "gap": 197,
               "violations": [
                 "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
               ],
@@ -245,7 +234,7 @@
               "variant": "cross",
               "i": 4,
               "fault": null,
-              "gap": 280,
+              "gap": 119,
               "violations": [
                 "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
               ],
@@ -256,7 +245,18 @@
               "variant": "cross",
               "i": 5,
               "fault": null,
-              "gap": 22,
+              "gap": 230,
+              "violations": [
+                "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T7",
+              "variant": "cross",
+              "i": 8,
+              "fault": null,
+              "gap": 283,
               "violations": [
                 "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
               ],
@@ -268,8 +268,8 @@
       "hosts": null,
       "authorityCalls": {
         "location_claim": 1800,
-        "location_save": 195,
-        "location_rows": 939,
+        "location_save": 171,
+        "location_rows": 950,
         "presence": 0,
         "other": 1202,
         "held": 200,
@@ -282,6 +282,10 @@
       "reason": "this tree has no presence hosts (pre WORLD LOCATION-4)"
     },
     "shadow-refused": {
+      "applicable": false,
+      "reason": "this tree has no presence hosts (pre WORLD LOCATION-4)"
+    },
+    "inverted": {
       "applicable": false,
       "reason": "this tree has no presence hosts (pre WORLD LOCATION-4)"
     },
@@ -313,9 +317,9 @@
           "detail": "[]"
         },
         {
-          "name": "after its drain the older process exits with code 0",
+          "name": "after its drain the older process stays alive and stopped: /readyz 503, joins 4503",
           "ok": false,
-          "detail": "still running"
+          "detail": "[null,200]"
         },
         {
           "name": "the older host is stopped (terminal), the newer active",

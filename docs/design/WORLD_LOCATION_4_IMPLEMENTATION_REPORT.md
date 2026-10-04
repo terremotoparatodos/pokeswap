@@ -7,11 +7,11 @@
 
 ## 1. Veredicto
 
-- **Implementación local: COMPLETA.** Las piezas del plan (§7.7 del diseño) están implementadas y los gates pasan en Node 22 (§5).
-- **`on`: BLOQUEADO.** Hay tres pendientes deliberados, todos fuera de lo que se puede probar en local:
+- **Implementación local: COMPLETA**, con las correcciones de la revisión aplicadas (§10). Los gates pasan en Node 22 (§10.10).
+- **`on`: BLOQUEADO** por dos pendientes deliberados, ninguno demostrable en local:
   1. **Topología en Colyseus Cloud** (§3.5 del diseño, bloqueante): cuántos procesos WORLD corren, el escalado, el ruteo durante un deploy, la señal y el plazo de apagado, y un id de deployment.
-  2. **Salida con código 0 bajo PM2** (§8.1 de este informe, bloqueo nuevo): con el `ecosystem.config.js` actual, PM2 reinicia el proceso que sale. Eso puede producir un bucle de candidatos.
-  3. **Staging hosted:** la migración y `world-authority` v5 en un proyecto de staging, los tests Q6 contra Postgres real y la prueba humana de «Jugar acá».
+  2. **Staging hosted (incluye F2):** la migración y `world-authority` v5 en un proyecto de staging, los tests Q6 contra Postgres real y la prueba humana de «Jugar acá».
+- **El bucle bajo PM2** (§8.1) ya no es un bloqueo: está **corregido (F1)**. Un host desplazado nunca sale por sí mismo; el supervisor de pruebas lo demuestra contra el comportamiento anterior (§10.1).
 - **`shadow`: sin cambios visibles para los jugadores**, salvo la corrección intencional de los códigos de cierre:
   - un apagado ya no emite 4001, sino 4503, y el cliente reconecta;
   - un candidato rechazado en `shadow` sigue sirviendo sin persistencia (§4.3).
@@ -243,7 +243,9 @@ Gates repetidos (motivo detallado en `4-gates.md`):
 
 ## 8. Límites y pendientes
 
-### 8.1 Bloqueo nuevo previo a `on`: salida con código 0 bajo PM2
+### 8.1 Salida con código 0 bajo PM2 — CORREGIDO por F1 (§10.1)
+
+> Lo que sigue es el análisis original, que la revisión convirtió en F1. Desde `688d6d6` un host desplazado no sale: queda detenido con `/readyz` en 503 y joins 4503. El supervisor de pruebas reproduce el bucle con `7b95e94` (49 generaciones en 150 s) y lo descarta con el código actual.
 
 - **FACT** (`services/realtime/ecosystem.config.js`): `autorestart: true`, `min_uptime: '10s'`, `max_restarts: 10` y sin `stop_exit_codes`.
 - **INFERENCE** (semántica documentada de PM2, no verificada en local porque PM2 no está instalado y no se descargó):
@@ -267,6 +269,7 @@ Gates repetidos (motivo detallado en `4-gates.md`):
 - **Las ops v1 no se removieron:** el entorno oscuro (`4d0ab64`) las usa. Su retiro es una fase posterior.
 - **El control negativo de `4d0ab64`** se corre con un `git archive` del commit fuera del repo (no se commitea); el comando está en §6.
 - **La fila de `terremototw`** no se tocó: sigue en el epoch 242, Ciudad 14,41.
+- **Salida en Cloud:** un proceso desplazado queda vivo hasta que su deploy o su supervisor lo termine. Cómo y cuándo lo hace Cloud sigue dentro de la verificación de topología (§3.5).
 
 ## 9. Confirmaciones
 
@@ -277,3 +280,172 @@ Gates repetidos (motivo detallado en `4-gates.md`):
 - **Lo usado:** jugadores y tokens generados en una base local efímera (PGlite).
 - **Configuración:** no se cambiaron flags, `ecosystem.config.js` ni la configuración de Colyseus Cloud.
 - **Git:** solo se pushea `world/location-ordering-0.3`; sin merge, rebase, amend ni force-push.
+
+## 10. Correcciones de la revisión (APPROVE WITH REQUIRED FIXES)
+
+La revisión de solo lectura sobre `7b95e94` pidió F1 y F3–F8 más un punto informativo. F2 se valida después sobre Supabase/Postgres real. Cada corrección es un commit nuevo, sin amend ni rebase.
+
+| Ítem | Commit(s) | Qué cambió | Prueba | Control negativo |
+|---|---|---|---|---|
+| F1 | `688d6d6`, `e597496`, `f8e102e` | un host desplazado no sale; queda detenido (503, 4503) | `presenceHosting.test.js`, arnés `candidates`/`drain`/`inverted`, `two-instances`, `supervisor-loop.mjs` | S2, S3, X8, X12; supervisor sobre `7b95e94` |
+| F3 | `4b7f9bd`, `b37610a` | un carril para activate/drain/stop/renew; reintentos acotados | `hostLifecycleSerial.test.js` (barreras, 40P01, respuesta perdida) | T1, T2 (H3, H6 reapuntados) |
+| F4 | `97900ec` | escenario `inverted` de punta a punta | arnés `inverted` 39/39 | X10 (servidor: `resume` como apertura nueva), X11 (cliente sin `resume`) |
+| F5 | `de3e443` | `shadow` no espera `whenActive` | test con reloj controlado; arnés `shadow-refused` | S4 (S1, H4 reapuntados), X9 |
+| F6 | `5f5dd3b` | `drain` de un host vencido: `host_expired`, sin revivir | DB (PGlite); `hostLifecycleSerial` | O26 (SQL), O27 (realtime) |
+| F7 | `8955ec3` | backoff de 4503 sin reinicio por rechazo | e2e con reloj falso | K6, K8 |
+| F8 | `b5f7484` | rollback transaccional, guarda de estado parcial, orden de despliegue | DB, ejecutando sentencia por sentencia | B1 (sin `BEGIN`), B2 (sin guarda) |
+| Renovaciones | `a78a7a0` | 2 leases completos (6 renovaciones, 30 s), derivados | `hostLifecycleSerial` | U1 |
+| Runners | `010c625`, `7558d6c` | timeouts del framework ≠ detección; M1/M2 reapuntados, M4 retirado; lectura nula en `drain` | runners completos | — |
+
+### 10.1 F1 — por qué ya no se sale con código 0
+
+- **Bucle con la salida:** un proceso desplazado que sale con código 0 entra en bucle bajo cualquier supervisor que reinicie toda salida (PM2 `autorestart: true`, que es lo que declara `ecosystem.config.js`). Cada reinicio adquiere una generación más nueva y desplaza al host vigente, que a su vez sale.
+- **Comportamiento actual (host desplazado):**
+  - drena si servía a alguien y queda vivo y detenido;
+  - `/readyz` 503, joins 4503;
+  - sin renovar, reclamar ni mover;
+  - lo termina su deploy o su supervisor.
+- **Los tres finales quedan separados en `presenceHosting.js`:**
+  - desplazado por la autoridad;
+  - apagado real (SIGTERM/SIGINT, Colyseus sale);
+  - error recuperable de arranque (sirve sin persistencia y adquiere en segundo plano).
+- **Supervisor de pruebas** `scripts/world-location/supervisor-loop.mjs`, sin dependencias nuevas: reinicia toda salida y no supone `stop_exit_codes`. Deploy A → B con 6 jugadores durante 150 s:
+
+| Build | Generaciones | Reinicios del supervisor | Host activo tras asentarse | Cierres por jugador |
+|---|---|---|---|---|
+| este (`a78a7a0`) | **2** | **0** | siempre uno, el más nuevo | **1** (4503) |
+| `7b95e94` (sale con código 0) | 49 | 47 (A 25, B 24) | alterna entre A y B | 14 |
+
+Evidencia: `world-location-4/evidence/4-supervisor.json` y `4-supervisor-negative-7b95e94.json`.
+
+- **Defensa opcional, pendiente de confirmar en Cloud (no aplicada):** `stop_exit_codes` y `exp_backoff_restart_delay` de PM2. Dejaron de ser necesarias para la corrección, porque ningún desplazado sale. Siguen siendo útiles contra salidas por error repetidas, pero dependen de que Cloud respete el `ecosystem.config.js`, y eso no está verificado.
+
+### 10.2 F3 — serialización del ciclo de vida
+
+- **Un carril por proceso:**
+  - `activate` y `drain` esperan cualquier `renew` en vuelo;
+  - no empieza un `renew` mientras `activate`, `drain` o `stop` están encolados o en curso;
+  - `stop` es inmediato en local y su llamada espera su turno;
+  - una respuesta de `activate` nunca revive un host detenido mientras tanto.
+- **Locks:** el proceso nunca tiene dos locks de host a la vez (`activate`: `LOCK TABLE`; `renew`, `drain` y `stop`: lock de fila), así que no puede invertirlos. Los locks SQL no cambiaron.
+- **Reintentos acotados** ante errores de transporte, 40P01 incluido: `activate` 6, `drain` y `stop` 3.
+- **Sin rechazos huérfanos:** cada operación captura sus propios fallos.
+- **Pruebas con barreras** que fuerzan cada cruce:
+  - `activate` ↔ `renew`, `drain` ↔ `renew`, `stop` ↔ `renew`;
+  - `activate` ↔ `stop`;
+  - respuesta perdida;
+  - 40P01 recuperado y 40P01 permanente, que termina en el límite sin rechazos sin manejar.
+
+### 10.3 F4 — caso invertido
+
+- **Escenario `inverted` del arnés:** Q ya activo; una pestaña nueva entra en P antes de que P se entere. Las renovaciones de P fallan hasta que la pestaña está adentro y después responden d = 0 / 1,5 / 3 / 4,5 s tarde.
+- **Drenaje:** P se entera, drena y cierra la pestaña con 4503 en ≤ una renovación + d + RTT.
+- **Reanudación:** la pestaña reanuda en Q.
+  - **Con otra pestaña viva en Q:** cede (4409), y «Jugar acá» toma el control explícitamente; recién entonces la otra recibe 4409.
+  - **Sola:** se la admite y queda dueña de la fila.
+- **El otro orden real** (claim-first: el claim reintentado vuelve `superseded`, 4409 y «Jugar acá») también se cubre.
+- **P** termina vivo y detenido (503).
+- **Hallazgo:** demorar las respuestas de renovación más de 6 s supera el propio timeout del realtime hacia la autoridad (`EDGE_TIMEOUT_MS`), y entonces la renovación falla en vez de oírse. El momento del drenaje se mantiene por debajo.
+
+| d | Otra pestaña en Q | Cierre en P | Tiempo en P | `resume` en Q | Tras «Jugar acá» |
+|---|---|---|---|---|---|
+| 0 | sí | 4503 | 4,4 s | 4409 (cede) | la otra recibe 4409; fila de Q |
+| 0 | no | 4503 | 4,5 s | admitida | fila de Q |
+| 1,5 s | sí | 4503 | 5,9 s | 4409 | ídem |
+| 1,5 s | no | 4503 | 5,9 s | admitida | — |
+| 3 s | sí | 4503 | 7,4 s | 4409 | ídem |
+| 3 s | no | 4503 | 7,5 s | admitida | — |
+| 4,5 s | sí | 4503 | 8,8 s | 4409 | ídem |
+| 4,5 s | no | 4503 | 9,0 s | admitida | — |
+| claim-first | sí | 4409 (`superseded`) | 5,3 s | — | la otra recibe 4409; fila de Q |
+
+### 10.4 F5 — shadow sin demora
+
+- **Admisión:** se pregunta primero el modo. Solo `on` espera la activación (hasta 2 s); en `shadow`, un host `starting` o rechazado admite al instante, sin consultar `whenActive`. La sesión no recibe clave, así que no reclama y no se cierra a nadie.
+- **Prueba con reloj controlado:** en `shadow` se admite con el reloj detenido; en `on` la admisión queda retenida hasta la activación.
+
+### 10.5 F6 — host vencido
+
+- **Regla:** `world_presence_drain` de un host `active` con el lease vencido responde `host_expired` y no cambia nada: no pasa a `draining` y no recibe lease nuevo, así que no puede hacer flush. El realtime lo detiene sin flush.
+- **Por qué:** perder las últimas posiciones de ese host es preferible a devolverle autoridad a un host cuyo lease venció. El CAS de los guardados queda como segunda defensa, no como la regla.
+- **Migración:** se editó en el lugar, porque nunca se aplicó en ningún lado.
+
+### 10.6 F7 — backoff de 4503
+
+- **Antes:** cada 4503 (cierre o join rechazado) reiniciaba el backoff, así que un drenaje que rechazaba joins seguidos reintentaba cada ~500 ms.
+- **Ahora:**
+  - durante todo el drenaje el backoff crece (500 ms duplicándose hasta 10 s);
+  - solo un snapshot autoritativo (conexión lista y estable) lo reinicia;
+  - un join exitoso por sí solo no lo reinicia;
+  - `resume` se conserva.
+- **Prueba con reloj falso:** dos minutos de rechazos dan intervalos crecientes y topeados (unos 15 intentos, todos con `resume`).
+
+### 10.7 F8 — rollback y orden de despliegue
+
+- **Rollback transaccional:** el script corre entre `BEGIN` y `COMMIT`; todas sus sentencias son transaccionales.
+  - pre-chequeo: se niega a un estado parcial y no cambia nada si faltan objetos;
+  - post-chequeo antes del `COMMIT`;
+  - cualquier fallo deshace todo.
+- **Pruebas:** corren el script sentencia por sentencia, como `psql -v ON_ERROR_STOP=1 -f`. Un solo `exec()` del archivo es una transacción implícita y escondería un `BEGIN` faltante.
+- **Orden obligatorio** (documentado en el script; **ninguna fase se ejecutó**):
+  1. la migración;
+  2. `world-authority` v5;
+  3. el realtime nuevo.
+- **Orden no admitido:** realtime nuevo contra Edge v4. La v4 responde 400 a todo `presence_*` y a las llamadas con clave, y el realtime reintenta su `acquire` y sirve sin persistencia.
+- **Rollback:** el mismo orden al revés (realtime viejo u `off` → v4 → script).
+
+### 10.8 Informativo — renovaciones
+
+- **Contradicción:** el diseño dice que el host drena si el lease sigue vencido «tras 2 períodos de lease», pero el código se rendía tras 3 renovaciones × 5 s = 15 s, es decir, un lease.
+- **Arreglo:** ahora son 2 leases completos: `EXPIRED_RENEWALS` = ⌈2 × lease / renovación⌉ = 6, o sea 30 s. Se deriva del lease y de la renovación (también el valor por defecto de cada host), así que las cifras no pueden volver a contradecirse.
+- **Por qué dos:** un corte breve de la autoridad debe pausar la persistencia, no terminar el host. Dos períodos siguen acotando cuánto conserva un host sus sesiones sin un lease vivo.
+
+### 10.9 Corrección del registro: mutantes WLOC-2
+
+**El «51/51» de las corridas 1 y 2 incluía tres detecciones falsas.**
+- M1, M2 y M4 fallaban solo porque el archivo de tests chocaba con el timeout de 60 s del propio Node. El runner descartaba su propio deadline, pero no ese.
+- Mutaban la migración `20261001220000`, cuya `save` v1 y cuyos grants recrea `20261003120000`.
+- **Arreglo (`010c625`):**
+  - los dos runners tratan «test timed out after N ms» como timeout;
+  - M1 y M2 apuntan a la `save` v1 vigente;
+  - M4 se retiró por equivalente (el claim v1 queda revocado por las dos migraciones).
+- **Resultado verificado: 50/50.**
+
+### 10.10 Gates, controles negativos y diff de las correcciones
+
+Detalle completo en `world-location-4/evidence/4-gates.md` (corrida 3).
+
+**Gates:**
+- **Modelos:** idénticos.
+- **SQL:** 42/42. **Deno:** 18/18.
+- **Realtime:** focalizado 171/171; completo 539 pass, 0 fail, 34 skipped (staging, F2).
+- **Vitest:** 1935/1935. **Typecheck, lint, SKILLS drift y builds:** OK.
+- **Arnés de 200 repeticiones:** 0/1200 violaciones y todos los escenarios de ciclo de vida PASS (`candidates` 36/36, `shadow-refused` 6/6, `inverted` 39/39, `failed-startup` 6/6, `drain` 7/7, `shutdown` 7/7, `lost` 2/2).
+- **Supervisor:** PASS.
+- **two-instances:** 17/17. **compat-check:** 6/6. **Benchmark:** OK.
+- **`git diff --check`:** limpio.
+
+**Mutation runners** (sin timeouts contados como detección):
+- de orden: **81/81**, 1432 s;
+- WLOC-2: **50/50**, 438 s.
+
+**Controles negativos:**
+- `4d0ab64`: T3 150/200, T4 150/200 y T7 104/200 violadas; `drain` 2/7; `shutdown` 2/6.
+- `7b95e94` bajo el supervisor: bucle (49 generaciones).
+
+**Commits de las correcciones (desde `7b95e94`):**
+
+- `4b7f9bd` realtime(host): serialize activate, drain, stop and renew (review F3)
+- `b37610a` test(location): H3 and H6 follow the serialized activate
+- `5f5dd3b` sql(location): a drain never revives a host whose lease ran out (review F6)
+- `688d6d6` realtime(host): a displaced host stays stopped instead of exiting (review F1)
+- `e597496` test(location): S3 exits synchronously, so the unit test's exit stub records it
+- `f8e102e` test(host): no process.exit anywhere in the hosting tests (a real exit 0 read as a pass)
+- `de3e443` realtime(presence): shadow never waits for the activation (review F5)
+- `8955ec3` client(presence): 4503 refusals keep backing off; only a ready connection resets it (review F7)
+- `97900ec` test(location): the inverted case end to end (review F4)
+- `b5f7484` sql(location): the rollback is one transaction with a partial-state guard; deploy order (review F8)
+- `a78a7a0` realtime(host): an expired lease gives up after two full lease periods, as the design says
+- `010c625` test(location): framework timeouts never count as detections; M1/M2 retargeted, M4 retired
+- `7558d6c` test(location): the drain scenario reads the hosts table null-safely (a tree before WORLD LOCATION-4 has none)
+- *(este informe)*
