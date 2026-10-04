@@ -113,6 +113,22 @@ test('N5-6: a renewal of an earlier identity answers after the host moved to a n
   await h.stop(); await settle(h)
 })
 
+test('N5-7: an acquire of the recovery that FAILS after the stop never puts the host back to unavailable (nor recovering again)', async () => {
+  const w = world()
+  const h = await recovering(w)
+  let fail = null
+  const real = w.store.presenceAcquire
+  w.store.presenceAcquire = () => new Promise((_, reject) => { fail = reject }) // a request that times out late
+  await w.until(() => fail !== null)
+  const mark = w.calls.length
+  await h.stop()
+  w.store.presenceAcquire = real
+  fail(new Error('timeout')) // the transport failure arrives after the stop
+  await settle(h)
+  assertNoResurrection(w, h, mark, 'stop, then a failed acquire')
+  assert.ok(!callsAfter(w, mark).includes('acquire'), 'the recovery does not try again')
+})
+
 test('N5: an acquire answer after the stop never blocks the lane and leaves no pending work', async () => {
   const w = world()
   const h = await recovering(w)
