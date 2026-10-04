@@ -50,6 +50,10 @@ test('8. an infrastructure error (a module that cannot load) is an error, not a 
   assert.equal(judge({}, ran('loaderr')).verdict, 'error')
   assert.equal(judge({}, { status: null, signal: null, error: Object.assign(new Error('spawn ENOENT'), { code: 'ENOENT' }), stdout: '', stderr: '' }).verdict, 'error')
   assert.equal(judge({}, { status: 1, signal: null, stdout: 'same-process: ERROR (TypeError)\n', stderr: '' }).verdict, 'error', 'a crashed harness scenario')
+  // node:test given a test file that does not exist: "Could not find '…'", exit 1 (Node 22 and 24).
+  const notFound = judge({ expect: 'anything' }, ran('notfound'))
+  assert.equal(notFound.verdict, 'error')
+  assert.equal(notFound.caught, false)
 })
 
 test('9. exit 1 without an identifiable test failure is not a catch (file-level failure, nothing named)', () => {
@@ -70,7 +74,7 @@ test('10. the mutated file is restored byte for byte in every case (verdict, thr
   const original = Buffer.from('const a = 1\r\nconst b = 2\r\n')
   writeFileSync(file, original)
   const mutation = { from: 'const b = 2', to: 'const b = 3' }
-  for (const name of ['fail', 'busytimeout', 'vtimeout', 'vhook', 'cancelled', 'pending', 'loaderr']) {
+  for (const name of ['fail', 'busytimeout', 'vtimeout', 'vhook', 'cancelled', 'pending', 'loaderr', 'notfound']) {
     const verdict = withMutation(file, mutation, () => {
       assert.match(readFileSync(file, 'utf8'), /const b = 3/, 'mutated while the test runs')
       return judge({}, ran(name))

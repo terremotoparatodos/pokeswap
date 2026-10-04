@@ -9,7 +9,8 @@
 //   timedOut   the runner's own deadline; node:test "test timed out after N ms"; Vitest
 //              "Test timed out in N ms" / "Hook timed out in N ms";
 //   cancelled  node:test "cancelled N" with N > 0; "Promise resolution is still pending";
-//   error      the process could not run, or a module failed to load or parse (infrastructure);
+//   error      the process could not run, a test file was not found, or a module failed to load
+//              or parse (infrastructure);
 //              a harness scenario that crashed (reported as "<mode>: ERROR");
 //   missed     the tests passed; or they failed without an identifiable test (a file-level
 //              failure, an exit 1 with nothing named), or not the expected one.
@@ -24,6 +25,8 @@ const PENDING = /Promise resolution is still pending/
 const INFRASTRUCTURE = [
   /ERR_MODULE_NOT_FOUND/, /Cannot find module/, /Cannot find package/, /ERR_UNKNOWN_FILE_EXTENSION/, /Failed to load url/,
   /Failed to parse source/, /Transform failed/, /No test files? found/,
+  // node:test given a test file that does not exist (Node 22 and 24: exit 1, nothing else printed).
+  /^Could not find '[^']+'\s*$/m,
 ]
 /** Infrastructure only when no test is named (a real test may legitimately report these). */
 const INFRASTRUCTURE_UNNAMED = [/^\s*SyntaxError: /m, /ENOENT: no such file or directory/, /ERR_INVALID_ARG_TYPE/]
