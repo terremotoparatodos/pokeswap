@@ -40,6 +40,7 @@ function fakeHost(state = 'active') {
     async whenActive() { this.calls.push('whenActive'); return this.state === 'active' },
     async drain() { this.calls.push('drain'); this.state = 'draining' },
     async stop() { this.calls.push('stop'); this.state = 'stopped' },
+    async displace() { this.calls.push('stop'); this.displaced = true; this.state = 'stopped' },
     stats: () => ({ fake: true }),
   }
 }
@@ -197,14 +198,16 @@ test('displaced in on (activation refused, newer host, expired lease): stays ali
   assert.equal(refused.h.serving, false)
   await assert.rejects(refused.h.admit(client(), {}, player('u'), () => null), e => e.code === HOST_DRAINING_CODE)
 
-  const expired = hosting({ sockets: [client()] })
+  // An expired lease is NOT a displacement (N1): nothing drains or stops for it.
+  const expiredSockets = [client()]
+  const expired = hosting({ sockets: expiredSockets })
   expired.h.log = () => {}
   expired.h.configure(fakeHost('active'))
   expired.h.host.onExpired()
   await new Promise(resolve => setImmediate(resolve))
-  await new Promise(resolve => setImmediate(resolve))
-  assert.equal(expired.h.serving, false)
-  assert.equal(expired.h.stats().displaced, 'lease expired')
+  assert.deepEqual(expired.h.host.calls, [], 'no drain, no stop')
+  assert.deepEqual(expiredSockets[0].leaves, [])
+  assert.equal(expired.h.stats().displaced, null)
   assert.deepEqual(exits, [], 'no displaced host ever calls process.exit')
 })
 

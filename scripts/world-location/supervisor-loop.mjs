@@ -2,6 +2,7 @@
 //
 //   node scripts/world-location/supervisor-loop.mjs [--tree DIR] [--seconds 150] [--port 3100]
 //        [--players 6] [--restart-delay 500] [--out results.json]
+//        [--outage SECONDS --outage-at SECONDS --outage-ops '*'|presence_activate,...]
 //
 // Emulates PM2 with `autorestart: true` (services/realtime/ecosystem.config.js) without PM2:
 // every exit of a supervised process, code 0 included, starts it again after `--restart-delay`.
@@ -16,6 +17,12 @@
 // repeated mass reconnection (each player moves at most once, never with 4001).
 // --tree runs another checkout: the negative control runs the build where a displaced host
 // exits with code 0 (7b95e94), which must loop (alternating generations and restarts).
+//
+// --outage (review N1): A's authority calls fail for that long, from --outage-at, before the
+// deploy (all of them, or only the listed operations). A temporary loss of the authority is
+// recoverable: A answers /readyz 503 during it, recovers by itself afterwards (ready again
+// before the deploy, same generation), never restarts and never stays stopped; only the deploy
+// (a real newer host) ends it. The negative control runs the build before N1 (284d1b5).
 // Exit 0 only if stable. Prints a JSON summary. Generic: generated players, local secret.
 
 import { randomBytes } from 'node:crypto'
@@ -35,7 +42,11 @@ const basePort = Number(arg('port', 3100))
 const playerCount = Number(arg('players', 6))
 const restartDelayMs = Number(arg('restart-delay', 500))
 const out = arg('out', null)
-const DEPLOY_AT_MS = 10_000
+const outageMs = Number(arg('outage', 0)) * 1000
+const outageAtMs = Number(arg('outage-at', 10)) * 1000
+const outageOps = String(arg('outage-ops', '*')).split(',')
+// After an outage, the deploy waits until A had time to recover (a renewal, the recovery backoff).
+const DEPLOY_AT_MS = outageMs ? outageAtMs + outageMs + 35_000 : 10_000
 const SETTLE_MS = 15_000 // B's activation + one renewal (5 s) + the drain window, generously
 
 const local = await startLocalAuthority({ secret: randomBytes(24).toString('hex'), tree })
@@ -104,15 +115,35 @@ function player(identity, i) {
 const samples = []
 let tabs = []
 let connectedAtEnd = []
+const outageReady = []
+let readyBeforeDeploy = null
+let hostsBeforeDeploy = []
+let readyOfAAtEnd = null
 let finalHosts = []
 const bounded = (promise, ms = 5_000) => Promise.race([Promise.resolve(promise).catch(() => {}), delay(ms)])
+const installOutage = () => {
+  for (const op of outageOps) local.rule({ op, inst: 'A', mode: 'fail', times: Number.POSITIVE_INFINITY })
+  events.push({ t: now(), app: 'authority', event: `outage ${outageOps.join(',')}` })
+}
 try {
+  // An outage from the start must be in place before A listens (its activation follows at once).
+  if (outageMs && outageAtMs === 0) installOutage()
   await A.start()
   for (let i = 0; i < 100 && (await A.ready()) !== 200; i++) await delay(100)
   const identities = []
   for (let i = 0; i < playerCount; i++) identities.push(await local.player())
   tabs = identities.map((identity, i) => player(identity, i))
   for (const tab of tabs) void tab.run(true)
+  if (outageMs) {
+    while (now() < outageAtMs) await delay(200)
+    if (outageAtMs > 0) installOutage()
+    while (now() < outageAtMs + outageMs) { outageReady.push({ t: now(), ready: await A.ready() }); await delay(1_000) }
+    for (const op of outageOps) local.clearRules(op)
+    events.push({ t: now(), app: 'authority', event: 'back' })
+  }
+  while (now() < DEPLOY_AT_MS - 2_000) await delay(200)
+  readyBeforeDeploy = await A.ready()
+  hostsBeforeDeploy = (await local.hosts()) ?? []
   while (now() < DEPLOY_AT_MS) await delay(200)
   await B.start()
   while (now() < seconds * 1000) {
@@ -122,6 +153,7 @@ try {
   }
   // The verdict is taken here, before any teardown, so a stuck teardown can never hide it.
   connectedAtEnd = tabs.map(tab => Boolean(tab.socket && tab.socket.left === null))
+  readyOfAAtEnd = await A.ready()
   finalHosts = (await local.hosts()) ?? []
 } finally {
   for (const tab of tabs) tab.stop = true
@@ -152,7 +184,15 @@ const checks = [
   { name: 'after settling: always exactly one active host, the newest', ok: after.length > 0 && after.every(s => s.active.length === 1 && s.active[0] === Math.max(...finalHosts.map(h => h.generation))) },
   { name: 'no repeated mass reconnection: each player is closed at most once, never with 4001', ok: tabs.every(tab => tab.closes.length <= 1 && tab.closes.every(c => c.code !== 4001)) },
   { name: 'every player is connected at the end', ok: connectedAtEnd.length === tabs.length && connectedAtEnd.every(Boolean) },
+  { name: 'the displaced A stays alive and stopped (/readyz 503): only the real displacement is terminal', ok: readyOfAAtEnd === 503 && A.exits.length === 0 },
 ]
+if (outageMs) {
+  checks.push(
+    { name: 'during the outage A answers /readyz 503 (no authority, no persistence)', ok: outageReady.some(r => r.ready === 503) },
+    { name: 'after the outage A recovers by itself: ready again before the deploy, with its first generation', ok: readyBeforeDeploy === 200 && hostsBeforeDeploy.length === 1 && hostsBeforeDeploy[0].state === 'active' },
+  )
+  result.outage = { ops: outageOps, fromMs: outageAtMs, ms: outageMs, readyDuring: [...new Set(outageReady.map(r => r.ready))], readyBeforeDeploy, hostsBeforeDeploy: hostsBeforeDeploy.map(h => [h.generation, h.state]) }
+}
 result.checks = checks
 result.passed = checks.every(c => c.ok)
 const text = JSON.stringify(result, null, 2)

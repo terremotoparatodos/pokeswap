@@ -59,8 +59,9 @@ export async function startRealtime({ tree = here, name, port, env, waitForListe
     async shutdown() { child.stdin.write('shutdown\n'); return exited },
     async kill() { if (child.exitCode === null) child.kill('SIGKILL'); return exited },
   }
-  // A process may legitimately end right after listening (WORLD LOCATION-4: in `on`, a refused
-  // activation exits with code 0): that is a start outcome for the caller to check, not an error.
+  // A process may end right after listening (a crash, or an older build under test whose refused
+  // activation exited with code 0): that is a start outcome for the caller to check, not an error.
+  // Since review F1 this build never exits on its own.
   if (waitForListen) await waitForPort(port, () => child.exitCode !== null)
   return server
 }

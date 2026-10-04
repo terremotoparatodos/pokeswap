@@ -16,19 +16,21 @@ import { MESSAGE } from '../protocol/messages.js'
 //   drain      joins refused, movement frozen (the room asks `draining`), host → draining,
 //              every pending location saved, before any socket closes;
 //
-// Three different endings, never confused (review F1):
-//   displaced  the authority says this host is over (activation refused, a newer active host,
-//              a lease that stayed expired). In `on` the process drains if it served anyone,
-//              then stays alive but stopped: /readyz 503, joins refused with 4503, no renew,
-//              no claim, no movement. It never exits on its own: a supervisor that restarts
-//              any exit (PM2 autorestart) would start a new candidate with a newer generation
-//              that would displace the current host in turn (a loop). The deploy or the
-//              supervisor ends it. Shadow never changes what players see: it keeps admitting,
-//              without persistence.
-//   shutdown   the system asks for it (SIGTERM/SIGINT): Colyseus' graceful shutdown drains,
-//              closes with 4503 and exits (realtimeServer.js).
-//   startup    no generation within the acquire wait: the process serves without persistence
-//              and keeps acquiring in the background (HostLifecycle.acquire); recoverable.
+// Three situations, never confused (reviews F1, N1):
+//   displaced    ONLY when the database proves a newer host exists (an activation refused with
+//                newer_active, or newerActive in any answer). Definitive: in `on` the process
+//                drains if it served anyone, then stays alive but stopped — /readyz 503, joins
+//                4503, no renew, no claim, no save, no movement, no new identity. It never exits
+//                on its own: a supervisor that restarts any exit (PM2 autorestart) would start a
+//                candidate with a newer generation that would displace the current host in turn
+//                (a loop). Its deploy or supervisor ends it.
+//   unavailable  recoverable: no authority (unreachable, timeouts, an expired starting lease,
+//                unknown_host, an active lease that could not be renewed for a lease period).
+//                The host recovers in the background and becomes active again on its own; in
+//                `on` /readyz answers 503 and joins get 4503 meanwhile. Never an exit.
+//   shutdown     the system asks for it (SIGTERM/SIGINT): Colyseus' graceful shutdown drains,
+//                closes with 4503 and exits (realtimeServer.js).
+// Shadow never changes what players see in any of them: it keeps admitting, without persistence.
 
 /** A tab id the client sends on join (UX and resume only; never part of the session key). */
 const TAB_ID = /^[A-Za-z0-9_-]{8,64}$/
@@ -87,7 +89,9 @@ export class PresenceHosting {
     // activation that follows listen (one round trip in practice), then refuses with 4503.
     // Shadow never waits: a starting or refused host admits at once (the session gets no key,
     // so it never claims, and nobody is closed for it).
-    if (host && this.location().restores && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
+    // In `on` only a host that is just starting is waited for (the activation follows listen by one
+    // round trip); an unavailable, paused or stopped one refuses at once.
+    if (host && this.location().restores && !host.admitting && !(host.state === 'starting' && await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
     if (this.draining) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')
     // Only a fresh join (opening the page, reloading, «Jugar acá») replaces another tab.
     const tabId = tabIdOf(options)
@@ -153,8 +157,8 @@ export class PresenceHosting {
   get serving() { return !this.host || this.host.admitting || !this.location().restores }
 
   /**
-   * Displaced by the authority. In `on` the process stays alive and stopped (never exits on its
-   * own: see the header); shadow keeps serving without persistence.
+   * Displaced: a newer host exists (definitive). In `on` the process stays alive and stopped
+   * (never exits on its own: see the header); shadow keeps serving without persistence.
    */
   #stopped(reason) {
     if (this.displaced) return
@@ -167,9 +171,9 @@ export class PresenceHosting {
   }
 
   /**
-   * A newer presence host is active, or this host's lease cannot be renewed. In `on` this
-   * process drains and closes every socket with 4503 (clients reconnect, with resume, to the
-   * current host), then stops. Shadow never changes what players see: it counts `wouldDrain`.
+   * A newer presence host is active (definitive). In `on` this process drains and closes every
+   * socket with 4503 (clients reconnect, with resume, to the current host), then is displaced.
+   * Shadow never changes what players see: it counts `wouldDrain`.
    */
   async #hostChanged(reason) {
     const location = this.location()
@@ -177,15 +181,19 @@ export class PresenceHosting {
     if (this.draining) return
     await this.drain()
     for (const client of [...this.sockets()]) this.closeDraining(client)
-    await this.host?.stop()
+    await this.host?.displace()
     this.#stopped(reason)
   }
 
-  /** The reaction to what the database says about this host: drain (on) or count (shadow). */
+  /**
+   * The reaction to what the database says about this host: a newer host drains it (on) or is
+   * counted (shadow). An expired or unrenewable lease is recoverable (review N1): the host pauses
+   * and keeps renewing on its own; nothing here drains or stops for it.
+   */
   #reacting(next) {
     if (next) {
       next.onNewerActive = () => { void this.#hostChanged('newer host active') }
-      next.onExpired = () => { void this.#hostChanged('lease expired') }
+      next.onExpired = () => {}
       next.onActivationRefused = reason => this.#stopped(`activation ${reason}`)
     }
     return next

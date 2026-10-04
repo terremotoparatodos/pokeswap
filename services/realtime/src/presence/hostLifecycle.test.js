@@ -100,20 +100,28 @@ test('two concurrent candidates: the newer one activates, the older is refused a
   assert.equal(await newer.activate(), 'active')
   assert.equal(await older.activate(), 'stopped')
   assert.equal(older.counters.activation, 'newer_active')
-  assert.deepEqual(refused, ['newer_active'], 'the room hears it once (the process exits in on)')
+  assert.deepEqual(refused, ['newer_active'], 'the room hears it once (displaced: the process stays alive and stopped)')
   assert.equal(await hostRow(older.generation), 'stopped')
   assert.equal(older.sessionKey(), null)
   assert.equal(await older.whenActive(10), false)
   await newer.stop()
 })
 
-test('a slow candidate whose starting lease ran out can never activate', async () => {
+test('a slow candidate whose starting lease ran out never activates that identity: it takes a new one and recovers (N1)', async () => {
   const store = await sql()
   const slow = new HostLifecycle({ store, renewMs: 60_000, ...quiet })
   await slow.acquire()
-  await db.query("UPDATE public.world_presence_hosts SET lease_expires_at = now() - interval '1 second' WHERE generation = $1", [slow.generation])
-  assert.equal(await slow.activate(), 'stopped')
+  const expired = slow.generation
+  const firstHostId = slow.hostId
+  await db.query("UPDATE public.world_presence_hosts SET lease_expires_at = now() - interval '1 second' WHERE generation = $1", [expired])
+  assert.equal(await slow.activate(), 'unavailable', 'recoverable, not stopped')
   assert.equal(slow.counters.activation, 'host_expired')
+  for (let i = 0; i < 200 && slow.state !== 'active'; i++) await new Promise(resolve => setImmediate(resolve))
+  assert.equal(slow.state, 'active', 'recovered in the background')
+  assert.ok(slow.generation > expired, 'with a new generation')
+  assert.notEqual(slow.hostId, firstHostId, 'and a new hostId (the database confirmed the old one expired)')
+  assert.equal(await hostRow(expired), 'starting', 'the expired identity never became active')
+  await slow.stop()
 })
 
 test('a newer active host: the old one learns on its renew (bounded by renew + RTT), once, and decides to drain', async () => {
@@ -164,15 +172,24 @@ test('an expired lease pauses claims and saves; a renew revives it; repeated exp
   await host.stop(); await newer.stop()
 })
 
-test('refused answers end or pause the host without retry loops', async () => {
+test('refused answers: unknown_host is recoverable (a new identity), the end of its own drain is terminal, newerActive once', async () => {
   const unknown = activeHost()
+  const lost = unknown.hostId
   unknown.observe({ status: 'unknown_host' })
-  assert.equal(unknown.state, 'stopped')
+  assert.equal(unknown.state, 'unavailable', 'recoverable, not stopped')
+  assert.equal(unknown.generation, null)
+  assert.notEqual(unknown.hostId, lost, 'confirmed by the database: a new hostId')
+  assert.equal(unknown.displaced, false)
+  await unknown.stop() // ends its background recovery
   const inactive = activeHost()
   inactive.observe({ status: 'host_inactive', state: 'draining' })
   assert.equal(inactive.state, 'draining')
   inactive.observe({ status: 'host_inactive', state: 'stopped' })
   assert.equal(inactive.state, 'stopped')
+  const stoppedBehind = activeHost()
+  stoppedBehind.observe({ status: 'host_inactive', state: 'stopped' })
+  assert.equal(stoppedBehind.state, 'unavailable', 'an identity stopped behind its back is replaced, not the end')
+  await stoppedBehind.stop()
   const newer = []
   const host = activeHost()
   host.onNewerActive = () => newer.push(1)
@@ -180,7 +197,7 @@ test('refused answers end or pause the host without retry loops', async () => {
   assert.equal(newer.length, 1)
 })
 
-test('no database within the wait: serves without persistence, keeps trying, and activates when it can', async () => {
+test('no database within the wait: unavailable (no joins in on), keeps trying, and activates when it can', async () => {
   const base = await sql()
   const store = dialed(base)
   store.failBefore = 3
@@ -189,11 +206,12 @@ test('no database within the wait: serves without persistence, keeps trying, and
   const host = new HostLifecycle({ store, renewMs: 60_000, log: () => {}, sleep: () => { ticks++; return new Promise(resolve => setImmediate(resolve)) } })
   try {
     assert.equal(await host.acquire({ waitMs: 0 }), 'unavailable')
-    assert.equal(host.admitting, true, 'the game goes on')
+    assert.equal(host.admitting, false, 'no authority: /readyz 503 and joins 4503 in on (shadow decides for itself)')
     assert.equal(host.sessionKey(), null, 'sessions do not persist')
-    assert.equal(await host.whenActive(10), true)
     for (let i = 0; i < 200 && host.state !== 'active'; i++) await new Promise(resolve => setImmediate(resolve))
     assert.equal(host.state, 'active', 'acquired and activated in the background')
+    assert.equal(host.admitting, true)
+    assert.equal(host.counters.identities, 1, 'one generation: retries kept the same hostId')
     assert.ok(ticks > 0)
   } finally {
     await host.stop()

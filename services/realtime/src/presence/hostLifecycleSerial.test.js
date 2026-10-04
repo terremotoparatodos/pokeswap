@@ -165,9 +165,10 @@ test('40P01 forever: every operation gives up after its bound, without throwing 
     const store = barrierStore()
     store.failures.presenceActivate = 1_000
     const starting = host(store, 'starting')
-    assert.equal(await starting.activate(), 'stopped', 'unreachable: stops')
+    assert.equal(await starting.activate(), 'unavailable', 'unreachable: recoverable, not stopped (N1)')
     assert.equal(starting.counters.activation, 'unreachable')
-    assert.equal(store.calls.filter(c => c === 'presenceActivate').length, 6)
+    assert.ok(store.calls.filter(c => c === 'presenceActivate').length >= 6)
+    await starting.stop() // ends the background recovery
 
     const draining = host(barrierStore())
     draining.store.failures.presenceDrain = 1_000

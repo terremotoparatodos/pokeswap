@@ -460,7 +460,7 @@ test('no key (host not active, or no host): the session plays on unpersisted and
   assert.equal(journal.stats().claims.noKey, 1)
 })
 
-test('host refusals: expired pauses (retried once the host can claim), inactive and unknown end it; none loops', async () => {
+test('host refusals: expired pauses (retried once the host can claim), an inactive identity is never reused; none loops', async () => {
   const { journal, store, host, run, begin, observed } = setup()
   store.hosts.set(1, { state: 'active', leaseLive: false })
   const s = begin(A)
@@ -478,9 +478,12 @@ test('host refusals: expired pauses (retried once the host can claim), inactive 
   second.store.hosts.set(1, { state: 'stopped', leaseLive: false })
   const t = second.begin(B)
   await second.journal.claim(t)
-  assert.equal(second.host.state, 'stopped')
+  // N1: an identity the database holds as stopped is replaced (recoverable), never reused.
+  assert.equal(second.host.state, 'unavailable')
+  assert.equal(second.host.identity, null)
   await second.run(120_000)
-  assert.equal(second.store.claims.length, 1, 'an inactive host never claims again')
+  assert.equal(second.store.claims.length, 1, 'the inactive identity never claims again')
+  await second.host.stop()
 })
 
 test('saves follow the host: refused batches are kept (expired) or dropped (inactive); a draining host flushes but never claims', async () => {

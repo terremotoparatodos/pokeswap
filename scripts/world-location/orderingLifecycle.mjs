@@ -7,8 +7,9 @@
 //   shadow-refused  a shadow candidate refused at activation keeps serving players unchanged
 //   inverted        a new tab on the old host before it learns of the newer one: drained (4503),
 //                   resumes on the newer host, yields to a live tab, «Jugar acá» takes over
-//   failed-startup  the authority refuses presence calls at start: the process serves without
-//                   persistence (no claim, no row), then acquires and activates once it is back
+//   failed-startup  the authority is unreachable at start (N1, recoverable): on answers 503 and
+//                   4503, shadow serves; nothing is claimed; once it answers, the host recovers
+//                   by itself with one generation and becomes ready (never an exit)
 //   drain           a newer host starts: the older closes every socket with 4503 (never 4001)
 //                   after saving every position, then stays alive and stopped; players resume
 //                   on the newer one, in place
@@ -211,32 +212,50 @@ async function inverted(context) {
   return verdict(checks, { runs })
 }
 
+/**
+ * Review N1 — the authority is unreachable at start (every presence call fails): recoverable,
+ * never terminal. In `on` the process answers /readyz 503 and refuses joins with 4503 while it
+ * has no authority; in shadow it serves as usual. Neither claims nor writes anything. Once the
+ * authority answers, the host acquires and activates in the background with the SAME hostId (one
+ * generation), becomes ready on its own, and new joins claim. The process never exits.
+ */
 async function failedStartup(context) {
-  return withAuthority(context, async (local, start) => {
-    if (!(await lifecycleOnly(local))) return { applicable: false, reason: 'this tree has no presence hosts (pre WORLD LOCATION-4)' }
-    const checks = []
-    local.rule({ op: 'presence_acquire', mode: 'fail', times: Number.POSITIVE_INFINITY })
-    const server = await start({ name: 'F', port: context.basePort, env: local.env('on', 'F') }) // listens after the 10 s acquire wait
-    const early = await local.player()
-    const socket = await connect(server, early.token, { tabId: 'tab-early-harness' })
-    checks.push({ name: 'without a generation the process still serves (no persistence)', ok: Boolean(socket.self) && socket.left === null })
-    await nudge(socket, openDirectionFor(context))
-    await leave(socket)
-    await delay(2_000)
-    checks.push({ name: 'no claim and no save is ever sent without an active host', ok: !local.events.some(e => (e.op === 'location_claim' || e.op === 'location_save') && e.inst === 'F'), detail: JSON.stringify(local.calls) })
-    checks.push({ name: 'no row written', ok: (await rowOf(local)(early.userId)) === null })
-    local.clearRules()
-    const active = await waitFor(async () => (await local.hosts()).some(h => h.state === 'active'), 90_000)
-    checks.push({ name: 'once the authority is back the host acquires and activates in the background', ok: active, detail: JSON.stringify(await local.hosts()) })
-    const late = await local.player()
-    const after = await connect(server, late.token, { tabId: 'tab-late-harness' })
-    const claimed = await waitFor(() => local.events.some(e => e.op === 'location_claim' && e.userIds.includes(late.userId) && e.answer?.claim?.status === 'claimed'), 5_000)
-    checks.push({ name: 'a join after activation claims with its key', ok: claimed, detail: JSON.stringify(local.events.filter(e => e.userIds.includes(late.userId)).map(e => e.answer)) })
-    await leave(after)
-    await delay(1_500)
-    checks.push({ name: 'the early session never claims afterwards', ok: !local.events.some(e => e.op === 'location_claim' && e.userIds.includes(early.userId)) })
-    return verdict(checks)
-  })
+  const checks = []
+  for (const mode of ['on', 'shadow']) {
+    const result = await withAuthority(context, async (local, start) => {
+      if (!(await lifecycleOnly(local))) return { applicable: false }
+      const port = context.basePort + (mode === 'on' ? 0 : 20)
+      for (const op of ['presence_acquire', 'presence_activate', 'presence_renew']) local.rule({ op, mode: 'fail', times: Number.POSITIVE_INFINITY })
+      const server = await start({ name: 'F', port, env: local.env(mode, 'F') }) // listens after the 10 s acquire wait
+      const early = await local.player()
+      const socket = await connect(server, early.token, { tabId: 'tab-early-harness', waitSelf: false })
+      await waitFor(() => socket.self || socket.refused !== null || socket.left !== null, 5_000)
+      const ready = await server.ready()
+      if (mode === 'on') {
+        checks.push({ name: 'on, no authority: /readyz 503 and joins refused with 4503 (temporarily)', ok: ready === 503 && socket.refused === 4503, detail: JSON.stringify({ ready, refused: socket.refused }) })
+      } else {
+        checks.push({ name: 'shadow, no authority: /readyz 200 and the player is admitted and moves (no persistence)', ok: ready === 200 && Boolean(socket.self) && (await nudge(socket, openDirectionFor(context))), detail: JSON.stringify({ ready, refused: socket.refused }) })
+        await leave(socket)
+      }
+      await delay(2_000)
+      checks.push({ name: `${mode}: no claim and no save is ever sent without an active host`, ok: !local.events.some(e => (e.op === 'location_claim' || e.op === 'location_save') && e.inst === 'F'), detail: JSON.stringify(local.calls) })
+      local.clearRules()
+      const active = await waitFor(async () => (await local.hosts())?.some(h => h.state === 'active'), 90_000)
+      const hosts = await local.hosts()
+      checks.push({ name: `${mode}: once the authority answers the host acquires and activates by itself, with one generation`, ok: active && hosts.length === 1, detail: JSON.stringify(hosts?.map(h => [h.generation, h.state])) })
+      checks.push({ name: `${mode}: ready again on its own; the process never exited`, ok: (await server.ready()) === 200 && server.child.exitCode === null, detail: JSON.stringify([await server.ready(), server.child.exitCode]) })
+      const late = await local.player()
+      const after = await connect(server, late.token, { tabId: 'tab-late-harness' })
+      const claimed = await waitFor(() => local.events.some(e => e.op === 'location_claim' && e.userIds.includes(late.userId) && e.answer?.claim?.status === 'claimed'), 5_000)
+      checks.push({ name: `${mode}: a join after the recovery claims with its key`, ok: claimed, detail: JSON.stringify(local.events.filter(e => e.userIds.includes(late.userId)).map(e => e.answer)) })
+      await leave(after)
+      await delay(1_500)
+      checks.push({ name: `${mode}: the session admitted without authority never claims afterwards`, ok: !local.events.some(e => e.op === 'location_claim' && e.userIds.includes(early.userId)) })
+      return { applicable: true }
+    })
+    if (!result.applicable) return { applicable: false, reason: 'this tree has no presence hosts (pre WORLD LOCATION-4)' }
+  }
+  return verdict(checks)
 }
 
 let openDirectionCache = null
