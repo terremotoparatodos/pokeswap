@@ -32,6 +32,9 @@ const HOSTING_TEST = name => expecting(node('src/rooms/presenceHosting.test.js')
 const HOST_TEST = name => expecting(node('src/presence/hostLifecycle.test.js'), name)
 const SERIAL_TEST = name => expecting(node('src/presence/hostLifecycleSerial.test.js'), name)
 const RECOVERY_TEST = name => expecting(node('src/presence/hostRecovery.test.js'), name)
+const LATE_TEST = name => expecting(node('src/presence/hostLateAnswers.test.js'), name)
+const BINDING_TEST = name => expecting(node('src/presence/hostIdentityBinding.test.js'), name)
+const JUDGE_TEST = name => expecting({ cwd: `${root}scripts/world-location/`, cmd: process.execPath, args: ['--test', '--test-reporter=spec', 'mutationJudge.test.mjs'] }, name)
 const ROOM_HOST_TEST = name => expecting(node('src/rooms/PresenceRoomHost.test.js'), name)
 const JOURNAL = `${RT}src/presence/locationJournal.js`
 const JOIN = `${RT}src/rooms/locationJoin.js`
@@ -269,6 +272,33 @@ export const MUTATIONS = [
   { id: 'N1f', what: 'no renewal between activation attempts (the starting lease expires during a retry: a new generation)', file: HOST,
     from: '    if (this.exclusive > 0) return Promise.resolve(this.state)', to: "    if (this.exclusive > 0 || this.state === 'starting') return Promise.resolve(this.state)",
     test: RECOVERY_TEST('N1-1c: only activate fails') },
+  // ── Realtime: late answers (review N5) and answers bound to their identity (review N6) ──
+  { id: 'N5a', what: 'an acquire answer is applied after a stop/drain/displace (the host comes back)', file: HOST,
+    from: '    if (this.#movedOn(era) || this.hostId !== hostId) {', to: '    if (false) {',
+    test: LATE_TEST('N5-1: acquire in flight') },
+  { id: 'N5b', what: 'a late answer that the database applied is not cleaned up (the late identity is left starting/active)', file: HOST,
+    from: '    if (!applied) return\n    if (sameIdentity(identity, this.identity)', to: '    if (applied !== 2) return\n    if (sameIdentity(identity, this.identity)',
+    test: LATE_TEST('N5-1: acquire in flight') },
+  { id: 'N5c', what: 'the recovery puts a stopped host back to unavailable on a transport failure (resurrection path)', file: HOST,
+    from: "            if (acquired === 'transport') { this.counters.acquireRetries++; continue }", to: "            if (acquired === 'transport') { this.counters.acquireRetries++; this.state = 'unavailable'; continue }",
+    test: LATE_TEST('N5-5: drain during the background recovery') },
+  { id: 'N6a', what: 'observe acts on an answer about an identity the host no longer holds (an old answer resets the new one)', file: HOST,
+    from: '    if (!sameIdentity(identity, this.identity)) { this.counters.foreignAnswers++; return }', to: '',
+    test: BINDING_TEST('N6 (newerActive)') },
+  { id: 'N6b', what: 'a renewal answer of an earlier identity is applied to the current one', file: HOST,
+    from: '        if (!sameIdentity(identity, this.identity)) { this.counters.foreignAnswers++; return this.state }\n        this.#heard()\n        this.observe(answer, identity)',
+    to: '        this.#heard()\n        this.observe(answer)',
+    test: LATE_TEST('N5-6: a renewal of an earlier identity') },
+  { id: 'N6c', what: 'sessions of a lost identity keep their persistence (claims retried, saves sent under the new identity)', file: JOURNAL,
+    from: '    if (!session?.key || !this.host || !(\'identity\' in this.host)) return false', to: '    return false',
+    test: BINDING_TEST('N6 (unknown_host)') },
+  { id: 'N6d', what: 'a stale caused by the lost identity fences the session (a false 4409)', file: JOURNAL,
+    from: "        if (!sameHost(identity, this.host.identity) || this.#keyLost(entry.session) || entry.status === 'unpersisted') {", to: '        if (false) {',
+    test: BINDING_TEST('answered stale: no fence') },
+  // ── The judge (INFO of review N1-N4): a missing test file is infrastructure, never a catch ──
+  { id: 'JG1', what: 'a test file that does not exist ("Could not find") is not recognised as infrastructure', file: 'scripts/world-location/mutationJudge.mjs',
+    from: "  /^Could not find '[^']+'\\s*$/m,\n", to: '',
+    test: JUDGE_TEST('8. an infrastructure error') },
   // ── Client: close codes, resume and «Jugar acá» (design §5.2, §3.6) ──
   { id: 'K1', what: 'automatic reconnections join fresh (they displace the other tab)', file: 'src/features/wildlands/multiplayer/api/colyseusPresence.ts',
     from: '      void this.connect(identity, { resume: true })\n    }, delay)', to: '      void this.connect(identity)\n    }, delay)',
