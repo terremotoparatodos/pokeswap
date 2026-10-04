@@ -36,8 +36,21 @@
  *     calls `onFenced(userId, epoch)`. 'stale' for an older epoch of the same player
  *     (its previous session) is just dropped;
  *   - host answers (host_inactive, host_expired, unknown_host, newerActive) go to the
- *     host (`host.observe`), which pauses, drains or stops; nothing here loops on them;
+ *     host (`host.observe`) WITH the identity the request was sent for (the session key's
+ *     generation and hostId for a claim, the writing identity for a save): the host ignores
+ *     an answer about an identity it no longer holds (review N6); nothing here loops on them;
  *   - results are read per user: one row's answer never confirms another.
+ *
+ * A host identity lost (review N6): when the host takes a new hostId/generation, the sessions
+ * keyed by an earlier identity lose their persistence for good. They are found lazily (before
+ * any claim, retry or batch is sent, and when an answer comes back): they become 'unpersisted',
+ * their retries stop, their pending position is dropped (counted in `dropped.identityLost`),
+ * and they are never fenced and never closed for it — the player keeps playing, unpersisted.
+ * Their key is never reassigned and their positions are never sent under the new identity
+ * (the database would refuse them anyway: the owner CAS). A player gets persistence back with
+ * a new acceptance (a reconnection or a reload): the room gives that session a key of the
+ * current identity, which outranks the old one, so its claim takes the row (restoring the last
+ * position the old identity managed to save). Positions noted after the loss are lost.
  *
  * Memory is bounded: one slot per player and at most `maxEntries` players
  * (live sessions are never evicted; the oldest disconnected ones are, and
@@ -82,6 +95,9 @@ const sameLocation = (a, b) => a !== null && b !== null && a !== undefined && b 
 const validRow = row => UUID.test(row.userId) && AREA_ID.test(row.areaId) && tile(row.tx) && tile(row.ty) && LAYOUT_VERSION.test(row.layoutVersion)
 
 const HOST_REFUSALS = new Set(['host_inactive', 'host_expired', 'unknown_host'])
+/** The host identity a session key was issued by (N6). */
+const keyIdentity = key => (key ? { generation: key.generation, hostId: key.hostId } : null)
+const sameHost = (a, b) => Boolean(a && b && a.generation === b.generation && a.hostId === b.hostId)
 
 export class LocationJournal {
   /**
@@ -108,10 +124,10 @@ export class LocationJournal {
     this.timer = null
     this.counters = {
       sessions: 0,
-      claims: { ok: 0, unknownUser: 0, failed: 0, superseded: 0, outranked: 0, retries: 0, abandoned: 0, hostRefused: 0, gaveUp: 0, noKey: 0 },
-      saves: { batches: 0, rows: 0, applied: 0, duplicate: 0, stale: 0, staleOldEpoch: 0, invalid: 0, unknown: 0, failedBatches: 0, hostRefused: 0, unchanged: 0, maxBatch: 0, lastBatchMs: 0 },
+      claims: { ok: 0, unknownUser: 0, failed: 0, superseded: 0, outranked: 0, retries: 0, abandoned: 0, hostRefused: 0, gaveUp: 0, noKey: 0, identityLost: 0 },
+      saves: { batches: 0, rows: 0, applied: 0, duplicate: 0, stale: 0, staleOldEpoch: 0, invalid: 0, unknown: 0, failedBatches: 0, hostRefused: 0, unchanged: 0, maxBatch: 0, lastBatchMs: 0, identityLost: 0 },
       fenced: 0,
-      dropped: { evicted: 0, unclaimed: 0, invalid: 0, disabled: 0, hostInactive: 0 },
+      dropped: { evicted: 0, unclaimed: 0, invalid: 0, disabled: 0, hostInactive: 0, identityLost: 0 },
     }
   }
 
@@ -191,6 +207,8 @@ export class LocationJournal {
   }
 
   async #claimOnce(entry, session) {
+    // N6: a key of an identity the host no longer holds is never sent (nor retried).
+    if (entry.session === session && session.live && !this.disabled && this.#keyLost(session)) return this.#identityLost(entry, session)
     if (!this.#mayClaim(entry, session)) {
       // Not sent: the session ended, was replaced, or its host cannot claim right now.
       if (entry.session === session && session.live && !this.disabled) return this.#claimFailed(entry, session, { status: 'failed' }, false)
@@ -199,13 +217,19 @@ export class LocationJournal {
     }
     entry.claimAttempts++
     const result = await this.#claimCall(session)
-    if (result.newerActive) this.host?.observe?.({ newerActive: true })
-    if (HOST_REFUSALS.has(result.status)) { this.counters.claims.hostRefused++; this.host?.observe?.(result) }
+    // N6: the answer is about the identity in the session's key; the host ignores it if that
+    // identity is no longer its own.
+    const sentFor = keyIdentity(session.key)
+    if (result.newerActive) this.host?.observe?.({ newerActive: true }, sentFor)
+    if (HOST_REFUSALS.has(result.status)) { this.counters.claims.hostRefused++; this.host?.observe?.(result, sentFor) }
     if (entry.session !== session || !session.live || this.disabled) {
       // The answer is for a session this process no longer runs: never applied.
       this.counters.claims.superseded++
       return { status: 'replaced' }
     }
+    // The host moved to a new identity while this claim was in flight: whatever it answered,
+    // this session has no persistence any more (never retried, never fenced).
+    if (this.#keyLost(session)) return this.#identityLost(entry, session)
     if (result.status === 'claimed') {
       this.counters.claims.ok++
       entry.status = 'claimed'
@@ -235,6 +259,49 @@ export class LocationJournal {
       return result
     }
     return this.#claimFailed(entry, session, result, true)
+  }
+
+  /**
+   * N6: the session's key belongs to an identity the host no longer holds (it took a new
+   * hostId/generation). Only with a host that has an identity model; a session without a key
+   * already has no persistence.
+   */
+  #keyLost(session) {
+    if (!session?.key || !this.host || !('identity' in this.host)) return false
+    const current = this.host.identity
+    return !(current && current.generation === session.key.generation && current.hostId === session.key.hostId)
+  }
+
+  /**
+   * N6: this session lost its persistence with its host identity. It keeps playing; its retries
+   * stop, its pending position is dropped (unless a batch carries it: its answer decides), and
+   * it is never fenced or closed for it. Answers { status: 'unpersisted' } (a hydrating socket
+   * is placed at its fallback).
+   */
+  #identityLost(entry, session) {
+    const answer = { status: 'unpersisted' }
+    if (entry.session === session && (entry.status === 'claimed' || entry.status === 'claiming' || entry.status === 'unclaimed')) {
+      entry.status = 'unpersisted'
+      this.counters.claims.identityLost++
+      if (entry.pending && !entry.pending.inflight) { entry.pending = null; this.counters.dropped.identityLost++ }
+      this.onClaimed(session, answer)
+    }
+    this.#forgetIfIdle(entry)
+    return answer
+  }
+
+  /** N6, before anything is sent: every live session keyed by a lost identity becomes unpersisted (logged once per loss). */
+  #sweepIdentity() {
+    let lost = 0
+    for (const entry of this.entries.values()) {
+      const session = entry.session
+      if (!session?.live || !this.#keyLost(session)) continue
+      if (entry.status !== 'claimed' && entry.status !== 'claiming' && entry.status !== 'unclaimed') continue
+      if (entry.claimsInFlight > 0) continue // its answer comes back to #claimOnce, which decides
+      this.#identityLost(entry, session)
+      lost++
+    }
+    if (lost) this.log(`[location] the host took a new identity: ${lost} session(s) keep playing without persistence until they join again`)
   }
 
   /** A failed or refused claim: retried later (same key) while attempts remain, else no persistence for this session. */
@@ -371,6 +438,7 @@ export class LocationJournal {
   }
 
   #retryClaims(now) {
+    this.#sweepIdentity()
     if (!this.host?.canClaim) return
     let fired = 0
     for (const entry of this.entries.values()) {
@@ -386,11 +454,14 @@ export class LocationJournal {
   #due(entry, now, all) {
     const pending = entry.pending
     if (!pending || pending.inflight || entry.status !== 'claimed' || pending.session !== entry.session) return false
+    // N6: never under another identity than the one that keyed the session.
+    if (this.#keyLost(entry.session)) return false
     if (all || pending.urgent) return true
     return now >= entry.lastWriteAt + CHECKPOINT_MS + jitterFor(entry.userId)
   }
 
   #flush(now, all) {
+    this.#sweepIdentity()
     // The host must be able to save (active, or draining for its final flush).
     if (!this.host?.canSave) return null
     const due = []
@@ -436,9 +507,11 @@ export class LocationJournal {
   /** Sends one batch; resolves with what happened to it: { sent, applied, duplicate, stale, hostRefused }. */
   async #send(rows, sent, started) {
     const counts = { sent: 0, applied: 0, duplicate: 0, stale: 0, hostRefused: 0 }
+    // N6: the batch is written by, and its answer is about, the identity that sends it.
+    const identity = this.host.identity
     let answer = null
     try {
-      answer = await this.store.locationSave(rows, this.host.identity)
+      answer = await this.store.locationSave(rows, identity)
     } catch (error) {
       this.counters.saves.failedBatches++
       this.failures++
@@ -448,11 +521,11 @@ export class LocationJournal {
       return counts
     }
     counts.sent = rows.length
-    if (answer.newerActive) this.host.observe?.({ newerActive: true })
+    if (answer.newerActive) this.host.observe?.({ newerActive: true }, identity)
     if (answer.status !== 'ok') {
       // The whole batch was refused because of this host's state: the host decides what comes next.
       this.counters.saves.hostRefused++
-      this.host.observe?.(answer)
+      this.host.observe?.(answer, identity)
       this.failures++
       this.nextFlushAt = this.now() + backoffMs(this.failures - 1)
       for (const { entry, pending } of sent) {
@@ -461,6 +534,7 @@ export class LocationJournal {
         if (answer.status !== 'host_expired' && entry.pending === pending) { entry.pending = null; this.counters.dropped.hostInactive++; counts.hostRefused++; this.#forgetIfIdle(entry) }
       }
       counts.sent = 0
+      this.#sweepIdentity() // N6: a refusal about a lost identity: its sessions are unpersisted now
       return counts
     }
     const results = answer.results
@@ -485,6 +559,14 @@ export class LocationJournal {
       } else if (result === 'stale') {
         counts.stale++
         if (!stillThisSession) { this.counters.saves.staleOldEpoch++; if (entry.pending === pending) entry.pending = null; continue }
+        if (!sameHost(identity, this.host.identity) || this.#keyLost(entry.session) || entry.status === 'unpersisted') {
+          // N6: refused because the identity that wrote it is gone, not because another session
+          // took the row: no fencing, no close; the session plays on without persistence.
+          this.counters.saves.identityLost++
+          if (entry.pending === pending) entry.pending = null
+          this.#identityLost(entry, entry.session)
+          continue
+        }
         // Another session of this player (a greater key, here or on another host) took the
         // row: this writer is fenced for good, and its session must go.
         this.counters.saves.stale++
