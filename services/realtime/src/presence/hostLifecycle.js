@@ -36,6 +36,19 @@ import { randomUUID } from 'node:crypto'
  * database confirms the old one is gone (unknown_host, host_expired, a stopped identity), so
  * generations grow with confirmed losses, never with retries.
  *
+ * Late answers (review N5): every acquire and activate remembers the lifecycle `era` and the
+ * identity it was sent for, and checks them again AFTER its await, before it applies an identity
+ * or a state, starts renewing, admits sessions, reports ready or lets the recovery continue. stop,
+ * drain, displace and a new identity each open a new era. An answer from an earlier era is never
+ * applied; if the database already applied that call (an acquired row, an activated host), that
+ * exact identity is closed by a bounded cleanup on the lane (never a later one), and if the
+ * cleanup cannot reach the database the row is simply never renewed and its lease runs out.
+ *
+ * Answers bound to their identity (review N6): every renew, and every claim or save the journal
+ * sends, carries the identity it was sent for; `observe(answer, identity)` changes nothing unless
+ * that identity is still this host's current one. An old identity's unknown_host, host_inactive,
+ * host_expired or newerActive can never reset, pause or displace the current one.
+ *
  * Serialization (review F3): activate, drain, stop and renew run one at a time, in call order,
  * on one lane, so this process never holds two of the database's host locks at once (activate
  * takes a table lock; renew, drain and stop a row lock) and never inverts their order. A renew is
@@ -72,6 +85,9 @@ const RETRY_BASE_MS = 500
 const RETRY_MAX_MS = 5_000
 
 const wait = ms => new Promise(resolve => { const t = setTimeout(resolve, ms); t.unref?.() })
+/** Two host identities ({ generation, hostId }) are the same one. */
+export const sameIdentity = (a, b) => Boolean(a && b && a.generation === b.generation && a.hostId === b.hostId)
+const identityKey = identity => `${identity.generation}:${identity.hostId}`
 const retryMs = attempt => Math.min(RETRY_MAX_MS, RETRY_BASE_MS * 2 ** attempt)
 export const recoveryMs = attempt => Math.min(RECOVERY_MAX_MS, RECOVERY_BASE_MS * 2 ** attempt)
 
@@ -123,10 +139,14 @@ export class HostLifecycle {
     this.lane = Promise.resolve()
     /** activate / drain / stop queued or running: no renew starts meanwhile. */
     this.exclusive = 0
+    /** The lifecycle era (N5): stop, drain, displace and a new identity each open a new one. */
+    this.era = 0
+    /** Identities already closed or queued to be closed (`identityKey`): never twice. */
+    this.closing = new Set()
     this.waiters = new Set()
     this.counters = {
       acquireRetries: 0, activation: null, renewals: 0, renewFailures: 0, newerActive: 0, expired: 0, refusedAnswers: 0, keys: 0,
-      identities: 0, identityResets: 0, recoveries: 0, unavailable: 0, pauses: 0,
+      identities: 0, identityResets: 0, recoveries: 0, unavailable: 0, pauses: 0, lateAnswers: 0, lateCleanups: 0, foreignAnswers: 0,
     }
   }
 
@@ -153,14 +173,24 @@ export class HostLifecycle {
     }
   }
 
-  /** One acquire with the current hostId (idempotent: a lost answer is re-read, never a new generation). */
+  /**
+   * One acquire with the current hostId (idempotent: a lost answer is re-read, never a new
+   * generation). 'starting' | 'active' | 'reset' | 'transport' | 'late' (the host moved on while
+   * it was in flight: nothing applied, the acquired identity closed).
+   */
   async #acquireOnce() {
+    const era = this.era
+    const hostId = this.hostId
     let answer
     try {
-      answer = await this.store.presenceAcquire(this.hostId, this.leaseMs)
+      answer = await this.store.presenceAcquire(hostId, this.leaseMs)
       if (!Number.isSafeInteger(answer?.generation) || answer.generation < 1) throw new Error('malformed acquire answer')
     } catch {
       return 'transport'
+    }
+    if (this.#movedOn(era) || this.hostId !== hostId) {
+      this.#late({ generation: answer.generation, hostId }, 'acquire', true)
+      return 'late'
     }
     this.#heard()
     if (this.generation !== answer.generation) this.counters.identities++
@@ -218,15 +248,22 @@ export class HostLifecycle {
     return this.state
   }
 
-  /** One activate with the current identity: 'active' | 'displaced' | 'reset' | 'transport'. */
+  /** One activate with the current identity: 'active' | 'displaced' | 'reset' | 'transport' | 'late'. */
   async #activateOnce() {
+    const era = this.era
+    const identity = this.identity
     let answer
     try {
-      answer = await this.store.presenceActivate(this.generation, this.hostId, this.leaseMs)
+      answer = await this.store.presenceActivate(identity.generation, identity.hostId, this.leaseMs)
     } catch {
       return 'transport'
     }
     if (!answer || typeof answer.status !== 'string') return 'transport'
+    if (this.#movedOn(era) || !sameIdentity(identity, this.identity)) {
+      // Activated (or refused) for a host that is gone: never applied here.
+      this.#late(identity, 'activate', answer.status === 'active')
+      return 'late'
+    }
     this.#heard()
     this.counters.activation = answer.status
     if (answer.status === 'active') {
@@ -274,6 +311,7 @@ export class HostLifecycle {
   /** The database confirmed this identity is gone: a new hostId (hence a new generation) next. */
   #newIdentity(reason) {
     if (this.displaced) return
+    this.era++
     this.counters.identityResets++
     this.#stopRenewing()
     this.generation = null
@@ -295,11 +333,13 @@ export class HostLifecycle {
           await this.sleep(recoveryMs(attempt))
           if (this.state !== 'unavailable' || this.displaced) break
           if (this.generation === null) {
+            // A transport failure leaves the state as it is (unavailable); a late answer leaves it
+            // stopped or under a newer era: the loop condition decides.
             const acquired = await this.#acquireOnce()
-            if (acquired === 'transport') { this.counters.acquireRetries++; this.state = 'unavailable'; continue }
+            if (acquired === 'transport') { this.counters.acquireRetries++; continue }
             if (acquired !== 'starting') continue
           }
-          const outcome = await this.#serial(() => (this.state === 'starting' || this.state === 'unavailable') ? this.#activateOnce() : 'done', true)
+          const outcome = await this.#serial(() => (this.state === 'starting' || this.state === 'unavailable') && this.generation !== null ? this.#activateOnce() : 'done', true)
           if (outcome === 'transport' && this.state === 'starting') this.state = 'unavailable'
         }
       } finally {
@@ -317,16 +357,18 @@ export class HostLifecycle {
    */
   drain() {
     if (this.state !== 'active' && this.state !== 'starting' && this.state !== 'unavailable') return Promise.resolve(this.state)
+    this.era++
     this.state = this.state === 'active' ? 'draining' : 'stopped'
     this.#settleWaiters()
-    if (this.generation === null) { this.#stopRenewing(); return Promise.resolve(this.state) }
-    return this.#serial(() => this.#drainCall(), true)
+    const identity = this.identity
+    if (identity === null) { this.#stopRenewing(); return Promise.resolve(this.state) }
+    return this.#serial(() => this.#drainCall(identity), true)
   }
 
-  async #drainCall() {
+  async #drainCall(identity) {
     for (let attempt = 0; attempt < HOST_CALL_ATTEMPTS; attempt++) {
       try {
-        const answer = await this.store.presenceDrain(this.generation, this.hostId, this.drainWindowMs)
+        const answer = await this.store.presenceDrain(identity.generation, identity.hostId, this.drainWindowMs)
         if (answer?.status === 'host_expired') {
           // The last positions of this host are lost rather than handing authority back to a
           // host whose lease ran out (review F6); the save CAS is only a second line of defence.
@@ -346,10 +388,10 @@ export class HostLifecycle {
 
   /** Any → stopped (terminal), at once locally; the database call waits its turn. Idempotent; never throws. */
   stop() {
-    const had = this.generation !== null && this.state !== 'stopped'
+    const identity = this.state !== 'stopped' ? this.identity : null
     this.#markStopped()
-    if (!had) return Promise.resolve(this.state)
-    return this.#serial(() => this.#stopCall(), true)
+    if (identity === null || !this.#claimClosing(identity)) return Promise.resolve(this.state)
+    return this.#serial(() => this.#stopCall(identity), true)
   }
 
   /** A newer host exists (the room drained already): stopped, for good. */
@@ -361,22 +403,24 @@ export class HostLifecycle {
 
   /** stop from inside the lane (activate's refusal): already this operation's turn. */
   async #stopNow() {
-    const had = this.generation !== null && this.state !== 'stopped'
+    const identity = this.state !== 'stopped' ? this.identity : null
     this.#markStopped()
-    if (had) await this.#stopCall()
+    if (identity !== null && this.#claimClosing(identity)) await this.#stopCall(identity)
     return this.state
   }
 
   #markStopped() {
+    if (this.state !== 'stopped') this.era++
     this.state = 'stopped'
     this.#stopRenewing()
     this.#settleWaiters()
   }
 
-  async #stopCall() {
+  /** Stops exactly `identity` (bounded attempts). Never another one; never throws. */
+  async #stopCall(identity) {
     for (let attempt = 0; attempt < HOST_CALL_ATTEMPTS; attempt++) {
       try {
-        await this.store.presenceStop(this.generation, this.hostId)
+        await this.store.presenceStop(identity.generation, identity.hostId)
         return this.state
       } catch (error) {
         if (attempt === HOST_CALL_ATTEMPTS - 1) this.log(`[host] stop call failed (${String(error?.message ?? error).slice(0, 60)}); the lease runs out on its own`)
@@ -384,6 +428,44 @@ export class HostLifecycle {
       }
     }
     return this.state
+  }
+
+  /** True the first time `identity` is to be closed (stop, or a late answer's cleanup). */
+  #claimClosing(identity) {
+    const key = identityKey(identity)
+    if (this.closing.has(key)) return false
+    this.closing.add(key)
+    return true
+  }
+
+  /** The host moved on since `era` (stopped, drained, displaced, or a new identity). */
+  #movedOn(era) {
+    return this.era !== era || this.displaced || this.state === 'stopped' || this.state === 'draining'
+  }
+
+  /**
+   * An acquire or activate answer for a host that moved on (N5): nothing is applied. If the
+   * database applied it (`applied`), that exact identity is closed on the lane — unless it is
+   * still this host's live identity (then it is not late). Bounded; if it fails, the row is never
+   * renewed and its lease runs out.
+   */
+  #late(identity, op, applied) {
+    this.counters.lateAnswers++
+    this.log(`[host] late ${op} answer for generation ${identity.generation}: ignored (the host moved on)`)
+    if (!applied) return
+    if (sameIdentity(identity, this.identity) && !this.#movedOn(this.era)) return
+    if (!this.#claimClosing(identity)) return
+    this.counters.lateCleanups++
+    void this.#serial(() => this.#stopCall(identity), true)
+  }
+
+  /** Tests and tooling: resolves once the lane and the background recovery are idle. */
+  async settled() {
+    for (let i = 0; i < 100 && (this.recovering || this.exclusive > 0 || this.renewing); i++) {
+      await this.recovering
+      await this.lane
+    }
+    await this.lane
   }
 
   // ── Renewal ─────────────────────────────────────────────────────────────
@@ -419,12 +501,15 @@ export class HostLifecycle {
         this.renewing = null
         return this.state
       }
+      const identity = this.identity
       try {
-        const answer = await this.store.presenceRenew(this.generation, this.hostId, this.leaseMs)
+        const answer = await this.store.presenceRenew(identity.generation, identity.hostId, this.leaseMs)
         if (!answer || typeof answer !== 'object') throw new Error('malformed renew answer')
         this.counters.renewals++
+        // N6: an answer about an identity this host no longer holds changes nothing.
+        if (!sameIdentity(identity, this.identity)) { this.counters.foreignAnswers++; return this.state }
         this.#heard()
-        this.observe(answer)
+        this.observe(answer, identity)
         if (answer.status === 'ok' && this.state === 'active') {
           if (answer.leaseLive === false) this.#expired()
           else if (this.paused) { this.paused = false; this.expiredStreak = 0; this.counters.recoveries++; this.log('[host] authority back: lease renewed'); this.#settleWaiters(); this.onRecovered() }
@@ -432,7 +517,7 @@ export class HostLifecycle {
         }
       } catch {
         this.counters.renewFailures++
-        if (this.state === 'active' && !this.paused && this.lastAuthorityAt !== null && this.now() - this.lastAuthorityAt >= this.leaseMs) this.#pause('no renewal answered for a whole lease period')
+        if (sameIdentity(identity, this.identity) && this.state === 'active' && !this.paused && this.lastAuthorityAt !== null && this.now() - this.lastAuthorityAt >= this.leaseMs) this.#pause('no renewal answered for a whole lease period')
       } finally {
         this.renewing = null
       }
@@ -466,9 +551,15 @@ export class HostLifecycle {
    * host_expired pauses an active host (it renews at once) and makes a starting identity be
    * replaced; unknown_host replaces the identity (recoverable); host_inactive follows the
    * database (the end of this host's own drain, or a lost identity).
+   *
+   * `identity` (N6): the identity the request was sent for ({ generation, hostId }; a session
+   * key carries it). Nothing changes unless it is still this host's current identity: an old
+   * identity's refusal or newerActive is counted (`foreignAnswers`) and ignored. Omitted, the
+   * answer is taken as about the current identity (the host's own calls and tests).
    */
-  observe(answer) {
+  observe(answer, identity = this.identity) {
     if (!answer || typeof answer !== 'object') return
+    if (!sameIdentity(identity, this.identity)) { this.counters.foreignAnswers++; return }
     if (answer.newerActive === true && !this.newerSeen) {
       this.newerSeen = true
       this.counters.newerActive++
