@@ -30,6 +30,13 @@ const INFRASTRUCTURE = [
 ]
 /** Infrastructure only when no test is named (a real test may legitimately report these). */
 const INFRASTRUCTURE_UNNAMED = [/^\s*SyntaxError: /m, /ENOENT: no such file or directory/, /ERR_INVALID_ARG_TYPE/]
+/**
+ * The lines a reporter prints to NAME a test (node spec ✔/✖, Vitest ✓/×/FAIL). The markers of a
+ * timeout, a cancellation or a pending promise are only read outside them: a test may be named
+ * after the very message it is about (the judge's own tests are), and its name must never decide.
+ */
+const NAME_LINE = /^\s*(?:✔|✖|✓|×|FAIL\s)/
+const outsideNames = text => text.split('\n').filter(line => !NAME_LINE.test(line)).join('\n')
 const looksLikeFile = name => /\.(m?[jt]sx?|cjs)$/.test(name) || /[\\/]/.test(name) && /\.\w+$/.test(name)
 
 /** Every test failure the output names, in order (node spec, Vitest, Deno, ordering harness, supervisor). */
@@ -56,14 +63,15 @@ export function judge(test, run) {
   const verdict = (kind, why) => ({ ...base, verdict: kind, caught: kind === 'caught', timedOut: kind === 'timedOut', why })
   if (run.error?.code === 'ETIMEDOUT' || run.signal) return verdict('timedOut', 'killed at the runner deadline')
   if (run.error) return verdict('error', `could not run: ${run.error.code ?? run.error.message}`)
-  const timeout = TIMEOUT.find(pattern => pattern.test(text))
-  if (timeout) return verdict('timedOut', `framework timeout (${text.match(timeout)[0]})`)
-  const cancelled = CANCELLED.map(pattern => text.match(pattern)).find(match => match && Number(match[1]) > 0)
+  const markers = outsideNames(text)
+  const timeout = TIMEOUT.find(pattern => pattern.test(markers))
+  if (timeout) return verdict('timedOut', `framework timeout (${markers.match(timeout)[0]})`)
+  const cancelled = CANCELLED.map(pattern => markers.match(pattern)).find(match => match && Number(match[1]) > 0)
   if (cancelled) return verdict('cancelled', `cancelled tests (${cancelled[0].trim()})`)
-  if (PENDING.test(text)) return verdict('cancelled', 'a test left a promise pending')
-  if (/^[a-z][a-z0-9-]*: ERROR/m.test(text)) return verdict('error', 'a harness scenario crashed')
-  const infrastructure = INFRASTRUCTURE.find(pattern => pattern.test(text)) ?? (failures.length === 0 ? INFRASTRUCTURE_UNNAMED.find(pattern => pattern.test(text)) : undefined)
-  if (infrastructure) return verdict('error', `infrastructure (${text.match(infrastructure)[0].trim().slice(0, 60)})`)
+  if (PENDING.test(markers)) return verdict('cancelled', 'a test left a promise pending')
+  if (/^[a-z][a-z0-9-]*: ERROR/m.test(markers)) return verdict('error', 'a harness scenario crashed')
+  const infrastructure = INFRASTRUCTURE.find(pattern => pattern.test(markers)) ?? (failures.length === 0 ? INFRASTRUCTURE_UNNAMED.find(pattern => pattern.test(markers)) : undefined)
+  if (infrastructure) return verdict('error', `infrastructure (${markers.match(infrastructure)[0].trim().slice(0, 60)})`)
   if (run.status === 0) return verdict('missed', 'the tests passed')
   if (failures.length === 0) return verdict('missed', `exit ${run.status} without an identifiable test failure`)
   const expected = test.expect === undefined || test.expect === null ? null : [test.expect].flat()

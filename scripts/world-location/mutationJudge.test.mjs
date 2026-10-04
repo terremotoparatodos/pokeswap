@@ -88,6 +88,23 @@ test('10. the mutated file is restored byte for byte in every case (verdict, thr
   assert.deepEqual(readFileSync(file), original)
 })
 
+test('11. a test NAMED after a timeout, a cancellation or a pending promise is judged by its result, not its name', () => {
+  // The judge's own tests are named after those messages: a run of them must stay judgeable.
+  const names = [
+    '✔ a promise left pending ("Promise resolution is still pending") is cancelled (0.1ms)',
+    '✔ node:test "test timed out after 300 ms" is a timeout (0.1ms)',
+    '✔ Vitest "Test timed out in 300ms" / "Hook timed out in 300ms" (0.1ms)',
+    '✔ "Could not find \'x.test.js\'" is infrastructure (0.1ms)',
+    ' ✓ named "ℹ cancelled 1" 1ms',
+  ].join('\n')
+  const failing = `${names}\n✖ the real assertion (0.2ms)\n  AssertionError [ERR_ASSERTION]: expected cause\nℹ cancelled 0\n`
+  assert.equal(judge({ expect: 'the real assertion' }, { status: 1, signal: null, stdout: failing, stderr: '' }).verdict, 'caught')
+  assert.equal(judge({}, { status: 0, signal: null, stdout: `${names}\nℹ cancelled 0\n`, stderr: '' }).verdict, 'missed', 'all passed: missed, not cancelled or timed out')
+  // The real markers, outside the name lines, still decide.
+  assert.equal(judge({ expect: 'pending forever' }, ran('pending')).verdict, 'cancelled')
+  assert.equal(judge({ expect: 'hangs past the vitest timeout' }, ran('vtimeout')).verdict, 'timedOut')
+})
+
 test('tally reports every category by id', () => {
   const summary = tally([{ id: 'A', verdict: 'caught' }, { id: 'B', verdict: 'timedOut' }, { id: 'C', verdict: 'cancelled' }, { id: 'D', verdict: 'error' }, { id: 'E', verdict: 'missed' }])
   assert.deepEqual(summary, { total: 5, caught: 1, missed: ['E'], timedOut: ['B'], cancelled: ['C'], error: ['D'], pattern: [] })
