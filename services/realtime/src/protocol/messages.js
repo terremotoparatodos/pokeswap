@@ -12,6 +12,9 @@ export const DIRECTIONS = new Set(['up', 'down', 'left', 'right'])
 export const MESSAGE = Object.freeze({
   READY: 'presence:ready', MOVE: 'move', AREA: 'area', OBSERVE: 'observe',
   SNAPSHOT: 'presence:snapshot', SELF: 'presence:self', DELTA: 'presence:delta', BATCH: 'presence:batch', ERROR: 'presence:error',
+  // WORLD LOCATION-4: why the server is about to close this socket ({ reason: 'replaced' | 'draining' }),
+  // sent right before the close to clients that declare presenceProtocol >= 3.
+  CLOSING: 'presence:closing',
   // Community Playtest 0.1 — area chat. `CHAT` is what a client sends; the
   // other two are what it receives on joining an area and on every new line.
   CHAT: 'chat', CHAT_HISTORY: 'chat:history', CHAT_LINE: 'chat:line',

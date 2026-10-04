@@ -158,3 +158,94 @@ describe('world-authority location operations', () => {
     }
   })
 })
+
+// ── WORLD LOCATION-4 (additive v5): host lifecycle and keyed location operations ──
+
+const HOST = 'a0000000-0000-4000-8000-000000000001'
+const SESSION = 'c0000000-0000-4000-8000-000000000001'
+const keyed = (extra: Record<string, unknown> = {}) => ({ op: 'location_claim', userId: USER, generation: 4, seq: 9, sessionId: SESSION, hostId: HOST, ...extra })
+
+describe('world-authority host lifecycle (presence_*)', () => {
+  it('each presence op needs the secret and a well-formed host, and calls exactly its function', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    expect((await handleWorldAuthority(post({ op: 'presence_acquire', hostId: HOST, leaseMs: 15000 }, null), deps(calls))).status).toBe(401)
+    const ok = [
+      [{ op: 'presence_acquire', hostId: HOST, leaseMs: 15000 }, { fn: 'world_presence_acquire', args: { p_host_id: HOST, p_lease_ms: 15000 } }],
+      [{ op: 'presence_activate', generation: 4, hostId: HOST, leaseMs: 15000 }, { fn: 'world_presence_activate', args: { p_generation: 4, p_host_id: HOST, p_lease_ms: 15000 } }],
+      [{ op: 'presence_renew', generation: 4, hostId: HOST, leaseMs: 15000 }, { fn: 'world_presence_renew', args: { p_generation: 4, p_host_id: HOST, p_lease_ms: 15000 } }],
+      [{ op: 'presence_drain', generation: 4, hostId: HOST, drainMs: 10000 }, { fn: 'world_presence_drain', args: { p_generation: 4, p_host_id: HOST, p_drain_ms: 10000 } }],
+      [{ op: 'presence_stop', generation: 4, hostId: HOST }, { fn: 'world_presence_stop', args: { p_generation: 4, p_host_id: HOST } }],
+    ] as const
+    for (const [body, call] of ok) {
+      const before = calls.length
+      expect((await handleWorldAuthority(post({ ...body, state: 'active', userId: USER }), deps(calls))).status).toBe(200)
+      // Extra fields (a forged state, a user) never reach SQL.
+      expect(calls.slice(before)).toEqual([call])
+    }
+  })
+
+  it('a malformed host, lease or drain window is refused before the database', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    const bad = [
+      { op: 'presence_acquire', hostId: 'h1', leaseMs: 15000 }, { op: 'presence_acquire', hostId: HOST, leaseMs: 999 },
+      { op: 'presence_acquire', hostId: HOST, leaseMs: 120001 }, { op: 'presence_acquire', hostId: HOST },
+      { op: 'presence_activate', generation: 0, hostId: HOST, leaseMs: 15000 }, { op: 'presence_activate', generation: 1.5, hostId: HOST, leaseMs: 15000 },
+      { op: 'presence_activate', generation: '4', hostId: HOST, leaseMs: 15000 }, { op: 'presence_activate', generation: 4, leaseMs: 15000 },
+      { op: 'presence_renew', generation: 4, hostId: HOST, leaseMs: 'x' }, { op: 'presence_renew', generation: 2 ** 53, hostId: HOST, leaseMs: 15000 },
+      { op: 'presence_drain', generation: 4, hostId: HOST, drainMs: 60001 }, { op: 'presence_drain', generation: 4, hostId: HOST },
+      { op: 'presence_stop', generation: 4, hostId: `${HOST}x` },
+    ]
+    for (const body of bad) expect((await handleWorldAuthority(post(body), deps(calls))).status).toBe(400)
+    expect(calls).toEqual([])
+  })
+})
+
+describe('world-authority keyed location operations', () => {
+  it('location_claim (keyed): the whole key and host are required, and passed as is to world_location_claim_keyed', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    const response = await handleWorldAuthority(post(keyed({ areaId: 'pradera', epoch: 99, tabId: 'forged' })), deps(calls, SECRET, 'closed'))
+    expect(response.status).toBe(200)
+    expect(calls).toEqual([{ fn: 'world_location_claim_keyed', args: { p_user_id: USER, p_generation: 4, p_seq: 9, p_session: SESSION, p_host_id: HOST } }])
+  })
+
+  it('location_claim (keyed): any missing or malformed key field, or a mixed v1/v5 body, never reaches SQL', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    const bad = [
+      keyed({ userId: 'me' }), keyed({ generation: 0 }), keyed({ generation: undefined }), keyed({ seq: 0 }), keyed({ seq: 1.5 }),
+      keyed({ seq: '9' }), keyed({ sessionId: 'tab-1' }), keyed({ sessionId: null }), keyed({ hostId: 'h' }),
+      keyed({ expectedEpoch: 3 }), keyed({ expectedEpoch: 0 }),
+      { op: 'location_claim', userId: USER, expectedEpoch: 0, hostId: HOST }, { op: 'location_claim', userId: USER, expectedEpoch: 0, seq: 1 },
+    ]
+    for (const body of bad) expect((await handleWorldAuthority(post(body), deps(calls))).status).toBe(400)
+    expect(calls).toEqual([])
+  })
+
+  it('location_save (keyed): the writing host travels with the rows; rows are validated exactly as in v1', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    const ok = await handleWorldAuthority(post({ op: 'location_save', generation: 4, hostId: HOST, rows: [locationRow({ dir: 'up' })] }), deps(calls))
+    expect(ok.status).toBe(200)
+    expect(calls).toEqual([{ fn: 'world_location_save_keyed', args: { p_rows: [locationRow()], p_generation: 4, p_host_id: HOST } }])
+    for (const body of [
+      { op: 'location_save', generation: 4, rows: [locationRow()] }, { op: 'location_save', hostId: HOST, rows: [locationRow()] },
+      { op: 'location_save', generation: 0, hostId: HOST, rows: [locationRow()] }, { op: 'location_save', generation: 4, hostId: HOST, rows: [locationRow({ tx: 4096 })] },
+      { op: 'location_save', generation: 4, hostId: HOST, rows: [] },
+    ]) expect((await handleWorldAuthority(post(body), deps(calls))).status).toBe(400)
+    expect(calls.length).toBe(1)
+  })
+
+  it('the v1 shapes are unchanged (old realtime builds keep working until v1 is retired)', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    expect((await handleWorldAuthority(post({ op: 'location_claim', userId: USER, expectedEpoch: 2 }), deps(calls))).status).toBe(200)
+    expect((await handleWorldAuthority(post({ op: 'location_save', rows: [locationRow()] }), deps(calls))).status).toBe(200)
+    expect(calls.map(c => c.fn)).toEqual(['world_location_claim', 'world_location_save'])
+  })
+
+  it('keyed and presence operations do not leak database errors', async () => {
+    const failing: AuthorityDeps = { secret: SECRET, rpc: async () => ({ data: null, error: { message: 'world_presence_hosts on db.internal' } }) }
+    for (const body of [keyed(), { op: 'location_save', generation: 4, hostId: HOST, rows: [locationRow()] }, { op: 'presence_acquire', hostId: HOST, leaseMs: 15000 }, { op: 'presence_renew', generation: 4, hostId: HOST, leaseMs: 15000 }]) {
+      const response = await handleWorldAuthority(post(body), failing)
+      expect(response.status).toBe(500)
+      expect(await response.text()).not.toContain('db.internal')
+    }
+  })
+})

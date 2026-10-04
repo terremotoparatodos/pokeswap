@@ -15,6 +15,11 @@ import { PERSISTABLE_AREAS, layoutVersion } from '../world/layoutVersion.js'
  * Without a store that implements locationClaim and locationSave (the demo and
  * unavailable world modes) the effective mode is 'unavailable', which behaves
  * like off. Guests and synthetic ids never persist.
+ *
+ * WORLD LOCATION-4: sessions persist only through this process's presence host
+ * (presence/hostLifecycle.js): each session gets its key from the host when it is
+ * accepted. Without a host attached (or while the host cannot persist) sessions
+ * play on unpersisted, counted as `claims.noKey`.
  */
 
 export const LOCATION_MODES = Object.freeze(['off', 'shadow', 'on'])
@@ -31,12 +36,13 @@ export function locationMode(value) {
 const supportsLocation = store => typeof store?.locationClaim === 'function' && typeof store?.locationSave === 'function'
 
 export class LocationService {
-  constructor({ mode = 'off', store = null, now = Date.now, hydrationTimeoutMs = HYDRATION_TIMEOUT_MS, locate = savedLocationOf, onFenced = () => {}, onClaimed = () => {}, log } = {}) {
+  constructor({ mode = 'off', store = null, host = null, now = Date.now, hydrationTimeoutMs = HYDRATION_TIMEOUT_MS, locate = savedLocationOf, onFenced = () => {}, onClaimed = () => {}, log } = {}) {
     this.mode = locationMode(mode)
     this.effective = this.mode === 'off' ? 'off' : supportsLocation(store) ? this.mode : 'unavailable'
     this.now = now
     this.hydrationTimeoutMs = hydrationTimeoutMs
-    this.journal = this.active ? new LocationJournal({ store, locate, now, onFenced, onClaimed, ...(log ? { log } : {}) }) : null
+    this.host = host
+    this.journal = this.active ? new LocationJournal({ store, host, locate, now, onFenced, onClaimed, ...(log ? { log } : {}) }) : null
     // The layout fingerprints cost ~100-200 ms once (Pradera). Pay it at start,
     // before any player is served, not on the first save of a live session.
     if (this.active) for (const areaId of PERSISTABLE_AREAS) layoutVersion(areaId)
@@ -45,7 +51,9 @@ export class LocationService {
       repairs: { area: 0, layout: 0, tile: 0, protocol: 0 },
       // A claim that answered after the fallback was published: epoch only, position adopted (B3).
       late: { adopted: 0 },
-      shadow: { wouldRestore: 0, wouldRepair: { area: 0, layout: 0, tile: 0, protocol: 0 }, wouldFence: 0 },
+      shadow: { wouldRestore: 0, wouldRepair: { area: 0, layout: 0, tile: 0, protocol: 0 }, wouldFence: 0, wouldReplace: 0, wouldDrain: 0 },
+      // `on`: sessions closed because a greater key owns their row (claim superseded).
+      supersededDisconnects: 0,
       fencedDisconnects: 0,
       hydration: { started: 0, maxMs: 0 },
     }
@@ -57,7 +65,13 @@ export class LocationService {
   /** Whether this identity's sessions claim and save. */
   persists(userId) { return this.active && persistableIdentity(userId) }
 
-  begin(userId) { return this.journal.beginSession(userId) }
+  /** Synchronous (onJoin): the session's key is assigned here, in acceptance order. */
+  begin(userId) { return this.journal.beginSession(userId, this.host?.sessionKey() ?? null) }
+  /** The process host, once acquired (realtimeServer.js). Sessions begun before it never persist. */
+  attachHost(host) {
+    this.host = host
+    if (this.journal) this.journal.host = host
+  }
   claim(session) { return this.journal.claim(session) }
   note(session, actor, options) { if (session && this.journal) this.journal.note(session, actor, options) }
   end(session, actor) { if (session && this.journal) this.journal.endSession(session, actor) }
@@ -73,7 +87,7 @@ export class LocationService {
 
   /** Best-effort final flush on shutdown; never part of correctness. */
   async shutdown(deadlineMs = 3_000) {
-    if (!this.journal) return { sent: 0, left: 0, timedOut: false }
+    if (!this.journal) return { sent: 0, applied: 0, duplicate: 0, stale: 0, hostRefused: 0, left: 0, timedOut: false }
     this.journal.stop()
     return this.journal.flushAll(deadlineMs)
   }
@@ -93,8 +107,9 @@ export class LocationService {
     return {
       mode: this.mode, effective: this.effective,
       restores: { ...c.restores }, repairs: { ...c.repairs }, late: { ...c.late },
-      shadow: { wouldRestore: c.shadow.wouldRestore, wouldRepair: { ...c.shadow.wouldRepair }, wouldFence: c.shadow.wouldFence },
-      fencedDisconnects: c.fencedDisconnects, hydration: { ...c.hydration },
+      shadow: { wouldRestore: c.shadow.wouldRestore, wouldRepair: { ...c.shadow.wouldRepair }, wouldFence: c.shadow.wouldFence, wouldReplace: c.shadow.wouldReplace, wouldDrain: c.shadow.wouldDrain },
+      fencedDisconnects: c.fencedDisconnects, supersededDisconnects: c.supersededDisconnects, hydration: { ...c.hydration },
+      ...(this.host ? { host: this.host.stats() } : {}),
       ...(this.journal ? { journal: this.journal.stats() } : {}),
     }
   }

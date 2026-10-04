@@ -85,6 +85,14 @@ describe('world entry machine (PRESENCE UX-1)', () => {
     }
   })
 
+  it('WORLD LOCATION-4: only the explicit takeover («Jugar acá») leaves replaced, as a new entry', () => {
+    const replaced = run(online(), 'snapshot', 'prepared', 'replaced')
+    expect(nextWorldEntry(replaced, { type: 'takeover' })).toMatchObject({ phase: 'connecting', authority: false, live: false, sceneShown: true })
+    for (const state of [run(online()), run(online(), 'snapshot', 'prepared'), run(online(), 'timeout')]) {
+      expect(nextWorldEntry(state, { type: 'takeover' })).toBe(state)
+    }
+  })
+
   it('a session change waits again without going through an error', () => {
     expect(run(online(), 'snapshot', 'prepared', 'renew')).toMatchObject({ phase: 'reconnecting', live: false })
     const error = run(online(), 'timeout')

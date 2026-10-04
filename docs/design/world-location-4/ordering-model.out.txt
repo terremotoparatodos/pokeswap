@@ -1,0 +1,598 @@
+
+actual · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+actual · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R2: la fila terminó en A, no en B
+
+actual · T4 · ídem con abandono y reintento · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+actual · T4 · ídem con abandono y reintento · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R2: la fila terminó en A, no en B
+
+actual · B aceptada en el host viejo P (A en Q) · contraejemplo R1 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+actual · B aceptada en el host viejo P (A en Q) · contraejemplo R2 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R2: la fila terminó en A, no en B
+
+rebaseUnico · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+rebaseUnico · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(0)
+  B envía claim(0)
+  base aplica A.claim → conflict10 (dueño —, e10)
+  A recibe conflict → reenvía claim(10)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → conflict11 (dueño A, e11)
+  B recibe conflict
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+rebaseUnico · T4 · ídem con abandono y reintento · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+rebaseUnico · T4 · ídem con abandono y reintento · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(0)
+  B envía claim(0)
+  base aplica A.claim → conflict10 (dueño —, e10)
+  A recibe conflict → reenvía claim(10)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → conflict11 (dueño A, e11)
+  B recibe conflict
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+rebaseUnico · mismo proceso · A y B en P (B reemplaza a A) · contraejemplo R2 más corto:
+  acepta A@P
+  A envía claim(0)
+  base aplica A.claim → conflict10 (dueño —, e10)
+  A recibe conflict → reenvía claim(10)
+  acepta B@P
+  A abandona su claim (timeout)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → conflict11 (dueño A, e11)
+  B recibe conflict
+  ⇒ R2: la fila terminó en A, no en B
+
+rebaseUnico · B aceptada en el host viejo P (A en Q) · contraejemplo R1 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía claim(0)
+  B envía claim(0)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → conflict11 (dueño B, e11)
+  A recibe conflict → reenvía claim(11)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  base aplica B.save → stale (dueño A, e12)
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+rebaseUnico · B aceptada en el host viejo P (A en Q) · contraejemplo R2 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía claim(0)
+  B envía claim(0)
+  base aplica A.claim → conflict10 (dueño —, e10)
+  A recibe conflict → reenvía claim(10)
+  base aplica B.claim → conflict10 (dueño —, e10)
+  B recibe conflict → reenvía claim(10)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → conflict11 (dueño A, e11)
+  B recibe conflict
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+ticket · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+ticket · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+ticket · T4 · ídem con abandono y reintento · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+ticket · T4 · ídem con abandono y reintento · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+ticket · B aceptada en el host viejo P (A en Q) · contraejemplo R1 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+ticket · B aceptada en el host viejo P (A en Q) · contraejemplo R2 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+ticketSinIdem · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+ticketSinIdem · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+ticketSinIdem · T4 · ídem con abandono y reintento · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+ticketSinIdem · T4 · ídem con abandono y reintento · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+ticketSinIdem · B aceptada en el host viejo P (A en Q) · contraejemplo R1 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+ticketSinIdem · B aceptada en el host viejo P (A en Q) · contraejemplo R2 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía reg
+  B envía reg
+  base aplica B.reg → ticket1 (dueño —, e10)
+  base aplica A.reg → ticket2 (dueño —, e10)
+  A recibe ticket → reenvía claim(2)
+  B recibe ticket → reenvía claim(1)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+reloj +300 · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(300)
+  B envía claim(250)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+reloj +300 · T3/T7 · A en P (viejo), B en Q, sin abandono · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(300)
+  B envía claim(250)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+reloj +300 · T4 · ídem con abandono y reintento · contraejemplo R1 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(300)
+  B envía claim(250)
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+reloj +300 · T4 · ídem con abandono y reintento · contraejemplo R2 más corto:
+  acepta A@P
+  acepta B@Q
+  A envía claim(300)
+  B envía claim(250)
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+generacion · B aceptada en el host viejo P (A en Q) · contraejemplo R1 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía claim([2,1])
+  B envía claim([1,1])
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  B envía save(e11)
+  base aplica A.save → applied (dueño A, e12)
+  base aplica B.save → stale (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+generacion · B aceptada en el host viejo P (A en Q) · contraejemplo R2 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía claim([2,1])
+  B envía claim([1,1])
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica B.claim → superseded (dueño A, e11)
+  B recibe superseded
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la fila terminó en A, no en B
+
+generacionDrenaje · B aceptada en el host viejo P (A en Q) · contraejemplo R1 más corto:
+  acepta A@Q
+  acepta B@P
+  A envía claim([2,1])
+  B envía claim([1,1])
+  base aplica B.claim → claimed11 (dueño B, e11)
+  base aplica A.claim → claimed12 (dueño A, e12)
+  A recibe claimed
+  A envía save(e12)
+  B recibe claimed
+  P renueva su lease: Q está activo → P drena (cierra con "reconectar")
+  base aplica A.save → applied (dueño A, e12)
+  ⇒ R1: A le quitó la fila a B (más nueva)
+
+generacionDrenaje · B aceptada en el host viejo P (A en Q) · contraejemplo R2 más corto:
+  acepta A@Q
+  acepta B@P
+  P renueva su lease: Q está activo → P drena (cierra con "reconectar")
+  A envía claim([2,1])
+  base aplica A.claim → claimed11 (dueño A, e11)
+  A recibe claimed
+  A envía save(e11)
+  base aplica A.save → applied (dueño A, e11)
+  ⇒ R2: la pestaña más nueva (B) cedió al reconectar
+┌─────────┬─────────────────────┬────────────────────────────────────────────────┬─────────┬─────────┬────┬────┬───┬─────┐
+│ (index) │ protocolo           │ escenario                                      │ estados │ finales │ R1 │ R2 │ S │ K   │
+├─────────┼─────────────────────┼────────────────────────────────────────────────┼─────────┼─────────┼────┼────┼───┼─────┤
+│ 0       │ 'actual'            │ 'T3/T7 · A en P (viejo), B en Q, sin abandono' │ 358     │ 4       │ 2  │ 2  │ 0 │ '—' │
+│ 1       │ 'actual'            │ 'T4 · ídem con abandono y reintento'           │ 40207   │ 86      │ 57 │ 40 │ 0 │ '—' │
+│ 2       │ 'actual'            │ 'mismo proceso · A y B en P (B reemplaza a A)' │ 1485    │ 74      │ 0  │ 0  │ 0 │ '—' │
+│ 3       │ 'actual'            │ 'B aceptada en el host viejo P (A en Q)'       │ 358     │ 4       │ 2  │ 2  │ 0 │ '—' │
+│ 4       │ 'rebaseUnico'       │ 'T3/T7 · A en P (viejo), B en Q, sin abandono' │ 282     │ 4       │ 1  │ 2  │ 0 │ '—' │
+│ 5       │ 'rebaseUnico'       │ 'T4 · ídem con abandono y reintento'           │ 12234   │ 20      │ 6  │ 10 │ 0 │ '—' │
+│ 6       │ 'rebaseUnico'       │ 'mismo proceso · A y B en P (B reemplaza a A)' │ 878     │ 26      │ 0  │ 2  │ 0 │ '—' │
+│ 7       │ 'rebaseUnico'       │ 'B aceptada en el host viejo P (A en Q)'       │ 282     │ 4       │ 1  │ 2  │ 0 │ '—' │
+│ 8       │ 'ticket'            │ 'T3/T7 · A en P (viejo), B en Q, sin abandono' │ 298     │ 4       │ 1  │ 2  │ 0 │ '—' │
+│ 9       │ 'ticket'            │ 'T4 · ídem con abandono y reintento'           │ 12902   │ 20      │ 6  │ 10 │ 0 │ '—' │
+│ 10      │ 'ticket'            │ 'mismo proceso · A y B en P (B reemplaza a A)' │ 862     │ 26      │ 0  │ 0  │ 0 │ '—' │
+│ 11      │ 'ticket'            │ 'B aceptada en el host viejo P (A en Q)'       │ 298     │ 4       │ 1  │ 2  │ 0 │ '—' │
+│ 12      │ 'ticketSinIdem'     │ 'T3/T7 · A en P (viejo), B en Q, sin abandono' │ 298     │ 4       │ 1  │ 2  │ 0 │ '—' │
+│ 13      │ 'ticketSinIdem'     │ 'T4 · ídem con abandono y reintento'           │ 27166   │ 122     │ 33 │ 61 │ 0 │ '—' │
+│ 14      │ 'ticketSinIdem'     │ 'mismo proceso · A y B en P (B reemplaza a A)' │ 1732    │ 102     │ 0  │ 0  │ 0 │ '—' │
+│ 15      │ 'ticketSinIdem'     │ 'B aceptada en el host viejo P (A en Q)'       │ 298     │ 4       │ 1  │ 2  │ 0 │ '—' │
+│ 16      │ 'reloj (P +0 ms)'   │ 'T3/T7 · A en P (viejo), B en Q, sin abandono' │ 87      │ 2       │ 0  │ 0  │ 0 │ '—' │
+│ 17      │ 'reloj (P +300 ms)' │ 'T3/T7 · A en P (viejo), B en Q, sin abandono' │ 87      │ 2       │ 1  │ 2  │ 0 │ '—' │
+│ 18      │ 'reloj (P +0 ms)'   │ 'T4 · ídem con abandono y reintento'           │ 1646    │ 10      │ 0  │ 0  │ 0 │ '—' │
+│ 19      │ 'reloj (P +300 ms)' │ 'T4 · ídem con abandono y reintento'           │ 1646    │ 10      │ 6  │ 10 │ 0 │ '—' │
+│ 20      │ 'reloj (P +0 ms)'   │ 'mismo proceso · A y B en P (B reemplaza a A)' │ 309     │ 18      │ 0  │ 0  │ 0 │ '—' │
+│ 21      │ 'reloj (P +300 ms)' │ 'mismo proceso · A y B en P (B reemplaza a A)' │ 309     │ 18      │ 0  │ 0  │ 0 │ '—' │
+│ 22      │ 'reloj (P +0 ms)'   │ 'B aceptada en el host viejo P (A en Q)'       │ 87      │ 2       │ 0  │ 0  │ 0 │ '—' │
+│ 23      │ 'reloj (P +300 ms)' │ 'B aceptada en el host viejo P (A en Q)'       │ 87      │ 2       │ 0  │ 0  │ 0 │ '—' │
+│ 24      │ 'generacion'        │ 'T3/T7 · A en P (viejo), B en Q, sin abandono' │ 87      │ 2       │ 0  │ 0  │ 0 │ 0   │
+│ 25      │ 'generacion'        │ 'T4 · ídem con abandono y reintento'           │ 1646    │ 10      │ 0  │ 0  │ 0 │ 0   │
+│ 26      │ 'generacion'        │ 'mismo proceso · A y B en P (B reemplaza a A)' │ 309     │ 18      │ 0  │ 0  │ 0 │ 0   │
+│ 27      │ 'generacion'        │ 'B aceptada en el host viejo P (A en Q)'       │ 87      │ 2       │ 1  │ 2  │ 0 │ 0   │
+│ 28      │ 'generacionDrenaje' │ 'T3/T7 · A en P (viejo), B en Q, sin abandono' │ 649     │ 24      │ 0  │ 0  │ 0 │ 0   │
+│ 29      │ 'generacionDrenaje' │ 'T4 · ídem con abandono y reintento'           │ 20429   │ 288     │ 0  │ 0  │ 0 │ 0   │
+│ 30      │ 'generacionDrenaje' │ 'mismo proceso · A y B en P (B reemplaza a A)' │ 19261   │ 436     │ 0  │ 0  │ 0 │ 0   │
+│ 31      │ 'generacionDrenaje' │ 'B aceptada en el host viejo P (A en Q)'       │ 228     │ 9       │ 3  │ 4  │ 0 │ 0   │
+└─────────┴─────────────────────┴────────────────────────────────────────────────┴─────────┴─────────┴────┴────┴───┴─────┘

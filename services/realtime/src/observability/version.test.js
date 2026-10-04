@@ -18,9 +18,9 @@ test('version payload is limited to public build identity', () => {
   assert.equal(info.protocol, PRESENCE_PROTOCOL_REVISION)
 })
 
-test('the public entrypoint serves /version and keeps metrics off the public port', async () => {
+test('the public entrypoint (realtimeServer.js) serves /version and keeps metrics off the public port', async () => {
   const { readFile } = await import('node:fs/promises')
-  const source = await readFile(new URL('../index.js', import.meta.url), 'utf8')
+  const source = await readFile(new URL('../realtimeServer.js', import.meta.url), 'utf8')
   assert.match(source, /app\.get\('\/version'/)
   assert.doesNotMatch(source, /app\.get\('\/metrics'/)
 })

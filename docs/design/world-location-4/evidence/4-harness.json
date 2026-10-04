@@ -1,0 +1,846 @@
+{
+  "tree": "this checkout",
+  "reps": 200,
+  "width": 25,
+  "seed": 7,
+  "modes": {
+    "same-process": {
+      "applicable": true,
+      "results": {
+        "T3": {
+          "reps": 200,
+          "ms": 23631,
+          "violated": 0,
+          "variants": {
+            "cross": 150,
+            "same": 50
+          },
+          "olderOutcomes": {
+            "4409": 200
+          },
+          "examples": []
+        },
+        "T4": {
+          "reps": 200,
+          "ms": 63581,
+          "violated": 0,
+          "variants": {
+            "cross": 150,
+            "same": 50
+          },
+          "olderOutcomes": {
+            "4409": 200
+          },
+          "examples": []
+        },
+        "T7": {
+          "reps": 200,
+          "ms": 16283,
+          "violated": 0,
+          "variants": {
+            "cross": 150,
+            "same": 50
+          },
+          "olderOutcomes": {
+            "4409": 57,
+            "open": 143
+          },
+          "examples": []
+        }
+      }
+    },
+    "two-process": {
+      "applicable": true,
+      "results": {
+        "T3": {
+          "reps": 200,
+          "ms": 24618,
+          "violated": 0,
+          "gaps": {
+            "n": 200,
+            "min": 20,
+            "p50": 105,
+            "p95": 182,
+            "max": 199
+          },
+          "injected": {
+            "n": 200,
+            "min": 317,
+            "p50": 760,
+            "p95": 1165,
+            "max": 1196
+          },
+          "olderOutcomes": {
+            "4409": 50,
+            "open": 150
+          },
+          "examples": []
+        },
+        "T4": {
+          "reps": 200,
+          "ms": 57455,
+          "violated": 0,
+          "gaps": {
+            "n": 200,
+            "min": 300,
+            "p50": 300,
+            "p95": 300,
+            "max": 300
+          },
+          "injected": null,
+          "olderOutcomes": {
+            "4409": 50,
+            "open": 150
+          },
+          "examples": []
+        },
+        "T7": {
+          "reps": 200,
+          "ms": 20059,
+          "violated": 0,
+          "gaps": {
+            "n": 200,
+            "min": 1,
+            "p50": 149,
+            "p95": 284,
+            "max": 300
+          },
+          "injected": null,
+          "olderOutcomes": {
+            "4409": 50,
+            "open": 150
+          },
+          "examples": []
+        }
+      },
+      "hosts": [
+        {
+          "generation": 1,
+          "state": "active",
+          "activated_at": "2026-10-03T23:12:48.854Z",
+          "draining_at": null,
+          "stopped_at": null,
+          "live": true
+        },
+        {
+          "generation": 2,
+          "state": "active",
+          "activated_at": "2026-10-03T23:12:49.356Z",
+          "draining_at": null,
+          "stopped_at": null,
+          "live": true
+        }
+      ],
+      "authorityCalls": {
+        "location_claim": 1209,
+        "location_save": 70,
+        "location_rows": 746,
+        "presence": 44,
+        "other": 1202,
+        "held": 200,
+        "lost": 0,
+        "failed": 0
+      }
+    },
+    "candidates": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "round 0: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[1,\"stopped\"],[2,\"active\"]]"
+        },
+        {
+          "name": "round 0: the older never activated after the newer",
+          "ok": true,
+          "detail": "[\"2026-10-03T23:14:33.636Z\",\"2026-10-03T23:14:33.668Z\"]"
+        },
+        {
+          "name": "round 0: one process stays ready",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 0: both processes stay alive (the displaced one never exits)",
+          "ok": true,
+          "detail": "[null,null]"
+        },
+        {
+          "name": "round 0: the displaced process refuses joins with 4503",
+          "ok": true,
+          "detail": "{\"refused\":4503,\"left\":null}"
+        },
+        {
+          "name": "round 1: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[3,\"stopped\"],[4,\"active\"]]"
+        },
+        {
+          "name": "round 1: the older never activated after the newer",
+          "ok": true,
+          "detail": "[\"2026-10-03T23:14:41.280Z\",\"2026-10-03T23:14:41.323Z\"]"
+        },
+        {
+          "name": "round 1: one process stays ready",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 1: both processes stay alive (the displaced one never exits)",
+          "ok": true,
+          "detail": "[null,null]"
+        },
+        {
+          "name": "round 1: the displaced process refuses joins with 4503",
+          "ok": true,
+          "detail": "{\"refused\":4503,\"left\":null}"
+        },
+        {
+          "name": "round 2: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[5,\"stopped\"],[6,\"active\"]]"
+        },
+        {
+          "name": "round 2: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T23:14:48.893Z\"]"
+        },
+        {
+          "name": "round 2: one process stays ready",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 2: both processes stay alive (the displaced one never exits)",
+          "ok": true,
+          "detail": "[null,null]"
+        },
+        {
+          "name": "round 2: the displaced process refuses joins with 4503",
+          "ok": true,
+          "detail": "{\"refused\":4503,\"left\":null}"
+        },
+        {
+          "name": "round 3: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[7,\"stopped\"],[8,\"active\"]]"
+        },
+        {
+          "name": "round 3: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T23:14:57.092Z\"]"
+        },
+        {
+          "name": "round 3: a late activation of the older candidate is refused (never active)",
+          "ok": true,
+          "detail": "{\"generation\":7,\"state\":\"stopped\",\"activated_at\":null,\"draining_at\":null,\"stopped_at\":\"2026-10-03T23:15:00.527Z\",\"live\":true}"
+        },
+        {
+          "name": "round 3: one process stays ready",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 3: both processes stay alive (the displaced one never exits)",
+          "ok": true,
+          "detail": "[null,null]"
+        },
+        {
+          "name": "round 3: the refused one is the older (R): 503",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 3: the displaced process refuses joins with 4503",
+          "ok": true,
+          "detail": "{\"refused\":4503,\"left\":null}"
+        },
+        {
+          "name": "round 4: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[9,\"stopped\"],[10,\"active\"]]"
+        },
+        {
+          "name": "round 4: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T23:15:05.187Z\"]"
+        },
+        {
+          "name": "round 4: a late activation of the older candidate is refused (never active)",
+          "ok": true,
+          "detail": "{\"generation\":9,\"state\":\"stopped\",\"activated_at\":null,\"draining_at\":null,\"stopped_at\":\"2026-10-03T23:15:08.634Z\",\"live\":true}"
+        },
+        {
+          "name": "round 4: one process stays ready",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 4: both processes stay alive (the displaced one never exits)",
+          "ok": true,
+          "detail": "[null,null]"
+        },
+        {
+          "name": "round 4: the refused one is the older (R): 503",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 4: the displaced process refuses joins with 4503",
+          "ok": true,
+          "detail": "{\"refused\":4503,\"left\":null}"
+        },
+        {
+          "name": "round 5: exactly one active host, the newer",
+          "ok": true,
+          "detail": "[[11,\"stopped\"],[12,\"active\"]]"
+        },
+        {
+          "name": "round 5: the older never activated after the newer",
+          "ok": true,
+          "detail": "[null,\"2026-10-03T23:15:13.355Z\"]"
+        },
+        {
+          "name": "round 5: a late activation of the older candidate is refused (never active)",
+          "ok": true,
+          "detail": "{\"generation\":11,\"state\":\"stopped\",\"activated_at\":null,\"draining_at\":null,\"stopped_at\":\"2026-10-03T23:15:16.800Z\",\"live\":true}"
+        },
+        {
+          "name": "round 5: one process stays ready",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 5: both processes stay alive (the displaced one never exits)",
+          "ok": true,
+          "detail": "[null,null]"
+        },
+        {
+          "name": "round 5: the refused one is the older (R): 503",
+          "ok": true,
+          "detail": "[503,200]"
+        },
+        {
+          "name": "round 5: the displaced process refuses joins with 4503",
+          "ok": true,
+          "detail": "{\"refused\":4503,\"left\":null}"
+        }
+      ]
+    },
+    "shadow-refused": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "the older shadow candidate was refused (stopped, never active)",
+          "ok": true,
+          "detail": "{\"generation\":1,\"state\":\"stopped\",\"activated_at\":null,\"draining_at\":null,\"stopped_at\":\"2026-10-03T23:15:26.586Z\",\"live\":true}"
+        },
+        {
+          "name": "the refused shadow process keeps running and ready",
+          "ok": true,
+          "detail": "[null,200]"
+        },
+        {
+          "name": "every player is admitted and placed (no 4503, no wait beyond the activation wait)",
+          "ok": true,
+          "detail": "[null,null,null,null]"
+        },
+        {
+          "name": "nobody is closed and nobody hears presence:closing",
+          "ok": true,
+          "detail": "[[null,[]],[null,[]],[null,[]],[null,[]]]"
+        },
+        {
+          "name": "players move as usual",
+          "ok": true
+        },
+        {
+          "name": "no claim is sent for them (no active host: no key)",
+          "ok": true,
+          "detail": "{\"location_claim\":0,\"location_save\":0,\"location_rows\":0,\"presence\":7,\"other\":6,\"held\":0,\"lost\":0,\"failed\":0}"
+        }
+      ]
+    },
+    "inverted": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "drain, d=0 ms, another tab live on Q: the new tab entered the old host and was closed by its drain with 4503 (never 4001)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":0,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":4353,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=0 ms, another tab live on Q: bounded window on P (≤ one renewal + injected delay + round trips)",
+          "ok": true,
+          "detail": "4353"
+        },
+        {
+          "name": "drain, d=0 ms, another tab live on Q: the resume yields to the live tab (4409) and leaves it untouched",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":0,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":4353,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=0 ms, another tab live on Q: «Jugar acá» takes over explicitly (only then the other tab gets 4409)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":0,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":4353,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=0 ms, another tab live on Q: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        },
+        {
+          "name": "drain, d=0 ms, alone: the new tab entered the old host and was closed by its drain with 4503 (never 4001)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":0,\"withOther\":false,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":4505,\"resume\":\"admitted\",\"otherAfterResume\":null,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=0 ms, alone: bounded window on P (≤ one renewal + injected delay + round trips)",
+          "ok": true,
+          "detail": "4505"
+        },
+        {
+          "name": "drain, d=0 ms, alone: alone, the resume is admitted and owns the row on Q",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":0,\"withOther\":false,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":4505,\"resume\":\"admitted\",\"otherAfterResume\":null,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=0 ms, alone: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        },
+        {
+          "name": "drain, d=1500 ms, another tab live on Q: the new tab entered the old host and was closed by its drain with 4503 (never 4001)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":1500,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":5930,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=1500 ms, another tab live on Q: bounded window on P (≤ one renewal + injected delay + round trips)",
+          "ok": true,
+          "detail": "5930"
+        },
+        {
+          "name": "drain, d=1500 ms, another tab live on Q: the resume yields to the live tab (4409) and leaves it untouched",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":1500,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":5930,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=1500 ms, another tab live on Q: «Jugar acá» takes over explicitly (only then the other tab gets 4409)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":1500,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":5930,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=1500 ms, another tab live on Q: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        },
+        {
+          "name": "drain, d=1500 ms, alone: the new tab entered the old host and was closed by its drain with 4503 (never 4001)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":1500,\"withOther\":false,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":5919,\"resume\":\"admitted\",\"otherAfterResume\":null,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=1500 ms, alone: bounded window on P (≤ one renewal + injected delay + round trips)",
+          "ok": true,
+          "detail": "5919"
+        },
+        {
+          "name": "drain, d=1500 ms, alone: alone, the resume is admitted and owns the row on Q",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":1500,\"withOther\":false,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":5919,\"resume\":\"admitted\",\"otherAfterResume\":null,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=1500 ms, alone: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        },
+        {
+          "name": "drain, d=3000 ms, another tab live on Q: the new tab entered the old host and was closed by its drain with 4503 (never 4001)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":3000,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":7409,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=3000 ms, another tab live on Q: bounded window on P (≤ one renewal + injected delay + round trips)",
+          "ok": true,
+          "detail": "7409"
+        },
+        {
+          "name": "drain, d=3000 ms, another tab live on Q: the resume yields to the live tab (4409) and leaves it untouched",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":3000,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":7409,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=3000 ms, another tab live on Q: «Jugar acá» takes over explicitly (only then the other tab gets 4409)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":3000,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":7409,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=3000 ms, another tab live on Q: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        },
+        {
+          "name": "drain, d=3000 ms, alone: the new tab entered the old host and was closed by its drain with 4503 (never 4001)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":3000,\"withOther\":false,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":7476,\"resume\":\"admitted\",\"otherAfterResume\":null,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=3000 ms, alone: bounded window on P (≤ one renewal + injected delay + round trips)",
+          "ok": true,
+          "detail": "7476"
+        },
+        {
+          "name": "drain, d=3000 ms, alone: alone, the resume is admitted and owns the row on Q",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":3000,\"withOther\":false,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":7476,\"resume\":\"admitted\",\"otherAfterResume\":null,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=3000 ms, alone: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        },
+        {
+          "name": "drain, d=4500 ms, another tab live on Q: the new tab entered the old host and was closed by its drain with 4503 (never 4001)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":4500,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":8848,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=4500 ms, another tab live on Q: bounded window on P (≤ one renewal + injected delay + round trips)",
+          "ok": true,
+          "detail": "8848"
+        },
+        {
+          "name": "drain, d=4500 ms, another tab live on Q: the resume yields to the live tab (4409) and leaves it untouched",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":4500,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":8848,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=4500 ms, another tab live on Q: «Jugar acá» takes over explicitly (only then the other tab gets 4409)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":4500,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":8848,\"resume\":4409,\"otherAfterResume\":null,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=4500 ms, another tab live on Q: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        },
+        {
+          "name": "drain, d=4500 ms, alone: the new tab entered the old host and was closed by its drain with 4503 (never 4001)",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":4500,\"withOther\":false,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":9039,\"resume\":\"admitted\",\"otherAfterResume\":null,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=4500 ms, alone: bounded window on P (≤ one renewal + injected delay + round trips)",
+          "ok": true,
+          "detail": "9039"
+        },
+        {
+          "name": "drain, d=4500 ms, alone: alone, the resume is admitted and owns the row on Q",
+          "ok": true,
+          "detail": "{\"path\":\"drain\",\"d\":4500,\"withOther\":false,\"tabJoinRefused\":null,\"closedBy\":4503,\"onP\":9039,\"resume\":\"admitted\",\"otherAfterResume\":null,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "drain, d=4500 ms, alone: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        },
+        {
+          "name": "claim-first, d=0 ms, another tab live on Q: the retried claim is superseded: the tab is closed with 4409, within the claim wait + a round trip",
+          "ok": true,
+          "detail": "{\"path\":\"claim-first\",\"d\":0,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4409,\"onP\":5329,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "claim-first, d=0 ms, another tab live on Q: «Jugar acá» takes over explicitly (only then the other tab gets 4409)",
+          "ok": true,
+          "detail": "{\"path\":\"claim-first\",\"d\":0,\"withOther\":true,\"tabJoinRefused\":null,\"closedBy\":4409,\"onP\":5329,\"otherAfterTakeover\":4409,\"rowOwner\":\"Q\",\"P\":{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}}"
+        },
+        {
+          "name": "claim-first, d=0 ms, another tab live on Q: P ends alive and stopped (503)",
+          "ok": true,
+          "detail": "{\"exit\":null,\"ready\":503,\"state\":\"stopped\"}"
+        }
+      ],
+      "runs": [
+        {
+          "path": "drain",
+          "d": 0,
+          "withOther": true,
+          "tabJoinRefused": null,
+          "closedBy": 4503,
+          "onP": 4353,
+          "resume": 4409,
+          "otherAfterResume": null,
+          "otherAfterTakeover": 4409,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        },
+        {
+          "path": "drain",
+          "d": 0,
+          "withOther": false,
+          "tabJoinRefused": null,
+          "closedBy": 4503,
+          "onP": 4505,
+          "resume": "admitted",
+          "otherAfterResume": null,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        },
+        {
+          "path": "drain",
+          "d": 1500,
+          "withOther": true,
+          "tabJoinRefused": null,
+          "closedBy": 4503,
+          "onP": 5930,
+          "resume": 4409,
+          "otherAfterResume": null,
+          "otherAfterTakeover": 4409,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        },
+        {
+          "path": "drain",
+          "d": 1500,
+          "withOther": false,
+          "tabJoinRefused": null,
+          "closedBy": 4503,
+          "onP": 5919,
+          "resume": "admitted",
+          "otherAfterResume": null,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        },
+        {
+          "path": "drain",
+          "d": 3000,
+          "withOther": true,
+          "tabJoinRefused": null,
+          "closedBy": 4503,
+          "onP": 7409,
+          "resume": 4409,
+          "otherAfterResume": null,
+          "otherAfterTakeover": 4409,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        },
+        {
+          "path": "drain",
+          "d": 3000,
+          "withOther": false,
+          "tabJoinRefused": null,
+          "closedBy": 4503,
+          "onP": 7476,
+          "resume": "admitted",
+          "otherAfterResume": null,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        },
+        {
+          "path": "drain",
+          "d": 4500,
+          "withOther": true,
+          "tabJoinRefused": null,
+          "closedBy": 4503,
+          "onP": 8848,
+          "resume": 4409,
+          "otherAfterResume": null,
+          "otherAfterTakeover": 4409,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        },
+        {
+          "path": "drain",
+          "d": 4500,
+          "withOther": false,
+          "tabJoinRefused": null,
+          "closedBy": 4503,
+          "onP": 9039,
+          "resume": "admitted",
+          "otherAfterResume": null,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        },
+        {
+          "path": "claim-first",
+          "d": 0,
+          "withOther": true,
+          "tabJoinRefused": null,
+          "closedBy": 4409,
+          "onP": 5329,
+          "otherAfterTakeover": 4409,
+          "rowOwner": "Q",
+          "P": {
+            "exit": null,
+            "ready": 503,
+            "state": "stopped"
+          }
+        }
+      ]
+    },
+    "failed-startup": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "without a generation the process still serves (no persistence)",
+          "ok": true
+        },
+        {
+          "name": "no claim and no save is ever sent without an active host",
+          "ok": true,
+          "detail": "{\"location_claim\":0,\"location_save\":0,\"location_rows\":0,\"presence\":6,\"other\":2,\"held\":0,\"lost\":0,\"failed\":6}"
+        },
+        {
+          "name": "no row written",
+          "ok": true
+        },
+        {
+          "name": "once the authority is back the host acquires and activates in the background",
+          "ok": true,
+          "detail": "[{\"generation\":1,\"state\":\"active\",\"activated_at\":\"2026-10-03T23:17:20.747Z\",\"draining_at\":null,\"stopped_at\":null,\"live\":true}]"
+        },
+        {
+          "name": "a join after activation claims with its key",
+          "ok": true,
+          "detail": "[{\"claim\":{\"epoch\":1,\"status\":\"claimed\",\"location\":null,\"newerActive\":false}}]"
+        },
+        {
+          "name": "the early session never claims afterwards",
+          "ok": true
+        }
+      ]
+    },
+    "drain": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "the older host closes every socket after a newer one activates (within a renewal)",
+          "ok": true,
+          "detail": "[4503,4503,4503,4503,4503,4503,4503,4503,4503,4503]"
+        },
+        {
+          "name": "every close is 4503 host-draining, never 4001",
+          "ok": true,
+          "detail": "[4503,4503,4503,4503,4503,4503,4503,4503,4503,4503]"
+        },
+        {
+          "name": "protocol-3 clients hear presence:closing {draining} first",
+          "ok": true
+        },
+        {
+          "name": "every last position was saved by the drain",
+          "ok": true,
+          "detail": "[]"
+        },
+        {
+          "name": "after its drain the older process stays alive and stopped: /readyz 503, joins 4503",
+          "ok": true,
+          "detail": "[null,503]"
+        },
+        {
+          "name": "the older host is stopped (terminal), the newer active",
+          "ok": true,
+          "detail": "[[1,\"stopped\"],[2,\"active\"]]"
+        },
+        {
+          "name": "players resume on the newer host exactly where they were",
+          "ok": true,
+          "detail": "[[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}],[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}],[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}]]"
+        }
+      ]
+    },
+    "shutdown": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "every connected client (protocol 2 and 3) is closed with 4503, none with 4001",
+          "ok": true,
+          "detail": "[4503,4503,4503,4503,4503,4503,4503,4503,4503,4503]"
+        },
+        {
+          "name": "protocol-3 clients hear presence:closing {draining}; protocol 2 hears nothing new",
+          "ok": true
+        },
+        {
+          "name": "a join during the shutdown gets 4503 (refused or closed), never 4001",
+          "ok": true,
+          "detail": "{\"refused\":4503,\"left\":null}"
+        },
+        {
+          "name": "every last position was saved",
+          "ok": true,
+          "detail": "[]"
+        },
+        {
+          "name": "the process exits cleanly",
+          "ok": true,
+          "detail": "0"
+        },
+        {
+          "name": "the shutdown log counts saved, refused and unsaved rows",
+          "ok": true,
+          "detail": "[location] shutdown flush: 10 guardadas, 0 rechazadas (otra sesión ya reclamó), 0 sin guardar"
+        },
+        {
+          "name": "the host is stopped",
+          "ok": true,
+          "detail": "[\"stopped\"]"
+        }
+      ]
+    },
+    "lost": {
+      "applicable": true,
+      "passed": true,
+      "checks": [
+        {
+          "name": "a lost claim answer: the retry carries the same key and adopts the same epoch (20/20)",
+          "ok": true
+        },
+        {
+          "name": "a lost save answer: the retry answers duplicate and the row is the last position (20/20)",
+          "ok": true
+        }
+      ]
+    }
+  },
+  "passed": true,
+  "failed": []
+}

@@ -10,7 +10,9 @@ describe('R30 trust boundary', () => {
     expect(source).not.toMatch(/\.from\(|\.insert\(|\.update\(\s*\{|\.delete\(\s*\)|\.upsert\(|\.rpc\(/)
     // A bounded reconnect delay is event-driven lifecycle recovery, not polling.
     expect(source).not.toMatch(/setInterval|innerHTML|v-html|localStorage/)
-    expect(source).toMatch(/code === REPLACED_SESSION_CODE/)
+    // WORLD LOCATION-4: closes and refused joins go through the close policy (only a replacement stops).
+    expect(source).toMatch(/const decision = closeDecision\(/)
+    expect(source).toMatch(/this\.follow\(joinRefusalDecision\(/)
     expect(source).toMatch(/room\.reconnection\.enabled = false/)
     expect(source).toMatch(/room\.onDrop\(/)
     expect(source).toMatch(/room\.onError\(recoverTransport\)/)

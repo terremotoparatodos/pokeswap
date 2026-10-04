@@ -16,6 +16,8 @@ import { WorldRoom } from '../world/worldRoom.js'
 import { worldDependencies } from '../world/worldConfig.js'
 import { LocationService, locationMode } from '../presence/locationService.js'
 import { LocationJoin } from './locationJoin.js'
+import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
+import { PresenceHosting } from './presenceHosting.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
 const MOVE_REJECTION_REASON = Object.freeze({
@@ -50,7 +52,11 @@ void world.start()
 // Rollback: set it to off and restart; the database is not touched.
 // Per-socket sessions, hydration and fencing live in rooms/locationJoin.js.
 let location = null
-const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location })
+// WORLD LOCATION-4: this process as a presence host — admission, drain and close codes
+// (rooms/presenceHosting.js). Null host when location is off: joins are accepted at once.
+const hosting = new PresenceHosting({ location: () => location, sockets: () => observers.values(), metrics })
+metrics.host = () => hosting.stats()
+const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location, closeReplaced: hosting.closeReplaced })
 location = createLocation({ mode: locationMode(process.env.WORLD_LOCATION_PERSISTENCE), store: initialDependencies.playerData })
 if (location.mode !== 'off') console.log(`[location] persistence ${location.mode} (effective: ${location.effective})`)
 
@@ -95,8 +101,32 @@ export function liveActorForTesting(userId) {
  */
 export function configureLocationPersistence({ mode, store = initialDependencies.playerData, ...options } = {}) {
   location.disable()
-  location = createLocation({ mode, store, ...options })
+  location = createLocation({ mode, store, host: hosting.host, ...options })
   return location
+}
+
+/**
+ * Before listen (realtimeServer.js): acquire this process's generation (the host stays
+ * 'starting' until `activate()` after listen). Null when location is off or unsupported.
+ */
+export function preparePresenceHost(options) {
+  return hosting.prepare(initialDependencies.playerData, options)
+}
+
+/** The drain of this process (Colyseus onBeforeShutdown, or a newer host): see PresenceHosting.drain. */
+export function drainPresence(options) {
+  return hosting.drain(options)
+}
+
+/** Tests and tooling: undo a drain (a fresh process never starts draining). */
+export function resetDrainingForTesting() { hosting.resetDraining() }
+
+/** Readiness for /readyz: serving players (shadow always serves). */
+export function presenceServing() { return hosting.serving }
+
+/** Tests and tooling: replace this process's host (null: none); see PresenceHosting.configure. */
+export function configurePresenceHost(next, options) {
+  return hosting.configure(next, options)
 }
 
 /** Best-effort final flush of every pending location (graceful shutdown). */
@@ -137,6 +167,8 @@ export class PresenceRoom extends Room {
   }
 
   async onJoin(client, options, auth) {
+    // WORLD LOCATION-4: waits for activation; 4503 while draining; a resume never displaces another tab (4409).
+    await hosting.admit(client, options, auth, userId => clientsByActor.get(userId))
     if (!hasCapacity(PresenceRoom.connections)) { metrics.rejected('capacity'); throw new ServerError(4210, 'capacity reached') }
     PresenceRoom.connections++
     if (Number.isInteger(options?.presenceProtocol) && options.presenceProtocol >= COMPACT_STEP_PROTOCOL) compactClients.add(client)
@@ -216,6 +248,24 @@ export class PresenceRoom extends Room {
     this.sendSnapshot(client, viewer)
   }
 
+  /** While draining nothing moves: refused, and answered with the actor where it really is. */
+  frozen(client) {
+    this.reject(client, 'host draining', 'draining')
+    const actor = actors.get(client.userData?.actorId)
+    if (actor) this.sendSelf(client, actor)
+  }
+
+  /**
+   * WORLD LOCATION-4 (design §5.2): Colyseus' default closes every client with 4001
+   * SERVER_SHUTDOWN, which clients read as "replaced" and stop. Here a shutdown closes with
+   * 4503 host-draining: every client reconnects. realtimeServer.js has already drained
+   * (saved) before Colyseus calls this.
+   */
+  onBeforeShutdown() {
+    hosting.shuttingDown(this.clients)
+    this.disconnect(HOST_DRAINING_CODE).catch(() => {})
+  }
+
   onLeave(client) {
     PresenceRoom.connections = Math.max(0, PresenceRoom.connections - 1)
     metrics.left(client.userData?.actorId ? 'player' : 'guest')
@@ -238,6 +288,7 @@ export class PresenceRoom extends Room {
   }
 
   move(client, payload) {
+    if (hosting.draining) return this.frozen(client)
     const actor = actors.get(client.userData?.actorId); const intent = moveIntent(payload)
     if (!actor || !intent) return this.reject(client, 'movement denied', 'invalid')
     const rejection = applyMove(actor, intent.direction, Date.now(), intent.running, intent.sequence, stepAllowed)
@@ -262,6 +313,7 @@ export class PresenceRoom extends Room {
   }
 
   changeArea(client, payload) {
+    if (hosting.draining) return this.frozen(client)
     const actor = actors.get(client.userData?.actorId); const intent = areaIntent(payload)
     if (!actor || !intent) return this.reject(client, 'area denied', 'area')
     // CAVES-3/4: the service decides whether this crossing is allowed and
@@ -339,6 +391,7 @@ export class PresenceRoom extends Room {
    * Players only, like chat: a guest has no actor to stand beside a node.
    */
   work(client, payload) {
+    if (hosting.draining) return this.frozen(client)
     const actor = actors.get(client.userData?.actorId)
     if (!actor) return this.reject(client, 'world denied', 'invalid')
     void world.work(actor, payload, client)
@@ -435,6 +488,8 @@ export class PresenceRoom extends Room {
     visibleByClient.set(client.sessionId, new Set(visible.map(actor => actor.id)))
     const self = client.userData?.actorId ? actors.get(client.userData.actorId) : null
     client.send(MESSAGE.SNAPSHOT, {
+      // WORLD LOCATION-4: the close codes this server speaks (4409 / 4503; 4001 never replaces a protocol-3 client).
+      presenceProtocol: CLOSE_CODES_PROTOCOL,
       access: self ? 'player' : 'guest',
       actors: visible.map(publicActor),
       ...(self ? { self: publicActor(self) } : {}),

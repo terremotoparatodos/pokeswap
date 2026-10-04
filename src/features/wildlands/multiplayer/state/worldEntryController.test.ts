@@ -7,7 +7,7 @@ import { WorldEntryController } from './worldEntryController'
 
 function stage(prepare: () => Promise<void> = () => Promise.resolve(), onFailure?: (error: unknown) => void) {
   const calls: string[] = []
-  const sockets: { status: PresenceConnectionStatus; connected: number; disconnected: number }[] = []
+  const sockets: { status: PresenceConnectionStatus; resume: boolean; connected: number; disconnected: number }[] = []
   const timers = new Map<number, { run: () => void; ms: number }>()
   let nextTimer = 0
   const states: WorldEntryState[] = []
@@ -17,8 +17,8 @@ function stage(prepare: () => Promise<void> = () => Promise.resolve(), onFailure
       revealScene: () => calls.push('reveal'),
       prepare: () => { calls.push('prepare'); return prepare() },
     },
-    openSocket: status => {
-      const socket = { status, connected: 0, disconnected: 0 }
+    openSocket: (status, { resume }) => {
+      const socket = { status, resume, connected: 0, disconnected: 0 }
       sockets.push(socket)
       return { connect: () => { socket.connected++ }, disconnect: () => { socket.disconnected++ } }
     },
@@ -134,7 +134,7 @@ describe('WorldEntryController', () => {
     expect(s.socket().connected).toBe(1)
   })
 
-  it('4001: replaced for good, no socket opened afterwards', () => {
+  it('replaced for good: no socket opened afterwards by retry, renew or a timer', () => {
     const s = stage()
     s.controller.start()
     s.socket().status.replaced()
@@ -144,6 +144,33 @@ describe('WorldEntryController', () => {
     s.controller.renew()
     s.fire(12_000)
     expect(s.sockets).toHaveLength(1)
+  })
+
+  it('WORLD LOCATION-4: the first entry joins fresh; retry and renew resume (they never displace another tab)', () => {
+    const s = stage()
+    s.controller.start()
+    expect(s.socket().resume).toBe(false)
+    s.fire(12_000)
+    s.controller.retry()
+    expect(s.socket().resume).toBe(true)
+    s.socket().status.snapshot('player')
+    s.controller.renew()
+    expect(s.socket().resume).toBe(true)
+  })
+
+  it('«Jugar acá» (takeover): only out of replaced, one fresh join with a new wait', () => {
+    const s = stage()
+    s.controller.start()
+    s.controller.takeover()
+    expect(s.sockets).toHaveLength(1)
+    s.socket().status.replaced()
+    s.controller.takeover()
+    expect(s.sockets).toHaveLength(2)
+    expect(s.socket()).toMatchObject({ resume: false, connected: 1 })
+    expect(s.controller.current.phase).toBe('connecting')
+    expect([...s.timers.values()].map(timer => timer.ms)).toEqual([12_000])
+    s.controller.takeover()
+    expect(s.sockets).toHaveLength(2)
   })
 
   it('a failed preparation shows an error, closes the socket and is reported', async () => {

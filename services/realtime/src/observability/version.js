@@ -17,8 +17,14 @@ import { execFileSync } from 'node:child_process'
  *   5 — RESOURCE YIELD-2: world protocol 3. Trees and rocks yield several
  *       units per reservation (hidden stock); `world:work:yield` per unit,
  *       `world:work:done` with reason and total; older clients are outdated
+ *   6 — WORLD LOCATION-4: close codes. An authoritative replacement closes with
+ *       4409 session-replaced for clients declaring presenceProtocol >= 3 (4001
+ *       for older ones); a shutdown, deploy or drain closes EVERY client with
+ *       4503 host-draining (never Colyseus' 4001). `presence:closing` precedes
+ *       the close for protocol 3; the snapshot echoes `presenceProtocol: 3`; a
+ *       join may carry { tabId, resume } (a resume never displaces another tab)
  */
-export const PRESENCE_PROTOCOL_REVISION = 5
+export const PRESENCE_PROTOCOL_REVISION = 6
 
 const COMMIT = /^[0-9a-f]{7,40}$/
 

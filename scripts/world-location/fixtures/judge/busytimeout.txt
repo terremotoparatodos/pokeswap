@@ -1,0 +1,15 @@
+✖ hangs with the loop busy (307.7085ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 0
+ℹ cancelled 1
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 379.9261
+
+✖ failing tests:
+
+test at busytimeout.test.mjs:2:1
+✖ hangs with the loop busy (307.7085ms)
+  'test timed out after 300ms'

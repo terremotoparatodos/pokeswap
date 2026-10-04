@@ -14,7 +14,7 @@
 
     <!-- Offline only: online, the server says where the player is (PRESENCE UX-1). -->
     <div v-if="loading && entry.phase === 'offline'" class="wl-loading">Llegando a Ciudad Corazón…</div>
-    <WorldEntryOverlay :state="entry" @retry="entryController?.retry()" />
+    <WorldEntryOverlay :state="entry" @retry="entryController?.retry()" @takeover="entryController?.takeover()" />
 
     <transition name="wl-fade">
       <p v-if="hud.toast" class="wl-toast" role="status">{{ hud.toast }}</p>
@@ -527,11 +527,11 @@ onMounted(async () => {
   if (online) {
     entryController = new WorldEntryController({
       scene: created,
-      openSocket: status => {
+      openSocket: (status, { resume }) => {
         created.setPresenceAccess('pending')
         const socket = connectPresence(created, status)
         presence = socket
-        return { connect: () => void socket.connect(identity.visualIdentity.value), disconnect: () => socket.disconnect() }
+        return { connect: () => void socket.connect(identity.visualIdentity.value, { resume }), disconnect: () => socket.disconnect() }
       },
       onChange: state => { entry.value = state },
       onFailure: error => devWarn('[wildlands] the server area could not be prepared', error),

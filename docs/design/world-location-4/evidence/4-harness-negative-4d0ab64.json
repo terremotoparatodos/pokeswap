@@ -1,0 +1,381 @@
+{
+  "tree": "other (--tree)",
+  "reps": 200,
+  "width": 25,
+  "seed": 7,
+  "modes": {
+    "same-process": {
+      "applicable": false,
+      "reason": "this tree has no presence host (pre WORLD LOCATION-4)"
+    },
+    "two-process": {
+      "applicable": true,
+      "results": {
+        "T3": {
+          "reps": 200,
+          "ms": 24560,
+          "violated": 150,
+          "gaps": {
+            "n": 200,
+            "min": 20,
+            "p50": 111,
+            "p95": 190,
+            "max": 196
+          },
+          "injected": {
+            "n": 200,
+            "min": 314,
+            "p50": 767,
+            "p95": 1163,
+            "max": 1195
+          },
+          "olderOutcomes": {
+            "4001": 50,
+            "open": 150
+          },
+          "examples": [
+            {
+              "scenario": "T3",
+              "variant": "cross",
+              "i": 0,
+              "fault": {
+                "mode": "delay",
+                "ms": 1179
+              },
+              "gap": 146,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T3",
+              "variant": "cross",
+              "i": 1,
+              "fault": {
+                "mode": "delay",
+                "ms": 769
+              },
+              "gap": 93,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T3",
+              "variant": "cross",
+              "i": 2,
+              "fault": {
+                "mode": "delay",
+                "ms": 720
+              },
+              "gap": 63,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T3",
+              "variant": "cross",
+              "i": 4,
+              "fault": {
+                "mode": "delay",
+                "ms": 532
+              },
+              "gap": 48,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T3",
+              "variant": "cross",
+              "i": 5,
+              "fault": {
+                "mode": "delay",
+                "ms": 988
+              },
+              "gap": 113,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            }
+          ]
+        },
+        "T4": {
+          "reps": 200,
+          "ms": 62537,
+          "violated": 150,
+          "gaps": {
+            "n": 200,
+            "min": 300,
+            "p50": 300,
+            "p95": 300,
+            "max": 300
+          },
+          "injected": null,
+          "olderOutcomes": {
+            "4001": 50,
+            "open": 150
+          },
+          "examples": [
+            {
+              "scenario": "T4",
+              "variant": "cross",
+              "i": 0,
+              "fault": {
+                "mode": "hold"
+              },
+              "gap": 300,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T4",
+              "variant": "cross",
+              "i": 1,
+              "fault": {
+                "mode": "hold"
+              },
+              "gap": 300,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T4",
+              "variant": "cross",
+              "i": 2,
+              "fault": {
+                "mode": "hold"
+              },
+              "gap": 300,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T4",
+              "variant": "cross",
+              "i": 4,
+              "fault": {
+                "mode": "hold"
+              },
+              "gap": 300,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T4",
+              "variant": "cross",
+              "i": 5,
+              "fault": {
+                "mode": "hold"
+              },
+              "gap": 300,
+              "violations": [
+                "I3 row {\"area_id\":\"ciudad-corazon\",\"tx\":30,\"ty\":20} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            }
+          ]
+        },
+        "T7": {
+          "reps": 200,
+          "ms": 58724,
+          "violated": 104,
+          "gaps": {
+            "n": 200,
+            "min": 2,
+            "p50": 160,
+            "p95": 282,
+            "max": 296
+          },
+          "injected": null,
+          "olderOutcomes": {
+            "4001": 50,
+            "open": 150
+          },
+          "examples": [
+            {
+              "scenario": "T7",
+              "variant": "cross",
+              "i": 0,
+              "fault": null,
+              "gap": 4,
+              "violations": [
+                "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T7",
+              "variant": "cross",
+              "i": 1,
+              "fault": null,
+              "gap": 197,
+              "violations": [
+                "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T7",
+              "variant": "cross",
+              "i": 4,
+              "fault": null,
+              "gap": 119,
+              "violations": [
+                "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T7",
+              "variant": "cross",
+              "i": 5,
+              "fault": null,
+              "gap": 230,
+              "violations": [
+                "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            },
+            {
+              "scenario": "T7",
+              "variant": "cross",
+              "i": 8,
+              "fault": null,
+              "gap": 283,
+              "violations": [
+                "I3 row {\"area_id\":null,\"tx\":null,\"ty\":null} is not B's last {\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}"
+              ],
+              "aOutcome": "open"
+            }
+          ]
+        }
+      },
+      "hosts": null,
+      "authorityCalls": {
+        "location_claim": 1800,
+        "location_save": 171,
+        "location_rows": 950,
+        "presence": 0,
+        "other": 1202,
+        "held": 200,
+        "lost": 0,
+        "failed": 0
+      }
+    },
+    "candidates": {
+      "applicable": false,
+      "reason": "this tree has no presence hosts (pre WORLD LOCATION-4)"
+    },
+    "shadow-refused": {
+      "applicable": false,
+      "reason": "this tree has no presence hosts (pre WORLD LOCATION-4)"
+    },
+    "inverted": {
+      "applicable": false,
+      "reason": "this tree has no presence hosts (pre WORLD LOCATION-4)"
+    },
+    "failed-startup": {
+      "applicable": false,
+      "reason": "this tree has no presence hosts (pre WORLD LOCATION-4)"
+    },
+    "drain": {
+      "applicable": true,
+      "passed": false,
+      "checks": [
+        {
+          "name": "the older host closes every socket after a newer one activates (within a renewal)",
+          "ok": false,
+          "detail": "[null,null,null,null,null,null,null,null,null,null]"
+        },
+        {
+          "name": "every close is 4503 host-draining, never 4001",
+          "ok": false,
+          "detail": "[null,null,null,null,null,null,null,null,null,null]"
+        },
+        {
+          "name": "protocol-3 clients hear presence:closing {draining} first",
+          "ok": false
+        },
+        {
+          "name": "every last position was saved by the drain",
+          "ok": true,
+          "detail": "[]"
+        },
+        {
+          "name": "after its drain the older process stays alive and stopped: /readyz 503, joins 4503",
+          "ok": false,
+          "detail": "[null,200]"
+        },
+        {
+          "name": "the older host is stopped (terminal), the newer active",
+          "ok": false
+        },
+        {
+          "name": "players resume on the newer host exactly where they were",
+          "ok": true,
+          "detail": "[[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}],[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}],[{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20},{\"areaId\":\"ciudad-corazon\",\"tx\":32,\"ty\":20}]]"
+        }
+      ]
+    },
+    "shutdown": {
+      "applicable": true,
+      "passed": false,
+      "checks": [
+        {
+          "name": "every connected client (protocol 2 and 3) is closed with 4503, none with 4001",
+          "ok": false,
+          "detail": "[4001,4001,4001,4001,4001,4001,4001,4001,4001,4001]"
+        },
+        {
+          "name": "protocol-3 clients hear presence:closing {draining}; protocol 2 hears nothing new",
+          "ok": false
+        },
+        {
+          "name": "a join during the shutdown gets 4503 (refused or closed), never 4001",
+          "ok": false,
+          "detail": "{\"refused\":\"ECONNREFUSED\",\"left\":null}"
+        },
+        {
+          "name": "every last position was saved",
+          "ok": true,
+          "detail": "[]"
+        },
+        {
+          "name": "the process exits cleanly",
+          "ok": true,
+          "detail": "0"
+        },
+        {
+          "name": "the shutdown log counts saved, refused and unsaved rows",
+          "ok": false,
+          "detail": "[location] shutdown flush: 10 saved, 0 not saved"
+        }
+      ]
+    },
+    "lost": {
+      "applicable": false,
+      "reason": "keyed claims are WORLD LOCATION-4 only"
+    }
+  },
+  "passed": false,
+  "failed": [
+    "two-process",
+    "drain",
+    "shutdown"
+  ]
+}

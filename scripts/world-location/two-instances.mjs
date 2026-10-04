@@ -1,43 +1,39 @@
-// WORLD LOCATION-2 — two real realtime PROCESSES, one location store (LOCAL ONLY).
+// WORLD LOCATION-2/4 — two real realtime PROCESSES, one location store (LOCAL ONLY).
 //
 //   node scripts/world-location/two-instances.mjs
 //
 // What runs, and what is simulated:
-//   - two unmodified `services/realtime/src/index.js` processes (A and B), each
-//     with WORLD_LOCATION_PERSISTENCE=on and the Edge adapter;
-//   - ONE authority in this process: the real world-authority handler
-//     (supabase/functions/world-authority/handler.ts) over an embedded Postgres
-//     (PGlite) running the real migrations — what the Edge Runtime + Postgres
-//     would do, minus the network hop to Supabase;
-//   - a stand-in for Supabase Auth's /auth/v1/user (a token → a user id) and
-//     empty REST reads (wild catalog, companions).
-// Clients are real @colyseus/sdk sockets. The realtime runs in its local
-// benchmark mode only to accept Node sockets without an Origin header; the
-// players authenticate with tokens through the normal path (UUID user ids),
-// so they persist like real players.
+//   - unmodified `services/realtime/src/index.js` processes, each with
+//     WORLD_LOCATION_PERSISTENCE=on and the Edge adapter, each a presence host
+//     (WORLD LOCATION-4: acquire before listen, activate after);
+//   - ONE authority in this process (localAuthority.mjs): the real world-authority
+//     handler over an embedded Postgres (PGlite) running the real migrations;
+//   - a stand-in for Supabase Auth's /auth/v1/user and empty REST reads.
+// Clients are real @colyseus/sdk sockets that authenticate like a browser (an
+// allowed Origin and a token); no benchmark identity, no production bypass.
 //
-// Scenario (D-L10 rehearsal; Colyseus Cloud itself must still be verified):
+// Scenario (a deploy rehearsal; Colyseus Cloud itself must still be verified):
 //   1. A serves the player, who crosses Ciudad → Pradera (urgent save).
-//   2. B starts while A is still alive (a deploy overlap); the same player's
-//      new socket lands on B and is restored in Pradera from the row.
-//   3. A's old socket acts once more; its save is stale → A closes it with
-//      4001 'session-replaced'. The row keeps B's state.
-//   4. A dies hard (no shutdown). The player on B crosses back to Ciudad.
-//   5. B dies hard; a fresh B' starts; the player joins after the 15 s grace
-//      window would have expired anyway (no memory in a new process) and is
-//      restored at B's last saved tile.
-//   6. Review B2 (abandoned claim): a second player joins B' but its claim
-//      hangs in the authority; B' gives up (1.5 s), places it at Ciudad, and
-//      the socket goes. The player joins a fresh A' (claims normally). Only
-//      then does the abandoned claim run in the database. A' keeps writing:
-//      no stale, no 4001.
+//   2. B starts while A is still alive (a deploy overlap): B's host is newer. The
+//      player's new socket lands on B and is restored in Pradera from the row.
+//   3. A learns of the newer host (its next renewal or authority answer) and drains:
+//      the old socket is closed with 4503 (or 4409 if its save was refused first),
+//      never 4001; its host is stopped and the process stays alive refusing joins
+//      with 4503 (it never exits on its own). The row keeps B's state.
+//   4. A dies hard. The player on B crosses back to Ciudad (saved).
+//   5. B dies hard (its lease simply runs out); a fresh B' starts and restores the
+//      player at B's last saved tile.
+//   6. Abandoned claim: a second player joins B' but its claim hangs in the
+//      authority; B' gives up (1.5 s), places it at Ciudad, the socket goes. The
+//      player joins a fresh A' (a newer host) and claims. Only then does the
+//      abandoned claim run in the database: it is superseded and writes nothing.
+//      A' keeps writing: no stale, no close.
 // Exit code 0 only if every check passes. Prints a JSON summary.
 
-import { spawn } from 'node:child_process'
-import net from 'node:net'
+import { randomBytes } from 'node:crypto'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { Client } from '@colyseus/sdk'
 import { startLocalAuthority } from './localAuthority.mjs'
+import { connect, delay, startRealtime } from './realtimeProcesses.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const realtime = `${root}services/realtime/src/`
@@ -45,63 +41,12 @@ const { routeBetween } = await import(pathToFileURL(`${realtime}world/testing.js
 const { portalTo } = await import(pathToFileURL(`${realtime}world/navigation.js`).href)
 const { ARRIVALS, TOWN_FROM_PRADERA } = await import(pathToFileURL(`${realtime}protocol/arrival.js`).href)
 
-const delay = ms => new Promise(resolve => setTimeout(resolve, ms))
 const checks = []
 const check = (name, ok, detail = '') => { checks.push({ name, ok: Boolean(ok), detail }); if (!ok) console.error(`FAIL ${name} ${detail}`) }
 
-// ── The authority and the auth stand-in (scripts/world-location/localAuthority.mjs) ──
-
-const local = await startLocalAuthority({ secret: 'l'.repeat(48) })
+const local = await startLocalAuthority({ secret: randomBytes(24).toString('hex') })
 const { query } = local
-
-// ── Realtime processes ───────────────────────────────────────────────────
-
-async function waitForPort(port, timeoutMs = 20_000) {
-  const deadline = Date.now() + timeoutMs
-  while (Date.now() < deadline) {
-    const open = await new Promise(resolve => {
-      const socket = net.createConnection({ host: '127.0.0.1', port })
-      socket.once('connect', () => { socket.destroy(); resolve(true) })
-      socket.once('error', () => resolve(false))
-    })
-    if (open) return
-    await delay(100)
-  }
-  throw new Error(`no realtime on ${port}`)
-}
-
-async function startRealtime(name, port) {
-  const child = spawn(process.execPath, [`${realtime}index.js`], {
-    cwd: root,
-    env: { ...process.env, PORT: String(port), HEALTH_PORT: String(port + 1), NODE_ENV: 'development', PRESENCE_BENCHMARK: 'on', ...local.env('on') },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-  let log = ''
-  child.stdout.on('data', chunk => { log += chunk })
-  child.stderr.on('data', chunk => { log += chunk })
-  await waitForPort(port)
-  return { name, port, child, log: () => log, metrics: async () => (await fetch(`http://127.0.0.1:${port + 1}/metrics`)).json(), version: async () => (await fetch(`http://127.0.0.1:${port}/version`)).json() }
-}
-
-const kill = async processInfo => { processInfo.child.kill('SIGKILL'); await new Promise(resolve => processInfo.child.once('exit', resolve)) }
-
-// ── A player socket ──────────────────────────────────────────────────────
-
-async function connect(server, token) {
-  const room = await new Client(`ws://127.0.0.1:${server.port}`).joinOrCreate('presence', { token, presenceProtocol: 2, worldProtocol: 3 })
-  room.reconnection.enabled = false
-  const state = { room, self: null, left: null, errors: [] }
-  room.onMessage('presence:snapshot', payload => { if (payload.self) state.self = payload.self })
-  room.onMessage('presence:self', payload => { state.self = payload })
-  room.onMessage('presence:error', payload => state.errors.push(payload.reason))
-  for (const type of ['presence:delta', 'presence:batch', 'chat:history', 'chat:line', 'world:snapshot', 'world:batch', 'world:player-state', 'world:status']) room.onMessage(type, () => {})
-  room.onMessage('*', () => {})
-  room.onLeave(code => { state.left = code })
-  room.send('presence:ready')
-  for (let i = 0; i < 100 && !state.self; i++) await delay(50)
-  if (!state.self) throw new Error(`no snapshot from ${server.name}`)
-  return state
-}
+const start = (name, port) => startRealtime({ name, port, env: local.env('on', name) })
 
 async function walkTo(state, to) {
   const route = routeBetween(state.self.areaId, state.self, to)
@@ -125,77 +70,76 @@ async function row(userId) {
   return rows[0] ?? null
 }
 
-// ── Scenario ─────────────────────────────────────────────────────────────
-
 const { userId, token } = await local.player()
 const summary = {}
 
-let A = await startRealtime('A', 2611)
+let A = await start('A', 2611)
 let B = null
 try {
-  const onA = await connect(A, token)
+  const onA = await connect(A, token, { tabId: 'tab-two-a-harness' })
   check('A: a first-time player starts in Ciudad', onA.self.areaId === 'ciudad-corazon', JSON.stringify(onA.self))
   await cross(onA, 'pradera')
   await delay(1_200)
   check('A: the crossing is saved within ~1 s', (await row(userId))?.area_id === 'pradera', JSON.stringify(await row(userId)))
 
-  B = await startRealtime('B', 2621) // overlap: A is still alive
-  const onB = await connect(B, token)
+  B = await start('B', 2621) // overlap: A is still alive; B's host is newer
+  const onB = await connect(B, token, { tabId: 'tab-two-b-harness' })
   check('B: the new socket is restored from the row (Pradera arrival)', onB.self.areaId === 'pradera' && onB.self.tx === ARRIVALS.pradera.tx && onB.self.ty === ARRIVALS.pradera.ty, JSON.stringify(onB.self))
   check('B: claimed a newer epoch', (await row(userId))?.epoch === 2, JSON.stringify(await row(userId)))
 
-  await cross(onA, 'ciudad-corazon') // the old socket acts on A: urgent save → stale
-  for (let i = 0; i < 60 && onA.left === null; i++) await delay(50)
-  check('A: the stale writer is closed with 4001', onA.left === 4001, `left=${onA.left}`)
+  await cross(onA, 'ciudad-corazon').catch(() => {}) // the old socket acts on A (A may already be draining)
+  for (let i = 0; i < 200 && onA.left === null; i++) await delay(50) // within one renewal
+  check('A: the old socket is closed with 4503 (drain) or 4409, never 4001', onA.left === 4503 || onA.left === 4409, `left=${onA.left}`)
   check('A: the row keeps B\'s state', (await row(userId))?.area_id === 'pradera' && (await row(userId))?.epoch === 2, JSON.stringify(await row(userId)))
-  const metricsA = (await A.metrics()).location
-  check('A: /metrics counts one fenced disconnect', metricsA?.fencedDisconnects === 1, JSON.stringify(metricsA?.journal?.saves))
-  summary.metricsA = { mode: metricsA?.mode, effective: metricsA?.effective, fencedDisconnects: metricsA?.fencedDisconnects, saves: metricsA?.journal?.saves }
-  const version = await A.version()
-  check('/version carries no location state (D-L5)', !/location|shadow|epoch/.test(JSON.stringify(version)), JSON.stringify(version))
+  // The socket closes before the drain ends (stop comes after the flush): wait for A's stop.
+  for (let i = 0; i < 300 && (await local.hosts())?.[0]?.state !== 'stopped'; i++) await delay(50)
+  const late = await connect(A, token, { tabId: 'tab-two-late-harness', waitSelf: false })
+  check('A: displaced, it stays alive and stopped: /readyz 503, joins refused with 4503 (it never exits on its own)', A.child.exitCode === null && (await A.ready()) === 503 && late.refused === 4503, JSON.stringify({ exit: A.child.exitCode, ready: await A.ready(), refused: late.refused }))
+  const hosts = await local.hosts()
+  check('A: its host is stopped, B\'s is active', hosts?.[0]?.state === 'stopped' && hosts?.[1]?.state === 'active', JSON.stringify(hosts?.map(h => [h.generation, h.state])))
 
-  await kill(A) // A dies hard: no shutdown, no flush
+  await A.kill() // the deploy ends the displaced process
   A = null
   await cross(onB, 'ciudad-corazon')
   await delay(1_200)
   const saved = await row(userId)
   check('B: its crossing back is saved', saved?.area_id === 'ciudad-corazon' && saved.tx === TOWN_FROM_PRADERA.tx && saved.ty === TOWN_FROM_PRADERA.ty, JSON.stringify(saved))
-  summary.metricsB = (await B.metrics()).location
+  summary.metricsB = (await B.metrics())?.location
 
-  await kill(B) // B crashes too
-  B = await startRealtime('B2', 2631) // a fresh process: no reconnect memory
-  const again = await connect(B, token)
+  await B.kill() // B crashes too: its lease runs out on its own
+  B = await start('B2', 2631) // a fresh process: no reconnect memory, a newer host
+  const again = await connect(B, token, { tabId: 'tab-two-b2-harness' })
   check('B\': a restart restores the last saved tile', again.self.areaId === 'ciudad-corazon' && again.self.tx === TOWN_FROM_PRADERA.tx && again.self.ty === TOWN_FROM_PRADERA.ty, JSON.stringify(again.self))
   check('B\': epoch 3', (await row(userId))?.epoch === 3, JSON.stringify(await row(userId)))
-  again.room.leave()
+  await again.room.leave()
 
   // 6. An abandoned claim on B' lands in the database after the live session's claim on A'.
-  const late = await local.player()
-  local.holdClaims(late.userId)
-  const abandoned = await connect(B, late.token)
+  const second = await local.player()
+  local.holdClaims(second.userId)
+  const abandoned = await connect(B, second.token, { tabId: 'tab-two-abandoned-harness' })
   check('B\': a hung claim places the player at Ciudad after the 1.5 s timeout', abandoned.self.areaId === 'ciudad-corazon', JSON.stringify(abandoned.self))
   check('B\': the claim was held, not answered', local.calls.held === 1, JSON.stringify(local.calls))
-  abandoned.room.leave()
+  await abandoned.room.leave()
   for (let i = 0; i < 40 && abandoned.left === null; i++) await delay(25)
-  A = await startRealtime('A2', 2641)
-  const live = await connect(A, late.token)
-  for (let i = 0; i < 40 && (await row(late.userId))?.epoch !== 1; i++) await delay(50)
-  const epoch = (await row(late.userId))?.epoch
-  check('A\': the live session claimed', epoch === 1, JSON.stringify(await row(late.userId)))
+  A = await start('A2', 2641) // a newer host; B' drains when it learns of it
+  const live = await connect(A, second.token, { tabId: 'tab-two-live-harness' })
+  for (let i = 0; i < 40 && (await row(second.userId))?.epoch !== 1; i++) await delay(50)
+  const epoch = (await row(second.userId))?.epoch
+  check('A\': the live session claimed', epoch === 1, JSON.stringify(await row(second.userId)))
   const answer = await local.releaseHeld()
-  check('the abandoned claim runs late and writes nothing (conflict)', answer?.claim?.status === 'conflict' && (await row(late.userId))?.epoch === epoch, JSON.stringify({ answer, row: await row(late.userId) }))
+  check('the abandoned claim runs late and writes nothing (superseded)', answer?.claim?.status === 'superseded' && (await row(second.userId))?.epoch === epoch, JSON.stringify({ answer, row: await row(second.userId) }))
   await cross(live, 'pradera')
   await delay(1_200)
-  check('A\': the live session keeps writing, never fenced', (await row(late.userId))?.area_id === 'pradera' && live.left === null, JSON.stringify({ row: await row(late.userId), left: live.left }))
-  const metricsA2 = (await A.metrics()).location
+  check('A\': the live session keeps writing, never closed', (await row(second.userId))?.area_id === 'pradera' && live.left === null, JSON.stringify({ row: await row(second.userId), left: live.left }))
+  const metricsA2 = (await A.metrics())?.location
   check('A\': no stale and no fenced disconnect on /metrics', metricsA2?.journal?.saves?.stale === 0 && metricsA2?.fencedDisconnects === 0, JSON.stringify(metricsA2?.journal?.saves))
-  live.room.leave()
+  await live.room.leave()
   summary.authorityCalls = { ...local.calls }
 } catch (error) {
   check('scenario ran to the end', false, String(error?.stack ?? error))
 } finally {
-  if (A) await kill(A)
-  if (B) await kill(B)
+  if (A) await A.kill()
+  if (B) await B.kill()
   await local.close()
 }
 

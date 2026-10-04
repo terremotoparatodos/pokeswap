@@ -92,6 +92,7 @@ test('an authenticated snapshot includes only its server-authoritative self acto
   assert.deepEqual(lastOf(player, MESSAGE.SNAPSHOT), {
     type: MESSAGE.SNAPSHOT,
     payload: {
+      presenceProtocol: 3, // WORLD LOCATION-4: the close codes this server speaks
       access: 'player',
       actors: [],
       self: { id: 'self-user', areaId: 'ciudad-corazon', tx: 31, ty: 20, username: 'Self', characterId: 'lucas', companionId: null, dir: 'down', speed: 3.75, moveSequence: 0 },

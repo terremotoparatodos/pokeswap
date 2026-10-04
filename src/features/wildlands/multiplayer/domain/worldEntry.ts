@@ -18,7 +18,10 @@ export type WorldEntryPhase =
   | 'reconnecting'
   /** The wait ran out (`failed` says which); only a manual retry continues. */
   | 'connection-error'
-  /** 4001: a newer session owns the account. Never retried automatically. */
+  /**
+   * Another tab or device owns the account's session (4409, a resume refused with 4409, or a
+   * 4001 read as a replacement). Never retried automatically: only «Jugar acá» (takeover).
+   */
   | 'replaced'
 
 export interface WorldEntryState {
@@ -44,6 +47,8 @@ export type WorldEntryEvent =
   | { type: 'prepare-failed' }
   | { type: 'replaced' }
   | { type: 'retry' }
+  /** WORLD LOCATION-4: «Jugar acá», the player's explicit takeover out of a replaced session. */
+  | { type: 'takeover' }
   /** The browser session changed and the socket is replaced (sign-in, sign-out). */
   | { type: 'renew' }
 
@@ -94,6 +99,9 @@ export function nextWorldEntry(state: WorldEntryState, event: WorldEntryEvent): 
     case 'retry':
       if (state.phase !== 'connection-error') return state
       return waiting(state, state.failed === 'reconnect' ? 'reconnecting' : 'connecting')
+    case 'takeover':
+      if (state.phase !== 'replaced') return state
+      return waiting(state, 'connecting')
     case 'renew':
       // No automatic attempt out of an error or a replaced session.
       if (state.phase === 'ready') return waiting(state, 'reconnecting')

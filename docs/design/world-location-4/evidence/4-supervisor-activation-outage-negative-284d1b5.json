@@ -1,0 +1,125 @@
+{
+  "tree": "other (--tree)",
+  "seconds": 150,
+  "players": 6,
+  "restartDelayMs": 500,
+  "generations": 2,
+  "hosts": [
+    [
+      1,
+      "stopped"
+    ],
+    [
+      2,
+      "active"
+    ]
+  ],
+  "supervisedStarts": {
+    "A": 1,
+    "B": 1
+  },
+  "exits": {
+    "A": 0,
+    "B": 0
+  },
+  "restarts": 0,
+  "activeAfterSettling": [
+    "[2]"
+  ],
+  "generationsOverTime": [
+    2
+  ],
+  "closesPerPlayer": [
+    [],
+    [],
+    [],
+    [],
+    [],
+    []
+  ],
+  "joinsPerPlayer": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "events": [
+    {
+      "t": 0,
+      "app": "authority",
+      "event": "outage presence_activate"
+    },
+    {
+      "t": 669,
+      "app": "A",
+      "event": "start",
+      "n": 1
+    },
+    {
+      "t": 20618,
+      "app": "authority",
+      "event": "back"
+    },
+    {
+      "t": 55796,
+      "app": "B",
+      "event": "start",
+      "n": 1
+    }
+  ],
+  "outage": {
+    "ops": [
+      "presence_activate"
+    ],
+    "fromMs": 0,
+    "ms": 20000,
+    "readyDuring": [
+      0,
+      503
+    ],
+    "readyBeforeDeploy": 503,
+    "hostsBeforeDeploy": [
+      [
+        1,
+        "stopped"
+      ]
+    ]
+  },
+  "checks": [
+    {
+      "name": "no supervised process ever exits on its own (no restart)",
+      "ok": true
+    },
+    {
+      "name": "no new generation after the deploy: exactly two (A, B)",
+      "ok": true
+    },
+    {
+      "name": "after settling: always exactly one active host, the newest",
+      "ok": true
+    },
+    {
+      "name": "no repeated mass reconnection: each player is closed at most once, never with 4001",
+      "ok": true
+    },
+    {
+      "name": "every player is connected at the end",
+      "ok": true
+    },
+    {
+      "name": "the displaced A stays alive and stopped (/readyz 503): only the real displacement is terminal",
+      "ok": true
+    },
+    {
+      "name": "during the outage A answers /readyz 503 (no authority, no persistence)",
+      "ok": true
+    },
+    {
+      "name": "after the outage A recovers by itself: ready again before the deploy, with its first generation",
+      "ok": false
+    }
+  ],
+  "passed": false
+}

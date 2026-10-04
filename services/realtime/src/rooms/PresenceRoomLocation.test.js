@@ -12,14 +12,17 @@ import { createDemoSkillPolicy } from '../world/demoSkillPolicy.js'
 import { layoutVersion } from '../world/layoutVersion.js'
 import { PRADERA_RETURN_PAD, portalTo } from '../world/navigation.js'
 import { createStaticOwnership } from '../world/pokemonOwnership.js'
+import { HostLifecycle } from '../presence/hostLifecycle.js'
 import { openLocalDatabase, serviceQuery } from '../world/persistence/dev/localDatabase.js'
 import { createSqlPlayerData } from '../world/persistence/playerData.js'
 import { lastMessage, messagesOf, openDirection, praderaNodesNearSpawn, routeBetween, settle } from '../world/testing.js'
 import { standableTile, workPlacement } from '../world/workPlacement.js'
 import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../world/worldProtocol.js'
 
-// WORLD LOCATION-2, commit 6: persisted locations inside the presence room,
-// against the real migration on an embedded Postgres shared by the file.
+// WORLD LOCATION-2, commit 6 (keyed by WORLD LOCATION-4): persisted locations inside the
+// presence room, against the real migrations on an embedded Postgres shared by the file.
+// Each room runs with a real presence host (acquired and activated on that database), so
+// every session claims with its key; a room created later has a newer host.
 // Matrix (WORLD_LOCATION_1_AUDIT §7) cases 1–3, 5, 10, 12–14, 16–21, 26, plus
 // the connection rules of this phase (reserve without waiting, no provisional
 // position, 1.5 s timeout, late claim, stale → 4001 session-replaced).
@@ -43,36 +46,47 @@ test.after(async () => { await db?.close() })
 // One fake clock for the whole file: two room instances in one test must share it.
 const realNow = Date.now
 let now = realNow()
+const advance = ms => { now += ms }
+const BACKOFF_MS = 2_000
 test.before(() => { Date.now = () => now })
 test.after(() => { Date.now = realNow })
 
-/** The real SQL adapter with dials: delay or hang a claim, fail claims or saves, count calls. */
+/** The real SQL adapter with dials: delay or hang a claim, fail claims or saves, count calls and keys. */
 function instrumented(base) {
   const store = {
-    claims: [], batches: [], claimDelayMs: 0, claimHang: false, claimFail: false, saveFail: false, gates: [], abandonMs: 0, late: [],
-    // Which calls `abandonMs` gives up: every one by default; `expected => expected > 0` only the second round (UPDATE).
-    abandonWhen: () => true,
-    async locationClaim(userId, expectedEpoch) {
+    claims: [], keys: [], batches: [], claimDelayMs: 0, claimHang: false, claimFail: false, saveFail: false, gates: [], abandonMs: 0, late: [],
+    async locationClaim(userId, key) {
       store.claims.push(userId)
-      if (store.abandonMs && store.abandonWhen(expectedEpoch)) {
+      store.keys.push({ ...key })
+      if (store.abandonMs) {
         // The HTTP answer is given up (an aborted fetch), but the operation itself
         // still reaches the database later: the test runs it with `late.shift()()`.
-        store.late.push(() => base.locationClaim(userId, expectedEpoch))
+        store.late.push(() => base.locationClaim(userId, key))
         await new Promise(resolve => setTimeout(resolve, store.abandonMs))
         throw new Error('aborted')
       }
       if (store.claimHang) await new Promise(resolve => store.gates.push(resolve))
       if (store.claimDelayMs) await new Promise(resolve => setTimeout(resolve, store.claimDelayMs))
       if (store.claimFail) throw new Error('authority down')
-      return base.locationClaim(userId, expectedEpoch)
+      return base.locationClaim(userId, key)
     },
-    async locationSave(rows) {
+    async locationSave(rows, host) {
       store.batches.push(rows.map(r => ({ ...r })))
       if (store.saveFail) throw new Error('authority down')
-      return base.locationSave(rows)
+      return base.locationSave(rows, host)
     },
   }
   return store
+}
+
+/** A presence host on the shared database, acquired and activated now (so newer than every earlier one). */
+async function newHost() {
+  // PGlite's now() reads Date.now, which this file fakes and moves forward a lot (steps, grace
+  // periods, checkpoints): the longest lease the database allows keeps a test's host alive.
+  const host = new HostLifecycle({ store: data, renewMs: 600_000, leaseMs: 120_000, log: () => {} })
+  await host.acquire()
+  await host.activate()
+  return host
 }
 
 async function stored(userId) {
@@ -80,17 +94,30 @@ async function stored(userId) {
   return rows[0] ?? null
 }
 
-/** Another session's claim, as another instance would make it (it reads the epoch, then claims after it). */
+/** A newer session of the player on another, newer instance (its host acquired now): it takes the row. */
 async function claimNewer(userId) {
-  const first = await data.locationClaim(userId, 0)
-  return first.status === 'conflict' ? data.locationClaim(userId, first.epoch) : first
+  const host = await newHost()
+  return data.locationClaim(userId, host.sessionKey())
 }
 
-/** A saved row as a past session would have left it (claim + one save). */
+/**
+ * A saved row as a past session (before WORLD LOCATION-4 keys, or of a host long gone) left
+ * it: written as the table owner (test setup only), owned by no keyed session, so any live
+ * session takes it over.
+ */
 async function seed(userId, place, version = layoutVersion(place.areaId)) {
   await db.query('INSERT INTO auth.users VALUES ($1) ON CONFLICT DO NOTHING', [userId])
-  const { epoch } = await claimNewer(userId)
-  await data.locationSave([{ userId, epoch, seq: 1, areaId: place.areaId, tx: place.tx, ty: place.ty, layoutVersion: version }])
+  await db.query(`INSERT INTO public.world_player_locations (user_id, area_id, tx, ty, layout_version, epoch, seq)
+    VALUES ($1, $2, $3, $4, $5, 1, 1)
+    ON CONFLICT (user_id) DO UPDATE SET area_id = EXCLUDED.area_id, tx = EXCLUDED.tx, ty = EXCLUDED.ty, layout_version = EXCLUDED.layout_version,
+      epoch = world_player_locations.epoch + 1, seq = 1, owner_generation = 0, owner_seq = 0, owner_session = NULL`,
+  [userId, place.areaId, place.tx, place.ty, version])
+}
+
+/** The owner key of the row (generation, seq). */
+async function owner(userId) {
+  const { rows } = await serviceQuery(db)('SELECT owner_generation::int AS g, owner_seq::int AS s FROM public.world_player_locations WHERE user_id = $1', [userId])
+  return rows[0] ?? null
 }
 
 function client(id) {
@@ -111,17 +138,24 @@ async function waitFor(condition, label, timeoutMs = 4_000) {
 async function locationRoom(t, { mode = 'on', module = instanceA, owners = {}, hydrationTimeoutMs = 200, store: given = null } = {}) {
   await database()
   const store = given ?? instrumented(data)
+  const host = await newHost()
   module.configureWorld({ skills: createDemoSkillPolicy({ durationMs: 3_000 }), ownership: createStaticOwnership(owners) })
-  const service = module.configureLocationPersistence({ mode, store, now: () => Date.now(), hydrationTimeoutMs })
+  // These tests play the window before an older host learns of a newer one (bounded by its
+  // renew in production): the room's drain on a newer host is PresenceRoomClose.test.js'.
+  module.configurePresenceHost(host, { reactToHostChanges: false })
+  const service = module.configureLocationPersistence({ mode, store, host, now: () => Date.now(), hydrationTimeoutMs })
   service.journal?.stop() // ticks are driven by the test
   const room = new module.PresenceRoom()
   room.onCreate()
   const clients = []
-  t.after(() => {
+  // Awaited: the file closes the database after the last test, never under a host's last call.
+  t.after(async () => {
     for (const c of clients) room.onLeave(c)
     room.setSimulationInterval(null)
     room.clock.clear()
     module.configureLocationPersistence({ mode: 'off' })
+    module.configurePresenceHost(null)
+    await host.stop()
   })
   const join = async (userId, options = {}) => {
     await db.query('INSERT INTO auth.users VALUES ($1) ON CONFLICT DO NOTHING', [userId])
@@ -152,7 +186,7 @@ async function locationRoom(t, { mode = 'on', module = instanceA, owners = {}, h
   }
   const flush = async () => { service.journal.tick(); await waitFor(() => !service.journal.inflight, 'flush'); await settle() }
   const advance = ms => { now += ms }
-  return { room, store, service, join, joinPlaced, self, where, step, walk, travel, flush, advance, module }
+  return { room, store, service, host, join, joinPlaced, self, where, step, walk, travel, flush, advance, module }
 }
 
 const deltasAbout = (c, id) => messagesOf(c, MESSAGE.BATCH).flat().concat(messagesOf(c, MESSAGE.DELTA)).filter(d => d.actor?.id === id)
@@ -386,13 +420,19 @@ test('stale → the writer is fenced and its socket closed with 4001 session-rep
   assert.equal(r.service.stats().fencedDisconnects, 1)
   r.room.onLeave(c)
   await r.flush()
-  // Back here within the grace period: the newer session's row decides, not this fenced socket's memory.
+  // Back here within the grace period: the fenced socket's tile is not remembered (no cache
+  // placement), and this host is OLDER than the one whose session owns the row (WORLD LOCATION-4):
+  // a session accepted here is outranked, never placed, and goes as replaced. (In `on` this host
+  // would already be draining: it saw a newer active host.)
   assert.equal((await stored(u)).area_id, 'pradera')
-  const again = await r.joinPlaced(u)
-  assert.deepEqual(r.where(again), { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty })
+  const again = await r.join(u)
+  await waitFor(() => again.leaves.length === 1, 'the outranked join closes')
+  assert.deepEqual(again.leaves, [[4001, SESSION_REPLACED]])
+  assert.equal(r.module.liveActorForTesting(u), null, 'never placed: neither from the cache nor from the row')
+  assert.equal((await stored(u)).area_id, 'pradera', 'the newer session keeps its row')
 })
 
-test('double reconnect on one instance: one actor, the replaced socket gets 4001 session-replaced, the newest epoch writes (case 16)', async t => {
+test('double reconnect on one instance: one actor, the replaced sockets get 4001 session-replaced, the newest key owns the row (case 16)', async t => {
   const r = await locationRoom(t)
   const u = nextUser()
   const first = await r.joinPlaced(u)
@@ -403,12 +443,15 @@ test('double reconnect on one instance: one actor, the replaced socket gets 4001
   assert.deepEqual(second.leaves, [[4001, SESSION_REPLACED]])
   r.room.onLeave(first); r.room.onLeave(second)
   await waitFor(() => r.service.journal.stats().sessions.live.claimed === 1, 'claims settle')
+  await new Promise(resolve => setTimeout(resolve, 60)) // every delayed claim has landed
   r.store.claimDelayMs = 0
-  assert.equal((await stored(u)).epoch, 3)
+  const keys = r.store.keys.filter((_, i) => r.store.claims[i] === u)
+  assert.deepEqual(keys.map(k => k.seq), [...keys.map(k => k.seq)].sort((a, b) => a - b), 'keys follow the acceptance order')
+  assert.deepEqual(await owner(u), { g: r.host.generation, s: keys.at(-1).seq }, 'the newest key owns the row, whatever the landing order')
   r.travel(third, 'pradera')
   await r.flush()
   assert.deepEqual(third.leaves, [], 'the survivor is never fenced')
-  assert.deepEqual({ area: (await stored(u)).area_id, epoch: (await stored(u)).epoch }, { area: 'pradera', epoch: 3 })
+  assert.equal((await stored(u)).area_id, 'pradera')
 })
 
 test('two instances (two module copies, one database): the newer session wins, the older is closed with 4001 (case 5)', async t => {
@@ -500,10 +543,13 @@ for (const mode of ['on', 'shadow']) {
   })
 }
 
-// ── Abandoned or out-of-order claims (review B2, repro R2) ────────────────
+// ── Abandoned, late or retried claims of an OLDER session (WORLD LOCATION-4: T3/T4) ──
+// The key of a session is fixed when it is accepted: whatever happens to its claims (given
+// up, landing late, retried), a session accepted later — on this host (greater seq) or on a
+// newer host (greater generation) — keeps the row. No re-read, no new key, no re-imposition.
 
 for (const [mode, instances] of [['on', 1], ['shadow', 1], ['on', 2], ['shadow', 2]]) {
-  test(`${mode}, ${instances} instance(s): an abandoned claim (C1) that lands in the database after the live session's (C2) never fences C2 (R2)`, async t => {
+  test(`${mode}, ${instances} instance(s): an abandoned claim of an older session that lands after the live newer session's never displaces it`, async t => {
     const a = await locationRoom(t, { mode, hydrationTimeoutMs: 100 })
     const instanceB = instances === 2 ? await import(new URL(`./PresenceRoom.js?instance=abandon-${mode}`, import.meta.url).href) : null
     const b = instanceB ? await locationRoom(t, { mode, module: instanceB, store: instrumented(data) }) : a
@@ -515,10 +561,11 @@ for (const [mode, instances] of [['on', 1], ['shadow', 1], ['on', 2], ['shadow',
     assert.equal(a.store.late.length, 1, 'C1 was abandoned, not answered')
     a.room.onLeave(first) // the first socket disappears
     a.store.abandonMs = 0
-    const second = await b.joinPlaced(u) // C2: the live session
+    const second = await b.joinPlaced(u) // C2: the live session, accepted later
     await waitFor(() => b.service.journal.stats().sessions.live.claimed === 1, 'C2 claimed')
     const epoch = (await stored(u)).epoch
-    await a.store.late.shift()() // C1 reaches the database only now, after C2
+    const zombie = await a.store.late.shift()() // C1 reaches the database only now, after C2
+    assert.deepEqual(zombie, { status: 'superseded', newerActive: instances === 2 }, 'C1 is superseded: it writes nothing')
     assert.equal((await stored(u)).epoch, epoch, 'C1 displaced nobody')
     const to = b.where(second).areaId === 'pradera' ? 'ciudad-corazon' : 'pradera'
     b.travel(second, to)
@@ -531,42 +578,59 @@ for (const [mode, instances] of [['on', 1], ['shadow', 1], ['on', 2], ['shadow',
   })
 }
 
-// Review 2 (F1): the zombie of the SECOND round. C1's first call reads the
-// existing row (conflict, epoch E); its second call — the conditional UPDATE
-// with expected_epoch = E — is given up and only reaches the database after
-// the live session's claim. It must answer conflict and leave the epoch alone.
-for (const [mode, instances] of [['on', 1], ['shadow', 1], ['on', 2], ['shadow', 2]]) {
-  test(`${mode}, ${instances} instance(s): an abandoned second-round claim (UPDATE, expected = E) that lands after the live session's never fences it (R2, F1)`, async t => {
-    const a = await locationRoom(t, { mode, hydrationTimeoutMs: 200 })
-    const instanceB = instances === 2 ? await import(new URL(`./PresenceRoom.js?instance=abandon-update-${mode}`, import.meta.url).href) : null
-    const b = instanceB ? await locationRoom(t, { mode, module: instanceB, store: instrumented(data) }) : a
+for (const mode of ['on', 'shadow']) {
+  test(`${mode}: T3 in the room — the older host's claim is still in flight when the newer host's session claims`, async t => {
+    const a = await locationRoom(t, { mode, hydrationTimeoutMs: 5_000 })
+    const instanceB = await import(new URL(`./PresenceRoom.js?instance=t3-${mode}`, import.meta.url).href)
+    const b = await locationRoom(t, { mode, module: instanceB, store: instrumented(data) })
     const u = nextUser()
     await seed(u, { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty })
-    const E = (await stored(u)).epoch
-    a.store.abandonMs = 20
-    a.store.abandonWhen = expected => expected > 0 // the first round (expected 0) answers: conflict E
-    const first = await a.join(u)
-    await waitFor(() => lastMessage(first, MESSAGE.SNAPSHOT)?.self, 'first session placed')
-    // Shadow places the player at once: wait for the second round to be sent and given up.
-    await waitFor(() => a.store.late.length === 1, 'the second round given up')
-    await waitFor(() => a.service.journal.stats().claims.failed >= 1, 'C1 counted as failed')
-    assert.equal((await stored(u)).epoch, E, 'nothing landed yet')
-    a.room.onLeave(first)
-    a.store.abandonMs = 0
-    const second = await b.joinPlaced(u) // C2, the live session
-    await waitFor(() => b.service.journal.stats().sessions.live.claimed === 1, 'C2 claimed')
-    assert.equal((await stored(u)).epoch, E + 1, 'C2 confirmed first')
-    const zombie = await a.store.late.shift()() // C1's UPDATE with expected_epoch = E runs only now
-    assert.deepEqual(zombie, { status: 'conflict', epoch: E + 1 }, 'the zombie answers conflict')
-    assert.equal((await stored(u)).epoch, E + 1, 'and leaves the epoch alone')
-    const to = b.where(second).areaId === 'pradera' ? 'ciudad-corazon' : 'pradera'
-    b.travel(second, to)
+    a.store.claimHang = true
+    const onA = await a.join(u)
+    await waitFor(() => a.store.gates.length === 1, 'A\'s claim in flight')
+    const onB = await b.joinPlaced(u)
+    await waitFor(() => b.service.journal.stats().sessions.live.claimed === 1, 'B claimed')
+    a.store.claimHang = false
+    a.store.gates.shift()() // A's claim lands only now
+    await waitFor(() => a.service.journal.stats().claims.outranked === 1, 'A superseded')
+    assert.equal((await owner(u)).g, b.host.generation, 'the newer host keeps the row')
+    if (mode === 'on') assert.deepEqual(onA.leaves, [[4001, SESSION_REPLACED]], 'on: the older session goes as replaced')
+    else { assert.deepEqual(onA.leaves, []); assert.equal(a.service.stats().shadow.wouldReplace, 1) }
+    const to = b.where(onB).areaId === 'pradera' ? 'ciudad-corazon' : 'pradera'
+    b.travel(onB, to)
     await b.flush()
-    assert.deepEqual(second.leaves, [], 'C2 is never disconnected')
-    assert.equal(b.service.stats().fencedDisconnects, 0)
-    assert.equal(b.service.stats().shadow.wouldFence, 0)
+    assert.deepEqual(onB.leaves, [])
+    assert.equal((await stored(u)).area_id, to)
+  })
+
+  test(`${mode}: T4 in the room — the older session's claim is abandoned and its later retry (same key) never displaces the newer one`, async t => {
+    const a = await locationRoom(t, { mode, hydrationTimeoutMs: 100 })
+    const instanceB = await import(new URL(`./PresenceRoom.js?instance=t4-${mode}`, import.meta.url).href)
+    const b = await locationRoom(t, { mode, module: instanceB, store: instrumented(data) })
+    const u = nextUser()
+    await seed(u, { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty })
+    a.store.abandonMs = 20
+    const onA = await a.join(u) // stays live
+    await waitFor(() => lastMessage(onA, MESSAGE.SNAPSHOT)?.self, 'A placed')
+    await waitFor(() => a.service.journal.stats().claims.failed >= 1, 'A abandoned')
+    a.store.abandonMs = 0
+    const onB = await b.joinPlaced(u)
+    await waitFor(() => b.service.journal.stats().sessions.live.claimed === 1, 'B claimed')
+    const epoch = (await stored(u)).epoch
+    advance(BACKOFF_MS)
+    a.service.journal.tick() // A's retry, same key
+    await waitFor(() => a.service.journal.stats().claims.outranked === 1, 'A superseded on retry')
+    const keysOfA = a.store.keys.filter((_, i) => a.store.claims[i] === u)
+    assert.ok(keysOfA.length >= 2 && keysOfA.every(k => JSON.stringify(k) === JSON.stringify(keysOfA[0])), 'every retry of A carries the same key')
+    assert.equal((await stored(u)).epoch, epoch, 'the retry wrote nothing')
+    await a.store.late.shift()() // and the abandoned operation landing late writes nothing either
+    assert.equal((await stored(u)).epoch, epoch)
+    if (mode === 'on') assert.deepEqual(onA.leaves, [[4001, SESSION_REPLACED]])
+    else assert.equal(a.service.stats().shadow.wouldReplace, 1)
+    b.travel(onB, b.where(onB).areaId === 'pradera' ? 'ciudad-corazon' : 'pradera')
+    await b.flush()
+    assert.deepEqual(onB.leaves, [], 'B is never fenced')
     assert.equal(b.service.journal.stats().saves.stale, 0)
-    assert.deepEqual({ area: (await stored(u)).area_id, epoch: (await stored(u)).epoch }, { area: to, epoch: E + 1 })
   })
 }
 
@@ -701,7 +765,7 @@ test('shadow: claims and saves, restores nothing, and counts what `on` would hav
   const c = await r.join(u)
   assert.deepEqual(r.where(c), { areaId: 'ciudad-corazon', tx: 31, ty: 20 }, 'placed synchronously, as today')
   await waitFor(() => r.service.journal.stats().sessions.live.claimed === 1, 'claim')
-  assert.deepEqual(r.service.stats().shadow, { wouldRestore: 1, wouldRepair: { area: 0, layout: 0, tile: 1, protocol: 0 }, wouldFence: 0 })
+  assert.deepEqual(r.service.stats().shadow, { wouldRestore: 1, wouldRepair: { area: 0, layout: 0, tile: 1, protocol: 0 }, wouldFence: 0, wouldReplace: 0, wouldDrain: 0 })
   r.travel(c, 'pradera')
   await r.flush()
   assert.equal((await stored(u)).area_id, 'pradera', 'shadow writes what really happens')
@@ -768,7 +832,7 @@ test('graceful shutdown: after every socket closes, one final flush saves each l
   for (const c of sockets) r.step(c, direction) // the last step of each is only marked
   for (const c of sockets) r.room.onLeave(c) // Colyseus disconnects everyone first…
   const result = await r.module.flushLocationsForShutdown(3_000) // …then calls onShutdown
-  assert.deepEqual(result, { sent: 3, left: 0, timedOut: false })
+  assert.deepEqual(result, { sent: 3, applied: 3, duplicate: 0, stale: 0, hostRefused: 0, left: 0, timedOut: false })
   for (const u of users) assert.deepEqual({ area: (await stored(u)).area_id, tx: (await stored(u)).tx, ty: (await stored(u)).ty }, { area: 'pradera', ...last })
   r.advance(RECONNECT_GRACE_MS + 1)
   const fresh = await import(new URL('./PresenceRoom.js?instance=after-shutdown', import.meta.url).href)
@@ -789,9 +853,12 @@ test('graceful shutdown is best effort: a hung authority never holds the exit pa
   assert.ok(performance.now() - started < 1_000)
 })
 
-test('the process entry point wires the shutdown flush into Colyseus onShutdown', async () => {
+test('the process entry point (realtimeServer.js) drains in onBeforeShutdown (before any socket closes) and stops the host in onShutdown', async () => {
   const { readFile } = await import('node:fs/promises')
-  const source = await readFile(new URL('../index.js', import.meta.url), 'utf8')
-  assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*const \{ sent, left, timedOut \} = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
+  const source = await readFile(new URL('../realtimeServer.js', import.meta.url), 'utf8')
+  assert.match(source, /gameServer\.onBeforeShutdown\(async \(\) => \{ drained = await drainPresence\(\{ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS \}\) \}\)/)
+  assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*const late = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
+  assert.match(source, /const line = shutdownFlushLine\(drained, late\)/)
+  assert.match(source, /await host\?\.stop\(\)/)
   assert.match(source, /SHUTDOWN_LOCATION_FLUSH_MS = 3_000/)
 })

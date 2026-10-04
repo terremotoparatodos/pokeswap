@@ -1,0 +1,864 @@
+{
+ "battery": "WORLD LOCATION-4 F2 postgres concurrency",
+ "build": "original",
+ "rounds": 10,
+ "scenarios": [
+  "A1",
+  "A2",
+  "A3",
+  "A4",
+  "A4b",
+  "A5",
+  "A6",
+  "A5b"
+ ],
+ "postgres": "17.6",
+ "isolation": "read committed",
+ "deadlocksDuringRun": 0,
+ "verdict": "PASS",
+ "reasons": [],
+ "table": {
+  "A1": {
+   "pass": 10,
+   "violation": 0,
+   "harness_error": 0
+  },
+  "A2": {
+   "pass": 10,
+   "violation": 0,
+   "harness_error": 0
+  },
+  "A3": {
+   "pass": 10,
+   "violation": 0,
+   "harness_error": 0
+  },
+  "A4": {
+   "pass": 10,
+   "violation": 0,
+   "harness_error": 0
+  },
+  "A4b": {
+   "pass": 10,
+   "violation": 0,
+   "harness_error": 0
+  },
+  "A5": {
+   "pass": 10,
+   "violation": 0,
+   "harness_error": 0
+  },
+  "A6": {
+   "pass": 10,
+   "violation": 0,
+   "harness_error": 0
+  },
+  "A5b": {
+   "pass": 10,
+   "violation": 0,
+   "harness_error": 0
+  }
+ },
+ "results": [
+  {
+   "round": 1,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 198,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 1,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 206,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 1,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 208,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 1,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 312,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 1,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 186,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 1,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 443,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 1,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 466,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 1,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 186,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 2,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 216,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 2,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 211,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 2,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 203,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 2,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 323,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 2,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 187,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"newer_active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 2,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 448,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 2,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 441,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 2,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 190,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 3,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 190,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 3,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 183,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 3,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 221,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 3,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 337,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 3,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 185,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 3,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 440,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 3,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 446,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 3,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 183,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 4,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 210,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 4,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 185,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 4,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 204,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 4,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 337,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 4,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 182,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 4,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 453,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 4,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 444,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 4,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 191,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 5,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 208,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 5,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 181,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 5,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 193,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 5,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 325,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 5,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 186,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 5,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 448,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 5,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 445,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 5,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 196,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 6,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 220,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 6,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 182,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 6,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 185,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 6,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 315,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 6,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 177,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"newer_active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 6,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 440,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 6,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 444,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 6,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 188,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 7,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 196,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 7,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 199,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 7,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 188,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 7,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 342,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 7,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 200,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"newer_active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 7,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 448,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 7,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 429,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 7,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 193,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 8,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 212,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 8,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 185,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 8,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 192,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 8,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 338,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 8,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 185,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"newer_active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 8,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 447,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 8,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 457,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 8,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 195,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 9,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 201,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 9,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 176,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 9,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 188,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 9,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 326,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 9,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 179,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"newer_active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 9,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 447,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 9,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 440,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 9,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 187,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  },
+  {
+   "round": 10,
+   "scenario": "A1",
+   "outcome": "pass",
+   "ms": 183,
+   "detail": "",
+   "notes": [
+    "stop={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 10,
+   "scenario": "A2",
+   "outcome": "pass",
+   "ms": 185,
+   "detail": "",
+   "notes": [
+    "drain={\"state\":\"stopped\",\"status\":\"ok\"} activate:waiting(Lock:relation) → {\"state\":\"stopped\",\"status\":\"host_inactive\"} state=stopped activated=false"
+   ]
+  },
+  {
+   "round": 10,
+   "scenario": "A3",
+   "outcome": "pass",
+   "ms": 189,
+   "detail": "",
+   "notes": [
+    "renew={\"state\":\"starting\",\"status\":\"ok\",\"leaseLive\":true,\"newerActive\":false} activate:waiting(Lock:relation) → {\"status\":\"active\"} state=active activated=true"
+   ]
+  },
+  {
+   "round": 10,
+   "scenario": "A4",
+   "outcome": "pass",
+   "ms": 349,
+   "detail": "",
+   "notes": [
+    "older:waiting(Lock:relation) newer:waiting(Lock:relation) newerCommittedFirst=false → older={\"status\":\"active\"} newer={\"status\":\"active\"} states=active/active"
+   ]
+  },
+  {
+   "round": 10,
+   "scenario": "A4b",
+   "outcome": "pass",
+   "ms": 173,
+   "detail": "",
+   "notes": [
+    "older={\"status\":\"newer_active\"} newer={\"status\":\"active\"}"
+   ]
+  },
+  {
+   "round": 10,
+   "scenario": "A5",
+   "outcome": "pass",
+   "ms": 441,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) drain:waiting(Lock:transactionid) drainCommittedFirst=false → claim=claimed drain={\"state\":\"draining\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 10,
+   "scenario": "A6",
+   "outcome": "pass",
+   "ms": 445,
+   "detail": "",
+   "notes": [
+    "claim:waiting(Lock:transactionid) stop:waiting(Lock:transactionid) stopCommittedFirst=false → claim=claimed stop={\"state\":\"stopped\",\"status\":\"ok\"} owner=claiming-host epoch=2"
+   ]
+  },
+  {
+   "round": 10,
+   "scenario": "A5b",
+   "outcome": "pass",
+   "ms": 176,
+   "detail": "",
+   "notes": [
+    "claim=claimed drain=draining"
+   ]
+  }
+ ]
+}

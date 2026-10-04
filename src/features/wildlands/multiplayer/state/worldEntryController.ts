@@ -16,6 +16,14 @@ export interface EntryScene {
 }
 
 /** One presence socket. `connect` starts it; `disconnect` stops it and its own retries for good. */
+export interface EntrySocketOptions {
+  /**
+   * WORLD LOCATION-4: an automatic join (retry, renewed session) that never displaces another
+   * tab. Only the first entry and «Jugar acá» join without it.
+   */
+  resume: boolean
+}
+
 export interface EntrySocket {
   connect(): void
   disconnect(): void
@@ -29,7 +37,7 @@ export interface EntryTimers {
 export interface WorldEntryOptions {
   scene: EntryScene
   /** Creates (does not connect) one socket that reports to `status`. */
-  openSocket(status: PresenceConnectionStatus): EntrySocket
+  openSocket(status: PresenceConnectionStatus, options: EntrySocketOptions): EntrySocket
   onChange(state: WorldEntryState): void
   /** Reports a failure the player only sees as an error screen. */
   onFailure?(error: unknown): void
@@ -61,15 +69,23 @@ export class WorldEntryController {
     if (this.disposed || this.socket) return
     this.options.scene.holdScene()
     this.options.onChange(this.state)
-    this.open()
+    this.open(false)
     this.syncTimer(true)
   }
 
-  /** The error screen's button: exactly one new attempt. */
+  /** The error screen's button: exactly one new attempt (it resumes: never displaces another tab). */
   retry(): void {
     if (this.disposed || this.state.phase !== 'connection-error') return
     this.dispatch({ type: 'retry' })
-    this.open()
+    this.open(true)
+    this.syncTimer(true)
+  }
+
+  /** «Jugar acá»: the only join that takes the session back from another tab or device. */
+  takeover(): void {
+    if (this.disposed || this.state.phase !== 'replaced') return
+    this.dispatch({ type: 'takeover' })
+    this.open(false)
     this.syncTimer(true)
   }
 
@@ -79,7 +95,7 @@ export class WorldEntryController {
     const phase = this.state.phase
     if (phase !== 'ready' && phase !== 'connecting' && phase !== 'reconnecting') return
     this.dispatch({ type: 'renew' })
-    this.open()
+    this.open(true)
     this.syncTimer(true)
   }
 
@@ -89,7 +105,7 @@ export class WorldEntryController {
     this.closeSocket()
   }
 
-  private open(): void {
+  private open(resume: boolean): void {
     this.closeSocket()
     const generation = ++this.generation
     const current = (run: () => void) => () => {
@@ -106,7 +122,7 @@ export class WorldEntryController {
         this.clearTimer()
         this.closeSocket()
       }),
-    })
+    }, { resume })
     this.socket = socket
     socket.connect()
   }
