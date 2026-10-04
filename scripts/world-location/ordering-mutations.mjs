@@ -9,8 +9,8 @@
 // scripts/world-location/mutations.mjs (WORLD LOCATION-2), for the new layers.
 
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { runMutationList } from './mutationJudge.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const RT = 'services/realtime/'
@@ -28,6 +28,7 @@ const HOSTING = `${RT}src/rooms/presenceHosting.js`
 const HOSTING_TEST = name => expecting(node('src/rooms/presenceHosting.test.js'), name)
 const HOST_TEST = name => expecting(node('src/presence/hostLifecycle.test.js'), name)
 const SERIAL_TEST = name => expecting(node('src/presence/hostLifecycleSerial.test.js'), name)
+const RECOVERY_TEST = name => expecting(node('src/presence/hostRecovery.test.js'), name)
 const ROOM_HOST_TEST = name => expecting(node('src/rooms/PresenceRoomHost.test.js'), name)
 const JOURNAL = `${RT}src/presence/locationJournal.js`
 const JOIN = `${RT}src/rooms/locationJoin.js`
@@ -146,16 +147,16 @@ export const MUTATIONS = [
     from: 'if (answer.newerActive === true && !this.newerSeen) {', to: 'if (answer.newerActive === true) {',
     test: HOST_TEST('refused answers end or pause') },
   { id: 'H3', what: 'a refused activation is taken as active (newer_active ignored)', file: HOST,
-    from: "      if (answer?.status === 'active') {\n        if (this.state === 'starting') this.state = 'active'", to: "      if (answer) {\n        if (this.state === 'starting') this.state = 'active'",
+    from: "    if (answer.status === 'active') {\n      if (this.state === 'starting' || this.state === 'unavailable') this.#becomeActive()", to: "    if (answer.status) {\n      if (this.state === 'starting' || this.state === 'unavailable') this.#becomeActive()",
     test: HOST_TEST('two concurrent candidates') },
   { id: 'H4', what: 'joins are admitted before the host is active', file: HOSTING,
-    from: "    if (host && this.location().restores && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')\n", to: '',
+    from: "    if (host && this.location().restores && !host.admitting && !(host.state === 'starting' && await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')\n", to: '',
     test: ROOM_HOST_TEST('a join that arrives before activation waits') },
-  { id: 'H5', what: 'a starting host admits joins', file: HOST,
-    from: "get admitting() { return this.state === 'active' || this.state === 'unavailable' }", to: "get admitting() { return this.state === 'active' || this.state === 'unavailable' || this.state === 'starting' }",
+  { id: 'H5', what: 'a starting (or unavailable) host admits joins in on', file: HOST,
+    from: "get admitting() { return this.state === 'active' && !this.paused }", to: "get admitting() { return (this.state === 'active' && !this.paused) || this.state === 'starting' || this.state === 'unavailable' }",
     test: HOST_TEST('acquire before listen') },
   { id: 'H6', what: 'a draining host tries to activate again', file: HOST,
-    from: "  activate() {\n    if (this.state !== 'starting') return Promise.resolve(this.state)\n    return this.#serial(() => this.#activate(), true)\n  }\n\n  async #activate() {\n    for (let attempt = 0; attempt < 6; attempt++) {\n      // A drain or stop that came first wins: never bring a host back.\n      if (this.state !== 'starting') return this.state", to: "  activate() {\n    if (this.state === 'active') return Promise.resolve(this.state)\n    return this.#serial(() => this.#activate(), true)\n  }\n\n  async #activate() {\n    for (let attempt = 0; attempt < 6; attempt++) {\n      // A drain or stop that came first wins: never bring a host back.\n      if (this.state === 'active') return this.state",
+    from: "  activate() {\n    if (this.state !== 'starting') return Promise.resolve(this.state)", to: "  activate() {\n    if (this.state === 'active') return Promise.resolve(this.state)\n    if (this.state === 'draining') this.state = 'starting'",
     test: HOST_TEST('a newer active host: the old one learns') },
   // ── Realtime: keyed journal (ordering) ──
   { id: 'J1', what: 'superseded is not final (the session keeps claiming)', file: JOURNAL,
@@ -213,7 +214,7 @@ export const MUTATIONS = [
     from: "    if (host && this.location().restores && !host.admitting", to: "    if (host && !host.admitting",
     test: HOSTING_TEST('shadow never refuses a join for its host') },
   { id: 'S4', what: 'shadow waits for the activation before admitting (up to 2 s per join)', file: HOSTING,
-    from: "    if (host && this.location().restores && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')", to: "    if (host && !host.admitting && !(await host.whenActive(ACTIVATION_WAIT_MS)) && this.location().restores) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')",
+    from: "    if (host && this.location().restores && !host.admitting && !(host.state === 'starting' && await host.whenActive(ACTIVATION_WAIT_MS))) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')", to: "    if (host && !host.admitting && !(host.state === 'starting' && await host.whenActive(ACTIVATION_WAIT_MS)) && this.location().restores) throw new ServerError(HOST_DRAINING_CODE, 'host-draining')",
     test: HOSTING_TEST('shadow never waits for the activation') },
   { id: 'S2', what: 'in on, a displaced host keeps answering ready (it would keep receiving joins)', file: HOSTING,
     from: '  get serving() { return !this.host || this.host.admitting || !this.location().restores }', to: '  get serving() { return true }',
@@ -240,11 +241,31 @@ export const MUTATIONS = [
     from: '    const run = this.lane.then(op).finally(', to: '    const run = Promise.resolve().then(op).finally(',
     test: SERIAL_TEST('activate ↔ renew') },
   { id: 'T2', what: 'an activate answer brings back a host stopped meanwhile', file: HOST,
-    from: "        if (this.state === 'starting') this.state = 'active'\n", to: "        this.state = 'active'\n",
+    from: "      if (this.state === 'starting' || this.state === 'unavailable') this.#becomeActive()", to: '      this.#becomeActive()',
     test: SERIAL_TEST('a drain or stop asked while activate runs wins') },
   { id: 'U1', what: 'an expired lease gives up after one lease period, not two (contradicts the design)', file: HOST,
     from: 'export const expiredRenewalsFor = (leaseMs, renewMs) => Math.ceil((2 * leaseMs) / renewMs)', to: 'export const expiredRenewalsFor = (leaseMs, renewMs) => Math.ceil(leaseMs / renewMs)',
     test: SERIAL_TEST('an expired lease drains only after two full lease periods') },
+  // ── Realtime: recoverable failures vs the definitive displacement (review N1) ──
+  { id: 'N1a', what: 'an unreachable activation stops the host for good (a temporary outage leaves it stopped forever)', file: HOST,
+    from: "    if (this.state === 'starting') this.#unavailable('activation unreachable')", to: "    if (this.state === 'starting') this.#markStopped()",
+    test: RECOVERY_TEST('N1-1: six activate failures') },
+  { id: 'N1b', what: 'unknown_host ends the host instead of taking a new identity', file: HOST,
+    from: "        this.#newIdentity('the database does not know this host')", to: '        this.#markStopped()',
+    test: RECOVERY_TEST('N1-3: unknown_host is recoverable') },
+  { id: 'N1c', what: 'a transport error (a possibly lost answer) takes a new identity (unbounded generations)', file: HOST,
+    from: "      answer = await this.store.presenceActivate(this.generation, this.hostId, this.leaseMs)\n    } catch {\n      return 'transport'\n    }",
+    to: "      answer = await this.store.presenceActivate(this.generation, this.hostId, this.leaseMs)\n    } catch {\n      this.#newIdentity('transport')\n      return 'reset'\n    }",
+    test: RECOVERY_TEST('N1-1: six activate failures') },
+  { id: 'N1d', what: 'an active host without authority for a lease keeps answering ready (no pause)', file: HOST,
+    from: " && this.now() - this.lastAuthorityAt >= this.leaseMs) this.#pause('no renewal answered for a whole lease period')", to: ' && false) this.#pause()',
+    test: RECOVERY_TEST('N1-5/6: the authority down for more than a lease') },
+  { id: 'N1e', what: 'a newer active host at recovery is treated as recoverable (re-acquire, displacing it in turn)', file: HOST,
+    from: "      this.newerSeen = true\n      this.displaced = true\n      await this.#stopNow()", to: "      this.#newIdentity('newer_active')\n      return 'reset'\n      await this.#stopNow()",
+    test: RECOVERY_TEST('N1-7: recovering while a newer host became active') },
+  { id: 'N1f', what: 'no renewal between activation attempts (the starting lease expires during a retry: a new generation)', file: HOST,
+    from: '    if (this.exclusive > 0) return Promise.resolve(this.state)', to: "    if (this.exclusive > 0 || this.state === 'starting') return Promise.resolve(this.state)",
+    test: RECOVERY_TEST('N1-1c: only activate fails') },
   // ── Client: close codes, resume and «Jugar acá» (design §5.2, §3.6) ──
   { id: 'K1', what: 'automatic reconnections join fresh (they displace the other tab)', file: 'src/features/wildlands/multiplayer/api/colyseusPresence.ts',
     from: '      void this.connect(identity, { resume: true })\n    }, delay)', to: '      void this.connect(identity)\n    }, delay)',
@@ -275,7 +296,7 @@ export const MUTATIONS = [
 const HARNESS = only => ({ cwd: root, cmd: process.execPath, args: ['scripts/world-location/ordering-harness.mjs', '--only', only, '--reps', '24', '--width', '12', '--port', '3300'] })
 const harnessed = (id, newId, only) => {
   const base = MUTATIONS.find(m => m.id === id)
-  return { ...base, id: newId, what: `${base.what} [harness: ${only}]`, tests: [HARNESS(only)] }
+  return { ...base, id: newId, what: `${base.what} [harness: ${only}]`, tests: [{ ...HARNESS(only), expect: only.split(',') }] }
 }
 MUTATIONS.push(
   harnessed('O14', 'X1', 'same-process,two-process'),
@@ -291,62 +312,22 @@ MUTATIONS.push(
   { id: 'X11', what: 'the tab reconnects after a drain without resume (a fresh join displaces the live tab) [harness: inverted]', file: 'scripts/world-location/orderingLifecycle.mjs',
     from: 'const reconnectAfterDrain = (server, token, tabId) => connect(server, token, { tabId, resume: true, waitSelf: false })',
     to: 'const reconnectAfterDrain = (server, token, tabId) => connect(server, token, { tabId, waitSelf: false })',
-    tests: [HARNESS('inverted')] },
+    tests: [{ ...HARNESS('inverted'), expect: 'inverted' }] },
   // A supervisor that restarts every exit (PM2 autorestart=true), for 60 s: the old exit loops.
   { ...MUTATIONS.find(m => m.id === 'S3'), id: 'X12', what: 'a displaced host exits on its own [supervisor-loop, 60 s]',
-    tests: [{ cwd: root, cmd: process.execPath, args: ['scripts/world-location/supervisor-loop.mjs', '--seconds', '60', '--port', '3400'] }] },
-  { id: 'X7', what: 'a host acquired in the background never activates (a failed startup never recovers) [harness: failed-startup]', file: HOST,
-    from: "if (this.state === 'starting') { this.#startRenewing(); await this.activate() }", to: "if (this.state === 'starting') { this.#startRenewing() }",
-    test: HARNESS('failed-startup') },
+    tests: [{ cwd: root, cmd: process.execPath, args: ['scripts/world-location/supervisor-loop.mjs', '--seconds', '60', '--port', '3400'], expect: 'no supervised process ever exits on its own' }] },
+  { id: 'X7', what: 'a host recovering in the background never activates (a failed startup never recovers) [harness: failed-startup]', file: HOST,
+    from: "          const outcome = await this.#serial(() => (this.state === 'starting' || this.state === 'unavailable') ? this.#activateOnce() : 'done', true)",
+    to: "          const outcome = 'done'",
+    tests: [{ ...HARNESS('failed-startup'), expect: 'failed-startup' }] },
+  // A temporary outage of the activation, under a supervisor that restarts every exit (N1).
+  { ...MUTATIONS.find(m => m.id === 'N1a'), id: 'X13', what: 'an unreachable activation stops the host for good [supervisor-loop, activation outage, 80 s]',
+    tests: [{ cwd: root, cmd: process.execPath, args: ['scripts/world-location/supervisor-loop.mjs', '--seconds', '80', '--port', '3500', '--outage', '20', '--outage-at', '0', '--outage-ops', 'presence_activate'], expect: 'after the outage A recovers by itself' }] },
 )
 
-function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }
-const clean = () => git('status', '--porcelain', '--untracked-files=no', '--', 'supabase', 'services', 'scripts', 'src').stdout.trim() === ''
-
-/** One test command's verdict. A run the runner had to kill is never a catch. */
-function judge(test, run) {
-  // Vitest colours its report even without a TTY: parse the plain text.
-  // eslint-disable-next-line no-control-regex
-  const out = `${run.stdout ?? ''}${run.stderr ?? ''}`.replace(/\u001b\[[0-9;]*m/g, '')
-  // The runner's deadline, or the test framework's own timeout: never counted as a detection.
-  const timedOut = run.error?.code === 'ETIMEDOUT' || run.signal !== null || /test timed out after \d+ ?ms/.test(out)
-  const failures = [...new Set([
-    ...[...out.matchAll(/^\s*✖ (?!failing tests)(.+?) \(\d/gmu)].map(match => match[1].trim()),
-    ...[...out.matchAll(/^(.+?) \.\.\. .*FAILED/gmu)].map(match => match[1].trim()),
-    ...[...out.matchAll(/^\s*(?:FAIL|×)\s+(.+?)(?:\s+\d+ms)?$/gmu)].map(match => match[1].trim()),
-  ])]
-  let why = null
-  if (timedOut) why = 'killed at the runner deadline'
-  else if (run.status === 0) why = 'the tests passed'
-  else if (test.expect && !failures.some(name => name.includes(test.expect))) why = `"${test.expect}" did not fail (failures: ${failures.slice(0, 3).join(' | ') || 'none parsed'})`
-  return { caught: why === null, timedOut, exit: run.status, firstFailure: failures[0] ?? null, why }
-}
-
+/** Runs `list` through the shared judge (scripts/world-location/mutationJudge.mjs). */
 export function runMutations(list, { label = 'ordering' } = {}) {
-  if (!clean()) { console.error('the tree is not clean: commit or stash first'); process.exit(2) }
-  const results = []
-  for (const m of list) {
-    const path = `${root}${m.file}`
-    const original = readFileSync(path)
-    const text = original.toString('utf8').replace(/\r\n/g, '\n')
-    const count = text.split(m.from).length - 1
-    if (count !== 1) { results.push({ id: m.id, caught: false, why: `pattern found ${count} times` }); console.log(`${m.id} PATTERN ${count}x — ${m.what}`); continue }
-    writeFileSync(path, text.replace(m.from, m.to))
-    const started = Date.now()
-    const runs = []
-    try {
-      for (const test of m.tests ?? [m.test]) runs.push(judge(test, spawnSync(test.cmd, test.args, { cwd: test.cwd, encoding: 'utf8', timeout: 300_000, shell: test.cmd === 'deno' || test.shell === true })))
-    } finally {
-      writeFileSync(path, original)
-    }
-    const caught = runs.every(r => r.caught)
-    results.push({ id: m.id, what: m.what, caught, runs, ms: Date.now() - started })
-    console.log(`${m.id} ${caught ? 'CAUGHT' : 'MISSED'} (${Math.round((Date.now() - started) / 1000)} s) — ${m.what} → ${runs.map(r => r.why ?? r.firstFailure ?? '?').join(' | ')}`)
-  }
-  const restored = clean()
-  const caught = results.filter(r => r.caught).length
-  console.log(JSON.stringify({ label, total: results.length, caught, restored, missed: results.filter(r => !r.caught).map(r => r.id) }))
-  return caught === results.length && restored
+  return runMutationList(list, { root, cleanPaths: ['supabase', 'services', 'scripts', 'src'], label, timeoutMs: 300_000, spawn: spawnSync })
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

@@ -118,7 +118,8 @@ const record = (name, outcome) => {
   summary.modes[name] = outcome
   const violated = outcome.applicable && (Object.values(outcome.results ?? {}).some(r => r.violated > 0) || outcome.passed === false)
   if (violated) failed.push(name)
-  console.log(`${name}: ${!outcome.applicable ? `n/a (${outcome.reason})` : violated ? 'FAIL' : 'PASS'}`)
+  // A crashed scenario says ERROR, never FAIL: a crash is not a detection (mutationJudge.mjs).
+  console.log(`${name}: ${!outcome.applicable ? `n/a (${outcome.reason})` : outcome.error ? `ERROR (${String(outcome.error).split('\n')[0].slice(0, 120)})` : violated ? 'FAIL' : 'PASS'}`)
 }
 const guarded = async (name, run) => { try { record(name, await run()) } catch (error) { record(name, { applicable: true, passed: false, error: String(error?.stack ?? error).slice(0, 600) }) } }
 

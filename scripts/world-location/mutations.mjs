@@ -8,11 +8,11 @@
 // Prints one line per mutation and a JSON summary; exit 0 only if every
 // mutation was caught and the tree is restored.
 //
-// What counts as caught (review 2, F3): EVERY test command of the mutation
-// exits non-zero on its own — a run killed at the runner's deadline is
-// `timedOut` and is never counted as caught, whatever its output — and, when
-// the mutation names them, the expected test is among the failures (or is the
-// first one, `first: true`) and the expected cause appears in the output.
+// What counts as caught (reviews 2/F3, N2/N3): every test command of the
+// mutation shows a real, identifiable test failure — the expected test when it
+// is named (or the first one, `first: true`), and the expected cause — with no
+// timeout (the runner's deadline or the test framework's own), no cancellation
+// and no infrastructure error anywhere (scripts/world-location/mutationJudge.mjs).
 //
 // WORLD LOCATION-4 re-created the v1 functions in its own migration (with owner guards), so
 // the v1 database mutants target that migration now; `after` names a unique anchor and the
@@ -21,8 +21,8 @@
 // ordering mutant that covers the new rule (scripts/world-location/ordering-mutations.mjs).
 
 import { spawnSync } from 'node:child_process'
-import { readFileSync, writeFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
+import { runMutationList } from './mutationJudge.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const RT = 'services/realtime/'
@@ -150,58 +150,10 @@ const MUTATIONS = [
   { id: 'M38', what: 'a cave map change without a new frozen version', file: `${RT}src/world/caveLayouts.js`, from: "  '##....###.....##...##',\n  '##....###.....##...##',", to: "  '##....###.....##...##',\n  '##....##......##...##',", test: LAYOUT_TEST },
 ]
 
-function git(...args) { return spawnSync('git', args, { cwd: root, encoding: 'utf8' }) }
-const clean = () => git('status', '--porcelain', '--untracked-files=no', '--', 'supabase', 'services', 'scripts').stdout.trim() === ''
-
 const wanted = new Set(process.argv.slice(2))
 const selected = MUTATIONS.filter(m => wanted.size === 0 || wanted.has(m.id))
-if (!clean()) { console.error('the tree is not clean: commit or stash first'); process.exit(2) }
-
-const results = []
-for (const m of selected) {
-  const path = `${root}${m.file}`
-  const original = readFileSync(path)
-  const text = original.toString('utf8').replace(/\r\n/g, '\n')
-  // `after`: a unique anchor; the mutation applies to the first `from` after it.
-  const anchors = m.after ? text.split(m.after).length - 1 : 1
-  const start = m.after ? text.indexOf(m.after) : 0
-  const count = m.after ? (text.indexOf(m.from, start) >= 0 ? 1 : 0) : text.split(m.from).length - 1
-  if (anchors !== 1 || count !== 1) { results.push({ id: m.id, caught: false, error: `pattern found ${count} times (anchor ${anchors})` }); console.log(`${m.id} PATTERN ${count}x (anchor ${anchors}x) — ${m.what}`); continue }
-  const at = text.indexOf(m.from, start)
-  writeFileSync(path, text.slice(0, at) + m.to + text.slice(at + m.from.length))
-  const started = Date.now()
-  const runs = []
-  try {
-    for (const test of m.tests ?? [m.test]) runs.push(judge(test, spawnSync(test.cmd, test.args, { cwd: test.cwd, encoding: 'utf8', timeout: 240_000, shell: test.cmd === 'deno' })))
-  } finally {
-    writeFileSync(path, original)
-  }
-  const caught = runs.every(r => r.caught)
-  const timedOut = runs.some(r => r.timedOut)
-  results.push({ id: m.id, what: m.what, caught, timedOut, runs, ms: Date.now() - started })
-  const label = caught ? 'CAUGHT' : timedOut ? 'TIMED OUT (not caught)' : 'MISSED'
-  console.log(`${m.id} ${label} (${Math.round((Date.now() - started) / 1000)} s) — ${m.what} → ${runs.map(r => r.firstFailure ?? r.why ?? '?').join(' | ')}`)
-}
-
-/** One test command's verdict. A run the runner had to kill is never a catch. */
-function judge(test, run) {
-  const out = `${run.stdout ?? ''}${run.stderr ?? ''}`
-  // The runner's deadline, or the test framework's own timeout: never counted as a detection.
-  const timedOut = run.error?.code === 'ETIMEDOUT' || run.signal !== null || /test timed out after \d+ ?ms/.test(out)
-  const failures = [...new Set([
-    ...[...out.matchAll(/^✖ (?!failing tests)(.+?) \(\d/gmu)].map(match => match[1].trim()),
-    ...[...out.matchAll(/^(.+?) \.\.\. .*FAILED/gmu)].map(match => match[1].trim()),
-  ])]
-  const firstFailure = failures[0] ?? null
-  let why = null
-  if (timedOut) why = 'killed at the runner deadline'
-  else if (run.status === 0) why = 'the tests passed'
-  else if (test.expect && test.first && !firstFailure?.startsWith(test.expect)) why = `first failure is not "${test.expect}"`
-  else if (test.expect && !failures.some(name => name.startsWith(test.expect))) why = `"${test.expect}" did not fail`
-  else if (test.cause && !test.cause.test(out)) why = `cause ${test.cause} not in the output`
-  return { caught: why === null, timedOut, exit: run.status, signal: run.signal, firstFailure, expect: test.expect ?? null, why }
-}
-const restored = clean()
-const caught = results.filter(r => r.caught).length
-console.log(JSON.stringify({ total: results.length, caught, restored, results }, null, 2))
-process.exit(caught === results.length && restored ? 0 : 1)
+// The judge and the mutation (applied, always restored) are shared with ordering-mutations.mjs:
+// scripts/world-location/mutationJudge.mjs (timeouts, cancellations and infrastructure errors are
+// never a detection).
+const ok = runMutationList(selected, { root, cleanPaths: ['supabase', 'services', 'scripts'], label: 'wloc2', timeoutMs: 240_000, spawn: spawnSync })
+process.exit(ok ? 0 : 1)
