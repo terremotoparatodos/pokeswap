@@ -24,11 +24,14 @@ cp ../scripts/integration/rc03-staging/02_prod_mirror_functions.sql supabase/mig
 supabase start -x studio,imgproxy,vector,logflare,mailpit,realtime,storage-api,postgres-meta,supavisor
 
 # 2. The migrations under test, in the order hosted applies them (errors stop them; NOTICEs are printed):
-#    the four RC-0.3 migrations, SWAP RETIRE-2, SECURITY-3, then multi-yield (see the note below).
+#    the four RC-0.3 migrations, SWAP RETIRE-2, SECURITY-3, multi-yield (see the note below), then the
+#    two WORLD LOCATION migrations. On a Windows checkout with core.autocrlf=true the files have CRLF;
+#    `prepare.mjs migrate` (below) applies the same list with LF, as the blobs have it.
 for m in 20260926001322_slots_client_write_revoke 20260926001502_market_require_session \
          20260926002154_world_skills_authority 20260926002207_world_skills_gate \
          20260930230308_retire_skip_swap_cooldown 20261001032040_security3_close_client_writes \
-         20261001051958_world_multi_yield 20261001220000_world_player_locations; do
+         20261001051958_world_multi_yield 20261001220000_world_player_locations \
+         20261003120000_world_location_ordering; do
   docker exec -i supabase_db_stage psql -U postgres -v ON_ERROR_STOP=1 --single-transaction -f - \
     < ../supabase/migrations/$m.sql
 done
@@ -52,6 +55,12 @@ the authority down at join and while saving, and the cascade on user deletion. W
 handler on an embedded Postgres (not a substitute for this stack: no PostgREST, Auth or Edge Runtime).
 
 The tests refuse any `RC03_SUPABASE_URL` that is not `127.0.0.1` or `localhost`.
+
+**WORLD LOCATION-4 F2.** The Q6 races of `locationStaging.test.js` cannot tell the ordering locks
+apart (a plain race serializes whole functions). The deterministic regressions for them — barriers
+confirmed in `pg_stat_activity`, independent connections, the RV1/RV2 negative controls — are a
+separate battery: `scripts/world-location/postgres-concurrency/README.md`. Its `prepare.mjs` also
+creates and migrates this stack (`init` without `--db-only`, then `migrate --build original`).
 
 > ⚠️ **Migration order (YIELD-2 on top of SECURITY-3).** Hosted applied multi-yield individually
 > after both security migrations and recorded it as `20261001051958`; the local file was renamed to

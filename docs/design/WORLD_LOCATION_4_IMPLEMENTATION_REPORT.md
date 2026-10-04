@@ -10,7 +10,7 @@
 - **Implementación local: COMPLETA**, con las correcciones de la revisión aplicadas (§10), las de N1–N4 (§11) y las de N5/N6 (§12). Los gates pasan en Node 22 (§11.4). Una falta de autoridad ya no detiene el host: se recupera solo; solo un host más nuevo es terminal.
 - **`on`: BLOQUEADO** por dos pendientes deliberados, ninguno demostrable en local:
   1. **Topología en Colyseus Cloud** (§3.5 del diseño, bloqueante): cuántos procesos WORLD corren, el escalado, el ruteo durante un deploy, la señal y el plazo de apagado, y un id de deployment.
-  2. **Staging hosted (incluye F2):** la migración y `world-authority` v5 en un proyecto de staging, los tests Q6 contra Postgres real y la prueba humana de «Jugar acá».
+  2. **Staging hosted:** la migración y `world-authority` v5 en un proyecto de staging y la prueba humana de «Jugar acá». La parte de F2 que se puede probar en local (los locks SQL con conexiones concurrentes de Postgres real) quedó **cerrada en local**, con regresiones deterministas incorporadas (§13).
 - **El bucle bajo PM2** (§8.1) ya no es un bloqueo: está **corregido (F1)**. Un host desplazado nunca sale por sí mismo; el supervisor de pruebas lo demuestra contra el comportamiento anterior (§10.1).
 - **`shadow`: sin cambios visibles para los jugadores**, salvo la corrección intencional de los códigos de cierre:
   - un apagado ya no emite 4001, sino 4503, y el cliente reconecta;
@@ -692,3 +692,22 @@ Detalle en `world-location-4/evidence/4-gates.md` (corrida 5).
 - sin missed, timedOut, cancelled ni error, y con el árbol restaurado. Se repitieron completos porque cambió el juez.
 
 **`on` sigue BLOQUEADO** por la topología de Cloud y por staging (§1). Esta fase no tocó hosted, el flag, el entorno oscuro ni `pokeswap-int1`.
+
+## 13. F2 en local: regresiones de concurrencia sobre Postgres real
+
+Rama `test/world-location-postgres-concurrency-0.3`, base `0ddddd8`. Es solo tests, tooling y documentación: no cambia producto.
+
+- **Batería:** `scripts/world-location/postgres-concurrency/` (README con requisitos y comandos). Corre sobre un stack de Supabase **local** dedicado, con conexiones independientes, roles reales y barreras confirmadas en `pg_stat_activity`.
+- **Escenarios:** A1 y A2 (activate contra stop o drain del mismo candidato), A4 (activaciones con la vieja retenida detrás de su renew), A5 y A6 (claim contra drain o stop, con la fila retenida por el flush del dueño anterior). Controles: A3, A4b y A5b.
+- **Controles negativos:** `prepare.mjs migrate --build rv1|rv2` aplica el mutante en memoria sobre una base local aislada. RV1 = activate sin `LOCK TABLE`; RV2 = claim sin `FOR SHARE`.
+- **Resultados** (10 rondas por build):
+  - original: 0 violaciones;
+  - RV1: detectado 10/10 por A1, A2 y A4, y solo por ellos;
+  - RV2: detectado 10/10 por A5 y A6, y solo por ellos;
+  - en todos los builds: 0 `harness_error` y 0 deadlocks;
+  - las carreras simples (A4b, A5b), que tienen la forma de los Q6 anteriores, pasan con los dos mutantes: no bastaban.
+- **Staging completo:** 34/34 en Node 22 y 24.
+
+Detalle y causas exactas en `world-location-4/evidence/5-postgres-concurrency.md`.
+
+**`on` sigue BLOQUEADO** por la topología de Cloud y por staging hosted (§1). Esta fase no tocó hosted, el flag, el entorno oscuro ni `pokeswap-int1`.
