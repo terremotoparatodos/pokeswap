@@ -65,8 +65,16 @@ function world() {
   return { clock, hosts, calls, authority, store, newerHost, sleep, host, until }
 }
 
+/**
+ * Runs `action` once the controlled clock reaches `at`. Bounded: if the clock stops advancing
+ * (a host that stopped for good no longer sleeps) it gives up, so the test fails by its
+ * assertions instead of keeping the event loop alive until the framework's timeout.
+ */
+function onClock(w, at, action, ticks = 50_000) {
+  setImmediate(function check() { if (w.clock.t >= at) action(); else if (--ticks > 0) setImmediate(check) })
+}
 /** Lifts the outage once the controlled clock reaches `at`. */
-function liftAt(w, at) { setImmediate(function lift() { if (w.clock.t >= at) w.authority.down = false; else setImmediate(lift) }) }
+function liftAt(w, at) { onClock(w, at, () => { w.authority.down = false }) }
 
 test('N1-1: six activate failures leave the host unavailable, never stopped; shorter than the lease it recovers the same identity; at ≈17 s exactly one new one, confirmed', async () => {
   // a) Back at 13 s: the starting lease (15 s) is still live — same generation and hostId.
@@ -110,12 +118,14 @@ test('N1-1c: only activate fails for ≈20 s while renewals answer: the renewals
   let h = null
   // The renewal timer, driven by the controlled clock: one renewal per backoff sleep.
   const sleep = ms => { w.clock.t += ms; void h?.renew(); return new Promise(resolve => setImmediate(resolve)) }
-  h = w.host({ sleep })
+  let leaseWhenUnavailable = null
+  h = w.host({ sleep, onUnavailable: () => { leaseWhenUnavailable ??= w.hosts.get(h.hostId).lease } })
   await h.acquire()
   const { generation, hostId } = h
   w.authority.failing.add('activate')
-  setImmediate(function lift() { if (w.clock.t >= 20_000) w.authority.failing.delete('activate'); else setImmediate(lift) })
+  onClock(w, 20_000, () => w.authority.failing.delete('activate'))
   assert.equal(await h.activate(), 'unavailable')
+  assert.ok(leaseWhenUnavailable > 15_000, `renewed while starting, between the attempts (lease ${leaseWhenUnavailable})`)
   await w.until(() => h.state === 'active')
   assert.equal(h.state, 'active')
   assert.ok(w.clock.t >= 20_000, 'longer than the 15 s starting lease')

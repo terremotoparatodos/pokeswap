@@ -13,9 +13,9 @@
 test at fail.test.mjs:3:1
 ✖ the real assertion (1.3187ms)
   AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
-  
+
   1 !== 2
-  
+
       at TestContext.<anonymous> (file:///<path>)
       at Test.runInAsyncScope (node:async_hooks:214:14)
       at Test.run (node:internal/test_runner/test:1047:25)

@@ -28,7 +28,10 @@ const root = fileURLToPath(new URL('../..', import.meta.url))
 const RT = 'services/realtime/'
 // The spec reporter is requested explicitly: without it Node picks one by itself (TAP when stdout is
 // not a TTY on some versions), and the verdicts below parse spec's `✖ <name> (<ms>ms)` lines.
-const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-reporter=spec', '--test-timeout=60000', ...files] })
+// A PGlite file runs ≈80 s and Node applies --test-timeout to the file itself too: 60 s would cut an
+// unmutated *.database.test.js (a framework timeout is never a detection, mutationJudge.mjs).
+const testTimeout = files => (files.some(f => f.endsWith('.database.test.js')) ? 180_000 : 60_000)
+const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-reporter=spec', `--test-timeout=${testTimeout(files)}`, ...files] })
 const deno = file => ({ cwd: root, cmd: 'deno', args: ['test', file] })
 /** The same command, with the failure it must produce: `expect` a test name (prefix), `first` it must be the first failure, `cause` a regex over the output. */
 const expecting = (command, expect, { first = false, cause = null } = {}) => ({ ...command, expect, first, cause })

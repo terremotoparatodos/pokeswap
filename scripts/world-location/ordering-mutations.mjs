@@ -14,7 +14,10 @@ import { runMutationList } from './mutationJudge.mjs'
 
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const RT = 'services/realtime/'
-const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-reporter=spec', '--test-timeout=60000', ...files] })
+// A PGlite file runs ≈80 s and Node applies --test-timeout to the file itself too: 60 s would cut an
+// unmutated *.database.test.js (a framework timeout is never a detection, mutationJudge.mjs).
+const testTimeout = files => (files.some(f => f.endsWith('.database.test.js')) ? 180_000 : 60_000)
+const node = (...files) => ({ cwd: `${root}${RT}`, cmd: process.execPath, args: ['--test', '--test-reporter=spec', `--test-timeout=${testTimeout(files)}`, ...files] })
 const deno = file => ({ cwd: root, cmd: 'deno', args: ['test', file] })
 const vitest = file => ({ cwd: root, cmd: process.execPath, args: ['node_modules/vitest/vitest.mjs', 'run', file] })
 const expecting = (command, expect) => ({ ...command, expect })
@@ -145,7 +148,7 @@ export const MUTATIONS = [
     test: HOST_TEST('acquire before listen') },
   { id: 'H2', what: 'newerActive is reported again on every answer (repeated drains)', file: HOST,
     from: 'if (answer.newerActive === true && !this.newerSeen) {', to: 'if (answer.newerActive === true) {',
-    test: HOST_TEST('refused answers end or pause') },
+    test: HOST_TEST('refused answers: unknown_host is recoverable') },
   { id: 'H3', what: 'a refused activation is taken as active (newer_active ignored)', file: HOST,
     from: "    if (answer.status === 'active') {\n      if (this.state === 'starting' || this.state === 'unavailable') this.#becomeActive()", to: "    if (answer.status) {\n      if (this.state === 'starting' || this.state === 'unavailable') this.#becomeActive()",
     test: HOST_TEST('two concurrent candidates') },
