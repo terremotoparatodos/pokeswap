@@ -178,7 +178,7 @@ export const MUTATIONS = [
     from: '    if (!this.host?.canSave) return null\n    const due = []', to: '    const due = []',
     test: JOURNAL_TEST('a host that cannot save sends nothing') },
   { id: 'J5', what: 'newerActive in a save answer is ignored', file: JOURNAL,
-    from: '    if (answer.newerActive) this.host.observe?.({ newerActive: true })\n', to: '',
+    from: '    if (answer.newerActive) this.host.observe?.({ newerActive: true }, identity)\n', to: '',
     test: JOURNAL_TEST('newerActive in any answer reaches the host once') },
   // ── Realtime: the room reacts to a superseded claim ──
   { id: 'R1', what: 'on: a superseded session keeps playing (never closed)', file: JOIN,
@@ -356,7 +356,7 @@ MUTATIONS.push(
   { ...MUTATIONS.find(m => m.id === 'S3'), id: 'X12', what: 'a displaced host exits on its own [supervisor-loop, 60 s]',
     tests: [{ cwd: root, cmd: process.execPath, args: ['scripts/world-location/supervisor-loop.mjs', '--seconds', '60', '--port', '3400'], expect: 'no supervised process ever exits on its own' }] },
   { id: 'X7', what: 'a host recovering in the background never activates (a failed startup never recovers) [harness: failed-startup]', file: HOST,
-    from: "          const outcome = await this.#serial(() => (this.state === 'starting' || this.state === 'unavailable') ? this.#activateOnce() : 'done', true)",
+    from: "          const outcome = await this.#serial(() => (this.state === 'starting' || this.state === 'unavailable') && this.generation !== null ? this.#activateOnce() : 'done', true)",
     to: "          const outcome = 'done'",
     tests: [{ ...HARNESS('failed-startup'), expect: 'failed-startup' }] },
   // A temporary outage of the activation, under a supervisor that restarts every exit (N1).
