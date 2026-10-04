@@ -1,69 +1,12 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { randomUUID } from 'node:crypto'
-import { ACTIVATE_ATTEMPTS, HostLifecycle } from './hostLifecycle.js'
+import { ACTIVATE_ATTEMPTS } from './hostLifecycle.js'
+import { world } from './testing/hostAuthority.js'
 import { PresenceHosting } from '../rooms/presenceHosting.js'
 import { HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
 
 // WORLD LOCATION-4, review N1: only a newer host is the end; everything else is recoverable.
-// A controlled clock (sleep advances it, nothing waits in real time) and an in-memory authority
-// with the semantics of the SQL functions (world_presence_*): leases on the authority's clock,
-// idempotent acquire/activate, newer_active, host_expired, unknown_host, renew reviving an
-// expired active host only without a newer one.
-
-function world() {
-  const clock = { t: 0 }
-  const hosts = new Map() // hostId → { generation, state, lease }
-  let next = 0
-  const calls = []
-  const authority = { down: false, loseNext: null, failing: new Set() }
-  const live = h => h.lease > clock.t
-  const newerActive = generation => [...hosts.values()].some(h => h.generation > generation && h.state === 'active' && live(h))
-  const byKey = (generation, hostId) => { const h = hosts.get(hostId); return h && h.generation === generation ? h : null }
-  async function call(op, fn) {
-    calls.push(op)
-    if (authority.down || authority.failing.has(op)) throw new Error('authority unreachable')
-    const answer = fn()
-    if (authority.loseNext === op) { authority.loseNext = null; throw new Error('answer lost') } // applied, answer lost
-    return answer
-  }
-  const store = {
-    presenceAcquire: (hostId, leaseMs) => call('acquire', () => {
-      let h = hosts.get(hostId)
-      if (!h) { h = { generation: ++next, state: 'starting', lease: clock.t + leaseMs }; hosts.set(hostId, h) }
-      return { generation: h.generation, state: h.state }
-    }),
-    presenceActivate: (generation, hostId, leaseMs) => call('activate', () => {
-      const h = byKey(generation, hostId)
-      if (!h) return { status: 'unknown_host' }
-      if (h.state === 'active') return { status: 'active' }
-      if (h.state !== 'starting') return { status: 'host_inactive', state: h.state }
-      if (!live(h)) return { status: 'host_expired' }
-      if (newerActive(generation)) return { status: 'newer_active' }
-      h.state = 'active'
-      h.lease = clock.t + leaseMs
-      return { status: 'active' }
-    }),
-    presenceRenew: (generation, hostId, leaseMs) => call('renew', () => {
-      const h = byKey(generation, hostId)
-      if (!h) return { status: 'unknown_host' }
-      if (h.state === 'stopped') return { status: 'host_inactive', state: 'stopped' }
-      if (h.state === 'starting' && !live(h)) return { status: 'host_expired', state: 'starting' }
-      const newer = newerActive(generation)
-      if (h.state === 'active' && !live(h) && newer) return { status: 'ok', state: 'active', newerActive: true, leaseLive: false }
-      if (h.state !== 'draining') h.lease = clock.t + leaseMs
-      return { status: 'ok', state: h.state, newerActive: newer, leaseLive: true }
-    }),
-    presenceDrain: (generation, hostId) => call('drain', () => { const h = byKey(generation, hostId); if (h) h.state = 'draining'; return { status: 'ok', state: 'draining' } }),
-    presenceStop: (generation, hostId) => call('stop', () => { const h = byKey(generation, hostId); if (h) h.state = 'stopped'; return { status: 'ok', state: 'stopped' } }),
-  }
-  /** Another process, newer, activated directly in the authority. */
-  const newerHost = () => { const id = randomUUID(); hosts.set(id, { generation: ++next, state: 'active', lease: clock.t + 15_000 }) }
-  const sleep = ms => { clock.t += ms; return new Promise(resolve => setImmediate(resolve)) }
-  const host = (options = {}) => new HostLifecycle({ store, renewMs: 3_600_000, log: () => {}, sleep, now: () => clock.t, ...options })
-  const until = async (condition, steps = 400) => { for (let i = 0; i < steps && !condition(); i++) await new Promise(resolve => setImmediate(resolve)) }
-  return { clock, hosts, calls, authority, store, newerHost, sleep, host, until }
-}
+// The controlled clock and the in-memory authority: testing/hostAuthority.js.
 
 /**
  * Runs `action` once the controlled clock reaches `at`. Bounded: if the clock stops advancing
