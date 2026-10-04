@@ -266,7 +266,7 @@ async function drain(context) {
     const rows = await Promise.all(players.map(p => rowOf(local)(p.userId)))
     checks.push({ name: 'every last position was saved by the drain', ok: players.every((p, i) => same(rows[i], p.at)), detail: JSON.stringify(rows.map((r, i) => [r, players[i].at]).filter(([r, at]) => !same(r, at)).slice(0, 3)) })
     // Sockets close before the drain ends (the host stops after the flush): wait for the stop.
-    await waitFor(async () => (await local.hosts())[0]?.state === 'stopped', 15_000)
+    await waitFor(async () => (await local.hosts())?.[0]?.state === 'stopped', 15_000)
     checks.push({ name: 'after its drain the older process stays alive and stopped: /readyz 503, joins 4503', ok: P.child.exitCode === null && (await P.ready()) === 503 && (await connect(P, (await local.player()).token, { tabId: 'tab-drain-knock-harness', waitSelf: false })).refused === 4503, detail: JSON.stringify([P.child.exitCode, await P.ready()]) })
     const hosts = await local.hosts()
     checks.push({ name: 'the older host is stopped (terminal), the newer active', ok: hosts !== null && hosts[0]?.state === 'stopped' && hosts.at(-1)?.state === 'active', detail: JSON.stringify(hosts?.map(h => [h.generation, h.state])) })
