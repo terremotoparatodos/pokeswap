@@ -7,7 +7,7 @@
 
 ## 1. Veredicto
 
-- **Implementación local: COMPLETA**, con las correcciones de la revisión aplicadas (§10) y las de N1–N4 (§11). Los gates pasan en Node 22 (§11.4). Una falta de autoridad ya no detiene el host: se recupera solo; solo un host más nuevo es terminal.
+- **Implementación local: COMPLETA**, con las correcciones de la revisión aplicadas (§10), las de N1–N4 (§11) y las de N5/N6 (§12). Los gates pasan en Node 22 (§11.4). Una falta de autoridad ya no detiene el host: se recupera solo; solo un host más nuevo es terminal.
 - **`on`: BLOQUEADO** por dos pendientes deliberados, ninguno demostrable en local:
   1. **Topología en Colyseus Cloud** (§3.5 del diseño, bloqueante): cuántos procesos WORLD corren, el escalado, el ruteo durante un deploy, la señal y el plazo de apagado, y un id de deployment.
   2. **Staging hosted (incluye F2):** la migración y `world-authority` v5 en un proyecto de staging, los tests Q6 contra Postgres real y la prueba humana de «Jugar acá».
@@ -604,3 +604,91 @@ Detalle en `world-location-4/evidence/4-gates.md` (corrida 4). Evidencia de supe
 - `82f01bc` test(location): one mutation judge for both runners; timeouts, cancellations and infrastructure errors never count (reviews N2, N3)
 - `7e5703f` test(location): honest mutant verdicts after the N2/N3 judge (WORLD LOCATION-4)
 - *(este informe y la corrida 4)*
+
+## 12. Correcciones N5/N6
+
+La revisión de `06a010c` confirmó N1–N4 y reprodujo dos defectos de la recuperación nueva. Cada corrección es un commit nuevo, sin amend ni rebase.
+
+| Ítem | Commit(s) | Qué cambió |
+|---|---|---|
+| N5 | `1faa221`, `5095514` | una respuesta de acquire/activate que llega después de un stop, drain, displace o cambio de identidad nunca reactiva el host |
+| N6 | `1faa221`, `8868b27` | cada respuesta va ligada a la identidad que la pidió; una respuesta de una identidad anterior no cambia nada; las sesiones de una identidad perdida siguen jugando sin persistencia |
+| INFO del juez | `1d7983e`, `0838eca` | «Could not find» es infraestructura; los marcadores de timeout/cancelación se leen fuera de los nombres de los tests |
+| Tests y mutantes | `31e99e4`, `5eb4d42`, `0251528`, `10d65e5` | autoridad en memoria compartida con respuestas retenidas; mutantes N5a–c, N6a–d, JG1, JG2; T2, N1c, J5 y X7 reapuntados |
+
+### 12.1 N5 — barrera de ciclo de vida
+
+- **Era:** el host lleva una `era`, y stop, drain, displace y una identidad nueva abren una era nueva.
+- **Cuándo se comprueba:** cada acquire y cada activate recuerdan la era y la identidad con que salieron, y las vuelven a comprobar **después** de su `await`, antes de:
+  - aplicar identidad o estado;
+  - empezar a renovar;
+  - admitir sesiones o publicar ready;
+  - dejar seguir a la recuperación.
+- **Si la base ya aplicó la llamada** (una fila adquirida, un host activado):
+  - esa identidad exacta se cierra con un `stop` acotado (3 intentos) en el lane;
+  - nunca se cierra otra identidad, y nunca dos veces la misma;
+  - si el cierre no llega a la base, la fila no se renueva nunca y su lease vence sola.
+- **Resurrección por transporte:** la recuperación ya no devuelve a `unavailable` a un host detenido cuando su acquire falla por transporte después del stop. Ese era un segundo camino de resurrección.
+- **Lane:** nada queda colgado; `settled()` es para tests y tooling.
+
+**Tests (`hostLateAnswers.test.js`, barreras reales sobre la autoridad en memoria):**
+1. acquire en vuelo → stop → respuesta;
+2. acquire en vuelo → displace → respuesta;
+3. activate aplicado con la respuesta retenida → stop;
+4. activate aplicado con la respuesta retenida → displace;
+5. drain durante la recuperación;
+6. respuesta de una renovación de una identidad anterior después de pasar a otra;
+7. acquire de la recuperación que falla después del stop;
+8. el lane queda libre y el cierre fallido es acotado.
+
+En todos: sin resurrección, sin admisión y sin renovaciones nuevas. La identidad adquirida tarde queda `stopped` o, si el cierre falla, vence sin renovarse.
+
+### 12.2 N6 — respuestas ligadas a su identidad
+
+- **`observe(answer, identity)`** solo cambia el ciclo de vida si `identity` es la actual del host. Si no, la respuesta se cuenta en `foreignAnswers` y se ignora: un `unknown_host`, `host_inactive`, `host_expired` o `newerActive` de una identidad anterior no reinicia, no pausa y no desplaza al host sano.
+- **Las renovaciones** comparan la identidad con que salieron.
+- **El journal** manda al host:
+  - en un claim, la identidad de la clave de la sesión;
+  - en un guardado, la identidad que lo escribió.
+- **Al cambiar de verdad hostId/generación**, las sesiones con claves anteriores:
+  - pasan a `unpersisted`, se cancelan sus reintentos y se descarta su posición pendiente (contada en `dropped.identityLost`);
+  - nunca reciben otra clave en silencio;
+  - nunca mandan guardados bajo la identidad nueva;
+  - nunca se cercan ni se cierran con 4409, aunque la base responda `stale`;
+  - siguen jugando: el estado degradado queda en `claims.identityLost`, en `sessions.live.unpersisted` y en un log por pérdida.
+- **Cómo recuperan la persistencia:** con una aceptación nueva (una reconexión o una recarga). Esa sesión recibe una clave de la identidad actual, que supera a la anterior, así que su claim toma la fila y restaura la última posición que la identidad vieja llegó a guardar.
+- **Lo que se pierde:** las posiciones anotadas después de la pérdida. La memoria de reconexión del proceso sigue funcionando como antes.
+
+**Tests (`hostIdentityBinding.test.js`, `HostLifecycle` y `LocationJournal` reales):**
+- la generación 1 se pierde y el host se recupera sano en la 2; después llegan respuestas viejas de `unknown_host`, `host_inactive`, `host_expired` y `newerActive`, con varios jugadores con claves anteriores;
+- un claim viejo en vuelo;
+- un guardado viejo en vuelo: rechazado, `stale` y aplicado;
+- una sesión nueva de la generación 2 conserva su autoridad;
+- ningún reinicio extra, ningún cercado falso y ninguna escritura atribuida a otra generación.
+
+### 12.3 Control negativo
+
+Los tests nuevos corridos sobre `06a010c` fallan 14 de 16, siempre por comportamiento: el host vuelve a `active`, la generación sana se reinicia hasta 7, o hay un cercado falso. N5-3 y N5-4 ya pasaban por la guarda de F3. Detalle en `world-location-4/evidence/4-n5n6-negative-06a010c.md`.
+
+### 12.4 Juez
+
+- «Could not find '…'» (node:test con un archivo de test inexistente, Node 22 y 24) es infraestructura: veredicto ERROR, nunca CAUGHT. Lo cubre la fixture `notfound.txt`.
+- Los marcadores de timeout, cancelación y promesa pendiente se leen **fuera** de las líneas que nombran tests (✔ ✖ ✓ × FAIL). Una línea aprobada como «✔ … "Promise resolution is still pending" …», que es el nombre de un test del propio juez, hacía que una corrida de los tests del juez se leyera como cancelada. Lo cubren el test 11 y el mutante JG2.
+
+### 12.5 Gates
+
+Detalle en `world-location-4/evidence/4-gates.md` (corrida 5).
+
+**Producto en `5eb4d42`:**
+- realtime completo: 562 pass, 0 fail, 34 skipped (staging);
+- focalizados: 182/182; SQL: 42/42; Deno: 18/18; Vitest: 1935/1935;
+- typecheck OK; lint con 0 errores; compat PASS;
+- arnés: 0/1200, con todos los escenarios en PASS;
+- supervisor: deploy, corte total y corte de activate en PASS, con 2 generaciones y 0 reinicios.
+
+**Mutantes:**
+- de orden: **97/97**;
+- WLOC-2: **50/50**;
+- sin missed, timedOut, cancelled ni error, y con el árbol restaurado. Se repitieron completos porque cambió el juez.
+
+**`on` sigue BLOQUEADO** por la topología de Cloud y por staging (§1). Esta fase no tocó hosted, el flag, el entorno oscuro ni `pokeswap-int1`.

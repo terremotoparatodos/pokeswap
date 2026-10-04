@@ -168,3 +168,41 @@ Entre las dos corridas solo cambiaron 5 scripts del arnés (`scripts/world-locat
    - **Arreglo (`7e5703f`):** los archivos `*.database.test.js` tienen 180 s en los dos runners; el resto sigue con 60 s.
    - Verificado a mano: M1 y M44 quedan CAUGHT por su test (80 s cada uno).
 7. **`git diff --check`:** espacios al final de línea en `fixtures/judge/fail.txt` y líneas vacías al final de `vfail.txt`, `vhook.txt` y `vtimeout.txt`. Se limpiaron y los 12 tests del juez siguen pasando.
+
+## Corrida 5 — correcciones N5/N6 (respuestas tardías, respuestas ligadas a su identidad) y el juez
+
+Copias `git archive` en un directorio temporal, `node_modules` enlazados en solo lectura, Node 22.23.2. El producto no cambió después de `5eb4d42`; los commits siguientes son tests y scripts de los runners (`5095514`, `0838eca`, `0251528`, `10d65e5`).
+
+| Gate | HEAD | rc | Duración | Resultado |
+|---|---|---|---|---|
+| Focalizados (late answers, identity binding, recovery, lifecycle, serial, journal, hosting, Close/Host/Location/Room, bootstrap, adapters) | `5eb4d42` | 0 | 16 s | 182/182 |
+| Realtime completo | `5eb4d42` | 0 | 171 s | 562 pass, 0 fail, 0 cancelled, 34 skipped (staging) |
+| SQL sobre PGlite (ordering, v1, journal + DB) | `5eb4d42` | 0 | 92 s | 42/42 |
+| Deno `world-authority` (test + `deno check handler.ts`) | `5eb4d42` | 0 | 2 s | 18/18 |
+| Vitest completo | `5eb4d42` | 0 | 72 s | 204 archivos, 1935 tests |
+| Typecheck | `5eb4d42` | 0 | 13 s | sin errores |
+| Lint | `5eb4d42`, `0251528` | 0 | 14 s / 15 s | 0 errores (9 warnings preexistentes) |
+| Tests del juez | `0251528` | 0 | 0 s | 13/13 |
+| `compat-check.mjs` | `5eb4d42` | 0 | 1 s | PASS |
+| Arnés de orden, 200 repeticiones, semilla 7 | `5eb4d42` | 0 | 531 s | T3/T4/T7 0/1200; `candidates` 36/36, `shadow-refused` 6/6, `inverted` 39/39, `failed-startup` 12/12, `drain` 7/7, `shutdown` 7/7, `lost` 2/2 |
+| Supervisor: deploy | `5eb4d42` | 0 | 152 s | 2 generaciones, 0 reinicios, 6/6 |
+| Supervisor: corte total de 25 s | `5eb4d42` | 0 | 154 s | 2 generaciones, 0 reinicios, 8/8 |
+| Supervisor: `presence_activate` caído 20 s | `5eb4d42` | 0 | 153 s | 2 generaciones, 0 reinicios, 8/8 |
+| Mutantes de orden, completo | `0251528` | 1 | 1890 s | 95/97: J5 y X7 PATTERN (nota 2) |
+| Mutantes de orden J5, X7 | `10d65e5` | 0 | 279 s | 2/2 |
+| **Mutantes de orden (total)** | `10d65e5` | — | — | **97/97, sin missed, timedOut, cancelled ni error; árbol restaurado** |
+| **Mutantes WLOC-2, completo** | `0251528` | 0 | 587 s | **50/50, sin missed, timedOut, cancelled ni error; árbol restaurado** |
+| `git diff --check 06a010c..HEAD` + árbol limpio | final | 0 | 0 s | limpio |
+
+**Notas:**
+
+1. **Por qué se repitieron los dos runners completos:** `0838eca` cambió el juez compartido (lee los marcadores de timeout, cancelación y promesa pendiente fuera de las líneas que nombran tests), y eso puede cambiar el veredicto de cualquier mutante.
+2. **J5 y X7 PATTERN en `0251528`:** el código de N5/N6 cambió las líneas que mutaban (el `observe` de un guardado ahora lleva su identidad; la recuperación exige una generación antes de activar). `10d65e5` los reapunta y los dos quedan CAUGHT.
+3. **Mutantes nuevos:** N5a, N5b, N5c, N6a, N6b, N6c, N6d, JG1 y JG2. En la primera corrida de la muestra (`5eb4d42`) N5c quedó MISSED, porque ningún test cubría un acquire de la recuperación que falla después del stop, y JG1 quedó CANCELLED, porque el juez leía «Promise resolution is still pending» en el nombre de un test del juez. Los arreglaron `5095514` (test N5-7) y `0838eca` (el juez ignora las líneas de nombres); en la corrida completa los nueve quedaron CAUGHT.
+4. **T2 pasó a ser equivalente con la barrera de N5:** quitar solo la guarda de estado ya no cambia nada, porque la barrera también lo impide. Ahora T2 quita las dos defensas a la vez y queda CAUGHT.
+5. **Control negativo de N5/N6 sobre `06a010c`:** ver `4-n5n6-negative-06a010c.md`.
+
+**Qué sigue valiendo de corridas anteriores:**
+- El SQL, la Edge Function y el cliente no cambiaron desde `06a010c`, así que los gates de `world-authority`, la migración y el cliente de la corrida 4 siguen valiendo; igual se repitieron SQL, Deno y Vitest.
+- Los controles negativos del supervisor sobre `7b95e94` (bucle con salida 0) y `284d1b5` (detención permanente) de las corridas 3 y 4 siguen valiendo: el comportamiento que rechazan no volvió. Las tres corridas del supervisor sobre este código pasan.
+- `two-instances.mjs` (17/17) y el benchmark son de la corrida 4. No se repitieron: `two-instances` no ejercita respuestas tardías ni cambios de identidad, y el arnés completo de esta corrida cubre los procesos reales.
