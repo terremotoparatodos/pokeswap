@@ -7,7 +7,7 @@
 
 ## 1. Veredicto
 
-- **Implementación local: COMPLETA**, con las correcciones de la revisión aplicadas (§10). Los gates pasan en Node 22 (§10.10).
+- **Implementación local: COMPLETA**, con las correcciones de la revisión aplicadas (§10) y las de N1–N4 (§11). Los gates pasan en Node 22 (§11.4). Una falta de autoridad ya no detiene el host: se recupera solo; solo un host más nuevo es terminal.
 - **`on`: BLOQUEADO** por dos pendientes deliberados, ninguno demostrable en local:
   1. **Topología en Colyseus Cloud** (§3.5 del diseño, bloqueante): cuántos procesos WORLD corren, el escalado, el ruteo durante un deploy, la señal y el plazo de apagado, y un id de deployment.
   2. **Staging hosted (incluye F2):** la migración y `world-authority` v5 en un proyecto de staging, los tests Q6 contra Postgres real y la prueba humana de «Jugar acá».
@@ -449,3 +449,158 @@ Detalle completo en `world-location-4/evidence/4-gates.md` (corrida 3).
 - `010c625` test(location): framework timeouts never count as detections; M1/M2 retargeted, M4 retired
 - `7558d6c` test(location): the drain scenario reads the hosts table null-safely (a tree before WORLD LOCATION-4 has none)
 - *(este informe)*
+
+## 11. Correcciones N1–N4
+
+La revisión de `284d1b5` pidió N1–N4. Cada corrección es un commit nuevo, sin amend ni rebase.
+
+| Ítem | Commit(s) | Qué cambió |
+|---|---|---|
+| N1 | `83ff531`, `7e5703f` | solo un host más nuevo es terminal; toda falta de autoridad se recupera sola, sin `process.exit` |
+| N2/N3 | `82f01bc`, `7e5703f` | un único juez para los dos runners: solo un fallo real del test esperado cuenta como detección |
+| N4 | `83ff531` | el comentario de `hostLifecycle.js` (y el de `realtimeProcesses.mjs`) ya no dice que el proceso sale en `on` |
+
+### 11.1 N1 — dos categorías
+
+**Desplazamiento definitivo** (solo con prueba de la base):
+- una activación rechazada con `newer_active`, o `newerActive` en cualquier respuesta;
+- el host se detiene (después de su drenaje), `/readyz` responde 503 y los joins reciben 4503;
+- no sale, no re-adquiere, y nunca vuelve a reclamar, guardar ni renovar.
+
+**Falla recuperable** (todo lo demás):
+- autoridad inalcanzable, timeout o error de transporte;
+- error temporal en acquire o activate;
+- lease de arranque vencido (`host_expired`) o `unknown_host`.
+
+El host queda `unavailable` (sin identidad todavía, o con su activación por confirmar). Si ya estaba `active`, queda `paused` cuando no pudo renovar durante un lease completo. Mientras tanto:
+- `/readyz` responde 503;
+- en `on` los joins reciben 4503 temporal, y el cliente reintenta con backoff (F7);
+- en `shadow` los jugadores no notan nada: se sirve sin persistencia, como antes.
+
+**Recuperación:**
+- En segundo plano, de a una a la vez, con backoff acotado: 1 s que se duplica hasta 30 s.
+- Cuando la autoridad vuelve, el host se activa (o se despausa) y vuelve a estar listo solo. No hay `process.exit` ni reinicio.
+- Si al volver ya hay un host más nuevo activo, la activación recibe `newer_active` y el host pasa a desplazado definitivo.
+
+**Identidad:**
+- Un reintento cuya respuesta pudo perderse conserva el mismo `hostId` y la misma generación (acquire y activate son idempotentes).
+- Solo se toma un `hostId` nuevo, y con él una generación nueva, cuando la base confirma que la identidad vieja ya no sirve (`unknown_host`, `host_expired`).
+- Así, las generaciones crecen con pérdidas confirmadas, nunca con reintentos.
+
+**Serialización:**
+- Cada intento de activación toma el carril (F3) por separado, y la espera del backoff queda fuera del carril.
+- Por eso las renovaciones entre intentos mantienen vivo el lease de arranque. El supervisor encontró que, sin esto, un corte de 20 s solo de `presence_activate` costaba una generación innecesaria. Lo cubre el test N1-1c.
+
+**Lease vencido de un host activo:**
+- Pausa (sin admitir ni persistir) y sigue renovando.
+- `onExpired` ahora solo informa; ya no drena.
+
+**Tests con reloj controlado** (`hostRecovery.test.js`, 8/8, autoridad en memoria con la semántica de las funciones SQL):
+
+| Test | Caso |
+|---|---|
+| N1-1 | seis activates fallidos. Con el corte levantado a los 13 s: misma identidad. A los 17 s: exactamente una identidad nueva, confirmada por `host_expired` |
+| N1-1c | solo activate falla ≈20 s. Las renovaciones entre intentos extienden el lease de arranque: misma identidad |
+| N1-2 | activate aplicado y respuesta perdida, igual para acquire: misma generación |
+| N1-3 | `unknown_host`: una identidad nueva y recupera |
+| N1-4 | host de arranque vencido: `host_expired`, una identidad nueva y recupera |
+| N1-5/6 | autoridad caída más de un lease con el host activo: pausa (503, 4503, sin claims) y vuelve solo, con la misma generación y sin otro host |
+| N1-7 | recuperación con un host más nuevo: desplazado definitivo, sin re-adquirir |
+| N1-8 | `shadow` durante todo el corte: joins admitidos al instante, `/readyz` 200, sin claims, nadie cerrado |
+
+**Supervisor** (`supervisor-loop.mjs --outage`, emula PM2 `autorestart`):
+- **Corte total de 25 s**, desde los 10 s, con este build:
+  - A responde 200 mientras su lease vive y 503 después;
+  - vuelve a 200 solo, antes del deploy, con su primera generación;
+  - 2 generaciones, 0 reinicios.
+  - Sobre `284d1b5` falla: siguió en 200 sin autoridad.
+- **Solo `presence_activate` caído 20 s** desde el arranque, con este build:
+  - 503 durante el corte; luego activo con la misma generación;
+  - 2 generaciones, 0 reinicios.
+  - Sobre `284d1b5` falla: A queda detenido para siempre, en 503 hasta que llega B.
+- **El bucle original (desplazamiento)** sigue igual: 2 generaciones con este build, 47 sobre `7b95e94`.
+- Las tres corridas lo muestran: no hay bucle de reinicios, un corte temporal nunca deja el host detenido para siempre, y solo el desplazamiento real es terminal.
+
+**Arnés:**
+- `failed-startup` corre ahora en los dos modos, 12/12:
+  - en `on`: 503 y 4503 durante el corte, y después listo con una sola generación;
+  - en `shadow`: sirve todo el tiempo.
+
+**Mutantes nuevos:**
+- N1a–N1f: parar ante una activación inalcanzable, terminar ante `unknown_host`, una identidad nueva por error de transporte, ningún 503 sin autoridad, un host más nuevo tratado como recuperable, y ninguna renovación entre intentos.
+- X13: el supervisor con el corte de activación.
+
+### 11.2 N2/N3 — el juez de los dos runners
+
+**Dónde vive:** `scripts/world-location/mutationJudge.mjs`, compartido por `ordering-mutations.mjs` y `mutations.mjs`.
+
+**Qué cuenta como CAUGHT:** solo un fallo real e identificable del test esperado, y la causa esperada cuando la hay, sin ninguna de estas señales en la corrida:
+- el deadline del runner;
+- «test timed out after» de Node;
+- «Test timed out in» o «Hook timed out in» de Vitest;
+- `cancelled > 0` de node:test;
+- «Promise resolution is still pending»;
+- un error de infraestructura, parseo o carga;
+- una salida ≠0 sin un fallo identificable.
+
+**Otros veredictos:** `timedOut`, `cancelled`, `error` o `missed`, en ese orden de gravedad.
+
+**Restauración:** el mutante se aplica y se restaura byte a byte en un `finally`, y el árbol se verifica limpio al final.
+
+**Arnés y supervisor:** sus mutantes también deben nombrar lo que falla:
+- el arnés imprime `<modo>: FAIL` solo por checks;
+- un crash del arnés imprime `ERROR`;
+- el supervisor nombra el check que falló.
+
+**Tests del juez** (`mutationJudge.test.mjs`, 12/12, sobre salidas reales sin rutas): aserción → caught; deadline del runner; timeout de Node; timeout de un test de Vitest; timeout de un hook de Vitest; cancelado de node:test; promesa pendiente; error de infraestructura; salida 1 sin fallo identificable. Cada caso deja los archivos restaurados.
+
+**Sondas del revisor**, con el comando exacto `rv-runner.mjs S3 O26 T1 B1 K6 X11 RVT-vitest RVT-node`:
+- S3, O26, T1, B1, K6 y X11 quedaron CAUGHT;
+- **`RVT-vitest` quedó TIMED OUT**;
+- **`RVT-node` quedó CANCELLED**;
+- `restored: true`.
+
+Ninguna de las dos sondas cuenta como detectada.
+
+### 11.3 Mutantes que el juez nuevo dejó de contar (sin esconder ninguno)
+
+Primera corrida con el juez nuevo (`82f01bc`):
+- de orden: 85/88;
+- WLOC-2: 42/50.
+
+| Mutante | Veredicto | Por qué | Arreglo (`7e5703f`) |
+|---|---|---|---|
+| H2 | missed | su `expect` nombraba un test que N1 renombró | nombre actualizado |
+| N1f | missed | N1-1c no era sensible: ya `unavailable`, las renovaciones volvían antes de que venciera el lease | N1-1c afirma que el lease de arranque se renovó entre intentos |
+| N1a | timedOut | con el host detenido, el reloj controlado no avanzaba y el bucle del test giraba hasta el timeout | el bucle es acotado; el test falla por aserción |
+| WLOC-2 M1, M2, M3, M5, M6, M7, M44, M45 | timedOut | `worldLocations.database.test.js` tarda ≈80 s sin mutar, y Node aplica `--test-timeout=60000` al archivo. **El juez viejo contaba esa salida como detección.** | `*.database.test.js` tiene 180 s en los dos runners |
+
+**Resultado después del arreglo** (`7e5703f`, completos y secuenciales):
+- de orden: **88/88 en 2185 s, sin missed, timedOut, cancelled ni error; árbol restaurado**;
+- WLOC-2: **50/50 en 781 s, sin missed, timedOut, cancelled ni error; árbol restaurado**.
+
+### 11.4 Gates
+
+Detalle en `world-location-4/evidence/4-gates.md` (corrida 4). Evidencia de supervisor:
+- `4-supervisor-outage.json`
+- `4-supervisor-outage-negative-284d1b5.json`
+- `4-supervisor-activation-outage.json`
+- `4-supervisor-activation-outage-negative-284d1b5.json`
+
+**Resultados:**
+- **Modelos:** idénticos.
+- **SQL:** 42/42. **Deno:** 18/18.
+- **Realtime:** focalizado 179/179; completo 547 pass, 0 fail, 34 skipped (staging), repetido en `7e5703f`.
+- **Vitest:** 1935/1935. **Typecheck, lint, SKILLS drift y builds:** OK.
+- **Arnés:** 0/1200 violaciones; `candidates` 36/36, `shadow-refused` 6/6, `inverted` 39/39, `failed-startup` 12/12, `drain` 7/7, `shutdown` 7/7, `lost` 2/2.
+- **Control negativo `4d0ab64`:** T3 150/200, T4 150/200 y T7 114/200 violadas; `drain` 2/7; `shutdown` 2/6.
+- **Supervisor:** tres corridas PASS y tres controles negativos FAIL (§11.1).
+- **two-instances:** 17/17. **compat-check:** 6/6.
+- **`git diff --check`:** limpio.
+
+**Commits de las correcciones (desde `284d1b5`):**
+
+- `83ff531` realtime(host): recoverable failures recover by themselves; only a newer host is terminal (review N1, N4)
+- `82f01bc` test(location): one mutation judge for both runners; timeouts, cancellations and infrastructure errors never count (reviews N2, N3)
+- `7e5703f` test(location): honest mutant verdicts after the N2/N3 judge (WORLD LOCATION-4)
+- *(este informe y la corrida 4)*

@@ -101,3 +101,70 @@ Entre las dos corridas solo cambiaron 5 scripts del arnés (`scripts/world-locat
      - M1 y M2 apuntan a la `save` v1 vigente;
      - M4 se retira como equivalente (el claim v1 queda revocado por las dos migraciones).
    - **El «51/51» de la corrida 1 incluía 3 detecciones falsas.** El resultado verificado es **50/50**.
+
+## Corrida 4 — correcciones N1–N4 (recuperación del host, juez de mutantes)
+
+**Contexto:**
+- Batería completa en `82f01bc` (Node 22.23.2, Deno 2.8.3), secuencial, sin dos mutation runners a la vez.
+- Los dos runners y `git diff --check` fallaron en esa corrida (notas 5–7). Las causas se corrigieron en `7e5703f` (solo tests, runners y fixtures), y se repitieron completos los dos runners, el realtime completo, los tests del juez y el diff.
+
+| Gate | HEAD | rc | Duración | Resultado |
+|---|---|---|---|---|
+| Modelo de orden (`--trazas`) | `82f01bc` | 0 | 12 s | idéntico a `ordering-model.out.txt` |
+| Modelo de ciclo de vida (`--trazas`) | `82f01bc` | 0 | 283 s | idéntico a `host-lifecycle-model.out.txt` |
+| Tests del juez (`mutationJudge.test.mjs`) | `82f01bc` | 0 | 0 s | 12/12 |
+| SQL sobre PGlite | `82f01bc` | 0 | 81 s | 42/42 |
+| Deno `world-authority` | `82f01bc` | 0 | 2 s | 18/18 + `deno check handler.ts` |
+| Realtime focalizado (incluye `hostRecovery`) | `82f01bc` | 0 | 16 s | 179/179 |
+| Realtime completo | `82f01bc` | 0 | 156 s | 547 pass, 0 fail, 34 skipped (staging) |
+| Vitest | `82f01bc` | 0 | 65 s | 1935/1935 |
+| Typecheck / lint / SKILLS drift | `82f01bc` | 0 | — | OK (lint: 0 errores) |
+| Builds normal y Playtest + bundle-check + agujas | `82f01bc` | 0 | — | OK, 0 agujas de ubicación |
+| Arnés completo, 200 repeticiones, semilla 7 | `82f01bc` | 0 | 526 s | ver la nota 1 |
+| Control negativo del arnés sobre `4d0ab64` (debe fallar) | `82f01bc` | 0 (`!`) | 219 s | ver la nota 1 |
+| Supervisor `autorestart` (150 s, 6 jugadores) | `82f01bc` | 0 | 152 s | 2 generaciones, 0 reinicios, un cierre por jugador |
+| Supervisor sobre `7b95e94` (debe fallar) | `82f01bc` | 0 (`!`) | 165 s | 47 generaciones, 46 reinicios, 14–15 cierres por jugador |
+| Supervisor, corte total de 25 s a los 10 s (`--outage`) | `82f01bc` | 0 | 152 s | ver la nota 2 |
+| El mismo corte sobre `284d1b5` (debe fallar) | `82f01bc` | 0 (`!`) | 153 s | ver la nota 2 |
+| Supervisor, solo `presence_activate` caído 20 s desde el arranque | `82f01bc` | 0 | 153 s | ver la nota 3 |
+| El mismo corte sobre `284d1b5` (debe fallar) | `82f01bc` | 0 (`!`) | 152 s | ver la nota 3 |
+| `two-instances.mjs` | `82f01bc` | 0 | 34 s | 17/17 |
+| `compat-check.mjs` | `82f01bc` | 0 | 1 s | 6/6 |
+| Benchmark `--location shadow` (40 jugadores) | `82f01bc` | 0 | 24 s | OK |
+| Mutantes de orden | `82f01bc` | 1 | 2215 s | 85/88 (nota 5) |
+| Mutantes WLOC-2 | `82f01bc` | 1 | 638 s | 42/50 (nota 6) |
+| `git diff --check f97e546..HEAD` | `82f01bc` | 2 | 0 s | nota 7 |
+| Sondas del revisor `RVT-vitest`, `RVT-node` | `82f01bc` | 1 (esperado) | 164 s | nota 4 |
+| **Mutantes de orden (repetido)** | `7e5703f` | 0 | **2185 s** | **88/88, sin timeouts ni cancelados, árbol restaurado** |
+| **Mutantes WLOC-2 (repetido)** | `7e5703f` | 0 | **781 s** | **50/50, sin timeouts ni cancelados, árbol restaurado** |
+| Realtime completo (repetido) | `7e5703f` | 0 | 165 s | 547 pass, 0 fail, 34 skipped (staging) |
+| Tests del juez (repetido) | `7e5703f` | 0 | 0 s | 12/12 |
+| `git diff --check f97e546..HEAD` + árbol limpio | `7e5703f` | 0 | 0 s | limpio |
+
+**Notas:**
+
+1. **Arnés en `82f01bc`:**
+   - T3/T4/T7: 0 violaciones en 1200 repeticiones, mismo proceso y dos procesos;
+   - `candidates` 36/36, `shadow-refused` 6/6, `inverted` 39/39, **`failed-startup` 12/12** (ahora en `on` y en `shadow`), `drain` 7/7, `shutdown` 7/7, `lost` 2/2.
+   - **Control negativo sobre `4d0ab64`:** T3 150/200, T4 150/200 y T7 114/200 violadas; `drain` 2/7; `shutdown` 2/6.
+2. **Corte total de la autoridad (25 s, desde los 10 s):**
+   - Este build: durante el corte A responde `/readyz` 200 mientras su lease sigue vivo, y 503 cuando lo pierde (pausa, sin persistencia). Después del corte vuelve solo a 200 antes del deploy, con su primera generación. En total hubo 2 generaciones y 0 reinicios. Ver `4-supervisor-outage.json`.
+   - `284d1b5` falla el check «durante el corte A responde 503»: siguió en 200 sin autoridad. Ver `4-supervisor-outage-negative-284d1b5.json`.
+3. **Solo `presence_activate` caído 20 s desde el arranque:**
+   - Este build: A queda en 503 mientras no puede activar. Al volver la autoridad se activa solo, con la misma generación, y el host 1 queda `active` antes del deploy. 2 generaciones, 0 reinicios. Ver `4-supervisor-activation-outage.json`.
+   - `284d1b5`: A queda detenido para siempre. El host 1 queda `stopped` y `/readyz` responde 503 antes del deploy; los jugadores no tuvieron servicio hasta B. Falla «A se recupera solo». Ver `4-supervisor-activation-outage-negative-284d1b5.json`.
+4. **Sondas del revisor** (copias temporales sin trackear, borradas después; árbol limpio). Comando exacto: `rv-runner.mjs S3 O26 T1 B1 K6 X11 RVT-vitest RVT-node`.
+   - S3, O26, T1, B1, K6 y X11 quedaron CAUGHT.
+   - `RVT-vitest` quedó **TIMED OUT** («Test timed out in 1000ms»).
+   - `RVT-node` quedó **CANCELLED** («ℹ cancelled 1»).
+   - Ninguna de las dos cuenta como detectada. `restored: true`.
+5. **Mutantes de orden, 85/88 en `82f01bc`.** Ninguno se esconde:
+   - **H2 MISSED:** su `expect` nombraba el test viejo «refused answers end or pause», que N1 renombró a «refused answers: unknown_host is recoverable…». El juez nuevo exige el test esperado, así que no contó. Se corrigió el nombre y quedó CAUGHT.
+   - **N1f MISSED:** el mutante no renueva mientras el host está `starting`. N1-1c solo miraba la identidad final. A los ≈12,5 s el host pasa a `unavailable`, sus renovaciones vuelven y el lease de 15 s aún vive, así que el test no lo veía. Ahora N1-1c afirma que el lease de arranque se renovó entre intentos, y quedó CAUGHT.
+   - **N1a TIMED OUT:** con el mutante el host se detiene, el reloj controlado deja de avanzar y el bucle que levantaba el corte giraba para siempre, así que el archivo chocaba con el timeout de 60 s. Ahora el bucle es acotado: el test falla por sus aserciones y quedó CAUGHT.
+6. **Mutantes WLOC-2, 42/50 en `82f01bc`:** M1, M2, M3, M5, M6, M7, M44 y M45 dieron TIMED OUT («test timed out after 60000ms»).
+   - **Causa:** `worldLocations.database.test.js` tarda ≈80 s **sin mutar** (20 tests de PGlite de ≈2 s y uno de 4 s). Node aplica `--test-timeout=60000` también al archivo, así que se cortaba aunque el mutante no hiciera nada.
+   - **El juez viejo los contaba como detectados** porque el código de salida era ≠0. En la corrida 3 el archivo entraba en 60 s (`sql-pglite` 64 s, contra 81 s ahora).
+   - **Arreglo (`7e5703f`):** los archivos `*.database.test.js` tienen 180 s en los dos runners; el resto sigue con 60 s.
+   - Verificado a mano: M1 y M44 quedan CAUGHT por su test (80 s cada uno).
+7. **`git diff --check`:** espacios al final de línea en `fixtures/judge/fail.txt` y líneas vacías al final de `vfail.txt`, `vhook.txt` y `vtimeout.txt`. Se limpiaron y los 12 tests del juez siguen pasando.
