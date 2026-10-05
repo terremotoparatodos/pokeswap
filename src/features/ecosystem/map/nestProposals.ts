@@ -79,5 +79,4 @@ export const NEST_PROPOSALS: readonly NestProposal[] = [
   },
 ]
 
-/** Provisional area caps (from ECO-BALANCE-1). The engine has one cap per presence area: see the report. */
-export const PROVISIONAL_AREA_CAPS: Readonly<Record<string, number>> = { 'pradera.abierta': 12, 'pradera.bosque': 8, 'cueva-inicial': 6 }
+// Capacity limits moved to capacityLimits.ts (ECO-CAPACITY-1): area totals plus population zones.

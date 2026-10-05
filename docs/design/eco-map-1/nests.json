@@ -25,10 +25,31 @@
   "protectedRadius": 4,
   "minNestSpacing": 6
  },
- "areaCaps": {
-  "pradera.abierta": 12,
-  "pradera.bosque": 8,
-  "cueva-inicial": 6
+ "capacity": {
+  "pradera": {
+   "maxAlive": 18,
+   "zones": [
+    {
+     "id": "abierta",
+     "maxAlive": 12,
+     "catalogZone": "pradera.abierta"
+    },
+    {
+     "id": "bosque",
+     "maxAlive": 6,
+     "catalogZone": "pradera.bosque"
+    }
+   ]
+  },
+  "cueva-inicial": {
+   "maxAlive": 6,
+   "zones": [
+    {
+     "id": "cueva",
+     "catalogZone": "cueva-inicial"
+    }
+   ]
+  }
  },
  "issues": [],
  "nests": [

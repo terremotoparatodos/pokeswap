@@ -72,7 +72,7 @@ function outsideImporters(files: readonly string[], read: (file: string) => stri
 }
 
 describe('runtime modules are pure', () => {
-  const cases: [string, string[]][] = [['encounters', ['encounters']], ['population', ['population', 'encounters']], ['server', ['encounters', 'population']], ['map', ['map', 'encounters']]]
+  const cases: [string, string[]][] = [['encounters', ['encounters']], ['population', ['population', 'encounters']], ['server', ['encounters', 'population']], ['map', ['map', 'encounters', 'population']]]
 
   it.each(cases)('%s imports only %j', (folder, allowed) => {
     const files = runtimeOf(folder)

@@ -6,7 +6,8 @@
 import { ECO_1_ENCOUNTER_CATALOG } from '../encounters/initialCatalog'
 import snapshot from './generated/geometrySnapshot.json'
 import { areaView, type GeometrySnapshot } from './geometry'
-import { NEST_PROPOSALS, NEST_PROPOSALS_VERSION, PROVISIONAL_AREA_CAPS } from './nestProposals'
+import { PROVISIONAL_CAPACITY } from './capacityLimits'
+import { NEST_PROPOSALS, NEST_PROPOSALS_VERSION } from './nestProposals'
 import { FORBIDDEN_FLAGS, MIN_NEST_SPACING, PROTECTED_RADIUS, validateNests } from './nestValidation'
 
 export const SNAPSHOT = snapshot as unknown as GeometrySnapshot
@@ -26,7 +27,7 @@ export function buildNestData() {
       layoutVersions: Object.fromEntries(Object.values(SNAPSHOT.areas).map(a => [a.areaId, a.layoutVersion])),
     },
     rules: { forbidden: FORBIDDEN_FLAGS, protectedRadius: PROTECTED_RADIUS, minNestSpacing: MIN_NEST_SPACING },
-    areaCaps: PROVISIONAL_AREA_CAPS,
+    capacity: PROVISIONAL_CAPACITY,
     issues,
     nests: NEST_PROPOSALS.map(nest => {
       const report = reports.find(r => r.id === nest.id)!
