@@ -1,0 +1,961 @@
+{
+  "container": "supabase_db_wlocpg-orig",
+  "database": "cr4_joinorder",
+  "rounds": 5,
+  "head": "57d5497408f4c19e59d8ab868fbea8b8b88ae56f",
+  "postgres": "17.6",
+  "builds": {
+    "prototype": {
+      "scenarios": {
+        "P1": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "cur": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "1beafd18-2bbf-44ee-9c6b-9be9963484dd"
+                }
+              ],
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 1,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P2": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "cur": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 1,
+              "owner": 11,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P3": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": false
+              },
+              "r2": {
+                "epoch": 3,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "row": {
+                "tx": null,
+                "epoch": 3,
+                "owner": 21,
+                "attempt": 2,
+                "page": "tab-page-0001"
+              }
+            },
+            "new": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "r2": {
+                "status": "stale_attempt",
+                "newerActive": false
+              },
+              "row": {
+                "tx": null,
+                "epoch": 2,
+                "owner": 23,
+                "attempt": 2,
+                "page": "tab-page-0001"
+              }
+            }
+          }
+        },
+        "P4": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            }
+          }
+        },
+        "P5": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "next": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 52,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P6": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "55f2115a-e760-4183-b254-fc88baac733b"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "PASS",
+      "failing": [],
+      "expected": []
+    },
+    "no-same-page": {
+      "scenarios": {
+        "P1": {
+          "pass": 0,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "cur": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "c2df1645-536d-47b1-90a7-49d94be77ccb"
+                }
+              ],
+              "newerActive": false
+            },
+            "row": {
+              "tx": 99,
+              "epoch": 1,
+              "owner": 2,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P2": {
+          "pass": 0,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "cur": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 12,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P3": {
+          "pass": 0,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": false
+              },
+              "r2": {
+                "status": "superseded",
+                "newerActive": true
+              },
+              "row": {
+                "tx": null,
+                "epoch": 2,
+                "owner": 22,
+                "attempt": 1,
+                "page": "tab-page-0001"
+              }
+            },
+            "new": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "r2": {
+                "epoch": 3,
+                "status": "claimed",
+                "location": null,
+                "newerActive": false
+              },
+              "row": {
+                "tx": null,
+                "epoch": 3,
+                "owner": 24,
+                "attempt": 1,
+                "page": "tab-page-0001"
+              }
+            }
+          }
+        },
+        "P4": {
+          "pass": 0,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "P5": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "next": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 52,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P6": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "3f49a6b1-7766-4500-a099-d12d34f54eec"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "P1",
+        "P2",
+        "P3",
+        "P4"
+      ],
+      "expected": [
+        "P2"
+      ]
+    },
+    "no-page-session": {
+      "scenarios": {
+        "P1": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "cur": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "cfe67abd-6ec9-4999-a357-17837c075938"
+                }
+              ],
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 1,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P2": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "cur": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 1,
+              "owner": 11,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P3": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": false
+              },
+              "r2": {
+                "epoch": 3,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "row": {
+                "tx": null,
+                "epoch": 3,
+                "owner": 21,
+                "attempt": 2,
+                "page": "tab-page-0001"
+              }
+            },
+            "new": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "r2": {
+                "status": "stale_attempt",
+                "newerActive": false
+              },
+              "row": {
+                "tx": null,
+                "epoch": 2,
+                "owner": 23,
+                "attempt": 2,
+                "page": "tab-page-0001"
+              }
+            }
+          }
+        },
+        "P4": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            }
+          }
+        },
+        "P5": {
+          "pass": 0,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "next": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 51,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P6": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "4b21e257-bfac-4bbb-90db-6d8debdea1f3"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "P5"
+      ],
+      "expected": [
+        "P5"
+      ]
+    },
+    "duplicate-takes": {
+      "scenarios": {
+        "P1": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "cur": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "45100840-96ae-4680-b6b5-9fc189dc0645"
+                }
+              ],
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 1,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P2": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "cur": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 1,
+              "owner": 11,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P3": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": false
+              },
+              "r2": {
+                "epoch": 3,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "row": {
+                "tx": null,
+                "epoch": 3,
+                "owner": 21,
+                "attempt": 2,
+                "page": "tab-page-0001"
+              }
+            },
+            "new": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "r2": {
+                "status": "stale_attempt",
+                "newerActive": false
+              },
+              "row": {
+                "tx": null,
+                "epoch": 2,
+                "owner": 23,
+                "attempt": 2,
+                "page": "tab-page-0001"
+              }
+            }
+          }
+        },
+        "P4": {
+          "pass": 0,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "P5": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "next": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 52,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P6": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "c2c9753e-fd1f-4855-978b-06ca84950b23"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "P4"
+      ],
+      "expected": [
+        "P4"
+      ]
+    },
+    "draining-ignored": {
+      "scenarios": {
+        "P1": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "cur": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "d463bf6e-4126-44a7-b9aa-b3f59388db72"
+                }
+              ],
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 1,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P2": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "cur": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 1,
+              "owner": 11,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P3": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "old": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": false
+              },
+              "r2": {
+                "epoch": 3,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "row": {
+                "tx": null,
+                "epoch": 3,
+                "owner": 21,
+                "attempt": 2,
+                "page": "tab-page-0001"
+              }
+            },
+            "new": {
+              "r1": {
+                "epoch": 2,
+                "status": "claimed",
+                "location": null,
+                "newerActive": true
+              },
+              "r2": {
+                "status": "stale_attempt",
+                "newerActive": false
+              },
+              "row": {
+                "tx": null,
+                "epoch": 2,
+                "owner": 23,
+                "attempt": 2,
+                "page": "tab-page-0001"
+              }
+            }
+          }
+        },
+        "P4": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            }
+          }
+        },
+        "P5": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "next": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 52,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "P6": {
+          "pass": 0,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "67d925b1-6f1d-47d1-88cb-a567c787d2ab"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "P6"
+      ],
+      "expected": [
+        "P6"
+      ]
+    }
+  }
+}

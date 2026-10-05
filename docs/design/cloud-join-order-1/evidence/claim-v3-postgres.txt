@@ -1,0 +1,6 @@
+prototype          PASS      failing=[] expected=[]
+no-same-page       DETECTED  failing=[P1,P2,P3,P4] expected=[P2]
+no-page-session    DETECTED  failing=[P5] expected=[P5]
+duplicate-takes    DETECTED  failing=[P4] expected=[P4]
+draining-ignored   DETECTED  failing=[P6] expected=[P6]
+exit=0
