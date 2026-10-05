@@ -30,3 +30,21 @@ test('exposes aggregates only: no user id or payload reaches the metrics', async
   const text = JSON.stringify(data.metrics())
   assert.doesNotMatch(text, /1111|secret-action|someone/)
 })
+
+test('CLOUD READINESS-3: the presence-recovery operations pass through (results and RecoveryUnsupported alike); absent ones stay absent', async () => {
+  const { RecoveryUnsupported } = await import('./playerData.js')
+  const full = withPlayerDataMetrics({
+    capabilities: async () => ({ recovery: { version: 1 } }),
+    locationClaimV2: async (_user, _key, options) => ({ status: 'claimed', takeover: options?.takeover === true }),
+    presenceActivateExclusive: async () => { throw new RecoveryUnsupported('edge-v5') },
+    presenceAnyActive: async () => false,
+  })
+  assert.deepEqual(await full.capabilities(), { recovery: { version: 1 } })
+  assert.deepEqual(await full.locationClaimV2('u', {}, { takeover: true }), { status: 'claimed', takeover: true })
+  await assert.rejects(full.presenceActivateExclusive(1, 'h', 15000), RecoveryUnsupported)
+  assert.equal(await full.presenceAnyActive(), false)
+  assert.equal(full.metrics().presenceActivateExclusive.failures, 1)
+  const partial = withPlayerDataMetrics({ locationClaim: async () => ({ status: 'claimed' }) })
+  assert.equal(partial.capabilities, undefined)
+  assert.equal(partial.locationClaimV2, undefined)
+})

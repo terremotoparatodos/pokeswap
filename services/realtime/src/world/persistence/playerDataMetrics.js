@@ -8,7 +8,9 @@
  * epoch if it is still the one read (or answers the current one), the rest are reads. An adapter without an operation (an
  * older or partial one) keeps it absent, so callers can tell it is unsupported.
  */
-const OPS = ['playerState', 'ownsPokemon', 'commitWork', 'loadNodes', 'locationClaim', 'locationSave', 'presenceAcquire', 'presenceActivate', 'presenceRenew', 'presenceDrain', 'presenceStop']
+const OPS = ['playerState', 'ownsPokemon', 'commitWork', 'loadNodes', 'locationClaim', 'locationSave', 'presenceAcquire', 'presenceActivate', 'presenceRenew', 'presenceDrain', 'presenceStop',
+  // CLOUD READINESS-3: presence recovery. Absent on an adapter that does not have it, so callers can tell.
+  'capabilities', 'locationClaimV2', 'presenceActivateExclusive', 'presenceAnyActive']
 const WINDOW = 512
 
 export function withPlayerDataMetrics(playerData) {
