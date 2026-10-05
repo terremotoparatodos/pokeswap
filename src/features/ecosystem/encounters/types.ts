@@ -93,8 +93,8 @@ export interface EncounterFamily {
   readonly members: readonly EncounterFamilyMember[]
 }
 
-export type SpeciesCategory =
-  | 'legendary' | 'mythical' | 'pseudo_legendary' | 'starter' | 'fossil' | 'eevee_line' | 'baby'
+export const SPECIES_CATEGORY_IDS = ['legendary', 'mythical', 'pseudo_legendary', 'starter', 'fossil', 'eevee_line', 'baby'] as const
+export type SpeciesCategory = (typeof SPECIES_CATEGORY_IDS)[number]
 
 export interface SpeciesCategoryList {
   readonly category: SpeciesCategory
@@ -111,6 +111,11 @@ export interface EncounterCatalog {
   readonly entries: readonly EncounterEntry[]
   readonly families: readonly EncounterFamily[]
   readonly categories: readonly SpeciesCategoryList[]
+  /**
+   * Categories THIS catalog keeps out, on top of the event-only ones that no
+   * ordinary table may hold (`policy.ts`). A scope decision, not a universal rule.
+   */
+  readonly excludedCategories: readonly SpeciesCategory[]
 }
 
 /** The only thing validation needs from the battle catalog. */

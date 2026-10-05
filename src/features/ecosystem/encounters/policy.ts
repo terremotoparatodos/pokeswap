@@ -1,22 +1,26 @@
 // Who may appear as an ordinary encounter (ECO-1).
 //
-// Ordinary = any table without an event. Owner decision (2026-10-05):
-// legendaries are for events only; the proposal also leaves out mythicals,
-// pseudo-legendaries, starters, fossils, the Eevee line and babies.
+// Two layers, on purpose:
+//   - EVENT_ONLY_CATEGORIES: a product rule for every ordinary table, now and
+//     later. Owner decisions (2026-10-05): legendaries and mythicals are
+//     events, never ordinary encounters.
+//   - `catalog.excludedCategories`: the scope a given catalog chose. ECO-1
+//     leaves out pseudo-legendaries, starters, fossils, the Eevee line and
+//     babies for its starting zones only; a later catalog (or an egg pool,
+//     which this module does not model) may decide otherwise.
 //
 // Ownership is deliberately absent: owning one Pidgey never stops another
 // from appearing (owner decision 1). Nothing here reads who owns what.
 
 import type { EncounterCatalog, SpeciesCategory } from './types'
 
-export const ORDINARY_ENCOUNTER_EXCLUDED: readonly SpeciesCategory[] = [
-  'legendary', 'mythical', 'pseudo_legendary', 'starter', 'fossil', 'eevee_line', 'baby',
-]
+export const EVENT_ONLY_CATEGORIES: readonly SpeciesCategory[] = ['legendary', 'mythical']
 
-/** The category that keeps this species out of ordinary encounters, or null if it may appear. */
+/** The category that keeps this species out of this catalog's encounters, or null if it may appear. */
 export function ordinaryEncounterExclusion(catalog: EncounterCatalog, speciesId: number): SpeciesCategory | null {
   for (const list of catalog.categories) {
-    if (ORDINARY_ENCOUNTER_EXCLUDED.includes(list.category) && list.speciesIds.includes(speciesId)) return list.category
+    const excluded = EVENT_ONLY_CATEGORIES.includes(list.category) || catalog.excludedCategories.includes(list.category)
+    if (excluded && list.speciesIds.includes(speciesId)) return list.category
   }
   return null
 }

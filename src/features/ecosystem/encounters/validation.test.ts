@@ -95,6 +95,22 @@ describe('the validator rejects', () => {
     expect(codes(plus(pichu))).toContain('excluded-species')
   })
 
+  it('scope: the five ECO-1 categories are this catalog\'s choice; legendaries and mythicals are excluded everywhere', () => {
+    const bulbasaur = { ...valid.entries[PIDGEY], id: 'pradera.abierta:bulbasaur', speciesId: 1, speciesName: 'bulbasaur', familyId: 1 }
+    const mew = { ...valid.entries[PIDGEY], id: 'pradera.abierta:mew', speciesId: 151, speciesName: 'mew', familyId: 151 }
+    const families = [...valid.families, { id: 1, members: [{ speciesId: 1, speciesName: 'bulbasaur', stage: 1 as const }] }, { id: 151, members: [{ speciesId: 151, speciesName: 'mew', stage: 1 as const }] }]
+    const excludedIds = (catalog: EncounterCatalog) => validateEncounterCatalog(catalog, lookup).issues.filter(i => i.code === 'excluded-species').map(i => i.entryId)
+    // ECO-1 keeps the starter out…
+    expect(excludedIds({ ...plus(bulbasaur, mew), families })).toEqual(['pradera.abierta:bulbasaur', 'pradera.abierta:mew'])
+    // …a later catalog that opts out of the scope may hold it, but never the mythical.
+    expect(excludedIds({ ...plus(bulbasaur, mew), families, excludedCategories: [] })).toEqual(['pradera.abierta:mew'])
+  })
+
+  it('an unknown category in the scope or in a category list', () => {
+    expect(codes({ ...valid, excludedCategories: ['ultra_beast' as never] })).toContain('unknown-category')
+    expect(codes({ ...valid, categories: [...valid.categories, { category: 'ultra_beast' as never, speciesIds: [], source: 'test' }] })).toContain('unknown-category')
+  })
+
   it('a stage above the zone maximum, and an intermediate below rare without an exception', () => {
     const pidgeot = { ...valid.entries[PIDGEOTTO], id: 'pradera.abierta:pidgeot', speciesId: 18, speciesName: 'pidgeot', rarity: 'very_rare' as const }
     expect(codes(plus(pidgeot))).toContain('stage-above-zone-max')

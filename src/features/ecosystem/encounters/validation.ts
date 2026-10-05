@@ -6,7 +6,7 @@
 
 import { ordinaryEncounterExclusion } from './policy'
 import {
-  ENCOUNTER_RARITIES,
+  ENCOUNTER_RARITIES, SPECIES_CATEGORY_IDS,
   type EncounterCatalog, type EncounterEntry, type EncounterHabitat, type EncounterSpeciesLookup, type EncounterZone,
   type EncounterZoneKind,
 } from './types'
@@ -20,7 +20,7 @@ export type EncounterIssueCode =
   | 'intermediate-below-rare' | 'unused-exception' | 'excluded-species'
   | 'duplicate-family' | 'family-id-not-first-member' | 'family-member-unknown-species' | 'family-member-name-mismatch'
   | 'family-member-repeated' | 'invalid-family-stages'
-  | 'category-unknown-species' | 'category-duplicate-species'
+  | 'category-unknown-species' | 'category-duplicate-species' | 'unknown-category'
 
 export interface EncounterIssue {
   readonly code: EncounterIssueCode
@@ -119,7 +119,12 @@ function validateFamilies(catalog: EncounterCatalog, lookup: EncounterSpeciesLoo
 }
 
 function validateCategories(catalog: EncounterCatalog, lookup: EncounterSpeciesLookup, add: Add): void {
+  const known = SPECIES_CATEGORY_IDS as readonly string[]
+  for (const category of catalog.excludedCategories) {
+    if (!known.includes(category)) add('unknown-category', `excludedCategories names unknown category ${String(category)}`)
+  }
   for (const list of catalog.categories) {
+    if (!known.includes(list.category)) add('unknown-category', `category list ${String(list.category)} is not a known category`)
     const seen = new Set<number>()
     for (const id of list.speciesIds) {
       if (!lookup(id)) add('category-unknown-species', `category ${list.category}: species ${id} is not in the catalog`)
@@ -156,7 +161,7 @@ function validateEntries(
     else if (species.name !== entry.speciesName) add('species-name-mismatch', `entry ${entry.id}: species ${entry.speciesId} is ${species.name}`, where)
 
     const excludedBy = ordinaryEncounterExclusion(catalog, entry.speciesId)
-    if (excludedBy) add('excluded-species', `entry ${entry.id}: species ${entry.speciesId} is ${excludedBy}, never an ordinary encounter`, where)
+    if (excludedBy) add('excluded-species', `entry ${entry.id}: species ${entry.speciesId} is ${excludedBy}, excluded from this catalog`, where)
 
     const rarityKnown = (ENCOUNTER_RARITIES as readonly string[]).includes(entry.rarity)
     if (!rarityKnown) add('unknown-rarity', `entry ${entry.id} has rarity ${String(entry.rarity)}`, where)

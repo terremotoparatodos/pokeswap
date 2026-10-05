@@ -137,6 +137,19 @@ describe('pickEncounter', () => {
   })
 })
 
+describe('exclusion scope in the pick', () => {
+  it('follows the catalog for its own categories, and the policy for event-only ones', () => {
+    const only = (speciesId: number, speciesName: string): EncounterEntry => ({ ...catalog.entries[0], id: `pradera.abierta:${speciesName}`, speciesId, speciesName, familyId: speciesId })
+    const starterZone = (excludedCategories: EncounterCatalog['excludedCategories']): EncounterCatalog => ({ ...catalog, entries: [only(1, 'bulbasaur')], excludedCategories })
+    const ticket = { tierRoll: 0, entryRoll: 0 }
+    expect(pickEncounter(starterZone(catalog.excludedCategories), 'pradera.abierta', ticket)).toEqual({ ok: false, reason: 'empty-tier', rarity: 'common' })
+    const opened = pickEncounter(starterZone([]), 'pradera.abierta', ticket)
+    expect(opened.ok && opened.entry.speciesName).toBe('bulbasaur')
+    const mythical: EncounterCatalog = { ...catalog, entries: [only(151, 'mew')], excludedCategories: [] }
+    expect(pickEncounter(mythical, 'pradera.abierta', ticket)).toEqual({ ok: false, reason: 'empty-tier', rarity: 'common' })
+  })
+})
+
 describe('ownership', () => {
   it('plays no part: no query takes an owner or an owned set', () => {
     // (catalog, zone, ticket, filter?) and (catalog, zone, filter?): nothing else can reach the pick.

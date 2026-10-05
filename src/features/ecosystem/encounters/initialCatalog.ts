@@ -91,4 +91,6 @@ export const ECO_1_ENCOUNTER_CATALOG: EncounterCatalog = {
   entries: ENCOUNTER_ENTRIES,
   families: ENCOUNTER_FAMILIES,
   categories: SPECIES_CATEGORIES,
+  // Scope of these starting zones only (proposal §A.3). Legendaries and mythicals are excluded everywhere by policy.
+  excludedCategories: ['pseudo_legendary', 'starter', 'fossil', 'eevee_line', 'baby'],
 }
