@@ -1,0 +1,22 @@
+# CLOUD JOIN-ORDER-1 — alternative A2 evaluated (server-only rule, no attempt counter)
+# Isolated copy of services/realtime/src @ 5ca9ccd with ONE change in rooms/presenceHosting.js admit(),
+# just before the existing resume branch:
+#     if (auth.kind !== 'guest' && options?.resume !== true && tabId) {
+#       const previous = liveClientOf(auth.userId)
+#       if (previous && this.tabOf.get(previous) === tabId) throw new ServerError(4410, 'stale-fresh-join')
+#     }
+# Run: JOIN_ORDER_TREE=<copy>/services/realtime/src/ node --test repro/barriers.test.mjs
+# Reading: R1/R2 assert TODAY's defect, so their failure here means A2 removes it (R1: the parked old join is
+# refused 4410; R2: assertion 4410 !== null). R3 still passes: A2 does NOT fix the cross-process order.
+not ok 1 - R1 — admission: the OLD join is parked on an await inside admit (activation wait); the NEW one passes; released, the old one replaces it
+  failureType: 'testCodeFailure'
+  error: 'stale-fresh-join'
+  code: 4410
+not ok 2 - R2 — onAuth / matchmaking: the old join simply reaches onJoin later (no await inside the room needed); same outcome
+  failureType: 'testCodeFailure'
+  error: |-
+  code: 'ERR_ASSERTION'
+ok 3 - R3 — across processes: the old attempt lands on a NEWER host; its claim key outranks the current one and takes the row; the current session is fenced
+ok 4 - R4 — a late CLAIM answer of the old join (hydrating) is already guarded: it does not publish the old actor once the current one replaced it
+# pass 2
+# fail 2
