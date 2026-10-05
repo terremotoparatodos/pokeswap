@@ -173,3 +173,58 @@ El roster salvaje actual (`services/realtime/src/world/wildPopulation.js`) **sig
 3. **`NestAuthority`** (memoria, sin valor): nidos fijos por zona, grupos según `group`, `encounterId = scope:nest:generación:miembro`, tickets de un CSPRNG del servidor (`ticketFrom(csprng)`), `empty-tier` → el nido queda vacío ese ciclo.
 4. **Retirar el roster horario de Pradera:** U19–U21, U26, U28 y U29 de `MMO_SPAWN_RARITY_AND_INSTANCES.md` §2. Sólo entonces desaparecen K1 y K2.
 5. Coordinar el momento con la principal: ECO-2 toca `worldRoom.js` y `wildService.js`.
+
+---
+
+## Addendum — verificación en Node 22 y alcance de las exclusiones
+
+**Runtime.** Node **v22.23.3** portátil, preexistente en el scratchpad de una tarea anterior y usado por ruta explícita. No se tocó PATH, no se instaló nada y no se descargó otro runtime.
+
+Verificación del runtime:
+- El ZIP `node-v22.23.3-win-x64.zip` da `2b0ff57b049cda1bbcea2240eec20467018713c1efe1f7360c2681859b90ed71`, idéntico al `SHASUMS256.txt` oficial de nodejs.org.
+- El `node.exe` usado es byte a byte el del ZIP (`9c9245166b4a8e18…c8db0e`).
+
+**Dos correcciones, aprobadas por el dueño antes de aplicarlas:**
+
+1. **`3a348ee` — alcance de las exclusiones.**
+   - `EVENT_ONLY_CATEGORIES = ['legendary', 'mythical']` es la única regla universal del módulo. Dueño: legendarios y míticos son eventos.
+   - Pseudos, starters, fósiles, línea Eevee y bebés pasan a `EncounterCatalog.excludedCategories` de ECO-1. Son el alcance de **estas zonas iniciales**, no una prohibición para zonas futuras.
+   - Los huevos no se modelan en este módulo y no heredan nada.
+   - Se agregan el código `unknown-category` y tests de alcance: otro catálogo puede incluir un starter, pero nunca un mítico.
+   - Reemplaza a `ORDINARY_ENCOUNTER_EXCLUDED` (§2) y a la frase "7 categorías excluidas" (§1).
+2. **`c640031` — selección ante una distribución inválida.**
+   - Antes, con un catálogo **sin validar**, `pickEncounter` igual elegía una entrada del pool cuando los shares sumaban 0 o los pesos eran 0 o `NaN`.
+   - Ahora devuelve `{ ok: false, reason: 'invalid-distribution' }`.
+   - Un peso malo invalida sólo su tier.
+
+Controles negativos de las correcciones:
+- Volver universales las siete categorías: 2 tests fallan.
+- Quitar los míticos de la política: 2 tests fallan.
+- Quitar el guard de distribución: 1 test falla.
+
+**Gates sobre `c640031` con Node 22.23.3:**
+
+| Gate | Resultado |
+| --- | --- |
+| Tests del catálogo | 5 archivos, **46 tests ✔**, exit 0 |
+| Typecheck (`vue-tsc`) | exit 0 |
+| Lint (`eslint .`) | **exit 0**: 0 errores. 9 warnings preexistentes, ninguno en `src/features/ecosystem` |
+| Build normal (`vite build`) | exit 0, 425 módulos |
+| `git diff --check ad6a98e..HEAD` | exit 0 |
+
+No se repitieron la suite completa ni las mutaciones de §4.
+
+**Confirmaciones:**
+
+- **Alcance:** las exclusiones de starters, fósiles, Eevee, bebés y pseudos son configuración del catálogo inicial (`excludedCategories`), no una regla universal ni de huevos. Sólo legendarios y míticos son universales.
+- **Sin ownership:** la exclusión de legendarios y míticos lee sólo las listas de categorías. No hay parámetro de dueño, y el test de aislamiento verifica que el módulo no menciona ownership.
+- **Nada fuera del pool:**
+  - un ticket inválido lanza `RangeError`;
+  - una zona desconocida devuelve `unknown-zone`;
+  - un tier vacío devuelve `empty-tier`;
+  - una distribución inválida devuelve `invalid-distribution`;
+  - los candidatos son siempre de la zona y del tier, y respetan la política y el filtro.
+
+  Ninguna de estas salidas produce una especie fuera del pool.
+- **Sin conexión:** ninguna ruta activa importa el módulo. Lo comprueba el test de aislamiento, y en `dist/` no aparece ningún string del catálogo.
+- **Sin Node ni servidor en el cliente:** el módulo no entra al bundle y no hay especificadores `node:` en `dist/`.
