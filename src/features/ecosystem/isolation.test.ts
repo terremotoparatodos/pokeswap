@@ -59,7 +59,10 @@ const OWNERSHIP = /\b(owner_?id|ownedIds|slots|pokemon_instances)\b/
  * Tooling allowed to import the ecosystem from outside it, by exact file —
  * never a whole folder. Each entry is a dev script, not product code.
  */
-const ALLOWED_OUTSIDE = new Set([fwd(join(ROOT, 'scripts/ecosystem/balance-1.ts'))]) // ECO-BALANCE-1 runner (dev-only study)
+const ALLOWED_OUTSIDE = new Set([
+  fwd(join(ROOT, 'scripts/ecosystem/balance-1.ts')), // ECO-BALANCE-1 runner (dev-only study)
+  fwd(join(ROOT, 'scripts/ecosystem/map-nests.ts')), // ECO-MAP-1 nest data generator (dev-only)
+])
 
 function outsideImporters(files: readonly string[], read: (file: string) => string): string[] {
   return files.filter(file => !file.startsWith(`${ECOSYSTEM}/`) && !ALLOWED_OUTSIDE.has(file) && importSpecifiers(file, read(file)).some(spec => {
@@ -69,7 +72,7 @@ function outsideImporters(files: readonly string[], read: (file: string) => stri
 }
 
 describe('runtime modules are pure', () => {
-  const cases: [string, string[]][] = [['encounters', ['encounters']], ['population', ['population', 'encounters']], ['server', ['encounters', 'population']]]
+  const cases: [string, string[]][] = [['encounters', ['encounters']], ['population', ['population', 'encounters']], ['server', ['encounters', 'population']], ['map', ['map', 'encounters']]]
 
   it.each(cases)('%s imports only %j', (folder, allowed) => {
     const files = runtimeOf(folder)
@@ -78,7 +81,7 @@ describe('runtime modules are pure', () => {
   })
 
   it('no clock, global randomness, timers or network in any runtime module; no ownership in the catalog', () => {
-    for (const folder of ['encounters', 'population', 'server']) {
+    for (const folder of ['encounters', 'population', 'server', 'map']) {
       for (const file of runtimeOf(folder)) expect(IMPURE.exec(code(readFileSync(file, 'utf8')))?.[0], relative(ROOT, file)).toBeUndefined()
     }
     for (const file of runtimeOf('encounters')) expect(OWNERSHIP.exec(readFileSync(file, 'utf8'))?.[0], relative(ROOT, file)).toBeUndefined()
@@ -92,7 +95,7 @@ describe('the dev simulator (preview/) stays local', () => {
   const previewViolations = (file: string, source: string) => importSpecifiers(file, source).filter(spec => {
     const target = resolveSpecifier(file, spec, ROOT)
     if (target === null) return !PREVIEW_PACKAGES.has(spec)
-    return !(target === SPRITES || ['preview', 'encounters', 'population'].some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`)))
+    return !(target === SPRITES || ['preview', 'encounters', 'population', 'map'].some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`)))
   })
   const NETWORK = /\b(fetch|WebSocket|XMLHttpRequest|EventSource|supabase|colyseus|localStorage|sessionStorage)\b/i
 
