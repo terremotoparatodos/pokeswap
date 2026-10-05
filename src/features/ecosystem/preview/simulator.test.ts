@@ -149,7 +149,12 @@ describe('real map (ECO-MAP-1 proposal)', () => {
 
   it('builds each area from the real snapshot and the proposed nests', () => {
     const counts = (['pradera.abierta', 'pradera.bosque', 'cueva-inicial'] as PreviewZoneId[]).map(z => real(z).scenario.config.areas[0].nests.length)
-    expect(counts).toEqual([5, 2, 3])
+    // ECO-CAPACITY-1: both Pradera views simulate the whole presence area (5 + 2 nests, zones abierta and bosque).
+    expect(counts).toEqual([7, 7, 3])
+    const pradera = real('pradera.bosque')
+    const area = pradera.scenario.config.areas[0]
+    expect([area.maxAlive, area.zones]).toEqual([18, [{ id: 'abierta', maxAlive: 12 }, { id: 'bosque', maxAlive: 6 }]])
+    expect(pradera.scenario.notes.join(' | ')).toMatch(/área 18; abierta 12, bosque 6 — máximos, no reservas/)
     for (const zoneId of ['pradera.abierta', 'pradera.bosque', 'cueva-inicial'] as PreviewZoneId[]) {
       const s = real(zoneId)
       const b = s.scenario.bounds
@@ -182,5 +187,23 @@ describe('real map (ECO-MAP-1 proposal)', () => {
     expect(s.scenario.kinds).toBeNull()
     expect(s.setup.layout).toBe('mixed')
     expect(defaultParams('cueva-inicial')).toEqual({ policy: 'per-group', delayMs: 75_000, jitter: 0.2, retryMs: 15_000, dormantAfterMs: 300_000, staggerMinMs: 5_000, staggerMaxMs: 15_000, areaMaxAlive: 6, nestMaxAlive: 3, groupCap: 3 })
+  })
+})
+
+describe('real map population zones (ECO-CAPACITY-1)', () => {
+  it('shows area and zone population and never exceeds either', () => {
+    let s = sim({ zoneId: 'pradera.abierta', layout: 'real-map', params: { ...defaultParams('pradera.abierta'), policy: 'per-member', delayMs: 10_000, retryMs: 5_000 } })
+    for (let i = 0; i < 60; i++) s = advance(s, 10_000)
+    const v = viewOf(s)
+    expect(v.zones.map(z => [z.id, z.max, z.nests])).toEqual([['abierta', 12, 5], ['bosque', 6, 2]])
+    for (const z of v.zones) expect(z.alive).toBeLessThanOrEqual(z.max!)
+    expect(v.alive).toBe(v.zones.reduce((a, z) => a + z.alive, 0))
+    expect(v.alive).toBeLessThanOrEqual(18)
+    expect(v.zones[0].alive).toBe(12) // abierta saturates at its maximum with top-up respawn
+    expect(v.zones[1].alive).toBeGreaterThan(0)
+  })
+
+  it('synthetic scenarios have no zones (unchanged)', () => {
+    expect(viewOf(sim()).zones).toEqual([])
   })
 })

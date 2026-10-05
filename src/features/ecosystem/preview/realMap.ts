@@ -7,7 +7,9 @@ import { areaView, type AreaGeometryView } from '../map/geometry'
 import { nestValidation, SNAPSHOT } from '../map/nestData'
 import { NEST_PROPOSALS } from '../map/nestProposals'
 import { tileRejections, type NestReport } from '../map/nestValidation'
-import type { NestConfig, Tile } from '../population/types'
+import { capacityReport } from '../population/capacity'
+import type { Tile } from '../population/types'
+import { proposedAreaConfig } from '../map/capacityProposal'
 import type { Bounds, PreviewZoneId, Scenario, SimParams } from './scenarios'
 
 /** Display char of each tile kind, most important fact first. */
@@ -54,18 +56,23 @@ export const realNests = (zoneId: PreviewZoneId) => NEST_PROPOSALS.filter(n => n
 /** Proposal + derived report for each nest of a zone (for the inspector). */
 export function realNestDetails(zoneId: PreviewZoneId) {
   const { reports } = nestValidation()
-  return realNests(zoneId).map(nest => ({ nest, report: reports.find(r => r.id === nest.id) as NestReport }))
+  // Every nest of the AREA: in the whole-Pradera view the forest nests are visible and inspectable too.
+  return NEST_PROPOSALS.filter(n => n.areaId === AREA_OF[zoneId]).map(nest => ({ nest, report: reports.find(r => r.id === nest.id) as NestReport }))
 }
 
+/**
+ * ECO-CAPACITY-1: the real-map scenario is the whole presence AREA (Pradera:
+ * abierta + bosque nests with their population zones; cave: its three nests),
+ * with the proposed capacity. The selected zone only chooses what is drawn.
+ */
 export function buildRealScenario(zoneId: PreviewZoneId, params: SimParams, seed: number): Scenario {
   const view = areaView(SNAPSHOT, AREA_OF[zoneId])!
   const { issues, reports } = nestValidation()
   const bounds = boundsOf(zoneId, view)
-  const nests: NestConfig[] = realNests(zoneId).map(n => ({
-    id: n.id, zoneId: n.zoneId, habitats: n.habitats, tiles: reports.find(r => r.id === n.id)!.candidates,
-    maxAlive: n.maxAlive, groupCap: n.groupCap,
-    respawn: { policy: params.policy, delayMs: params.delayMs, jitter: params.jitter, retryMs: params.retryMs },
-  }))
+  const area = proposedAreaConfig(view.area.areaId,
+    { policy: params.policy, delayMs: params.delayMs, jitter: params.jitter, retryMs: params.retryMs },
+    { dormantAfterMs: params.dormantAfterMs, staggerMinMs: params.staggerMinMs, staggerMaxMs: params.staggerMaxMs })
+  const areaNests = new Set(area.nests.map(n => n.id))
   const blocked: Tile[] = []
   const kinds: string[] = []
   for (let ty = bounds.minTy; ty <= bounds.maxTy; ty++) {
@@ -77,14 +84,14 @@ export function buildRealScenario(zoneId: PreviewZoneId, params: SimParams, seed
     }
     kinds.push(row)
   }
+  const capacity = capacityReport(area)
   const notes = [
     `PROPUESTA DE DESARROLLO · mapa real ${view.area.areaId} (layout ${view.area.layoutVersion}) · nidos no integrados al juego`,
-    ...issues.filter(i => realNests(zoneId).some(n => n.id === i.nestId)).map(i => `ERROR ${i.nestId}: ${i.message}`),
+    `capacidad provisional (ECO-CAPACITY-1): área ${area.maxAlive}; ${(area.zones ?? []).map(z => `${z.id} ${z.maxAlive ?? 'sin máximo propio'}`).join(', ')} — máximos, no reservas`,
+    ...capacity.notes.map(n => `capacidad: ${n}`),
+    ...issues.filter(i => areaNests.has(i.nestId)).map(i => `ERROR ${i.nestId}: ${i.message}`),
     ...realNests(zoneId).flatMap(n => reports.find(r => r.id === n.id)!.warnings.map(w => `aviso ${n.id}: ${w}`)),
     ...(zoneId === 'pradera.bosque' ? [forestConstraint(view)] : []),
   ]
-  return {
-    zoneId, layout: 'real-map', bounds, blocked, kinds, notes,
-    config: { namespace: `preview-${seed}`, areas: [{ areaId: view.area.areaId, maxAlive: params.areaMaxAlive, nests, idle: { dormantAfterMs: params.dormantAfterMs, staggerMinMs: params.staggerMinMs, staggerMaxMs: params.staggerMaxMs } }] },
-  }
+  return { zoneId, layout: 'real-map', bounds, blocked, kinds, notes, config: { namespace: `preview-${seed}`, areas: [area] } }
 }

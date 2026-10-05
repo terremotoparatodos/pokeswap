@@ -137,6 +137,8 @@ export interface NestView {
   readonly alive: number
   readonly max: number
   readonly generation: number
+  /** ECO-CAPACITY-1: the nest's population zone, or null. */
+  readonly zone: string | null
   /** ms until the next spawn opportunity, or null when none is scheduled. */
   readonly dueIn: number | null
 }
@@ -151,7 +153,16 @@ export interface CellView {
   readonly encounter: { readonly id: string; readonly groupId: string; readonly speciesId: number } | null
 }
 
+/** ECO-CAPACITY-1: population and limits of one population zone (or of the zone-less nests). */
+export interface ZoneView {
+  readonly id: string | null
+  readonly alive: number
+  readonly max: number | null
+  readonly nests: number
+}
+
 export interface SimView {
+  readonly zones: readonly ZoneView[]
   readonly now: number
   readonly status: string
   readonly simulated: boolean
@@ -178,11 +189,16 @@ export function viewOf(sim: SimState): SimView {
   }
   const nests = area.nests.map(nest => {
     const state = sim.population.nests[`${areaId}/${nest.id}`]
-    return { id: nest.id, habitats: nest.habitats, alive: state.alive.length, max: nest.maxAlive, generation: state.generation, dueIn: state.dueAt === null ? null : state.dueAt - sim.now }
+    return { id: nest.id, habitats: nest.habitats, zone: nest.populationZoneId ?? null, alive: state.alive.length, max: nest.maxAlive, generation: state.generation, dueIn: state.dueAt === null ? null : state.dueAt - sim.now }
   })
+  const zoneIds: (string | null)[] = [...(area.zones ?? []).map(z => z.id), ...(nests.some(n => n.zone === null) && (area.zones ?? []).length ? [null] : [])]
+  const zones: ZoneView[] = zoneIds.map(id => ({
+    id, max: (area.zones ?? []).find(z => z.id === id)?.maxAlive ?? null,
+    alive: nests.filter(n => n.zone === id).reduce((s, n) => s + n.alive, 0), nests: nests.filter(n => n.zone === id).length,
+  }))
   return {
     now: sim.now, status: sim.population.areas[areaId].status, simulated: published.simulated,
-    alive: nests.reduce((sum, nest) => sum + nest.alive, 0), areaMax: area.maxAlive, nests, cells,
+    alive: nests.reduce((sum, nest) => sum + nest.alive, 0), areaMax: area.maxAlive, nests, cells, zones,
   }
 }
 

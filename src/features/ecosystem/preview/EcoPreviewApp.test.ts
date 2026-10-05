@@ -77,8 +77,11 @@ describe('EcoPreviewApp · real map proposal', () => {
     expect(text(w, 'nest-detail')).toMatch(/casillas candidatas/)
     await w.get('[data-test="advance-15"]').trigger('click')
     expect(w.findAll('[data-test="encounter"]').length).toBeGreaterThan(0)
+    expect(w.findAll('[data-test="zone-row"]').length).toBe(1) // the cave: one zone
     await w.get('[data-test="zone"]').setValue('pradera.bosque')
-    expect(w.findAll('[data-test="nest-row"]').length).toBe(2)
+    // ECO-CAPACITY-1: the whole Pradera area (5 + 2 nests) with its two population zones.
+    expect(w.findAll('[data-test="nest-row"]').length).toBe(7)
+    expect(w.findAll('[data-test="zone-row"]').map(r => r.text())).toEqual([expect.stringMatching(/^abierta.*12/), expect.stringMatching(/^bosque.*6/)])
     expect(text(w, 'notes')).toMatch(/restricción: \d+ casillas transitables en el bosque/)
   })
 })

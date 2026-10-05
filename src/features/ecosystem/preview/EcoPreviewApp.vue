@@ -153,11 +153,19 @@ start()
         <p data-test="clock">t = {{ (view.now / 1000).toFixed(1) }} s · evaluaciones {{ sim.evaluations }}</p>
         <p data-test="status">Área: <b>{{ view.status }}</b> {{ view.simulated ? '(simulada)' : '(no simulada)' }}</p>
         <p data-test="population">Población {{ view.alive }} / {{ view.areaMax }}</p>
+        <table v-if="view.zones.length" data-test="zones">
+          <thead><tr><th>Zona de población</th><th>Vivos</th><th>Máximo</th><th>Nidos</th></tr></thead>
+          <tbody>
+            <tr v-for="z in view.zones" :key="z.id ?? '-'" data-test="zone-row">
+              <td>{{ z.id ?? '(sin zona)' }}</td><td>{{ z.alive }}</td><td>{{ z.max ?? '— (sólo el área)' }}</td><td>{{ z.nests }}</td>
+            </tr>
+          </tbody>
+        </table>
         <table>
-          <thead><tr><th>Nido</th><th>Vivos</th><th>Gen.</th><th>Próxima reposición</th></tr></thead>
+          <thead><tr><th>Nido</th><th v-if="view.zones.length">Zona</th><th>Vivos</th><th>Gen.</th><th>Próxima reposición</th></tr></thead>
           <tbody>
             <tr v-for="n in view.nests" :key="n.id" data-test="nest-row">
-              <td :title="n.habitats.join(', ')">{{ n.id }}</td><td>{{ n.alive }} / {{ n.max }}</td><td>{{ n.generation }}</td><td>{{ seconds(n.dueIn) }}</td>
+              <td :title="n.habitats.join(', ')">{{ n.id }}</td><td v-if="view.zones.length">{{ n.zone ?? '—' }}</td><td>{{ n.alive }} / {{ n.max }}</td><td>{{ n.generation }}</td><td>{{ seconds(n.dueIn) }}</td>
             </tr>
           </tbody>
         </table>
