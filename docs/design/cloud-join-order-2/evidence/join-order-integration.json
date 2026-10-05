@@ -1,0 +1,201 @@
+{
+  "tree": "<worktree of feat/cloud-join-order-2-0.3>",
+  "startedAt": "2026-10-05T23:51:30.764Z",
+  "node": "v22.23.2",
+  "scenarios": {
+    "SAME": {
+      "verdict": "PASS",
+      "seconds": 4,
+      "checks": [
+        {
+          "label": "on: the old attempt is refused 4410 at join; the current socket stays open and keeps moving",
+          "ok": true
+        },
+        {
+          "label": "on: an unreadable attempt is refused 4422",
+          "ok": true
+        },
+        {
+          "label": "on: /metrics shows aggregates only",
+          "ok": true
+        },
+        {
+          "label": "control (unset): the old attempt replaces the current socket (4409), as today",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "on": {
+          "oldRefused": 4410,
+          "currentLeft": null,
+          "currentMoved": true,
+          "invalidRefused": 4422,
+          "joinOrder": {
+            "mode": "on",
+            "pages": 1,
+            "maxPages": 10000,
+            "admitted": 1,
+            "stale": 1,
+            "duplicate": 0,
+            "invalid": 1,
+            "legacy": 0,
+            "wouldRefuse": 0,
+            "evicted": 0,
+            "keptLive": 0,
+            "overflow": 0,
+            "recheckRefused": 0
+          }
+        },
+        "control": {
+          "oldRefused": null,
+          "currentLeft": 4409,
+          "currentMoved": false,
+          "invalidRefused": null,
+          "joinOrder": {
+            "mode": "off",
+            "pages": 0,
+            "maxPages": 10000,
+            "admitted": 0,
+            "stale": 0,
+            "duplicate": 0,
+            "invalid": 0,
+            "legacy": 0,
+            "wouldRefuse": 0,
+            "evicted": 0,
+            "keptLive": 0,
+            "overflow": 0,
+            "recheckRefused": 0
+          }
+        }
+      }
+    },
+    "TWO": {
+      "verdict": "PASS",
+      "seconds": 18,
+      "checks": [
+        {
+          "label": "on: the old attempt is closed 4410 on the newer host and never placed",
+          "ok": true
+        },
+        {
+          "label": "on: the current attempt keeps the row (claim v3), whatever the keys",
+          "ok": true
+        },
+        {
+          "label": "on: the current session was never closed and keeps saving (its tile is the stored one)",
+          "ok": true
+        },
+        {
+          "label": "control (unset): the abandoned attempt is placed and takes the row by key order",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "on": {
+          "oldLeft": 4410,
+          "oldPlaced": false,
+          "oldRefused": null,
+          "owner": 1,
+          "A": 1,
+          "B": 2,
+          "attempt": 2,
+          "currentLeftBeforeLeave": null,
+          "moved": true,
+          "tile": {
+            "tx": 32,
+            "ty": 20
+          },
+          "row": {
+            "tx": 32,
+            "ty": 20,
+            "g": 1
+          },
+          "claims": [
+            "A-on:location_claim_v3:claimed",
+            "B-on:location_claim_v3:stale_attempt"
+          ]
+        },
+        "control": {
+          "oldLeft": null,
+          "oldPlaced": true,
+          "oldRefused": null,
+          "owner": 2,
+          "A": 1,
+          "B": 2,
+          "attempt": null,
+          "currentLeft": 4409
+        }
+      }
+    },
+    "NO_V3": {
+      "verdict": "PASS",
+      "seconds": 2,
+      "checks": [
+        {
+          "label": "the join-order capability is disabled (sql-missing); recovery untouched (off)",
+          "ok": true
+        },
+        {
+          "label": "the in-process order still refuses the old attempt (4410) and keeps the current socket",
+          "ok": true
+        },
+        {
+          "label": "claims go through v1 (never v3)",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "hosting": {
+          "state": "disabled",
+          "reason": "sql-missing",
+          "probes": 1,
+          "probeFailures": 0,
+          "fallbacks": 0
+        },
+        "ops": [
+          "capabilities",
+          "presence_acquire",
+          "presence_activate",
+          "location_claim"
+        ]
+      }
+    },
+    "SHADOW": {
+      "verdict": "PASS",
+      "seconds": 2,
+      "checks": [
+        {
+          "label": "shadow behaves as today (the late join replaces: 4409) and counts wouldRefuse",
+          "ok": true
+        },
+        {
+          "label": "shadow never requests claim v3",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "joinOrder": {
+          "mode": "shadow",
+          "pages": 1,
+          "maxPages": 10000,
+          "admitted": 1,
+          "stale": 1,
+          "duplicate": 0,
+          "invalid": 0,
+          "legacy": 0,
+          "wouldRefuse": 1,
+          "evicted": 0,
+          "keptLive": 0,
+          "overflow": 0,
+          "recheckRefused": 0
+        },
+        "ops": [
+          "presence_acquire",
+          "presence_activate",
+          "location_claim"
+        ]
+      }
+    }
+  },
+  "finishedAt": "2026-10-05T23:51:56.678Z"
+}

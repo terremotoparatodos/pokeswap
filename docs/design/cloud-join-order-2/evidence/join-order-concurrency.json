@@ -1,0 +1,1568 @@
+{
+  "container": "supabase_db_wlocpg-orig",
+  "database": "cr5_joinorder",
+  "rounds": 5,
+  "head": "bf3a08149f6a38dc6f9f99b2d7b4773b13df95fa",
+  "postgres": "17.6",
+  "builds": {
+    "migration": {
+      "grants": "closed (0 rows)",
+      "scenarios": {
+        "J1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            },
+            "secondWaitedOn": "row",
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 81,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 93,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "7f06dae2-a9ff-47ef-a353-aee2c82a29b7"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "J7": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 116,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J8": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "r2": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "e55f353a-2f4d-4a28-8ae6-c13b46d4fe2e"
+                }
+              ],
+              "newerActive": true
+            },
+            "row": {
+              "tx": 33,
+              "epoch": 1,
+              "owner": 121,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J9": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "drain": "row",
+            "r1": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "PASS",
+      "failing": [],
+      "expected": []
+    },
+    "no-same-page-refusal": {
+      "grants": "closed (0 rows)",
+      "scenarios": {
+        "J1": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "recovery=false: the old attempt never takes the row (greater key or not); the current one keeps saving",
+            "recovery=true: the old attempt never takes the row (greater key or not); the current one keeps saving"
+          ],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J3": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "recovery=false, new first: serialized on the row lock, decided on the committed row",
+            "recovery=true, new first: serialized on the row lock, decided on the committed row"
+          ],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J4": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "a duplicate claims once; the copy is duplicate_attempt (it waited on the row lock)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "secondWaitedOn": "row",
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 82,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 93,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "da0436b6-06c6-48c2-90b5-214f9aafddb7"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "J7": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 116,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J8": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "the refused claim never blocks the owner beyond its transaction nor loses its save"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "d4927a5d-0333-4ba4-8c5c-83c94ad599ae"
+                }
+              ],
+              "newerActive": true
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 122,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J9": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "drain": "row",
+            "r1": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "J1",
+        "J3",
+        "J4",
+        "J8"
+      ],
+      "expected": [
+        "J1"
+      ]
+    },
+    "no-page-session-binding": {
+      "grants": "closed (0 rows)",
+      "scenarios": {
+        "J1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            },
+            "secondWaitedOn": "row",
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 81,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J5": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "after a legacy take the page info is void: ordered by keys only (documented partial guarantee)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 92,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "2e1f6ea1-183f-46fa-8e4b-114a7a849927"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "J7": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 116,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J8": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "r2": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "810a0d3d-387f-4442-8fb7-26d6487a2b74"
+                }
+              ],
+              "newerActive": true
+            },
+            "row": {
+              "tx": 33,
+              "epoch": 1,
+              "owner": 121,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J9": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "drain": "row",
+            "r1": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "J5"
+      ],
+      "expected": [
+        "J5"
+      ]
+    },
+    "duplicate-takes": {
+      "grants": "closed (0 rows)",
+      "scenarios": {
+        "J1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J4": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "a duplicate claims once; the copy is duplicate_attempt (it waited on the row lock)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "secondWaitedOn": "row",
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 82,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 93,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "95f2925a-c63e-4148-8436-f1d516d3a7dc"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "J7": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 116,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J8": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "r2": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "21672f53-d873-416d-a279-6c8556eceaaf"
+                }
+              ],
+              "newerActive": true
+            },
+            "row": {
+              "tx": 33,
+              "epoch": 1,
+              "owner": 121,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J9": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "drain": "row",
+            "r1": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "J4"
+      ],
+      "expected": [
+        "J4"
+      ]
+    },
+    "attempt-authorizes-takeover": {
+      "grants": "closed (0 rows)",
+      "scenarios": {
+        "J1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J2": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "recovery=false: the attempt number authorizes no takeover from a live owner (superseded, as v1/v2)",
+            "recovery=true: the attempt number authorizes no takeover from a live owner (superseded, as v1/v2)"
+          ],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J3": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "recovery=false, old first: serialized on the row lock, decided on the committed row",
+            "recovery=true, old first: serialized on the row lock, decided on the committed row"
+          ],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            },
+            "secondWaitedOn": "row",
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 81,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 93,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J6": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "a draining owner keeps its final flush (owner_draining, then the flush applies)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "d0c99e5c-4714-426e-80fa-e79c17250de5"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "J7": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 116,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J8": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "r2": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "97e42fea-4e86-444e-9da2-be31769f655d"
+                }
+              ],
+              "newerActive": true
+            },
+            "row": {
+              "tx": 33,
+              "epoch": 1,
+              "owner": 121,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J9": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "drain": "row",
+            "r1": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "J2",
+        "J3",
+        "J6"
+      ],
+      "expected": [
+        "J2"
+      ]
+    },
+    "no-row-lock": {
+      "grants": "closed (0 rows)",
+      "scenarios": {
+        "J1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J3": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "recovery=false, old first: serialized on the row lock, decided on the committed row",
+            "recovery=false, new first: serialized on the row lock, decided on the committed row",
+            "recovery=true, old first: serialized on the row lock, decided on the committed row",
+            "recovery=true, new first: serialized on the row lock, decided on the committed row"
+          ],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J4": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "a duplicate claims once; the copy is duplicate_attempt (it waited on the row lock)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "secondWaitedOn": "advisory",
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 82,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 93,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "80dac5ac-8756-4160-a64c-966003d92c18"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "J7": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "an internal retry is idempotent (adoption: same epoch, written once)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 116,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J8": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "the refused claim never blocks the owner beyond its transaction nor loses its save"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "r2": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "1bffaa4c-86b9-455d-980f-b99e0f189978"
+                }
+              ],
+              "newerActive": true
+            },
+            "row": {
+              "tx": 33,
+              "epoch": 1,
+              "owner": 121,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J9": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "drain": "row",
+            "r1": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "J3",
+        "J4",
+        "J7",
+        "J8"
+      ],
+      "expected": [
+        "J4"
+      ]
+    },
+    "adoption-removed": {
+      "grants": "closed (0 rows)",
+      "scenarios": {
+        "J1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            },
+            "secondWaitedOn": "row",
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 81,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 93,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "0da2dd1c-7541-41df-a99b-4622bf6ed8b5"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "J7": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "an internal retry is idempotent (adoption: same epoch, written once)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 116,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J8": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "r2": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "e88ac662-1ea8-4453-94fe-62027ae07f86"
+                }
+              ],
+              "newerActive": true
+            },
+            "row": {
+              "tx": 33,
+              "epoch": 1,
+              "owner": 121,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J9": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "drain": "row",
+            "r1": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "J7"
+      ],
+      "expected": [
+        "J7"
+      ]
+    },
+    "caller-no-share": {
+      "grants": "closed (0 rows)",
+      "scenarios": {
+        "J1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": null
+        },
+        "J4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "status": "duplicate_attempt",
+              "newerActive": false
+            },
+            "secondWaitedOn": "row",
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 81,
+              "attempt": 3,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "legacy": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "old": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 93,
+              "attempt": 1,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "49f6f74b-abcb-4b20-a1ae-71becd1f3573"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "J7": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "r2": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 2,
+              "owner": 116,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J8": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "status": "stale_attempt",
+              "newerActive": false
+            },
+            "r2": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "a945a488-1251-4c92-ab19-d730256aea46"
+                }
+              ],
+              "newerActive": true
+            },
+            "row": {
+              "tx": 33,
+              "epoch": 1,
+              "owner": 121,
+              "attempt": 2,
+              "page": "tab-page-0001"
+            }
+          }
+        },
+        "J9": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "the drain of the caller host waits for the claim (no claim lands on a host already draining)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "drain": "done",
+            "r1": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          }
+        },
+        "D": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "verdict": "DETECTED",
+      "failing": [
+        "J9"
+      ],
+      "expected": [
+        "J9"
+      ]
+    }
+  }
+}

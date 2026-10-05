@@ -1,0 +1,13 @@
+# deno test supabase/functions/world-authority/ (v7 handler)
+ok | 31 passed | 0 failed (124ms)
+# deno check handler.ts
+Check supabase/functions/world-authority/handler.ts
+# deno check --node-modules-dir=none index.ts (from the function's folder; the worktree's node_modules is a junction)
+exit 0 (already checked: no output)
+# control: the v7 tests (handler.joinOrder.test.ts) against the v6 handler of 5ca9ccd
+v7 capabilities: recovery and joinOrder are read from their OWN markers, independently ... FAILED
+location_claim_v3: needs the secret; the whole key, host, explicit booleans, page and attempt go to world_location_claim_keyed_v3, nothing else ... FAILED
+location_claim_v3: malformed key, booleans, page or attempt, a takeover without recovery, or a v1 field never reach SQL (400) ... FAILED
+location_claim_v3: a missing SQL function answers 501 unsupported (the realtime falls back); any other failure stays 500 without leaking ... FAILED
+the v5 and v6 claims are unchanged: page and attempt fields on them never reach SQL ... ok
+FAILED | 1 passed | 4 failed

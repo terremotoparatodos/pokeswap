@@ -1,0 +1,19 @@
+admission-order-removed          node   DETECTED  expected=DETECTED  fail=1 pass=0
+duplicate-admitted               node   DETECTED  expected=DETECTED  fail=1 pass=0
+invalid-attempt-accepted         node   DETECTED  expected=DETECTED  fail=1 pass=0
+shadow-enforces                  node   DETECTED  expected=DETECTED  fail=1 pass=0
+recheck-removed                  node   DETECTED  expected=DETECTED  fail=1 pass=0
+live-page-forgotten              node   DETECTED  expected=DETECTED  fail=1 pass=0
+v3-never-used                    node   DETECTED  expected=DETECTED  fail=2 pass=0
+stale-claim-not-final            node   DETECTED  expected=DETECTED  fail=2 pass=0
+stale-hydrating-placed           node   DETECTED  expected=DETECTED  fail=2 pass=0
+stale-answer-unread              node   DETECTED  expected=DETECTED  fail=2 pass=0
+fallback-disables-recovery       node   DETECTED  expected=DETECTED  fail=1 pass=0
+takeover-without-recovery        node   DETECTED  expected=DETECTED  fail=1 pass=0
+edge-takeover-without-recovery   deno   DETECTED  expected=DETECTED  fail=1 pass=0
+client-attempt-not-advanced      vitest DETECTED  expected=DETECTED  fail=1 pass=NaN
+client-4410-reconnects           vitest DETECTED  expected=DETECTED  fail=4 pass=NaN
+client-4410-unmapped             vitest DETECTED  expected=DETECTED  fail=1 pass=2
+client-abandoned-status-layer    vitest SURVIVED  expected=SURVIVED  fail=0 pass=1
+restore check: clean
+exit=0
