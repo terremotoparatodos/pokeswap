@@ -1,0 +1,6 @@
+admission-check-removed      DETECTED  expected=DETECTED  fail=1 pass=0
+duplicate-counted-as-new     DETECTED  expected=DETECTED  fail=1 pass=0
+stale-claim-not-final        DETECTED  expected=DETECTED  fail=1 pass=0
+invalid-attempt-accepted     DETECTED  expected=DETECTED  fail=1 pass=0
+recheck-removed              SURVIVED  expected=SURVIVED  fail=0 pass=1
+exit=0

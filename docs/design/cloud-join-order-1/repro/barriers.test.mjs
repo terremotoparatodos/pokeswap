@@ -3,7 +3,9 @@
 // the checkout under test (default: this tree). Every expectation here describes what HAPPENS on the
 // checkout (5ca9ccd): it is evidence, not a product test.
 //   node --test docs/design/cloud-join-order-1/repro/barriers.test.mjs
-//   JOIN_ORDER_TREE=<path to services/realtime/src/> to run it against another tree (the prototype).
+//   JOIN_ORDER_TREE=<path to services/realtime/src/> to run it against another tree. These joins send no
+//   attempt (today's client), so a tree with the prototype join order behaves the same: the fix needs
+//   the client's attempts (prototype/joinOrder.test.mjs).
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { pathToFileURL } from 'node:url'
@@ -19,7 +21,6 @@ const { createDemoSkillPolicy } = await import(at('world/demoSkillPolicy.js'))
 const { createStaticOwnership } = await import(at('world/pokemonOwnership.js'))
 const { lastMessage } = await import(at('world/testing.js'))
 const { WORLD_PROTOCOL } = await import(at('world/worldProtocol.js'))
-const PROTOTYPE = process.env.JOIN_ORDER_EXPECT === 'fixed'
 
 const TAB = 'tab-page-0001'
 const held = () => { let release; const promise = new Promise(resolve => { release = resolve }); return { promise, release } }
@@ -57,24 +58,20 @@ test('R1 — admission: the OLD join is parked on an await inside admit (activat
   await db.query('INSERT INTO auth.users VALUES ($1)', [userId])
   // A host still 'starting': admit() awaits whenActive() — the barrier holds the OLD join exactly there.
   const gate = held()
-  const host = { state: 'starting', admitting: false, paused: false, whenActive: () => gate.promise, sessionKey: () => null, stats: () => ({}), identity: null, canClaim: false, canSave: false }
+  const reached = held()
+  const host = { state: 'starting', admitting: false, paused: false, whenActive: () => { reached.release(); return gate.promise }, sessionKey: () => null, stats: () => ({}), identity: null, canClaim: false, canSave: false }
   const p = await room(t, { host, store })
   const old = socket('old')
   const oldJoin = p.join(userId, old, {})                          // the page's FIRST join (fresh), now abandoned by the page
-  await Promise.resolve()
+  await reached.promise                                            // it IS parked inside admit (activation wait)
   host.state = 'active'; host.admitting = true                     // the activation lands
   const current = socket('current')
   await p.join(userId, current, { resume: true })                  // the page's CURRENT connection (renew → resume)
   await waitFor(() => placed(current), 'the current socket placed')
   gate.release(true)                                               // the old join resumes after its await
   await oldJoin
-  if (PROTOTYPE) {
-    assert.deepEqual(current.leaves, [], 'FIXED: the current connection is untouched')
-    assert.ok(old.leaves.length > 0 || old.refused, 'FIXED: the stale attempt is refused')
-  } else {
-    assert.deepEqual(current.leaves.map(l => l[0]), [SESSION_REPLACED_CODE], 'OBSERVED: replaced at admission, right after the await (4409 to the current socket)')
-    assert.deepEqual(old.leaves, [], 'OBSERVED: the abandoned join owns the player in this process')
-  }
+  assert.deepEqual(current.leaves.map(l => l[0]), [SESSION_REPLACED_CODE], 'OBSERVED: replaced at admission, right after the await (4409 to the current socket)')
+  assert.deepEqual(old.leaves, [], 'OBSERVED: the abandoned join owns the player in this process')
 })
 
 test('R2 — onAuth / matchmaking: the old join simply reaches onJoin later (no await inside the room needed); same outcome', async t => {
@@ -89,8 +86,8 @@ test('R2 — onAuth / matchmaking: the old join simply reaches onJoin later (no 
     const old = socket(`old-${mode}`)
     let refused = null
     await p.join(userId, old, {}).catch(error => { refused = error.code })
-    if (PROTOTYPE) assert.deepEqual([current.leaves, refused !== null || old.leaves.length > 0], [[], true], `FIXED in ${mode}`)
-    else assert.deepEqual(current.leaves.map(l => l[0]), [SESSION_REPLACED_CODE], `OBSERVED in ${mode}: a fresh join always replaces the live socket (4409 to a protocol-3 client in every mode)`)
+    assert.equal(refused, null)
+    assert.deepEqual(current.leaves.map(l => l[0]), [SESSION_REPLACED_CODE], `OBSERVED in ${mode}: a fresh join always replaces the live socket (4409 to a protocol-3 client in every mode)`)
   }
 })
 
@@ -115,14 +112,9 @@ test('R3 — across processes: the old attempt lands on a NEWER host; its claim 
   clock += 13_000                                                 // past the checkpoint: the next tick saves
   A.service.journal.tick()
   await waitFor(() => !A.service.journal.inflight, 'A flush')
-  await waitFor(() => current.leaves.length > 0 || PROTOTYPE, 'A fenced', 2_000).catch(() => {})
-  if (PROTOTYPE) {
-    assert.equal(owner.g, hostA.generation, 'FIXED: the row stays with the current attempt')
-    assert.deepEqual(current.leaves, [])
-  } else {
-    assert.equal(owner.g, hostB.generation, 'OBSERVED: the abandoned attempt took the row by key order (claim)')
-    assert.deepEqual(current.leaves.map(l => l[0]), [SESSION_REPLACED_CODE], 'OBSERVED: the current session is fenced on its next save (4409)')
-  }
+  await waitFor(() => current.leaves.length > 0, 'A fenced', 2_000).catch(() => {})
+  assert.equal(owner.g, hostB.generation, 'OBSERVED: the abandoned attempt took the row by key order (claim)')
+  assert.deepEqual(current.leaves.map(l => l[0]), [SESSION_REPLACED_CODE], 'OBSERVED: the current session is fenced on its next save (4409)')
 })
 
 test('R4 — a late CLAIM answer of the old join (hydrating) is already guarded: it does not publish the old actor once the current one replaced it', async t => {
