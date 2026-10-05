@@ -1,0 +1,14 @@
+v24.19.0
+ok 1 - E1 FACT: the current Edge (ad6a98e, v5) answers 400 unknown_op to every recovery op and to capabilities
+ok 2 - E2 v6 prototype: every v5 op gives a byte-identical answer and the same rpc calls (old realtimes unaffected)
+ok 3 - E3 v6 prototype: capabilities follow the SQL actually present; a missing function is 501 unsupported, other errors stay 500
+ok 4 - E4 against a v5 Edge: probe → disabled, every claim uses v1, no standby
+ok 5 - E5 against v6 with SQL: enabled, claims use v2, standby promotes
+ok 6 - E6 rollback Edge v6 → v5 under a process with the capability cached: one call disables, the claim falls back to v1 once, then v1 only
+ok 7 - E7 SQL dropped under v6 (wrong rollback order): 501 unsupported disables and falls back; a promotion in flight stops its identity
+ok 8 - E8 a transient failure (500) never disables: the caller retries as today (no silent v1 downgrade)
+ok 9 - E9 kill switch: never probes, never calls a recovery op
+ok 10 - E10 control: a client that treated 500 as unsupported would silently downgrade on a transient error (rejected design)
+# tests 10
+# pass 10
+# fail 0

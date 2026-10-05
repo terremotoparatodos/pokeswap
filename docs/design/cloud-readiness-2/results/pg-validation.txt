@@ -1,0 +1,9 @@
+prototype                  PASS      failing=[] expected=[]
+owner-share                DETECTED  failing=[I1] expected=[I1]
+draining-takes             DETECTED  failing=[S4] expected=[S4]
+unreachable-takes          DETECTED  failing=[S2,S4b,I3] expected=[S2]
+draining-expired-stopped   DETECTED  failing=[S4b] expected=[S4b]
+tab-session                DETECTED  failing=[S7] expected=[S7]
+no-yield                   DETECTED  failing=[X1,X3] expected=[X1]
+excl-no-lock               DETECTED  failing=[X5] expected=[X5]
+exit=0
