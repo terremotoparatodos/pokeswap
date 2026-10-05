@@ -24,7 +24,9 @@ const ROLLBACK = fileURLToPath(new URL('../../../../../scripts/world-location/ro
 const GRANTS_CHECK = fileURLToPath(new URL('../../../../../scripts/world-location/ordering-grants-check.sql', import.meta.url))
 // CLOUD READINESS-3: the recovery functions (20261005120000) sit on top of the ordering; their rollback runs first.
 const RECOVERY_ROLLBACK = fileURLToPath(new URL('../../../../../scripts/world-location/rollback_world_presence_recovery.sql', import.meta.url))
-const withoutRecovery = async db => db.exec(await readFile(RECOVERY_ROLLBACK, 'utf8'))
+// CLOUD JOIN-ORDER-2: the join order (20261006120000) sits on top of the recovery; its rollback runs first.
+const JOIN_ORDER_ROLLBACK = fileURLToPath(new URL('../../../../../scripts/world-location/rollback_world_location_join_order.sql', import.meta.url))
+const withoutRecovery = async db => { await db.exec(await readFile(JOIN_ORDER_ROLLBACK, 'utf8')); await db.exec(await readFile(RECOVERY_ROLLBACK, 'utf8')) }
 
 async function setup() {
   const db = await openLocalDatabase()

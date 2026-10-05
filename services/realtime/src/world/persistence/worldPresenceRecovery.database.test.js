@@ -17,6 +17,8 @@ const MIGRATIONS = new URL('../../../../../supabase/migrations/', import.meta.ur
 const NEW_MIGRATION = new URL('20261005120000_world_presence_recovery.sql', MIGRATIONS)
 const GRANTS_CHECK = fileURLToPath(new URL('../../../../../scripts/world-location/recovery-grants-check.sql', import.meta.url))
 const ROLLBACK = fileURLToPath(new URL('../../../../../scripts/world-location/rollback_world_presence_recovery.sql', import.meta.url))
+// CLOUD JOIN-ORDER-2: the join order (20261006120000) calls the recovery rules; its rollback runs first.
+const JOIN_ORDER_ROLLBACK = fileURLToPath(new URL('../../../../../scripts/world-location/rollback_world_location_join_order.sql', import.meta.url))
 const V1_FUNCTIONS = ['world_presence_acquire', 'world_presence_activate', 'world_presence_renew', 'world_presence_drain', 'world_presence_stop',
   'world_location_claim_keyed', 'world_location_save_keyed', 'world_location_claim', 'world_location_save']
 
@@ -271,6 +273,7 @@ test('the v1 functions keep their exact definitions and privileges (golden again
 test('rollback: drops exactly the recovery functions; v1 keeps working; the migration re-applies cleanly', async () => {
   const t = await setup()
   const g = await t.active()
+  await t.db.exec(await readFile(JOIN_ORDER_ROLLBACK, 'utf8'))
   await t.db.exec(await readFile(ROLLBACK, 'utf8'))
   const left = (await t.db.query("SELECT proname FROM pg_proc WHERE proname IN ('world_presence_any_active', 'world_presence_activate_exclusive', 'world_location_claim_keyed_v2', 'world_presence_owner_state', 'world_presence_recovery_version')")).rows
   assert.deepEqual(left, [])

@@ -11,6 +11,15 @@
 --   psql -v ON_ERROR_STOP=1 --single-transaction -f scripts/world-location/rollback_world_presence_recovery.sql
 
 BEGIN;
+-- CLOUD JOIN-ORDER-2: claim v3 calls world_presence_owner_state (recovery rules); its rollback runs first.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+              WHERE n.nspname = 'public' AND p.proname = 'world_location_claim_keyed_v3') THEN
+    RAISE EXCEPTION 'rollback order: run rollback_world_location_join_order.sql first (nothing changed)';
+  END IF;
+END;
+$$;
 DROP FUNCTION IF EXISTS public.world_presence_any_active();
 DROP FUNCTION IF EXISTS public.world_presence_activate_exclusive(bigint, uuid, integer);
 DROP FUNCTION IF EXISTS public.world_location_claim_keyed_v2(uuid, bigint, bigint, uuid, uuid, boolean);
