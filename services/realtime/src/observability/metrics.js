@@ -20,6 +20,8 @@ export class PresenceMetrics {
     this.location = null
     /** WORLD LOCATION-4 / CLOUD READINESS-3: the presence host of this process, its standby and recovery (aggregates only). */
     this.host = null
+    /** CLOUD JOIN-ORDER-2: the join order of this process (aggregates only: no account, page or attempt). */
+    this.joinOrder = null
   }
   joined(kind) { this.connections++; if (kind === 'guest') this.guests++; else this.players++ }
   left(kind) { this.connections = Math.max(0, this.connections - 1); if (kind === 'guest') this.guests = Math.max(0, this.guests - 1); else this.players = Math.max(0, this.players - 1) }
@@ -45,6 +47,7 @@ export class PresenceMetrics {
       ...(this.world ? { world: this.world() } : {}),
       ...(this.location ? { location: this.location() } : {}),
       ...(this.host ? { hosting: this.host() } : {}),
+      ...(this.joinOrder ? { joinOrder: this.joinOrder() } : {}),
       uptimeSeconds: Math.round(process.uptime()),
       memoryMb: { rss: Math.round(memory.rss / 1048576), heapUsed: Math.round(memory.heapUsed / 1048576) },
       eventLoopDelayMs: { p50: ms(delay.percentile(50)), p99: ms(delay.percentile(99)), max: ms(delay.max) },

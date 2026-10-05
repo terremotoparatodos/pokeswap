@@ -1,8 +1,9 @@
 import { ServerError } from '@colyseus/core'
 import { ACTIVATION_WAIT_MS, HOST_RENEW_MS, HostLifecycle } from '../presence/hostLifecycle.js'
 import { SESSION_REPLACED } from '../presence/locationService.js'
-import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE, LEGACY_REPLACED_CODE, SESSION_REPLACED_CODE } from '../protocol/closeCodes.js'
+import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE, INVALID_ATTEMPT_CODE, LEGACY_REPLACED_CODE, SESSION_REPLACED_CODE, STALE_ATTEMPT_CODE } from '../protocol/closeCodes.js'
 import { MESSAGE } from '../protocol/messages.js'
+import { JoinOrder, attemptOf } from '../presence/joinOrder.js'
 
 // WORLD LOCATION-4 — this process as a presence host, and how its sockets are admitted and
 // closed (docs/design/WORLD_LOCATION_4_DESIGN.md §3.3, §5). One instance per room module,
@@ -40,6 +41,12 @@ import { MESSAGE } from '../protocol/messages.js'
 // before any shutdown is installed: the room admits again with the new identity. A shutdown stops
 // the standby, and an identity it was promoting is stopped and never installed. Recovering an
 // ACTIVE host is not recovering the ROUTED one: the process cannot know where NGINX sends players.
+//
+// CLOUD JOIN-ORDER-2 — the order of each page's attempts in this process (presence/joinOrder.js),
+// checked in admission's synchronous tail, AFTER the resume rule (a resume of another page is still
+// 4409 whatever its attempt) and never instead of it: the attempt orders one page's own joins and
+// authorizes nothing. 'on' refuses an older or repeated attempt (4410) and an unreadable one (4422);
+// 'shadow' only counts; 'off' ignores attempts. Guests and clients without an attempt: as before.
 
 /** A tab id the client sends on join (UX and resume only; never part of the session key). */
 const TAB_ID = /^[A-Za-z0-9_-]{8,64}$/
@@ -52,7 +59,12 @@ export class PresenceHosting {
    * `location()`: the current location service (it is replaced at runtime).
    * `sockets()`: every socket of the room (a drain for a host change closes them all).
    */
-  constructor({ location, sockets, metrics, log = message => console.warn(message), recovery = null, standbyProbeMs = HOST_RENEW_MS, createStandbyHost = null }) {
+  constructor({ location, sockets, metrics, log = message => console.warn(message), recovery = null, standbyProbeMs = HOST_RENEW_MS, createStandbyHost = null, joinOrder = null, liveClientOf = () => null }) {
+    /** CLOUD JOIN-ORDER-2: the player's live socket in this process (the room's), to keep live pages in memory. */
+    this.liveClientOf = liveClientOf
+    this.joinOrder = joinOrder ?? this.createJoinOrder()
+    /** CLOUD JOIN-ORDER-2 ('on' only): client → { page, attempt } of an admitted join that carried one. */
+    this.orderOfClient = new WeakMap()
     this.location = location
     this.sockets = sockets
     this.metrics = metrics
@@ -77,6 +89,11 @@ export class PresenceHosting {
     this.draining = false
     this.protocolOf = new WeakMap()
     this.tabOf = new WeakMap()
+  }
+
+  /** CLOUD JOIN-ORDER-2: a JoinOrder whose live pages are this room's live sockets. */
+  createJoinOrder(options = {}) {
+    return new JoinOrder({ ...options, isLive: (userId, page) => { const client = this.liveClientOf(userId); return Boolean(client) && this.tabOf.get(client) === page } })
   }
 
   // ── Sockets ───────────────────────────────────────────────────────────
@@ -135,8 +152,53 @@ export class PresenceHosting {
         throw new ServerError(SESSION_REPLACED_CODE, 'session-replaced')
       }
     }
+    // CLOUD JOIN-ORDER-2: from here to the end, no await (the order is decided in one synchronous run).
+    const order = this.#order(options, auth, tabId)
     if (Number.isInteger(options?.presenceProtocol)) this.protocolOf.set(client, options.presenceProtocol)
     if (tabId) this.tabOf.set(client, tabId)
+    if (order) this.orderOfClient.set(client, order)
+  }
+
+  /**
+   * CLOUD JOIN-ORDER-2: the join's { page, attempt } when it is enforced ('on', a player, a valid attempt
+   * with a page), else null. Throws 4422 / 4410 in 'on'; shadow only counts. Synchronous.
+   */
+  #order(options, auth, tabId) {
+    const order = this.joinOrder
+    if (!order.observing || auth.kind === 'guest') return null
+    const { ok, attempt } = attemptOf(options)
+    if (ok && attempt === null) { order.counters.legacy++; return null }
+    if (!ok || !tabId) {
+      // Present but unreadable, or an attempt without a readable page: a defined refusal, never a guess.
+      order.counters.invalid++
+      if (!order.enforcing) return null
+      this.metrics.rejected('invalid-attempt')
+      throw new ServerError(INVALID_ATTEMPT_CODE, 'invalid-attempt')
+    }
+    const verdict = order.observe(auth.userId, tabId, attempt)
+    if (verdict !== 'admit') {
+      if (!order.enforcing) { order.counters.wouldRefuse++; return null }
+      this.metrics.rejected('stale-attempt')
+      throw new ServerError(STALE_ATTEMPT_CODE, `${verdict}-attempt`)
+    }
+    return order.enforcing ? { page: tabId, attempt } : null
+  }
+
+  /** CLOUD JOIN-ORDER-2: the { page, attempt } this process enforces for an admitted client, or null. */
+  orderOf(client) { return this.orderOfClient.get(client) ?? null }
+
+  /**
+   * CLOUD JOIN-ORDER-2: right before the room replaces the previous socket (same synchronous run as the
+   * replacement). False when a newer attempt of this page was admitted meanwhile: the join is refused
+   * (4410) and nothing is closed. Today no await separates admission from the replacement; this guards
+   * any future one.
+   */
+  stillLatest(client, auth) {
+    const order = this.orderOf(client)
+    if (!order || auth.kind === 'guest' || this.joinOrder.isLatest(auth.userId, order.page, order.attempt)) return true
+    this.joinOrder.counters.recheckRefused++
+    this.metrics.rejected('stale-attempt')
+    return false
   }
 
   // ── Host lifecycle ────────────────────────────────────────────────────

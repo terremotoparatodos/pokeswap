@@ -16,9 +16,10 @@ import { WorldRoom } from '../world/worldRoom.js'
 import { worldDependencies } from '../world/worldConfig.js'
 import { LocationService, locationMode } from '../presence/locationService.js'
 import { LocationJoin } from './locationJoin.js'
-import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
+import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE, STALE_ATTEMPT_CODE } from '../protocol/closeCodes.js'
 import { PresenceHosting } from './presenceHosting.js'
 import { RecoveryCapability, recoveryRequested, withRecovery } from '../presence/recoveryCapability.js'
+import { joinOrderMaxPages, joinOrderMode } from '../presence/joinOrder.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
 const MOVE_REJECTION_REASON = Object.freeze({
@@ -59,8 +60,12 @@ let location = null
 let recovery = new RecoveryCapability({ store: initialDependencies.playerData, requested: recoveryRequested(process.env) })
 // WORLD LOCATION-4: this process as a presence host — admission, drain and close codes
 // (rooms/presenceHosting.js). Null host when location is off: joins are accepted at once.
-const hosting = new PresenceHosting({ location: () => location, sockets: () => observers.values(), metrics, recovery })
+const hosting = new PresenceHosting({ location: () => location, sockets: () => observers.values(), metrics, recovery, liveClientOf: userId => clientsByActor.get(userId) })
+// CLOUD JOIN-ORDER-2: WORLD_JOIN_ORDER=off|shadow|on (default off), read once here: a change needs a restart.
+hosting.joinOrder = hosting.createJoinOrder({ mode: joinOrderMode(process.env), maxPages: joinOrderMaxPages(process.env) })
+if (hosting.joinOrder.observing) console.log(`[join-order] ${hosting.joinOrder.mode} (max pages ${hosting.joinOrder.maxPages})`)
 metrics.host = () => hosting.stats()
+metrics.joinOrder = () => hosting.joinOrder.stats()
 const locationJoin = new LocationJoin({
   actors, clientsByActor, location: () => location, closeReplaced: hosting.closeReplaced,
   closeRetry: hosting.closeRetry, recovery: () => recovery.enabled,
@@ -148,6 +153,12 @@ export function configurePresenceRecovery({ requested = false, store = initialDe
   return recovery
 }
 
+/** Tests and tooling (CLOUD JOIN-ORDER-2): replaces this module's join order ({ mode, maxPages }). */
+export function configureJoinOrder(options) {
+  hosting.joinOrder = hosting.createJoinOrder(options)
+  return hosting.joinOrder
+}
+
 /** Tests: this module instance's PresenceHosting (standby, counters). */
 export function presenceHostingForTesting() { return hosting }
 
@@ -197,6 +208,8 @@ export class PresenceRoom extends Room {
   async onJoin(client, options, auth) {
     // WORLD LOCATION-4: waits for activation; 4503 while draining; a resume never displaces another tab (4409).
     await hosting.admit(client, options, auth, userId => clientsByActor.get(userId))
+    // CLOUD JOIN-ORDER-2: re-checked in the same synchronous run that replaces the previous socket (4410, nothing closed).
+    if (!hosting.stillLatest(client, auth)) throw new ServerError(STALE_ATTEMPT_CODE, 'stale-attempt')
     if (!hasCapacity(PresenceRoom.connections)) { metrics.rejected('capacity'); throw new ServerError(4210, 'capacity reached') }
     PresenceRoom.connections++
     if (Number.isInteger(options?.presenceProtocol) && options.presenceProtocol >= COMPACT_STEP_PROTOCOL) compactClients.add(client)
