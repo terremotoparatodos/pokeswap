@@ -249,3 +249,99 @@ describe('world-authority keyed location operations', () => {
     }
   })
 })
+
+// ── CLOUD READINESS-3 (additive v6): capabilities and presence-recovery operations ──
+
+const claimV2 = (extra: Record<string, unknown> = {}) => ({ op: 'location_claim_v2', userId: USER, generation: 4, seq: 9, sessionId: SESSION, hostId: HOST, takeover: false, ...extra })
+const missing = (code: string): AuthorityDeps => ({ secret: SECRET, rpc: async () => ({ data: null, error: { message: 'function public.x does not exist on db.internal', code } }) })
+const answering = (data: unknown, calls: { fn: string; args: Record<string, unknown> }[] = []): AuthorityDeps =>
+  ({ secret: SECRET, rpc: async (fn, args) => { calls.push({ fn, args }); return { data, error: null } } })
+
+describe('world-authority v6: capabilities', () => {
+  it('needs the secret; reflects the SQL actually there (the marker function), never this function\'s version', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    expect((await handleWorldAuthority(post({ op: 'capabilities' }, null), answering(1, calls))).status).toBe(401)
+    expect(calls).toEqual([])
+    const ok = await handleWorldAuthority(post({ op: 'capabilities' }), answering(1, calls))
+    expect(ok.status).toBe(200)
+    expect(await ok.json()).toEqual({ recovery: { version: 1 } })
+    expect(calls).toEqual([{ fn: 'world_presence_recovery_version', args: {} }])
+    expect(await (await handleWorldAuthority(post({ op: 'capabilities' }), answering(2))).json()).toEqual({ recovery: null })
+    for (const code of ['PGRST202', '42883']) {
+      const absent = await handleWorldAuthority(post({ op: 'capabilities' }), missing(code))
+      expect(absent.status).toBe(200)
+      expect(await absent.json()).toEqual({ recovery: null })
+    }
+  })
+
+  it('any other database failure is the usual 500, without leaking the database message', async () => {
+    const response = await handleWorldAuthority(post({ op: 'capabilities' }), missing('57014'))
+    expect(response.status).toBe(500)
+    expect(await response.text()).not.toContain('db.internal')
+  })
+})
+
+describe('world-authority v6: presence-recovery operations', () => {
+  it('location_claim_v2: the whole key, the host and an explicit boolean takeover go to world_location_claim_keyed_v2, nothing else', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    for (const takeover of [false, true]) {
+      const response = await handleWorldAuthority(post(claimV2({ takeover, areaId: 'pradera', tabId: 'forged', epoch: 99 })), answering({ status: 'claimed' }, calls))
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ claim: { status: 'claimed' } })
+    }
+    expect(calls).toEqual([false, true].map(takeover => ({ fn: 'world_location_claim_keyed_v2', args: { p_user_id: USER, p_generation: 4, p_seq: 9, p_session: SESSION, p_host_id: HOST, p_takeover: takeover } })))
+  })
+
+  it('location_claim_v2: a malformed key, a missing or non-boolean takeover, or a v1 field never reaches SQL', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    const bad = [
+      claimV2({ userId: 'me' }), claimV2({ generation: 0 }), claimV2({ seq: 1.5 }), claimV2({ sessionId: 'tab-1' }), claimV2({ hostId: 'h' }),
+      claimV2({ takeover: undefined }), claimV2({ takeover: 'true' }), claimV2({ takeover: 1 }), claimV2({ expectedEpoch: 0 }),
+    ]
+    for (const body of bad) expect((await handleWorldAuthority(post(body), answering({ status: 'claimed' }, calls))).status).toBe(400)
+    expect(calls).toEqual([])
+  })
+
+  it('the original location_claim is not the v2 one: a takeover field on it never reaches SQL', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    expect((await handleWorldAuthority(post(keyed({ takeover: true })), deps(calls))).status).toBe(200)
+    expect(calls).toEqual([{ fn: 'world_location_claim_keyed', args: { p_user_id: USER, p_generation: 4, p_seq: 9, p_session: SESSION, p_host_id: HOST } }])
+  })
+
+  it('presence_activate_exclusive and presence_any_active call exactly their functions; malformed input is refused first', async () => {
+    const calls: { fn: string; args: Record<string, unknown> }[] = []
+    expect((await handleWorldAuthority(post({ op: 'presence_activate_exclusive', generation: 4, hostId: HOST, leaseMs: 15000, state: 'active' }), answering({ status: 'candidate_starting' }, calls))).status).toBe(200)
+    const any = await handleWorldAuthority(post({ op: 'presence_any_active' }), answering(true, calls))
+    expect(await any.json()).toEqual({ active: true })
+    expect(await (await handleWorldAuthority(post({ op: 'presence_any_active' }), answering('yes'))).json()).toEqual({ active: false })
+    expect(calls).toEqual([
+      { fn: 'world_presence_activate_exclusive', args: { p_generation: 4, p_host_id: HOST, p_lease_ms: 15000 } },
+      { fn: 'world_presence_any_active', args: {} },
+    ])
+    for (const body of [{ op: 'presence_activate_exclusive', generation: 0, hostId: HOST, leaseMs: 15000 }, { op: 'presence_activate_exclusive', generation: 4, hostId: HOST, leaseMs: 999 }, { op: 'presence_activate_exclusive', generation: 4, leaseMs: 15000 }]) {
+      expect((await handleWorldAuthority(post(body), answering({}))).status).toBe(400)
+    }
+  })
+
+  it('a recovery op whose SQL function is missing answers 501 unsupported; any other failure stays 500', async () => {
+    for (const body of [claimV2(), { op: 'presence_activate_exclusive', generation: 4, hostId: HOST, leaseMs: 15000 }, { op: 'presence_any_active' }]) {
+      for (const code of ['PGRST202', '42883']) {
+        const response = await handleWorldAuthority(post(body), missing(code))
+        expect(response.status).toBe(501)
+        expect(await response.json()).toEqual({ error: 'unsupported' })
+      }
+      const failed = await handleWorldAuthority(post(body), missing('57014'))
+      expect(failed.status).toBe(500)
+      expect(await failed.text()).not.toContain('db.internal')
+    }
+  })
+
+  it('v5 ops keep their exact contract: a missing function there is still a 500, never 501; unknown ops are still 400 unknown_op', async () => {
+    for (const body of [keyed(), { op: 'location_claim', userId: USER, expectedEpoch: 0 }, { op: 'presence_renew', generation: 4, hostId: HOST, leaseMs: 15000 }, { op: 'location_save', generation: 4, hostId: HOST, rows: [locationRow()] }]) {
+      expect((await handleWorldAuthority(post(body), missing('PGRST202'))).status).toBe(500)
+    }
+    const unknown = await handleWorldAuthority(post({ op: 'location_claim_v3' }), deps())
+    expect(unknown.status).toBe(400)
+    expect(await unknown.json()).toEqual({ error: 'unknown_op' })
+  })
+})

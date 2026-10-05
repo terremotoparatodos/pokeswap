@@ -17,6 +17,10 @@
 // keyed shapes of location_claim / location_save, which name the realtime host
 // (generation + host id) and, for a claim, the session's key. The v1 shapes stay
 // for the realtime builds that still use them; a body never mixes both.
+// CLOUD READINESS-3 (additive v6) adds 'capabilities' and three recovery ops (location_claim_v2,
+// presence_activate_exclusive, presence_any_active). Every v5 op answers exactly as before. The
+// capability is read from the SQL that is really there (a marker function), never assumed from
+// this function's version; a recovery op whose SQL function is missing answers 501 'unsupported'.
 // Feature gate (RC-0.3 dark launch): world_skills_access() decides per user.
 // A 'closed' user has no workable Pokemon and cannot settle completed work,
 // whatever the realtime server asks; a missing or odd answer counts as closed.
@@ -27,7 +31,8 @@
 
 export interface RpcResult {
   data: unknown
-  error: { message: string } | null
+  /** `code`: PostgREST's or Postgres's error code when known (PGRST202 / 42883: no such function). */
+  error: { message: string; code?: string } | null
 }
 
 export interface AuthorityDeps {
@@ -165,6 +170,52 @@ async function keyedSave(body: Record<string, unknown>, call: Call): Promise<Res
 
 const PRESENCE_OPS = new Set(['presence_acquire', 'presence_activate', 'presence_renew', 'presence_drain', 'presence_stop'])
 
+// ── CLOUD READINESS-3 (additive v6): capabilities and the presence-recovery operations ──
+
+/** The function is not there (PostgREST's schema cache, or Postgres itself): this SQL is not deployed. */
+const MISSING_FUNCTION = new Set(['PGRST202', '42883'])
+class MissingFunction extends Error {}
+const RECOVERY_OPS = new Set(['location_claim_v2', 'presence_activate_exclusive', 'presence_any_active'])
+
+/**
+ * 'capabilities': { recovery: { version: 1 } } only if the recovery SQL answers its marker;
+ * { recovery: null } when the marker function does not exist. Any other failure is a 500, as always.
+ */
+async function capabilities(call: Call): Promise<Response> {
+  try {
+    const version = await call('world_presence_recovery_version', {})
+    return json(200, { recovery: version === 1 ? { version: 1 } : null })
+  } catch (error) {
+    if (error instanceof MissingFunction) return json(200, { recovery: null })
+    throw error
+  }
+}
+
+/** The recovery ops. Malformed input never reaches SQL; a missing SQL function is 501 'unsupported'. */
+async function recoveryOp(op: string, body: Record<string, unknown>, call: Call): Promise<Response> {
+  try {
+    if (op === 'presence_any_active') return json(200, { active: (await call('world_presence_any_active', {})) === true })
+    const host = hostArgs(body)
+    if (op === 'presence_activate_exclusive') {
+      if (!host || !within(body.leaseMs, LEASE_MIN_MS, LEASE_MAX_MS)) return json(400, { error: 'invalid_host' })
+      return json(200, await call('world_presence_activate_exclusive', { ...host, p_lease_ms: body.leaseMs }))
+    }
+    // location_claim_v2: the keyed claim only (never the v1 shape) plus an explicit boolean takeover.
+    if (!uuid(body.userId)) return json(400, { error: 'invalid_user' })
+    if ('expectedEpoch' in body) return json(400, { error: 'mixed_claim' })
+    if (!host || !counter(body.seq) || !uuid(body.sessionId)) return json(400, { error: 'invalid_key' })
+    if (typeof body.takeover !== 'boolean') return json(400, { error: 'invalid_takeover' })
+    return json(200, {
+      claim: await call('world_location_claim_keyed_v2', {
+        p_user_id: body.userId, p_generation: host.p_generation, p_seq: body.seq, p_session: body.sessionId, p_host_id: host.p_host_id, p_takeover: body.takeover,
+      }),
+    })
+  } catch (error) {
+    if (error instanceof MissingFunction) return json(501, { error: 'unsupported' })
+    throw error
+  }
+}
+
 export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): Promise<Response> {
   if (req.method !== 'POST') return json(405, { error: 'method_not_allowed' })
   if (!sameSecret(req.headers.get('x-world-authority-secret'), deps.secret)) return json(401, { error: 'unauthorized' })
@@ -181,7 +232,7 @@ export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): P
   const call = async (fn: string, args: Record<string, unknown>) => {
     const { data, error } = await deps.rpc(fn, args)
     // The database's own message stays in the function's logs, not in the reply.
-    if (error) throw new Error(error.message)
+    if (error) throw MISSING_FUNCTION.has(error.code ?? '') ? new MissingFunction(error.message) : new Error(error.message)
     return data
   }
 
@@ -192,6 +243,8 @@ export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): P
 
   try {
     if (typeof body.op === 'string' && PRESENCE_OPS.has(body.op)) return await presenceOp(body.op, body, call)
+    if (body.op === 'capabilities') return await capabilities(call)
+    if (typeof body.op === 'string' && RECOVERY_OPS.has(body.op)) return await recoveryOp(body.op, body, call)
     switch (body.op) {
       case 'access': {
         if (typeof body.userId !== 'string' || !UUID.test(body.userId)) return json(400, { error: 'invalid_user' })

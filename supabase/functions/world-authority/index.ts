@@ -23,6 +23,7 @@ Deno.serve(req => handleWorldAuthority(req, {
   rpc: async (fn, args) => {
     const { data, error } = await supabase.rpc(fn, args);
     if (error) console.error('world-authority rpc failed', fn, error.code ?? '');
-    return { data, error: error ? { message: error.message } : null };
+    // The code (never the message) lets the handler tell a missing recovery function (PGRST202 / 42883).
+    return { data, error: error ? { message: error.message, code: error.code } : null };
   },
 }));
