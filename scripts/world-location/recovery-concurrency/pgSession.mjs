@@ -76,7 +76,7 @@ export class PgSession {
 
   async close() {
     if (this.exited) return
-    try { this.proc.stdin.end(BS + 'q' + NL) } catch {}
+    try { this.proc.stdin.end(BS + 'q' + NL) } catch { /* the pipe is already gone: the kill below ends the process */ }
     const done = await Promise.race([this.closed.then(() => true), sleep(3_000).then(() => false)])
     if (!done) { this.proc.kill(); await Promise.race([this.closed, sleep(3_000)]) }
   }
