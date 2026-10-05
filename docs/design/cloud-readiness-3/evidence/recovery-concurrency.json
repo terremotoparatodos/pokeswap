@@ -1,0 +1,2864 @@
+{
+  "container": "supabase_db_wlocpg-orig",
+  "database": "cr3_validation",
+  "rounds": 5,
+  "head": "d8af891709bbd79b16a3a24078be75959dad1496",
+  "startedAt": "2026-10-05T19:18:00.794Z",
+  "postgres": "17.6",
+  "builds": {
+    "migration": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 1,
+              "owner": 2
+            },
+            "takeover": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "c59c23ae-edf8-415d-bec1-7e52ea141e1b"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 35,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": true
+          }
+        },
+        "I1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": false,
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "a73fa6f1-901f-4670-8d18-0a661863a20a"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "candidate_starting"
+            },
+            "act": {
+              "status": "active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "active"
+            },
+            "e2": {
+              "status": "candidate_starting"
+            },
+            "active": [
+              121
+            ]
+          }
+        },
+        "X5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": true,
+            "rowAtAnswer": {
+              "state": "active",
+              "activated": true
+            }
+          }
+        },
+        "X6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": true,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [],
+      "expected": [],
+      "verdict": "PASS"
+    },
+    "owner-share": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 1,
+              "owner": 2
+            },
+            "takeover": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "92981d24-a1f2-47fc-80b2-47e09f0b4a79"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 35,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": true
+          }
+        },
+        "I1": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "the owner's renew never waits on another host's claim"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": true,
+            "wait": "Lock:transactionid",
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "5db04778-695a-40c9-a082-b083598c13aa"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "the drain is not blocked by another host's claim"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "drainBlocked": true
+          }
+        },
+        "I3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "candidate_starting"
+            },
+            "act": {
+              "status": "active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "active"
+            },
+            "e2": {
+              "status": "candidate_starting"
+            },
+            "active": [
+              121
+            ]
+          }
+        },
+        "X5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": true,
+            "rowAtAnswer": {
+              "state": "active",
+              "activated": true
+            }
+          }
+        },
+        "X6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": true,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [
+        "I1",
+        "I2"
+      ],
+      "expected": [
+        "I1"
+      ],
+      "verdict": "DETECTED"
+    },
+    "caller-no-share": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 1,
+              "owner": 2
+            },
+            "takeover": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "511b66a2-163a-4c5f-91ab-ada65922df34"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 35,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "a host never wins a row after its own drain committed (the drain waits for the claim)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": false,
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "f995219b-b1dc-4d34-9a82-38858bca2d44"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "candidate_starting"
+            },
+            "act": {
+              "status": "active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "active"
+            },
+            "e2": {
+              "status": "candidate_starting"
+            },
+            "active": [
+              121
+            ]
+          }
+        },
+        "X5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": true,
+            "rowAtAnswer": {
+              "state": "active",
+              "activated": true
+            }
+          }
+        },
+        "X6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": true,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [
+        "C1"
+      ],
+      "expected": [
+        "C1"
+      ],
+      "verdict": "DETECTED"
+    },
+    "draining-takes": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 1,
+              "owner": 2
+            },
+            "takeover": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "owner_draining while the owner drains",
+            "its final flush is kept and then restored"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "c7c13c27-ac6b-4221-b729-5827a21d1953"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": true
+          }
+        },
+        "I1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": false,
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "97d403e0-9aee-4c36-90f3-4fe36f589307"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "candidate_starting"
+            },
+            "act": {
+              "status": "active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "active"
+            },
+            "e2": {
+              "status": "candidate_starting"
+            },
+            "active": [
+              121
+            ]
+          }
+        },
+        "X5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": true,
+            "rowAtAnswer": {
+              "state": "active",
+              "activated": true
+            }
+          }
+        },
+        "X6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": true,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [
+        "S4"
+      ],
+      "expected": [
+        "S4"
+      ],
+      "verdict": "DETECTED"
+    },
+    "unreachable-takes": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "a resume never takes from an unreachable owner"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 2,
+              "owner": 1
+            },
+            "takeover": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "e8339c80-8eb9-4a26-b60d-317802dced61"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 35,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "an expired drain is not proof of closed sockets"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": true
+          }
+        },
+        "I1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": false,
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "44194050-994b-4022-a2e0-a6bcba3b4778"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I3": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "a stale read of a dying owner only delays"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "candidate_starting"
+            },
+            "act": {
+              "status": "active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "active"
+            },
+            "e2": {
+              "status": "candidate_starting"
+            },
+            "active": [
+              121
+            ]
+          }
+        },
+        "X5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": true,
+            "rowAtAnswer": {
+              "state": "active",
+              "activated": true
+            }
+          }
+        },
+        "X6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": true,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [
+        "S2",
+        "S4b",
+        "I3"
+      ],
+      "expected": [
+        "S2"
+      ],
+      "verdict": "DETECTED"
+    },
+    "takeover-ignored": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "an explicit takeover does, restoring the last tile"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 1,
+              "owner": 2
+            },
+            "takeover": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "ad43d1e1-4c0b-44d1-89ce-1714abd3c016"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 35,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": true
+          }
+        },
+        "I1": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "the takeover decided on what it read; the revived owner cannot write the taken row"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": false,
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "b338cfdd-7d31-4433-acb0-2b7dbdf8609e"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "candidate_starting"
+            },
+            "act": {
+              "status": "active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "active"
+            },
+            "e2": {
+              "status": "candidate_starting"
+            },
+            "active": [
+              121
+            ]
+          }
+        },
+        "X5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": true,
+            "rowAtAnswer": {
+              "state": "active",
+              "activated": true
+            }
+          }
+        },
+        "X6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": true,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [
+        "S2",
+        "I1"
+      ],
+      "expected": [
+        "S2"
+      ],
+      "verdict": "DETECTED"
+    },
+    "draining-expired-stopped": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 1,
+              "owner": 2
+            },
+            "takeover": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "fbe049bc-94e6-411e-b53e-2a3b79258f8f"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 35,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "an expired drain is not proof of closed sockets"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": true
+          }
+        },
+        "I1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": false,
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "b78ef6c8-68e6-4872-aeac-39293c836d16"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "candidate_starting"
+            },
+            "act": {
+              "status": "active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "active"
+            },
+            "e2": {
+              "status": "candidate_starting"
+            },
+            "active": [
+              121
+            ]
+          }
+        },
+        "X5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": true,
+            "rowAtAnswer": {
+              "state": "active",
+              "activated": true
+            }
+          }
+        },
+        "X6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": true,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [
+        "S4b"
+      ],
+      "expected": [
+        "S4b"
+      ],
+      "verdict": "DETECTED"
+    },
+    "no-yield": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 1,
+              "owner": 2
+            },
+            "takeover": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "88f2c1ec-5a31-4d2c-aa01-d9d4433d3c61"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 35,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": true
+          }
+        },
+        "I1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": false,
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "f3e4acfd-107a-419d-a7d0-996e5494c00d"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "the standby yields to a booting candidate of a lower generation",
+            "the deploy candidate is not displaced by the standby"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "active"
+            },
+            "act": {
+              "status": "newer_active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "two standbys: exactly one activates"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "other_active"
+            },
+            "e2": {
+              "status": "active"
+            },
+            "active": [
+              122
+            ]
+          }
+        },
+        "X5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": true,
+            "rowAtAnswer": {
+              "state": "active",
+              "activated": true
+            }
+          }
+        },
+        "X6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": true,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [
+        "X1",
+        "X3"
+      ],
+      "expected": [
+        "X1"
+      ],
+      "verdict": "DETECTED"
+    },
+    "excl-no-lock": {
+      "setup": {
+        "grants": "closed (0 rows)"
+      },
+      "scenarios": {
+        "S2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "resumed": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "unchanged": {
+              "tx": 32,
+              "epoch": 1,
+              "owner": 2
+            },
+            "takeover": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "during": {
+              "status": "owner_draining",
+              "newerActive": false
+            },
+            "flush": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "applied",
+                  "userId": "391e056d-85b2-44c5-bf9e-fc79f3724d21"
+                }
+              ],
+              "newerActive": false
+            },
+            "after": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 35,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "S4b": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            }
+          }
+        },
+        "S6": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": true
+            },
+            "t": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "C1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "drainBlocked": true
+          }
+        },
+        "I1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "renewBlocked": false,
+            "r": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": true
+            },
+            "late": {
+              "status": "ok",
+              "results": [
+                {
+                  "result": "stale",
+                  "userId": "fc2d14c8-c7e7-48c6-bb35-59211926d6db"
+                }
+              ],
+              "newerActive": false
+            }
+          }
+        },
+        "I2": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "superseded",
+              "newerActive": false
+            },
+            "drainBlocked": false
+          }
+        },
+        "I3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "owner_unreachable",
+              "newerActive": false
+            },
+            "retry": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": {
+                "tx": 32,
+                "ty": 20,
+                "areaId": "ciudad-corazon",
+                "layoutVersion": "1.test"
+              },
+              "newerActive": false
+            }
+          }
+        },
+        "I4": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "deadlocks": 0,
+            "errors": [],
+            "claim": {
+              "status": "superseded",
+              "newerActive": true
+            }
+          }
+        },
+        "I5": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "r1": {
+              "epoch": 2,
+              "status": "claimed",
+              "location": null,
+              "newerActive": true
+            },
+            "r2": {
+              "epoch": 3,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            },
+            "row": {
+              "tx": null,
+              "epoch": 3,
+              "owner": 97
+            }
+          }
+        },
+        "X1": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "ex": {
+              "status": "candidate_starting"
+            },
+            "act": {
+              "status": "active"
+            }
+          }
+        },
+        "X3": {
+          "pass": 5,
+          "of": 5,
+          "failedChecks": [],
+          "harnessErrors": [],
+          "sample": {
+            "e1": {
+              "status": "active"
+            },
+            "e2": {
+              "status": "candidate_starting"
+            },
+            "active": [
+              121
+            ]
+          }
+        },
+        "X5": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "an answer of active implies the activation really happened"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "stopBlocked": false,
+            "rowAtAnswer": {
+              "state": "stopped",
+              "activated": false
+            }
+          }
+        },
+        "X6": {
+          "pass": 0,
+          "of": 5,
+          "failedChecks": [
+            "the normal activation waits for the exclusive one (table lock)"
+          ],
+          "harnessErrors": [],
+          "sample": {
+            "r": {
+              "status": "active"
+            },
+            "a": {
+              "status": "active"
+            },
+            "actBlocked": false,
+            "renew": {
+              "state": "active",
+              "status": "ok",
+              "leaseLive": true,
+              "newerActive": true
+            }
+          }
+        }
+      },
+      "harnessErrors": 0,
+      "failing": [
+        "X5",
+        "X6"
+      ],
+      "expected": [
+        "X5"
+      ],
+      "verdict": "DETECTED"
+    }
+  },
+  "finishedAt": "2026-10-05T19:21:38.605Z"
+}

@@ -1,0 +1,10 @@
+migration                  PASS      failing=[] expected=[] grants=closed (0 rows)
+owner-share                DETECTED  failing=[I1,I2] expected=[I1] grants=closed (0 rows)
+caller-no-share            DETECTED  failing=[C1] expected=[C1] grants=closed (0 rows)
+draining-takes             DETECTED  failing=[S4] expected=[S4] grants=closed (0 rows)
+unreachable-takes          DETECTED  failing=[S2,S4b,I3] expected=[S2] grants=closed (0 rows)
+takeover-ignored           DETECTED  failing=[S2,I1] expected=[S2] grants=closed (0 rows)
+draining-expired-stopped   DETECTED  failing=[S4b] expected=[S4b] grants=closed (0 rows)
+no-yield                   DETECTED  failing=[X1,X3] expected=[X1] grants=closed (0 rows)
+excl-no-lock               DETECTED  failing=[X5,X6] expected=[X5] grants=closed (0 rows)
+exit=0
