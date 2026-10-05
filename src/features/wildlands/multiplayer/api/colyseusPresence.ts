@@ -5,7 +5,7 @@ import type { ChatTransportPort, LocalPresencePort, PresenceConnectionStatus, Re
 import type { PlayerVisualIdentity } from '../../identity/playerIdentity'
 import type { WorldTransportSink } from '../../../world/api/worldTransport'
 import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../../../../../services/realtime/src/world/worldProtocol.js'
-import { PRESENCE_PROTOCOL, closeDecision, joinRefusalDecision, type CloseDecision, type ClosingReason } from '../domain/closePolicy'
+import { OWNER_UNREACHABLE_ATTEMPTS, PRESENCE_PROTOCOL, closeDecision, joinRefusalDecision, type CloseDecision, type ClosingReason } from '../domain/closePolicy'
 
 const SNAPSHOT = 'presence:snapshot'
 const SELF = 'presence:self'
@@ -54,6 +54,8 @@ export class ColyseusPresence implements LocalPresencePort {
   private connecting = false
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null
   private reconnectAttempt = 0
+  /** CLOUD READINESS-3: consecutive closes because the session's previous server does not answer. */
+  private ownerUnreachable = 0
   /** Last full actor per id, so a compact step can be expanded before it reaches the engine. */
   private readonly known = new Map<string, RemotePresenceActor>()
 
@@ -75,8 +77,10 @@ export class ColyseusPresence implements LocalPresencePort {
    * `resume`: an automatic join (a reconnection, a retry, a renewed session). It never
    * displaces another tab's live session: the server refuses it with 4409 and this stops as
    * replaced. Only the page's first join and «Jugar acá» go without it.
+   * `takeover` (CLOUD READINESS-3): «Jugar acá» only — the player chose to play here even if the
+   * server that held the session does not answer. Never sent with `resume`, never automatic.
    */
-  async connect(identity?: PlayerVisualIdentity, { resume = false }: { resume?: boolean } = {}): Promise<void> {
+  async connect(identity?: PlayerVisualIdentity, { resume = false, takeover = false }: { resume?: boolean; takeover?: boolean } = {}): Promise<void> {
     if (!REALTIME_URL || this.room || this.stopped || this.suspended || this.connecting) return
     this.connecting = true
     try {
@@ -93,7 +97,7 @@ export class ColyseusPresence implements LocalPresencePort {
         token: data.session?.access_token ?? null,
         presenceProtocol: PRESENCE_PROTOCOL,
         tabId: TAB_ID,
-        ...(resume ? { resume: true } : {}),
+        ...(resume ? { resume: true } : takeover ? { takeover: true } : {}),
         ...(this.world ? { worldProtocol: WORLD_PROTOCOL } : {}),
         visual: identity ? { characterId: identity.character.id, companionPokemonId: identity.companion?.id ?? null } : null,
         ...(BENCHMARK_PLAYER ? {
@@ -114,7 +118,7 @@ export class ColyseusPresence implements LocalPresencePort {
       let serverProtocol: number | null = null
       let closing: ClosingReason | null = null
       room.onMessage<{ reason?: unknown }>(CLOSING, message => {
-        if (message?.reason === 'replaced' || message?.reason === 'draining') closing = message.reason
+        if (message?.reason === 'replaced' || message?.reason === 'draining' || message?.reason === 'owner-unreachable') closing = message.reason
       })
       room.onMessage<Snapshot>(SNAPSHOT, snapshot => {
         // A room this adapter already left must not place the player or reveal the scene.
@@ -122,6 +126,7 @@ export class ColyseusPresence implements LocalPresencePort {
         if (typeof snapshot.presenceProtocol === 'number') serverProtocol = snapshot.presenceProtocol
         // Authoritative and placed: the connection is stable, so the reconnect backoff starts over.
         this.reconnectAttempt = 0
+        this.ownerUnreachable = 0
         this.remote.setPresenceAccess(snapshot.access)
         // A guest reads the area and cannot speak into it, which the panel
         // has to know in order to say so instead of dropping the message.
@@ -258,6 +263,13 @@ export class ColyseusPresence implements LocalPresencePort {
       this.stopped = true
       this.clearReconnect()
       this.status?.replaced()
+      return
+    }
+    if (decision.action === 'owner-unreachable' && ++this.ownerUnreachable >= OWNER_UNREACHABLE_ATTEMPTS && this.status?.held) {
+      // CLOUD READINESS-3: bounded. The player decides whether to play here («Jugar acá»); nothing does it alone.
+      this.stopped = true
+      this.clearReconnect()
+      this.status.held()
       return
     }
     this.status?.lost()

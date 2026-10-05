@@ -25,10 +25,19 @@ export const AMBIGUOUS_MIN_LIFETIME_MS = 30_000
 /** …and no other ambiguous 4001 happened within this window. */
 export const AMBIGUOUS_WINDOW_MS = 60_000
 
-export type ClosingReason = 'replaced' | 'draining'
+/**
+ * CLOUD READINESS-3: 'owner-unreachable' — the server that held this account's session does not
+ * answer (crash or partition). Retried like a drain, but only OWNER_UNREACHABLE_ATTEMPTS times in a
+ * row: then the adapter stops and the overlay offers «Jugar acá» (never taken automatically).
+ */
+export type ClosingReason = 'replaced' | 'draining' | 'owner-unreachable'
+/** Consecutive owner-unreachable closes before the adapter stops retrying (backoff 0.5 → 4 s: ≈ 7.5 s). */
+export const OWNER_UNREACHABLE_ATTEMPTS = 4
 export type CloseAction =
   /** Stop for good: the overlay offers «Jugar acá». */
   | 'replaced'
+  /** CLOUD READINESS-3: reconnect like a drain, counted; past the limit the player chooses («Jugar acá»). */
+  | 'owner-unreachable'
   /**
    * Reconnect with `resume`, on the transport's bounded backoff. A drain does not reset it
    * (review F7): repeated 4503 refusals during a drain keep backing off; only a stable
@@ -63,6 +72,7 @@ export function closeDecision(closed: ClosedSocket): CloseDecision {
   // The server said why before closing: that wins over the code.
   if (closed.closing === 'replaced') return decision('replaced')
   if (closed.closing === 'draining') return decision('reconnect')
+  if (closed.closing === 'owner-unreachable') return decision('owner-unreachable')
   switch (closed.code) {
     case CLOSE_CODE.REPLACED: return decision('replaced')
     case CLOSE_CODE.DRAINING: return decision('reconnect')

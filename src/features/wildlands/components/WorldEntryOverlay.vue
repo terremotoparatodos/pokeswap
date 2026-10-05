@@ -10,9 +10,9 @@
     data-testid="world-entry"
   >
     <div class="wl-entry-box">
-      <p id="wl-entry-text" ref="messageRef" class="wl-entry-text" :tabindex="state.phase === 'replaced' ? -1 : undefined">{{ message }}</p>
+      <p id="wl-entry-text" ref="messageRef" class="wl-entry-text" :tabindex="state.phase === 'replaced' || state.phase === 'held' ? -1 : undefined">{{ message }}</p>
       <button v-if="state.phase === 'connection-error'" ref="retryRef" type="button" class="wl-entry-retry" @click="emit('retry')">Reintentar</button>
-      <button v-else-if="state.phase === 'replaced'" ref="takeoverRef" type="button" class="wl-entry-retry" data-testid="world-entry-takeover" @click="emit('takeover')">Jugar acá</button>
+      <button v-else-if="state.phase === 'replaced' || state.phase === 'held'" ref="takeoverRef" type="button" class="wl-entry-retry" data-testid="world-entry-takeover" @click="emit('takeover')">Jugar acá</button>
     </div>
   </div>
 </template>
@@ -38,13 +38,15 @@ const retryRef = ref<HTMLButtonElement | null>(null)
 const takeoverRef = ref<HTMLButtonElement | null>(null)
 
 const waiting = computed(() => props.state.phase === 'connecting' || props.state.phase === 'reconnecting')
-const actionable = computed(() => props.state.phase === 'connection-error' || props.state.phase === 'replaced')
+const actionable = computed(() => props.state.phase === 'connection-error' || props.state.phase === 'replaced' || props.state.phase === 'held')
 const message = computed(() => {
   switch (props.state.phase) {
     case 'connecting': return 'Entrando al mundo…'
     case 'reconnecting': return 'Reconectando…'
     case 'connection-error': return props.state.failed === 'reconnect' ? 'No pudimos reconectar.' : 'No pudimos entrar al mundo.'
     case 'replaced': return 'Tu sesión se abrió en otra pestaña o dispositivo.'
+    // CLOUD READINESS-3: no other tab is implied; the previous server does not answer.
+    case 'held': return 'El servidor donde estaba tu partida no responde.'
     default: return null
   }
 })
@@ -63,7 +65,7 @@ function focusFor(phase: WorldEntryState['phase']): void {
   // Someone typing in the sign-in dialog keeps their place.
   if (document.activeElement?.closest(`[${KEEP_INTERACTIVE}]`)) return
   if (phase === 'connection-error') retryRef.value?.focus()
-  else if (phase === 'replaced') messageRef.value?.focus()
+  else if (phase === 'replaced' || phase === 'held') messageRef.value?.focus()
 }
 watch(() => props.state.phase, focusFor, { flush: 'post' })
 onMounted(() => focusFor(props.state.phase))

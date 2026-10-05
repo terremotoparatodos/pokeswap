@@ -23,6 +23,11 @@ export type WorldEntryPhase =
    * 4001 read as a replacement). Never retried automatically: only «Jugar acá» (takeover).
    */
   | 'replaced'
+  /**
+   * CLOUD READINESS-3: the server that held the session does not answer and the bounded retries are
+   * over. Never retried automatically: only «Jugar acá» (takeover). No other tab is implied.
+   */
+  | 'held'
 
 export interface WorldEntryState {
   phase: WorldEntryPhase
@@ -46,6 +51,8 @@ export type WorldEntryEvent =
   /** The engine could not build the area the server placed it in. */
   | { type: 'prepare-failed' }
   | { type: 'replaced' }
+  /** CLOUD READINESS-3: the adapter stopped after bounded owner-unreachable retries. */
+  | { type: 'held' }
   | { type: 'retry' }
   /** WORLD LOCATION-4: «Jugar acá», the player's explicit takeover out of a replaced session. */
   | { type: 'takeover' }
@@ -96,11 +103,15 @@ export function nextWorldEntry(state: WorldEntryState, event: WorldEntryEvent): 
       return { ...waiting(state, state.phase as 'connecting' | 'reconnecting'), phase: 'connection-error', failed: state.phase === 'connecting' ? 'entry' : 'reconnect' }
     case 'replaced':
       return { ...state, phase: 'replaced', failed: null, authority: false, prepared: false, live: false }
+    case 'held':
+      // A replacement outranks it: a replaced session never turns into a held one.
+      if (state.phase === 'replaced') return state
+      return { ...state, phase: 'held', failed: null, authority: false, prepared: false, live: false }
     case 'retry':
       if (state.phase !== 'connection-error') return state
       return waiting(state, state.failed === 'reconnect' ? 'reconnecting' : 'connecting')
     case 'takeover':
-      if (state.phase !== 'replaced') return state
+      if (state.phase !== 'replaced' && state.phase !== 'held') return state
       return waiting(state, 'connecting')
     case 'renew':
       // No automatic attempt out of an error or a replaced session.

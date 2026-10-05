@@ -42,6 +42,12 @@ export interface PresenceConnectionStatus {
   lost(): void
   /** Another tab or device owns the account's session (4409, or 4001 read as one): the adapter stopped for good. */
   replaced(): void
+  /**
+   * CLOUD READINESS-3: the server that held the session did not answer after bounded retries; the
+   * adapter stopped. Only «Jugar acá» (a fresh join with takeover) continues. Optional: an older
+   * status sink without it keeps the adapter retrying as on any drain.
+   */
+  held?(): void
 }
 export interface LocalPresencePort {
   move(direction: Dir, running: boolean, sequence: number): void

@@ -527,11 +527,11 @@ onMounted(async () => {
   if (online) {
     entryController = new WorldEntryController({
       scene: created,
-      openSocket: (status, { resume }) => {
+      openSocket: (status, { resume, takeover }) => {
         created.setPresenceAccess('pending')
         const socket = connectPresence(created, status)
         presence = socket
-        return { connect: () => void socket.connect(identity.visualIdentity.value, { resume }), disconnect: () => socket.disconnect() }
+        return { connect: () => void socket.connect(identity.visualIdentity.value, { resume, takeover }), disconnect: () => socket.disconnect() }
       },
       onChange: state => { entry.value = state },
       onFailure: error => devWarn('[wildlands] the server area could not be prepared', error),

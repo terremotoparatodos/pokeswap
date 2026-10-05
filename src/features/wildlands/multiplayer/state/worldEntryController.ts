@@ -22,6 +22,8 @@ export interface EntrySocketOptions {
    * tab. Only the first entry and «Jugar acá» join without it.
    */
   resume: boolean
+  /** CLOUD READINESS-3: «Jugar acá» — the player chose to play here (a fresh join; never with `resume`). */
+  takeover?: boolean
 }
 
 export interface EntrySocket {
@@ -81,11 +83,14 @@ export class WorldEntryController {
     this.syncTimer(true)
   }
 
-  /** «Jugar acá»: the only join that takes the session back from another tab or device. */
+  /**
+   * «Jugar acá»: the only join that takes the session back from another tab or device, or (CLOUD
+   * READINESS-3) from a server that does not answer. Only from a replaced or held entry.
+   */
   takeover(): void {
-    if (this.disposed || this.state.phase !== 'replaced') return
+    if (this.disposed || (this.state.phase !== 'replaced' && this.state.phase !== 'held')) return
     this.dispatch({ type: 'takeover' })
-    this.open(false)
+    this.open(false, true)
     this.syncTimer(true)
   }
 
@@ -105,7 +110,7 @@ export class WorldEntryController {
     this.closeSocket()
   }
 
-  private open(resume: boolean): void {
+  private open(resume: boolean, takeover = false): void {
     this.closeSocket()
     const generation = ++this.generation
     const current = (run: () => void) => () => {
@@ -122,7 +127,12 @@ export class WorldEntryController {
         this.clearTimer()
         this.closeSocket()
       }),
-    }, { resume })
+      held: current(() => {
+        this.dispatch({ type: 'held' })
+        this.clearTimer()
+        this.closeSocket()
+      }),
+    }, { resume, ...(takeover ? { takeover: true } : {}) })
     this.socket = socket
     socket.connect()
   }
