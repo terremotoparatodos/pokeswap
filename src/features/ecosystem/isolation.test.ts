@@ -55,8 +55,14 @@ const IMPURE = /\b(Date\.now|new Date|Math\.random|performance\.now|setTimeout|s
 const OWNERSHIP = /\b(owner_?id|ownedIds|slots|pokemon_instances)\b/
 
 /** Files (outside the ecosystem folder) that really import an ecosystem module or the generated bundle. */
+/**
+ * Tooling allowed to import the ecosystem from outside it, by exact file —
+ * never a whole folder. Each entry is a dev script, not product code.
+ */
+const ALLOWED_OUTSIDE = new Set([fwd(join(ROOT, 'scripts/ecosystem/balance-1.ts'))]) // ECO-BALANCE-1 runner (dev-only study)
+
 function outsideImporters(files: readonly string[], read: (file: string) => string): string[] {
-  return files.filter(file => !file.startsWith(`${ECOSYSTEM}/`) && importSpecifiers(file, read(file)).some(spec => {
+  return files.filter(file => !file.startsWith(`${ECOSYSTEM}/`) && !ALLOWED_OUTSIDE.has(file) && importSpecifiers(file, read(file)).some(spec => {
     const target = resolveSpecifier(file, spec, ROOT)
     return target !== null && (target.startsWith(`${ECOSYSTEM}/`) || target.startsWith(`${BUNDLE_DIR}/`))
   }))
@@ -138,7 +144,9 @@ describe('negative controls: the guards see real imports and only real imports',
 import type { EncounterEntry } from '@/features/ecosystem/encounters/types'
 </script>`,
       [`${world}/unrelated.js`]: "import { wildRoster } from './wildPopulation.js'",
-    })).toEqual(['static.js', 'reexport.js', 'dynamic.js', 'required.js', 'Alias.vue'])
+      [fwd(join(ROOT, 'scripts/ecosystem/balance-1.ts'))]: "import { runOnce } from '../../src/features/ecosystem/preview/balance'",
+      [fwd(join(ROOT, 'scripts/ecosystem/other.ts'))]: "import { runOnce } from '../../src/features/ecosystem/preview/balance'",
+    })).toEqual(['static.js', 'reexport.js', 'dynamic.js', 'required.js', 'Alias.vue', 'other.ts']) // the allowance is one file, not the folder
   })
 
   it('ignores fixture strings, comments and template text', () => {
