@@ -68,6 +68,8 @@ export class PresenceHosting {
     this.shutdownBegun = false
     /** { timer, promoting, busy } while in standby; null otherwise. */
     this.standby = null
+    /** The stop of an identity a shutdown overtook mid-promotion (awaited by stopForShutdown). */
+    this.abandoned = null
     this.standbyCounters = { started: 0, probes: 0, probeFailures: 0, promotions: 0, refused: 0, abandoned: 0 }
     /** This process's HostLifecycle, or null (location off, or a store without host operations). */
     this.host = null
@@ -204,13 +206,27 @@ export class PresenceHosting {
     const standby = this.standby
     this.standby = null
     if (standby?.timer) clearTimeout(standby.timer)
-    if (standby?.promoting) { this.standbyCounters.abandoned++; void standby.promoting.stop() }
+    if (standby?.promoting) { this.standbyCounters.abandoned++; this.abandoned = this.#abandon(standby.promoting) }
+  }
+
+  /**
+   * The identity a shutdown overtook mid-promotion never serves. Its own stop waits behind its activation
+   * on the host lane, and the process may exit before that activation answers; so the stop is ALSO sent
+   * now, outside the lane (terminal and idempotent): if it reaches the database first, the late exclusive
+   * activation finds 'stopped' and activates nothing. Never throws.
+   */
+  async #abandon(candidate) {
+    const identity = candidate.identity
+    await Promise.all([
+      candidate.stop(),
+      identity ? Promise.resolve(this.store?.presenceStop?.(identity.generation, identity.hostId)).catch(() => null) : null,
+    ])
   }
 
   /** onShutdown: stops the host this process holds now (a promoted one included). Idempotent; never throws. */
   async stopForShutdown() {
     this.beginShutdown()
-    await this.host?.stop()
+    await Promise.all([this.host?.stop(), this.abandoned])
   }
 
   /** Tests: resolves once the standby (if any) is neither probing nor promoting. */

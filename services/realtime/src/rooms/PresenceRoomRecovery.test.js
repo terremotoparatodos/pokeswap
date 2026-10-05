@@ -312,9 +312,14 @@ test('SIGINT during the promotion: the late activation is never installed and it
   await X.drain(); await X.stop()
   const probing = p.hosting.probeStandbyNow()
   await reached                                          // the exclusive activation is in flight
+  const candidate = (await db.query('SELECT max(generation)::int AS g FROM public.world_presence_hosts')).rows[0].g
   p.hosting.beginShutdown()                              // SIGINT
+  // The process may exit before its activation answers: the stop reaches the database first, outside the lane.
+  await waitFor(async () => (await hostState(candidate)) === 'stopped', 'the stop', 2_000).catch(() => {})
+  assert.equal(await hostState(candidate), 'stopped', 'the abandoned identity is stopped before its activation lands')
   release()
   await probing
+  await p.hosting.stopForShutdown()
   assert.equal(p.hosting.host, p.host, 'nothing installed')
   assert.deepEqual(await activeGenerations(), [], 'the new identity does not serve')
   assert.equal(p.hosting.standbyCounters.abandoned >= 1, true)

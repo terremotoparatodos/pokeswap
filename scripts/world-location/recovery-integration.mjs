@@ -35,11 +35,11 @@ async function world(t) {
   const local = await startLocalAuthority({ secret: randomBytes(24).toString('hex') })
   const servers = []
   t.cleanup.push(async () => { for (const s of servers) await s.kill(); await local.close() })
-  const start = async (name, { recovery = true } = {}) => {
+  const start = async (name, { recovery = true, ready = true } = {}) => {
     const port = nextPort; nextPort += 2
     const s = await startRealtime({ name, port, env: { ...local.env('on', name), ...(recovery ? { WORLD_PRESENCE_RECOVERY: 'on' } : {}) } })
     servers.push(s)
-    await until(`${name} ready`, async () => (await s.ready()) === 200, 30_000)
+    if (ready) await until(`${name} ready`, async () => (await s.ready()) === 200, 30_000)
     return s
   }
   const hosting = async s => (await s.metrics())?.hosting ?? null
@@ -150,8 +150,8 @@ const SCENARIOS = {
     const late = await w.local.releaseHeld()              // the activation reaches the database after the process is gone
     const hosts = await w.local.hosts()
     t.check('the process exits on SIGTERM during its promotion', code === 0)
-    t.check('nothing serves from the exited process; its late identity is a crash-like row until its lease runs out', true)
-    return { exitCode: code, lateAnswerStatus: late?.status, hosts: hosts.map(h => ({ generation: h.generation, state: h.state, live: h.live })) }
+    t.check('the late activation finds the identity already stopped: no active host without a process', late?.status === 'host_inactive' && hosts.every(h => !(h.state === 'active' && h.live)))
+    return { exitCode: code, lateAnswer: late, hosts: hosts.map(h => ({ generation: h.generation, state: h.state, live: h.live })) }
   },
 
   /** The authority is down while in standby: no promotion; it recovers once the authority answers again. */
@@ -191,7 +191,8 @@ const SCENARIOS = {
   async CONCURRENT_CANDIDATES(t) {
     const w = await world(t)
     await w.start('A')
-    await Promise.all([w.start('B'), w.start('C')])
+    // Concurrent candidates: the older one may be displaced at once (503, by design), so only listening is awaited.
+    await Promise.all([w.start('B', { ready: false }), w.start('C', { ready: false })])
     await until('one active host', async () => (await w.live()).length === 1, 30_000)
     const samples = []
     for (let i = 0; i < 20; i++) { samples.push(await w.live()); await delay(1_000) }
