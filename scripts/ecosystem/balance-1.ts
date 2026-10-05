@@ -87,5 +87,5 @@ for (const minutes of DURATIONS) {
   }
   lines.push('')
 }
-writeFileSync(join(outDir, 'summary.md'), lines.join('\n') + '\n')
+writeFileSync(join(outDir, 'summary.md'), lines.join('\n').trimEnd() + '\n')
 console.log(`wrote ${results.length} result rows for ${ZONES.length} zones × ${VARIANT_IDS.length} variants × ${SCENARIOS.length} scenarios × ${DURATIONS.length} durations × ${SEEDS.length} seeds`)
