@@ -79,8 +79,14 @@ export interface Scenario {
   readonly layout: NestLayout
   readonly config: PopulationConfig
   readonly blocked: readonly Tile[]
-  /** The tiles drawn and simulated. */
+  /** The tiles drawn (and, unless `simBounds` says otherwise, simulated). */
   readonly bounds: Bounds
+  /**
+   * ECO-CAPACITY-1: the tiles the ENGINE may use, when wider than what is drawn
+   * (real map: the whole area window, while the forest view draws a crop).
+   * `blocked` covers these bounds.
+   */
+  readonly simBounds?: Bounds
   /** Real map only: one char per tile and row (see realMap.ts `TILE_KIND`); null on the synthetic grid. */
   readonly kinds: readonly string[] | null
   /** Warnings and constraints to show next to the map. */

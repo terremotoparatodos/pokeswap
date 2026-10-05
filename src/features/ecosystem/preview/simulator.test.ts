@@ -203,6 +203,14 @@ describe('real map population zones (ECO-CAPACITY-1)', () => {
     expect(v.zones[1].alive).toBeGreaterThan(0)
   })
 
+  it('the forest view still simulates the whole area: abierta nests outside the drawn crop populate too (smoke regression)', () => {
+    let s = sim({ zoneId: 'pradera.bosque', layout: 'real-map', params: { ...defaultParams('pradera.bosque'), policy: 'per-member', delayMs: 10_000, retryMs: 5_000 } })
+    for (let i = 0; i < 60; i++) s = advance(s, 10_000)
+    const v = viewOf(s)
+    expect(v.zones.map(z => [z.id, z.alive])).toEqual([['abierta', 12], ['bosque', 6]])
+    expect(s.log.some(l => /pradera-pastizal-[a-z]+: no-open-tile/.test(l))).toBe(false)
+  })
+
   it('synthetic scenarios have no zones (unchanged)', () => {
     expect(viewOf(sim()).zones).toEqual([])
   })

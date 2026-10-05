@@ -73,15 +73,17 @@ export function buildRealScenario(zoneId: PreviewZoneId, params: SimParams, seed
     { policy: params.policy, delayMs: params.delayMs, jitter: params.jitter, retryMs: params.retryMs },
     { dormantAfterMs: params.dormantAfterMs, staggerMinMs: params.staggerMinMs, staggerMaxMs: params.staggerMaxMs })
   const areaNests = new Set(area.nests.map(n => n.id))
+  // The engine simulates the whole area window; only the drawing is cropped to `bounds`.
+  const simBounds = { ...view.area.window }
   const blocked: Tile[] = []
+  for (let ty = simBounds.minTy; ty <= simBounds.maxTy; ty++) for (let tx = simBounds.minTx; tx <= simBounds.maxTx; tx++) {
+    const f = view.flags(tx, ty)
+    if (['blocked', 'unreachable', 'water', 'portal', 'resource'].some(x => f.has(x as never))) blocked.push({ tx, ty })
+  }
   const kinds: string[] = []
   for (let ty = bounds.minTy; ty <= bounds.maxTy; ty++) {
     let row = ''
-    for (let tx = bounds.minTx; tx <= bounds.maxTx; tx++) {
-      const f = view.flags(tx, ty)
-      if (['blocked', 'unreachable', 'water', 'portal', 'resource'].some(x => f.has(x as never))) blocked.push({ tx, ty })
-      row += kindAt(view, tx, ty)
-    }
+    for (let tx = bounds.minTx; tx <= bounds.maxTx; tx++) row += kindAt(view, tx, ty)
     kinds.push(row)
   }
   const capacity = capacityReport(area)
@@ -93,5 +95,5 @@ export function buildRealScenario(zoneId: PreviewZoneId, params: SimParams, seed
     ...realNests(zoneId).flatMap(n => reports.find(r => r.id === n.id)!.warnings.map(w => `aviso ${n.id}: ${w}`)),
     ...(zoneId === 'pradera.bosque' ? [forestConstraint(view)] : []),
   ]
-  return { zoneId, layout: 'real-map', bounds, blocked, kinds, notes, config: { namespace: `preview-${seed}`, areas: [area] } }
+  return { zoneId, layout: 'real-map', bounds, simBounds, blocked, kinds, notes, config: { namespace: `preview-${seed}`, areas: [area] } }
 }

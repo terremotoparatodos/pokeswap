@@ -60,7 +60,7 @@ function generator(state: number): { random: RandomSource; state: () => number }
 
 export function geometryOf(scenario: Scenario): AreaGeometry {
   const blocked = new Set(scenario.blocked.map(t => `${t.tx},${t.ty}`))
-  const b = scenario.bounds
+  const b = scenario.simBounds ?? scenario.bounds
   return { isOpenTile: (tx, ty) => tx >= b.minTx && ty >= b.minTy && tx <= b.maxTx && ty <= b.maxTy && !blocked.has(`${tx},${ty}`) }
 }
 
