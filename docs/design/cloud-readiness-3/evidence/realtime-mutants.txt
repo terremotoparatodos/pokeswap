@@ -1,0 +1,12 @@
+layer1-promotion-not-stopped             SURVIVED  expected=SURVIVED  fail=0 pass=1 (SIGINT during the promotion)
+layer2-no-shutdown-recheck               SURVIVED  expected=SURVIVED  fail=0 pass=1 (SIGINT during the promotion)
+both-layers-late-promotion               DETECTED  expected=DETECTED  fail=1 pass=0 (SIGINT during the promotion)
+takeover-on-resume                       DETECTED  expected=DETECTED  fail=1 pass=0 (UNREACHABLE owner)
+unreachable-is-replaced                  DETECTED  expected=DETECTED  fail=1 pass=0 (UNREACHABLE owner)
+stale-host-is-replaced                   DETECTED  expected=DETECTED  fail=1 pass=0 (LIVE owner on a newer host)
+disable-not-permanent                    DETECTED  expected=DETECTED  fail=1 pass=0 (disable is permanent)
+standby-without-new-exclusive-identity   DETECTED  expected=DETECTED  fail=1 pass=0 (booting lower candidate)
+kill-switch-ignored                      DETECTED  expected=DETECTED  fail=1 pass=0 (kill switch)
+fallback-without-disable                 DETECTED  expected=DETECTED  fail=1 pass=0 (withRecovery)
+working copy restored: clean
+exit=0
