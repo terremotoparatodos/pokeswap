@@ -17,6 +17,15 @@ El token del usuario se verifica una sola vez al entrar contra Supabase Auth. Cu
 
 Construir desde `services/realtime/Dockerfile`, configurar las cuatro variables en el panel de Colyseus Cloud y publicar la URL WebSocket como `VITE_REALTIME_URL` en Cloudflare Pages. Usar un único proceso mientras el límite global sea 100; no activar réplicas ni Redis hasta diseñar presencia compartida.
 
+Manifiesto PM2 (`ecosystem.config.js`, CLOUD STARTUP-1). En cada deploy el agente de Cloud arranca el proceso nuevo, apunta NGINX a él cuando PM2 lo da por listo y 1,5 s después detiene al viejo con SIGINT:
+
+- `instances: 1`: explícito. Ausente, el agente usaría un proceso por CPU y el mundo se partiría.
+- `wait_ready: true` + `listen_timeout: 20000`: PM2 espera el `process.send('ready')`, que llega dentro de `listen` después del acquire de ubicación (hasta `ACQUIRE_WAIT_MS` = 10 s). Con el valor por defecto de PM2 (3 s), NGINX pasaba a un proceso que todavía no escuchaba y el viejo ya estaba detenido: 3–10 s de 502 por deploy. 20 s cubren el arranque medido con CPU libre (6–7 s) más `ACQUIRE_WAIT_MS`, pero no una CPU muy disputada combinada con un acquire lento: ver `docs/design/world-location-4/evidence/7-cloud-startup.md` §4.
+- `kill_timeout: 30000`: el drenaje por SIGINT (flush de 3 s, flush tardío de 3 s, `stop`) nunca termina en SIGKILL, también fuera del agente.
+- `autorestart`, `min_uptime` y `max_restarts` sin cambios; sin `restart_delay` (D2 sigue abierto).
+- `ready` **no** significa host activo: si la autoridad no responde en `ACQUIRE_WAIT_MS`, el proceso escucha y anuncia `ready` sin generación, con `/readyz` 503 y joins 4503 en `on`. El agente igual detiene al viejo. No desplegar con la autoridad degradada.
+- Un segundo deploy solo después de que terminó el anterior: el viejo detenido y `Post-deploy success`. Un deploy solapado reinicia el proceso recién arrancado.
+
 ## Observabilidad y carga
 
 Colyseus Cloud debe alertar sobre conexiones, rechazos de join, CPU, memoria y desconexiones. El proceso expone `GET /healthz`, `GET /readyz` y `GET /metrics` en `HEALTH_PORT` (2568 en desarrollo); publicarlos sólo por la red interna de Cloud. `/readyz` responde 503 hasta que el arranque termina (salud → acquire → listen → activate).
@@ -26,7 +35,9 @@ Puerto de salud (HEALTH PORT-1):
 - Local / Docker (sin `COLYSEUS_CLOUD`): `HEALTH_PORT`, o `PORT + 1` (2568 por defecto). `NODE_APP_INSTANCE` no se suma, así que ningún realtime local se corre al puerto de juego de otro.
 - Colyseus Cloud (`COLYSEUS_CLOUD` definida): `HEALTH_PORT` (o `PORT + 1`, 2568) es la **base** y cada slot de PM2 suma su `NODE_APP_INSTANCE` (ausente = 0). En un rollout el proceso viejo y el nuevo corren a la vez en los slots 0 y 1 y toman 2568 y 2569; sus puertos de juego en Cloud son sockets Unix, no TCP.
 - `PORT`, `HEALTH_PORT` o `NODE_APP_INSTANCE` mal formados, o un puerto final fuera de 1–65535, son un error de configuración: el proceso termina antes de abrir puertos o adquirir una generación.
-- Si el puerto de salud no se puede abrir (por ejemplo `EADDRINUSE`), o el servidor de salud falla después, se registra `[health] unavailable …` / `[health] degraded …` con el código y el realtime sigue sirviendo: no reinicia, no adquiere otra generación ni desplaza hosts. `[health] listening on port N` sólo se registra cuando el puerto quedó abierto. Los logs operativos deben registrar sólo el tipo de evento y los contadores agregados. Antes de habilitar 100 conexiones, ejecutar 50 jugadores autenticados más espectadores repartidos entre Ciudad y Pradera, midiendo mensajes por segundo, latencia de movimiento y FPS en un viewport de 375 px.
+- Si el puerto de salud no se puede abrir (por ejemplo `EADDRINUSE`), o el servidor de salud falla después, se registra `[health] unavailable …` / `[health] degraded …` con el código y el realtime sigue sirviendo: no reinicia, no adquiere otra generación ni desplaza hosts. `[health] listening on port N` sólo se registra cuando el puerto quedó abierto.
+
+Los logs operativos deben registrar sólo el tipo de evento y los contadores agregados. Antes de habilitar 100 conexiones, ejecutar 50 jugadores autenticados más espectadores repartidos entre Ciudad y Pradera, midiendo mensajes por segundo, latencia de movimiento y FPS en un viewport de 375 px.
 
 `npm test` ejecuta los casos de capacidad, autenticación, anti-spam e interés espacial. `npm run test:load` ejecuta un preflight reproducible de 50 jugadores, repartidos entre Ciudad y Pradera, e informa tiempo y mensajes del protocolo. La imagen debe verificarse con `docker build -t pokeswap-realtime-r30 .` en CI o un equipo con Docker.
 
