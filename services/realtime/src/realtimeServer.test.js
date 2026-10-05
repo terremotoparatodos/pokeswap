@@ -24,10 +24,18 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms))
 let started = null
 test.after(async () => {
   await started?.gameServer.gracefullyShutdown(false).catch(() => {})
-  started?.health.close()
+  await started?.health.close()
 })
 
-test('bootstrap: the host acquires before listen (starting), activates after listen, serves, and stops on shutdown', async () => {
+test('bootstrap: a malformed port configuration fails before the health bind or any acquire', async () => {
+  const order = []
+  const env = { ...process.env, COLYSEUS_CLOUD: '1', NODE_APP_INSTANCE: '1x' }
+  await assert.rejects(startRealtimeServer({ env, log: () => {}, trace: event => order.push(event) }), { name: 'PortConfigError' })
+  await assert.rejects(startRealtimeServer({ env: { ...process.env, PORT: '70000' }, log: () => {}, trace: event => order.push(event) }), { name: 'PortConfigError' })
+  assert.deepEqual(order, [])
+})
+
+test('bootstrap: health first, the host acquires before listen (starting), activates after listen, serves, and stops on shutdown', async () => {
   const order = []
   started = await startRealtimeServer({ port: PORT, healthPort: PORT + 1, log: () => {}, trace: (event, state) => order.push(`${event}:${state}`) })
   const { host, gameServer } = started
@@ -35,7 +43,8 @@ test('bootstrap: the host acquires before listen (starting), activates after lis
   assert.equal(host.state, 'active')
   assert.ok(Number.isSafeInteger(host.generation))
   assert.equal(host.stats().activation, 'active')
-  assert.deepEqual(order, ['acquired:starting', 'listening:starting', 'activated:active'], 'a generation before listen; active only after it')
+  assert.deepEqual(order, ['health:listening', 'acquired:starting', 'listening:starting', 'activated:active'], 'health bound first; a generation before listen; active only after it')
+  assert.equal(started.health.port, PORT + 1)
   assert.equal(typeof room.configurePresenceHost, 'function')
 
   // /readyz follows the host.
@@ -80,6 +89,6 @@ test('bootstrap: the host acquires before listen (starting), activates after lis
   assert.deepEqual(guests[1].order, ['closing', 'close'])
   assert.deepEqual(guests[1].closing, ['draining'])
   assert.equal(host.state, 'stopped', 'onShutdown stops the host (terminal)')
-  started.health.close()
+  assert.equal(started.health.status, 'closed', 'onShutdown closes the health server')
   started = null
 })

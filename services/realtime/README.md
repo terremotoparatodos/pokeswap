@@ -19,7 +19,14 @@ Construir desde `services/realtime/Dockerfile`, configurar las cuatro variables 
 
 ## Observabilidad y carga
 
-Colyseus Cloud debe alertar sobre conexiones, rechazos de join, CPU, memoria y desconexiones. El proceso expone `GET /healthz`, `GET /readyz` y `GET /metrics` en `HEALTH_PORT` (2568 en desarrollo); publicarlos sólo por la red interna de Cloud. Los logs operativos deben registrar sólo el tipo de evento y los contadores agregados. Antes de habilitar 100 conexiones, ejecutar 50 jugadores autenticados más espectadores repartidos entre Ciudad y Pradera, midiendo mensajes por segundo, latencia de movimiento y FPS en un viewport de 375 px.
+Colyseus Cloud debe alertar sobre conexiones, rechazos de join, CPU, memoria y desconexiones. El proceso expone `GET /healthz`, `GET /readyz` y `GET /metrics` en `HEALTH_PORT` (2568 en desarrollo); publicarlos sólo por la red interna de Cloud. `/readyz` responde 503 hasta que el arranque termina (salud → acquire → listen → activate).
+
+Puerto de salud (HEALTH PORT-1):
+
+- Local / Docker (sin `COLYSEUS_CLOUD`): `HEALTH_PORT`, o `PORT + 1` (2568 por defecto). `NODE_APP_INSTANCE` no se suma, así que ningún realtime local se corre al puerto de juego de otro.
+- Colyseus Cloud (`COLYSEUS_CLOUD` definida): `HEALTH_PORT` (o `PORT + 1`, 2568) es la **base** y cada slot de PM2 suma su `NODE_APP_INSTANCE` (ausente = 0). En un rollout el proceso viejo y el nuevo corren a la vez en los slots 0 y 1 y toman 2568 y 2569; sus puertos de juego en Cloud son sockets Unix, no TCP.
+- `PORT`, `HEALTH_PORT` o `NODE_APP_INSTANCE` mal formados, o un puerto final fuera de 1–65535, son un error de configuración: el proceso termina antes de abrir puertos o adquirir una generación.
+- Si el puerto de salud no se puede abrir (por ejemplo `EADDRINUSE`), o el servidor de salud falla después, se registra `[health] unavailable …` / `[health] degraded …` con el código y el realtime sigue sirviendo: no reinicia, no adquiere otra generación ni desplaza hosts. `[health] listening on port N` sólo se registra cuando el puerto quedó abierto. Los logs operativos deben registrar sólo el tipo de evento y los contadores agregados. Antes de habilitar 100 conexiones, ejecutar 50 jugadores autenticados más espectadores repartidos entre Ciudad y Pradera, midiendo mensajes por segundo, latencia de movimiento y FPS en un viewport de 375 px.
 
 `npm test` ejecuta los casos de capacidad, autenticación, anti-spam e interés espacial. `npm run test:load` ejecuta un preflight reproducible de 50 jugadores, repartidos entre Ciudad y Pradera, e informa tiempo y mensajes del protocolo. La imagen debe verificarse con `docker build -t pokeswap-realtime-r30 .` en CI o un equipo con Docker.
 
