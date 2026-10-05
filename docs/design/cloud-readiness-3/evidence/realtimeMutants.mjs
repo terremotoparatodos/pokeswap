@@ -9,6 +9,7 @@ import { execFileSync, spawnSync } from 'node:child_process'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import process from 'node:process'
 
 const ROOT = fileURLToPath(new URL('../../../../', import.meta.url))
 const RT = join(ROOT, 'services', 'realtime')
