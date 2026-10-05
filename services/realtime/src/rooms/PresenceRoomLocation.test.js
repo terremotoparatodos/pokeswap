@@ -856,8 +856,9 @@ test('graceful shutdown is best effort: a hung authority never holds the exit pa
 test('the process entry point (realtimeServer.js) drains in onBeforeShutdown (before any socket closes) and stops the host in onShutdown', async () => {
   const { readFile } = await import('node:fs/promises')
   const source = await readFile(new URL('../realtimeServer.js', import.meta.url), 'utf8')
-  assert.match(source, /gameServer\.onBeforeShutdown\(async \(\) => \{ drained = await drainPresence\(\{ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS \}\) \}\)/)
-  assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*const late = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
+  // HEALTH PORT-1: both hooks first mark the bootstrap as shutting down (no later acquire/activate).
+  assert.match(source, /gameServer\.onBeforeShutdown\(async \(\) => \{\s*shuttingDown = true\s*drained = await drainPresence\(\{ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS \}\)\s*\}\)/)
+  assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*shuttingDown = true\s*const late = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
   assert.match(source, /const line = shutdownFlushLine\(drained, late\)/)
   assert.match(source, /await host\?\.stop\(\)/)
   assert.match(source, /SHUTDOWN_LOCATION_FLUSH_MS = 3_000/)
