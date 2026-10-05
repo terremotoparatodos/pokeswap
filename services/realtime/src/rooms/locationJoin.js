@@ -1,5 +1,6 @@
 import { SESSION_REPLACED, SESSION_REPLACED_CODE } from '../presence/locationService.js'
 import { restoreFromRow } from '../presence/locationPolicy.js'
+import { HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
 
 /**
  * WORLD LOCATION-2: how a player socket's session meets PresenceRoom.
@@ -20,7 +21,15 @@ import { restoreFromRow } from '../presence/locationPolicy.js'
  *     superseded (a greater key owns the row: WORLD LOCATION-4), is closed as
  *     replaced, and its tile is not remembered for reconnects; in shadow it is
  *     only counted (`wouldFence`, `wouldReplace`): shadow never changes what a
- *     player or an observer sees.
+ *     player or an observer sees;
+ *   - CLOUD READINESS-3, only while presence recovery is enabled: an infrastructure
+ *     answer is never a replacement. A hydrating session whose row's owner is draining
+ *     or unreachable, or that a live owner on a NEWER host supersedes (this host is
+ *     stale and drains), is closed with 4503 (`presence:closing` 'draining', or
+ *     'owner-unreachable' so the client can stop after bounded retries and offer
+ *     «Jugar acá»). A placed session keeps playing and its claim is retried. 4409 stays
+ *     for the replacements the contract can identify (a newer session in this process,
+ *     a fresh join, a stale save). Shadow only counts (`wouldRetry`).
  *
  * Owns only per-socket location state; the room keeps the actors.
  */
@@ -31,8 +40,15 @@ export class LocationJoin {
    * (WORLD LOCATION-4: 4409 for protocol-3 clients; 4001 for older ones, with the reason only
    * when `named`).
    */
-  constructor({ actors, clientsByActor, location, closeReplaced = (client, { named }) => (named ? client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED) : client.leave(SESSION_REPLACED_CODE)) }) {
+  constructor({
+    actors, clientsByActor, location, closeReplaced = (client, { named }) => (named ? client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED) : client.leave(SESSION_REPLACED_CODE)),
+    closeRetry = client => client.leave(HOST_DRAINING_CODE, 'host-draining'), recovery = () => false,
+  }) {
     this.closeReplaced = closeReplaced
+    /** CLOUD READINESS-3: closes a socket that should retry (4503) with a reason ('draining' | 'owner-unreachable'). */
+    this.closeRetry = closeRetry
+    /** CLOUD READINESS-3: presence recovery is enabled in this process (the close mapping above applies). */
+    this.recovery = recovery
     this.actors = actors
     this.clientsByActor = clientsByActor
     this.location = location
@@ -56,6 +72,8 @@ export class LocationJoin {
     const session = location.begin(auth.userId)
     session.client = client
     session.worldProtocol = options?.worldProtocol
+    // CLOUD READINESS-3: «Jugar acá» — a fresh join the player asked for explicitly. Never a resume.
+    session.takeover = options?.takeover === true && options?.resume !== true
     this.sessionByClient.set(client, session)
     return session
   }
@@ -132,12 +150,16 @@ export class LocationJoin {
     const location = this.location()
     const pending = client ? this.hydrations.get(client) : null
     if (pending?.session === session) {
+      // CLOUD READINESS-3 (recovery enabled): not a replacement — retry later (4503).
+      if (result.status === 'owner_draining') return this.#retryWhileHydrating(client, pending, 'draining')
+      if (result.status === 'owner_unreachable') return this.#retryWhileHydrating(client, pending, 'owner-unreachable')
+      if (result.status === 'superseded' && result.newerActive === true && this.recovery()) return this.#retryWhileHydrating(client, pending, 'draining')
       // A greater key owns the row while this socket was still hydrating: it never plays here.
       if (result.status === 'superseded') return this.#supersededWhileHydrating(client, pending)
       if (result.status !== 'claimed') location.restored(result.status === 'unknown_user' ? 'unknownUser' : 'failed')
       return this.#finish(room, client, pending, result.status === 'claimed' ? result.location : null, result.status === 'claimed')
     }
-    if (result.status === 'superseded') return this.#superseded(session)
+    if (result.status === 'superseded') return this.#superseded(session, result)
     if (result.status !== 'claimed' || !client || this.sessionByClient.get(client) !== session) return
     const actor = this.actors.get(session.userId)
     if (!actor || this.clientsByActor.get(session.userId) !== client) return
@@ -151,13 +173,29 @@ export class LocationJoin {
    * greater key (newer in this host, or on a newer host) owns the row. In `on` its socket
    * goes, as a replacement; in shadow only `wouldReplace` counts.
    */
-  #superseded(session) {
+  #superseded(session, result) {
     const client = session.client
     if (!client || this.sessionByClient.get(client) !== session || this.clientsByActor.get(session.userId) !== client) return
     const location = this.location()
+    // CLOUD READINESS-3: the owner is a live session on a NEWER host: this host is stale (it drains) — retry, not replaced.
+    if (result?.newerActive === true && this.recovery()) {
+      if (!location.restores) { location.counters.shadow.wouldRetry++; return }
+      location.counters.retryDisconnects++
+      this.closeRetry(client, 'draining')
+      return
+    }
     if (!location.restores) { location.counters.shadow.wouldReplace++; return }
     location.counters.supersededDisconnects++
     this.closeReplaced(client, { named: true })
+  }
+
+  /** CLOUD READINESS-3: a hydrating socket whose claim must be retried later: closed with 4503, never placed. */
+  #retryWhileHydrating(client, pending, reason) {
+    clearTimeout(pending.timer)
+    this.hydrations.delete(client)
+    const location = this.location()
+    location.counters.retryDisconnects++
+    if (this.clientsByActor.get(pending.join.auth.userId) === client) this.closeRetry(client, reason)
   }
 
   #supersededWhileHydrating(client, pending) {

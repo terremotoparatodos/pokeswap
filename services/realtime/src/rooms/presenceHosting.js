@@ -1,5 +1,5 @@
 import { ServerError } from '@colyseus/core'
-import { ACTIVATION_WAIT_MS, HostLifecycle } from '../presence/hostLifecycle.js'
+import { ACTIVATION_WAIT_MS, HOST_RENEW_MS, HostLifecycle } from '../presence/hostLifecycle.js'
 import { SESSION_REPLACED } from '../presence/locationService.js'
 import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE, LEGACY_REPLACED_CODE, SESSION_REPLACED_CODE } from '../protocol/closeCodes.js'
 import { MESSAGE } from '../protocol/messages.js'
@@ -31,6 +31,15 @@ import { MESSAGE } from '../protocol/messages.js'
 //   shutdown     the system asks for it (SIGTERM/SIGINT): Colyseus' graceful shutdown drains,
 //                closes with 4503 and exits (realtimeServer.js).
 // Shadow never changes what players see in any of them: it keeps admitting, without persistence.
+//
+// CLOUD READINESS-3 — standby (only while presence recovery is enabled: presence/recoveryCapability.js).
+// A displaced process that did NOT receive SIGINT/SIGTERM probes world_presence_any_active() every
+// renew period (+ jitter). When no host is active it acquires a NEW identity (new hostId, new
+// generation: the displaced one stays stopped for good) and activates it exclusively (refused while
+// any other host is active; yields to a lower starting candidate). Only a promotion that completes
+// before any shutdown is installed: the room admits again with the new identity. A shutdown stops
+// the standby, and an identity it was promoting is stopped and never installed. Recovering an
+// ACTIVE host is not recovering the ROUTED one: the process cannot know where NGINX sends players.
 
 /** A tab id the client sends on join (UX and resume only; never part of the session key). */
 const TAB_ID = /^[A-Za-z0-9_-]{8,64}$/
@@ -43,11 +52,23 @@ export class PresenceHosting {
    * `location()`: the current location service (it is replaced at runtime).
    * `sockets()`: every socket of the room (a drain for a host change closes them all).
    */
-  constructor({ location, sockets, metrics, log = message => console.warn(message) }) {
+  constructor({ location, sockets, metrics, log = message => console.warn(message), recovery = null, standbyProbeMs = HOST_RENEW_MS, createStandbyHost = null }) {
     this.location = location
     this.sockets = sockets
     this.metrics = metrics
     this.log = log
+    /** CLOUD READINESS-3: the RecoveryCapability of this process (null: recovery never applies). */
+    this.recovery = recovery
+    this.standbyProbeMs = standbyProbeMs
+    /** Tests: builds the exclusive identity of the standby (default: a HostLifecycle with exclusive: true). */
+    this.createStandbyHost = createStandbyHost ?? (store => new HostLifecycle({ store, exclusive: true, log: this.log }))
+    /** The store the host lifecycle uses (set by prepare/configure). */
+    this.store = null
+    /** A shutdown began (SIGINT/SIGTERM): no standby, no promotion, ever again in this process. */
+    this.shutdownBegun = false
+    /** { timer, promoting, busy } while in standby; null otherwise. */
+    this.standby = null
+    this.standbyCounters = { started: 0, probes: 0, probeFailures: 0, promotions: 0, refused: 0, abandoned: 0 }
     /** This process's HostLifecycle, or null (location off, or a store without host operations). */
     this.host = null
     /** While draining: no join is accepted and no movement either. Never reverts in a process. */
@@ -69,6 +90,16 @@ export class PresenceHosting {
     if (this.#modern(client)) client.leave(SESSION_REPLACED_CODE, SESSION_REPLACED)
     else if (named) client.leave(LEGACY_REPLACED_CODE, SESSION_REPLACED)
     else client.leave(LEGACY_REPLACED_CODE)
+  }
+
+  /**
+   * CLOUD READINESS-3: a socket that should reconnect later (4503), with the reason protocol 3 hears first:
+   * 'draining' (the owner of the row drains, or this host is stale) or 'owner-unreachable' (the client stops
+   * after bounded retries and offers «Jugar acá»). Clients that do not know the reason retry, as on any 4503.
+   */
+  closeRetry = (client, reason) => {
+    this.closing(client, reason)
+    client.leave(HOST_DRAINING_CODE, reason === 'owner-unreachable' ? 'owner-unreachable' : 'host-draining')
   }
 
   /** Shutdown, deploy or drain: 4503 for every client (an older one reconnects too, as it would on 1006). */
@@ -114,6 +145,10 @@ export class PresenceHosting {
    */
   async prepare(store, { hostId, acquireWaitMs } = {}) {
     if (!this.location().active || !supportsHost(store)) return null
+    this.store = store
+    // CLOUD READINESS-3: one capability probe per process, before the first claim (never blocks: a
+    // transient failure leaves it 'unknown', probed again later).
+    await this.recovery?.probe()
     this.host = this.#reacting(new HostLifecycle({ store, ...(hostId ? { hostId } : {}) }))
     // Sessions get their keys from this host from now on (none persist before it is active).
     this.location().attachHost(this.host)
@@ -125,7 +160,8 @@ export class PresenceHosting {
    * Tests and tooling: replace the host (null: none). `reactToHostChanges: false` models the
    * renew-bounded window in which this host has not yet learned of a newer one.
    */
-  configure(next, { reactToHostChanges = true } = {}) {
+  configure(next, { reactToHostChanges = true, store = next?.store ?? null } = {}) {
+    this.store = store
     this.host = reactToHostChanges ? this.#reacting(next) : next
     this.location().attachHost(next)
     return this.host
@@ -151,7 +187,111 @@ export class PresenceHosting {
   /** Tests and tooling: undo a drain (a fresh process never starts draining). */
   resetDraining() { this.draining = false }
 
-  stats() { const host = this.host?.stats() ?? null; return host && { ...host, displaced: this.displaced ?? null } }
+  stats() {
+    const host = this.host?.stats() ?? null
+    return host && { ...host, displaced: this.displaced ?? null, standby: this.standby !== null, standbyCounters: { ...this.standbyCounters }, recovery: this.recovery?.stats() ?? null }
+  }
+
+  // ── CLOUD READINESS-3: shutdown and standby ───────────────────────────
+
+  /**
+   * A shutdown began (Colyseus onBeforeShutdown): synchronous, before anything awaits. The standby stops;
+   * an identity being promoted is stopped and never installed. Idempotent.
+   */
+  beginShutdown() {
+    if (this.shutdownBegun) return
+    this.shutdownBegun = true
+    const standby = this.standby
+    this.standby = null
+    if (standby?.timer) clearTimeout(standby.timer)
+    if (standby?.promoting) { this.standbyCounters.abandoned++; void standby.promoting.stop() }
+  }
+
+  /** onShutdown: stops the host this process holds now (a promoted one included). Idempotent; never throws. */
+  async stopForShutdown() {
+    this.beginShutdown()
+    await this.host?.stop()
+  }
+
+  /** Tests: resolves once the standby (if any) is neither probing nor promoting. */
+  async standbyIdle() { while (this.standby?.busy) await this.standby.busy }
+
+  /** Tests: runs the next probe now instead of waiting for its timer. */
+  probeStandbyNow() {
+    const standby = this.standby
+    if (!standby || standby.busy) return standby?.busy ?? Promise.resolve()
+    if (standby.timer) { clearTimeout(standby.timer); standby.timer = null }
+    standby.busy = this.#probe(standby).finally(() => { standby.busy = null })
+    return standby.busy
+  }
+
+  #startStandby() {
+    if (this.standby || this.shutdownBegun || !this.recovery?.enabled) return
+    if (typeof this.store?.presenceAnyActive !== 'function' || typeof this.store?.presenceActivateExclusive !== 'function') return
+    this.standby = { timer: null, promoting: null, busy: null }
+    this.standbyCounters.started++
+    this.log('[host] standby: this process will take a NEW identity if no host is active')
+    this.#scheduleProbe(this.standby)
+  }
+
+  #scheduleProbe(standby) {
+    if (this.standby !== standby || this.shutdownBegun) return
+    const jitter = Math.floor(Math.random() * Math.min(1_000, this.standbyProbeMs))
+    standby.timer = setTimeout(() => {
+      standby.timer = null
+      standby.busy = this.#probe(standby).finally(() => { standby.busy = null })
+    }, this.standbyProbeMs + jitter)
+    standby.timer.unref?.()
+  }
+
+  async #probe(standby) {
+    if (this.standby !== standby || this.shutdownBegun) return
+    this.standbyCounters.probes++
+    let anyActive
+    try {
+      anyActive = await this.store.presenceAnyActive()
+    } catch (error) {
+      if (this.recovery?.unsupported(error)) { this.#endStandby(standby, 'recovery unsupported'); return }
+      this.standbyCounters.probeFailures++
+      this.#scheduleProbe(standby)
+      return
+    }
+    if (this.standby !== standby || this.shutdownBegun) return
+    if (anyActive) { this.#scheduleProbe(standby); return }
+    await this.#promote(standby)
+  }
+
+  async #promote(standby) {
+    const candidate = this.createStandbyHost(this.store)
+    standby.promoting = candidate
+    let state = await candidate.acquire()
+    if (state === 'starting' && this.standby === standby && !this.shutdownBegun) state = await candidate.activate()
+    standby.promoting = null
+    // A shutdown (or the end of this standby) that came meanwhile wins: the new identity never serves.
+    if (this.standby !== standby || this.shutdownBegun || state !== 'active') {
+      await candidate.stop()
+      if (state === 'active' || this.shutdownBegun) { this.standbyCounters.abandoned++; return }
+      this.standbyCounters.refused++
+      if (candidate.refused === 'unsupported') { this.recovery?.disable('sql-missing'); this.#endStandby(standby, 'recovery unsupported'); return }
+      this.#scheduleProbe(standby)
+      return
+    }
+    // Installed synchronously: a shutdown that starts after this line stops THIS host (stopForShutdown).
+    this.standby = null
+    this.host = this.#reacting(candidate)
+    this.location().attachHost(candidate)
+    this.displaced = null
+    this.draining = false
+    this.standbyCounters.promotions++
+    this.log(`[host] standby: promoted with a new identity (generation ${candidate.generation}); admitting again`)
+  }
+
+  #endStandby(standby, reason) {
+    if (this.standby !== standby) return
+    if (standby.timer) clearTimeout(standby.timer)
+    this.standby = null
+    this.log(`[host] standby ended: ${reason}`)
+  }
 
   /** Readiness: no host, a host that admits, or shadow (which serves whatever its host's state). */
   get serving() { return !this.host || this.host.admitting || !this.location().restores }
@@ -163,6 +303,7 @@ export class PresenceHosting {
   #stopped(reason) {
     if (this.displaced) return
     this.displaced = reason
+    this.#startStandby()
     if (!this.location().restores) {
       this.log(`[host] ${reason}: shadow keeps serving, without location persistence`)
       return

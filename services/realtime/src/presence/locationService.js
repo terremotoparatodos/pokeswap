@@ -51,10 +51,12 @@ export class LocationService {
       repairs: { area: 0, layout: 0, tile: 0, protocol: 0 },
       // A claim that answered after the fallback was published: epoch only, position adopted (B3).
       late: { adopted: 0 },
-      shadow: { wouldRestore: 0, wouldRepair: { area: 0, layout: 0, tile: 0, protocol: 0 }, wouldFence: 0, wouldReplace: 0, wouldDrain: 0 },
+      shadow: { wouldRestore: 0, wouldRepair: { area: 0, layout: 0, tile: 0, protocol: 0 }, wouldFence: 0, wouldReplace: 0, wouldDrain: 0, wouldRetry: 0 },
       // `on`: sessions closed because a greater key owns their row (claim superseded).
       supersededDisconnects: 0,
       fencedDisconnects: 0,
+      // CLOUD READINESS-3: sockets closed with 4503 to retry (owner draining/unreachable, stale host).
+      retryDisconnects: 0,
       hydration: { started: 0, maxMs: 0 },
     }
   }
@@ -107,8 +109,8 @@ export class LocationService {
     return {
       mode: this.mode, effective: this.effective,
       restores: { ...c.restores }, repairs: { ...c.repairs }, late: { ...c.late },
-      shadow: { wouldRestore: c.shadow.wouldRestore, wouldRepair: { ...c.shadow.wouldRepair }, wouldFence: c.shadow.wouldFence, wouldReplace: c.shadow.wouldReplace, wouldDrain: c.shadow.wouldDrain },
-      fencedDisconnects: c.fencedDisconnects, supersededDisconnects: c.supersededDisconnects, hydration: { ...c.hydration },
+      shadow: { wouldRestore: c.shadow.wouldRestore, wouldRepair: { ...c.shadow.wouldRepair }, wouldFence: c.shadow.wouldFence, wouldReplace: c.shadow.wouldReplace, wouldDrain: c.shadow.wouldDrain, wouldRetry: c.shadow.wouldRetry },
+      fencedDisconnects: c.fencedDisconnects, supersededDisconnects: c.supersededDisconnects, retryDisconnects: c.retryDisconnects, hydration: { ...c.hydration },
       ...(this.host ? { host: this.host.stats() } : {}),
       ...(this.journal ? { journal: this.journal.stats() } : {}),
     }

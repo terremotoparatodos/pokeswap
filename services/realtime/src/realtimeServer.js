@@ -1,6 +1,6 @@
 import { Server } from '@colyseus/core'
 import { WebSocketTransport } from '@colyseus/ws-transport'
-import { PresenceRoom, drainPresence, flushLocationsForShutdown, preparePresenceHost, presenceServing } from './rooms/PresenceRoom.js'
+import { PresenceRoom, beginPresenceShutdown, drainPresence, flushLocationsForShutdown, preparePresenceHost, presenceServing, stopPresenceHosting } from './rooms/PresenceRoom.js'
 import { shutdownFlushLine } from './presence/shutdownSummary.js'
 import { BenchmarkPresenceRoom } from './rooms/BenchmarkPresenceRoom.js'
 import { startHealthServer } from './observability/health.js'
@@ -60,6 +60,8 @@ export async function startRealtimeServer({ env = process.env, port, healthPort,
   let bootstrapped = false
   gameServer.onBeforeShutdown(async () => {
     shuttingDown = true
+    // CLOUD READINESS-3: synchronously, before anything awaits: no standby or promotion from now on.
+    beginPresenceShutdown()
     drained = await drainPresence({ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS })
   })
   // A host displaced by the authority (activation refused, a newer host, an expired lease) does
@@ -71,6 +73,8 @@ export async function startRealtimeServer({ env = process.env, port, healthPort,
     const line = shutdownFlushLine(drained, late)
     if (line) log(line)
     await host?.stop()
+    // A host this process promoted from standby (CLOUD READINESS-3) is not `host`: stop it too.
+    await stopPresenceHosting()
     await health?.close()
   })
   // A bootstrap interrupted by a shutdown: release what it took and go no further.

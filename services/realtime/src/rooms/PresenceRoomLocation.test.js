@@ -765,7 +765,7 @@ test('shadow: claims and saves, restores nothing, and counts what `on` would hav
   const c = await r.join(u)
   assert.deepEqual(r.where(c), { areaId: 'ciudad-corazon', tx: 31, ty: 20 }, 'placed synchronously, as today')
   await waitFor(() => r.service.journal.stats().sessions.live.claimed === 1, 'claim')
-  assert.deepEqual(r.service.stats().shadow, { wouldRestore: 1, wouldRepair: { area: 0, layout: 0, tile: 1, protocol: 0 }, wouldFence: 0, wouldReplace: 0, wouldDrain: 0 })
+  assert.deepEqual(r.service.stats().shadow, { wouldRestore: 1, wouldRepair: { area: 0, layout: 0, tile: 1, protocol: 0 }, wouldFence: 0, wouldReplace: 0, wouldDrain: 0, wouldRetry: 0 })
   r.travel(c, 'pradera')
   await r.flush()
   assert.equal((await stored(u)).area_id, 'pradera', 'shadow writes what really happens')
@@ -857,9 +857,12 @@ test('the process entry point (realtimeServer.js) drains in onBeforeShutdown (be
   const { readFile } = await import('node:fs/promises')
   const source = await readFile(new URL('../realtimeServer.js', import.meta.url), 'utf8')
   // HEALTH PORT-1: both hooks first mark the bootstrap as shutting down (no later acquire/activate).
-  assert.match(source, /gameServer\.onBeforeShutdown\(async \(\) => \{\s*shuttingDown = true\s*drained = await drainPresence\(\{ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS \}\)\s*\}\)/)
+  // CLOUD READINESS-3: then, synchronously, no standby or promotion from now on.
+  assert.match(source, /gameServer\.onBeforeShutdown\(async \(\) => \{\s*shuttingDown = true\s*(?:\/\/[^\n]*\s*)?beginPresenceShutdown\(\)\s*drained = await drainPresence\(\{ deadlineMs: SHUTDOWN_LOCATION_FLUSH_MS \}\)\s*\}\)/)
   assert.match(source, /gameServer\.onShutdown\(async \(\) => \{\s*shuttingDown = true\s*const late = await flushLocationsForShutdown\(SHUTDOWN_LOCATION_FLUSH_MS\)/)
   assert.match(source, /const line = shutdownFlushLine\(drained, late\)/)
   assert.match(source, /await host\?\.stop\(\)/)
+  // CLOUD READINESS-3: a host promoted from standby is stopped too.
+  assert.match(source, /await stopPresenceHosting\(\)/)
   assert.match(source, /SHUTDOWN_LOCATION_FLUSH_MS = 3_000/)
 })

@@ -138,6 +138,27 @@ export function readClaim(raw) {
   return { status: 'claimed', epoch: claim.epoch, location, newerActive }
 }
 
+/**
+ * CLOUD READINESS-3: the store (or world-authority) does not have the recovery operations: the
+ * Edge Function answered 400 unknown_op (v5) or 501 unsupported (its SQL function is missing), or
+ * Postgres has no such function (42883). Never a transient failure: the caller stops using recovery
+ * for the rest of the process (presence/recoveryCapability.js).
+ */
+export class RecoveryUnsupported extends Error {
+  constructor(reason) { super(`presence recovery unsupported (${reason})`); this.name = 'RecoveryUnsupported'; this.reason = reason }
+}
+const RETRYABLE_CLAIMS = new Set(['owner_draining', 'owner_unreachable'])
+
+/** A claim v2 answer: readClaim's answers plus owner_draining / owner_unreachable (retryable). */
+export function readClaimV2(raw) {
+  const claim = typeof raw === 'string' ? JSON.parse(raw) : raw
+  if (claim && typeof claim === 'object' && RETRYABLE_CLAIMS.has(claim.status)) return { status: claim.status, newerActive: claim.newerActive === true }
+  return readClaim(claim)
+}
+
+/** Postgres: the function does not exist (the recovery migration is not applied). */
+const missingFunction = error => error?.code === '42883'
+
 /** A keyed save answer: per-row results, or one refusal for the whole batch. */
 export function readSaveAnswer(rows, raw) {
   const answer = typeof raw === 'string' ? JSON.parse(raw) : raw
@@ -211,6 +232,39 @@ export function createSqlPlayerData(query) {
       const { rows } = await query('SELECT public.world_location_save_keyed($1::jsonb, $2::bigint, $3::uuid) AS answer', [JSON.stringify(batch), generation, hostId])
       return readSaveAnswer(batch, rows[0]?.answer)
     },
+    // CLOUD READINESS-3: presence recovery (20261005120000). Missing functions → RecoveryUnsupported.
+    async capabilities() {
+      try {
+        const { rows } = await query('SELECT public.world_presence_recovery_version() AS v', [])
+        return { recovery: rows[0]?.v === 1 ? { version: 1 } : null }
+      } catch (error) {
+        if (missingFunction(error)) return { recovery: null, reason: 'sql-missing' }
+        throw error
+      }
+    },
+    async locationClaimV2(userId, key, { takeover = false } = {}) {
+      if (!UUID.test(userId)) throw new Error('invalid user id')
+      const { generation, seq, sessionId, hostId } = checkKey(key)
+      try {
+        const { rows } = await query('SELECT public.world_location_claim_keyed_v2($1::uuid, $2::bigint, $3::bigint, $4::uuid, $5::uuid, $6::boolean) AS claim', [userId, generation, seq, sessionId, hostId, takeover === true])
+        return readClaimV2(rows[0]?.claim)
+      } catch (error) {
+        if (missingFunction(error)) throw new RecoveryUnsupported('sql-missing')
+        throw error
+      }
+    },
+    async presenceActivateExclusive(generation, hostId, leaseMs) {
+      try { return await host('SELECT public.world_presence_activate_exclusive($1::bigint, $2::uuid, $3::int) AS r', [generation, hostId, leaseMs]) } catch (error) {
+        if (missingFunction(error)) throw new RecoveryUnsupported('sql-missing')
+        throw error
+      }
+    },
+    async presenceAnyActive() {
+      try { return (await query('SELECT public.world_presence_any_active() AS r', [])).rows[0]?.r === true } catch (error) {
+        if (missingFunction(error)) throw new RecoveryUnsupported('sql-missing')
+        throw error
+      }
+    },
   }
 }
 
@@ -255,6 +309,32 @@ export function createEdgePlayerData({
       clearTimeout(timer)
     }
   }
+  /**
+   * CLOUD READINESS-3: a v6 op. 400 unknown_op (a v5 function) and 501 unsupported (its SQL is
+   * missing) are RecoveryUnsupported; any other failure (timeout, 5xx) is an ordinary error.
+   */
+  async function recoveryCall(op, body, budgetMs = timeoutMs) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), budgetMs)
+    timer.unref?.()
+    try {
+      const response = await fetcher(url, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { 'content-type': 'application/json', apikey: publishableKey, authorization: `Bearer ${publishableKey}`, 'x-world-authority-secret': secret },
+        body: JSON.stringify({ op, ...body }),
+      })
+      if (response.status === 400 || response.status === 501) {
+        const answer = await response.json().catch(() => null)
+        if (response.status === 400 && answer?.error === 'unknown_op') throw new RecoveryUnsupported('edge-v5')
+        if (response.status === 501 && answer?.error === 'unsupported') throw new RecoveryUnsupported('sql-missing')
+      }
+      if (!response.ok) throw new Error(`world-authority ${op} ${response.status}`)
+      return await response.json()
+    } finally {
+      clearTimeout(timer)
+    }
+  }
   return {
     async playerState(userId) { return readState((await call('player_state', { userId })).state) },
     async ownsPokemon(userId, instanceId) {
@@ -282,5 +362,22 @@ export function createEdgePlayerData({
     presenceRenew: async (generation, hostId, leaseMs) => readHostAnswer(await call('presence_renew', { generation, hostId, leaseMs })),
     presenceDrain: async (generation, hostId, drainMs) => readHostAnswer(await call('presence_drain', { generation, hostId, drainMs })),
     presenceStop: async (generation, hostId) => readHostAnswer(await call('presence_stop', { generation, hostId })),
+    // CLOUD READINESS-3: world-authority v6. A v5 function answers unknown_op: recovery stays off.
+    async capabilities() {
+      try {
+        const answer = await recoveryCall('capabilities', {})
+        return { recovery: answer?.recovery?.version === 1 ? { version: 1 } : null, ...(answer?.recovery?.version === 1 ? {} : { reason: 'sql-missing' }) }
+      } catch (error) {
+        if (error instanceof RecoveryUnsupported) return { recovery: null, reason: error.reason }
+        throw error
+      }
+    },
+    async locationClaimV2(userId, key, { takeover = false } = {}) {
+      if (!UUID.test(userId)) throw new Error('invalid user id')
+      const { generation, seq, sessionId, hostId } = checkKey(key)
+      return readClaimV2((await recoveryCall('location_claim_v2', { userId, generation, seq, sessionId, hostId, takeover: takeover === true }, claimTimeoutMs)).claim)
+    },
+    presenceActivateExclusive: async (generation, hostId, leaseMs) => readHostAnswer(await recoveryCall('presence_activate_exclusive', { generation, hostId, leaseMs })),
+    presenceAnyActive: async () => (await recoveryCall('presence_any_active', {})).active === true,
   }
 }

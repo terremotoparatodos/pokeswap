@@ -124,7 +124,7 @@ export class LocationJournal {
     this.timer = null
     this.counters = {
       sessions: 0,
-      claims: { ok: 0, unknownUser: 0, failed: 0, superseded: 0, outranked: 0, retries: 0, abandoned: 0, hostRefused: 0, gaveUp: 0, noKey: 0, identityLost: 0 },
+      claims: { ok: 0, unknownUser: 0, failed: 0, superseded: 0, outranked: 0, retries: 0, abandoned: 0, hostRefused: 0, gaveUp: 0, noKey: 0, identityLost: 0, ownerDraining: 0, ownerUnreachable: 0 },
       saves: { batches: 0, rows: 0, applied: 0, duplicate: 0, stale: 0, staleOldEpoch: 0, invalid: 0, unknown: 0, failedBatches: 0, hostRefused: 0, unchanged: 0, maxBatch: 0, lastBatchMs: 0, identityLost: 0 },
       fenced: 0,
       dropped: { evicted: 0, unclaimed: 0, invalid: 0, disabled: 0, hostInactive: 0, identityLost: 0 },
@@ -197,7 +197,9 @@ export class LocationJournal {
       timer.unref?.()
     })
     try {
-      return await Promise.race([this.store.locationClaim(session.userId, session.key), giveUp])
+      // CLOUD READINESS-3: an explicit takeover («Jugar acá») travels with every claim of its session
+      // (same key); stores without recovery ignore it.
+      return await Promise.race([this.store.locationClaim(session.userId, session.key, session.takeover === true ? { takeover: true } : undefined), giveUp])
     } catch (error) {
       if (error?.message === 'claim abandoned') this.counters.claims.abandoned++
       return { status: 'failed' }
@@ -246,9 +248,16 @@ export class LocationJournal {
       this.counters.claims.outranked++
       entry.status = 'superseded'
       if (entry.pending && !entry.pending.inflight) entry.pending = null
-      const answer = { status: 'superseded' }
+      // CLOUD READINESS-3: newerActive travels only when true (the close mapping reads it); otherwise the WORLD LOCATION-4 shape.
+      const answer = result.newerActive === true ? { status: 'superseded', newerActive: true } : { status: 'superseded' }
       this.onClaimed(session, answer)
       return answer
+    }
+    if (result.status === 'owner_draining' || result.status === 'owner_unreachable') {
+      // CLOUD READINESS-3: the row's owner is draining, or its lease ran out (crash or partition).
+      // Retryable, never final: the same key is retried later; the room decides what the socket sees.
+      this.counters.claims[result.status === 'owner_draining' ? 'ownerDraining' : 'ownerUnreachable']++
+      return this.#claimFailed(entry, session, result, false, { status: result.status, newerActive: result.newerActive === true })
     }
     if (result.status === 'unknown_user') {
       // Not an auth user (deleted mid-session?): nothing to persist, nothing to retry.
@@ -305,7 +314,7 @@ export class LocationJournal {
   }
 
   /** A failed or refused claim: retried later (same key) while attempts remain, else no persistence for this session. */
-  #claimFailed(entry, session, result, counted) {
+  #claimFailed(entry, session, result, counted, reported = { status: 'failed' }) {
     if (counted) this.counters.claims.failed++
     if (entry.claimAttempts >= MAX_CLAIM_ATTEMPTS || result.status === 'unknown_host') {
       this.counters.claims.gaveUp++
@@ -315,7 +324,7 @@ export class LocationJournal {
       entry.status = 'unclaimed'
       entry.nextClaimAt = this.now() + backoffMs(Math.max(0, entry.claimAttempts - 1)) + jitterFor(session.userId, 250)
     }
-    const answer = { status: 'failed' }
+    const answer = reported
     this.onClaimed(session, answer)
     return answer
   }

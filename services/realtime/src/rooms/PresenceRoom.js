@@ -18,6 +18,7 @@ import { LocationService, locationMode } from '../presence/locationService.js'
 import { LocationJoin } from './locationJoin.js'
 import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
 import { PresenceHosting } from './presenceHosting.js'
+import { RecoveryCapability, recoveryRequested, withRecovery } from '../presence/recoveryCapability.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
 const MOVE_REJECTION_REASON = Object.freeze({
@@ -52,17 +53,25 @@ void world.start()
 // Rollback: set it to off and restart; the database is not touched.
 // Per-socket sessions, hydration and fencing live in rooms/locationJoin.js.
 let location = null
+// CLOUD READINESS-3: presence recovery (claim v2, standby, retry close codes). OFF unless
+// WORLD_PRESENCE_RECOVERY=on (read once, here: a change needs a restart), and then only if the
+// authority really has it (probed once per process). Off, everything below behaves as before.
+let recovery = new RecoveryCapability({ store: initialDependencies.playerData, requested: recoveryRequested(process.env) })
 // WORLD LOCATION-4: this process as a presence host — admission, drain and close codes
 // (rooms/presenceHosting.js). Null host when location is off: joins are accepted at once.
-const hosting = new PresenceHosting({ location: () => location, sockets: () => observers.values(), metrics })
+const hosting = new PresenceHosting({ location: () => location, sockets: () => observers.values(), metrics, recovery })
 metrics.host = () => hosting.stats()
-const locationJoin = new LocationJoin({ actors, clientsByActor, location: () => location, closeReplaced: hosting.closeReplaced })
+const locationJoin = new LocationJoin({
+  actors, clientsByActor, location: () => location, closeReplaced: hosting.closeReplaced,
+  closeRetry: hosting.closeRetry, recovery: () => recovery.enabled,
+})
 location = createLocation({ mode: locationMode(process.env.WORLD_LOCATION_PERSISTENCE), store: initialDependencies.playerData })
 if (location.mode !== 'off') console.log(`[location] persistence ${location.mode} (effective: ${location.effective})`)
 
 function createLocation(options) {
   const service = new LocationService({
     ...options,
+    store: withRecovery(options.store, () => recovery),
     onFenced: (userId, epoch, session) => locationJoin.fence(userId, epoch, session),
     onClaimed: (session, result) => { if (presenceRoom) locationJoin.claimSettled(presenceRoom, session, result) },
   })
@@ -128,6 +137,25 @@ export function presenceServing() { return hosting.serving }
 export function configurePresenceHost(next, options) {
   return hosting.configure(next, options)
 }
+
+/**
+ * Tests and tooling (CLOUD READINESS-3): replaces the recovery capability of this module (and its
+ * standby). Configure it BEFORE configureLocationPersistence/configurePresenceHost.
+ */
+export function configurePresenceRecovery({ requested = false, store = initialDependencies.playerData, ...options } = {}) {
+  recovery = new RecoveryCapability({ store, requested, ...options })
+  hosting.recovery = recovery
+  return recovery
+}
+
+/** Tests: this module instance's PresenceHosting (standby, counters). */
+export function presenceHostingForTesting() { return hosting }
+
+/** CLOUD READINESS-3: a shutdown began (onBeforeShutdown, synchronous): no standby or promotion from now on. */
+export function beginPresenceShutdown() { hosting.beginShutdown() }
+
+/** CLOUD READINESS-3 (onShutdown): stops the host this process holds now, a promoted one included. */
+export function stopPresenceHosting() { return hosting.stopForShutdown() }
 
 /** Best-effort final flush of every pending location (graceful shutdown). */
 export function flushLocationsForShutdown(deadlineMs) {

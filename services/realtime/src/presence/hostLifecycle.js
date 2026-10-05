@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { RecoveryUnsupported } from '../world/persistence/playerData.js'
 
 /**
  * WORLD LOCATION-4 — this realtime PROCESS as a presence host
@@ -100,12 +101,21 @@ export class HostLifecycle {
    * `onActivationRefused(reason)`: the activation was refused because a newer host is active:
    *   this host is displaced for good (the room logs it; the process does not exit).
    * `onUnavailable(reason)` / `onRecovered()`: the authority was lost / is back.
+   * `exclusive` (CLOUD READINESS-3): a standby's NEW identity. It activates with
+   *   world_presence_activate_exclusive (refused while any other host is active, and yielding to a
+   *   lower starting candidate); a refusal or an unsupported store stops this identity for good
+   *   (`refused` says why). A displaced identity is never reused: the standby creates a new
+   *   HostLifecycle (new hostId, new generation).
    */
   constructor({
     store, hostId = randomUUID(), leaseMs = HOST_LEASE_MS, renewMs = HOST_RENEW_MS, drainWindowMs = HOST_DRAIN_WINDOW_MS,
     expiredRenewals = expiredRenewalsFor(leaseMs, renewMs), onNewerActive = () => {}, onExpired = () => {}, onActivationRefused = () => {},
     onUnavailable = () => {}, onRecovered = () => {}, log = message => console.warn(message), sleep = wait, now = () => performance.now(),
+    exclusive = false,
   }) {
+    this.exclusiveActivation = exclusive
+    /** Exclusive only: why the activation was refused ('other_active' | 'candidate_starting' | 'unsupported'), or null. */
+    this.refused = null
     this.store = store
     this.hostId = hostId
     this.leaseMs = leaseMs
@@ -248,14 +258,22 @@ export class HostLifecycle {
     return this.state
   }
 
-  /** One activate with the current identity: 'active' | 'displaced' | 'reset' | 'transport' | 'late'. */
+  /** One activate with the current identity: 'active' | 'displaced' | 'refused' (exclusive) | 'reset' | 'transport' | 'late'. */
   async #activateOnce() {
     const era = this.era
     const identity = this.identity
     let answer
     try {
-      answer = await this.store.presenceActivate(identity.generation, identity.hostId, this.leaseMs)
-    } catch {
+      answer = this.exclusiveActivation
+        ? await this.store.presenceActivateExclusive(identity.generation, identity.hostId, this.leaseMs)
+        : await this.store.presenceActivate(identity.generation, identity.hostId, this.leaseMs)
+    } catch (error) {
+      if (this.exclusiveActivation && error instanceof RecoveryUnsupported && !this.#movedOn(era) && sameIdentity(identity, this.identity)) {
+        // The authority cannot activate exclusively: this identity never serves.
+        this.refused = 'unsupported'
+        await this.#stopNow()
+        return 'refused'
+      }
       return 'transport'
     }
     if (!answer || typeof answer.status !== 'string') return 'transport'
@@ -269,6 +287,13 @@ export class HostLifecycle {
     if (answer.status === 'active') {
       if (this.state === 'starting' || this.state === 'unavailable') this.#becomeActive()
       return 'active'
+    }
+    if (this.exclusiveActivation && (answer.status === 'other_active' || answer.status === 'candidate_starting')) {
+      // Another host serves, or a deploy candidate is still booting: this standby identity steps aside for good.
+      this.log(`[host] exclusive activation refused (${answer.status}): this standby identity is stopped`)
+      this.refused = answer.status
+      await this.#stopNow()
+      return 'refused'
     }
     if (answer.status === 'newer_active') {
       this.log('[host] activation refused (newer_active): a newer host is active — this one is displaced for good')
