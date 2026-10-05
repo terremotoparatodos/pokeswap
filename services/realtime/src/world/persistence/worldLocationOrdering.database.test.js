@@ -22,6 +22,9 @@ const S3 = 'c0000000-0000-4000-8000-000000000003'
 const LEASE = 15_000
 const ROLLBACK = fileURLToPath(new URL('../../../../../scripts/world-location/rollback_world_location_ordering.sql', import.meta.url))
 const GRANTS_CHECK = fileURLToPath(new URL('../../../../../scripts/world-location/ordering-grants-check.sql', import.meta.url))
+// CLOUD READINESS-3: the recovery functions (20261005120000) sit on top of the ordering; their rollback runs first.
+const RECOVERY_ROLLBACK = fileURLToPath(new URL('../../../../../scripts/world-location/rollback_world_presence_recovery.sql', import.meta.url))
+const withoutRecovery = async db => db.exec(await readFile(RECOVERY_ROLLBACK, 'utf8'))
 
 async function setup() {
   const db = await openLocalDatabase()
@@ -406,6 +409,7 @@ async function orderingObjects(db) {
 
 test('rollback (F8): one transaction, all or nothing — a failure anywhere before COMMIT leaves every object in place', async () => {
   const t = await setup()
+  await withoutRecovery(t.db)
   const g = await t.active(H1)
   await t.claim(A, g, 1, S1, H1)
   const script = (await readFile(ROLLBACK, 'utf8')).replace(/\r\n/g, '\n')
@@ -425,6 +429,7 @@ test('rollback (F8): one transaction, all or nothing — a failure anywhere befo
 
 test('rollback (F8): a partial state is refused before anything changes', async () => {
   const t = await setup()
+  await withoutRecovery(t.db)
   await t.db.exec('DROP FUNCTION public.world_presence_stop(bigint, uuid)') // someone half-rolled back by hand
   const before = await orderingObjects(t.db)
   await assert.rejects(runAsPsql(t.db, await readFile(ROLLBACK, 'utf8')), /partial state: nothing changed/)
@@ -434,8 +439,18 @@ test('rollback (F8): a partial state is refused before anything changes', async 
   await t.db.close()
 })
 
+test('rollback order (CLOUD READINESS-3): while the recovery functions exist, the ordering rollback refuses as a whole', async () => {
+  const t = await setup()
+  const before = await orderingObjects(t.db)
+  await assert.rejects(runAsPsql(t.db, await readFile(ROLLBACK, 'utf8')), /post-check failed/)
+  await t.db.exec('ROLLBACK')
+  assert.deepEqual(await orderingObjects(t.db), before, 'nothing was dropped')
+  await t.db.close()
+})
+
 test('rollback: drops the ordering objects and restores the v1 bodies; the migration re-applies cleanly', async () => {
   const t = await setup()
+  await withoutRecovery(t.db)
   const g = await t.active(H1)
   await t.claim(A, g, 1, S1, H1)
   await runAsPsql(t.db, await readFile(ROLLBACK, 'utf8'))

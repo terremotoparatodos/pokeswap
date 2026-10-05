@@ -16,13 +16,15 @@ import { fileURLToPath } from 'node:url'
  */
 const STUBS = new URL('./supabaseStubs.sql', import.meta.url)
 // In order: the WORLD x SKILLS tables and functions, its feature gate, multi-yield stock (YIELD-2),
-// then player locations (WORLD LOCATION-2) and their distributed ordering (WORLD LOCATION-4). Every file is idempotent: a persisted dataDir re-runs them.
+// then player locations (WORLD LOCATION-2), their distributed ordering (WORLD LOCATION-4) and the presence
+// recovery functions (CLOUD READINESS-3). Every file is idempotent: a persisted dataDir re-runs them.
 const MIGRATIONS = [
   new URL('../../../../../../supabase/migrations/20260926002154_world_skills_authority.sql', import.meta.url),
   new URL('../../../../../../supabase/migrations/20260926002207_world_skills_gate.sql', import.meta.url),
   new URL('../../../../../../supabase/migrations/20261001051958_world_multi_yield.sql', import.meta.url),
   new URL('../../../../../../supabase/migrations/20261001220000_world_player_locations.sql', import.meta.url),
   new URL('../../../../../../supabase/migrations/20261003120000_world_location_ordering.sql', import.meta.url),
+  new URL('../../../../../../supabase/migrations/20261005120000_world_presence_recovery.sql', import.meta.url),
 ]
 
 export async function openLocalDatabase(dataDir = null) {
