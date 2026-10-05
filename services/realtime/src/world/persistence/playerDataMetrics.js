@@ -10,7 +10,9 @@
  */
 const OPS = ['playerState', 'ownsPokemon', 'commitWork', 'loadNodes', 'locationClaim', 'locationSave', 'presenceAcquire', 'presenceActivate', 'presenceRenew', 'presenceDrain', 'presenceStop',
   // CLOUD READINESS-3: presence recovery. Absent on an adapter that does not have it, so callers can tell.
-  'capabilities', 'locationClaimV2', 'presenceActivateExclusive', 'presenceAnyActive']
+  'capabilities', 'locationClaimV2', 'presenceActivateExclusive', 'presenceAnyActive',
+  // CLOUD JOIN-ORDER-2: the join-ordered claim. Absent on an adapter without it.
+  'locationClaimV3']
 const WINDOW = 512
 
 export function withPlayerDataMetrics(playerData) {

@@ -93,7 +93,7 @@ test('Edge adapter: unknown_op and unsupported are RecoveryUnsupported; any othe
   const fetcher = async (_url, init) => { sent.push(JSON.parse(init.body)); return new Response(JSON.stringify(reply.body), { status: reply.status }) }
   const edge = createEdgePlayerData({ url: 'https://local/wa', secret: 's'.repeat(48), publishableKey: 'anon', fetcher })
   reply = { status: 400, body: { error: 'unknown_op' } }
-  assert.deepEqual(await edge.capabilities(), { recovery: null, reason: 'edge-v5' })
+  assert.deepEqual(await edge.capabilities(), { recovery: null, reason: 'edge-v5', joinOrder: null, joinOrderReason: 'edge-v5' })
   await assert.rejects(edge.locationClaimV2(USER, KEY, { takeover: true }), error => error instanceof RecoveryUnsupported && error.reason === 'edge-v5')
   assert.deepEqual(sent.at(-1), { op: 'location_claim_v2', userId: USER, ...KEY, takeover: true })
   reply = { status: 501, body: { error: 'unsupported' } }
@@ -103,13 +103,16 @@ test('Edge adapter: unknown_op and unsupported are RecoveryUnsupported; any othe
     await assert.rejects(edge.locationClaimV2(USER, KEY), error => !(error instanceof RecoveryUnsupported), JSON.stringify(r))
   }
   reply = { status: 200, body: { recovery: { version: 1 } } }
-  assert.deepEqual(await edge.capabilities(), { recovery: { version: 1 } })
+  // CLOUD JOIN-ORDER-2: a v6 function does not name the join order at all.
+  assert.deepEqual(await edge.capabilities(), { recovery: { version: 1 }, joinOrder: null, joinOrderReason: 'edge-v6' })
   reply = { status: 200, body: { active: true } }
   assert.equal(await edge.presenceAnyActive(), true)
 })
 
 const HANDLER = new URL('../../../../supabase/functions/world-authority/handler.ts', import.meta.url)
 const ROLLBACK = fileURLToPath(new URL('../../../../scripts/world-location/rollback_world_presence_recovery.sql', import.meta.url))
+// CLOUD JOIN-ORDER-2: claim v3 (20261006120000) sits on top of the recovery SQL; its rollback runs first.
+const JOIN_ORDER_ROLLBACK = fileURLToPath(new URL('../../../../scripts/world-location/rollback_world_location_join_order.sql', import.meta.url))
 
 test('production path: Edge adapter → world-authority v6 handler → SQL; then the SQL is rolled back under a live process', async t => {
   let handler
@@ -143,8 +146,9 @@ test('production path: Edge adapter → world-authority v6 handler → SQL; then
   assert.equal((await store.locationClaim(USER, key)).status, 'claimed', 'v2 through the real handler')
   assert.equal(await edge.presenceAnyActive(), true)
 
+  await db.exec(await readFile(JOIN_ORDER_ROLLBACK, 'utf8'))
   await db.exec(await readFile(ROLLBACK, 'utf8'))      // the SQL goes first (wrong order, on purpose)
-  assert.deepEqual(await edge.capabilities(), { recovery: null, reason: 'sql-missing' }, 'v6 reports what the SQL really has')
+  assert.deepEqual(await edge.capabilities(), { recovery: null, reason: 'sql-missing', joinOrder: null, joinOrderReason: 'sql-missing' }, 'v7 reports what the SQL really has')
   const again = host.sessionKey()
   assert.equal((await store.locationClaim(USER, again)).status, 'claimed', 'falls back to v1 with the same key')
   assert.equal(capability.state, 'disabled')

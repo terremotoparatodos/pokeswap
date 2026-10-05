@@ -18,7 +18,7 @@ import { LocationService, locationMode } from '../presence/locationService.js'
 import { LocationJoin } from './locationJoin.js'
 import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE, STALE_ATTEMPT_CODE } from '../protocol/closeCodes.js'
 import { PresenceHosting } from './presenceHosting.js'
-import { RecoveryCapability, recoveryRequested, withRecovery } from '../presence/recoveryCapability.js'
+import { JoinOrderCapability, RecoveryCapability, recoveryRequested, withRecovery } from '../presence/recoveryCapability.js'
 import { joinOrderMaxPages, joinOrderMode } from '../presence/joinOrder.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
@@ -64,6 +64,9 @@ const hosting = new PresenceHosting({ location: () => location, sockets: () => o
 // CLOUD JOIN-ORDER-2: WORLD_JOIN_ORDER=off|shadow|on (default off), read once here: a change needs a restart.
 hosting.joinOrder = hosting.createJoinOrder({ mode: joinOrderMode(process.env), maxPages: joinOrderMaxPages(process.env) })
 if (hosting.joinOrder.observing) console.log(`[join-order] ${hosting.joinOrder.mode} (max pages ${hosting.joinOrder.maxPages})`)
+// Across processes (claim v3): requested only in `on`, and used only if the authority has it (probed once).
+let joinOrderAuthority = new JoinOrderCapability({ store: initialDependencies.playerData, requested: hosting.joinOrder.enforcing })
+hosting.joinOrderAuthority = joinOrderAuthority
 metrics.host = () => hosting.stats()
 metrics.joinOrder = () => hosting.joinOrder.stats()
 const locationJoin = new LocationJoin({
@@ -76,7 +79,7 @@ if (location.mode !== 'off') console.log(`[location] persistence ${location.mode
 function createLocation(options) {
   const service = new LocationService({
     ...options,
-    store: withRecovery(options.store, () => recovery),
+    store: withRecovery(options.store, () => recovery, () => joinOrderAuthority),
     onFenced: (userId, epoch, session) => locationJoin.fence(userId, epoch, session),
     onClaimed: (session, result) => { if (presenceRoom) locationJoin.claimSettled(presenceRoom, session, result) },
   })
@@ -153,11 +156,20 @@ export function configurePresenceRecovery({ requested = false, store = initialDe
   return recovery
 }
 
-/** Tests and tooling (CLOUD JOIN-ORDER-2): replaces this module's join order ({ mode, maxPages }). */
-export function configureJoinOrder(options) {
+/**
+ * Tests and tooling (CLOUD JOIN-ORDER-2): replaces this module's join order ({ mode, maxPages }) and, with
+ * `authority` ({ store, ... }), its cross-process capability (requested only in `on`; probe it before use).
+ * Configure it BEFORE configureLocationPersistence/configurePresenceHost.
+ */
+export function configureJoinOrder({ authority = null, ...options } = {}) {
   hosting.joinOrder = hosting.createJoinOrder(options)
+  joinOrderAuthority = new JoinOrderCapability({ store: initialDependencies.playerData, ...(authority ?? {}), requested: hosting.joinOrder.enforcing && authority !== null })
+  hosting.joinOrderAuthority = joinOrderAuthority
   return hosting.joinOrder
 }
+
+/** Tests: this module instance's join-order capability (claim v3). */
+export function joinOrderAuthorityForTesting() { return joinOrderAuthority }
 
 /** Tests: this module instance's PresenceHosting (standby, counters). */
 export function presenceHostingForTesting() { return hosting }
@@ -225,7 +237,7 @@ export class PresenceRoom extends Room {
     const visual = options?.visual
     const characterId = ['lucas', 'dawn-pink', 'dawn-yellow'].includes(visual?.characterId) ? visual.characterId : 'lucas'
     // WORLD LOCATION-2: the new session of a persisting player (synchronous: no database wait).
-    const session = locationJoin.begin(client, auth, options)
+    const session = locationJoin.begin(client, auth, options, hosting.orderOf(client))
     // Replace the old socket before any optional visual lookup. Otherwise a
     // reload can let the old onLeave remove presence seen by other clients.
     const live = actors.has(auth.userId)

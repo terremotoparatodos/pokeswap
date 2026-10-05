@@ -124,7 +124,7 @@ export class LocationJournal {
     this.timer = null
     this.counters = {
       sessions: 0,
-      claims: { ok: 0, unknownUser: 0, failed: 0, superseded: 0, outranked: 0, retries: 0, abandoned: 0, hostRefused: 0, gaveUp: 0, noKey: 0, identityLost: 0, ownerDraining: 0, ownerUnreachable: 0 },
+      claims: { ok: 0, unknownUser: 0, failed: 0, superseded: 0, outranked: 0, retries: 0, abandoned: 0, hostRefused: 0, gaveUp: 0, noKey: 0, identityLost: 0, ownerDraining: 0, ownerUnreachable: 0, staleAttempt: 0 },
       saves: { batches: 0, rows: 0, applied: 0, duplicate: 0, stale: 0, staleOldEpoch: 0, invalid: 0, unknown: 0, failedBatches: 0, hostRefused: 0, unchanged: 0, maxBatch: 0, lastBatchMs: 0, identityLost: 0 },
       fenced: 0,
       dropped: { evicted: 0, unclaimed: 0, invalid: 0, disabled: 0, hostInactive: 0, identityLost: 0 },
@@ -198,8 +198,12 @@ export class LocationJournal {
     })
     try {
       // CLOUD READINESS-3: an explicit takeover («Jugar acá») travels with every claim of its session
-      // (same key); stores without recovery ignore it.
-      return await Promise.race([this.store.locationClaim(session.userId, session.key, session.takeover === true ? { takeover: true } : undefined), giveUp])
+      // (same key); stores without recovery ignore it. CLOUD JOIN-ORDER-2: so do the join's page and
+      // attempt (only when the room enforces the join order); stores without claim v3 ignore them.
+      const options = session.takeover === true || session.page
+        ? { ...(session.takeover === true ? { takeover: true } : {}), ...(session.page ? { page: session.page, attempt: session.attempt } : {}) }
+        : undefined
+      return await Promise.race([this.store.locationClaim(session.userId, session.key, options), giveUp])
     } catch (error) {
       if (error?.message === 'claim abandoned') this.counters.claims.abandoned++
       return { status: 'failed' }
@@ -250,6 +254,16 @@ export class LocationJournal {
       if (entry.pending && !entry.pending.inflight) entry.pending = null
       // CLOUD READINESS-3: newerActive travels only when true (the close mapping reads it); otherwise the WORLD LOCATION-4 shape.
       const answer = result.newerActive === true ? { status: 'superseded', newerActive: true } : { status: 'superseded' }
+      this.onClaimed(session, answer)
+      return answer
+    }
+    if (result.status === 'stale_attempt' || result.status === 'duplicate_attempt') {
+      // CLOUD JOIN-ORDER-2: the page already moved past this join (a newer attempt of it owns the row, or
+      // this is a replay). Final, like superseded: this session never claims or saves again.
+      this.counters.claims.staleAttempt++
+      entry.status = 'superseded'
+      if (entry.pending && !entry.pending.inflight) entry.pending = null
+      const answer = { status: result.status }
       this.onClaimed(session, answer)
       return answer
     }

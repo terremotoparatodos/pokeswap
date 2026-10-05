@@ -156,6 +156,25 @@ export function readClaimV2(raw) {
   return readClaim(claim)
 }
 
+const ATTEMPT_ANSWERS = new Set(['stale_attempt', 'duplicate_attempt'])
+
+/**
+ * CLOUD JOIN-ORDER-2: a claim v3 answer: readClaimV2's answers plus stale_attempt / duplicate_attempt
+ * (final: the page already moved past this join's attempt; nothing was written).
+ */
+export function readClaimV3(raw) {
+  const claim = typeof raw === 'string' ? JSON.parse(raw) : raw
+  if (claim && typeof claim === 'object' && ATTEMPT_ANSWERS.has(claim.status)) return { status: claim.status, newerActive: claim.newerActive === true }
+  return readClaimV2(claim)
+}
+
+/** A join's page and attempt for claim v3 (the same bounds as the table): anything else is a caller bug. */
+const PAGE = /^[A-Za-z0-9_-]{8,64}$/
+function checkOrder({ takeover = false, recovery = false, page, attempt } = {}) {
+  if (typeof page !== 'string' || !PAGE.test(page) || !Number.isSafeInteger(attempt) || attempt < 1 || attempt > 2147483647) throw new Error('invalid join order')
+  return { takeover: recovery === true && takeover === true, recovery: recovery === true, page, attempt }
+}
+
 /** Postgres: the function does not exist (the recovery migration is not applied). */
 const missingFunction = error => error?.code === '42883'
 
@@ -233,12 +252,28 @@ export function createSqlPlayerData(query) {
       return readSaveAnswer(batch, rows[0]?.answer)
     },
     // CLOUD READINESS-3: presence recovery (20261005120000). Missing functions → RecoveryUnsupported.
+    // CLOUD JOIN-ORDER-2: and the join order (20261006120000), from its own marker.
     async capabilities() {
+      const marker = async sql => {
+        try { return (await query(sql, [])).rows[0]?.v === 1 ? { version: 1 } : null } catch (error) {
+          if (missingFunction(error)) return null
+          throw error
+        }
+      }
+      const recovery = await marker('SELECT public.world_presence_recovery_version() AS v')
+      const joinOrder = await marker('SELECT public.world_location_join_order_version() AS v')
+      return { recovery, ...(recovery ? {} : { reason: 'sql-missing' }), joinOrder, ...(joinOrder ? {} : { joinOrderReason: 'sql-missing' }) }
+    },
+    async locationClaimV3(userId, key, options) {
+      if (!UUID.test(userId)) throw new Error('invalid user id')
+      const { generation, seq, sessionId, hostId } = checkKey(key)
+      const { takeover, recovery, page, attempt } = checkOrder(options)
       try {
-        const { rows } = await query('SELECT public.world_presence_recovery_version() AS v', [])
-        return { recovery: rows[0]?.v === 1 ? { version: 1 } : null }
+        const { rows } = await query('SELECT public.world_location_claim_keyed_v3($1::uuid, $2::bigint, $3::bigint, $4::uuid, $5::uuid, $6::boolean, $7::boolean, $8::text, $9::bigint) AS claim',
+          [userId, generation, seq, sessionId, hostId, takeover, recovery, page, attempt])
+        return readClaimV3(rows[0]?.claim)
       } catch (error) {
-        if (missingFunction(error)) return { recovery: null, reason: 'sql-missing' }
+        if (missingFunction(error)) throw new RecoveryUnsupported('sql-missing')
         throw error
       }
     },
@@ -313,7 +348,7 @@ export function createEdgePlayerData({
    * CLOUD READINESS-3: a v6 op. 400 unknown_op (a v5 function) and 501 unsupported (its SQL is
    * missing) are RecoveryUnsupported; any other failure (timeout, 5xx) is an ordinary error.
    */
-  async function recoveryCall(op, body, budgetMs = timeoutMs) {
+  async function recoveryCall(op, body, budgetMs = timeoutMs, unknownOp = 'edge-v5') {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), budgetMs)
     timer.unref?.()
@@ -326,7 +361,7 @@ export function createEdgePlayerData({
       })
       if (response.status === 400 || response.status === 501) {
         const answer = await response.json().catch(() => null)
-        if (response.status === 400 && answer?.error === 'unknown_op') throw new RecoveryUnsupported('edge-v5')
+        if (response.status === 400 && answer?.error === 'unknown_op') throw new RecoveryUnsupported(unknownOp)
         if (response.status === 501 && answer?.error === 'unsupported') throw new RecoveryUnsupported('sql-missing')
       }
       if (!response.ok) throw new Error(`world-authority ${op} ${response.status}`)
@@ -363,14 +398,27 @@ export function createEdgePlayerData({
     presenceDrain: async (generation, hostId, drainMs) => readHostAnswer(await call('presence_drain', { generation, hostId, drainMs })),
     presenceStop: async (generation, hostId) => readHostAnswer(await call('presence_stop', { generation, hostId })),
     // CLOUD READINESS-3: world-authority v6. A v5 function answers unknown_op: recovery stays off.
+    // CLOUD JOIN-ORDER-2 (v7): 'joinOrder' too; a v6 function does not name it at all ('edge-v6').
     async capabilities() {
       try {
         const answer = await recoveryCall('capabilities', {})
-        return { recovery: answer?.recovery?.version === 1 ? { version: 1 } : null, ...(answer?.recovery?.version === 1 ? {} : { reason: 'sql-missing' }) }
+        const recovery = answer?.recovery?.version === 1 ? { version: 1 } : null
+        const joinOrder = answer?.joinOrder?.version === 1 ? { version: 1 } : null
+        return {
+          recovery, ...(recovery ? {} : { reason: 'sql-missing' }),
+          joinOrder, ...(joinOrder ? {} : { joinOrderReason: answer && typeof answer === 'object' && 'joinOrder' in answer ? 'sql-missing' : 'edge-v6' }),
+        }
       } catch (error) {
-        if (error instanceof RecoveryUnsupported) return { recovery: null, reason: error.reason }
+        if (error instanceof RecoveryUnsupported) return { recovery: null, reason: error.reason, joinOrder: null, joinOrderReason: error.reason }
         throw error
       }
+    },
+    // CLOUD JOIN-ORDER-2 (v7). 400 unknown_op here means a v5/v6 function; 501 its SQL is missing.
+    async locationClaimV3(userId, key, options) {
+      if (!UUID.test(userId)) throw new Error('invalid user id')
+      const { generation, seq, sessionId, hostId } = checkKey(key)
+      const { takeover, recovery, page, attempt } = checkOrder(options)
+      return readClaimV3((await recoveryCall('location_claim_v3', { userId, generation, seq, sessionId, hostId, takeover, recovery, page, attempt }, claimTimeoutMs, 'edge-v6')).claim)
     },
     async locationClaimV2(userId, key, { takeover = false } = {}) {
       if (!UUID.test(userId)) throw new Error('invalid user id')

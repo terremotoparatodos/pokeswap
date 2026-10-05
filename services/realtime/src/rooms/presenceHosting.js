@@ -71,6 +71,8 @@ export class PresenceHosting {
     this.log = log
     /** CLOUD READINESS-3: the RecoveryCapability of this process (null: recovery never applies). */
     this.recovery = recovery
+    /** CLOUD JOIN-ORDER-2: the JoinOrderCapability of this process (claim v3; null: never). */
+    this.joinOrderAuthority = null
     this.standbyProbeMs = standbyProbeMs
     /** Tests: builds the exclusive identity of the standby (default: a HostLifecycle with exclusive: true). */
     this.createStandbyHost = createStandbyHost ?? (store => new HostLifecycle({ store, exclusive: true, log: this.log }))
@@ -213,6 +215,8 @@ export class PresenceHosting {
     // CLOUD READINESS-3: one capability probe per process, before the first claim (never blocks: a
     // transient failure leaves it 'unknown', probed again later).
     await this.recovery?.probe()
+    // CLOUD JOIN-ORDER-2: likewise for claim v3 (only requested with WORLD_JOIN_ORDER=on).
+    await this.joinOrderAuthority?.probe()
     this.host = this.#reacting(new HostLifecycle({ store, ...(hostId ? { hostId } : {}) }))
     // Sessions get their keys from this host from now on (none persist before it is active).
     this.location().attachHost(this.host)
@@ -253,7 +257,7 @@ export class PresenceHosting {
 
   stats() {
     const host = this.host?.stats() ?? null
-    return host && { ...host, displaced: this.displaced ?? null, standby: this.standby !== null, standbyCounters: { ...this.standbyCounters }, recovery: this.recovery?.stats() ?? null }
+    return host && { ...host, displaced: this.displaced ?? null, standby: this.standby !== null, standbyCounters: { ...this.standbyCounters }, recovery: this.recovery?.stats() ?? null, joinOrderAuthority: this.joinOrderAuthority?.stats() ?? null }
   }
 
   // ── CLOUD READINESS-3: shutdown and standby ───────────────────────────

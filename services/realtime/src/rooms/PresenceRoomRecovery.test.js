@@ -20,6 +20,8 @@ import { WORLD_PROTOCOL } from '../world/worldProtocol.js'
 // the database. Real clock; the only time travel is the table owner moving a lease into the past.
 
 const ROLLBACK = fileURLToPath(new URL('../../../../scripts/world-location/rollback_world_presence_recovery.sql', import.meta.url))
+// CLOUD JOIN-ORDER-2: claim v3 (20261006120000) sits on top of the recovery SQL; its rollback runs first.
+const JOIN_ORDER_ROLLBACK = fileURLToPath(new URL('../../../../scripts/world-location/rollback_world_location_join_order.sql', import.meta.url))
 const PRADERA = { areaId: 'pradera', tx: ARRIVALS.pradera.tx, ty: ARRIVALS.pradera.ty }
 
 let db = null
@@ -235,6 +237,7 @@ test('capability rollback under a live process: the SQL disappears → one v2 ca
   const module = await import(new URL(`./PresenceRoom.js?instance=recovery-${++instances}`, import.meta.url).href)
   const capability = module.configurePresenceRecovery({ requested: true, store, log: () => {} })
   assert.equal(await capability.probe(), 'enabled')
+  await local.exec(await readFile(JOIN_ORDER_ROLLBACK, 'utf8'))
   await local.exec(await readFile(ROLLBACK, 'utf8'))   // rollback order violated on purpose: SQL first
   const host = quietHost(store); await host.acquire(); await host.activate()
   const { withRecovery } = await import('../presence/recoveryCapability.js')
@@ -352,6 +355,7 @@ test('recovery SQL removed while in standby: the probe answers unsupported, the 
   const X = quietHost(store); await X.acquire(); await X.activate()
   await p.host.renew()
   await waitFor(() => p.hosting.displaced, 'displacement')
+  await local.exec(await readFile(JOIN_ORDER_ROLLBACK, 'utf8'))
   await local.exec(await readFile(ROLLBACK, 'utf8'))
   await p.hosting.probeStandbyNow()
   assert.equal(p.hosting.standby, null)

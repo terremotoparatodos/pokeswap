@@ -57,6 +57,9 @@ export class LocationService {
       fencedDisconnects: 0,
       // CLOUD READINESS-3: sockets closed with 4503 to retry (owner draining/unreachable, stale host).
       retryDisconnects: 0,
+      // CLOUD JOIN-ORDER-2: sockets of a join the page already moved past (claim v3): closed quietly with
+      // 4410 in `on` (`disconnects`), only counted in shadow (`wouldDisconnect`).
+      staleAttempt: { disconnects: 0, wouldDisconnect: 0 },
       hydration: { started: 0, maxMs: 0 },
     }
   }
@@ -110,7 +113,7 @@ export class LocationService {
       mode: this.mode, effective: this.effective,
       restores: { ...c.restores }, repairs: { ...c.repairs }, late: { ...c.late },
       shadow: { wouldRestore: c.shadow.wouldRestore, wouldRepair: { ...c.shadow.wouldRepair }, wouldFence: c.shadow.wouldFence, wouldReplace: c.shadow.wouldReplace, wouldDrain: c.shadow.wouldDrain, wouldRetry: c.shadow.wouldRetry },
-      fencedDisconnects: c.fencedDisconnects, supersededDisconnects: c.supersededDisconnects, retryDisconnects: c.retryDisconnects, hydration: { ...c.hydration },
+      fencedDisconnects: c.fencedDisconnects, supersededDisconnects: c.supersededDisconnects, retryDisconnects: c.retryDisconnects, staleAttempt: { ...c.staleAttempt }, hydration: { ...c.hydration },
       ...(this.host ? { host: this.host.stats() } : {}),
       ...(this.journal ? { journal: this.journal.stats() } : {}),
     }

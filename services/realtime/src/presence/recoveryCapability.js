@@ -24,8 +24,31 @@ export const CAPABILITY_RETRY_MS = 60_000
 export const recoveryRequested = env => env?.[RECOVERY_ENV] === 'on'
 export const isRecoveryUnsupported = error => error instanceof RecoveryUnsupported
 
-export class RecoveryCapability {
-  constructor({ store = null, requested = false, log = message => console.warn(message), now = () => performance.now(), retryMs = CAPABILITY_RETRY_MS } = {}) {
+/**
+ * The same rules for every optional authority feature, each probed and disabled on its own:
+ *   'recovery'   (above; CLOUD READINESS-3)
+ *   'joinOrder'  (CLOUD JOIN-ORDER-2): claim v3 orders one page's join attempts across processes. Requested
+ *                only with WORLD_JOIN_ORDER=on; enabled only if the authority reports its SQL. While not
+ *                enabled the process still orders attempts in its own memory (presence/joinOrder.js) and
+ *                claims exactly as before (v1, or v2 while recovery is enabled).
+ * An operation is never retried twice under a disabled feature: RecoveryUnsupported from it (400 unknown_op,
+ * 501 unsupported, a missing SQL function) disables that feature for the rest of the process.
+ */
+const FEATURE_LOG = {
+  recovery: {
+    enabled: '[recovery] enabled: the authority has the presence-recovery operations',
+    disabled: reason => `[recovery] disabled for this process (${reason}): v1 claims, no standby`,
+  },
+  joinOrder: {
+    enabled: '[join-order] enabled across processes: the authority has claim v3',
+    disabled: reason => `[join-order] cross-process order disabled for this process (${reason}): in-process order only`,
+  },
+}
+
+export class AuthorityCapability {
+  constructor({ store = null, requested = false, feature = 'recovery', log = message => console.warn(message), now = () => performance.now(), retryMs = CAPABILITY_RETRY_MS } = {}) {
+    if (!FEATURE_LOG[feature]) throw new Error(`unknown authority feature ${feature}`)
+    this.feature = feature
     this.store = store
     this.log = log
     this.now = now
@@ -51,10 +74,10 @@ export class RecoveryCapability {
       try {
         const answer = await this.store.capabilities()
         if (this.state !== 'unknown') return this.state
-        if (answer?.recovery?.version === 1) {
+        if (answer?.[this.feature]?.version === 1) {
           this.state = 'enabled'
-          this.log('[recovery] enabled: the authority has the presence-recovery operations')
-        } else this.disable(answer?.reason ?? 'sql-missing')
+          this.log(FEATURE_LOG[this.feature].enabled)
+        } else this.disable((this.feature === 'recovery' ? answer?.reason : answer?.[`${this.feature}Reason`]) ?? 'sql-missing')
       } catch {
         this.counters.probeFailures++ // transient: stays 'unknown', probed again later
       } finally {
@@ -70,7 +93,7 @@ export class RecoveryCapability {
     if (this.state !== 'unknown' && this.state !== 'enabled') return
     this.state = 'disabled'
     this.reason = reason
-    this.log(`[recovery] disabled for this process (${reason}): v1 claims, no standby`)
+    this.log(FEATURE_LOG[this.feature].disabled(reason))
   }
 
   /** `error` came from a recovery operation: disables on RecoveryUnsupported; returns whether it did. */
@@ -83,21 +106,47 @@ export class RecoveryCapability {
   stats() { return { state: this.state, reason: this.reason, ...this.counters } }
 }
 
+/** CLOUD READINESS-3: presence recovery (claim v2, standby, retry close codes). */
+export class RecoveryCapability extends AuthorityCapability {
+  constructor(options = {}) { super({ ...options, feature: 'recovery' }) }
+}
+
+/** CLOUD JOIN-ORDER-2: the cross-process join order (claim v3). Requested only with WORLD_JOIN_ORDER=on. */
+export class JoinOrderCapability extends AuthorityCapability {
+  constructor(options = {}) { super({ ...options, feature: 'joinOrder' }) }
+}
+
 /**
  * The location store the journal uses: v1 unchanged, except locationClaim, which goes through
  * claim v2 while recovery is enabled. A v2 call refused as unsupported disables recovery and is
  * retried ONCE through v1 with the SAME key (the v2 call did not run, so nothing is claimed twice).
  * Any other failure is returned to the journal as it is (it retries with the same key, as today).
+ *
+ * CLOUD JOIN-ORDER-2: a session whose join carried a page and attempt (only with WORLD_JOIN_ORDER=on)
+ * claims through v3 while the join-order capability is enabled, with the rules of the claim it replaces
+ * (recovery: v2's, else v1's; a takeover only with recovery). A v3 call refused as unsupported disables
+ * the join order (never recovery) and the SAME key goes once through that v1/v2 claim instead.
  */
-export function withRecovery(store, capabilityOf) {
+export function withRecovery(store, capabilityOf, joinOrderOf = () => null) {
   if (!store) return store
   const current = typeof capabilityOf === 'function' ? capabilityOf : () => capabilityOf
+  const ordering = typeof joinOrderOf === 'function' ? joinOrderOf : () => joinOrderOf
   return new Proxy(store, {
     get(target, property, receiver) {
       if (property !== 'locationClaim') return Reflect.get(target, property, receiver)
       return async (userId, key, options) => {
         const capability = current()
-        if (capability?.enabled && typeof target.locationClaimV2 === 'function') {
+        const recovery = Boolean(capability?.enabled && typeof target.locationClaimV2 === 'function')
+        const order = ordering()
+        if (options?.page && order?.enabled && typeof target.locationClaimV3 === 'function') {
+          try {
+            return await target.locationClaimV3(userId, key, { takeover: recovery && options.takeover === true, recovery, page: options.page, attempt: options.attempt })
+          } catch (error) {
+            if (!order.unsupported(error)) throw error
+            order.counters.fallbacks++
+          }
+        }
+        if (recovery) {
           try {
             return await target.locationClaimV2(userId, key, options)
           } catch (error) {

@@ -1,6 +1,6 @@
 import { SESSION_REPLACED, SESSION_REPLACED_CODE } from '../presence/locationService.js'
 import { restoreFromRow } from '../presence/locationPolicy.js'
-import { HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
+import { HOST_DRAINING_CODE, STALE_ATTEMPT_CODE } from '../protocol/closeCodes.js'
 
 /**
  * WORLD LOCATION-2: how a player socket's session meets PresenceRoom.
@@ -30,6 +30,11 @@ import { HOST_DRAINING_CODE } from '../protocol/closeCodes.js'
  *     «Jugar acá»). A placed session keeps playing and its claim is retried. 4409 stays
  *     for the replacements the contract can identify (a newer session in this process,
  *     a fresh join, a stale save). Shadow only counts (`wouldRetry`).
+ *   - CLOUD JOIN-ORDER-2, only for joins whose page and attempt the room enforces
+ *     (WORLD_JOIN_ORDER=on): a claim answered stale_attempt / duplicate_attempt means the
+ *     page already moved past this join. Its socket is closed quietly with 4410 — never
+ *     placed if it was still hydrating — and nothing else is touched: the page's current
+ *     connection is not this one. In shadow (location) a placed one is only counted.
  *
  * Owns only per-socket location state; the room keeps the actors.
  */
@@ -66,7 +71,7 @@ export class LocationJoin {
   }
 
   /** A persisting player's new session, synchronously (no database wait), or null. */
-  begin(client, auth, options) {
+  begin(client, auth, options, order = null) {
     const location = this.location()
     if (!location.persists(auth.userId)) return null
     const session = location.begin(auth.userId)
@@ -74,6 +79,8 @@ export class LocationJoin {
     session.worldProtocol = options?.worldProtocol
     // CLOUD READINESS-3: «Jugar acá» — a fresh join the player asked for explicitly. Never a resume.
     session.takeover = options?.takeover === true && options?.resume !== true
+    // CLOUD JOIN-ORDER-2: the join's page and attempt, only when the room enforces them (presenceHosting.orderOf).
+    if (order) { session.page = order.page; session.attempt = order.attempt }
     this.sessionByClient.set(client, session)
     return session
   }
@@ -150,6 +157,8 @@ export class LocationJoin {
     const location = this.location()
     const pending = client ? this.hydrations.get(client) : null
     if (pending?.session === session) {
+      // CLOUD JOIN-ORDER-2: the page already moved past this join: never placed, closed quietly.
+      if (result.status === 'stale_attempt' || result.status === 'duplicate_attempt') return this.#staleAttemptWhileHydrating(client, pending)
       // CLOUD READINESS-3 (recovery enabled): not a replacement — retry later (4503).
       if (result.status === 'owner_draining') return this.#retryWhileHydrating(client, pending, 'draining')
       if (result.status === 'owner_unreachable') return this.#retryWhileHydrating(client, pending, 'owner-unreachable')
@@ -160,6 +169,7 @@ export class LocationJoin {
       return this.#finish(room, client, pending, result.status === 'claimed' ? result.location : null, result.status === 'claimed')
     }
     if (result.status === 'superseded') return this.#superseded(session, result)
+    if (result.status === 'stale_attempt' || result.status === 'duplicate_attempt') return this.#staleAttempt(session)
     if (result.status !== 'claimed' || !client || this.sessionByClient.get(client) !== session) return
     const actor = this.actors.get(session.userId)
     if (!actor || this.clientsByActor.get(session.userId) !== client) return
@@ -196,6 +206,25 @@ export class LocationJoin {
     const location = this.location()
     location.counters.retryDisconnects++
     if (this.clientsByActor.get(pending.join.auth.userId) === client) this.closeRetry(client, reason)
+  }
+
+  /** CLOUD JOIN-ORDER-2: a hydrating socket of a join the page already moved past: never placed, closed with 4410. */
+  #staleAttemptWhileHydrating(client, pending) {
+    clearTimeout(pending.timer)
+    this.hydrations.delete(client)
+    const location = this.location()
+    location.counters.staleAttempt.disconnects++
+    if (this.clientsByActor.get(pending.join.auth.userId) === client) client.leave(STALE_ATTEMPT_CODE, 'stale-attempt')
+  }
+
+  /** CLOUD JOIN-ORDER-2: a placed socket of a join the page already moved past: 4410 in `on`, counted in shadow. */
+  #staleAttempt(session) {
+    const client = session.client
+    if (!client || this.sessionByClient.get(client) !== session || this.clientsByActor.get(session.userId) !== client) return
+    const location = this.location()
+    if (!location.restores) { location.counters.staleAttempt.wouldDisconnect++; return }
+    location.counters.staleAttempt.disconnects++
+    client.leave(STALE_ATTEMPT_CODE, 'stale-attempt')
   }
 
   #supersededWhileHydrating(client, pending) {
