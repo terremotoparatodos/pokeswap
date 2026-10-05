@@ -41,6 +41,8 @@ async function waitFor(condition, label, ms = 4_000) {
   const t0 = performance.now()
   while (!(await condition())) { if (performance.now() - t0 > ms) throw new Error(`timed out waiting for ${label}`); await new Promise(r => setTimeout(r, 5)) }
 }
+/** A bounded wait whose outcome is ASSERTED right after: running out is never a verdict on its own. */
+const settled = (condition, ms = 2_000) => waitFor(condition, 'settled', ms).catch(() => {})
 const socket = id => ({ sessionId: id, userData: undefined, messages: [], leaves: [], send(type, payload) { this.messages.push({ type, payload }) }, leave(code, reason) { this.leaves.push([code, reason]) } })
 const placed = c => lastMessage(c, MESSAGE.SNAPSHOT)?.self ?? null
 let clock = Date.now()
@@ -137,7 +139,7 @@ for (const recovery of [false, true]) {
     const where = { ...placed(current) }
     const old = socket('old')
     assert.equal(await B.join(u, old, { attempt: 1 }), null, 'B has never seen this page: admitted, then the database decides')
-    await waitFor(() => old.leaves.length > 0, 'old closed on B')
+    await settled(() => old.leaves.length > 0) // old closed on B
     assert.deepEqual(old.leaves, [[STALE_ATTEMPT_CODE, 'stale-attempt']], 'closed quietly (4410)')
     assert.equal(placed(old), null, '5: never placed — one authoritative actor for the page')
     assert.equal(B.module.liveActorForTesting(u), null)
@@ -159,7 +161,7 @@ test('the reverse order (the OLD attempt claimed first on the newer host): the c
     await waitFor(() => placed(old), 'old placed on B')
     const current = socket(`current-${recovery}`)
     await A.join(u, current, { attempt: 2, resume: true })
-    await waitFor(() => current.leaves.length > 0, 'the current attempt answered')
+    await settled(() => current.leaves.length > 0) // the current attempt answered
     assert.equal(placed(current), null)
     assert.deepEqual((await owner(u)).g, B.host.generation, 'the live owner keeps the row (no takeover by attempt)')
     // As today: recovery off → replaced (4409); recovery on → a newer active host owns it: retry (4503 draining).
@@ -188,7 +190,7 @@ test('2 — R4 across processes: the old attempt\'s claim answers LATE (held), a
   await A.join(u, current, { attempt: 2, resume: true })
   await waitFor(() => placed(current), 'current placed on A')
   gate.release()
-  await waitFor(() => old.leaves.length > 0, 'old answered')
+  await settled(() => old.leaves.length > 0) // old answered
   assert.equal(placed(old), null, 'never published')
   assert.deepEqual(old.leaves, [[STALE_ATTEMPT_CODE, 'stale-attempt']])
   assert.deepEqual(current.leaves, [])
@@ -228,7 +230,7 @@ test('8 — the same (page, attempt) replayed on another process: duplicate_atte
   await waitFor(() => placed(first), 'first placed')
   const replay = socket('replay')
   await B.join(u, replay, { attempt: 4 })
-  await waitFor(() => replay.leaves.length > 0, 'replay answered')
+  await settled(() => replay.leaves.length > 0) // replay answered
   assert.deepEqual(replay.leaves, [[STALE_ATTEMPT_CODE, 'stale-attempt']])
   assert.equal(placed(replay), null)
   assert.deepEqual(first.leaves, [])
@@ -271,7 +273,7 @@ test('6/7 — another page\'s attempts are never compared; «Jugar acá» from a
   await waitFor(() => placed(live), 'live on B')
   const here = socket('here')
   await A.join(u, here, { attempt: 1, takeover: true })
-  await waitFor(() => here.leaves.length > 0, 'here answered')
+  await settled(() => here.leaves.length > 0) // here answered
   // B is live and newer: «Jugar acá» on the older host gets what v2 gives a live owner (retry), never a takeover by attempt.
   assert.deepEqual(here.leaves.map(l => l[0]), [HOST_DRAINING_CODE])
   assert.deepEqual(A.store.calls.v3.map(c => [c.page, c.attempt, c.takeover, c.recovery]), [[PAGE, 1, true, true]])
@@ -360,7 +362,7 @@ test('production path: Edge adapter → world-authority v7 handler → RPC → S
   await waitFor(() => placed(current), 'current placed on A')
   const old = socket('old')
   await B.join(u, old, { attempt: 1 })
-  await waitFor(() => old.leaves.length > 0, 'old closed on B')
+  await settled(() => old.leaves.length > 0) // old closed on B
   assert.deepEqual(old.leaves, [[STALE_ATTEMPT_CODE, 'stale-attempt']])
   assert.equal(placed(old), null)
   assert.deepEqual(await owner(u), { g: A.host.generation, attempt: 2, page: PAGE, ty: null })
