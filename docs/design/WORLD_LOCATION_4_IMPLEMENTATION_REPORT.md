@@ -270,7 +270,12 @@ Gates repetidos (motivo detallado en `4-gates.md`):
 - **El control negativo de `4d0ab64`** se corre con un `git archive` del commit fuera del repo (no se commitea); el comando está en §6.
 - **La fila de `terremototw`** no se tocó: sigue en el epoch 242, Ciudad 14,41.
 - **Salida en Cloud:** un proceso desplazado queda vivo hasta que su deploy o su supervisor lo termine. Cómo y cuándo lo hace Cloud sigue dentro de la verificación de topología (§3.5).
-- **Topología de Cloud (2026-10-05):** `INSUFFICIENT EVIDENCE`. El agente de deploy publicado termina al viejo con `pm2.stop` (SIGINT) 1,5 s después de pasar NGINX al nuevo; hacen falta `kill_timeout` y `listen_timeout` explícitos (≥ 15 s) antes de desplegar 0.3, y H1 (reinicio del viejo en el traspaso) queda como hipótesis. Ver `world-location-4/evidence/6-cloud-topology.md`.
+- **Topología de Cloud (2026-10-05):** el caso 1 está confirmado en régimen (panel y logs de la app pública). El deploy de 0.3 queda **bloqueado**:
+  - el servidor de salud usa el mismo puerto TCP en los dos procesos del rollout, así que el nuevo entra en un bucle de caídas hasta que sale el viejo, y en 0.3 cae después de `activate()`;
+  - hacen falta `kill_timeout` y `listen_timeout` explícitos (≥ 15 s);
+  - H1 (reinicio del viejo en el traspaso) queda como hipótesis.
+
+  Ver `world-location-4/evidence/6-cloud-topology.md`.
 
 ## 9. Confirmaciones
 

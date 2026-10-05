@@ -508,18 +508,25 @@ La propiedad «una generación por proceso» **solo es válida si WORLD tiene un
 - (FACT, **corregido 2026-10-05**) **La configuración Redis (driver y presencia) de Cloud no se aplica, pero no por cómo se construye el `Server`.** El constructor llama a `matchMaker.setup()`, que en Cloud intenta Redis si la máquina tiene más de 1 CPU o existe `REDIS_URI`. Lo que lo impide es que `@colyseus/redis-driver` y `@colyseus/redis-presence` **no están en el lockfile**: el import falla con un warning y quedan `LocalPresence`/`LocalDriver`. Agregar esos paquetes cambiaría la topología sin tocar código, así que no se agregan. (El texto anterior atribuía el efecto a que `index.js` pasa un `Server` ya construido.)
 - (INFERENCE fuerte) Con más de un proceso, cada uno tendría su propio matchmaker y su propio mundo: `actors`, `world` y `clientsByActor` son de módulo. **El mundo ya estaría partido**, con o sin WORLD LOCATION.
 - (FACT, código del agente publicado, no de la plataforma) El agente de deploy de `@colyseus/tools` respeta `instances`, fuerza `exec_mode: 'fork'` y `wait_ready`, y con `instances: 1` hace: nuevo proceso (pico 2) → `ready` → NGINX solo al nuevo → 1,5 s → `pm2.stop` del viejo (SIGINT; SIGKILL tras `kill_timeout`). Detalle y límites en [`world-location-4/evidence/6-cloud-topology.md`](world-location-4/evidence/6-cloud-topology.md).
-- (FACT) 46/46 `GET /version` de la app pública devolvieron el mismo proceso (`be360fd`, `startedAt` 2026-09-24). Es **compatible** con un único destino; **no prueba** la ausencia de otros workers, máquinas o regiones.
-- (OPEN QUESTION) Qué versión del agente corre en Cloud (o si usa el script heredado), servidores/regiones/autoescalado de la app y un id de deployment: el panel **no** se pudo observar (sin sesión).
+- (FACT, panel y logs de PM2 de la app pública, 2026-10-05) **Caso 1 en régimen:**
+  - 1 servidor, 1 región (Miami), plan High Frequency con 1 vCPU compartida y 1 GB, sin autoescalado visible;
+  - un único proceso de la app `online`, los dos slots PM2 se alternan en cada deploy, y el agente es el moderno (`Post-deploy success.`, módulo `@colyseus/tools` activo; versión no visible);
+  - en cada deploy, el viejo recibe SIGINT por `pm2.stop` y sale con código 0;
+  - no hay `REDIS_URI` ni variable de revisión: el commit de `/version` sale de `git`.
+- (FACT, **hallazgo bloqueante para 0.3**) En cada deploy observado, el proceso nuevo cae 4–5 veces con `EADDRINUSE :::2568`: el servidor de salud usa el mismo puerto TCP (`PORT + 1`) en los dos procesos, y el nuevo solo sobrevive cuando sale el viejo. En 0.3 la caída ocurre **después** de `activate()`, así que cada intento quema una generación y desplaza al viejo. Ver `evidence/6-cloud-topology.md` §4.3.
+- (OPEN QUESTION) La versión del agente, los `kill_timeout`/`listen_timeout` efectivos (el panel no los expone) y las hipótesis que requieren un deploy controlado.
 
-**Requisitos de proceso para un deploy de 0.3 en Cloud** (en `ecosystem.config.js`, para que valgan con el agente moderno y con el script heredado; aplicar requiere autorización aparte):
+**Requisitos para un deploy de 0.3 en Cloud** (aplicar requiere autorización aparte):
 
+- **puerto de salud único por proceso, o servidor de salud no fatal** (cambio de código): bloqueante;
+- en `ecosystem.config.js`, para que valga con el agente moderno y con el script heredado:
 - `instances: 1` explícito;
 - `kill_timeout` **≥ 15 000 ms** explícito: el apagado drena hasta 3 s, más el cierre de salas, más el flush tardío de hasta 3 s, más `host.stop()`. Con el valor por defecto de PM2 (1,6 s), un proceso arrancado fuera de un deploy recibiría SIGKILL a mitad del drenaje (corregido en el agente 0.18.7, versión de Cloud desconocida);
 - `listen_timeout` **≥ 15 000 ms** explícito: el `ready` sale después del acquire (hasta 10 s); con los 3 s por defecto, PM2 daría por listo al proceso y NGINX apuntaría a un socket que todavía no escucha;
 - `wait_ready: true` explícito (el script heredado no lo fuerza);
 - sin paquetes Redis ni `REDIS_URI`; un servidor, una región, sin autoescalado.
 
-**Hipótesis abierta (H1):** entre el `ready` del nuevo y el `pm2.stop` del viejo, los dos están bajo `autorestart`. Si el viejo se cae en esa ventana, PM2 podría relanzarlo con una generación mayor; el nuevo recibiría `newer_active` (terminal por N1) y, al detenerse el viejo, podría no quedar ningún host activo. Se mantiene como hipótesis hasta reproducirla o verificar que Cloud la impide.
+**Hipótesis abierta (H1):** entre el `ready` del nuevo y el `pm2.stop` del viejo, los dos están bajo `autorestart`. Si el viejo se cae en esa ventana, PM2 podría relanzarlo con una generación mayor; el nuevo recibiría `newer_active` (terminal por N1) y, al detenerse el viejo, podría no quedar ningún host activo. En los 6 deploys de los logs el viejo nunca se reinició, pero eso no demuestra que Cloud lo impida: se mantiene como hipótesis hasta reproducirla.
 
 **Caso 1 — Colyseus ejecuta un único proceso WORLD:**
 
@@ -1146,7 +1153,7 @@ Es un cambio multicapa (AGENTS §17). Cada commit es atribuible y revisable por 
 
 ## 8. Preguntas abiertas
 
-1. **Colyseus Cloud (BLOQUEANTE, §3.5):** cantidad de procesos WORLD, escalado horizontal, ruteo durante un deploy, señal y plazo de apagado, y un id de deployment confiable. Estado al 2026-10-05: `INSUFFICIENT EVIDENCE` (código del agente compatible con el caso 1; panel no observado; hipótesis H1–H5 sin deploy controlado). Evidencia, pruebas pendientes y alternativas sin coste (lectura del panel, soporte, emulación local con el agente publicado) en `world-location-4/evidence/6-cloud-topology.md`.
+1. **Colyseus Cloud (BLOQUEANTE, §3.5):** cantidad de procesos WORLD, escalado horizontal, ruteo durante un deploy, señal y plazo de apagado, y un id de deployment confiable. Estado al 2026-10-05: caso 1 **confirmado en régimen** (panel y logs de la app pública). El deploy de 0.3 queda **BLOCKED** por el bucle de caídas del puerto de salud (§3.5) y las hipótesis H1–H4/H6, que necesitan un deploy controlado. Evidencia, pruebas pendientes y alternativas sin coste (soporte, emulación local con el agente publicado) en `world-location-4/evidence/6-cloud-topology.md`.
 2. **Fila de `terremototw`:** quedó en el epoch 242, en Ciudad 14,41, tras LOCATION-3B. Se ajusta deliberadamente antes de habilitar la restauración real. No se toca en esta fase.
 
 Resueltas en esta revisión: el texto y la ubicación de «Jugar acá» (§3.6).
