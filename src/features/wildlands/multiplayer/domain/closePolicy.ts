@@ -5,6 +5,11 @@
 // A 4001 is ambiguous only against a server that did not announce protocol 3: there it may be
 // Colyseus' own shutdown close or an older server's replacement, so at most one reconnection a
 // minute is tried. No rule here can make two tabs evict each other in a loop.
+//
+// CLOUD JOIN-ORDER-2: every join carries this page's next attempt number. 4410 answers an attempt the
+// page already moved past (an abandoned join that arrived late, or a repeated one); 4422 an attempt
+// the server cannot read. Neither ever reconnects on its own: an abandoned socket stays silent, and
+// the page's current connection is never closed, moved or retried because of them.
 
 /** Declared on join: compact steps (2) and the WORLD LOCATION-4 close codes (3). */
 export const PRESENCE_PROTOCOL = 3
@@ -18,6 +23,10 @@ export const CLOSE_CODE = {
   REPLACED: 4409,
   /** Shutdown, deploy or drain (close code, or join refusal of a draining host). */
   DRAINING: 4503,
+  /** CLOUD JOIN-ORDER-2: this join is an older (or repeated) attempt of the page: discarded. */
+  STALE_ATTEMPT: 4410,
+  /** CLOUD JOIN-ORDER-2: the server could not read this join's attempt (a client defect). */
+  INVALID_ATTEMPT: 4422,
 } as const
 
 /** A socket closed with an ambiguous 4001 is retried only if it lived at least this long… */
@@ -46,6 +55,13 @@ export type CloseAction =
   | 'reconnect'
   /** Nothing to retry (the client's own leave). */
   | 'none'
+  /**
+   * CLOUD JOIN-ORDER-2 (4410): the page already moved past this attempt. Silent for an abandoned socket;
+   * never a reconnection. If the socket that gets it is still the page's own, it stops (no retry loop).
+   */
+  | 'discarded'
+  /** CLOUD JOIN-ORDER-2 (4422): the attempt was unreadable. Stops without retrying (no automatic loop). */
+  | 'invalid'
 
 export interface ClosedSocket {
   code: number
@@ -77,6 +93,8 @@ export function closeDecision(closed: ClosedSocket): CloseDecision {
     case CLOSE_CODE.REPLACED: return decision('replaced')
     case CLOSE_CODE.DRAINING: return decision('reconnect')
     case CLOSE_CODE.CONSENTED: return decision('none')
+    case CLOSE_CODE.STALE_ATTEMPT: return decision('discarded')
+    case CLOSE_CODE.INVALID_ATTEMPT: return decision('invalid')
     case CLOSE_CODE.LEGACY: {
       // A protocol-3 server never replaces a protocol-3 client with 4001: only Colyseus sends it.
       if ((closed.serverProtocol ?? 0) >= PRESENCE_PROTOCOL) return decision('reconnect')
@@ -88,9 +106,14 @@ export function closeDecision(closed: ClosedSocket): CloseDecision {
   }
 }
 
-/** A refused join (ServerError code): replaced stops, anything else is retried with `resume`. */
+/**
+ * A refused join (ServerError code): replaced stops, a discarded or unreadable attempt stops quietly
+ * (CLOUD JOIN-ORDER-2), anything else is retried with `resume`.
+ */
 export function joinRefusalDecision(code: unknown): CloseDecision {
   if (code === CLOSE_CODE.REPLACED) return decision('replaced')
+  if (code === CLOSE_CODE.STALE_ATTEMPT) return decision('discarded')
+  if (code === CLOSE_CODE.INVALID_ATTEMPT) return decision('invalid')
   if (code === CLOSE_CODE.DRAINING) return decision('reconnect')
   return decision('reconnect')
 }

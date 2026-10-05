@@ -32,6 +32,14 @@ const BENCHMARK_PLAYER = (import.meta.env.DEV || import.meta.env.VITE_PERF === '
 const TAB_ID = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
   ? crypto.randomUUID()
   : `tab-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+/**
+ * CLOUD JOIN-ORDER-2: this page load's join attempts, shared by every socket of the page. Each join the
+ * page opens (first entry, reconnection, renewed session, «Jugar acá») takes the next number at the
+ * moment it is sent; none is ever sent twice. The server compares them only within the same account and
+ * page (TAB_ID): they order this page's own joins and authorize nothing (not a takeover, not an account).
+ * A reload starts over with a new TAB_ID.
+ */
+let lastAttempt = 0
 /** The last ambiguous 4001 taken as a restart, for the whole page (at most one a minute). */
 let lastAmbiguousCloseAt: number | null = null
 
@@ -97,6 +105,7 @@ export class ColyseusPresence implements LocalPresencePort {
         token: data.session?.access_token ?? null,
         presenceProtocol: PRESENCE_PROTOCOL,
         tabId: TAB_ID,
+        attempt: ++lastAttempt,
         ...(resume ? { resume: true } : takeover ? { takeover: true } : {}),
         ...(this.world ? { worldProtocol: WORLD_PROTOCOL } : {}),
         visual: identity ? { characterId: identity.character.id, companionPokemonId: identity.companion?.id ?? null } : null,
@@ -257,6 +266,17 @@ export class ColyseusPresence implements LocalPresencePort {
   }
   /** Acts on a close or a refused join (domain/closePolicy.ts). */
   private follow(decision: CloseDecision, identity?: PlayerVisualIdentity): void {
+    if (decision.action === 'discarded' || decision.action === 'invalid') {
+      // CLOUD JOIN-ORDER-2: an attempt the page abandoned (disconnect() already stopped it) stays silent:
+      // no status, no retry; the page's current socket is another adapter and is not touched. If this is
+      // still the page's own socket, it stops without retrying (never a loop): the entry's wait times out
+      // into its error screen, whose button is the only way on.
+      if (this.stopped) return
+      this.stopped = true
+      this.clearReconnect()
+      this.status?.lost()
+      return
+    }
     if (decision.action === 'replaced') {
       // Another tab or device owns this account now. Retrying here would evict it in return
       // and create an endless two-tab loop: only the player's «Jugar acá» joins again.
