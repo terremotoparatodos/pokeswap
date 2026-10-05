@@ -223,7 +223,7 @@ for (const [name, scenario] of Object.entries(SCENARIOS)) {
   if (verdict === 'FAIL') failed = true
   if (verdict === 'BLOCKED') blocked = true
   report.scenarios[name] = { verdict, seconds: Math.round((Date.now() - started) / 1000), checks: t.checks, facts }
-  console.log(`${name.padEnd(22)} ${verdict.padEnd(8)} ${Math.round((Date.now() - started) / 1000)}s ${t.checks.filter(c => !c.ok).map(c => `✗ ${c.label}`).join(' | ')}${facts?.error ? ` ${facts.error}` : ''}`)
+  console.log(`${name.padEnd(22)} ${verdict.padEnd(8)} ${Math.round((Date.now() - started) / 1000)}s ${t.checks.filter(c => !c.ok).map(c => `✗ ${c.label}`).join(' | ')}${facts?.error ? ` ${facts.error}` : ''}`.trimEnd())
 }
 report.finishedAt = new Date().toISOString()
 const out = arg('out')

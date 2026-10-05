@@ -1,8 +1,8 @@
-D2A                    PASS     44s 
-D2B                    PASS     6s 
-UNREACHABLE            PASS     22s 
-SIGINT_PROMOTION       PASS     18s 
-AUTHORITY_DOWN         PASS     29s 
-CAPABILITY_ROLLBACK    PASS     1s 
-CONCURRENT_CANDIDATES  PASS     27s 
+D2A                    PASS     44s
+D2B                    PASS     6s
+UNREACHABLE            PASS     22s
+SIGINT_PROMOTION       PASS     18s
+AUTHORITY_DOWN         PASS     29s
+CAPABILITY_ROLLBACK    PASS     1s
+CONCURRENT_CANDIDATES  PASS     27s
 exit=0
