@@ -1,8 +1,8 @@
-Room connection was closed unexpectedly (4002): 
-Room connection was closed unexpectedly (4002): 
+Room connection was closed unexpectedly (4002):
+Room connection was closed unexpectedly (4002):
 SAME       PASS     4s
 TWO        PASS     18s
-Room connection was closed unexpectedly (4002): 
+Room connection was closed unexpectedly (4002):
 NO_V3      PASS     2s
 SHADOW     PASS     2s
 exit=0
