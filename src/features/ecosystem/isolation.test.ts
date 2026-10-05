@@ -79,6 +79,36 @@ describe('runtime modules are pure', () => {
   })
 })
 
+describe('the dev simulator (preview/) stays local', () => {
+  // Allowed: the engine and catalog, Vue, and the engine's sprite URL helper. The Vite config may import Vite itself.
+  const PREVIEW_PACKAGES = new Set(['vue', 'vite', '@vitejs/plugin-vue', 'node:url'])
+  const SPRITES = fwd(join(ROOT, 'src/features/wildlands/engine/characters'))
+  const previewViolations = (file: string, source: string) => importSpecifiers(file, source).filter(spec => {
+    const target = resolveSpecifier(file, spec, ROOT)
+    if (target === null) return !PREVIEW_PACKAGES.has(spec)
+    return !(target === SPRITES || ['preview', 'encounters', 'population'].some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`)))
+  })
+  const NETWORK = /\b(fetch|WebSocket|XMLHttpRequest|EventSource|supabase|colyseus|localStorage|sessionStorage)\b/i
+
+  it('imports only the engine, the catalog, Vue and the sprite helper; no network, storage or credentials', () => {
+    const files = filesUnder(join(ECOSYSTEM, 'preview'), /\.(ts|vue|mjs)$/).filter(isRuntime)
+    expect(files.length).toBeGreaterThanOrEqual(6)
+    for (const file of files) {
+      const source = readFileSync(file, 'utf8')
+      expect(previewViolations(file, source), relative(ROOT, file)).toEqual([])
+      expect(NETWORK.exec(code(source))?.[0], relative(ROOT, file)).toBeUndefined()
+    }
+  })
+
+  it('negative control: flags the realtime bundle, Supabase and a fetch', () => {
+    const app = `${ECOSYSTEM}/preview/EcoPreviewApp.vue`
+    expect(previewViolations(app, "<script setup lang=\"ts\">import { tickPopulation } from '../../../../services/realtime/src/world/ecosystem/encounters.generated.js'</script>")).toHaveLength(1)
+    expect(previewViolations(app, "<script setup lang=\"ts\">import { supabase } from '../../../shared/supabase'</script>")).toHaveLength(1)
+    expect(previewViolations(app, "<script setup lang=\"ts\">import { createClient } from '@supabase/supabase-js'</script>")).toEqual(['@supabase/supabase-js'])
+    expect(NETWORK.exec(code('await fetch("/api/encounters")'))?.[0]).toBe('fetch')
+  })
+})
+
 describe('nothing outside the ecosystem imports it or its bundle', () => {
   it('scans src, services and scripts', () => {
     const files = [
