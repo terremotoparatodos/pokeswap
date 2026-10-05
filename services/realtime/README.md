@@ -17,6 +17,8 @@ El token del usuario se verifica una sola vez al entrar contra Supabase Auth. Cu
 
 Construir desde `services/realtime/Dockerfile`, configurar las cuatro variables en el panel de Colyseus Cloud y publicar la URL WebSocket como `VITE_REALTIME_URL` en Cloudflare Pages. Usar un único proceso mientras el límite global sea 100; no activar réplicas ni Redis hasta diseñar presencia compartida.
 
+Entorno en Cloud (CLOUD ENV-1): Cloud entrega las variables del panel en `.env.cloud`, y las de la plataforma en `/etc/environment`. Las carga `@colyseus/tools` al importarse. Como varios módulos leen el entorno al importarse, `src/index.js` primero las carga (`src/cloudEnvironment.js`, solo con `COLYSEUS_CLOUD`) y recién después importa el realtime. La precedencia es la de `@colyseus/tools`: `.env.cloud` y `/etc/environment` pisan al proceso, `.env` no. Fuera de Cloud no se carga ningún archivo.
+
 ## Observabilidad y carga
 
 Colyseus Cloud debe alertar sobre conexiones, rechazos de join, CPU, memoria y desconexiones. El proceso expone `GET /healthz`, `GET /readyz` y `GET /metrics` en `HEALTH_PORT` (2568 en desarrollo); publicarlos sólo por la red interna de Cloud. `/readyz` responde 503 hasta que el arranque termina (salud → acquire → listen → activate).
