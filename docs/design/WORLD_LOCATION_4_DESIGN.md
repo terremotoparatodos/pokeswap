@@ -502,12 +502,24 @@ La propiedad «una generación por proceso» **solo es válida si WORLD tiene un
 **Lo que se sabe hoy:**
 
 - (FACT) `services/realtime/ecosystem.config.js` declara `instances: 1` y `exec_mode: 'fork'`.
-- (FACT) `@colyseus/tools` 0.18.3, cuando `COLYSEUS_CLOUD` está definido:
+- (FACT) Con `COLYSEUS_CLOUD` definido, `Server.listen()` de `@colyseus/core` 0.18.13 delega en `@colyseus/tools` 0.18.3, que:
   - escucha en `/run/colyseus/<2567 + NODE_APP_INSTANCE>.sock`, así que la plataforma admite varias instancias PM2;
-  - envía `process.send('ready')` al terminar `listen`.
-- (FACT) `index.js` le pasa a `listen` un `Server` ya construido, así que **la configuración Redis (driver y presencia) de Cloud no se aplica**.
+  - envía `process.send('ready')` al terminar `listen`. En `realtimeServer.js` eso ocurre **después** del acquire (hasta 10 s) y **antes** de `activate()`.
+- (FACT, **corregido 2026-10-05**) **La configuración Redis (driver y presencia) de Cloud no se aplica, pero no por cómo se construye el `Server`.** El constructor llama a `matchMaker.setup()`, que en Cloud intenta Redis si la máquina tiene más de 1 CPU o existe `REDIS_URI`. Lo que lo impide es que `@colyseus/redis-driver` y `@colyseus/redis-presence` **no están en el lockfile**: el import falla con un warning y quedan `LocalPresence`/`LocalDriver`. Agregar esos paquetes cambiaría la topología sin tocar código, así que no se agregan. (El texto anterior atribuía el efecto a que `index.js` pasa un `Server` ya construido.)
 - (INFERENCE fuerte) Con más de un proceso, cada uno tendría su propio matchmaker y su propio mundo: `actors`, `world` y `clientsByActor` son de módulo. **El mundo ya estaría partido**, con o sin WORLD LOCATION.
-- (OPEN QUESTION) Si Cloud respeta `instances: 1`, cómo reemplaza el proceso en un deploy y qué señal envía.
+- (FACT, código del agente publicado, no de la plataforma) El agente de deploy de `@colyseus/tools` respeta `instances`, fuerza `exec_mode: 'fork'` y `wait_ready`, y con `instances: 1` hace: nuevo proceso (pico 2) → `ready` → NGINX solo al nuevo → 1,5 s → `pm2.stop` del viejo (SIGINT; SIGKILL tras `kill_timeout`). Detalle y límites en [`world-location-4/evidence/6-cloud-topology.md`](world-location-4/evidence/6-cloud-topology.md).
+- (FACT) 46/46 `GET /version` de la app pública devolvieron el mismo proceso (`be360fd`, `startedAt` 2026-09-24). Es **compatible** con un único destino; **no prueba** la ausencia de otros workers, máquinas o regiones.
+- (OPEN QUESTION) Qué versión del agente corre en Cloud (o si usa el script heredado), servidores/regiones/autoescalado de la app y un id de deployment: el panel **no** se pudo observar (sin sesión).
+
+**Requisitos de proceso para un deploy de 0.3 en Cloud** (en `ecosystem.config.js`, para que valgan con el agente moderno y con el script heredado; aplicar requiere autorización aparte):
+
+- `instances: 1` explícito;
+- `kill_timeout` **≥ 15 000 ms** explícito: el apagado drena hasta 3 s, más el cierre de salas, más el flush tardío de hasta 3 s, más `host.stop()`. Con el valor por defecto de PM2 (1,6 s), un proceso arrancado fuera de un deploy recibiría SIGKILL a mitad del drenaje (corregido en el agente 0.18.7, versión de Cloud desconocida);
+- `listen_timeout` **≥ 15 000 ms** explícito: el `ready` sale después del acquire (hasta 10 s); con los 3 s por defecto, PM2 daría por listo al proceso y NGINX apuntaría a un socket que todavía no escucha;
+- `wait_ready: true` explícito (el script heredado no lo fuerza);
+- sin paquetes Redis ni `REDIS_URI`; un servidor, una región, sin autoescalado.
+
+**Hipótesis abierta (H1):** entre el `ready` del nuevo y el `pm2.stop` del viejo, los dos están bajo `autorestart`. Si el viejo se cae en esa ventana, PM2 podría relanzarlo con una generación mayor; el nuevo recibiría `newer_active` (terminal por N1) y, al detenerse el viejo, podría no quedar ningún host activo. Se mantiene como hipótesis hasta reproducirla o verificar que Cloud la impide.
 
 **Caso 1 — Colyseus ejecuta un único proceso WORLD:**
 
@@ -523,7 +535,7 @@ La propiedad «una generación por proceso» **solo es válida si WORLD tiene un
   - o un lease de propiedad por usuario (alternativa D);
 - es un **rediseño de la propiedad**, fuera de esta propuesta, y además exige resolver antes la partición del mundo.
 
-**Verificación obligatoria en Colyseus Cloud antes de `on`** (con evidencia documentada; preferentemente en una segunda app de Cloud para el build oscuro, sin tocar la pública):
+**Verificación obligatoria en Colyseus Cloud antes de `on`** (con evidencia documentada, sin tocar la app pública; las alternativas y su coste están en `evidence/6-cloud-topology.md` §7.3; una segunda app de Cloud es una opción, no un requisito):
 
 1. **cantidad de procesos WORLD simultáneos** en régimen: `NODE_APP_INSTANCE` y el `hostId`/generación en el log de cada proceso; `/version` por proceso;
 2. **escalado horizontal:** si hay autoescalado o varias máquinas o regiones por app, y si se puede fijar en uno;
@@ -1134,7 +1146,7 @@ Es un cambio multicapa (AGENTS §17). Cada commit es atribuible y revisable por 
 
 ## 8. Preguntas abiertas
 
-1. **Colyseus Cloud (BLOQUEANTE, §3.5):** cantidad de procesos WORLD, escalado horizontal, ruteo durante un deploy, señal y plazo de apagado, y un id de deployment confiable. Hace falta una app de Cloud para el build oscuro (pendiente desde INTEGRATION-1).
+1. **Colyseus Cloud (BLOQUEANTE, §3.5):** cantidad de procesos WORLD, escalado horizontal, ruteo durante un deploy, señal y plazo de apagado, y un id de deployment confiable. Estado al 2026-10-05: `INSUFFICIENT EVIDENCE` (código del agente compatible con el caso 1; panel no observado; hipótesis H1–H5 sin deploy controlado). Evidencia, pruebas pendientes y alternativas sin coste (lectura del panel, soporte, emulación local con el agente publicado) en `world-location-4/evidence/6-cloud-topology.md`.
 2. **Fila de `terremototw`:** quedó en el epoch 242, en Ciudad 14,41, tras LOCATION-3B. Se ajusta deliberadamente antes de habilitar la restauración real. No se toca en esta fase.
 
 Resueltas en esta revisión: el texto y la ubicación de «Jugar acá» (§3.6).
