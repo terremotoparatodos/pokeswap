@@ -51,7 +51,8 @@ export async function startLocalAuthority({ secret, tree = here, latency = () =>
       const { rows } = await query(sql, values)
       return { data: rows[0]?.data ?? null, error: null }
     } catch (error) {
-      return { data: null, error: { message: error.message } }
+      // As index.ts: the error code (never the message) reaches the handler (CLOUD READINESS-3: 42883 = missing function).
+      return { data: null, error: { message: error.message, code: error.code } }
     }
   }
   const tokens = new Map()
@@ -83,12 +84,13 @@ export async function startLocalAuthority({ secret, tree = here, latency = () =>
       let parsed = null
       try { parsed = JSON.parse(body.toString()) } catch { /* the handler answers 400 */ }
       const op = typeof parsed?.op === 'string' ? parsed.op : '?'
-      const userIds = op === 'location_claim' ? [parsed.userId] : op === 'location_save' && Array.isArray(parsed.rows) ? parsed.rows.map(r => r?.userId) : []
+      const userIds = op === 'location_claim' || op === 'location_claim_v2' ? [parsed.userId] : op === 'location_save' && Array.isArray(parsed.rows) ? parsed.rows.map(r => r?.userId) : []
       if (op === 'location_claim') calls.location_claim++
       else if (op === 'location_save') { calls.location_save++; calls.location_rows += userIds.length }
       else if (op.startsWith('presence_')) calls.presence++
       else calls.other++
-      const traced = op === 'location_claim' || op === 'location_save' || op.startsWith('presence_')
+      // CLOUD READINESS-3: the v6 ops too (location_claim_v2, capabilities).
+      const traced = op === 'location_claim' || op === 'location_claim_v2' || op === 'location_save' || op === 'capabilities' || op.startsWith('presence_')
       const event = traced ? { inst, op, userIds, body: parsed, tRecv: now(), tDone: null, answer: null, rule: null } : null
       if (event) events.push(event)
       const run = async () => {
