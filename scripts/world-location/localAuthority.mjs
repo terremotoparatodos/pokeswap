@@ -84,13 +84,14 @@ export async function startLocalAuthority({ secret, tree = here, latency = () =>
       let parsed = null
       try { parsed = JSON.parse(body.toString()) } catch { /* the handler answers 400 */ }
       const op = typeof parsed?.op === 'string' ? parsed.op : '?'
-      const userIds = op === 'location_claim' || op === 'location_claim_v2' ? [parsed.userId] : op === 'location_save' && Array.isArray(parsed.rows) ? parsed.rows.map(r => r?.userId) : []
+      const userIds = op === 'location_claim' || op === 'location_claim_v2' || op === 'location_claim_v3' ? [parsed.userId] : op === 'location_save' && Array.isArray(parsed.rows) ? parsed.rows.map(r => r?.userId) : []
       if (op === 'location_claim') calls.location_claim++
       else if (op === 'location_save') { calls.location_save++; calls.location_rows += userIds.length }
       else if (op.startsWith('presence_')) calls.presence++
       else calls.other++
       // CLOUD READINESS-3: the v6 ops too (location_claim_v2, capabilities).
-      const traced = op === 'location_claim' || op === 'location_claim_v2' || op === 'location_save' || op === 'capabilities' || op.startsWith('presence_')
+      // CLOUD JOIN-ORDER-2: and the v7 claim (location_claim_v3).
+      const traced = op === 'location_claim' || op === 'location_claim_v2' || op === 'location_claim_v3' || op === 'location_save' || op === 'capabilities' || op.startsWith('presence_')
       const event = traced ? { inst, op, userIds, body: parsed, tRecv: now(), tDone: null, answer: null, rule: null } : null
       if (event) events.push(event)
       const run = async () => {

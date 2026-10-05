@@ -71,12 +71,14 @@ export async function startRealtime({ tree = here, name, port, env, waitForListe
  * ServerError code of a refused join (the socket never opened). `presenceProtocol` 3 sends a
  * tab id, and `resume` when asked, as the browser client does.
  */
-export async function connect(server, token, { presenceProtocol = 3, tabId = null, resume = false, takeover = false, waitSelf = true } = {}) {
+export async function connect(server, token, { presenceProtocol = 3, tabId = null, resume = false, takeover = false, waitSelf = true, attempt } = {}) {
   const state = { room: null, self: null, left: null, closing: [], refused: null, errors: [], joinedAt: null }
   try {
     const joining = new Client(`ws://127.0.0.1:${server.port}`, { headers: { Origin: ORIGIN } }).joinOrCreate('presence', {
       token, presenceProtocol, worldProtocol: 3,
       ...(tabId ? { tabId } : {}), ...(resume ? { resume: true } : takeover ? { takeover: true } : {}),
+      // CLOUD JOIN-ORDER-2: the page's join attempt, as the browser client sends it (omitted: an older client).
+      ...(attempt !== undefined ? { attempt } : {}),
     })
     // Bounded too: a join against a process that dies mid-handshake counts as refused ('timeout').
     state.room = await Promise.race([joining, delay(10_000).then(() => { throw Object.assign(new Error('join timeout'), { code: 'timeout' }) })])
