@@ -264,13 +264,14 @@ describe('world-authority v6: capabilities', () => {
     expect(calls).toEqual([])
     const ok = await handleWorldAuthority(post({ op: 'capabilities' }), answering(1, calls))
     expect(ok.status).toBe(200)
-    expect(await ok.json()).toEqual({ recovery: { version: 1 } })
-    expect(calls).toEqual([{ fn: 'world_presence_recovery_version', args: {} }])
-    expect(await (await handleWorldAuthority(post({ op: 'capabilities' }), answering(2))).json()).toEqual({ recovery: null })
+    // CLOUD JOIN-ORDER-2 (v7): the answer also names the join order, from its own marker.
+    expect(await ok.json()).toEqual({ recovery: { version: 1 }, joinOrder: { version: 1 } })
+    expect(calls).toEqual([{ fn: 'world_presence_recovery_version', args: {} }, { fn: 'world_location_join_order_version', args: {} }])
+    expect(await (await handleWorldAuthority(post({ op: 'capabilities' }), answering(2))).json()).toEqual({ recovery: null, joinOrder: null })
     for (const code of ['PGRST202', '42883']) {
       const absent = await handleWorldAuthority(post({ op: 'capabilities' }), missing(code))
       expect(absent.status).toBe(200)
-      expect(await absent.json()).toEqual({ recovery: null })
+      expect(await absent.json()).toEqual({ recovery: null, joinOrder: null })
     }
   })
 
@@ -340,7 +341,7 @@ describe('world-authority v6: presence-recovery operations', () => {
     for (const body of [keyed(), { op: 'location_claim', userId: USER, expectedEpoch: 0 }, { op: 'presence_renew', generation: 4, hostId: HOST, leaseMs: 15000 }, { op: 'location_save', generation: 4, hostId: HOST, rows: [locationRow()] }]) {
       expect((await handleWorldAuthority(post(body), missing('PGRST202'))).status).toBe(500)
     }
-    const unknown = await handleWorldAuthority(post({ op: 'location_claim_v3' }), deps())
+    const unknown = await handleWorldAuthority(post({ op: 'location_claim_v9' }), deps())
     expect(unknown.status).toBe(400)
     expect(await unknown.json()).toEqual({ error: 'unknown_op' })
   })

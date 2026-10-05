@@ -21,6 +21,9 @@
 // presence_activate_exclusive, presence_any_active). Every v5 op answers exactly as before. The
 // capability is read from the SQL that is really there (a marker function), never assumed from
 // this function's version; a recovery op whose SQL function is missing answers 501 'unsupported'.
+// CLOUD JOIN-ORDER-2 (additive v7) adds location_claim_v3 (the keyed claim plus the page and attempt
+// of the join, ordered by world_location_claim_keyed_v3) and a 'joinOrder' entry in 'capabilities',
+// read from its own SQL marker. Every v5 and v6 op answers exactly as before.
 // Feature gate (RC-0.3 dark launch): world_skills_access() decides per user.
 // A 'closed' user has no workable Pokemon and cannot settle completed work,
 // whatever the realtime server asks; a missing or odd answer counts as closed.
@@ -177,18 +180,24 @@ const MISSING_FUNCTION = new Set(['PGRST202', '42883'])
 class MissingFunction extends Error {}
 const RECOVERY_OPS = new Set(['location_claim_v2', 'presence_activate_exclusive', 'presence_any_active'])
 
-/**
- * 'capabilities': { recovery: { version: 1 } } only if the recovery SQL answers its marker;
- * { recovery: null } when the marker function does not exist. Any other failure is a 500, as always.
- */
-async function capabilities(call: Call): Promise<Response> {
+/** One SQL marker: { version: 1 } when it answers 1, null when it answers anything else or does not exist. */
+async function marker(call: Call, fn: string): Promise<{ version: 1 } | null> {
   try {
-    const version = await call('world_presence_recovery_version', {})
-    return json(200, { recovery: version === 1 ? { version: 1 } : null })
+    return (await call(fn, {})) === 1 ? { version: 1 } : null
   } catch (error) {
-    if (error instanceof MissingFunction) return json(200, { recovery: null })
+    if (error instanceof MissingFunction) return null
     throw error
   }
+}
+
+/**
+ * 'capabilities': { recovery, joinOrder }, each { version: 1 } only if its SQL answers its own marker, null
+ * when the marker function does not exist (each independent of the other). Any other failure is a 500.
+ */
+async function capabilities(call: Call): Promise<Response> {
+  const recovery = await marker(call, 'world_presence_recovery_version')
+  const joinOrder = await marker(call, 'world_location_join_order_version')
+  return json(200, { recovery, joinOrder })
 }
 
 /** The recovery ops. Malformed input never reaches SQL; a missing SQL function is 501 'unsupported'. */
@@ -208,6 +217,37 @@ async function recoveryOp(op: string, body: Record<string, unknown>, call: Call)
     return json(200, {
       claim: await call('world_location_claim_keyed_v2', {
         p_user_id: body.userId, p_generation: host.p_generation, p_seq: body.seq, p_session: body.sessionId, p_host_id: host.p_host_id, p_takeover: body.takeover,
+      }),
+    })
+  } catch (error) {
+    if (error instanceof MissingFunction) return json(501, { error: 'unsupported' })
+    throw error
+  }
+}
+
+// ── CLOUD JOIN-ORDER-2 (additive v7): the join-ordered claim ──
+
+/** The client's per-page-load id and its join attempt: the same bounds the table's CHECKs enforce. */
+const PAGE = /^[A-Za-z0-9_-]{8,64}$/
+const ATTEMPT_MAX = 2147483647
+
+/**
+ * location_claim_v3: the keyed claim (never the v1 shape), explicit booleans takeover and recovery (a takeover
+ * only with the recovery rules), and the join's page and attempt. Malformed input never reaches SQL; a missing
+ * SQL function is 501 'unsupported' (the realtime then falls back to its v1/v2 claim with the same key).
+ */
+async function joinOrderClaim(body: Record<string, unknown>, call: Call): Promise<Response> {
+  try {
+    if (!uuid(body.userId)) return json(400, { error: 'invalid_user' })
+    if ('expectedEpoch' in body) return json(400, { error: 'mixed_claim' })
+    const host = hostArgs(body)
+    if (!host || !counter(body.seq) || !uuid(body.sessionId)) return json(400, { error: 'invalid_key' })
+    if (typeof body.takeover !== 'boolean' || typeof body.recovery !== 'boolean' || (body.takeover && !body.recovery)) return json(400, { error: 'invalid_takeover' })
+    if (typeof body.page !== 'string' || !PAGE.test(body.page) || !within(body.attempt, 1, ATTEMPT_MAX)) return json(400, { error: 'invalid_attempt' })
+    return json(200, {
+      claim: await call('world_location_claim_keyed_v3', {
+        p_user_id: body.userId, p_generation: host.p_generation, p_seq: body.seq, p_session: body.sessionId, p_host_id: host.p_host_id,
+        p_takeover: body.takeover, p_recovery: body.recovery, p_page: body.page, p_attempt: body.attempt,
       }),
     })
   } catch (error) {
@@ -245,6 +285,7 @@ export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): P
     if (typeof body.op === 'string' && PRESENCE_OPS.has(body.op)) return await presenceOp(body.op, body, call)
     if (body.op === 'capabilities') return await capabilities(call)
     if (typeof body.op === 'string' && RECOVERY_OPS.has(body.op)) return await recoveryOp(body.op, body, call)
+    if (body.op === 'location_claim_v3') return await joinOrderClaim(body, call)
     switch (body.op) {
       case 'access': {
         if (typeof body.userId !== 'string' || !UUID.test(body.userId)) return json(400, { error: 'invalid_user' })
