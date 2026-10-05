@@ -1,0 +1,1974 @@
+{
+ "proposals": "eco-map-1/proposal/2026-10-05",
+ "catalog": "eco-1/provisional/2026-10-05",
+ "geometry": {
+  "generatedBy": "scripts/ecosystem/map-geometry.mjs",
+  "terrainGenerator": 1,
+  "layoutVersions": {
+   "pradera": "1.7eb512c66092",
+   "cueva-inicial": "1.54820710979b"
+  }
+ },
+ "rules": {
+  "forbidden": [
+   "blocked",
+   "unreachable",
+   "water",
+   "portal",
+   "resource",
+   "work",
+   "corridor",
+   "reserved",
+   "arrivalClearance",
+   "caveReserved"
+  ],
+  "protectedRadius": 4,
+  "minNestSpacing": 6
+ },
+ "areaCaps": {
+  "pradera.abierta": 12,
+  "pradera.bosque": 8,
+  "cueva-inicial": 6
+ },
+ "issues": [],
+ "nests": [
+  {
+   "id": "pradera-pastizal-oeste",
+   "areaId": "pradera",
+   "zoneId": "pradera.abierta",
+   "group": "pastizal",
+   "habitats": [
+    "open-grass",
+    "tall-grass"
+   ],
+   "anchor": {
+    "tx": -34,
+    "ty": -83
+   },
+   "region": {
+    "x0": -38,
+    "y0": -86,
+    "x1": -30,
+    "y1": -80
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "Large tall-grass field west of the arrival, behind the cave: grass and tall grass mixed, nine tiles or more from the cave mouth.",
+   "candidateCount": 62,
+   "candidates": [
+    {
+     "tx": -38,
+     "ty": -86
+    },
+    {
+     "tx": -37,
+     "ty": -86
+    },
+    {
+     "tx": -36,
+     "ty": -86
+    },
+    {
+     "tx": -35,
+     "ty": -86
+    },
+    {
+     "tx": -33,
+     "ty": -86
+    },
+    {
+     "tx": -32,
+     "ty": -86
+    },
+    {
+     "tx": -31,
+     "ty": -86
+    },
+    {
+     "tx": -30,
+     "ty": -86
+    },
+    {
+     "tx": -38,
+     "ty": -85
+    },
+    {
+     "tx": -37,
+     "ty": -85
+    },
+    {
+     "tx": -36,
+     "ty": -85
+    },
+    {
+     "tx": -35,
+     "ty": -85
+    },
+    {
+     "tx": -34,
+     "ty": -85
+    },
+    {
+     "tx": -33,
+     "ty": -85
+    },
+    {
+     "tx": -32,
+     "ty": -85
+    },
+    {
+     "tx": -31,
+     "ty": -85
+    },
+    {
+     "tx": -30,
+     "ty": -85
+    },
+    {
+     "tx": -38,
+     "ty": -84
+    },
+    {
+     "tx": -37,
+     "ty": -84
+    },
+    {
+     "tx": -36,
+     "ty": -84
+    },
+    {
+     "tx": -35,
+     "ty": -84
+    },
+    {
+     "tx": -34,
+     "ty": -84
+    },
+    {
+     "tx": -33,
+     "ty": -84
+    },
+    {
+     "tx": -32,
+     "ty": -84
+    },
+    {
+     "tx": -31,
+     "ty": -84
+    },
+    {
+     "tx": -30,
+     "ty": -84
+    },
+    {
+     "tx": -38,
+     "ty": -83
+    },
+    {
+     "tx": -37,
+     "ty": -83
+    },
+    {
+     "tx": -36,
+     "ty": -83
+    },
+    {
+     "tx": -35,
+     "ty": -83
+    },
+    {
+     "tx": -34,
+     "ty": -83
+    },
+    {
+     "tx": -33,
+     "ty": -83
+    },
+    {
+     "tx": -32,
+     "ty": -83
+    },
+    {
+     "tx": -31,
+     "ty": -83
+    },
+    {
+     "tx": -30,
+     "ty": -83
+    },
+    {
+     "tx": -38,
+     "ty": -82
+    },
+    {
+     "tx": -37,
+     "ty": -82
+    },
+    {
+     "tx": -36,
+     "ty": -82
+    },
+    {
+     "tx": -35,
+     "ty": -82
+    },
+    {
+     "tx": -34,
+     "ty": -82
+    },
+    {
+     "tx": -33,
+     "ty": -82
+    },
+    {
+     "tx": -32,
+     "ty": -82
+    },
+    {
+     "tx": -31,
+     "ty": -82
+    },
+    {
+     "tx": -30,
+     "ty": -82
+    },
+    {
+     "tx": -38,
+     "ty": -81
+    },
+    {
+     "tx": -37,
+     "ty": -81
+    },
+    {
+     "tx": -36,
+     "ty": -81
+    },
+    {
+     "tx": -35,
+     "ty": -81
+    },
+    {
+     "tx": -34,
+     "ty": -81
+    },
+    {
+     "tx": -33,
+     "ty": -81
+    },
+    {
+     "tx": -32,
+     "ty": -81
+    },
+    {
+     "tx": -31,
+     "ty": -81
+    },
+    {
+     "tx": -30,
+     "ty": -81
+    },
+    {
+     "tx": -38,
+     "ty": -80
+    },
+    {
+     "tx": -37,
+     "ty": -80
+    },
+    {
+     "tx": -36,
+     "ty": -80
+    },
+    {
+     "tx": -35,
+     "ty": -80
+    },
+    {
+     "tx": -34,
+     "ty": -80
+    },
+    {
+     "tx": -33,
+     "ty": -80
+    },
+    {
+     "tx": -32,
+     "ty": -80
+    },
+    {
+     "tx": -31,
+     "ty": -80
+    },
+    {
+     "tx": -30,
+     "ty": -80
+    }
+   ],
+   "eligible": {
+    "common": [
+     "pidgey",
+     "rattata"
+    ],
+    "uncommon": [
+     "nidoran-f",
+     "nidoran-m",
+     "hoppip",
+     "shinx"
+    ],
+    "rare": [
+     "pidgeotto",
+     "raticate",
+     "pikachu"
+    ],
+    "very_rare": [
+     "nidorina",
+     "nidorino"
+    ]
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare",
+    "very_rare"
+   ],
+   "maxGroup": 3,
+   "warnings": []
+  },
+  {
+   "id": "pradera-pastizal-norte",
+   "areaId": "pradera",
+   "zoneId": "pradera.abierta",
+   "group": "pastizal",
+   "habitats": [
+    "open-grass",
+    "tall-grass"
+   ],
+   "anchor": {
+    "tx": -16,
+    "ty": -97
+   },
+   "region": {
+    "x0": -20,
+    "y0": -99,
+    "x1": -12,
+    "y1": -94
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "Northern tall-grass band beyond the mineral reserve: a destination north of the arrival, clear of the reserve.",
+   "candidateCount": 53,
+   "candidates": [
+    {
+     "tx": -20,
+     "ty": -99
+    },
+    {
+     "tx": -19,
+     "ty": -99
+    },
+    {
+     "tx": -18,
+     "ty": -99
+    },
+    {
+     "tx": -17,
+     "ty": -99
+    },
+    {
+     "tx": -16,
+     "ty": -99
+    },
+    {
+     "tx": -15,
+     "ty": -99
+    },
+    {
+     "tx": -14,
+     "ty": -99
+    },
+    {
+     "tx": -13,
+     "ty": -99
+    },
+    {
+     "tx": -12,
+     "ty": -99
+    },
+    {
+     "tx": -20,
+     "ty": -98
+    },
+    {
+     "tx": -19,
+     "ty": -98
+    },
+    {
+     "tx": -18,
+     "ty": -98
+    },
+    {
+     "tx": -17,
+     "ty": -98
+    },
+    {
+     "tx": -16,
+     "ty": -98
+    },
+    {
+     "tx": -15,
+     "ty": -98
+    },
+    {
+     "tx": -14,
+     "ty": -98
+    },
+    {
+     "tx": -13,
+     "ty": -98
+    },
+    {
+     "tx": -12,
+     "ty": -98
+    },
+    {
+     "tx": -20,
+     "ty": -97
+    },
+    {
+     "tx": -19,
+     "ty": -97
+    },
+    {
+     "tx": -18,
+     "ty": -97
+    },
+    {
+     "tx": -17,
+     "ty": -97
+    },
+    {
+     "tx": -16,
+     "ty": -97
+    },
+    {
+     "tx": -15,
+     "ty": -97
+    },
+    {
+     "tx": -14,
+     "ty": -97
+    },
+    {
+     "tx": -13,
+     "ty": -97
+    },
+    {
+     "tx": -12,
+     "ty": -97
+    },
+    {
+     "tx": -20,
+     "ty": -96
+    },
+    {
+     "tx": -19,
+     "ty": -96
+    },
+    {
+     "tx": -18,
+     "ty": -96
+    },
+    {
+     "tx": -17,
+     "ty": -96
+    },
+    {
+     "tx": -16,
+     "ty": -96
+    },
+    {
+     "tx": -15,
+     "ty": -96
+    },
+    {
+     "tx": -14,
+     "ty": -96
+    },
+    {
+     "tx": -13,
+     "ty": -96
+    },
+    {
+     "tx": -12,
+     "ty": -96
+    },
+    {
+     "tx": -20,
+     "ty": -95
+    },
+    {
+     "tx": -18,
+     "ty": -95
+    },
+    {
+     "tx": -17,
+     "ty": -95
+    },
+    {
+     "tx": -16,
+     "ty": -95
+    },
+    {
+     "tx": -15,
+     "ty": -95
+    },
+    {
+     "tx": -14,
+     "ty": -95
+    },
+    {
+     "tx": -13,
+     "ty": -95
+    },
+    {
+     "tx": -12,
+     "ty": -95
+    },
+    {
+     "tx": -20,
+     "ty": -94
+    },
+    {
+     "tx": -19,
+     "ty": -94
+    },
+    {
+     "tx": -18,
+     "ty": -94
+    },
+    {
+     "tx": -17,
+     "ty": -94
+    },
+    {
+     "tx": -16,
+     "ty": -94
+    },
+    {
+     "tx": -15,
+     "ty": -94
+    },
+    {
+     "tx": -14,
+     "ty": -94
+    },
+    {
+     "tx": -13,
+     "ty": -94
+    },
+    {
+     "tx": -12,
+     "ty": -94
+    }
+   ],
+   "eligible": {
+    "common": [
+     "pidgey",
+     "rattata"
+    ],
+    "uncommon": [
+     "nidoran-f",
+     "nidoran-m",
+     "hoppip",
+     "shinx"
+    ],
+    "rare": [
+     "pidgeotto",
+     "raticate",
+     "pikachu"
+    ],
+    "very_rare": [
+     "nidorina",
+     "nidorino"
+    ]
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare",
+    "very_rare"
+   ],
+   "maxGroup": 3,
+   "warnings": []
+  },
+  {
+   "id": "pradera-pastizal-noreste",
+   "areaId": "pradera",
+   "zoneId": "pradera.abierta",
+   "group": "pastizal",
+   "habitats": [
+    "open-grass",
+    "tall-grass"
+   ],
+   "anchor": {
+    "tx": 10,
+    "ty": -90
+   },
+   "region": {
+    "x0": 6,
+    "y0": -93,
+    "x1": 14,
+    "y1": -87
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "Tall-grass meadow north of the quarry and east of the reserve; separate from the quarry work area.",
+   "candidateCount": 63,
+   "candidates": [
+    {
+     "tx": 6,
+     "ty": -93
+    },
+    {
+     "tx": 7,
+     "ty": -93
+    },
+    {
+     "tx": 8,
+     "ty": -93
+    },
+    {
+     "tx": 9,
+     "ty": -93
+    },
+    {
+     "tx": 10,
+     "ty": -93
+    },
+    {
+     "tx": 11,
+     "ty": -93
+    },
+    {
+     "tx": 12,
+     "ty": -93
+    },
+    {
+     "tx": 13,
+     "ty": -93
+    },
+    {
+     "tx": 14,
+     "ty": -93
+    },
+    {
+     "tx": 6,
+     "ty": -92
+    },
+    {
+     "tx": 7,
+     "ty": -92
+    },
+    {
+     "tx": 8,
+     "ty": -92
+    },
+    {
+     "tx": 9,
+     "ty": -92
+    },
+    {
+     "tx": 10,
+     "ty": -92
+    },
+    {
+     "tx": 11,
+     "ty": -92
+    },
+    {
+     "tx": 12,
+     "ty": -92
+    },
+    {
+     "tx": 13,
+     "ty": -92
+    },
+    {
+     "tx": 14,
+     "ty": -92
+    },
+    {
+     "tx": 6,
+     "ty": -91
+    },
+    {
+     "tx": 7,
+     "ty": -91
+    },
+    {
+     "tx": 8,
+     "ty": -91
+    },
+    {
+     "tx": 9,
+     "ty": -91
+    },
+    {
+     "tx": 10,
+     "ty": -91
+    },
+    {
+     "tx": 11,
+     "ty": -91
+    },
+    {
+     "tx": 12,
+     "ty": -91
+    },
+    {
+     "tx": 13,
+     "ty": -91
+    },
+    {
+     "tx": 14,
+     "ty": -91
+    },
+    {
+     "tx": 6,
+     "ty": -90
+    },
+    {
+     "tx": 7,
+     "ty": -90
+    },
+    {
+     "tx": 8,
+     "ty": -90
+    },
+    {
+     "tx": 9,
+     "ty": -90
+    },
+    {
+     "tx": 10,
+     "ty": -90
+    },
+    {
+     "tx": 11,
+     "ty": -90
+    },
+    {
+     "tx": 12,
+     "ty": -90
+    },
+    {
+     "tx": 13,
+     "ty": -90
+    },
+    {
+     "tx": 14,
+     "ty": -90
+    },
+    {
+     "tx": 6,
+     "ty": -89
+    },
+    {
+     "tx": 7,
+     "ty": -89
+    },
+    {
+     "tx": 8,
+     "ty": -89
+    },
+    {
+     "tx": 9,
+     "ty": -89
+    },
+    {
+     "tx": 10,
+     "ty": -89
+    },
+    {
+     "tx": 11,
+     "ty": -89
+    },
+    {
+     "tx": 12,
+     "ty": -89
+    },
+    {
+     "tx": 13,
+     "ty": -89
+    },
+    {
+     "tx": 14,
+     "ty": -89
+    },
+    {
+     "tx": 6,
+     "ty": -88
+    },
+    {
+     "tx": 7,
+     "ty": -88
+    },
+    {
+     "tx": 8,
+     "ty": -88
+    },
+    {
+     "tx": 9,
+     "ty": -88
+    },
+    {
+     "tx": 10,
+     "ty": -88
+    },
+    {
+     "tx": 11,
+     "ty": -88
+    },
+    {
+     "tx": 12,
+     "ty": -88
+    },
+    {
+     "tx": 13,
+     "ty": -88
+    },
+    {
+     "tx": 14,
+     "ty": -88
+    },
+    {
+     "tx": 6,
+     "ty": -87
+    },
+    {
+     "tx": 7,
+     "ty": -87
+    },
+    {
+     "tx": 8,
+     "ty": -87
+    },
+    {
+     "tx": 9,
+     "ty": -87
+    },
+    {
+     "tx": 10,
+     "ty": -87
+    },
+    {
+     "tx": 11,
+     "ty": -87
+    },
+    {
+     "tx": 12,
+     "ty": -87
+    },
+    {
+     "tx": 13,
+     "ty": -87
+    },
+    {
+     "tx": 14,
+     "ty": -87
+    }
+   ],
+   "eligible": {
+    "common": [
+     "pidgey",
+     "rattata"
+    ],
+    "uncommon": [
+     "nidoran-f",
+     "nidoran-m",
+     "hoppip",
+     "shinx"
+    ],
+    "rare": [
+     "pidgeotto",
+     "raticate",
+     "pikachu"
+    ],
+    "very_rare": [
+     "nidorina",
+     "nidorino"
+    ]
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare",
+    "very_rare"
+   ],
+   "maxGroup": 3,
+   "warnings": []
+  },
+  {
+   "id": "pradera-orilla-este",
+   "areaId": "pradera",
+   "zoneId": "pradera.abierta",
+   "group": "orilla",
+   "habitats": [
+    "open-grass",
+    "grass-near-water"
+   ],
+   "anchor": {
+    "tx": 27,
+    "ty": -84
+   },
+   "region": {
+    "x0": 24,
+    "y0": -88,
+    "x1": 29,
+    "y1": -80
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "The only water near the arrival is the eastern shore: grass within three tiles of it hosts the shore pool (Bidoof).",
+   "candidateCount": 51,
+   "candidates": [
+    {
+     "tx": 24,
+     "ty": -88
+    },
+    {
+     "tx": 25,
+     "ty": -88
+    },
+    {
+     "tx": 26,
+     "ty": -88
+    },
+    {
+     "tx": 27,
+     "ty": -88
+    },
+    {
+     "tx": 28,
+     "ty": -88
+    },
+    {
+     "tx": 29,
+     "ty": -88
+    },
+    {
+     "tx": 24,
+     "ty": -87
+    },
+    {
+     "tx": 25,
+     "ty": -87
+    },
+    {
+     "tx": 26,
+     "ty": -87
+    },
+    {
+     "tx": 27,
+     "ty": -87
+    },
+    {
+     "tx": 28,
+     "ty": -87
+    },
+    {
+     "tx": 29,
+     "ty": -87
+    },
+    {
+     "tx": 24,
+     "ty": -86
+    },
+    {
+     "tx": 25,
+     "ty": -86
+    },
+    {
+     "tx": 26,
+     "ty": -86
+    },
+    {
+     "tx": 27,
+     "ty": -86
+    },
+    {
+     "tx": 28,
+     "ty": -86
+    },
+    {
+     "tx": 29,
+     "ty": -86
+    },
+    {
+     "tx": 24,
+     "ty": -85
+    },
+    {
+     "tx": 25,
+     "ty": -85
+    },
+    {
+     "tx": 27,
+     "ty": -85
+    },
+    {
+     "tx": 28,
+     "ty": -85
+    },
+    {
+     "tx": 29,
+     "ty": -85
+    },
+    {
+     "tx": 24,
+     "ty": -84
+    },
+    {
+     "tx": 25,
+     "ty": -84
+    },
+    {
+     "tx": 26,
+     "ty": -84
+    },
+    {
+     "tx": 27,
+     "ty": -84
+    },
+    {
+     "tx": 28,
+     "ty": -84
+    },
+    {
+     "tx": 29,
+     "ty": -84
+    },
+    {
+     "tx": 24,
+     "ty": -83
+    },
+    {
+     "tx": 25,
+     "ty": -83
+    },
+    {
+     "tx": 26,
+     "ty": -83
+    },
+    {
+     "tx": 28,
+     "ty": -83
+    },
+    {
+     "tx": 29,
+     "ty": -83
+    },
+    {
+     "tx": 24,
+     "ty": -82
+    },
+    {
+     "tx": 25,
+     "ty": -82
+    },
+    {
+     "tx": 26,
+     "ty": -82
+    },
+    {
+     "tx": 27,
+     "ty": -82
+    },
+    {
+     "tx": 28,
+     "ty": -82
+    },
+    {
+     "tx": 29,
+     "ty": -82
+    },
+    {
+     "tx": 24,
+     "ty": -81
+    },
+    {
+     "tx": 25,
+     "ty": -81
+    },
+    {
+     "tx": 27,
+     "ty": -81
+    },
+    {
+     "tx": 28,
+     "ty": -81
+    },
+    {
+     "tx": 29,
+     "ty": -81
+    },
+    {
+     "tx": 24,
+     "ty": -80
+    },
+    {
+     "tx": 25,
+     "ty": -80
+    },
+    {
+     "tx": 26,
+     "ty": -80
+    },
+    {
+     "tx": 27,
+     "ty": -80
+    },
+    {
+     "tx": 28,
+     "ty": -80
+    },
+    {
+     "tx": 29,
+     "ty": -80
+    }
+   ],
+   "eligible": {
+    "common": [
+     "pidgey",
+     "rattata",
+     "bidoof"
+    ],
+    "uncommon": [
+     "hoppip",
+     "shinx"
+    ],
+    "rare": [
+     "pidgeotto",
+     "raticate",
+     "pikachu"
+    ],
+    "very_rare": []
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare"
+   ],
+   "maxGroup": 3,
+   "warnings": [
+    "no candidate for tier(s) very_rare: attempts landing there end in empty-tier"
+   ]
+  },
+  {
+   "id": "pradera-pastizal-este",
+   "areaId": "pradera",
+   "zoneId": "pradera.abierta",
+   "group": "pastizal",
+   "habitats": [
+    "open-grass",
+    "tall-grass"
+   ],
+   "anchor": {
+    "tx": 18,
+    "ty": -55
+   },
+   "region": {
+    "x0": 15,
+    "y0": -58,
+    "x1": 22,
+    "y1": -52
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "Tall-grass slope east of the forest and south of the quarry: spreads players away from the arrival to the south-east.",
+   "candidateCount": 51,
+   "candidates": [
+    {
+     "tx": 15,
+     "ty": -58
+    },
+    {
+     "tx": 16,
+     "ty": -58
+    },
+    {
+     "tx": 17,
+     "ty": -58
+    },
+    {
+     "tx": 18,
+     "ty": -58
+    },
+    {
+     "tx": 19,
+     "ty": -58
+    },
+    {
+     "tx": 20,
+     "ty": -58
+    },
+    {
+     "tx": 21,
+     "ty": -58
+    },
+    {
+     "tx": 22,
+     "ty": -58
+    },
+    {
+     "tx": 15,
+     "ty": -57
+    },
+    {
+     "tx": 16,
+     "ty": -57
+    },
+    {
+     "tx": 17,
+     "ty": -57
+    },
+    {
+     "tx": 18,
+     "ty": -57
+    },
+    {
+     "tx": 19,
+     "ty": -57
+    },
+    {
+     "tx": 20,
+     "ty": -57
+    },
+    {
+     "tx": 22,
+     "ty": -57
+    },
+    {
+     "tx": 15,
+     "ty": -56
+    },
+    {
+     "tx": 16,
+     "ty": -56
+    },
+    {
+     "tx": 17,
+     "ty": -56
+    },
+    {
+     "tx": 18,
+     "ty": -56
+    },
+    {
+     "tx": 19,
+     "ty": -56
+    },
+    {
+     "tx": 20,
+     "ty": -56
+    },
+    {
+     "tx": 21,
+     "ty": -56
+    },
+    {
+     "tx": 15,
+     "ty": -55
+    },
+    {
+     "tx": 16,
+     "ty": -55
+    },
+    {
+     "tx": 17,
+     "ty": -55
+    },
+    {
+     "tx": 18,
+     "ty": -55
+    },
+    {
+     "tx": 19,
+     "ty": -55
+    },
+    {
+     "tx": 20,
+     "ty": -55
+    },
+    {
+     "tx": 21,
+     "ty": -55
+    },
+    {
+     "tx": 15,
+     "ty": -54
+    },
+    {
+     "tx": 16,
+     "ty": -54
+    },
+    {
+     "tx": 17,
+     "ty": -54
+    },
+    {
+     "tx": 18,
+     "ty": -54
+    },
+    {
+     "tx": 19,
+     "ty": -54
+    },
+    {
+     "tx": 20,
+     "ty": -54
+    },
+    {
+     "tx": 21,
+     "ty": -54
+    },
+    {
+     "tx": 22,
+     "ty": -54
+    },
+    {
+     "tx": 15,
+     "ty": -53
+    },
+    {
+     "tx": 16,
+     "ty": -53
+    },
+    {
+     "tx": 17,
+     "ty": -53
+    },
+    {
+     "tx": 18,
+     "ty": -53
+    },
+    {
+     "tx": 19,
+     "ty": -53
+    },
+    {
+     "tx": 20,
+     "ty": -53
+    },
+    {
+     "tx": 21,
+     "ty": -53
+    },
+    {
+     "tx": 15,
+     "ty": -52
+    },
+    {
+     "tx": 16,
+     "ty": -52
+    },
+    {
+     "tx": 17,
+     "ty": -52
+    },
+    {
+     "tx": 18,
+     "ty": -52
+    },
+    {
+     "tx": 19,
+     "ty": -52
+    },
+    {
+     "tx": 20,
+     "ty": -52
+    },
+    {
+     "tx": 21,
+     "ty": -52
+    }
+   ],
+   "eligible": {
+    "common": [
+     "pidgey",
+     "rattata"
+    ],
+    "uncommon": [
+     "nidoran-f",
+     "nidoran-m",
+     "hoppip",
+     "shinx"
+    ],
+    "rare": [
+     "pidgeotto",
+     "raticate",
+     "pikachu"
+    ],
+    "very_rare": [
+     "nidorina",
+     "nidorino"
+    ]
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare",
+    "very_rare"
+   ],
+   "maxGroup": 3,
+   "warnings": []
+  },
+  {
+   "id": "bosque-claro-suroeste",
+   "areaId": "pradera",
+   "zoneId": "pradera.bosque",
+   "group": "claro",
+   "habitats": [
+    "damp-clearing",
+    "clearing",
+    "conifers"
+   ],
+   "anchor": {
+    "tx": -16,
+    "ty": -44
+   },
+   "region": {
+    "x0": -17,
+    "y0": -44,
+    "x1": -15,
+    "y1": -43
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "The largest pocket of the forest that is no tree node's work position (four tiles, south-west quadrant): a literal clearing.",
+   "candidateCount": 4,
+   "candidates": [
+    {
+     "tx": -16,
+     "ty": -44
+    },
+    {
+     "tx": -15,
+     "ty": -44
+    },
+    {
+     "tx": -17,
+     "ty": -43
+    },
+    {
+     "tx": -16,
+     "ty": -43
+    }
+   ],
+   "eligible": {
+    "common": [
+     "oddish"
+    ],
+    "uncommon": [
+     "pineco"
+    ],
+    "rare": [
+     "gloom",
+     "pidgeotto",
+     "pikachu"
+    ],
+    "very_rare": [
+     "forretress"
+    ]
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare",
+    "very_rare"
+   ],
+   "maxGroup": 2,
+   "warnings": []
+  },
+  {
+   "id": "bosque-sotobosque-sureste",
+   "areaId": "pradera",
+   "zoneId": "pradera.bosque",
+   "group": "sotobosque",
+   "habitats": [
+    "undergrowth",
+    "branches",
+    "foliage"
+   ],
+   "anchor": {
+    "tx": -6,
+    "ty": -43
+   },
+   "region": {
+    "x0": -6,
+    "y0": -44,
+    "x1": -6,
+    "y1": -41
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "Three free tiles beside the north–south lane, south of the cross lane: undergrowth at the forest's main path.",
+   "candidateCount": 3,
+   "candidates": [
+    {
+     "tx": -6,
+     "ty": -44
+    },
+    {
+     "tx": -6,
+     "ty": -43
+    },
+    {
+     "tx": -6,
+     "ty": -41
+    }
+   ],
+   "eligible": {
+    "common": [
+     "caterpie",
+     "weedle"
+    ],
+    "uncommon": [
+     "metapod",
+     "kakuna",
+     "ledyba"
+    ],
+    "rare": [
+     "ledian"
+    ],
+    "very_rare": []
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare"
+   ],
+   "maxGroup": 3,
+   "warnings": [
+    "no candidate for tier(s) very_rare: attempts landing there end in empty-tier"
+   ]
+  },
+  {
+   "id": "cueva-techo-norte",
+   "areaId": "cueva-inicial",
+   "zoneId": "cueva-inicial",
+   "group": "techo+suelo",
+   "habitats": [
+    "cave-ceiling",
+    "cave-floor"
+   ],
+   "anchor": {
+    "tx": 10,
+    "ty": 2
+   },
+   "region": {
+    "x0": 7,
+    "y0": 1,
+    "x1": 13,
+    "y1": 3
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "The far, highest part of the chamber, opposite the arrival: bats roost away from the entrance.",
+   "candidateCount": 21,
+   "candidates": [
+    {
+     "tx": 7,
+     "ty": 1
+    },
+    {
+     "tx": 8,
+     "ty": 1
+    },
+    {
+     "tx": 9,
+     "ty": 1
+    },
+    {
+     "tx": 10,
+     "ty": 1
+    },
+    {
+     "tx": 11,
+     "ty": 1
+    },
+    {
+     "tx": 12,
+     "ty": 1
+    },
+    {
+     "tx": 13,
+     "ty": 1
+    },
+    {
+     "tx": 7,
+     "ty": 2
+    },
+    {
+     "tx": 8,
+     "ty": 2
+    },
+    {
+     "tx": 9,
+     "ty": 2
+    },
+    {
+     "tx": 10,
+     "ty": 2
+    },
+    {
+     "tx": 11,
+     "ty": 2
+    },
+    {
+     "tx": 12,
+     "ty": 2
+    },
+    {
+     "tx": 13,
+     "ty": 2
+    },
+    {
+     "tx": 7,
+     "ty": 3
+    },
+    {
+     "tx": 8,
+     "ty": 3
+    },
+    {
+     "tx": 9,
+     "ty": 3
+    },
+    {
+     "tx": 10,
+     "ty": 3
+    },
+    {
+     "tx": 11,
+     "ty": 3
+    },
+    {
+     "tx": 12,
+     "ty": 3
+    },
+    {
+     "tx": 13,
+     "ty": 3
+    }
+   ],
+   "eligible": {
+    "common": [
+     "zubat"
+    ],
+    "uncommon": [
+     "diglett"
+    ],
+    "rare": [
+     "golbat"
+    ],
+    "very_rare": []
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare"
+   ],
+   "maxGroup": 3,
+   "warnings": [
+    "no candidate for tier(s) very_rare: attempts landing there end in empty-tier",
+    "every common entry needs a group ≥ 2: when the area has one free slot, the common tier is empty"
+   ]
+  },
+  {
+   "id": "cueva-rincon-oeste",
+   "areaId": "cueva-inicial",
+   "zoneId": "cueva-inicial",
+   "group": "rincón+húmedo",
+   "habitats": [
+    "cave-nook",
+    "cave-damp-corner"
+   ],
+   "anchor": {
+    "tx": 3,
+    "ty": 7
+   },
+   "region": {
+    "x0": 2,
+    "y0": 4,
+    "x1": 5,
+    "y1": 9
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "Western alcove beside the left pillar: nooks for Whismur and the rare Dunsparce.",
+   "candidateCount": 23,
+   "candidates": [
+    {
+     "tx": 2,
+     "ty": 4
+    },
+    {
+     "tx": 3,
+     "ty": 4
+    },
+    {
+     "tx": 4,
+     "ty": 4
+    },
+    {
+     "tx": 5,
+     "ty": 4
+    },
+    {
+     "tx": 2,
+     "ty": 5
+    },
+    {
+     "tx": 3,
+     "ty": 5
+    },
+    {
+     "tx": 4,
+     "ty": 5
+    },
+    {
+     "tx": 5,
+     "ty": 5
+    },
+    {
+     "tx": 2,
+     "ty": 6
+    },
+    {
+     "tx": 3,
+     "ty": 6
+    },
+    {
+     "tx": 4,
+     "ty": 6
+    },
+    {
+     "tx": 5,
+     "ty": 6
+    },
+    {
+     "tx": 2,
+     "ty": 7
+    },
+    {
+     "tx": 3,
+     "ty": 7
+    },
+    {
+     "tx": 4,
+     "ty": 7
+    },
+    {
+     "tx": 5,
+     "ty": 7
+    },
+    {
+     "tx": 2,
+     "ty": 8
+    },
+    {
+     "tx": 3,
+     "ty": 8
+    },
+    {
+     "tx": 4,
+     "ty": 8
+    },
+    {
+     "tx": 5,
+     "ty": 8
+    },
+    {
+     "tx": 3,
+     "ty": 9
+    },
+    {
+     "tx": 4,
+     "ty": 9
+    },
+    {
+     "tx": 5,
+     "ty": 9
+    }
+   ],
+   "eligible": {
+    "common": [
+     "whismur"
+    ],
+    "uncommon": [
+     "paras"
+    ],
+    "rare": [
+     "sudowoodo",
+     "loudred"
+    ],
+    "very_rare": [
+     "dunsparce"
+    ]
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare",
+    "very_rare"
+   ],
+   "maxGroup": 1,
+   "warnings": []
+  },
+  {
+   "id": "cueva-roca-este",
+   "areaId": "cueva-inicial",
+   "zoneId": "cueva-inicial",
+   "group": "roca+seco",
+   "habitats": [
+    "cave-rocky-floor",
+    "cave-dry-floor"
+   ],
+   "anchor": {
+    "tx": 17,
+    "ty": 7
+   },
+   "region": {
+    "x0": 15,
+    "y0": 3,
+    "x1": 18,
+    "y1": 9
+   },
+   "maxAlive": 3,
+   "groupCap": 3,
+   "justification": "Eastern side behind the right pillar: rocky, dry ground for Geodude and Sandshrew.",
+   "candidateCount": 24,
+   "candidates": [
+    {
+     "tx": 15,
+     "ty": 3
+    },
+    {
+     "tx": 16,
+     "ty": 3
+    },
+    {
+     "tx": 17,
+     "ty": 3
+    },
+    {
+     "tx": 15,
+     "ty": 4
+    },
+    {
+     "tx": 16,
+     "ty": 4
+    },
+    {
+     "tx": 17,
+     "ty": 4
+    },
+    {
+     "tx": 18,
+     "ty": 4
+    },
+    {
+     "tx": 16,
+     "ty": 5
+    },
+    {
+     "tx": 17,
+     "ty": 5
+    },
+    {
+     "tx": 18,
+     "ty": 5
+    },
+    {
+     "tx": 16,
+     "ty": 6
+    },
+    {
+     "tx": 17,
+     "ty": 6
+    },
+    {
+     "tx": 18,
+     "ty": 6
+    },
+    {
+     "tx": 15,
+     "ty": 7
+    },
+    {
+     "tx": 16,
+     "ty": 7
+    },
+    {
+     "tx": 17,
+     "ty": 7
+    },
+    {
+     "tx": 18,
+     "ty": 7
+    },
+    {
+     "tx": 15,
+     "ty": 8
+    },
+    {
+     "tx": 16,
+     "ty": 8
+    },
+    {
+     "tx": 17,
+     "ty": 8
+    },
+    {
+     "tx": 18,
+     "ty": 8
+    },
+    {
+     "tx": 15,
+     "ty": 9
+    },
+    {
+     "tx": 16,
+     "ty": 9
+    },
+    {
+     "tx": 17,
+     "ty": 9
+    }
+   ],
+   "eligible": {
+    "common": [
+     "geodude"
+    ],
+    "uncommon": [
+     "sandshrew"
+    ],
+    "rare": [
+     "graveler"
+    ],
+    "very_rare": []
+   },
+   "tiersCovered": [
+    "common",
+    "uncommon",
+    "rare"
+   ],
+   "maxGroup": 2,
+   "warnings": [
+    "no candidate for tier(s) very_rare: attempts landing there end in empty-tier"
+   ]
+  }
+ ]
+}
