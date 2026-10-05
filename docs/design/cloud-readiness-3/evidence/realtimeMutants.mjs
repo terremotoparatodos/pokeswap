@@ -17,13 +17,14 @@ const NODE = process.argv[2] ?? process.execPath
 const ROOM = 'src/rooms/PresenceRoomRecovery.test.js'
 const CAP = 'src/presence/recoveryCapability.test.js'
 const HOSTING = 'src/rooms/presenceHosting.js'
-const STOP_PROMOTING = '    if (standby?.promoting) { this.standbyCounters.abandoned++; void standby.promoting.stop() }\n'
+const STOP_PROMOTING = '    if (standby?.promoting) { this.standbyCounters.abandoned++; this.abandoned = this.#abandon(standby.promoting) }\n'
 const RECHECK = "if (this.standby !== standby || this.shutdownBegun || state !== 'active') {"
 const ACTIVATE_GUARD = "    if (state === 'starting' && this.standby === standby && !this.shutdownBegun) state = await candidate.activate()"
 const MUTANTS = [
   // Two layers keep a promotion that a shutdown overtook from being installed: beginShutdown() stops the
-  // identity being promoted (its activation answers late/stopped), and #promote re-checks the shutdown.
-  { id: 'layer1-promotion-not-stopped', expect: 'SURVIVED', edits: [[HOSTING, STOP_PROMOTING, '']], test: ROOM, pattern: 'SIGINT during the promotion' },
+  // identity being promoted, also straight at the authority (observable on its own: the row is stopped before
+  // its activation lands), and #promote re-checks the shutdown (it survives alone: layer 1 already holds).
+  { id: 'layer1-promotion-not-stopped', edits: [[HOSTING, STOP_PROMOTING, '']], test: ROOM, pattern: 'SIGINT during the promotion' },
   { id: 'layer2-no-shutdown-recheck', expect: 'SURVIVED', edits: [[HOSTING, RECHECK, "if (state !== 'active') {"]], test: ROOM, pattern: 'SIGINT during the promotion' },
   { id: 'both-layers-late-promotion', edits: [[HOSTING, STOP_PROMOTING, ''], [HOSTING, RECHECK, "if (state !== 'active') {"], [HOSTING, ACTIVATE_GUARD, "    if (state === 'starting') state = await candidate.activate()"]],
     test: ROOM, pattern: 'SIGINT during the promotion' },
@@ -39,6 +40,10 @@ const MUTANTS = [
   { id: 'kill-switch-ignored', edits: [['src/presence/recoveryCapability.js', "export const recoveryRequested = env => env?.[RECOVERY_ENV] === 'on'", "export const recoveryRequested = env => env?.[RECOVERY_ENV] !== 'off'"]], test: CAP, pattern: 'kill switch' },
   { id: 'fallback-without-disable', edits: [['src/presence/recoveryCapability.js', '            if (!capability.unsupported(error)) throw error\n', '            if (!(error instanceof Error)) throw error\n']], test: CAP, pattern: 'withRecovery' },
 ]
+
+// Restoring uses `git checkout`: uncommitted work in the mutated tree would be lost, so refuse to start.
+const dirty = execFileSync('git', ['-C', ROOT, 'status', '--porcelain', '--', 'services/realtime/src'], { encoding: 'utf8' }).trim()
+if (dirty) { console.log(`BLOCKED: services/realtime/src has uncommitted changes; commit them first:\n${dirty}`); process.exit(2) }
 
 const results = []
 for (const m of MUTANTS) {
