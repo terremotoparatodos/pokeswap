@@ -10,6 +10,11 @@
 // that lands in it returns `{ ok: false, reason: 'empty-tier' }`. Nothing is
 // silently redistributed to the other tiers.
 //
+// A pick never trusts that the catalog was validated: shares that are not
+// finite, negative or all zero, or a tier whose candidates do not all have a
+// positive finite weight, answer `{ ok: false, reason: 'invalid-distribution' }`
+// instead of drawing something anyway.
+//
 // No randomness lives here. A pick takes an explicit ticket of two numbers in
 // [0, 1); whoever calls decides where they come from (a server CSPRNG, a
 // seeded test generator). The same catalog and ticket always give the same answer.
@@ -44,6 +49,7 @@ export type PickResult =
   | { readonly ok: true; readonly entry: EncounterEntry; readonly rarity: EncounterRarity }
   | { readonly ok: false; readonly reason: 'empty-tier'; readonly rarity: EncounterRarity }
   | { readonly ok: false; readonly reason: 'unknown-zone' }
+  | { readonly ok: false; readonly reason: 'invalid-distribution' }
 
 export function zoneById(catalog: EncounterCatalog, zoneId: string): EncounterZone | null {
   return catalog.zones.find(zone => zone.id === zoneId) ?? null
@@ -99,6 +105,8 @@ export function zoneDistribution(catalog: EncounterCatalog, zoneId: string, filt
   return { zoneId, tiers, emptyTiers, unassigned }
 }
 
+const isWeight = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0
+
 function assertRoll(name: string, value: number): void {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value >= 1) {
     throw new RangeError(`${name} must be a finite number in [0, 1), got ${String(value)}`)
@@ -125,9 +133,12 @@ export function pickEncounter(catalog: EncounterCatalog, zoneId: string, ticket:
   const zone = zoneById(catalog, zoneId)
   if (!zone) return { ok: false, reason: 'unknown-zone' }
 
+  const shares = ENCOUNTER_RARITIES.map(r => zone.rarityShares[r])
+  if (!shares.every(isWeight) || !(shares.reduce((sum, share) => sum + share, 0) > 0)) return { ok: false, reason: 'invalid-distribution' }
   const rarity = walk(ENCOUNTER_RARITIES, r => tierProbability(zone, r), ticket.tierRoll, 1)
   const list = candidates(catalog, zoneId, rarity, filter)
   if (list.length === 0) return { ok: false, reason: 'empty-tier', rarity }
+  if (!list.every(entry => isWeight(entry.weight) && entry.weight > 0)) return { ok: false, reason: 'invalid-distribution' }
   const total = list.reduce((sum, entry) => sum + entry.weight, 0)
   return { ok: true, entry: walk(list, entry => entry.weight, ticket.entryRoll, total), rarity }
 }

@@ -119,6 +119,25 @@ describe('pickEncounter', () => {
     }
   })
 
+  it('refuses an invalid distribution instead of drawing from it (catalog not validated)', () => {
+    const zone = 'pradera.abierta'
+    const withShares = (rarityShares: Record<string, number>): EncounterCatalog => ({
+      ...catalog, zones: catalog.zones.map(z => (z.id === zone ? { ...z, rarityShares: rarityShares as never } : z)),
+    })
+    const withWeight = (weight: number): EncounterCatalog => ({ ...catalog, entries: catalog.entries.map((e, i) => (i === 0 ? { ...e, weight } : e)) })
+    const invalid = { ok: false, reason: 'invalid-distribution' }
+    for (const ticket of [{ tierRoll: 0, entryRoll: 0 }, { tierRoll: 0.5, entryRoll: 0.9 }, { tierRoll: 0.999, entryRoll: 0.5 }]) {
+      expect(pickEncounter(withShares({ common: 0, uncommon: 0, rare: 0, very_rare: 0 }), zone, ticket)).toEqual(invalid)
+      expect(pickEncounter(withShares({ common: 70, uncommon: -24, rare: 5.5, very_rare: 0.5 }), zone, ticket)).toEqual(invalid)
+      expect(pickEncounter(withShares({ common: Number.NaN, uncommon: 24, rare: 5.5, very_rare: 0.5 }), zone, ticket)).toEqual(invalid)
+    }
+    // One bad weight poisons only its own tier: the common tier refuses, the others still draw.
+    for (const weight of [0, -1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(pickEncounter(withWeight(weight), zone, { tierRoll: 0, entryRoll: 0.5 }), String(weight)).toEqual(invalid)
+      expect(pickEncounter(withWeight(weight), zone, { tierRoll: 0.8, entryRoll: 0.5 }).ok, String(weight)).toBe(true)
+    }
+  })
+
   it('refuses tickets outside [0, 1)', () => {
     for (const ticket of [{ tierRoll: 1, entryRoll: 0 }, { tierRoll: -0.1, entryRoll: 0 }, { tierRoll: 0, entryRoll: Number.NaN }] as EncounterTicket[]) {
       expect(() => pickEncounter(catalog, 'pradera.abierta', ticket)).toThrow(RangeError)
