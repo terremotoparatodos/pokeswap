@@ -12,7 +12,7 @@ import { createPopulation, retireEncounter, tickPopulation } from '../population
 import type { PopulationConfigIssue } from '../population/config'
 import { publicArea } from '../population/projection'
 import type { AreaGeometry, PopulationEvent, PopulationState, RandomSource, RetireCause } from '../population/types'
-import { buildScenario, GRID, type NestLayout, type PreviewZoneId, type Scenario, type SimParams } from './scenarios'
+import { buildScenario, type NestLayout, type PreviewZoneId, type Scenario, type SimParams } from './scenarios'
 
 export interface SimSetup {
   readonly zoneId: PreviewZoneId
@@ -60,7 +60,8 @@ function generator(state: number): { random: RandomSource; state: () => number }
 
 export function geometryOf(scenario: Scenario): AreaGeometry {
   const blocked = new Set(scenario.blocked.map(t => `${t.tx},${t.ty}`))
-  return { isOpenTile: (tx, ty) => tx >= 0 && ty >= 0 && tx < GRID.width && ty < GRID.height && !blocked.has(`${tx},${ty}`) }
+  const b = scenario.bounds
+  return { isOpenTile: (tx, ty) => tx >= b.minTx && ty >= b.minTy && tx <= b.maxTx && ty <= b.maxTy && !blocked.has(`${tx},${ty}`) }
 }
 
 const areaIdOf = (sim: SimState) => sim.scenario.config.areas[0].areaId
@@ -92,7 +93,7 @@ export function createSim(setup: SimSetup): CreateSimResult {
   if (!created.ok) return { ok: false, issues: created.issues }
   const base: SimState = {
     setup, scenario, population: created.state, now: 0, rngState: setup.seed >>> 0, players: 1, forcedInactive: false, evaluations: 0, lastEvents: [],
-    log: [`escenario ${setup.zoneId} · ${setup.layout} · semilla ${setup.seed} (SIMULACIÓN, grilla sintética)`],
+    log: [`escenario ${setup.zoneId} · ${setup.layout} · semilla ${setup.seed} (${setup.layout === 'real-map' ? 'PROPUESTA, mapa real' : 'SIMULACIÓN, grilla sintética'})`],
   }
   return { ok: true, sim: evaluate(base, 0, 'inicio') }
 }
@@ -144,6 +145,8 @@ export interface CellView {
   readonly tx: number
   readonly ty: number
   readonly blocked: boolean
+  /** Real map: the tile kind char (realMap.ts TILE_KIND); synthetic grid: '#' or '.'. */
+  readonly kind: string
   readonly nestId: string | null
   readonly encounter: { readonly id: string; readonly groupId: string; readonly speciesId: number } | null
 }
@@ -167,9 +170,11 @@ export function viewOf(sim: SimState): SimView {
   const published = publicArea(sim.population, areaId)
   const encounterAt = new Map(published.encounters.map(e => [`${e.tile.tx},${e.tile.ty}`, { id: e.id, groupId: e.groupId, speciesId: e.speciesId }]))
   const cells: CellView[] = []
-  for (let ty = 0; ty < GRID.height; ty++) for (let tx = 0; tx < GRID.width; tx++) {
+  const b = sim.scenario.bounds
+  for (let ty = b.minTy; ty <= b.maxTy; ty++) for (let tx = b.minTx; tx <= b.maxTx; tx++) {
     const key = `${tx},${ty}`
-    cells.push({ tx, ty, blocked: blocked.has(key), nestId: nestAt.get(key) ?? null, encounter: encounterAt.get(key) ?? null })
+    const kind = sim.scenario.kinds ? sim.scenario.kinds[ty - b.minTy][tx - b.minTx] : blocked.has(key) ? '#' : '.'
+    cells.push({ tx, ty, blocked: blocked.has(key), kind, nestId: nestAt.get(key) ?? null, encounter: encounterAt.get(key) ?? null })
   }
   const nests = area.nests.map(nest => {
     const state = sim.population.nests[`${areaId}/${nest.id}`]

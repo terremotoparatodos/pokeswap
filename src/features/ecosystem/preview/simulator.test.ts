@@ -143,3 +143,44 @@ describe('comparison', () => {
     expect(perMember.meanAlive).toBeGreaterThan(perGroup.meanAlive)
   })
 })
+
+describe('real map (ECO-MAP-1 proposal)', () => {
+  const real = (zoneId: PreviewZoneId) => sim({ zoneId, layout: 'real-map', params: defaultParams(zoneId) })
+
+  it('builds each area from the real snapshot and the proposed nests', () => {
+    const counts = (['pradera.abierta', 'pradera.bosque', 'cueva-inicial'] as PreviewZoneId[]).map(z => real(z).scenario.config.areas[0].nests.length)
+    expect(counts).toEqual([5, 2, 3])
+    for (const zoneId of ['pradera.abierta', 'pradera.bosque', 'cueva-inicial'] as PreviewZoneId[]) {
+      const s = real(zoneId)
+      const b = s.scenario.bounds
+      expect(s.scenario.kinds).toHaveLength(b.maxTy - b.minTy + 1)
+      for (const row of s.scenario.kinds!) expect(row).toHaveLength(b.maxTx - b.minTx + 1)
+      expect(s.scenario.notes[0]).toMatch(/PROPUESTA DE DESARROLLO · mapa real .* \(layout 1\.[0-9a-f]{12}\)/)
+      expect(s.log[0]).toMatch(/PROPUESTA, mapa real/)
+    }
+    expect(real('pradera.bosque').scenario.notes.join('\n')).toMatch(/300 casillas transitables en el bosque; sólo 13 quedan libres/)
+  })
+
+  it('places encounters with the real engine only on proposed candidate tiles, never on blocked, water, portal or work tiles', () => {
+    for (const zoneId of ['pradera.abierta', 'pradera.bosque', 'cueva-inicial'] as PreviewZoneId[]) {
+      let s = real(zoneId)
+      for (let i = 0; i < 30; i++) s = advance(s, 20_000)
+      const v = viewOf(s)
+      const withEncounter = v.cells.filter(c => c.encounter)
+      expect(withEncounter.length, zoneId).toBeGreaterThan(0)
+      for (const c of withEncounter) {
+        expect(c.nestId, `${zoneId} ${c.tx},${c.ty}`).not.toBeNull()
+        expect('#~pPRwu='.includes(c.kind), `${zoneId} ${c.tx},${c.ty} kind ${c.kind}`).toBe(false)
+      }
+      expect(v.alive).toBeLessThanOrEqual(v.areaMax)
+    }
+  })
+
+  it('leaves the synthetic grid as it was', () => {
+    const s = sim()
+    expect(s.scenario.bounds).toEqual({ minTx: 0, minTy: 0, maxTx: 17, maxTy: 11 })
+    expect(s.scenario.kinds).toBeNull()
+    expect(s.setup.layout).toBe('mixed')
+    expect(defaultParams('cueva-inicial')).toEqual({ policy: 'per-group', delayMs: 75_000, jitter: 0.2, retryMs: 15_000, dormantAfterMs: 300_000, staggerMinMs: 5_000, staggerMaxMs: 15_000, areaMaxAlive: 6, nestMaxAlive: 3, groupCap: 3 })
+  })
+})

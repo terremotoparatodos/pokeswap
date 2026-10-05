@@ -65,3 +65,20 @@ describe('EcoPreviewApp', () => {
     expect(text(w, 'comparison')).toMatch(/Encuentros nacidos/)
   })
 })
+
+describe('EcoPreviewApp · real map proposal', () => {
+  it('switches to the real map, labels it as a proposal, inspects a nest and advances the clock', async () => {
+    const w = mount(EcoPreviewApp)
+    await w.get('[data-test="layout"]').setValue('real-map')
+    expect(text(w, 'banner')).toMatch(/PROPUESTA DE DESARROLLO/)
+    expect(w.findAll('[data-test="nest-row"]').length).toBe(3)
+    expect(text(w, 'notes')).toMatch(/mapa real cueva-inicial/)
+    await w.findAll('[data-test="nest-tile"]')[0].trigger('click')
+    expect(text(w, 'nest-detail')).toMatch(/casillas candidatas/)
+    await w.get('[data-test="advance-15"]').trigger('click')
+    expect(w.findAll('[data-test="encounter"]').length).toBeGreaterThan(0)
+    await w.get('[data-test="zone"]').setValue('pradera.bosque')
+    expect(w.findAll('[data-test="nest-row"]').length).toBe(2)
+    expect(text(w, 'notes')).toMatch(/restricción: \d+ casillas transitables en el bosque/)
+  })
+})

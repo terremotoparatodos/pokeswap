@@ -4,7 +4,8 @@
 import { computed, ref, shallowRef } from 'vue'
 import { overworldSheetUrl } from '../../wildlands/engine/characters'
 import { compareSetups, DEFAULT_SESSION, type SimMetrics } from './compare'
-import { defaultParams, GRID, PREVIEW_ZONES, type NestLayout, type PreviewZoneId, type SimParams } from './scenarios'
+import { realNestDetails, TILE_KIND } from './realMap'
+import { defaultParams, PREVIEW_ZONES, type NestLayout, type PreviewZoneId, type SimParams } from './scenarios'
 import {
   advance, aliveEncounters, createSim, repeatEvaluation, resetSim, retire, setForcedInactive, setPlayers, viewOf,
   type SimSetup, type SimState,
@@ -28,6 +29,7 @@ function start(): void {
   }
   error.value = null
   selected.value = null
+  selectedNestId.value = null
   sim.value = created.sim
 }
 
@@ -44,6 +46,19 @@ const doRetire = (cause: RetireCause) => {
 }
 
 const view = computed(() => (sim.value ? viewOf(sim.value) : null))
+
+// ECO-MAP-1: real-map proposal mode.
+const isReal = computed(() => sim.value?.setup.layout === 'real-map')
+const columns = computed(() => (sim.value ? sim.value.scenario.bounds.maxTx - sim.value.scenario.bounds.minTx + 1 : 0))
+const cellPx = computed(() => (!isReal.value ? 30 : columns.value > 40 ? 10 : columns.value > 21 ? 22 : 30))
+const KIND_CLASS: Record<string, string> = Object.fromEntries(Object.entries(TILE_KIND).map(([name, char]) => [char, `k-${name}`]))
+const selectedNestId = ref<string | null>(null)
+const nestDetails = computed(() => (isReal.value ? realNestDetails(zoneId.value) : []))
+const selectedNest = computed(() => nestDetails.value.find(d => d.nest.id === selectedNestId.value) ?? null)
+function pick(cell: { encounter: { id: string } | null; nestId: string | null }): void {
+  if (cell.encounter) selected.value = cell.encounter.id
+  else if (cell.nestId) selectedNestId.value = cell.nestId
+}
 const selectedEncounter = computed(() => (sim.value && selected.value ? aliveEncounters(sim.value).find(e => e.id === selected.value) ?? null : null))
 const log = computed(() => (sim.value ? [...sim.value.log].reverse().slice(0, 40) : []))
 const groupHue = (groupId: string) => [...groupId].reduce((h, c) => (h * 31 + c.charCodeAt(0)) % 360, 7)
@@ -77,7 +92,8 @@ start()
 <template>
   <main class="eco">
     <header class="banner" data-test="banner">
-      SIMULACIÓN LOCAL — grilla sintética, catálogo y motor reales. Nada aquí toca el juego, cuentas ni servidores.
+      <template v-if="isReal">PROPUESTA DE DESARROLLO — mapa real con nidos propuestos (no integrados), catálogo y motor reales. Nada aquí toca el juego, cuentas ni servidores.</template>
+      <template v-else>SIMULACIÓN LOCAL — grilla sintética, catálogo y motor reales. Nada aquí toca el juego, cuentas ni servidores.</template>
     </header>
 
     <section class="controls">
@@ -88,7 +104,7 @@ start()
       </label>
       <label>Nidos
         <select v-model="layout" data-test="layout" @change="start">
-          <option value="mixed">mixtos</option><option value="by-habitat">por hábitat</option>
+          <option value="mixed">mixtos</option><option value="by-habitat">por hábitat</option><option value="real-map">mapa real (propuesta)</option>
         </select>
       </label>
       <label>Semilla <input v-model.number="seed" type="number" data-test="seed" @change="start"></label>
@@ -117,14 +133,14 @@ start()
     </section>
 
     <section v-if="view && sim" class="world">
-      <div class="grid" :style="{ gridTemplateColumns: `repeat(${GRID.width}, 30px)` }" data-test="grid">
+      <div class="grid" :style="{ gridTemplateColumns: `repeat(${columns}, ${cellPx}px)`, '--cell': `${cellPx}px` }" data-test="grid">
         <button
           v-for="cell in view.cells" :key="`${cell.tx},${cell.ty}`" type="button" class="cell"
-          :class="{ blocked: cell.blocked, nest: cell.nestId, picked: cell.encounter && cell.encounter.id === selected }"
-          :title="cell.encounter ? `${cell.encounter.id} · especie #${cell.encounter.speciesId}` : cell.nestId ?? (cell.blocked ? 'bloqueada' : '')"
-          :data-test="cell.encounter ? 'encounter' : undefined"
-          :disabled="!cell.encounter"
-          @click="cell.encounter && (selected = cell.encounter.id)"
+          :class="[isReal ? KIND_CLASS[cell.kind] : { blocked: cell.blocked }, { nest: cell.nestId, picked: cell.encounter && cell.encounter.id === selected, 'nest-picked': cell.nestId && cell.nestId === selectedNestId }]"
+          :title="`${cell.tx},${cell.ty} ` + (cell.encounter ? `${cell.encounter.id} · especie #${cell.encounter.speciesId}` : cell.nestId ?? (cell.blocked ? 'bloqueada' : ''))"
+          :data-test="cell.encounter ? 'encounter' : cell.nestId ? 'nest-tile' : undefined"
+          :disabled="!cell.encounter && !cell.nestId"
+          @click="pick(cell)"
         >
           <span
             v-if="cell.encounter" class="sprite"
@@ -151,6 +167,15 @@ start()
           <button data-test="retire-captured" @click="doRetire('captured')">Capturar (simulado)</button>
           <button data-test="retire-fled" @click="doRetire('fled')">Huye (simulado)</button>
         </div>
+        <div v-if="selectedNest" class="selection" data-test="nest-detail">
+          <p><b>{{ selectedNest.nest.id }}</b> · grupo {{ selectedNest.nest.group }} ({{ selectedNest.nest.habitats.join(', ') }})<br>
+            ancla {{ selectedNest.nest.anchor.tx }},{{ selectedNest.nest.anchor.ty }} · {{ selectedNest.report.candidates.length }} casillas candidatas · máx. {{ selectedNest.nest.maxAlive }} vivos, grupo ≤ {{ selectedNest.nest.groupCap }}</p>
+          <p v-for="(names, tier) in selectedNest.report.eligible" :key="tier">{{ tier }}: {{ names.join(', ') || '—' }}</p>
+          <p><i>{{ selectedNest.nest.justification }}</i></p>
+          <p v-for="w in selectedNest.report.warnings" :key="w" class="warn">⚠ {{ w }}</p>
+        </div>
+        <ul v-if="isReal" class="notes" data-test="notes"><li v-for="n in sim.scenario.notes" :key="n">{{ n }}</li></ul>
+        <p v-if="isReal" class="legend">P protegido · p portal · # bloqueado · ~ agua · R recurso · w posición de trabajo · = pasillo · r reserva · " pasto alto · verde: casilla candidata de nido</p>
         <ol class="log" data-test="log"><li v-for="(line, i) in log" :key="i">{{ line }}</li></ol>
       </aside>
     </section>
@@ -159,7 +184,7 @@ start()
       <h2>Comparar configuraciones (sesión guionada de {{ DEFAULT_SESSION.minutes }} min, misma semilla)</h2>
       <p>A = parámetros actuales. B:</p>
       <label>Nidos B
-        <select v-model="layoutB" data-test="layout-b"><option value="mixed">mixtos</option><option value="by-habitat">por hábitat</option></select>
+        <select v-model="layoutB" data-test="layout-b"><option value="mixed">mixtos</option><option value="by-habitat">por hábitat</option><option value="real-map">mapa real (propuesta)</option></select>
       </label>
       <label>Política B
         <select v-model="paramsB.policy" data-test="policy-b"><option value="per-group">por grupo</option><option value="per-member">por miembro</option></select>
@@ -186,9 +211,24 @@ start()
 .error { color: #a01010; width: 100%; }
 .world { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
 .grid { display: grid; gap: 1px; background: #c9c2b2; padding: 1px; }
-.cell { width: 30px; height: 30px; padding: 0; border: 0; background: #e9e4d8; position: relative; }
+.cell { width: var(--cell, 30px); height: var(--cell, 30px); padding: 0; border: 0; background: #e9e4d8; position: relative; }
 .cell.nest { background: #d6e8c9; }
 .cell.blocked { background: #6b6156; }
+.cell.k-floor { background: #d9d2bf; }
+.cell.k-tall { background: #b9c99a; }
+.cell.k-blocked { background: #6b6156; }
+.cell.k-resource { background: #2f5d34; }
+.cell.k-work { background: #c7b98f; }
+.cell.k-corridor { background: #e8dfc4; }
+.cell.k-reserved { background: #cfc3a8; }
+.cell.k-water { background: #6fa3c9; }
+.cell.k-unreachable { background: #8a7f73; }
+.cell.k-portal, .cell.k-protected { background: #c0392b; }
+.cell.nest { background: #7fcf6b; }
+.cell.nest-picked { box-shadow: inset 0 0 0 2px #1f6fb2; }
+.notes { font-size: 11px; padding-left: 16px; }
+.legend { font-size: 11px; color: #5b5346; }
+.warn { color: #8a4b00; }
 .cell.picked { box-shadow: inset 0 0 0 2px #d43; }
 .cell:disabled { cursor: default; }
 .sprite { position: absolute; inset: 1px; background-size: 200% 400%; background-position: 0 0; image-rendering: pixelated; outline: 2px solid; outline-offset: -2px; border-radius: 3px; }

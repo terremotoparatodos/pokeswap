@@ -8,6 +8,7 @@ import { ECO_1_ENCOUNTER_CATALOG } from '../encounters/initialCatalog'
 import type { EncounterHabitat } from '../encounters/types'
 import { PROVISIONAL_IDLE, PROVISIONAL_RESPAWN } from '../population/config'
 import type { AreaConfig, NestConfig, PopulationConfig, RespawnPolicy, Tile } from '../population/types'
+import { buildRealScenario } from './realMap'
 
 export type PreviewZoneId = 'pradera.abierta' | 'pradera.bosque' | 'cueva-inicial'
 export const PREVIEW_ZONES: readonly { readonly id: PreviewZoneId; readonly label: string }[] = [
@@ -21,7 +22,7 @@ export const PREVIEW_ZONES: readonly { readonly id: PreviewZoneId; readonly labe
  * 'by-habitat': one nest per habitat — shows that a nest whose habitats have
  * no common entry fails most attempts with `empty-tier` (no redistribution).
  */
-export type NestLayout = 'mixed' | 'by-habitat'
+export type NestLayout = 'mixed' | 'by-habitat' | 'real-map'
 
 /** Every number a reviewer may change; defaults are the provisional ones. */
 export interface SimParams {
@@ -71,14 +72,25 @@ function patch(i: number): Tile[] {
   return out
 }
 
+export interface Bounds { readonly minTx: number; readonly minTy: number; readonly maxTx: number; readonly maxTy: number }
+
 export interface Scenario {
   readonly zoneId: PreviewZoneId
   readonly layout: NestLayout
   readonly config: PopulationConfig
   readonly blocked: readonly Tile[]
+  /** The tiles drawn and simulated. */
+  readonly bounds: Bounds
+  /** Real map only: one char per tile and row (see realMap.ts `TILE_KIND`); null on the synthetic grid. */
+  readonly kinds: readonly string[] | null
+  /** Warnings and constraints to show next to the map. */
+  readonly notes: readonly string[]
 }
 
+export const SYNTHETIC_BOUNDS: Bounds = { minTx: 0, minTy: 0, maxTx: GRID.width - 1, maxTy: GRID.height - 1 }
+
 export function buildScenario(zoneId: PreviewZoneId, layout: NestLayout, params: SimParams, seed: number): Scenario {
+  if (layout === 'real-map') return buildRealScenario(zoneId, params, seed)
   const habitats = zoneHabitats(zoneId)
   const groups: EncounterHabitat[][] = layout === 'mixed' ? [habitats, habitats, habitats, habitats] : habitats.map(h => [h])
   const nests: NestConfig[] = groups.slice(0, 6).map((nestHabitats, i) => ({
@@ -91,5 +103,5 @@ export function buildScenario(zoneId: PreviewZoneId, layout: NestLayout, params:
     areaId: zone.areaId, maxAlive: params.areaMaxAlive, nests,
     idle: { dormantAfterMs: params.dormantAfterMs, staggerMinMs: params.staggerMinMs, staggerMaxMs: params.staggerMaxMs },
   }
-  return { zoneId, layout, config: { namespace: `preview-${seed}`, areas: [area] }, blocked: blockedTiles() }
+  return { zoneId, layout, config: { namespace: `preview-${seed}`, areas: [area] }, blocked: blockedTiles(), bounds: SYNTHETIC_BOUNDS, kinds: null, notes: [] }
 }
