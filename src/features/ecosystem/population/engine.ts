@@ -118,14 +118,20 @@ function attemptSpawn(
   input: PopulationTickInput, events: PopulationEvent[],
 ): void {
   const { now, random } = input
-  const fail = (reason: SpawnFailure) => {
+  const fail = (reason: SpawnFailure, limitedBy?: 'nest' | 'zone' | 'area' | 'tiles' | 'groupCap') => {
     nestState.dueAt = now + nest.respawn.retryMs
-    events.push({ type: 'spawn-failed', areaId: area.areaId, nestId: nest.id, reason, retryAt: nestState.dueAt })
+    events.push({ type: 'spawn-failed', areaId: area.areaId, nestId: nest.id, reason, retryAt: nestState.dueAt, ...(limitedBy ? { limitedBy } : {}) })
   }
   const areaAlive = area.nests.flatMap(n => draft.nests[nestKey(area.areaId, n.id)].alive)
   const nestRoom = nest.maxAlive - nestState.alive.length
+  // ECO-CAPACITY-1: the nest's population zone, when it has one with a maximum. No zone → no zone limit.
+  const zone = nest.populationZoneId === undefined ? undefined : (area.zones ?? []).find(z => z.id === nest.populationZoneId)
+  const zoneRoom = zone?.maxAlive === undefined
+    ? Number.POSITIVE_INFINITY
+    : zone.maxAlive - area.nests.filter(n => n.populationZoneId === zone.id).reduce((sum, n) => sum + draft.nests[nestKey(area.areaId, n.id)].alive.length, 0)
   const areaRoom = area.maxAlive - areaAlive.length
   if (nestRoom <= 0) return fail('nest-full')
+  if (zoneRoom <= 0) return fail('zone-full')
   if (areaRoom <= 0) return fail('area-full')
   const geometry = input.geometry(area.areaId)
   if (!geometry) return fail('no-geometry')
@@ -133,10 +139,20 @@ function attemptSpawn(
   const open = nest.tiles.filter(tile => geometry.isOpenTile(tile.tx, tile.ty) && !occupied.has(`${tile.tx},${tile.ty}`))
   if (open.length === 0) return fail('no-open-tile')
 
-  const room = Math.min(nestRoom, areaRoom, open.length, nest.groupCap)
-  const pick = pickEncounter(deps.catalog, nest.zoneId, { tierRoll: roll(random), entryRoll: roll(random) },
-    entry => nest.habitats.includes(entry.habitat) && entry.group.min <= room)
-  if (!pick.ok) return fail(pick.reason)
+  // Every limit at once. A group is never shrunk below its entry's minimum: entries that need more than
+  // `room` are not candidates (documented ECO-2A policy); the size is drawn in [min, min(max, room)].
+  const room = Math.min(nestRoom, zoneRoom, areaRoom, open.length, nest.groupCap)
+  const ticket = { tierRoll: roll(random), entryRoll: roll(random) }
+  const pick = pickEncounter(deps.catalog, nest.zoneId, ticket, entry => nest.habitats.includes(entry.habitat) && entry.group.min <= room)
+  if (!pick.ok) {
+    // An empty tier caused only by the room left is a capacity block, not a pool gap: replay the SAME
+    // ticket without the room filter (no extra random draw) and report which limit was the smallest.
+    if (pick.reason === 'empty-tier' && pickEncounter(deps.catalog, nest.zoneId, ticket, entry => nest.habitats.includes(entry.habitat)).ok) {
+      const limits: ['nest' | 'zone' | 'area' | 'tiles' | 'groupCap', number][] = [['nest', nestRoom], ['zone', zoneRoom], ['area', areaRoom], ['tiles', open.length], ['groupCap', nest.groupCap]]
+      return fail('no-room-for-group', limits.reduce((a, b) => (b[1] < a[1] ? b : a))[0])
+    }
+    return fail(pick.reason)
+  }
 
   const { entry } = pick
   const maxSize = Math.min(entry.group.max, room)

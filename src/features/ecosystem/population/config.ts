@@ -17,6 +17,7 @@ export type PopulationConfigIssueCode =
   | 'invalid-limit' | 'invalid-respawn' | 'invalid-idle'
   | 'unknown-zone' | 'zone-area-mismatch' | 'unknown-habitat' | 'habitat-without-entries'
   | 'no-tiles' | 'invalid-tile' | 'duplicate-tile'
+  | 'duplicate-population-zone' | 'unknown-population-zone'
 
 export interface PopulationConfigIssue {
   readonly code: PopulationConfigIssueCode
@@ -42,11 +43,22 @@ export function validatePopulationConfig(config: PopulationConfig, catalog: Enco
     areas.add(area.areaId)
     if (!isInt(area.maxAlive, 1)) issues.push({ code: 'invalid-limit', message: `area ${area.areaId} maxAlive ${String(area.maxAlive)}`, ...at })
     validateIdle(area, issues)
+    const zones = new Set<string>()
+    for (const zone of area.zones ?? []) {
+      const at = { areaId: area.areaId }
+      if (typeof zone.id !== 'string' || !ID.test(zone.id)) issues.push({ code: 'invalid-id', message: `population zone id ${String(zone.id)}`, ...at })
+      if (zones.has(zone.id)) issues.push({ code: 'duplicate-population-zone', message: `population zone ${zone.id} twice in ${area.areaId}`, ...at })
+      zones.add(zone.id)
+      if (zone.maxAlive !== undefined && !isInt(zone.maxAlive, 1)) issues.push({ code: 'invalid-limit', message: `population zone ${zone.id} maxAlive ${String(zone.maxAlive)}`, ...at })
+    }
     const nests = new Set<string>()
     for (const nest of area.nests) {
       if (nests.has(nest.id)) issues.push({ code: 'duplicate-nest', message: `nest ${nest.id} twice in ${area.areaId}`, ...at, nestId: nest.id })
       nests.add(nest.id)
       validateNest(area, nest, catalog, issues)
+      if (nest.populationZoneId !== undefined && !zones.has(nest.populationZoneId)) {
+        issues.push({ code: 'unknown-population-zone', message: `nest ${nest.id} names population zone ${String(nest.populationZoneId)}, not defined in ${area.areaId}`, areaId: area.areaId, nestId: nest.id })
+      }
     }
   }
   return issues

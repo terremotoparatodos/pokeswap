@@ -78,6 +78,11 @@ export function populationViolations(state: PopulationState, config: PopulationC
       }
     }
     if (areaAlive > area.maxAlive) out.push(`area ${area.areaId} holds ${areaAlive} > ${area.maxAlive}`)
+    for (const zone of area.zones ?? []) {
+      if (zone.maxAlive === undefined) continue
+      const inZone = area.nests.filter(n => n.populationZoneId === zone.id).reduce((sum, n) => sum + state.nests[nestKey(area.areaId, n.id)].alive.length, 0)
+      if (inZone > zone.maxAlive) out.push(`zone ${zone.id} holds ${inZone} > ${zone.maxAlive}`)
+    }
   }
   return out
 }

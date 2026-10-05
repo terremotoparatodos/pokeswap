@@ -52,6 +52,25 @@ export interface NestConfig {
   /** Largest group this nest may host; entries whose `group.min` exceeds the room are skipped. */
   readonly groupCap: number
   readonly respawn: RespawnConfig
+  /**
+   * ECO-CAPACITY-1: the population zone of its area this nest counts against
+   * (`AreaConfig.zones`). Optional: a nest without one counts only against
+   * its own limit and the area's. Not the catalog `zoneId` (the species pool).
+   */
+  readonly populationZoneId?: string
+}
+
+/**
+ * ECO-CAPACITY-1: a subdivision of an area's population (e.g. Pradera abierta
+ * and bosque inside the presence area `pradera`). It is NOT a world area: no
+ * presence, interest or protocol boundary. `maxAlive` is a MAXIMUM, never a
+ * reservation: it caps this zone; it does not keep room free for the others.
+ */
+export interface PopulationZoneConfig {
+  /** Unique within its area; no ':'. */
+  readonly id: string
+  /** Most encounters alive in this zone at once; omitted = no zone limit (the area's still applies). */
+  readonly maxAlive?: number
 }
 
 export interface IdleConfig {
@@ -69,6 +88,8 @@ export interface AreaConfig {
   readonly maxAlive: number
   readonly idle: IdleConfig
   readonly nests: readonly NestConfig[]
+  /** ECO-CAPACITY-1: optional population zones. Absent or empty = the engine behaves exactly as before. */
+  readonly zones?: readonly PopulationZoneConfig[]
 }
 
 export interface PopulationConfig {
@@ -151,13 +172,25 @@ export interface RetireInput {
   readonly random: RandomSource
 }
 
+/**
+ * Why a spawn attempt made nothing. Grouped by `spawnFailureCategory`:
+ *   nest-full · zone-full · area-full      capacity limits (ECO-CAPACITY-1 adds zone-full)
+ *   no-room-for-group                      capacity: the rolled tier has candidates, but every one needs a
+ *                                          group larger than the room left (never reported as empty-tier)
+ *   no-open-tile · no-geometry             geometry
+ *   empty-tier · invalid-distribution · unknown-zone   pool / distribution
+ */
 export type SpawnFailure =
-  | 'area-full' | 'nest-full' | 'no-open-tile' | 'no-geometry'
+  | 'area-full' | 'zone-full' | 'nest-full' | 'no-room-for-group' | 'no-open-tile' | 'no-geometry'
   | 'empty-tier' | 'invalid-distribution' | 'unknown-zone'
 
 export type PopulationEvent =
   | { readonly type: 'spawned'; readonly areaId: string; readonly nestId: string; readonly encounters: readonly PopulationEncounter[] }
-  | { readonly type: 'spawn-failed'; readonly areaId: string; readonly nestId: string; readonly reason: SpawnFailure; readonly retryAt: number }
+  | {
+    readonly type: 'spawn-failed'; readonly areaId: string; readonly nestId: string; readonly reason: SpawnFailure; readonly retryAt: number
+    /** For no-room-for-group: which limit left the smallest room (ties: nest, zone, area, tiles, groupCap). */
+    readonly limitedBy?: 'nest' | 'zone' | 'area' | 'tiles' | 'groupCap'
+  }
   | { readonly type: 'area-status'; readonly areaId: string; readonly from: AreaStatus; readonly to: AreaStatus; readonly cleared: readonly string[] }
 
 export type TickResult =
