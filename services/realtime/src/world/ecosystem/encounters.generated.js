@@ -425,11 +425,22 @@ function validatePopulationConfig(config, catalog) {
     areas.add(area.areaId);
     if (!isInt2(area.maxAlive, 1)) issues.push({ code: "invalid-limit", message: `area ${area.areaId} maxAlive ${String(area.maxAlive)}`, ...at });
     validateIdle(area, issues);
+    const zones = /* @__PURE__ */ new Set();
+    for (const zone of area.zones ?? []) {
+      const at2 = { areaId: area.areaId };
+      if (typeof zone.id !== "string" || !ID.test(zone.id)) issues.push({ code: "invalid-id", message: `population zone id ${String(zone.id)}`, ...at2 });
+      if (zones.has(zone.id)) issues.push({ code: "duplicate-population-zone", message: `population zone ${zone.id} twice in ${area.areaId}`, ...at2 });
+      zones.add(zone.id);
+      if (zone.maxAlive !== void 0 && !isInt2(zone.maxAlive, 1)) issues.push({ code: "invalid-limit", message: `population zone ${zone.id} maxAlive ${String(zone.maxAlive)}`, ...at2 });
+    }
     const nests = /* @__PURE__ */ new Set();
     for (const nest of area.nests) {
       if (nests.has(nest.id)) issues.push({ code: "duplicate-nest", message: `nest ${nest.id} twice in ${area.areaId}`, ...at, nestId: nest.id });
       nests.add(nest.id);
       validateNest(area, nest, catalog, issues);
+      if (nest.populationZoneId !== void 0 && !zones.has(nest.populationZoneId)) {
+        issues.push({ code: "unknown-population-zone", message: `nest ${nest.id} names population zone ${String(nest.populationZoneId)}, not defined in ${area.areaId}`, areaId: area.areaId, nestId: nest.id });
+      }
     }
   }
   return issues;
@@ -554,28 +565,33 @@ function tickPopulation(state, config, deps, input) {
 }
 function attemptSpawn(draft, area, nest, nestState, deps, input, events) {
   const { now, random } = input;
-  const fail = (reason) => {
+  const fail = (reason, limitedBy) => {
     nestState.dueAt = now + nest.respawn.retryMs;
-    events.push({ type: "spawn-failed", areaId: area.areaId, nestId: nest.id, reason, retryAt: nestState.dueAt });
+    events.push({ type: "spawn-failed", areaId: area.areaId, nestId: nest.id, reason, retryAt: nestState.dueAt, ...limitedBy ? { limitedBy } : {} });
   };
   const areaAlive = area.nests.flatMap((n) => draft.nests[nestKey(area.areaId, n.id)].alive);
   const nestRoom = nest.maxAlive - nestState.alive.length;
+  const zone = nest.populationZoneId === void 0 ? void 0 : (area.zones ?? []).find((z) => z.id === nest.populationZoneId);
+  const zoneRoom = zone?.maxAlive === void 0 ? Number.POSITIVE_INFINITY : zone.maxAlive - area.nests.filter((n) => n.populationZoneId === zone.id).reduce((sum, n) => sum + draft.nests[nestKey(area.areaId, n.id)].alive.length, 0);
   const areaRoom = area.maxAlive - areaAlive.length;
   if (nestRoom <= 0) return fail("nest-full");
+  if (zoneRoom <= 0) return fail("zone-full");
   if (areaRoom <= 0) return fail("area-full");
   const geometry = input.geometry(area.areaId);
   if (!geometry) return fail("no-geometry");
   const occupied = new Set(areaAlive.map((encounter) => `${encounter.tile.tx},${encounter.tile.ty}`));
   const open = nest.tiles.filter((tile) => geometry.isOpenTile(tile.tx, tile.ty) && !occupied.has(`${tile.tx},${tile.ty}`));
   if (open.length === 0) return fail("no-open-tile");
-  const room = Math.min(nestRoom, areaRoom, open.length, nest.groupCap);
-  const pick = pickEncounter(
-    deps.catalog,
-    nest.zoneId,
-    { tierRoll: roll(random), entryRoll: roll(random) },
-    (entry3) => nest.habitats.includes(entry3.habitat) && entry3.group.min <= room
-  );
-  if (!pick.ok) return fail(pick.reason);
+  const room = Math.min(nestRoom, zoneRoom, areaRoom, open.length, nest.groupCap);
+  const ticket = { tierRoll: roll(random), entryRoll: roll(random) };
+  const pick = pickEncounter(deps.catalog, nest.zoneId, ticket, (entry3) => nest.habitats.includes(entry3.habitat) && entry3.group.min <= room);
+  if (!pick.ok) {
+    if (pick.reason === "empty-tier" && pickEncounter(deps.catalog, nest.zoneId, ticket, (entry3) => nest.habitats.includes(entry3.habitat)).ok) {
+      const limits = [["nest", nestRoom], ["zone", zoneRoom], ["area", areaRoom], ["tiles", open.length], ["groupCap", nest.groupCap]];
+      return fail("no-room-for-group", limits.reduce((a, b) => b[1] < a[1] ? b : a)[0]);
+    }
+    return fail(pick.reason);
+  }
   const { entry: entry2 } = pick;
   const maxSize = Math.min(entry2.group.max, room);
   const size = entry2.group.min + Math.floor(roll(random) * (maxSize - entry2.group.min + 1));
