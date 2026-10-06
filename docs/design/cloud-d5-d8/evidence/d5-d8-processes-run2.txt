@@ -1,0 +1,7 @@
+D5A_SWITCH                   PASS     10s 5/5
+D5A_ABORT                    PASS     29s 4/4
+D5B_EXPIRED_STARTING         PASS     27s 4/4
+D8_SHADOW_AFTER_ON           PASS     6s 4/4
+D8_SHADOW_WRITES_SHARED_ROW  PASS     3s 2/2
+D8_SEPARATE_AUTHORITY        PASS     16s 3/3
+exit=0

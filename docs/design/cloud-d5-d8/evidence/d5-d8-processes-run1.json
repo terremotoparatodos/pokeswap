@@ -1,0 +1,633 @@
+{
+  "tree": "<worktree of design/cloud-d5-d8-0.3>",
+  "node": "v22.23.2",
+  "startedAt": "2026-10-06T16:00:36.283Z",
+  "scenarios": {
+    "D5A_SWITCH": {
+      "verdict": "PASS",
+      "seconds": 10,
+      "checks": [
+        {
+          "label": "P placed on the routed A at its saved tile",
+          "ok": true
+        },
+        {
+          "label": "C activated with NO traffic and A was displaced by it (newest generation wins)",
+          "ok": true
+        },
+        {
+          "label": "P (existing session on A) closed with 4503 draining",
+          "ok": true
+        },
+        {
+          "label": "while the route stays on A, a redial is refused 4503 (A alive, /readyz 503)",
+          "ok": true
+        },
+        {
+          "label": "after the route moves to C, P is placed on C at its saved tile (transient outage only)",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "timeline": [
+          {
+            "label": "A routed, P placed",
+            "ms": 1517,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 200,
+                "host": {
+                  "generation": 1,
+                  "state": "active",
+                  "displaced": null,
+                  "identityResets": 0
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "active",
+                "live": true
+              }
+            ],
+            "traffic": "A",
+            "sessions": {
+              "P": {
+                "placed": true,
+                "closedWith": null,
+                "closing": [],
+                "refused": null
+              }
+            }
+          },
+          {
+            "label": "C active (no traffic yet)",
+            "ms": 2114,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 200,
+                "host": {
+                  "generation": 1,
+                  "state": "active",
+                  "displaced": null,
+                  "identityResets": 0
+                }
+              },
+              "C": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 200,
+                "host": {
+                  "generation": 2,
+                  "state": "active",
+                  "displaced": null,
+                  "identityResets": 0
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "active",
+                "live": true
+              },
+              {
+                "generation": 2,
+                "state": "active",
+                "live": true
+              }
+            ],
+            "traffic": "A",
+            "sessions": {
+              "P": {
+                "placed": true,
+                "closedWith": null,
+                "closing": [],
+                "refused": null
+              }
+            }
+          },
+          {
+            "label": "A displaced; P closed; route still A",
+            "ms": 5637,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 503,
+                "host": {
+                  "generation": 1,
+                  "state": "stopped",
+                  "displaced": "newer host active",
+                  "identityResets": 0
+                }
+              },
+              "C": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 200,
+                "host": {
+                  "generation": 2,
+                  "state": "active",
+                  "displaced": null,
+                  "identityResets": 0
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "stopped",
+                "live": true
+              },
+              {
+                "generation": 2,
+                "state": "active",
+                "live": true
+              }
+            ],
+            "traffic": "A",
+            "sessions": {
+              "P": {
+                "placed": true,
+                "closedWith": 4503,
+                "closing": [
+                  "draining"
+                ],
+                "refused": null
+              }
+            }
+          },
+          {
+            "label": "route switched to C; P placed on C",
+            "ms": 8793,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 503,
+                "host": {
+                  "generation": 1,
+                  "state": "stopped",
+                  "displaced": "newer host active",
+                  "identityResets": 0
+                }
+              },
+              "C": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 200,
+                "host": {
+                  "generation": 2,
+                  "state": "active",
+                  "displaced": null,
+                  "identityResets": 0
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "stopped",
+                "live": true
+              },
+              {
+                "generation": 2,
+                "state": "active",
+                "live": true
+              }
+            ],
+            "traffic": "C",
+            "sessions": {}
+          }
+        ],
+        "stillA": {
+          "placed": false,
+          "refused": 4503,
+          "left": null,
+          "tile": null
+        },
+        "onC": {
+          "placed": true,
+          "refused": null,
+          "left": null,
+          "tile": {
+            "tx": 32,
+            "ty": 20
+          }
+        },
+        "msActivateToClose": 3504,
+        "msCloseToPlaced": 3170
+      }
+    },
+    "D5A_ABORT": {
+      "verdict": "PASS",
+      "seconds": 29,
+      "checks": [
+        {
+          "label": "P placed on the routed A at its saved tile",
+          "ok": true
+        },
+        {
+          "label": "no live active host remains (A displaced/stopped, C dead) — no automatic recovery",
+          "ok": true
+        },
+        {
+          "label": "A is alive but refuses: /readyz 503, redial 4503 (route still A)",
+          "ok": true
+        },
+        {
+          "label": "only an external restart recovers the service (new process, new generation)",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "timeline": [
+          {
+            "label": "C killed right after it displaced A",
+            "ms": 5609,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 503,
+                "host": {
+                  "generation": 1,
+                  "state": "stopped",
+                  "displaced": "newer host active",
+                  "identityResets": 0
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "stopped",
+                "live": true
+              },
+              {
+                "generation": 2,
+                "state": "active",
+                "live": true
+              }
+            ],
+            "traffic": "A",
+            "sessions": {
+              "P": {
+                "placed": true,
+                "closedWith": 4503,
+                "closing": [
+                  "draining"
+                ],
+                "refused": null
+              }
+            }
+          },
+          {
+            "label": "C lease expired + 10 s",
+            "ms": 27023,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 503,
+                "host": {
+                  "generation": 1,
+                  "state": "stopped",
+                  "displaced": "newer host active",
+                  "identityResets": 0
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "stopped",
+                "live": false
+              },
+              {
+                "generation": 2,
+                "state": "active",
+                "live": false
+              }
+            ],
+            "traffic": "A",
+            "sessions": {}
+          }
+        ],
+        "msWithoutHost": 22134,
+        "redialA": {
+          "placed": false,
+          "refused": 4503,
+          "left": null,
+          "tile": null
+        },
+        "onA2": {
+          "placed": true,
+          "refused": null,
+          "left": null,
+          "tile": {
+            "tx": 32,
+            "ty": 20
+          }
+        }
+      }
+    },
+    "D5B_EXPIRED_STARTING": {
+      "verdict": "PASS",
+      "seconds": 27,
+      "checks": [
+        {
+          "label": "P placed on the routed A at its saved tile",
+          "ok": true
+        },
+        {
+          "label": "the first answer C got after the outage was host_expired (its starting lease ran out)",
+          "ok": true
+        },
+        {
+          "label": "C re-acquired a NEWER generation (identity reset) and activated it",
+          "ok": true
+        },
+        {
+          "label": "the routed A was displaced and P closed 4503 — with no traffic ever reaching C",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "timeline": [
+          {
+            "label": "C acquired (starting), activation delayed",
+            "ms": 2092,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 200,
+                "host": {
+                  "generation": 1,
+                  "state": "active",
+                  "displaced": null,
+                  "identityResets": 0
+                }
+              },
+              "C": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 503,
+                "host": {
+                  "generation": 2,
+                  "state": "starting",
+                  "displaced": null,
+                  "identityResets": 0
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "active",
+                "live": true
+              },
+              {
+                "generation": 2,
+                "state": "starting",
+                "live": true
+              }
+            ],
+            "traffic": "A",
+            "sessions": {
+              "P": {
+                "placed": true,
+                "closedWith": null,
+                "closing": [],
+                "refused": null
+              }
+            }
+          },
+          {
+            "label": "C active with a NEW generation; A displaced",
+            "ms": 25651,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 503,
+                "host": {
+                  "generation": 1,
+                  "state": "stopped",
+                  "displaced": "newer host active",
+                  "identityResets": 0
+                }
+              },
+              "C": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 200,
+                "host": {
+                  "generation": 3,
+                  "state": "active",
+                  "displaced": null,
+                  "identityResets": 1
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "stopped",
+                "live": true
+              },
+              {
+                "generation": 2,
+                "state": "starting",
+                "live": false
+              },
+              {
+                "generation": 3,
+                "state": "active",
+                "live": true
+              }
+            ],
+            "traffic": "A",
+            "sessions": {
+              "P": {
+                "placed": true,
+                "closedWith": 4503,
+                "closing": [
+                  "draining"
+                ],
+                "refused": null
+              }
+            }
+          }
+        ],
+        "firstGeneration": 2,
+        "newGeneration": 3,
+        "answers": [
+          "presence_acquire:200",
+          "presence_activate:503",
+          "presence_activate:503",
+          "presence_activate:503",
+          "presence_activate:503",
+          "presence_renew:503",
+          "presence_activate:503",
+          "presence_renew:503",
+          "presence_activate:503",
+          "presence_activate:503",
+          "presence_renew:503",
+          "presence_activate:host_expired",
+          "presence_acquire:200",
+          "presence_activate:active"
+        ]
+      }
+    },
+    "D8_SHADOW_AFTER_ON": {
+      "verdict": "PASS",
+      "seconds": 7,
+      "checks": [
+        {
+          "label": "P placed on the routed A at its saved tile",
+          "ok": true
+        },
+        {
+          "label": "the shadow process acquired and ACTIVATED a real host row (newer generation)",
+          "ok": true
+        },
+        {
+          "label": "the on process A was displaced and its player closed 4503 — by a shadow process",
+          "ok": true
+        },
+        {
+          "label": "the shadow process keeps reporting ready (200): it does not know it took authority from on",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "timeline": [
+          {
+            "label": "shadow S started after on A",
+            "ms": 5585,
+            "processes": {
+              "A": {
+                "mode": "on",
+                "alive": true,
+                "readyz": 503,
+                "host": {
+                  "generation": 1,
+                  "state": "stopped",
+                  "displaced": "newer host active",
+                  "identityResets": 0
+                }
+              },
+              "S": {
+                "mode": "shadow",
+                "alive": true,
+                "readyz": 200,
+                "host": {
+                  "generation": 2,
+                  "state": "active",
+                  "displaced": null,
+                  "identityResets": 0
+                }
+              }
+            },
+            "authority": [
+              {
+                "generation": 1,
+                "state": "stopped",
+                "live": true
+              },
+              {
+                "generation": 2,
+                "state": "active",
+                "live": true
+              }
+            ],
+            "traffic": "A",
+            "sessions": {
+              "P": {
+                "placed": true,
+                "closedWith": 4503,
+                "closing": [
+                  "draining"
+                ],
+                "refused": null
+              }
+            }
+          }
+        ]
+      }
+    },
+    "D8_SHADOW_WRITES_SHARED_ROW": {
+      "verdict": "PASS",
+      "seconds": 3,
+      "checks": [
+        {
+          "label": "the shadow process CLAIMED and SAVED the player row in the shared table (owner = its generation)",
+          "ok": true
+        },
+        {
+          "label": "the on process RESTORED the tile the shadow fleet wrote",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "shadowTile": {
+          "tx": 33,
+          "ty": 20
+        },
+        "shadowRow": {
+          "g": 1,
+          "tx": 33,
+          "ty": 20
+        },
+        "generationS": 1,
+        "restoredOnOn": {
+          "tx": 33,
+          "ty": 20
+        }
+      }
+    },
+    "D8_SEPARATE_AUTHORITY": {
+      "verdict": "PASS",
+      "seconds": 16,
+      "checks": [
+        {
+          "label": "P placed on the routed A at its saved tile",
+          "ok": true
+        },
+        {
+          "label": "A stays active and never hears of S (separate authority)",
+          "ok": true
+        },
+        {
+          "label": "P stays connected and keeps moving",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "a1Hosts": [
+          {
+            "generation": 1,
+            "state": "active",
+            "live": true
+          }
+        ],
+        "a2Hosts": [
+          {
+            "generation": 1,
+            "state": "active",
+            "live": true
+          }
+        ]
+      }
+    }
+  },
+  "finishedAt": "2026-10-06T16:02:06.746Z"
+}
