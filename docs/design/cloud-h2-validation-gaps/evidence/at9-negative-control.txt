@@ -1,0 +1,7 @@
+# Control F3: AT-9 against a room that re-reads WORLD_PRESENCE_STANDBY on every access (temporary edit, restored)
+✖ AT-9: WORLD_PRESENCE_STANDBY is exactly "on" to ask; the room reads it once at load; /metrics shows only an aggregate flag
+ℹ pass 0
+ℹ fail 1
+✖ failing tests:
+✖ AT-9: WORLD_PRESENCE_STANDBY is exactly "on" to ask; the room reads it once at load; /metrics shows only an aggregate flag
+  AssertionError [ERR_ASSERTION]: unset: captured at load (off), kept after the environment changed

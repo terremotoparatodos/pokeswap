@@ -76,10 +76,12 @@ Todo corrió en Node 22.23.2. Evidencia en `docs/design/cloud-h2-containment/evi
 La propuesta presentaba «encender el flag o volver a `ea1284e`» como rollback. **No es un rollback seguro sin esta advertencia:**
 
 - **Encender `WORLD_PRESENCE_STANDBY=on`**, con recovery on y modo `on`, **reintroduce H2**: un standby puede promover cuando el host vivo y enrutado solo perdió su lease, y ese host cierra con 4503 y rechaza joins (FACT: AT-2).
-- **Volver a `ea1284e` (o a cualquier commit anterior a este) con `WORLD_PRESENCE_RECOVERY=on`** también **reintroduce H2**, porque ahí la promoción depende solo de recovery. Además vuelve a permitir que **shadow promueva** un standby real (AT-3, control).
-- **Rollback sin H2:** dejar `WORLD_PRESENCE_RECOVERY` apagado, que es el estado de todos los entornos existentes. Eso pierde también los demás beneficios de recovery (D2-B, 4503 en lugar de 4409, `held` y «Jugar acá» ante un dueño inaccesible).
-- Entre las versiones que **no** reintroducen H2 por esta vía están este commit con el flag apagado y cualquier versión con recovery apagado.
+- **Volver a una versión SIN la contención** (anterior a `c7167d6`, por ejemplo `ea1284e`) con `WORLD_PRESENCE_RECOVERY=on` **reintroduce H2**, porque en esas versiones la promoción depende solo de recovery. También vuelve a permitir que **shadow promueva** un standby real (AT-3, control). Las versiones que ya contienen `c7167d6` (`c7167d6`, los commits siguientes de esta rama y `575f3f5`) tienen el mismo producto en los tres archivos, así que **no** están en este caso.
+- **Rollback sin H2 por esta vía:** conservar o volver a una versión **con** la contención (`c7167d6` o posterior) y dejar `WORLD_PRESENCE_STANDBY` apagado; recovery puede quedar encendido y conserva sus demás beneficios. La alternativa, en cualquier versión, es dejar `WORLD_PRESENCE_RECOVERY` apagado, que es el estado de todos los entornos existentes, a costa de perder también esos beneficios (D2-B, 4503 en lugar de 4409, `held` y «Jugar acá» ante un dueño inaccesible).
+- Esto vale **solo para la vía del standby**. Los caminos residuales de §5.2 (D5), el riesgo de flotas mixtas de §5.3 (D8) y lo no comprobado en Cloud siguen igual en todas las versiones. Encender `WORLD_PRESENCE_STANDBY=on` (en versiones que lo tienen, `c7167d6` o posterior) reintroduce H2.
 - Ningún cambio de datos: no hay nada que migrar en ningún sentido.
+
+> **Rectificación** (rama `fix/cloud-h2-validation-gaps-0.3`, revisión F2): en `575f3f5` esta sección decía «volver a `ea1284e` (o a cualquier commit anterior a este)». Ese rango incluía commits que ya tienen la contención. El rango correcto es: versiones **sin** `c7167d6`.
 
 ## 5. Lo que sigue abierto
 

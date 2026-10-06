@@ -1,0 +1,274 @@
+{
+  "tree": "<worktree>",
+  "startedAt": "2026-10-06T04:21:43.495Z",
+  "node": "v22.23.2",
+  "repeat": 5,
+  "scenarios": {
+    "UNREACHABLE#1": {
+      "verdict": "PASS",
+      "seconds": 23,
+      "checks": [
+        {
+          "label": "a resume and a plain fresh join get 4503 owner-unreachable",
+          "ok": true
+        },
+        {
+          "label": "«Jugar acá» (takeover) restores the last confirmed tile",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "tile": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        },
+        "persistedBeforeCrash": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20,
+          "generation": 2
+        },
+        "generationB": 2,
+        "resumes": [
+          {
+            "options": {
+              "resume": true
+            },
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          },
+          {
+            "options": {},
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          }
+        ],
+        "playHere": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        }
+      }
+    },
+    "UNREACHABLE#2": {
+      "verdict": "PASS",
+      "seconds": 22,
+      "checks": [
+        {
+          "label": "a resume and a plain fresh join get 4503 owner-unreachable",
+          "ok": true
+        },
+        {
+          "label": "«Jugar acá» (takeover) restores the last confirmed tile",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "tile": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        },
+        "persistedBeforeCrash": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20,
+          "generation": 2
+        },
+        "generationB": 2,
+        "resumes": [
+          {
+            "options": {
+              "resume": true
+            },
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          },
+          {
+            "options": {},
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          }
+        ],
+        "playHere": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        }
+      }
+    },
+    "UNREACHABLE#3": {
+      "verdict": "PASS",
+      "seconds": 22,
+      "checks": [
+        {
+          "label": "a resume and a plain fresh join get 4503 owner-unreachable",
+          "ok": true
+        },
+        {
+          "label": "«Jugar acá» (takeover) restores the last confirmed tile",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "tile": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        },
+        "persistedBeforeCrash": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20,
+          "generation": 2
+        },
+        "generationB": 2,
+        "resumes": [
+          {
+            "options": {
+              "resume": true
+            },
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          },
+          {
+            "options": {},
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          }
+        ],
+        "playHere": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        }
+      }
+    },
+    "UNREACHABLE#4": {
+      "verdict": "PASS",
+      "seconds": 22,
+      "checks": [
+        {
+          "label": "a resume and a plain fresh join get 4503 owner-unreachable",
+          "ok": true
+        },
+        {
+          "label": "«Jugar acá» (takeover) restores the last confirmed tile",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "tile": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        },
+        "persistedBeforeCrash": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20,
+          "generation": 2
+        },
+        "generationB": 2,
+        "resumes": [
+          {
+            "options": {
+              "resume": true
+            },
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          },
+          {
+            "options": {},
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          }
+        ],
+        "playHere": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        }
+      }
+    },
+    "UNREACHABLE#5": {
+      "verdict": "PASS",
+      "seconds": 22,
+      "checks": [
+        {
+          "label": "a resume and a plain fresh join get 4503 owner-unreachable",
+          "ok": true
+        },
+        {
+          "label": "«Jugar acá» (takeover) restores the last confirmed tile",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "tile": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        },
+        "persistedBeforeCrash": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20,
+          "generation": 2
+        },
+        "generationB": 2,
+        "resumes": [
+          {
+            "options": {
+              "resume": true
+            },
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          },
+          {
+            "options": {},
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          }
+        ],
+        "playHere": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        }
+      }
+    }
+  },
+  "finishedAt": "2026-10-06T04:23:34.304Z"
+}

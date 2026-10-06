@@ -1,0 +1,12 @@
+D2A                    PASS     48s
+D2B                    PASS     5s
+UNREACHABLE            PASS     23s
+CONTROL_UNREACHABLE_SAVE_NOT_APPLIED PASS     2s
+SIGINT_PROMOTION       PASS     18s
+AUTHORITY_DOWN         PASS     28s
+CAPABILITY_ROLLBACK    PASS     2s
+CONTROL_ROLLBACK_REFUSED_200 PASS     2s
+CONTROL_ROLLBACK_TRANSPORT PASS     2s
+CONTROL_ROLLBACK_WRONG_ORDER PASS     1s  rollback order: run rollback_world_location_join_order.sql first (nothing changed)
+CONCURRENT_CANDIDATES  PASS     27s
+exit=0
