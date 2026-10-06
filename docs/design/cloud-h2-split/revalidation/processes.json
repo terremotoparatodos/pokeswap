@@ -1,0 +1,2330 @@
+{
+  "base": "886ff4d",
+  "node": "v22.23.2",
+  "startedAt": "2026-10-06T03:28:35.301Z",
+  "scenarios": [
+    {
+      "name": "on",
+      "mode": "on",
+      "recovery": true,
+      "refusedCandidate": false,
+      "checks": [
+        {
+          "label": "real socket placed on A",
+          "ok": true
+        },
+        {
+          "label": "expiry is not process death",
+          "ok": true
+        },
+        {
+          "label": "live A displaced and socket closes 4503 draining",
+          "ok": true
+        },
+        {
+          "label": "fixed route retry to A refused 4503",
+          "ok": true
+        },
+        {
+          "label": "explicit direct connection to S can place player",
+          "ok": true
+        },
+        {
+          "label": "S keeps renewing; A remains unavailable on fixed route",
+          "ok": true
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "A receives player; S displaced",
+          "ms": 5714,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": "2026-10-06T03:28:37.135Z",
+              "draining_at": "2026-10-06T03:28:42.150Z",
+              "stopped_at": "2026-10-06T03:28:42.169Z",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:28:37.619Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 37808,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "stopped",
+                "generation": 1,
+                "paused": false,
+                "displaced": "newer host active",
+                "newerSeen": true,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 0,
+                "newerActive": 1,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": true,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 11644,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": false,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 0,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        },
+        {
+          "label": "natural lease expired; A process still running",
+          "ms": 16073,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": "2026-10-06T03:28:37.135Z",
+              "draining_at": "2026-10-06T03:28:42.150Z",
+              "stopped_at": "2026-10-06T03:28:42.169Z",
+              "live": false
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:28:37.619Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": false
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 37808,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "stopped",
+                "generation": 1,
+                "paused": false,
+                "displaced": "newer host active",
+                "newerSeen": true,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 0,
+                "newerActive": 1,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": true,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 2,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 11644,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": true,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 0,
+                "renewFailures": 3,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 1,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        },
+        {
+          "label": "S promoted without receiving player traffic",
+          "ms": 16095,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": "2026-10-06T03:28:37.135Z",
+              "draining_at": "2026-10-06T03:28:42.150Z",
+              "stopped_at": "2026-10-06T03:28:42.169Z",
+              "live": false
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:28:37.619Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "activated_at": "2026-10-06T03:28:52.651Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 37808,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 3,
+                "paused": false,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 0,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 2,
+                  "probeFailures": 0,
+                  "promotions": 1,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 11644,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": true,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 0,
+                "renewFailures": 3,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 1,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        },
+        {
+          "label": "after A renewal resumes",
+          "ms": 27693,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": "2026-10-06T03:28:37.135Z",
+              "draining_at": "2026-10-06T03:28:42.150Z",
+              "stopped_at": "2026-10-06T03:28:42.169Z",
+              "live": false
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:28:37.619Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "activated_at": "2026-10-06T03:28:52.651Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 37808,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 3,
+                "paused": false,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 2,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 2,
+                  "probeFailures": 0,
+                  "promotions": 1,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 11644,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "stopped",
+                "generation": 2,
+                "paused": true,
+                "displaced": "newer host active",
+                "newerSeen": true,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 3,
+                "newerActive": 1,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 1,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": true,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": 4503,
+            "closing": [
+              "draining"
+            ]
+          }
+        }
+      ],
+      "routedRetry": {
+        "refused": 4503,
+        "left": null,
+        "placed": false
+      },
+      "verdict": "PASS",
+      "events": [
+        {
+          "inst": "S",
+          "op": "capabilities",
+          "tRecv": 530.3137999999999,
+          "tDone": 532.9531,
+          "status": 200,
+          "answer": {
+            "recovery": {
+              "version": 1
+            },
+            "joinOrder": {
+              "version": 1
+            }
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_acquire",
+          "tRecv": 552.9885999999999,
+          "tDone": 557.5715,
+          "status": 200,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_activate",
+          "tRecv": 564.0175999999999,
+          "tDone": 567.4944,
+          "status": 200,
+          "answer": {
+            "status": "active"
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "capabilities",
+          "tRecv": 1025.692,
+          "tDone": 1027.6626999999999,
+          "status": 200,
+          "answer": {
+            "recovery": {
+              "version": 1
+            },
+            "joinOrder": {
+              "version": 1
+            }
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_acquire",
+          "tRecv": 1033.1631000000002,
+          "tDone": 1034.7131,
+          "status": 200,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_activate",
+          "tRecv": 1048.6142,
+          "tDone": 1051.1443,
+          "status": 200,
+          "answer": {
+            "status": "active"
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_renew",
+          "tRecv": 5569.0739,
+          "tDone": 5574.9376,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_drain",
+          "tRecv": 5578.8887,
+          "tDone": 5582.0518,
+          "status": 200,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_stop",
+          "tRecv": 5598.359,
+          "tDone": 5601.3178,
+          "status": 200,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "location_claim_v2",
+          "tRecv": 5679.0473,
+          "tDone": 5682.7535,
+          "status": 200,
+          "answer": {
+            "claim": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 6062.9325,
+          "tDone": 6062.9922,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "S",
+          "op": "presence_any_active",
+          "tRecv": 11010.116300000002,
+          "tDone": 11012.6031,
+          "status": 200,
+          "answer": {
+            "active": true
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 11059.145700000001,
+          "tDone": 11059.156500000001,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 16064.298200000001,
+          "tDone": 16064.3086,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "S",
+          "op": "presence_any_active",
+          "tRecv": 16064.8485,
+          "tDone": 16067.3311,
+          "status": 200,
+          "answer": {
+            "active": false
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_acquire",
+          "tRecv": 16076.133000000002,
+          "tDone": 16077.478,
+          "status": 200,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_activate_exclusive",
+          "tRecv": 16080.296000000002,
+          "tDone": 16082.2598,
+          "status": 200,
+          "answer": {
+            "status": "active"
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 21066.630100000002,
+          "tDone": 21069.514300000003,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": false,
+            "newerActive": true
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_drain",
+          "tRecv": 21072.7498,
+          "tDone": 21074.865400000002,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "host_expired"
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_renew",
+          "tRecv": 21080.427900000002,
+          "tDone": 21081.924300000002,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": false
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "location_claim_v2",
+          "tRecv": 21150.4591,
+          "tDone": 21152.1536,
+          "status": 200,
+          "answer": {
+            "claim": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_renew",
+          "tRecv": 26091.407,
+          "tDone": 26094.693600000002,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": false
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_any_active",
+          "tRecv": 26609.6996,
+          "tDone": 26612.2062,
+          "status": 200,
+          "answer": {
+            "active": true
+          },
+          "rule": null
+        }
+      ]
+    },
+    {
+      "name": "off",
+      "mode": "on",
+      "recovery": false,
+      "refusedCandidate": false,
+      "checks": [
+        {
+          "label": "real socket placed on A",
+          "ok": true
+        },
+        {
+          "label": "expiry is not process death",
+          "ok": true
+        },
+        {
+          "label": "off: no standby promotion",
+          "ok": true
+        },
+        {
+          "label": "off: same generation recovers, original socket intact",
+          "ok": true
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "A receives player; S displaced",
+          "ms": 5605,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": "2026-10-06T03:29:05.684Z",
+              "draining_at": "2026-10-06T03:29:10.690Z",
+              "stopped_at": "2026-10-06T03:29:10.694Z",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:06.253Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 31732,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "stopped",
+                "generation": 1,
+                "paused": false,
+                "displaced": "newer host active",
+                "newerSeen": true,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 0,
+                "newerActive": 1,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 25632,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": false,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 0,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        },
+        {
+          "label": "natural lease expired; A process still running",
+          "ms": 16113,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": "2026-10-06T03:29:05.684Z",
+              "draining_at": "2026-10-06T03:29:10.690Z",
+              "stopped_at": "2026-10-06T03:29:10.694Z",
+              "live": false
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:06.253Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": false
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 31732,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "stopped",
+                "generation": 1,
+                "paused": false,
+                "displaced": "newer host active",
+                "newerSeen": true,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 0,
+                "newerActive": 1,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 25632,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": true,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 0,
+                "renewFailures": 3,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 1,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        },
+        {
+          "label": "after A renewal resumes",
+          "ms": 26143,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": "2026-10-06T03:29:05.684Z",
+              "draining_at": "2026-10-06T03:29:10.690Z",
+              "stopped_at": "2026-10-06T03:29:10.694Z",
+              "live": false
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:06.253Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 31732,
+              "running": true,
+              "ready": 503,
+              "hosting": {
+                "state": "stopped",
+                "generation": 1,
+                "paused": false,
+                "displaced": "newer host active",
+                "newerSeen": true,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 0,
+                "newerActive": 1,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 25632,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": false,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 4,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 1,
+                "unavailable": 0,
+                "pauses": 1,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        }
+      ],
+      "verdict": "PASS",
+      "events": [
+        {
+          "inst": "S",
+          "op": "presence_acquire",
+          "tRecv": 461.4212000000007,
+          "tDone": 463.53199999999924,
+          "status": 200,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_activate",
+          "tRecv": 475.46199999999953,
+          "tDone": 477.6241000000009,
+          "status": 200,
+          "answer": {
+            "status": "active"
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_acquire",
+          "tRecv": 1035.0937000000013,
+          "tDone": 1036.4712,
+          "status": 200,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_activate",
+          "tRecv": 1045.1460000000006,
+          "tDone": 1046.7900000000009,
+          "status": 200,
+          "answer": {
+            "status": "active"
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_renew",
+          "tRecv": 5476.600399999999,
+          "tDone": 5478.766700000004,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_drain",
+          "tRecv": 5481.352999999999,
+          "tDone": 5483.462000000003,
+          "status": 200,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_stop",
+          "tRecv": 5486.227900000002,
+          "tDone": 5488.049300000002,
+          "status": 200,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "location_claim",
+          "tRecv": 5563.9895,
+          "tDone": 5566.331199999997,
+          "status": 200,
+          "answer": {
+            "claim": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 6056.806699999997,
+          "tDone": 6056.867800000004,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 11055.839000000004,
+          "tDone": 11055.847100000003,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 16066.272999999997,
+          "tDone": 16066.2795,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 21068.745899999998,
+          "tDone": 21068.751699999997,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 26079.2778,
+          "tDone": 26080.9226,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": false
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "location_save",
+          "tRecv": 26109.812500000004,
+          "tDone": 26115.6643,
+          "status": 200,
+          "answer": {
+            "status": "ok",
+            "results": [
+              {
+                "result": "applied",
+                "userId": "db040981-c95a-4dfe-8df4-42361962984a"
+              }
+            ],
+            "newerActive": false
+          },
+          "rule": null
+        }
+      ]
+    },
+    {
+      "name": "shadow",
+      "mode": "shadow",
+      "recovery": true,
+      "refusedCandidate": true,
+      "checks": [
+        {
+          "label": "late S activation finds newer active A",
+          "ok": true
+        },
+        {
+          "label": "real socket placed on A",
+          "ok": true
+        },
+        {
+          "label": "expiry is not process death",
+          "ok": true
+        },
+        {
+          "label": "shadow: A stays ready and socket intact while paused",
+          "ok": true
+        },
+        {
+          "label": "shadow: new player still placed on paused routed A",
+          "ok": true
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "A receives player; S displaced",
+          "ms": 7179,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": null,
+              "draining_at": null,
+              "stopped_at": "2026-10-06T03:29:39.287Z",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:33.381Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 39952,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "stopped",
+                "generation": 1,
+                "paused": false,
+                "displaced": "activation newer_active",
+                "newerSeen": true,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "newer_active",
+                "renewals": 0,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": true,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 27392,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": false,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        },
+        {
+          "label": "natural lease expired; A process still running",
+          "ms": 21160,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": null,
+              "draining_at": null,
+              "stopped_at": "2026-10-06T03:29:39.287Z",
+              "live": false
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:33.381Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": false
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 39952,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "stopped",
+                "generation": 1,
+                "paused": false,
+                "displaced": "activation newer_active",
+                "newerSeen": true,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "newer_active",
+                "renewals": 0,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": true,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 2,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 27392,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": true,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 3,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 1,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        },
+        {
+          "label": "S promoted without receiving player traffic",
+          "ms": 23180,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": null,
+              "draining_at": null,
+              "stopped_at": "2026-10-06T03:29:39.287Z",
+              "live": false
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:33.381Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:55.390Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 39952,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 3,
+                "paused": false,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 0,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 3,
+                  "probeFailures": 0,
+                  "promotions": 1,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 27392,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": true,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 1,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 1,
+                "renewFailures": 3,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 1,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 1,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        },
+        {
+          "label": "after A renewal resumes",
+          "ms": 26302,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "activated_at": null,
+              "draining_at": null,
+              "stopped_at": "2026-10-06T03:29:39.287Z",
+              "live": false
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:33.381Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "activated_at": "2026-10-06T03:29:55.390Z",
+              "draining_at": null,
+              "stopped_at": null,
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "name": "S",
+              "pid": 39952,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 3,
+                "paused": false,
+                "displaced": null,
+                "newerSeen": false,
+                "accepted": 0,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 0,
+                "renewFailures": 0,
+                "newerActive": 0,
+                "expired": 0,
+                "refusedAnswers": 0,
+                "keys": 0,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 0,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 1,
+                  "probes": 3,
+                  "probeFailures": 0,
+                  "promotions": 1,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            },
+            {
+              "name": "A",
+              "pid": 27392,
+              "running": true,
+              "ready": 200,
+              "hosting": {
+                "state": "active",
+                "generation": 2,
+                "paused": true,
+                "displaced": null,
+                "newerSeen": true,
+                "accepted": 2,
+                "acquireRetries": 0,
+                "activation": "active",
+                "renewals": 2,
+                "renewFailures": 3,
+                "newerActive": 1,
+                "expired": 1,
+                "refusedAnswers": 0,
+                "keys": 2,
+                "identities": 1,
+                "identityResets": 0,
+                "recoveries": 0,
+                "unavailable": 0,
+                "pauses": 1,
+                "lateAnswers": 0,
+                "lateCleanups": 0,
+                "foreignAnswers": 0,
+                "standby": false,
+                "standbyCounters": {
+                  "started": 0,
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "promotions": 0,
+                  "refused": 0,
+                  "abandoned": 0
+                },
+                "recovery": {
+                  "state": "enabled",
+                  "reason": null,
+                  "probes": 1,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                },
+                "joinOrderAuthority": {
+                  "state": "off",
+                  "reason": "kill-switch",
+                  "probes": 0,
+                  "probeFailures": 0,
+                  "fallbacks": 0
+                }
+              }
+            }
+          ],
+          "socket": {
+            "placed": true,
+            "left": null,
+            "closing": []
+          }
+        }
+      ],
+      "verdict": "PASS",
+      "events": [
+        {
+          "inst": "S",
+          "op": "capabilities",
+          "tRecv": 455.73539999999775,
+          "tDone": 457.89630000000034,
+          "status": 200,
+          "answer": {
+            "recovery": {
+              "version": 1
+            },
+            "joinOrder": {
+              "version": 1
+            }
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_acquire",
+          "tRecv": 469.7402000000002,
+          "tDone": 472.8686999999991,
+          "status": 200,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_activate",
+          "tRecv": 479.35669999999664,
+          "tDone": 1129.8445999999967,
+          "status": 200,
+          "answer": {
+            "status": "newer_active"
+          },
+          "rule": "hold"
+        },
+        {
+          "inst": "A",
+          "op": "capabilities",
+          "tRecv": 1066.7223000000013,
+          "tDone": 1068.4012000000002,
+          "status": 200,
+          "answer": {
+            "recovery": {
+              "version": 1
+            },
+            "joinOrder": {
+              "version": 1
+            }
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_acquire",
+          "tRecv": 1073.2638000000006,
+          "tDone": 1074.7306000000026,
+          "status": 200,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_activate",
+          "tRecv": 1092.587599999999,
+          "tDone": 1094.5809999999983,
+          "status": 200,
+          "answer": {
+            "status": "active"
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 6091.5538000000015,
+          "tDone": 6095.2117,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": false
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_activate",
+          "tRecv": 6994.165699999998,
+          "tDone": 6996.7105999999985,
+          "status": 200,
+          "answer": {
+            "status": "newer_active"
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_stop",
+          "tRecv": 6999.056100000002,
+          "tDone": 7001.5466000000015,
+          "status": 200,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "location_claim_v2",
+          "tRecv": 7154.7062000000005,
+          "tDone": 7157.505400000002,
+          "status": 200,
+          "answer": {
+            "claim": {
+              "epoch": 1,
+              "status": "claimed",
+              "location": null,
+              "newerActive": false
+            }
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 11096.290799999995,
+          "tDone": 11096.294799999996,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "S",
+          "op": "presence_any_active",
+          "tRecv": 12344.015000000007,
+          "tDone": 12346.688400000006,
+          "status": 200,
+          "answer": {
+            "active": true
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 16102.424399999996,
+          "tDone": 16102.430799999995,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "S",
+          "op": "presence_any_active",
+          "tRecv": 17476.893900000003,
+          "tDone": 17479.0378,
+          "status": 200,
+          "answer": {
+            "active": true
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "location_save",
+          "tRecv": 19117.0375,
+          "tDone": 19125.389400000007,
+          "status": 200,
+          "answer": {
+            "status": "ok",
+            "results": [
+              {
+                "result": "applied",
+                "userId": "ae9ae662-5094-40f7-86c5-b814c9f04644"
+              }
+            ],
+            "newerActive": false
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 21129.46,
+          "tDone": 21129.473399999995,
+          "status": 503,
+          "answer": null,
+          "rule": "fail"
+        },
+        {
+          "inst": "S",
+          "op": "presence_any_active",
+          "tRecv": 23089.138199999994,
+          "tDone": 23091.282400000004,
+          "status": 200,
+          "answer": {
+            "active": false
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_acquire",
+          "tRecv": 23094.114500000003,
+          "tDone": 23096.367000000006,
+          "status": 200,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "rule": null
+        },
+        {
+          "inst": "S",
+          "op": "presence_activate_exclusive",
+          "tRecv": 23101.591200000003,
+          "tDone": 23105.770599999996,
+          "status": 200,
+          "answer": {
+            "status": "active"
+          },
+          "rule": null
+        },
+        {
+          "inst": "A",
+          "op": "presence_renew",
+          "tRecv": 26114.893300000003,
+          "tDone": 26116.419,
+          "status": 200,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": false,
+            "newerActive": true
+          },
+          "rule": null
+        }
+      ]
+    }
+  ],
+  "finishedAt": "2026-10-06T03:29:58.645Z"
+}

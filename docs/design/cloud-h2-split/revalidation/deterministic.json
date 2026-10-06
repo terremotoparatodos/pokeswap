@@ -1,0 +1,3163 @@
+{
+  "base": "886ff4d",
+  "node": "v22.23.2",
+  "scenarios": [
+    {
+      "name": "on-promotion-first",
+      "mode": "on",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 16000,
+          "elapsed": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": false,
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceActivateExclusive",
+          "generation": 3,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": false,
+            "newerActive": true
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceDrain",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "host_expired"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": true,
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 3,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "expired but process alive, socket present",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": false
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "stopped",
+              "generation": 1,
+              "paused": false,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 0,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": true,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "active",
+              "generation": 2,
+              "paused": true,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 1,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [
+                    {
+                      "code": 4503,
+                      "reason": "host-draining"
+                    }
+                  ],
+                  "closing": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "label": "S promoted, A displaced; fixed route still A",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "active",
+              "generation": 3,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 0,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 1,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [],
+                  "closing": []
+                }
+              ]
+            },
+            {
+              "label": "A",
+              "state": "stopped",
+              "generation": 2,
+              "paused": true,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": true,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [
+                    {
+                      "code": 4503,
+                      "reason": "host-draining"
+                    }
+                  ],
+                  "closing": [
+                    "draining"
+                  ]
+                },
+                {
+                  "placed": false,
+                  "refused": 4503,
+                  "leaves": [],
+                  "closing": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "off-control",
+      "mode": "on",
+      "recovery": false,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 16000,
+          "elapsed": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": false
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceStop",
+          "generation": 2,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "A revived same identity, existing socket intact",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "stopped",
+              "generation": 1,
+              "paused": false,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 0,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "active",
+              "generation": 2,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 1,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [],
+                  "closing": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "on-renew-first",
+      "mode": "on",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 16000,
+          "elapsed": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": false
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": true,
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceStop",
+          "generation": 2,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "A renews first; probe sees live lease",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "stopped",
+              "generation": 1,
+              "paused": false,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 0,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": true,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "active",
+              "generation": 2,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 1,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [],
+                  "closing": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "probe-activate-gap",
+      "mode": "on",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 16000,
+          "elapsed": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": false,
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": false
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceActivateExclusive",
+          "generation": 3,
+          "answer": {
+            "status": "other_active"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 3,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceStop",
+          "generation": 2,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "probe false, renewal, exclusive refuses other_active",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": true
+            },
+            {
+              "generation": 3,
+              "state": "stopped",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "stopped",
+              "generation": 1,
+              "paused": false,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 0,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": true,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 1,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "active",
+              "generation": 2,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 1,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [],
+                  "closing": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "expired-writer-fenced",
+      "mode": "on",
+      "recovery": true,
+      "events": [
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 16000,
+          "elapsed": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "host_expired"
+          },
+          "monotonic": 16000
+        },
+        {
+          "op": "expired-writer-checks",
+          "saveStatus": "host_expired",
+          "claimStatus": "host_expired",
+          "drainStatus": "host_expired",
+          "rowUnchanged": true
+        },
+        {
+          "process": "A",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "fenced writes preserve confirmed row; this does not route S",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "active",
+              "live": false
+            }
+          ],
+          "processes": [
+            {
+              "label": "A",
+              "state": "active",
+              "generation": 1,
+              "paused": true,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 2,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 1,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 2,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "confirmed-stop-true",
+      "mode": "on",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceStop",
+          "generation": 2,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": false,
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivateExclusive",
+          "generation": 3,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 3,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "explicit terminal stop, not inferred from expiry",
+          "monotonic": 0,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "active",
+              "generation": 3,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 0,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 1,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "stopped",
+              "generation": 2,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 0,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "confirmed-stop-false",
+      "mode": "on",
+      "recovery": false,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceStop",
+          "generation": 2,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "explicit terminal stop, not inferred from expiry",
+          "monotonic": 0,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "stopped",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "stopped",
+              "generation": 1,
+              "paused": false,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 0,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "stopped",
+              "generation": 2,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 0,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": []
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "grace-counterexample-1000",
+      "mode": "on",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 16000,
+          "elapsed": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": false,
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceActivateExclusive",
+          "generation": 3,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": false,
+            "newerActive": true
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceDrain",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "host_expired"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 3,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "live A responds after arbitrary finite silence",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "active",
+              "generation": 3,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 0,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 1,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "stopped",
+              "generation": 2,
+              "paused": true,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": true,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [
+                    {
+                      "code": 4503,
+                      "reason": "host-draining"
+                    }
+                  ],
+                  "closing": [
+                    "draining"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "grace-counterexample-30000",
+      "mode": "on",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 45000,
+          "elapsed": 45000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 45000
+        },
+        {
+          "process": "S",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": false,
+          "monotonic": 45000
+        },
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "monotonic": 45000
+        },
+        {
+          "process": "S",
+          "op": "presenceActivateExclusive",
+          "generation": 3,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 45000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": false,
+            "newerActive": true
+          },
+          "monotonic": 45000
+        },
+        {
+          "process": "A",
+          "op": "presenceDrain",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "host_expired"
+          },
+          "monotonic": 45000
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 3,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 45000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "live A responds after arbitrary finite silence",
+          "monotonic": 45000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "active",
+              "generation": 3,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 0,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 1,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "stopped",
+              "generation": 2,
+              "paused": true,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": true,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [
+                    {
+                      "code": 4503,
+                      "reason": "host-draining"
+                    }
+                  ],
+                  "closing": [
+                    "draining"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "grace-counterexample-120000",
+      "mode": "on",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceDrain",
+          "generation": 1,
+          "answer": {
+            "state": "draining",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 135000,
+          "elapsed": 135000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 135000
+        },
+        {
+          "process": "S",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": false,
+          "monotonic": 135000
+        },
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "monotonic": 135000
+        },
+        {
+          "process": "S",
+          "op": "presenceActivateExclusive",
+          "generation": 3,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 135000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": false,
+            "newerActive": true
+          },
+          "monotonic": 135000
+        },
+        {
+          "process": "A",
+          "op": "presenceDrain",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "host_expired"
+          },
+          "monotonic": 135000
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 3,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 135000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "live A responds after arbitrary finite silence",
+          "monotonic": 135000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "active",
+              "generation": 3,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 0,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 1,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "stopped",
+              "generation": 2,
+              "paused": true,
+              "displaced": "newer host active",
+              "newerSeen": true,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": true,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": false,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [
+                    {
+                      "code": 4503,
+                      "reason": "host-draining"
+                    }
+                  ],
+                  "closing": [
+                    "draining"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "shadow-active-displacement",
+      "mode": "shadow",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceRenew",
+          "generation": 1,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": true
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 16000,
+          "elapsed": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": true,
+            "newerActive": false
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceStop",
+          "generation": 2,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "shadow keeps older host active; no standby formed",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "active",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "active",
+              "generation": 1,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": true,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 0,
+              "newerActive": 1,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 1,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "active",
+              "generation": 2,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 1,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 1,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 1,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [],
+                  "closing": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "shadow-refused-candidate",
+      "mode": "shadow",
+      "recovery": true,
+      "events": [
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 1
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 2
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "presenceActivate",
+          "generation": 2,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceActivate",
+          "generation": 1,
+          "answer": {
+            "status": "newer_active"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 1,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 0
+        },
+        {
+          "process": "A",
+          "op": "test-only-expire",
+          "monotonic": 16000,
+          "elapsed": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "fault": "transport unavailable",
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAnyActive",
+          "generation": null,
+          "answer": false,
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceAcquire",
+          "generation": null,
+          "answer": {
+            "state": "starting",
+            "generation": 3
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceActivateExclusive",
+          "generation": 3,
+          "answer": {
+            "status": "active"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceRenew",
+          "generation": 2,
+          "answer": {
+            "state": "active",
+            "status": "ok",
+            "leaseLive": false,
+            "newerActive": true
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "S",
+          "op": "presenceStop",
+          "generation": 3,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        },
+        {
+          "process": "A",
+          "op": "presenceStop",
+          "generation": 2,
+          "answer": {
+            "state": "stopped",
+            "status": "ok"
+          },
+          "monotonic": 16000
+        }
+      ],
+      "snapshots": [
+        {
+          "label": "shadow A continues visible play, paused authority; S holds lease",
+          "monotonic": 16000,
+          "hosts": [
+            {
+              "generation": 1,
+              "state": "stopped",
+              "live": true
+            },
+            {
+              "generation": 2,
+              "state": "active",
+              "live": false
+            },
+            {
+              "generation": 3,
+              "state": "active",
+              "live": true
+            }
+          ],
+          "processes": [
+            {
+              "label": "S",
+              "state": "active",
+              "generation": 3,
+              "paused": false,
+              "displaced": null,
+              "newerSeen": false,
+              "accepted": 0,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 0,
+              "renewFailures": 0,
+              "newerActive": 0,
+              "expired": 0,
+              "refusedAnswers": 0,
+              "keys": 0,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 0,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 1,
+                "probes": 1,
+                "probeFailures": 0,
+                "promotions": 1,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 0,
+              "clients": []
+            },
+            {
+              "label": "A",
+              "state": "active",
+              "generation": 2,
+              "paused": true,
+              "displaced": null,
+              "newerSeen": true,
+              "accepted": 2,
+              "acquireRetries": 0,
+              "activation": "active",
+              "renewals": 1,
+              "renewFailures": 1,
+              "newerActive": 1,
+              "expired": 1,
+              "refusedAnswers": 0,
+              "keys": 2,
+              "identities": 1,
+              "identityResets": 0,
+              "recoveries": 0,
+              "unavailable": 0,
+              "pauses": 1,
+              "lateAnswers": 0,
+              "lateCleanups": 0,
+              "foreignAnswers": 0,
+              "standby": false,
+              "standbyCounters": {
+                "started": 0,
+                "probes": 0,
+                "probeFailures": 0,
+                "promotions": 0,
+                "refused": 0,
+                "abandoned": 0
+              },
+              "recovery": {
+                "state": "enabled",
+                "reason": null,
+                "probes": 1,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "joinOrderAuthority": {
+                "state": "off",
+                "reason": "kill-switch",
+                "probes": 0,
+                "probeFailures": 0,
+                "fallbacks": 0
+              },
+              "serving": true,
+              "wouldDrain": 1,
+              "clients": [
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [],
+                  "closing": []
+                },
+                {
+                  "placed": true,
+                  "refused": null,
+                  "leaves": [],
+                  "closing": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
