@@ -1,0 +1,27 @@
+# @colyseus/tools 0.18.3 and @colyseus/core 0.18.13 as installed for the realtime (read-only; lockfile unchanged). sha256 of the files read:
+c5c914ccb40a923c5ecee05bfa2028bbabcfc742a891dd61c2d2df8b5974700c *post-deploy.cjs
+7555904f410f054b6ca7d45b31257400d9afe7c7aa0d1a4ff6be9a49d48acfb5 *pm2/post-deploy-agent.cjs
+6d374dc843b5171721b12eb740ec71b9ef1ed840730c117e1d766db78dd57226 *pm2/rollout.cjs
+0ce13837afd5f83b405fc5937c5e2dfcdf37aefa49cd767bd8acfaa5b7920a6a *pm2/shared.cjs
+0905bfe73f840e0a307508b664c76208024d8808152518aba6a7c945f6b6304f *build/index.mjs
+eee255c5b130efa8884599e0bebd7f8c3a581e11dfd014ccd6be640f25563f11 *build/Server.mjs
+
+# Decisive lines (file:line: text)
+tools/pm2/post-deploy-agent.cjs:5: * - New process(es) are spawned (MAX_ACTIVE_PROCESSES/2)
+tools/pm2/post-deploy-agent.cjs:6: * - NGINX configuration is updated so new traffic only goes through the new process
+tools/pm2/post-deploy-agent.cjs:7: * - Old processes are asynchronously and gracefully stopped.
+tools/pm2/post-deploy-agent.cjs:82:    if (apps.length === 0) {
+tools/pm2/post-deploy-agent.cjs:92:    if (apps[0].pm2_env.pm_cwd !== config.cwd) {
+tools/pm2/post-deploy-agent.cjs:98:      return pm2.delete('all', function (err) {
+tools/pm2/post-deploy-agent.cjs:156:      writeNginxConfig(initialApps);
+tools/pm2/post-deploy-agent.cjs:161:      await new Promise(resolve => setTimeout(resolve, 1500));
+tools/pm2/post-deploy-agent.cjs:189:        new Promise((resolve) => pm2.stop(app_env.pm_id, (err) => { logIfError(err); resolve(); })));
+tools/pm2/post-deploy-agent.cjs:238:    if (apps.length === 0) { err = "no apps running."; }
+tools/pm2/post-deploy-agent.cjs:263:    console.warn("No active process to route to; leaving NGINX config untouched.");
+tools/pm2/shared.cjs:23:  return Math.ceil(instances / 2);
+tools/pm2/shared.cjs:31:  return instances + spawnCount(instances);
+tools/pm2/shared.cjs:109:    app.wait_ready = true;
+tools/pm2/shared.cjs:120:      app.kill_timeout = 30 * 60 * 1000;
+tools/pm2/shared.cjs:193:  NGINX_SERVERS_CONFIG_FILE: process.env.NGINX_CONFIG_FILE || '/etc/nginx/colyseus_servers.conf',
+tools/build/index.mjs:70:    process.send("ready");
+core/build/Server.mjs:74:          return (await dynamicImport("@colyseus/tools")).listen(this);
