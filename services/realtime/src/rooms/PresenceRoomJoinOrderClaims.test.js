@@ -66,7 +66,7 @@ function counting(base) {
  * One room process: its own module copy and a host acquired NOW (older than any host created after it).
  * `order`: WORLD_JOIN_ORDER; `authority`: whether claim v3 is requested from the store (on only).
  */
-async function processWith(t, { mode = 'on', order = 'on', recovery = false, authority = true, store: given = null, hostStore = null } = {}) {
+async function processWith(t, { mode = 'on', order = 'on', recovery = false, authority = true, store: given = null, hostStore = null, react = false } = {}) {
   await database()
   const store = given ?? counting(data)
   const module = await import(new URL(`./PresenceRoom.js?instance=join-order-claims-${++instances}`, import.meta.url).href)
@@ -78,7 +78,7 @@ async function processWith(t, { mode = 'on', order = 'on', recovery = false, aut
   const host = new HostLifecycle({ store: hostStore ?? store, renewMs: 600_000, leaseMs: 120_000, log: () => {} })
   created.push(host)
   await host.acquire(); await host.activate()
-  module.configurePresenceHost(host, { reactToHostChanges: false, store })
+  module.configurePresenceHost(host, { reactToHostChanges: react, store })
   const service = module.configureLocationPersistence({ mode, store, host, now: () => clock, hydrationTimeoutMs: 1_000 })
   service.journal?.stop()
   const room = new module.PresenceRoom(); room.onCreate()
@@ -382,4 +382,72 @@ function rpcOver(query) {
       return { data: null, error: { message: error.message, code: error.code } }
     }
   }
+}
+
+// ── L1, precisely (CLOUD — corrections on the combined candidate) ───────────────────────────────────────────
+// "Two active hosts" here is all three at once, for the window between the newer host's activation and the
+// older one hearing of it (its next renew, ≤ HOST_RENEW_MS, or the newerActive of any claim/save answer):
+// both processes hold an 'active' HostLifecycle, both rows are state = 'active', and both leases are valid for
+// SQL (world_presence_activate only refuses when a NEWER host is active, so the older one stays active until it
+// hears). The newer attempt of the page lands on the OLDER (stale) host after the abandoned one claimed on the
+// newer host: claim v3 finds no same-page refusal (its attempt is greater) and decides by the v1/v2 rules —
+// key order, owner 'active' → 'superseded' with newerActive = true. The counter authorizes no takeover.
+const CLOSE_DECISION = {
+  [SESSION_REPLACED_CODE]: 'replaced: the client stops and offers «Jugar acá» (domain/closePolicy.ts)',
+  [HOST_DRAINING_CODE]: 'reconnect: the client retries with resume and a NEW attempt (bounded backoff)',
+}
+for (const recovery of [false, true]) {
+  test(`L1 sequence (recovery=${recovery}): what "two active hosts" is, which check refuses the newer attempt, what the client then does`, async t => {
+    await database()
+    const answers = []
+    const recording = counting(new Proxy(data, {
+      get(target, property) {
+        if (property === 'locationClaimV3') return async (...args) => { const answer = await target.locationClaimV3(...args); answers.push(answer); return answer }
+        return Reflect.get(target, property)
+      },
+    }))
+    const A = await processWith(t, { recovery, store: recording, react: true })    // older host: will receive the NEWER attempt
+    const B = await processWith(t, { recovery })                                    // newer host: received the ABANDONED attempt
+    t.after(() => { A.hosting.beginShutdown(); B.hosting.beginShutdown() })
+    const u = nextUser()
+
+    // 1. "Two active hosts", in all three senses.
+    const rows = (await db.query("SELECT generation::int AS g, state, lease_expires_at > now() AS eligible FROM public.world_presence_hosts WHERE generation = ANY($1) ORDER BY generation", [[A.host.generation, B.host.generation]])).rows
+    assert.deepEqual(rows, [{ g: A.host.generation, state: 'active', eligible: true }, { g: B.host.generation, state: 'active', eligible: true }], 'two rows active, both leases valid for SQL')
+    assert.deepEqual([A.hosting.host.state, B.hosting.host.state], ['active', 'active'], 'two processes that believe they are active')
+
+    // 2. The abandoned attempt claimed first on the newer host.
+    const old = socket('old')
+    await B.join(u, old, { attempt: 1 })
+    await waitFor(() => placed(old), 'old placed on B')
+
+    // 3. The newer attempt on the older host: the check that refuses it.
+    const current = socket('current')
+    await A.join(u, current, { attempt: 2, resume: true })
+    await settled(() => current.leaves.length > 0)
+    assert.deepEqual(answers.at(-1), { status: 'superseded', newerActive: true },
+      `claim v3 → ${recovery ? 'v2 rule: owner state active (world_presence_owner_state)' : 'v1 rule: smaller key'} → superseded; no stale_attempt (its attempt is the greater one)`)
+    assert.equal(placed(current), null, 'never placed on the stale host')
+    const row = await owner(u)
+    assert.deepEqual([row.g, row.attempt], [B.host.generation, 1], 'page order lost for now: the row keeps the abandoned attempt')
+
+    // 4. What the socket and the client get.
+    const code = current.leaves[0]?.[0]
+    // What the client reads is the reason sent BEFORE its close (a later drain also messages the socket this mock keeps).
+    const closing = current.messages.filter(m => m.type === MESSAGE.CLOSING).map(m => m.payload.reason).slice(0, 1)
+    if (recovery) assert.deepEqual([code, closing], [HOST_DRAINING_CODE, ['draining']], CLOSE_DECISION[HOST_DRAINING_CODE])
+    else assert.deepEqual([code, closing], [SESSION_REPLACED_CODE, ['replaced']], 'WRONG MESSAGE: "replaced" although no other tab or device exists')
+
+    // 5. The stale host is retired correctly: the same answer's newerActive drains and displaces it.
+    await waitFor(() => A.hosting.displaced, 'A displaced by its own claim answer')
+    assert.deepEqual((await db.query('SELECT state FROM public.world_presence_hosts WHERE generation = $1', [A.host.generation])).rows[0].state, 'stopped')
+
+    // 6. Recovery: with recovery the client's own automatic retry (new attempt, resume) lands on the remaining host.
+    //    Without it, only «Jugar acá» (explicit) gets there: that is the documented gap, not an order failure.
+    old.gone = true; B.leave(old)                                   // the page leaves the abandoned room as soon as its join resolves
+    const next = socket('next')
+    await B.join(u, next, recovery ? { attempt: 3, resume: true } : { attempt: 3, takeover: true })
+    await waitFor(() => placed(next), 'the page placed on B')
+    assert.deepEqual([(await owner(u)).attempt, next.leaves], [3, []], 'the page owns its row again, ordered')
+  })
 }
