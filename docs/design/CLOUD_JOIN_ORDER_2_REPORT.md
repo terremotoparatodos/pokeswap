@@ -281,6 +281,8 @@ El orden de despliegue (INFERENCE, ningún paso se ejecutó) es el inverso del r
 
 ## 10. Hallazgos para coordinar (no corregidos aquí)
 
+> **Errata** (rama `fix/cloud-candidate-h1-typecheck-0.3`, `docs/design/CLOUD_CANDIDATE_FIXES_REPORT.md` §2). Aquí y en §5 el typecheck se atribuyó a READINESS-3 **deduciéndolo** de que el archivo no cambió, sin correrlo sobre la base. Después se **comprobó**: con el mismo entorno, `5ca9ccd` y `0e5842c` dan los mismos 5 errores. La causa es el `.at()` del test con `lib` ES2020, y se corrigió en `7580844`.
+
 - **READINESS-3 (`5ca9ccd`):** `npm run typecheck` falla en `src/features/wildlands/multiplayer/api/ownerUnreachable.test.ts`, con 5 usos de `.at()` y `lib: ES2020`. El informe de READINESS-3 dice «typecheck sin errores». No se tocó ese archivo: le corresponde a la revisión de READINESS-3.
 - `presence/recoveryCapability.test.js` conserva el nombre «… world-authority v6 handler …», pero ahora corre contra el handler v7. Solo es el nombre; el contenido se ajustó a la forma nueva de `capabilities()`.
 - **JOIN-ORDER-1:** la colisión de nombres «P1–P6» (§5.1).
