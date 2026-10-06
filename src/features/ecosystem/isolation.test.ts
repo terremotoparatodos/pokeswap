@@ -62,6 +62,7 @@ const OWNERSHIP = /\b(owner_?id|ownedIds|slots|pokemon_instances)\b/
 const ALLOWED_OUTSIDE = new Set([
   fwd(join(ROOT, 'scripts/ecosystem/balance-1.ts')), // ECO-BALANCE-1 runner (dev-only study)
   fwd(join(ROOT, 'scripts/ecosystem/map-nests.ts')), // ECO-MAP-1 nest data generator (dev-only)
+  fwd(join(ROOT, 'scripts/ecosystem/validate-inputs.ts')), // F6 offline gate; never a product entrypoint
 ])
 
 function outsideImporters(files: readonly string[], read: (file: string) => string): string[] {

@@ -11,6 +11,8 @@ import { areaView, type GeometrySnapshot } from './geometry'
 import { SNAPSHOT } from './nestData'
 import { NEST_PROPOSALS } from './nestProposals'
 import type { NestProposal } from './nestValidation'
+// @ts-expect-error — authoritative plain JS helper has no frontend declarations
+import { layoutVersion } from '../../../../services/realtime/src/world/layoutVersion.js'
 
 interface Inputs {
   catalog: EncounterCatalog
@@ -24,7 +26,7 @@ const inputs = (): Inputs => ({
   catalog: ECO_1_ENCOUNTER_CATALOG,
   config: { namespace: 'readiness-test', areas: ['pradera', 'cueva-inicial'].map(id => proposalApi.proposedAreaConfig(id, PROVISIONAL_RESPAWN, PROVISIONAL_IDLE)) },
   lookupSpecies: lookupFromSpeciesList(core.species), snapshot: SNAPSHOT, proposals: NEST_PROPOSALS,
-  currentLayouts: Object.fromEntries(Object.values(SNAPSHOT.areas).map(a => [a.areaId, a.layoutVersion])),
+  currentLayouts: Object.fromEntries(Object.values(SNAPSHOT.areas).map(a => [a.areaId, layoutVersion(a.areaId)])),
 })
 
 // Baseline-only adapter: fa14ab2 has no composite gate. Exercising its actual

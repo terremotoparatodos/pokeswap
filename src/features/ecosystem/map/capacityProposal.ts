@@ -17,12 +17,14 @@ import { NEST_PROPOSALS } from './nestProposals'
 import { PROVISIONAL_CAPACITY } from './capacityLimits'
 
 export { PROVISIONAL_CAPACITY }
+export { createValidatedPopulation } from './readiness'
 
 /** The engine area config of one presence area, built from the ECO-MAP-1 nests and the proposed capacity. */
 export function proposedAreaConfig(areaId: string, respawn: RespawnConfig, idle: IdleConfig): AreaConfig {
   const capacity = PROVISIONAL_CAPACITY[areaId]
   if (!capacity) throw new Error(`no capacity proposal for area ${areaId}`)
-  const { reports } = nestValidation()
+  const { issues, reports } = nestValidation()
+  if (issues.length) throw new Error(`invalid nest proposal: ${issues.map(i => `${i.nestId}:${i.code}`).join(', ')}`)
   const zoneOf = new Map(capacity.zones.map(z => [z.catalogZone, z.id]))
   const nests: NestConfig[] = NEST_PROPOSALS.filter(n => n.areaId === areaId).map(n => ({
     id: n.id, zoneId: n.zoneId, habitats: n.habitats, tiles: reports.find(r => r.id === n.id)!.candidates,

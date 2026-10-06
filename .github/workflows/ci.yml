@@ -41,6 +41,12 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Ecosystem offline admission gate
+        run: |
+          node scripts/ecosystem/event-classification.mjs --check
+          node scripts/integration/bundle-encounters.mjs --check
+          node node_modules/vite-node/vite-node.mjs scripts/ecosystem/validate-inputs.ts
+
       - name: Production build
         run: npm run build
         env:
