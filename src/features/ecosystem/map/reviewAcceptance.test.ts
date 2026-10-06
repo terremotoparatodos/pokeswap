@@ -131,4 +131,45 @@ describe('review R1/R2 acceptance against b03c437', () => {
     expect(keys(configured)).toEqual(keys(derived)) // R1 equality alone cannot close R2
     expect(reject({ ...i, snapshot, config }).some(e => e.code === 'geometry-content-mismatch')).toBe(true)
   })
+
+  it('R2 cannot use a mutated shared JSON object as its own authority reference', () => {
+    const i = inputs()
+    const a = SNAPSHOT.areas.pradera
+    const rowIndex = -86 - a.window.minTy
+    const offset = (-34 - a.window.minTx) * 3
+    const original = a.rows[rowIndex]
+    const rows = a.rows as string[]
+    const config = { ...i.config, areas: i.config.areas.map(area => area.areaId !== 'pradera' ? area : {
+      ...area, nests: area.nests.map(n => n.id !== 'pradera-pastizal-oeste' ? n : { ...n, tiles: [...n.tiles, { tx: -34, ty: -86 }] }),
+    }) }
+    try {
+      rows[rowIndex] = original.slice(0, offset) + '000' + original.slice(offset + 3)
+      // The input and the ordinary imported snapshot now share the SAME forged
+      // object. The independent immutable build-text reference must still reject.
+      expect(i.snapshot).toBe(SNAPSHOT)
+      expect(reject({ ...i, config }).some(e => e.code === 'geometry-content-mismatch')).toBe(true)
+    } finally { rows[rowIndex] = original }
+  })
+
+  it.each(['bits', 'window', 'entry', 'protected', 'subzones', 'terrainGenerator'] as const)('R2 checks %s content as well as rows', field => {
+    const i = inputs()
+    const s = structuredClone(i.snapshot)
+    const a = s.areas.pradera
+    const snapshot = field === 'bits' ? { ...s, bits: { ...s.bits, blocked: 1 } }
+      : field === 'terrainGenerator' ? { ...s, terrainGenerator: s.terrainGenerator + 1 }
+        : { ...s, areas: { ...s.areas, pradera: { ...a,
+          ...(field === 'window' ? { window: { ...a.window, minTx: a.window.minTx - 1 } } : {}),
+          ...(field === 'entry' ? { entry: { ...a.entry, tx: a.entry.tx + 1 } } : {}),
+          ...(field === 'protected' ? { protected: [] } : {}),
+          ...(field === 'subzones' ? { subzones: [] } : {}),
+        } } }
+    expect(reject({ ...i, snapshot }).some(e => e.code === 'geometry-content-mismatch')).toBe(true)
+  })
+
+  it('R2 accepts identical independent content with a different object property order', () => {
+    const i = inputs()
+    const s = structuredClone(i.snapshot)
+    const snapshot = { areas: s.areas, bits: s.bits, terrainGenerator: s.terrainGenerator, generatedBy: s.generatedBy }
+    expect(createValidatedPopulation({ ...i, snapshot }).ok).toBe(true)
+  })
 })

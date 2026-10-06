@@ -1,11 +1,13 @@
 // F6: explicit, pure admission gate for a future adapter. Not gameplay wiring.
 // currentLayouts MUST come from the authoritative world, independently of the snapshot.
+// Geometry content must also match the immutable, offline-verified build artifact.
 import { validateEncounterCatalog } from '../encounters/validation'
 import type { EncounterCatalog, EncounterSpeciesLookup } from '../encounters/types'
 import { validatePopulationConfig } from '../population/config'
 import { createPopulation } from '../population/engine'
 import type { PopulationConfig, PopulationState } from '../population/types'
 import { areaView, type GeometrySnapshot } from './geometry'
+import { geometryMatchesBuild } from './geometryAdmission'
 import { validateNests, type NestProposal } from './nestValidation'
 
 export interface PopulationReadinessInput {
@@ -17,7 +19,7 @@ export interface PopulationReadinessInput {
   readonly currentLayouts: Readonly<Record<string, string>>
 }
 export interface ReadinessIssue {
-  readonly boundary: 'catalog' | 'population' | 'proposal' | 'layout' | 'config-proposal' | 'scope'
+  readonly boundary: 'catalog' | 'population' | 'proposal' | 'layout' | 'config-proposal' | 'scope' | 'geometry-authority'
   readonly code: string
   readonly message: string
 }
@@ -37,6 +39,11 @@ const tileIdentity = (t: { readonly tx: number; readonly ty: number }): string =
 
 export function createValidatedPopulation(input: PopulationReadinessInput): ReadinessResult {
   const { catalog, config, snapshot, proposals, currentLayouts } = input
+  // Reject before deriving any candidate tiles or state from altered geometry.
+  if (!geometryMatchesBuild(snapshot)) return { ok: false, issues: [{
+    boundary: 'geometry-authority', code: 'geometry-content-mismatch',
+    message: 'snapshot content differs from the independently verified geometry of this build',
+  }] }
   const issues: ReadinessIssue[] = []
   const append = (boundary: ReadinessIssue['boundary'], rows: readonly { code: string; message: string }[]) => {
     issues.push(...rows.map(row => ({ boundary, code: row.code, message: row.message })))
