@@ -66,6 +66,51 @@ describe('review R1/R2 acceptance against b03c437', () => {
     reject({ ...i, config: { ...i.config, areas: [] }, currentLayouts: {} })
   })
 
+  it('R1 rejects an omitted area even when its layouts and proposals remain', () => {
+    const i = inputs()
+    expect(reject({ ...i, config: { ...i.config, areas: i.config.areas.slice(1) } }).some(e => e.code === 'area-scope-mismatch')).toBe(true)
+  })
+
+  it('R1 rejects a partial area scope across config, proposals and layouts while the snapshot is complete', () => {
+    const i = inputs()
+    expect(reject({ ...i, config: { ...i.config, areas: i.config.areas.filter(a => a.areaId === 'pradera') },
+      proposals: i.proposals.filter(p => p.areaId === 'pradera'), currentLayouts: { pradera: i.currentLayouts.pradera },
+    }).some(e => e.code === 'area-scope-mismatch')).toBe(true)
+  })
+
+  it('R1 rejects an extra authoritative layout outside the admitted scope', () => {
+    const i = inputs()
+    expect(reject({ ...i, currentLayouts: { ...i.currentLayouts, outside: 'unrelated' } }).some(e => e.code === 'layout-scope-mismatch')).toBe(true)
+  })
+
+  it('R1 rejects an area scope with no proposals and no configuration', () => {
+    const i = inputs()
+    expect(reject({ ...i, config: { ...i.config, areas: [] }, proposals: [], currentLayouts: {} }).some(e => e.code === 'area-scope-mismatch')).toBe(true)
+  })
+
+  it('R1 checks the reverse direction: configured nest without a proposal', () => {
+    const i = inputs()
+    expect(reject({ ...i, proposals: i.proposals.slice(1) }).some(e => e.code === 'nest-scope-mismatch')).toBe(true)
+  })
+
+  it('R1 checks an extra configured nest has no matching proposal', () => {
+    const i = inputs()
+    const config = { ...i.config, areas: i.config.areas.map((a, j) => j ? a : { ...a, nests: [...a.nests, { ...a.nests[0], id: 'unproposed' }] }) }
+    expect(reject({ ...i, config }).some(e => e.code === 'nest-scope-mismatch')).toBe(true)
+  })
+
+  it('R1 rejects repeated tiles as well as omitted tiles', () => {
+    const i = inputs()
+    const config = { ...i.config, areas: i.config.areas.map((a, j) => j ? a : { ...a, nests: a.nests.map((n, k) => k ? n : { ...n, tiles: [...n.tiles.slice(1), n.tiles[1]] }) }) }
+    expect(reject({ ...i, config }).some(e => e.code === 'nest-config-mismatch')).toBe(true)
+  })
+
+  it('R1 treats tile ordering as irrelevant to set correspondence', () => {
+    const i = inputs()
+    const config = { ...i.config, areas: [...i.config.areas].reverse().map(a => ({ ...a, nests: [...a.nests].reverse().map(n => ({ ...n, tiles: [...n.tiles].reverse() })) })) }
+    expect(createValidatedPopulation({ ...i, config, proposals: [...i.proposals].reverse() }).ok).toBe(true)
+  })
+
   it('R2 rejects forged-geometry-current-layout even with a fully matching derived tile set', () => {
     const i = inputs()
     const tile = { tx: -34, ty: -86 }
