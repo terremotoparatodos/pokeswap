@@ -5,6 +5,7 @@
 // lookup — and nothing else: no files, no network, no session.
 
 import { ordinaryEncounterExclusion } from './policy'
+import { SHARE_TOTAL, SHARE_TOLERANCE, tierWeightTotal } from './distributionValidation'
 import {
   ENCOUNTER_RARITIES, SPECIES_CATEGORY_IDS,
   type EncounterCatalog, type EncounterEntry, type EncounterHabitat, type EncounterSpeciesLookup, type EncounterZone,
@@ -21,6 +22,7 @@ export type EncounterIssueCode =
   | 'duplicate-family' | 'family-id-not-first-member' | 'family-member-unknown-species' | 'family-member-name-mismatch'
   | 'family-member-repeated' | 'invalid-family-stages'
   | 'category-unknown-species' | 'category-duplicate-species' | 'unknown-category'
+  | 'invalid-weight-total'
 
 export interface EncounterIssue {
   readonly code: EncounterIssueCode
@@ -35,8 +37,6 @@ export interface EncounterValidation {
 }
 
 export const MAX_GROUP_SIZE = 6
-const SHARE_TOTAL = 100
-const SHARE_TOLERANCE = 1e-9
 
 export const HABITAT_ZONE_KIND: Readonly<Record<EncounterHabitat, EncounterZoneKind>> = {
   'open-grass': 'surface', 'tall-grass': 'surface', 'grass-near-water': 'surface', undergrowth: 'surface',
@@ -58,6 +58,12 @@ export function validateEncounterCatalog(catalog: EncounterCatalog, lookupSpecie
   const families = validateFamilies(catalog, lookupSpecies, add)
   validateCategories(catalog, lookupSpecies, add)
   validateEntries(catalog, zones, families, lookupSpecies, add)
+  for (const zone of catalog.zones) for (const rarity of ENCOUNTER_RARITIES) {
+    const entries = catalog.entries.filter(e => e.zoneId === zone.id && e.rarity === rarity)
+    if (entries.every(e => isPositiveFinite(e.weight)) && tierWeightTotal(entries) === null) {
+      add('invalid-weight-total', `zone ${zone.id} ${rarity} weights have a non-finite total`, { zoneId: zone.id })
+    }
+  }
 
   return { ok: issues.length === 0, issues }
 }

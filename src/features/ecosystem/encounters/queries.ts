@@ -20,6 +20,7 @@
 // seeded test generator). The same catalog and ticket always give the same answer.
 
 import { ordinaryEncounterExclusion } from './policy'
+import { tierWeightTotal, validShares } from './distributionValidation'
 import { ENCOUNTER_RARITIES, type EncounterCatalog, type EncounterEntry, type EncounterRarity, type EncounterZone } from './types'
 
 export type EntryFilter = (entry: EncounterEntry) => boolean
@@ -82,16 +83,18 @@ function candidates(catalog: EncounterCatalog, zoneId: string, rarity: Encounter
 
 const tierProbability = (zone: EncounterZone, rarity: EncounterRarity): number => zone.rarityShares[rarity] / 100
 
+/** null = unknown zone or invalid numerical distribution; never publishes misleading probabilities. */
 export function zoneDistribution(catalog: EncounterCatalog, zoneId: string, filter?: EntryFilter): ZoneDistribution | null {
   const zone = zoneById(catalog, zoneId)
-  if (!zone) return null
+  if (!zone || !validShares(zone.rarityShares)) return null
   const tiers: TierDistribution[] = []
   const emptyTiers: EncounterRarity[] = []
   let unassigned = 0
   for (const rarity of ENCOUNTER_RARITIES) {
     const probability = tierProbability(zone, rarity)
     const list = candidates(catalog, zoneId, rarity, filter)
-    const total = list.reduce((sum, entry) => sum + entry.weight, 0)
+    const total = tierWeightTotal(list)
+    if (total === null) return null
     if (probability > 0 && list.length === 0) {
       emptyTiers.push(rarity)
       unassigned += probability
@@ -104,8 +107,6 @@ export function zoneDistribution(catalog: EncounterCatalog, zoneId: string, filt
   }
   return { zoneId, tiers, emptyTiers, unassigned }
 }
-
-const isWeight = (value: unknown): value is number => typeof value === 'number' && Number.isFinite(value) && value >= 0
 
 function assertRoll(name: string, value: number): void {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value >= 1) {
@@ -133,13 +134,12 @@ export function pickEncounter(catalog: EncounterCatalog, zoneId: string, ticket:
   const zone = zoneById(catalog, zoneId)
   if (!zone) return { ok: false, reason: 'unknown-zone' }
 
-  const shares = ENCOUNTER_RARITIES.map(r => zone.rarityShares[r])
-  if (!shares.every(isWeight) || !(shares.reduce((sum, share) => sum + share, 0) > 0)) return { ok: false, reason: 'invalid-distribution' }
+  if (!validShares(zone.rarityShares)) return { ok: false, reason: 'invalid-distribution' }
   const rarity = walk(ENCOUNTER_RARITIES, r => tierProbability(zone, r), ticket.tierRoll, 1)
   const list = candidates(catalog, zoneId, rarity, filter)
   if (list.length === 0) return { ok: false, reason: 'empty-tier', rarity }
-  if (!list.every(entry => isWeight(entry.weight) && entry.weight > 0)) return { ok: false, reason: 'invalid-distribution' }
-  const total = list.reduce((sum, entry) => sum + entry.weight, 0)
+  const total = tierWeightTotal(list)
+  if (total === null || total <= 0) return { ok: false, reason: 'invalid-distribution' }
   return { ok: true, entry: walk(list, entry => entry.weight, ticket.entryRoll, total), rarity }
 }
 
