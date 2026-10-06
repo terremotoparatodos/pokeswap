@@ -38,6 +38,8 @@ vi.mock('../../../../shared/api/supabase', () => ({
 const closed = (over: Partial<ClosedSocket>): ClosedSocket =>
   ({ code: 1006, closing: null, serverProtocol: PRESENCE_PROTOCOL, livedMs: 1_000, now: 1_000_000, lastAmbiguousAt: null, ...over })
 const run = (state: WorldEntryState, ...events: WorldEntryEvent['type'][]) => events.reduce((s, type) => nextWorldEntry(s, { type } as WorldEntryEvent), state)
+/** The latest join (index access: the app's lib is ES2020, which has no Array.prototype.at). */
+const lastJoin = () => sdk.joins[sdk.joins.length - 1]
 const settle = async () => { for (let i = 0; i < 10; i++) await Promise.resolve() }
 const remotePort = (): RemoteActorsPort => ({
   replaceRemoteActors: vi.fn(), upsertRemoteActor: vi.fn(), removeRemoteActor: vi.fn(), setAuthoritativeActor: vi.fn(), setPresenceAccess: vi.fn(), presenceRejected: vi.fn(),
@@ -86,7 +88,7 @@ describe('owner-unreachable (CLOUD READINESS-3, P1)', () => {
     const presence = new ColyseusPresence(remotePort(), null, null, status)
     await presence.connect(undefined)
     for (let attempt = 1; attempt <= OWNER_UNREACHABLE_ATTEMPTS; attempt++) {
-      const join = sdk.joins.at(-1)!
+      const join = lastJoin()
       join.room.emit('presence:closing', { reason: 'owner-unreachable' })
       join.room.leave(CLOSE_CODE.DRAINING)
       await vi.runAllTimersAsync()
@@ -97,13 +99,13 @@ describe('owner-unreachable (CLOUD READINESS-3, P1)', () => {
     expect(sdk.joins.slice(1).every(j => j.options.resume === true && !('takeover' in j.options))).toBe(true)
     const playHere = new ColyseusPresence(remotePort(), null, null, status)
     await playHere.connect(undefined, { takeover: true })
-    expect(sdk.joins.at(-1)!.options).toMatchObject({ takeover: true })
-    expect('resume' in sdk.joins.at(-1)!.options).toBe(false)
+    expect(lastJoin().options).toMatchObject({ takeover: true })
+    expect('resume' in lastJoin().options).toBe(false)
     await playHere.connect(undefined)
     const both = new ColyseusPresence(remotePort(), null, null, status)
     await both.connect(undefined, { resume: true, takeover: true })
-    expect(sdk.joins.at(-1)!.options).toMatchObject({ resume: true })
-    expect('takeover' in sdk.joins.at(-1)!.options).toBe(false)
+    expect(lastJoin().options).toMatchObject({ resume: true })
+    expect('takeover' in lastJoin().options).toBe(false)
     vi.useRealTimers()
   })
 
