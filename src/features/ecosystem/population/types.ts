@@ -143,6 +143,7 @@ export interface AreaState {
 
 export interface PopulationState {
   readonly namespace: string
+  /** Latest accepted tick or living-encounter retirement. Historical field name retained for compatibility. */
   readonly lastTickAt: number | null
   readonly areas: Readonly<Record<string, AreaState>>
   /** Keyed `${areaId}/${nestId}`. */
@@ -199,7 +200,7 @@ export type TickResult =
 
 export type RetireResult =
   | { readonly ok: true; readonly state: PopulationState; readonly retired: PopulationEncounter; readonly cause: RetireCause; readonly dueAt: number | null }
-  | { readonly ok: false; readonly reason: 'not-alive' | 'clock-regressed'; readonly state: PopulationState }
+  | { readonly ok: false; readonly reason: 'not-alive' | 'clock-regressed' | 'namespace-mismatch'; readonly state: PopulationState }
 
 export interface PopulationDeps {
   readonly catalog: EncounterCatalog

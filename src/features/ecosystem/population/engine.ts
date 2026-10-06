@@ -179,7 +179,7 @@ function attemptSpawn(
  */
 export function retireEncounter(state: PopulationState, config: PopulationConfig, input: RetireInput): RetireResult {
   assertTime(input.now)
-  if (state.lastTickAt !== null && input.now < state.lastTickAt) return { ok: false, reason: 'clock-regressed', state }
+  if (state.namespace !== config.namespace) return { ok: false, reason: 'namespace-mismatch', state }
   const parts = encounterIdParts(input.encounterId)
   if (!parts || parts.namespace !== state.namespace) return { ok: false, reason: 'not-alive', state }
   const area = config.areas.find(a => a.areaId === parts.areaId)
@@ -187,8 +187,12 @@ export function retireEncounter(state: PopulationState, config: PopulationConfig
   const current = state.nests[nestKey(parts.areaId, parts.nestId)]
   const retired = current?.alive.find(encounter => encounter.id === input.encounterId)
   if (!nest || !current || !retired) return { ok: false, reason: 'not-alive', state }
+  // A duplicate/unknown id is a no-op, even with a stale finite time. A living
+  // encounter changes state, so it must respect the time of EVERY accepted mutation.
+  if (state.lastTickAt !== null && input.now < state.lastTickAt) return { ok: false, reason: 'clock-regressed', state }
 
   const draft = draftOf(state)
+  draft.lastTickAt = input.now
   const nestState = draft.nests[nestKey(parts.areaId, parts.nestId)]
   nestState.alive = nestState.alive.filter(encounter => encounter.id !== input.encounterId)
   if (nest.respawn.policy === 'per-group') {
