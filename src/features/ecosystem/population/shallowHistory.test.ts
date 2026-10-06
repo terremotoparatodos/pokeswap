@@ -11,7 +11,6 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = fileURLToPath(new URL('../../../../', import.meta.url))
 const BASE = '7739c4d4c1dba59b8dca3b66f379dea18082d108'
-const CANDIDATE = 'fa14ab2cb99c6d80725a57ea7a109607a03c8ef2'
 const BUNDLE = 'services/realtime/src/world/ecosystem/encounters.generated.js'
 
 describe('audit F5 acceptance', () => {
@@ -20,7 +19,11 @@ describe('audit F5 acceptance', () => {
     mkdirSync(cache, { recursive: true })
     const dir = mkdtempSync(join(cache, 'eco-shallow-'))
     const git = (...args: string[]) => spawnSync('git', args, { cwd: dir, encoding: 'utf8' })
-    for (const args of [['init'], ['remote', 'add', 'origin', ROOT], ['fetch', '--depth=1', 'origin', CANDIDATE]]) {
+    // The calling checkout may itself be depth-one CI. Only its HEAD and the
+    // explicitly provisioned historical commit are guaranteed to exist there.
+    const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: ROOT, encoding: 'utf8' })
+    expect(head.status, head.stderr).toBe(0)
+    for (const args of [['init'], ['remote', 'add', 'origin', ROOT], ['fetch', '--depth=1', 'origin', head.stdout.trim()]]) {
       const r = git(...args)
       expect(r.status, r.stderr).toBe(0) // infrastructure must succeed before exercising the gate
     }
@@ -40,5 +43,5 @@ describe('audit F5 acceptance', () => {
     expect(original.status, original.stderr).toBe(0)
     expect(historical.stdout).toBe(original.stdout)
     expect(historical.stdout).toContain('function tickPopulation')
-  })
+  }, 30_000) // bound Git setup separately; a timeout is never evidence of the regression
 })
