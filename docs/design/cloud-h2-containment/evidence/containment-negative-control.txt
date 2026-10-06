@@ -1,0 +1,20 @@
+# Negative control: PresenceRoomStandbyContainment.test.js against the product files of ea1284e (Node v22.23.2)
+✖ AT-1: recovery on, standby OFF — the H2 sequence does not happen: no standby, no probe, no exclusive activation; A revives its SAME identity and keeps its socket
+✔ AT-2: recovery on, standby ON (isolated tests only) — H2 still exists: S promotes, the live A closes 4503 and a routed retry is refused
+✖ AT-3: shadow never starts or promotes a standby (standby requested): no probe, no exclusive activation, no new active host
+✖ AT-3: shadow never starts or promotes a standby (standby not requested): no probe, no exclusive activation, no new active host
+✖ AT-5: D2-A with standby OFF — the displaced process never promotes once no host is active: it stays alive and stopped (503); recovery needs something external
+✖ AT-9: WORLD_PRESENCE_STANDBY is exactly "on" to ask; the room reads it once at load; /metrics shows only an aggregate flag
+ℹ pass 1
+ℹ fail 5
+✖ failing tests:
+✖ AT-1: recovery on, standby OFF — the H2 sequence does not happen: no standby, no probe, no exclusive activation; A revives its SAME identity and keeps its socket
+  AssertionError [ERR_ASSERTION]: no standby
+✖ AT-3: shadow never starts or promotes a standby (standby requested): no probe, no exclusive activation, no new active host
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+✖ AT-3: shadow never starts or promotes a standby (standby not requested): no probe, no exclusive activation, no new active host
+  AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+✖ AT-5: D2-A with standby OFF — the displaced process never promotes once no host is active: it stays alive and stopped (503); recovery needs something external
+  AssertionError [ERR_ASSERTION]: no active host: D2-A automatic recovery is lost (documented)
+✖ AT-9: WORLD_PRESENCE_STANDBY is exactly "on" to ask; the room reads it once at load; /metrics shows only an aggregate flag
+  AssertionError [ERR_ASSERTION]: the room exports configurePresenceStandby

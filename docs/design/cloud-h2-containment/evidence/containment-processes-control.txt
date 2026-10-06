@@ -1,0 +1,5 @@
+# Negative control: h2-containment-processes.mjs against the product files of ea1284e
+CONTAINED   FAIL     45s 2/6 ✗ S never entered standby; recovery itself enabled ✗ S never called presence_any_active nor presence_activate_exclusive ✗ A serves again with the SAME generation; its socket was never closed ✗ the moving socket still works
+STANDBY_ON  PASS     19s 4/4
+SHADOW      FAIL     30s 3/6 ✗ shadow S never started a standby (counted wouldStandby) and never promoted ✗ shadow S never called presence_any_active nor presence_activate_exclusive ✗ no host row became active through S
+CRASH       PASS     3s 3/3

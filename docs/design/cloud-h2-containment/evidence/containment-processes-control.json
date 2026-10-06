@@ -1,0 +1,180 @@
+{
+  "tree": "<worktree of fix/cloud-h2-standby-contain-0.3>",
+  "node": "v22.23.2",
+  "startedAt": "2026-10-06T03:53:42.558Z",
+  "scenarios": {
+    "CONTAINED": {
+      "verdict": "FAIL",
+      "seconds": 45,
+      "checks": [
+        {
+          "label": "a real socket is placed on A",
+          "ok": true
+        },
+        {
+          "label": "lease expiry is not process death",
+          "ok": true
+        },
+        {
+          "label": "S never entered standby; recovery itself enabled",
+          "ok": false
+        },
+        {
+          "label": "S never called presence_any_active nor presence_activate_exclusive",
+          "ok": false
+        },
+        {
+          "label": "A serves again with the SAME generation; its socket was never closed",
+          "ok": false
+        },
+        {
+          "label": "the moving socket still works",
+          "ok": false
+        }
+      ],
+      "facts": {
+        "sDuring": {
+          "standby": false,
+          "counters": {
+            "started": 1,
+            "probes": 2,
+            "probeFailures": 0,
+            "promotions": 1,
+            "refused": 0,
+            "abandoned": 0
+          },
+          "recovery": "enabled"
+        },
+        "aAfter": {
+          "generation": 2,
+          "state": "stopped",
+          "paused": true
+        },
+        "socketLeft": 4503,
+        "sOps": [
+          "capabilities",
+          "presence_acquire",
+          "presence_activate",
+          "presence_renew",
+          "presence_drain",
+          "presence_stop",
+          "presence_any_active",
+          "presence_activate_exclusive"
+        ]
+      }
+    },
+    "STANDBY_ON": {
+      "verdict": "PASS",
+      "seconds": 19,
+      "checks": [
+        {
+          "label": "a real socket is placed on A",
+          "ok": true
+        },
+        {
+          "label": "lease expiry is not process death",
+          "ok": true
+        },
+        {
+          "label": "H2: the live A closes 4503/draining",
+          "ok": true
+        },
+        {
+          "label": "H2: a retry on the route to A is refused 4503",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "socketLeft": 4503,
+        "retryRefused": 4503
+      }
+    },
+    "SHADOW": {
+      "verdict": "FAIL",
+      "seconds": 30,
+      "checks": [
+        {
+          "label": "S activation answered newer_active (displaced while starting)",
+          "ok": true
+        },
+        {
+          "label": "a real socket is placed on A",
+          "ok": true
+        },
+        {
+          "label": "lease expiry is not process death",
+          "ok": true
+        },
+        {
+          "label": "shadow S never started a standby (counted wouldStandby) and never promoted",
+          "ok": false
+        },
+        {
+          "label": "shadow S never called presence_any_active nor presence_activate_exclusive",
+          "ok": false
+        },
+        {
+          "label": "no host row became active through S",
+          "ok": false
+        }
+      ],
+      "facts": {
+        "counters": {
+          "started": 1,
+          "probes": 3,
+          "probeFailures": 0,
+          "promotions": 1,
+          "refused": 0,
+          "abandoned": 0
+        },
+        "sOps": [
+          "capabilities",
+          "presence_acquire",
+          "presence_activate",
+          "presence_stop",
+          "presence_any_active",
+          "presence_activate_exclusive",
+          "presence_renew"
+        ],
+        "liveAfter": [
+          3
+        ],
+        "aReady": 200
+      }
+    },
+    "CRASH": {
+      "verdict": "PASS",
+      "seconds": 3,
+      "checks": [
+        {
+          "label": "the crashed host row is still active with a live lease (no proof of death)",
+          "ok": true
+        },
+        {
+          "label": "the restarted process takes a NEW generation and serves (no standby involved)",
+          "ok": true
+        },
+        {
+          "label": "the player resumes on it and gets the last confirmed tile; the row is the new generation's",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "dead": 1,
+        "restarted": 2,
+        "tile": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        },
+        "restored": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        },
+        "secondLeft": 1006
+      }
+    }
+  },
+  "finishedAt": "2026-10-06T03:55:20.078Z"
+}

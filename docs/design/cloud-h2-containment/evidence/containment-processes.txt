@@ -1,0 +1,5 @@
+CONTAINED   PASS     27s 6/6
+STANDBY_ON  PASS     22s 4/4
+SHADOW      PASS     30s 6/6
+CRASH       PASS     3s 3/3
+exit=0

@@ -1,0 +1,279 @@
+{
+  "tree": "<worktree of fix/cloud-h2-standby-contain-0.3>",
+  "startedAt": "2026-10-06T03:58:21.284Z",
+  "node": "v22.23.2",
+  "scenarios": {
+    "D2A": {
+      "verdict": "PASS",
+      "seconds": 44,
+      "checks": [
+        {
+          "label": "D2-A: one host again, with a NEW identity, admitting players",
+          "ok": true
+        },
+        {
+          "label": "control (kill switch off): D2-A stays without an active host",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "recovered": {
+          "recoveredMs": 5982,
+          "oldGeneration": 1,
+          "newGeneration": 3,
+          "ready": 200,
+          "liveHosts": [
+            3
+          ],
+          "playerPlaced": true
+        },
+        "control": {
+          "ready": 503,
+          "liveHosts": [],
+          "standby": false
+        }
+      }
+    },
+    "D2B": {
+      "verdict": "PASS",
+      "seconds": 5,
+      "checks": [
+        {
+          "label": "D2-B: the resume on the older host restores the tile saved by the stopped one",
+          "ok": true
+        },
+        {
+          "label": "control (kill switch off): the same resume is the false 4409",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "recovery": {
+          "tile": {
+            "areaId": "ciudad-corazon",
+            "tx": 32,
+            "ty": 20
+          },
+          "restored": {
+            "areaId": "ciudad-corazon",
+            "tx": 32,
+            "ty": 20
+          },
+          "left": null,
+          "closing": [],
+          "refused": null
+        },
+        "control": {
+          "tile": {
+            "areaId": "ciudad-corazon",
+            "tx": 32,
+            "ty": 20
+          },
+          "restored": null,
+          "left": 4409,
+          "closing": [
+            "replaced"
+          ],
+          "refused": null
+        }
+      }
+    },
+    "UNREACHABLE": {
+      "verdict": "PASS",
+      "seconds": 22,
+      "checks": [
+        {
+          "label": "a resume and a plain fresh join get 4503 owner-unreachable",
+          "ok": true
+        },
+        {
+          "label": "«Jugar acá» (takeover) restores the last confirmed tile",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "tile": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        },
+        "resumes": [
+          {
+            "options": {
+              "resume": true
+            },
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          },
+          {
+            "options": {},
+            "left": 4503,
+            "closing": [
+              "owner-unreachable"
+            ],
+            "placed": false
+          }
+        ],
+        "playHere": {
+          "areaId": "ciudad-corazon",
+          "tx": 32,
+          "ty": 20
+        }
+      }
+    },
+    "SIGINT_PROMOTION": {
+      "verdict": "PASS",
+      "seconds": 18,
+      "checks": [
+        {
+          "label": "the process exits on SIGTERM during its promotion",
+          "ok": true
+        },
+        {
+          "label": "the late activation finds the identity already stopped: no active host without a process",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "exitCode": 0,
+        "lateAnswer": {
+          "state": "stopped",
+          "status": "host_inactive"
+        },
+        "hosts": [
+          {
+            "generation": 1,
+            "state": "stopped",
+            "live": false
+          },
+          {
+            "generation": 2,
+            "state": "stopped",
+            "live": false
+          },
+          {
+            "generation": 3,
+            "state": "stopped",
+            "live": true
+          }
+        ]
+      }
+    },
+    "AUTHORITY_DOWN": {
+      "verdict": "PASS",
+      "seconds": 29,
+      "checks": [
+        {
+          "label": "no promotion while the authority is down (probe failures only)",
+          "ok": true
+        },
+        {
+          "label": "recovers once the authority answers",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "during": {
+          "started": 1,
+          "probes": 3,
+          "probeFailures": 3,
+          "promotions": 0,
+          "refused": 0,
+          "abandoned": 0,
+          "notRequested": 0,
+          "wouldStandby": 0
+        },
+        "after": {
+          "started": 1,
+          "probes": 4,
+          "probeFailures": 3,
+          "promotions": 1,
+          "refused": 0,
+          "abandoned": 0,
+          "notRequested": 0,
+          "wouldStandby": 0
+        }
+      }
+    },
+    "CAPABILITY_ROLLBACK": {
+      "verdict": "PASS",
+      "seconds": 2,
+      "checks": [
+        {
+          "label": "enabled before, disabled (sql-missing) after one unsupported call",
+          "ok": true
+        },
+        {
+          "label": "the player is placed: the SAME key claimed once through v1",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "before": {
+          "state": "enabled",
+          "reason": null,
+          "probes": 1,
+          "probeFailures": 0,
+          "fallbacks": 0
+        },
+        "after": {
+          "state": "disabled",
+          "reason": "sql-missing",
+          "probes": 1,
+          "probeFailures": 0,
+          "fallbacks": 1
+        },
+        "claims": [
+          {
+            "op": "location_claim_v2",
+            "status": 501,
+            "seq": 1
+          },
+          {
+            "op": "location_claim",
+            "status": 200,
+            "seq": 1
+          }
+        ]
+      }
+    },
+    "CONCURRENT_CANDIDATES": {
+      "verdict": "PASS",
+      "seconds": 27,
+      "checks": [
+        {
+          "label": "exactly one active host for 20 s, always the same (no alternation between standbys)",
+          "ok": true
+        }
+      ],
+      "facts": {
+        "samples": [
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3",
+          "3"
+        ]
+      }
+    }
+  },
+  "finishedAt": "2026-10-06T04:00:48.789Z"
+}
