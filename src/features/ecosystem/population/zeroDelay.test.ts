@@ -56,4 +56,15 @@ describe('F8 approved zero-delay contract', () => {
     const next = api.tickPopulation(same.state, config, deps, input(0.001))
     expect(alive(next.state)).toHaveLength(1) // no imposed minimum duration
   })
+  it.each(['per-group', 'per-member'] as const)('F8 %s a later retirement also waits beyond the retirement instant', policy => {
+    const { config, state } = start(policy)
+    const retired = api.retireEncounter(state, config, { encounterId: alive(state)[0].id, cause: 'defeated', now: 100, random: () => 0 })
+    if (!retired.ok) throw new Error(retired.reason)
+    const random = vi.fn(() => 0)
+    const same = api.tickPopulation(retired.state, config, deps, input(100, random))
+    expect(alive(same.state)).toHaveLength(0)
+    expect(random).not.toHaveBeenCalled()
+    const next = api.tickPopulation(same.state, config, deps, input(100.001))
+    expect(alive(next.state)).toHaveLength(1)
+  })
 })
