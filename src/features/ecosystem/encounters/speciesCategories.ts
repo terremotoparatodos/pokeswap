@@ -9,6 +9,7 @@
 // Every id is checked against the battle catalog by the tests.
 
 import type { SpeciesCategoryList } from './types'
+import { EVENT_CLASSIFICATION_SOURCE, EVENT_SPECIES_IDS } from './eventClassification'
 
 const range = (from: number, to: number): number[] => Array.from({ length: to - from + 1 }, (_, i) => from + i)
 
@@ -17,13 +18,13 @@ const EXCLUSIONS = 'docs/design/CAVE_TYPES_AND_FAMILIES.md §4.3 (ids verified a
 export const SPECIES_CATEGORIES: readonly SpeciesCategoryList[] = [
   {
     category: 'legendary',
-    speciesIds: [144, 145, 146, 150, 243, 244, 245, 249, 250, ...range(377, 384), ...range(480, 488)],
-    source: `${EXCLUSIONS}; MMO_SPAWN_RARITY_AND_INSTANCES.md §6`,
+    speciesIds: EVENT_SPECIES_IDS.legendary,
+    source: EVENT_CLASSIFICATION_SOURCE,
   },
   {
     category: 'mythical',
-    speciesIds: [151, 251, 385, 386, ...range(489, 493)],
-    source: `${EXCLUSIONS}; MMO_SPAWN_RARITY_AND_INSTANCES.md §6`,
+    speciesIds: EVENT_SPECIES_IDS.mythical,
+    source: EVENT_CLASSIFICATION_SOURCE,
   },
   {
     category: 'pseudo_legendary',

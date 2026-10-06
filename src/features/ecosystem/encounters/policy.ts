@@ -13,11 +13,15 @@
 // from appearing (owner decision 1). Nothing here reads who owns what.
 
 import type { EncounterCatalog, SpeciesCategory } from './types'
+import { eventCategoryOf } from './eventClassification'
 
 export const EVENT_ONLY_CATEGORIES: readonly SpeciesCategory[] = ['legendary', 'mythical']
 
 /** The category that keeps this species out of this catalog's encounters, or null if it may appear. */
-export function ordinaryEncounterExclusion(catalog: EncounterCatalog, speciesId: number): SpeciesCategory | null {
+export function ordinaryEncounterExclusion(catalog: EncounterCatalog, speciesId: number): SpeciesCategory | 'unclassified' | null {
+  const event = eventCategoryOf(speciesId)
+  if (event === undefined) return 'unclassified'
+  if (event !== null) return event // independent of optional/malformed catalog lists
   for (const list of catalog.categories) {
     const excluded = EVENT_ONLY_CATEGORIES.includes(list.category) || catalog.excludedCategories.includes(list.category)
     if (excluded && list.speciesIds.includes(speciesId)) return list.category

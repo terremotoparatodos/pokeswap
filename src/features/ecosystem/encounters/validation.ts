@@ -6,6 +6,7 @@
 
 import { ordinaryEncounterExclusion } from './policy'
 import { SHARE_TOTAL, SHARE_TOLERANCE, tierWeightTotal } from './distributionValidation'
+import { EVENT_SPECIES_IDS } from './eventClassification'
 import {
   ENCOUNTER_RARITIES, SPECIES_CATEGORY_IDS,
   type EncounterCatalog, type EncounterEntry, type EncounterHabitat, type EncounterSpeciesLookup, type EncounterZone,
@@ -23,6 +24,7 @@ export type EncounterIssueCode =
   | 'family-member-repeated' | 'invalid-family-stages'
   | 'category-unknown-species' | 'category-duplicate-species' | 'unknown-category'
   | 'invalid-weight-total'
+  | 'missing-event-category' | 'event-category-mismatch' | 'duplicate-category'
 
 export interface EncounterIssue {
   readonly code: EncounterIssueCode
@@ -126,10 +128,24 @@ function validateFamilies(catalog: EncounterCatalog, lookup: EncounterSpeciesLoo
 
 function validateCategories(catalog: EncounterCatalog, lookup: EncounterSpeciesLookup, add: Add): void {
   const known = SPECIES_CATEGORY_IDS as readonly string[]
+  for (const category of ['legendary', 'mythical'] as const) {
+    const lists = catalog.categories.filter(c => c.category === category)
+    if (lists.length === 0) add('missing-event-category', `mandatory ${category} classification is missing`)
+    const expected = new Set(EVENT_SPECIES_IDS[category])
+    for (const list of lists) {
+      const actual = new Set(list.speciesIds)
+      if (actual.size !== expected.size || [...expected].some(id => !actual.has(id))) {
+        add('event-category-mismatch', `${category} classification differs from the pinned authoritative snapshot`)
+      }
+    }
+  }
+  const categories = new Set<string>()
   for (const category of catalog.excludedCategories) {
     if (!known.includes(category)) add('unknown-category', `excludedCategories names unknown category ${String(category)}`)
   }
   for (const list of catalog.categories) {
+    if (categories.has(list.category)) add('duplicate-category', `category ${list.category} is listed twice`)
+    categories.add(list.category)
     if (!known.includes(list.category)) add('unknown-category', `category list ${String(list.category)} is not a known category`)
     const seen = new Set<number>()
     for (const id of list.speciesIds) {
