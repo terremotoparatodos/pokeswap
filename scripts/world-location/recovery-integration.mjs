@@ -19,6 +19,8 @@ import { connect, delay, leave, nudge, startRealtime } from './realtimeProcesses
 const root = fileURLToPath(new URL('../..', import.meta.url))
 const { openDirection } = await import(new URL('../../services/realtime/src/world/testing.js', import.meta.url).href)
 const ROLLBACK = fileURLToPath(new URL('./rollback_world_presence_recovery.sql', import.meta.url))
+// CLOUD JOIN-ORDER-2: claim v3 sits on top of the recovery SQL; its rollback runs first (the recovery one refuses otherwise).
+const JOIN_ORDER_ROLLBACK = fileURLToPath(new URL('./rollback_world_location_join_order.sql', import.meta.url))
 const argv = process.argv.slice(2)
 const arg = name => { const i = argv.indexOf(`--${name}`); return i >= 0 ? argv[i + 1] : null }
 const only = arg('only')?.split(',') ?? null
@@ -177,6 +179,7 @@ const SCENARIOS = {
     const w = await world(t)
     const D = await w.start('D')
     const before = (await w.hosting(D)).recovery
+    await w.local.db.exec(await readFile(JOIN_ORDER_ROLLBACK, 'utf8'))
     await w.local.db.exec(await readFile(ROLLBACK, 'utf8'))
     const p = await w.local.player()
     const s = await connect(D, p.token, { tabId: 'tab-cap-0001' })
