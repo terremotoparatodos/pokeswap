@@ -190,13 +190,29 @@ test('AT-9: WORLD_PRESENCE_STANDBY is exactly "on" to ask; the room reads it onc
   assert.equal(standbyRequested({}), false)
   for (const value of ['ON', 'true', '1', 'yes', 'off', '']) assert.equal(standbyRequested({ WORLD_PRESENCE_STANDBY: value }), false, value)
   assert.equal(standbyRequested({ WORLD_PRESENCE_STANDBY: 'on' }), true)
-  const room = fileURLToPath(new URL('./PresenceRoom.js', import.meta.url))
-  const read = env => spawnSync(process.execPath, ['--input-type=module', '-e', `const m = await import(${JSON.stringify(new URL(`file:///${room.replace(/\\/g, '/')}`).href)}); console.log(JSON.stringify(m.presenceHostingForTesting().standbyRequested)); process.exit(0)`],
-    { encoding: 'utf8', env: { PATH: process.env.PATH, Path: process.env.Path, SystemRoot: process.env.SystemRoot, ...env }, timeout: 60_000 })
-  const lastLine = r => r.stdout.trim().split(/\r?\n/).at(-1)
-  assert.equal(lastLine(read({})), 'false', 'unset: off')
-  assert.equal(lastLine(read({ WORLD_PRESENCE_STANDBY: 'on' })), 'true')
-  assert.equal(lastLine(read({ WORLD_PRESENCE_STANDBY: 'TRUE' })), 'false')
+  // Read ONCE at load (review F3): in ONE child process, import the room, read the value, change the environment to
+  // the opposite, read again. The capture must hold, while the changed environment really reads differently.
+  const room = new URL(`file:///${fileURLToPath(new URL('./PresenceRoom.js', import.meta.url)).replace(/\\/g, '/')}`).href
+  const capability = new URL(`file:///${fileURLToPath(new URL('../presence/recoveryCapability.js', import.meta.url)).replace(/\\/g, '/')}`).href
+  const child = `const m = await import(${JSON.stringify(room)})
+const c = await import(${JSON.stringify(capability)})
+const h = m.presenceHostingForTesting()
+const initial = h.standbyRequested
+process.env.WORLD_PRESENCE_STANDBY = initial ? 'off' : 'on'
+const envNow = c.standbyRequested(process.env)
+const after = m.presenceHostingForTesting().standbyRequested
+console.log(JSON.stringify({ initial, after, envNow }))
+process.exit(0)`
+  const inChild = value => {
+    const env = { PATH: process.env.PATH, Path: process.env.Path, SystemRoot: process.env.SystemRoot, ...(value === undefined ? {} : { WORLD_PRESENCE_STANDBY: value }) }
+    const r = spawnSync(process.execPath, ['--input-type=module', '-e', child], { encoding: 'utf8', env, timeout: 60_000 })
+    return JSON.parse(r.stdout.trim().split(/\r?\n/).at(-1))
+  }
+  for (const value of [undefined, 'on', 'ON', 'On', ' on', 'on ', 'true', '1', 'yes', 'off', '']) {
+    const expected = value === 'on'
+    const label = value === undefined ? 'unset' : JSON.stringify(value)
+    assert.deepEqual(inChild(value), { initial: expected, after: expected, envNow: !expected }, `${label}: captured at load (${expected ? 'on' : 'off'}), kept after the environment changed`)
+  }
   const w = await world(t, { recovery: true, standby: false })
   const { S } = await pair(w)
   const stats = S.hosting.stats()
