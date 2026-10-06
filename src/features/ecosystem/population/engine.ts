@@ -8,6 +8,8 @@
 //   - A tick makes at most ONE spawn attempt per nest, whatever the clock jump:
 //     no catch-up loop. A failed attempt reschedules itself `retryMs` later, so
 //     evaluating again at the same instant changes nothing.
+//     Delay zero remains valid: at most one attempt per nest per instant,
+//     and immediate respawn after retirement waits until time advances.
 //   - Limits per nest and per area always hold; the engine only places
 //     encounters on the nest's own candidate tiles that the geometry calls open
 //     and that none of its encounters already occupies. No tile → no spawn.
@@ -24,7 +26,7 @@ import type {
   PopulationState, PopulationTickInput, RandomSource, RetireInput, RetireResult, SpawnFailure, TickResult, Tile,
 } from './types'
 
-interface DraftNest { generation: number; alive: PopulationEncounter[]; dueAt: number | null }
+interface DraftNest { generation: number; alive: PopulationEncounter[]; dueAt: number | null; spawnBlockedAt?: number }
 interface Draft { namespace: string; lastTickAt: number | null; areas: Record<string, AreaState>; nests: Record<string, DraftNest> }
 
 export type CreateResult =
@@ -46,7 +48,10 @@ export function createPopulation(config: PopulationConfig, deps: PopulationDeps)
 
 function draftOf(state: PopulationState): Draft {
   const nests: Record<string, DraftNest> = {}
-  for (const [key, nest] of Object.entries(state.nests)) nests[key] = { generation: nest.generation, alive: [...nest.alive], dueAt: nest.dueAt }
+  for (const [key, nest] of Object.entries(state.nests)) nests[key] = {
+    generation: nest.generation, alive: [...nest.alive], dueAt: nest.dueAt,
+    ...(nest.spawnBlockedAt === undefined ? {} : { spawnBlockedAt: nest.spawnBlockedAt }),
+  }
   return { namespace: state.namespace, lastTickAt: state.lastTickAt, areas: { ...state.areas }, nests }
 }
 
@@ -64,6 +69,10 @@ function assertTime(now: number): void {
 
 const delayFor = (nest: NestConfig, random: RandomSource): number =>
   Math.round(nest.respawn.delayMs * (1 + nest.respawn.jitter * (2 * roll(random) - 1)))
+
+// The existing rounding can also produce zero from a fractional delay. Guard
+// that case without changing the authored delay, jitter or RNG consumption.
+const canDelayZero = (nest: NestConfig): boolean => Math.round(nest.respawn.delayMs * (1 - nest.respawn.jitter)) === 0
 
 const staggerFor = (area: AreaConfig, random: RandomSource): number =>
   Math.round(area.idle.staggerMinMs + roll(random) * (area.idle.staggerMaxMs - area.idle.staggerMinMs))
@@ -106,7 +115,7 @@ export function tickPopulation(state: PopulationState, config: PopulationConfig,
     }
 
     for (const { nest, state: nestState } of nests) {
-      if (nestState.dueAt !== null && nestState.dueAt <= now) attemptSpawn(draft, area, nest, nestState, deps, input, events)
+      if (nestState.dueAt !== null && nestState.dueAt <= now && nestState.spawnBlockedAt !== now) attemptSpawn(draft, area, nest, nestState, deps, input, events)
     }
   }
   draft.lastTickAt = now
@@ -118,6 +127,7 @@ function attemptSpawn(
   input: PopulationTickInput, events: PopulationEvent[],
 ): void {
   const { now, random } = input
+  if (canDelayZero(nest)) nestState.spawnBlockedAt = now
   const fail = (reason: SpawnFailure, limitedBy?: 'nest' | 'zone' | 'area' | 'tiles' | 'groupCap') => {
     nestState.dueAt = now + nest.respawn.retryMs
     events.push({ type: 'spawn-failed', areaId: area.areaId, nestId: nest.id, reason, retryAt: nestState.dueAt, ...(limitedBy ? { limitedBy } : {}) })
@@ -200,5 +210,6 @@ export function retireEncounter(state: PopulationState, config: PopulationConfig
   } else if (nestState.dueAt === null) {
     nestState.dueAt = input.now + delayFor(nest, input.random)
   }
+  if (canDelayZero(nest) && nestState.dueAt !== null && nestState.dueAt <= input.now) nestState.spawnBlockedAt = input.now
   return { ok: true, state: draft, retired, cause: input.cause, dueAt: nestState.dueAt }
 }

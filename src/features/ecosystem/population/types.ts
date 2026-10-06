@@ -130,6 +130,13 @@ export interface NestState {
   readonly alive: readonly PopulationEncounter[]
   /** Server time of the next spawn opportunity, or null when nothing is scheduled. */
   readonly dueAt: number | null
+  /**
+   * Immediate-delay guard: no spawn attempt at this instant. Set by an attempt
+   * that can schedule delay zero, or by a retirement with an immediate pending
+   * respawn. The next strictly greater time is eligible; no minimum delay.
+   * Omitted for ordinary positive-delay traces (historical state compatibility).
+   */
+  readonly spawnBlockedAt?: number
 }
 
 /** 'dormant' = not simulated (cleared, or never started). Distinct from an active area whose nests are all empty. */
