@@ -84,6 +84,12 @@ export class LocationService {
   status(session) { return session && this.journal ? this.journal.statusOf(session) : 'off' }
 
   start() { this.journal?.start() }
+  /**
+   * H-1 (CLOUD READINESS-3 review): a drain that did NOT end the process — the standby promoted it with a new
+   * identity — stopped the journal's timer in shutdown(). Promotion runs it again (checkpoints, urgent saves on
+   * disconnect, claim retries). Idempotent (one timer); a disabled service never restarts.
+   */
+  resume() { this.journal?.start() }
   /** Rollback to off at runtime: no claim or save leaves the process afterwards. */
   disable() {
     this.journal?.disable()

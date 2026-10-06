@@ -396,9 +396,12 @@ export class LocationJournal {
 
   // ── Flushing ──────────────────────────────────────────────────────────
 
-  /** Starts the production timer (unref'd: it never keeps the process alive). */
+  /**
+   * Starts the production timer (unref'd: it never keeps the process alive). Idempotent: one timer at most.
+   * A disabled journal (rollback, or a replaced service) never starts again.
+   */
   start(intervalMs = LOCATION_TICK_MS) {
-    if (this.timer) return
+    if (this.timer || this.disabled) return
     this.timer = setInterval(() => this.tick(), intervalMs)
     this.timer.unref?.()
   }

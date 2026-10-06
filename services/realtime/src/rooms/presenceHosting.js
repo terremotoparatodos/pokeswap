@@ -362,6 +362,8 @@ export class PresenceHosting {
     this.standby = null
     this.host = this.#reacting(candidate)
     this.location().attachHost(candidate)
+    // H-1: the displacement's drain stopped the journal (location.shutdown); the promoted host saves again.
+    this.location().resume()
     this.displaced = null
     this.draining = false
     this.standbyCounters.promotions++
