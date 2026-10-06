@@ -62,6 +62,8 @@ async function processWith(t, journalClock) {
   const module = await import(new URL(`./PresenceRoom.js?instance=journal-lifecycle-${++instances}`, import.meta.url).href)
   module.configureWorld({ skills: createDemoSkillPolicy({ durationMs: 3_000 }), ownership: createStaticOwnership({}) })
   await module.configurePresenceRecovery({ requested: true, store, log: () => {} }).probe()
+  // H2 containment: these tests exercise the standby's promotion; they ask for it.
+  module.configurePresenceStandby({ requested: true })
   const host = quietHost(store)
   await host.acquire(); await host.activate()
   module.configurePresenceHost(host, { reactToHostChanges: true, store })

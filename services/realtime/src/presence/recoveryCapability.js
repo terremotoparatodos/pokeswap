@@ -22,6 +22,16 @@ export const RECOVERY_ENV = 'WORLD_PRESENCE_RECOVERY'
 export const CAPABILITY_RETRY_MS = 60_000
 
 export const recoveryRequested = env => env?.[RECOVERY_ENV] === 'on'
+
+/**
+ * H2 containment — the standby's automatic promotion has its own switch, WORLD_PRESENCE_STANDBY=on, OFF by
+ * default and only effective with recovery enabled and location persistence in `on` (never in shadow).
+ * Everything else recovery brings (claim v2, the close mapping, «Jugar acá», the capability) does not depend
+ * on it. With it on, H2 exists: a standby can promote while the live, routed host only lost its lease
+ * (docs/design/CLOUD_H2_STANDBY_CONTAINMENT_REPORT.md) — isolated tests only, never an active environment.
+ */
+export const STANDBY_ENV = 'WORLD_PRESENCE_STANDBY'
+export const standbyRequested = env => env?.[STANDBY_ENV] === 'on'
 export const isRecoveryUnsupported = error => error instanceof RecoveryUnsupported
 
 /**

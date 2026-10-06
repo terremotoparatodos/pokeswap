@@ -91,13 +91,15 @@ function spy(base) {
  * One room process: its own module copy, a host acquired NOW (so older than any host created after
  * it), recovery requested or not. `react: false` models the window before this host renews.
  */
-async function processWith(t, { mode = 'on', recovery = true, store: given = null, react = false } = {}) {
+async function processWith(t, { mode = 'on', recovery = true, store: given = null, react = false, standby = false } = {}) {
   await database()
   const store = given ?? spy(data)
   const module = await import(new URL(`./PresenceRoom.js?instance=recovery-${++instances}`, import.meta.url).href)
   module.configureWorld({ skills: createDemoSkillPolicy({ durationMs: 3_000 }), ownership: createStaticOwnership({}) })
   const capability = module.configurePresenceRecovery({ requested: recovery, store, log: () => {} })
   await capability.probe()
+  // H2 containment: the standby is its own switch; the tests that exercise it ask for it.
+  module.configurePresenceStandby({ requested: standby })
   const host = quietHost(store)
   await host.acquire(); await host.activate()
   module.configurePresenceHost(host, { reactToHostChanges: react, store })
@@ -257,7 +259,7 @@ test('capability rollback under a live process: the SQL disappears → one v2 ca
 
 /** A process whose host was displaced by a newer X (the reaction of WORLD LOCATION-4), in standby. */
 async function displaced(t, options = {}) {
-  const p = await processWith(t, { react: true, ...options })
+  const p = await processWith(t, { react: true, standby: true, ...options })
   const X = await activeHost()
   await p.host.renew()                                    // hears newerActive → drain → displaced
   await waitFor(() => p.hosting.displaced, 'displacement')
@@ -329,8 +331,8 @@ test('SIGINT during the promotion: the late activation is never installed and it
 })
 
 test('two displaced processes: exactly one recovers, the other refuses (no alternation)', async t => {
-  const a = await processWith(t, { react: true })
-  const b = await processWith(t, { react: true })
+  const a = await processWith(t, { react: true, standby: true })
+  const b = await processWith(t, { react: true, standby: true })
   const X = await activeHost()
   await a.host.renew(); await b.host.renew()
   await waitFor(() => a.hosting.displaced && b.hosting.displaced, 'both displaced')
@@ -351,7 +353,7 @@ test('recovery SQL removed while in standby: the probe answers unsupported, the 
   const local = await openLocalDatabase()
   locals.push(local)
   const store = spy(createSqlPlayerData(serviceQuery(local)))
-  const p = await processWith(t, { react: true, store })
+  const p = await processWith(t, { react: true, store, standby: true })
   const X = quietHost(store); await X.acquire(); await X.activate()
   await p.host.renew()
   await waitFor(() => p.hosting.displaced, 'displacement')

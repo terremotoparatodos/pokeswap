@@ -34,6 +34,10 @@ import { JoinOrder, attemptOf } from '../presence/joinOrder.js'
 // Shadow never changes what players see in any of them: it keeps admitting, without persistence.
 //
 // CLOUD READINESS-3 — standby (only while presence recovery is enabled: presence/recoveryCapability.js).
+// H2 containment: AND only with WORLD_PRESENCE_STANDBY=on, AND only in `on` — shadow never starts or promotes
+// a standby (it would create a real active host row). With the switch off a displaced process stays alive
+// and stopped (/readyz 503, joins 4503) until something external ends or restarts it: nothing here, nor
+// anything verified in Cloud, recovers it automatically.
 // A displaced process that did NOT receive SIGINT/SIGTERM probes world_presence_any_active() every
 // renew period (+ jitter). When no host is active it acquires a NEW identity (new hostId, new
 // generation: the displaced one stays stopped for good) and activates it exclusively (refused while
@@ -59,7 +63,9 @@ export class PresenceHosting {
    * `location()`: the current location service (it is replaced at runtime).
    * `sockets()`: every socket of the room (a drain for a host change closes them all).
    */
-  constructor({ location, sockets, metrics, log = message => console.warn(message), recovery = null, standbyProbeMs = HOST_RENEW_MS, createStandbyHost = null, joinOrder = null, liveClientOf = () => null }) {
+  constructor({ location, sockets, metrics, log = message => console.warn(message), recovery = null, standbyRequested = false, standbyProbeMs = HOST_RENEW_MS, createStandbyHost = null, joinOrder = null, liveClientOf = () => null }) {
+    /** H2 containment: WORLD_PRESENCE_STANDBY=on (read once by the room). Off: a displaced process never promotes. */
+    this.standbyRequested = standbyRequested
     /** CLOUD JOIN-ORDER-2: the player's live socket in this process (the room's), to keep live pages in memory. */
     this.liveClientOf = liveClientOf
     this.joinOrder = joinOrder ?? this.createJoinOrder()
@@ -84,7 +90,7 @@ export class PresenceHosting {
     this.standby = null
     /** The stop of an identity a shutdown overtook mid-promotion (awaited by stopForShutdown). */
     this.abandoned = null
-    this.standbyCounters = { started: 0, probes: 0, probeFailures: 0, promotions: 0, refused: 0, abandoned: 0 }
+    this.standbyCounters = { started: 0, probes: 0, probeFailures: 0, promotions: 0, refused: 0, abandoned: 0, notRequested: 0, wouldStandby: 0 }
     /** This process's HostLifecycle, or null (location off, or a store without host operations). */
     this.host = null
     /** While draining: no join is accepted and no movement either. Never reverts in a process. */
@@ -257,7 +263,7 @@ export class PresenceHosting {
 
   stats() {
     const host = this.host?.stats() ?? null
-    return host && { ...host, displaced: this.displaced ?? null, standby: this.standby !== null, standbyCounters: { ...this.standbyCounters }, recovery: this.recovery?.stats() ?? null, joinOrderAuthority: this.joinOrderAuthority?.stats() ?? null }
+    return host && { ...host, displaced: this.displaced ?? null, standby: this.standby !== null, standbyEnabled: this.standbyRequested === true, standbyCounters: { ...this.standbyCounters }, recovery: this.recovery?.stats() ?? null, joinOrderAuthority: this.joinOrderAuthority?.stats() ?? null }
   }
 
   // ── CLOUD READINESS-3: shutdown and standby ───────────────────────────
@@ -309,6 +315,10 @@ export class PresenceHosting {
 
   #startStandby() {
     if (this.standby || this.shutdownBegun || !this.recovery?.enabled) return
+    // H2 containment (P-A): the promotion is its own, explicit switch.
+    if (!this.standbyRequested) { this.standbyCounters.notRequested++; return }
+    // H2 containment (P-B): shadow only counts — a promotion would create a REAL active host row.
+    if (!this.location().restores) { this.standbyCounters.wouldStandby++; return }
     if (typeof this.store?.presenceAnyActive !== 'function' || typeof this.store?.presenceActivateExclusive !== 'function') return
     this.standby = { timer: null, promoting: null, busy: null }
     this.standbyCounters.started++

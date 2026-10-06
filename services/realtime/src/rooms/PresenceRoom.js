@@ -18,7 +18,7 @@ import { LocationService, locationMode } from '../presence/locationService.js'
 import { LocationJoin } from './locationJoin.js'
 import { CLOSE_CODES_PROTOCOL, HOST_DRAINING_CODE, STALE_ATTEMPT_CODE } from '../protocol/closeCodes.js'
 import { PresenceHosting } from './presenceHosting.js'
-import { JoinOrderCapability, RecoveryCapability, recoveryRequested, withRecovery } from '../presence/recoveryCapability.js'
+import { JoinOrderCapability, RecoveryCapability, recoveryRequested, standbyRequested, withRecovery } from '../presence/recoveryCapability.js'
 import { joinOrderMaxPages, joinOrderMode } from '../presence/joinOrder.js'
 
 /** The public `presence:error` reason of each refused step (aggregate kinds in metrics). */
@@ -60,7 +60,8 @@ let location = null
 let recovery = new RecoveryCapability({ store: initialDependencies.playerData, requested: recoveryRequested(process.env) })
 // WORLD LOCATION-4: this process as a presence host — admission, drain and close codes
 // (rooms/presenceHosting.js). Null host when location is off: joins are accepted at once.
-const hosting = new PresenceHosting({ location: () => location, sockets: () => observers.values(), metrics, recovery, liveClientOf: userId => clientsByActor.get(userId) })
+// H2 containment: the standby's promotion needs WORLD_PRESENCE_STANDBY=on as well (read once, here); off by default.
+const hosting = new PresenceHosting({ location: () => location, sockets: () => observers.values(), metrics, recovery, standbyRequested: standbyRequested(process.env), liveClientOf: userId => clientsByActor.get(userId) })
 // CLOUD JOIN-ORDER-2: WORLD_JOIN_ORDER=off|shadow|on (default off), read once here: a change needs a restart.
 hosting.joinOrder = hosting.createJoinOrder({ mode: joinOrderMode(process.env), maxPages: joinOrderMaxPages(process.env) })
 if (hosting.joinOrder.observing) console.log(`[join-order] ${hosting.joinOrder.mode} (max pages ${hosting.joinOrder.maxPages})`)
@@ -170,6 +171,12 @@ export function configureJoinOrder({ authority = null, ...options } = {}) {
 
 /** Tests: this module instance's join-order capability (claim v3). */
 export function joinOrderAuthorityForTesting() { return joinOrderAuthority }
+
+/** Tests and tooling (H2 containment): WORLD_PRESENCE_STANDBY for this module instance. Tests that exercise the standby ask for it. */
+export function configurePresenceStandby({ requested = false } = {}) {
+  hosting.standbyRequested = requested === true
+  return hosting.standbyRequested
+}
 
 /** Tests: this module instance's PresenceHosting (standby, counters). */
 export function presenceHostingForTesting() { return hosting }

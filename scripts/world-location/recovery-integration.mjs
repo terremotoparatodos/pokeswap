@@ -35,9 +35,10 @@ async function world(t) {
   const local = await startLocalAuthority({ secret: randomBytes(24).toString('hex') })
   const servers = []
   t.cleanup.push(async () => { for (const s of servers) await s.kill(); await local.close() })
-  const start = async (name, { recovery = true, ready = true } = {}) => {
+  // H2 containment: the standby's promotion is its own switch (WORLD_PRESENCE_STANDBY); the scenarios that exercise it ask for it.
+  const start = async (name, { recovery = true, ready = true, standby = false } = {}) => {
     const port = nextPort; nextPort += 2
-    const s = await startRealtime({ name, port, env: { ...local.env('on', name), ...(recovery ? { WORLD_PRESENCE_RECOVERY: 'on' } : {}) } })
+    const s = await startRealtime({ name, port, env: { ...local.env('on', name), ...(recovery ? { WORLD_PRESENCE_RECOVERY: 'on' } : {}), ...(standby ? { WORLD_PRESENCE_STANDBY: 'on' } : {}) } })
     servers.push(s)
     if (ready) await until(`${name} ready`, async () => (await s.ready()) === 200, 30_000)
     return s
@@ -53,7 +54,7 @@ const SCENARIOS = {
     const out = {}
     for (const recovery of [true, false]) {
       const w = await world(t)
-      const A = await w.start(`A${recovery ? '' : '-off'}`, { recovery })
+      const A = await w.start(`A${recovery ? '' : '-off'}`, { recovery, standby: true })
       const generationA = (await w.hosting(A)).generation
       const B = await w.start(`B${recovery ? '' : '-off'}`)
       await until('A displaced', async () => (await w.hosting(A))?.displaced, 20_000)
@@ -139,7 +140,7 @@ const SCENARIOS = {
   /** SIGINT while the standby's exclusive activation is in flight: the process exits; the late activation is never installed by it. */
   async SIGINT_PROMOTION(t) {
     const w = await world(t)
-    const A = await w.start('A')
+    const A = await w.start('A', { standby: true })
     const B = await w.start('B')
     await until('A displaced', async () => (await w.hosting(A))?.displaced, 20_000)
     w.local.rule({ op: 'presence_activate_exclusive', inst: 'A', mode: 'hold', times: 1 })
@@ -157,7 +158,7 @@ const SCENARIOS = {
   /** The authority is down while in standby: no promotion; it recovers once the authority answers again. */
   async AUTHORITY_DOWN(t) {
     const w = await world(t)
-    const A = await w.start('A')
+    const A = await w.start('A', { standby: true })
     const B = await w.start('B')
     await until('A displaced', async () => (await w.hosting(A))?.displaced, 20_000)
     w.local.rule({ op: '*', inst: 'A', mode: 'fail', times: 100_000 })
@@ -190,9 +191,9 @@ const SCENARIOS = {
   /** Two deploy candidates start at once next to an active host: exactly one active host settles and stays (no oscillation). */
   async CONCURRENT_CANDIDATES(t) {
     const w = await world(t)
-    await w.start('A')
+    await w.start('A', { standby: true })
     // Concurrent candidates: the older one may be displaced at once (503, by design), so only listening is awaited.
-    await Promise.all([w.start('B', { ready: false }), w.start('C', { ready: false })])
+    await Promise.all([w.start('B', { ready: false, standby: true }), w.start('C', { ready: false, standby: true })])
     await until('one active host', async () => (await w.live()).length === 1, 30_000)
     const samples = []
     for (let i = 0; i < 20; i++) { samples.push(await w.live()); await delay(1_000) }
