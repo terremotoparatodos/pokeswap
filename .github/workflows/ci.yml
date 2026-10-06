@@ -19,6 +19,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Fetch ecosystem compatibility baseline
+        # Keep the real git-show comparison available with checkout's depth=1.
+        # Failure to fetch is a gate failure, never a skip or a synthetic fixture.
+        run: git fetch --no-tags --depth=1 origin 7739c4d4c1dba59b8dca3b66f379dea18082d108
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
