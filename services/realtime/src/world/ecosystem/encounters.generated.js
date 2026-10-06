@@ -28,19 +28,36 @@ var ENCOUNTER_FAMILIES = [
   family(m(206, "dunsparce", 1))
 ];
 
+// src/features/ecosystem/encounters/eventClassification.generated.json
+var eventClassification_generated_default = { source: { repository: "https://github.com/PokeAPI/pokeapi", commit: "bc92d3b6029ef1abe9e7ad424c400b338f3c11fe", url: "https://raw.githubusercontent.com/PokeAPI/pokeapi/bc92d3b6029ef1abe9e7ad424c400b338f3c11fe/data/v2/csv/pokemon_species.csv", sha256: "e66e2eeb25fd3836b0ebab6bf87bbf01960aa3c0555e2bac495fa8393c5e0c45", license: "BSD-3-Clause" }, columns: ["speciesId", "speciesName", "isLegendary", "isMythical"], species: [[1, "bulbasaur", 0, 0], [2, "ivysaur", 0, 0], [3, "venusaur", 0, 0], [4, "charmander", 0, 0], [5, "charmeleon", 0, 0], [6, "charizard", 0, 0], [7, "squirtle", 0, 0], [8, "wartortle", 0, 0], [9, "blastoise", 0, 0], [10, "caterpie", 0, 0], [11, "metapod", 0, 0], [12, "butterfree", 0, 0], [13, "weedle", 0, 0], [14, "kakuna", 0, 0], [15, "beedrill", 0, 0], [16, "pidgey", 0, 0], [17, "pidgeotto", 0, 0], [18, "pidgeot", 0, 0], [19, "rattata", 0, 0], [20, "raticate", 0, 0], [21, "spearow", 0, 0], [22, "fearow", 0, 0], [23, "ekans", 0, 0], [24, "arbok", 0, 0], [25, "pikachu", 0, 0], [26, "raichu", 0, 0], [27, "sandshrew", 0, 0], [28, "sandslash", 0, 0], [29, "nidoran-f", 0, 0], [30, "nidorina", 0, 0], [31, "nidoqueen", 0, 0], [32, "nidoran-m", 0, 0], [33, "nidorino", 0, 0], [34, "nidoking", 0, 0], [35, "clefairy", 0, 0], [36, "clefable", 0, 0], [37, "vulpix", 0, 0], [38, "ninetales", 0, 0], [39, "jigglypuff", 0, 0], [40, "wigglytuff", 0, 0], [41, "zubat", 0, 0], [42, "golbat", 0, 0], [43, "oddish", 0, 0], [44, "gloom", 0, 0], [45, "vileplume", 0, 0], [46, "paras", 0, 0], [47, "parasect", 0, 0], [48, "venonat", 0, 0], [49, "venomoth", 0, 0], [50, "diglett", 0, 0], [51, "dugtrio", 0, 0], [52, "meowth", 0, 0], [53, "persian", 0, 0], [54, "psyduck", 0, 0], [55, "golduck", 0, 0], [56, "mankey", 0, 0], [57, "primeape", 0, 0], [58, "growlithe", 0, 0], [59, "arcanine", 0, 0], [60, "poliwag", 0, 0], [61, "poliwhirl", 0, 0], [62, "poliwrath", 0, 0], [63, "abra", 0, 0], [64, "kadabra", 0, 0], [65, "alakazam", 0, 0], [66, "machop", 0, 0], [67, "machoke", 0, 0], [68, "machamp", 0, 0], [69, "bellsprout", 0, 0], [70, "weepinbell", 0, 0], [71, "victreebel", 0, 0], [72, "tentacool", 0, 0], [73, "tentacruel", 0, 0], [74, "geodude", 0, 0], [75, "graveler", 0, 0], [76, "golem", 0, 0], [77, "ponyta", 0, 0], [78, "rapidash", 0, 0], [79, "slowpoke", 0, 0], [80, "slowbro", 0, 0], [81, "magnemite", 0, 0], [82, "magneton", 0, 0], [83, "farfetchd", 0, 0], [84, "doduo", 0, 0], [85, "dodrio", 0, 0], [86, "seel", 0, 0], [87, "dewgong", 0, 0], [88, "grimer", 0, 0], [89, "muk", 0, 0], [90, "shellder", 0, 0], [91, "cloyster", 0, 0], [92, "gastly", 0, 0], [93, "haunter", 0, 0], [94, "gengar", 0, 0], [95, "onix", 0, 0], [96, "drowzee", 0, 0], [97, "hypno", 0, 0], [98, "krabby", 0, 0], [99, "kingler", 0, 0], [100, "voltorb", 0, 0], [101, "electrode", 0, 0], [102, "exeggcute", 0, 0], [103, "exeggutor", 0, 0], [104, "cubone", 0, 0], [105, "marowak", 0, 0], [106, "hitmonlee", 0, 0], [107, "hitmonchan", 0, 0], [108, "lickitung", 0, 0], [109, "koffing", 0, 0], [110, "weezing", 0, 0], [111, "rhyhorn", 0, 0], [112, "rhydon", 0, 0], [113, "chansey", 0, 0], [114, "tangela", 0, 0], [115, "kangaskhan", 0, 0], [116, "horsea", 0, 0], [117, "seadra", 0, 0], [118, "goldeen", 0, 0], [119, "seaking", 0, 0], [120, "staryu", 0, 0], [121, "starmie", 0, 0], [122, "mr-mime", 0, 0], [123, "scyther", 0, 0], [124, "jynx", 0, 0], [125, "electabuzz", 0, 0], [126, "magmar", 0, 0], [127, "pinsir", 0, 0], [128, "tauros", 0, 0], [129, "magikarp", 0, 0], [130, "gyarados", 0, 0], [131, "lapras", 0, 0], [132, "ditto", 0, 0], [133, "eevee", 0, 0], [134, "vaporeon", 0, 0], [135, "jolteon", 0, 0], [136, "flareon", 0, 0], [137, "porygon", 0, 0], [138, "omanyte", 0, 0], [139, "omastar", 0, 0], [140, "kabuto", 0, 0], [141, "kabutops", 0, 0], [142, "aerodactyl", 0, 0], [143, "snorlax", 0, 0], [144, "articuno", 1, 0], [145, "zapdos", 1, 0], [146, "moltres", 1, 0], [147, "dratini", 0, 0], [148, "dragonair", 0, 0], [149, "dragonite", 0, 0], [150, "mewtwo", 1, 0], [151, "mew", 0, 1], [152, "chikorita", 0, 0], [153, "bayleef", 0, 0], [154, "meganium", 0, 0], [155, "cyndaquil", 0, 0], [156, "quilava", 0, 0], [157, "typhlosion", 0, 0], [158, "totodile", 0, 0], [159, "croconaw", 0, 0], [160, "feraligatr", 0, 0], [161, "sentret", 0, 0], [162, "furret", 0, 0], [163, "hoothoot", 0, 0], [164, "noctowl", 0, 0], [165, "ledyba", 0, 0], [166, "ledian", 0, 0], [167, "spinarak", 0, 0], [168, "ariados", 0, 0], [169, "crobat", 0, 0], [170, "chinchou", 0, 0], [171, "lanturn", 0, 0], [172, "pichu", 0, 0], [173, "cleffa", 0, 0], [174, "igglybuff", 0, 0], [175, "togepi", 0, 0], [176, "togetic", 0, 0], [177, "natu", 0, 0], [178, "xatu", 0, 0], [179, "mareep", 0, 0], [180, "flaaffy", 0, 0], [181, "ampharos", 0, 0], [182, "bellossom", 0, 0], [183, "marill", 0, 0], [184, "azumarill", 0, 0], [185, "sudowoodo", 0, 0], [186, "politoed", 0, 0], [187, "hoppip", 0, 0], [188, "skiploom", 0, 0], [189, "jumpluff", 0, 0], [190, "aipom", 0, 0], [191, "sunkern", 0, 0], [192, "sunflora", 0, 0], [193, "yanma", 0, 0], [194, "wooper", 0, 0], [195, "quagsire", 0, 0], [196, "espeon", 0, 0], [197, "umbreon", 0, 0], [198, "murkrow", 0, 0], [199, "slowking", 0, 0], [200, "misdreavus", 0, 0], [201, "unown", 0, 0], [202, "wobbuffet", 0, 0], [203, "girafarig", 0, 0], [204, "pineco", 0, 0], [205, "forretress", 0, 0], [206, "dunsparce", 0, 0], [207, "gligar", 0, 0], [208, "steelix", 0, 0], [209, "snubbull", 0, 0], [210, "granbull", 0, 0], [211, "qwilfish", 0, 0], [212, "scizor", 0, 0], [213, "shuckle", 0, 0], [214, "heracross", 0, 0], [215, "sneasel", 0, 0], [216, "teddiursa", 0, 0], [217, "ursaring", 0, 0], [218, "slugma", 0, 0], [219, "magcargo", 0, 0], [220, "swinub", 0, 0], [221, "piloswine", 0, 0], [222, "corsola", 0, 0], [223, "remoraid", 0, 0], [224, "octillery", 0, 0], [225, "delibird", 0, 0], [226, "mantine", 0, 0], [227, "skarmory", 0, 0], [228, "houndour", 0, 0], [229, "houndoom", 0, 0], [230, "kingdra", 0, 0], [231, "phanpy", 0, 0], [232, "donphan", 0, 0], [233, "porygon2", 0, 0], [234, "stantler", 0, 0], [235, "smeargle", 0, 0], [236, "tyrogue", 0, 0], [237, "hitmontop", 0, 0], [238, "smoochum", 0, 0], [239, "elekid", 0, 0], [240, "magby", 0, 0], [241, "miltank", 0, 0], [242, "blissey", 0, 0], [243, "raikou", 1, 0], [244, "entei", 1, 0], [245, "suicune", 1, 0], [246, "larvitar", 0, 0], [247, "pupitar", 0, 0], [248, "tyranitar", 0, 0], [249, "lugia", 1, 0], [250, "ho-oh", 1, 0], [251, "celebi", 0, 1], [252, "treecko", 0, 0], [253, "grovyle", 0, 0], [254, "sceptile", 0, 0], [255, "torchic", 0, 0], [256, "combusken", 0, 0], [257, "blaziken", 0, 0], [258, "mudkip", 0, 0], [259, "marshtomp", 0, 0], [260, "swampert", 0, 0], [261, "poochyena", 0, 0], [262, "mightyena", 0, 0], [263, "zigzagoon", 0, 0], [264, "linoone", 0, 0], [265, "wurmple", 0, 0], [266, "silcoon", 0, 0], [267, "beautifly", 0, 0], [268, "cascoon", 0, 0], [269, "dustox", 0, 0], [270, "lotad", 0, 0], [271, "lombre", 0, 0], [272, "ludicolo", 0, 0], [273, "seedot", 0, 0], [274, "nuzleaf", 0, 0], [275, "shiftry", 0, 0], [276, "taillow", 0, 0], [277, "swellow", 0, 0], [278, "wingull", 0, 0], [279, "pelipper", 0, 0], [280, "ralts", 0, 0], [281, "kirlia", 0, 0], [282, "gardevoir", 0, 0], [283, "surskit", 0, 0], [284, "masquerain", 0, 0], [285, "shroomish", 0, 0], [286, "breloom", 0, 0], [287, "slakoth", 0, 0], [288, "vigoroth", 0, 0], [289, "slaking", 0, 0], [290, "nincada", 0, 0], [291, "ninjask", 0, 0], [292, "shedinja", 0, 0], [293, "whismur", 0, 0], [294, "loudred", 0, 0], [295, "exploud", 0, 0], [296, "makuhita", 0, 0], [297, "hariyama", 0, 0], [298, "azurill", 0, 0], [299, "nosepass", 0, 0], [300, "skitty", 0, 0], [301, "delcatty", 0, 0], [302, "sableye", 0, 0], [303, "mawile", 0, 0], [304, "aron", 0, 0], [305, "lairon", 0, 0], [306, "aggron", 0, 0], [307, "meditite", 0, 0], [308, "medicham", 0, 0], [309, "electrike", 0, 0], [310, "manectric", 0, 0], [311, "plusle", 0, 0], [312, "minun", 0, 0], [313, "volbeat", 0, 0], [314, "illumise", 0, 0], [315, "roselia", 0, 0], [316, "gulpin", 0, 0], [317, "swalot", 0, 0], [318, "carvanha", 0, 0], [319, "sharpedo", 0, 0], [320, "wailmer", 0, 0], [321, "wailord", 0, 0], [322, "numel", 0, 0], [323, "camerupt", 0, 0], [324, "torkoal", 0, 0], [325, "spoink", 0, 0], [326, "grumpig", 0, 0], [327, "spinda", 0, 0], [328, "trapinch", 0, 0], [329, "vibrava", 0, 0], [330, "flygon", 0, 0], [331, "cacnea", 0, 0], [332, "cacturne", 0, 0], [333, "swablu", 0, 0], [334, "altaria", 0, 0], [335, "zangoose", 0, 0], [336, "seviper", 0, 0], [337, "lunatone", 0, 0], [338, "solrock", 0, 0], [339, "barboach", 0, 0], [340, "whiscash", 0, 0], [341, "corphish", 0, 0], [342, "crawdaunt", 0, 0], [343, "baltoy", 0, 0], [344, "claydol", 0, 0], [345, "lileep", 0, 0], [346, "cradily", 0, 0], [347, "anorith", 0, 0], [348, "armaldo", 0, 0], [349, "feebas", 0, 0], [350, "milotic", 0, 0], [351, "castform", 0, 0], [352, "kecleon", 0, 0], [353, "shuppet", 0, 0], [354, "banette", 0, 0], [355, "duskull", 0, 0], [356, "dusclops", 0, 0], [357, "tropius", 0, 0], [358, "chimecho", 0, 0], [359, "absol", 0, 0], [360, "wynaut", 0, 0], [361, "snorunt", 0, 0], [362, "glalie", 0, 0], [363, "spheal", 0, 0], [364, "sealeo", 0, 0], [365, "walrein", 0, 0], [366, "clamperl", 0, 0], [367, "huntail", 0, 0], [368, "gorebyss", 0, 0], [369, "relicanth", 0, 0], [370, "luvdisc", 0, 0], [371, "bagon", 0, 0], [372, "shelgon", 0, 0], [373, "salamence", 0, 0], [374, "beldum", 0, 0], [375, "metang", 0, 0], [376, "metagross", 0, 0], [377, "regirock", 1, 0], [378, "regice", 1, 0], [379, "registeel", 1, 0], [380, "latias", 1, 0], [381, "latios", 1, 0], [382, "kyogre", 1, 0], [383, "groudon", 1, 0], [384, "rayquaza", 1, 0], [385, "jirachi", 0, 1], [386, "deoxys", 0, 1], [387, "turtwig", 0, 0], [388, "grotle", 0, 0], [389, "torterra", 0, 0], [390, "chimchar", 0, 0], [391, "monferno", 0, 0], [392, "infernape", 0, 0], [393, "piplup", 0, 0], [394, "prinplup", 0, 0], [395, "empoleon", 0, 0], [396, "starly", 0, 0], [397, "staravia", 0, 0], [398, "staraptor", 0, 0], [399, "bidoof", 0, 0], [400, "bibarel", 0, 0], [401, "kricketot", 0, 0], [402, "kricketune", 0, 0], [403, "shinx", 0, 0], [404, "luxio", 0, 0], [405, "luxray", 0, 0], [406, "budew", 0, 0], [407, "roserade", 0, 0], [408, "cranidos", 0, 0], [409, "rampardos", 0, 0], [410, "shieldon", 0, 0], [411, "bastiodon", 0, 0], [412, "burmy", 0, 0], [413, "wormadam", 0, 0], [414, "mothim", 0, 0], [415, "combee", 0, 0], [416, "vespiquen", 0, 0], [417, "pachirisu", 0, 0], [418, "buizel", 0, 0], [419, "floatzel", 0, 0], [420, "cherubi", 0, 0], [421, "cherrim", 0, 0], [422, "shellos", 0, 0], [423, "gastrodon", 0, 0], [424, "ambipom", 0, 0], [425, "drifloon", 0, 0], [426, "drifblim", 0, 0], [427, "buneary", 0, 0], [428, "lopunny", 0, 0], [429, "mismagius", 0, 0], [430, "honchkrow", 0, 0], [431, "glameow", 0, 0], [432, "purugly", 0, 0], [433, "chingling", 0, 0], [434, "stunky", 0, 0], [435, "skuntank", 0, 0], [436, "bronzor", 0, 0], [437, "bronzong", 0, 0], [438, "bonsly", 0, 0], [439, "mime-jr", 0, 0], [440, "happiny", 0, 0], [441, "chatot", 0, 0], [442, "spiritomb", 0, 0], [443, "gible", 0, 0], [444, "gabite", 0, 0], [445, "garchomp", 0, 0], [446, "munchlax", 0, 0], [447, "riolu", 0, 0], [448, "lucario", 0, 0], [449, "hippopotas", 0, 0], [450, "hippowdon", 0, 0], [451, "skorupi", 0, 0], [452, "drapion", 0, 0], [453, "croagunk", 0, 0], [454, "toxicroak", 0, 0], [455, "carnivine", 0, 0], [456, "finneon", 0, 0], [457, "lumineon", 0, 0], [458, "mantyke", 0, 0], [459, "snover", 0, 0], [460, "abomasnow", 0, 0], [461, "weavile", 0, 0], [462, "magnezone", 0, 0], [463, "lickilicky", 0, 0], [464, "rhyperior", 0, 0], [465, "tangrowth", 0, 0], [466, "electivire", 0, 0], [467, "magmortar", 0, 0], [468, "togekiss", 0, 0], [469, "yanmega", 0, 0], [470, "leafeon", 0, 0], [471, "glaceon", 0, 0], [472, "gliscor", 0, 0], [473, "mamoswine", 0, 0], [474, "porygon-z", 0, 0], [475, "gallade", 0, 0], [476, "probopass", 0, 0], [477, "dusknoir", 0, 0], [478, "froslass", 0, 0], [479, "rotom", 0, 0], [480, "uxie", 1, 0], [481, "mesprit", 1, 0], [482, "azelf", 1, 0], [483, "dialga", 1, 0], [484, "palkia", 1, 0], [485, "heatran", 1, 0], [486, "regigigas", 1, 0], [487, "giratina", 1, 0], [488, "cresselia", 1, 0], [489, "phione", 0, 1], [490, "manaphy", 0, 1], [491, "darkrai", 0, 1], [492, "shaymin", 0, 1], [493, "arceus", 0, 1]] };
+
+// src/features/ecosystem/encounters/eventClassification.ts
+var rows = eventClassification_generated_default.species;
+var byId = new Map(rows.map((row) => [row[0], row]));
+var EVENT_CLASSIFICATION_SOURCE = `${eventClassification_generated_default.source.url} (sha256 ${eventClassification_generated_default.source.sha256})`;
+var EVENT_SPECIES_IDS = {
+  legendary: rows.filter((row) => row[2] === 1).map((row) => row[0]),
+  mythical: rows.filter((row) => row[3] === 1).map((row) => row[0])
+};
+function eventCategoryOf(speciesId) {
+  const row = byId.get(speciesId);
+  if (!row) return void 0;
+  return row[2] === 1 ? "legendary" : row[3] === 1 ? "mythical" : null;
+}
+
 // src/features/ecosystem/encounters/speciesCategories.ts
 var range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => from + i);
 var EXCLUSIONS = "docs/design/CAVE_TYPES_AND_FAMILIES.md \xA74.3 (ids verified against core.json)";
 var SPECIES_CATEGORIES = [
   {
     category: "legendary",
-    speciesIds: [144, 145, 146, 150, 243, 244, 245, 249, 250, ...range(377, 384), ...range(480, 488)],
-    source: `${EXCLUSIONS}; MMO_SPAWN_RARITY_AND_INSTANCES.md \xA76`
+    speciesIds: EVENT_SPECIES_IDS.legendary,
+    source: EVENT_CLASSIFICATION_SOURCE
   },
   {
     category: "mythical",
-    speciesIds: [151, 251, 385, 386, ...range(489, 493)],
-    source: `${EXCLUSIONS}; MMO_SPAWN_RARITY_AND_INSTANCES.md \xA76`
+    speciesIds: EVENT_SPECIES_IDS.mythical,
+    source: EVENT_CLASSIFICATION_SOURCE
   },
   {
     category: "pseudo_legendary",
@@ -145,6 +162,9 @@ var ECO_1_ENCOUNTER_CATALOG = {
 // src/features/ecosystem/encounters/policy.ts
 var EVENT_ONLY_CATEGORIES = ["legendary", "mythical"];
 function ordinaryEncounterExclusion(catalog, speciesId) {
+  const event = eventCategoryOf(speciesId);
+  if (event === void 0) return "unclassified";
+  if (event !== null) return event;
   for (const list of catalog.categories) {
     const excluded = EVENT_ONLY_CATEGORIES.includes(list.category) || catalog.excludedCategories.includes(list.category);
     if (excluded && list.speciesIds.includes(speciesId)) return list.category;
@@ -156,10 +176,23 @@ function ordinaryEncounterExclusion(catalog, speciesId) {
 var ENCOUNTER_RARITIES = ["common", "uncommon", "rare", "very_rare"];
 var SPECIES_CATEGORY_IDS = ["legendary", "mythical", "pseudo_legendary", "starter", "fossil", "eevee_line", "baby"];
 
-// src/features/ecosystem/encounters/validation.ts
-var MAX_GROUP_SIZE = 6;
+// src/features/ecosystem/encounters/distributionValidation.ts
 var SHARE_TOTAL = 100;
 var SHARE_TOLERANCE = 1e-9;
+function validShares(shares) {
+  const known = ENCOUNTER_RARITIES;
+  const values = ENCOUNTER_RARITIES.map((r) => shares[r]);
+  const total = values.reduce((sum, value) => sum + value, 0);
+  return Object.keys(shares).every((r) => known.includes(r)) && values.every((v) => typeof v === "number" && Number.isFinite(v) && v >= 0) && Number.isFinite(total) && Math.abs(total - SHARE_TOTAL) <= SHARE_TOLERANCE;
+}
+function tierWeightTotal(entries) {
+  if (!entries.every((e) => typeof e.weight === "number" && Number.isFinite(e.weight) && e.weight > 0)) return null;
+  const total = entries.reduce((sum, e) => sum + e.weight, 0);
+  return Number.isFinite(total) ? total : null;
+}
+
+// src/features/ecosystem/encounters/validation.ts
+var MAX_GROUP_SIZE = 6;
 var HABITAT_ZONE_KIND = {
   "open-grass": "surface",
   "tall-grass": "surface",
@@ -187,14 +220,20 @@ function validateEncounterCatalog(catalog, lookupSpecies) {
   const families = validateFamilies(catalog, lookupSpecies, add);
   validateCategories(catalog, lookupSpecies, add);
   validateEntries(catalog, zones, families, lookupSpecies, add);
+  for (const zone of catalog.zones) for (const rarity of ENCOUNTER_RARITIES) {
+    const entries = catalog.entries.filter((e) => e.zoneId === zone.id && e.rarity === rarity);
+    if (entries.every((e) => isPositiveFinite(e.weight)) && tierWeightTotal(entries) === null) {
+      add("invalid-weight-total", `zone ${zone.id} ${rarity} weights have a non-finite total`, { zoneId: zone.id });
+    }
+  }
   return { ok: issues.length === 0, issues };
 }
 function validateZones(zones, add) {
-  const byId = /* @__PURE__ */ new Map();
+  const byId2 = /* @__PURE__ */ new Map();
   for (const zone of zones) {
     const zoneId = zone.id;
-    if (byId.has(zoneId)) add("duplicate-zone", `zone ${zoneId} is defined twice`, { zoneId });
-    byId.set(zoneId, zone);
+    if (byId2.has(zoneId)) add("duplicate-zone", `zone ${zoneId} is defined twice`, { zoneId });
+    byId2.set(zoneId, zone);
     if (zone.kind !== "surface" && zone.kind !== "cave") add("unknown-zone-kind", `zone ${zoneId} has kind ${String(zone.kind)}`, { zoneId });
     const { min, max } = zone.levelRange;
     if (!isInt(min) || !isInt(max) || min < 1 || max > 100 || min > max) add("invalid-level-range", `zone ${zoneId} levels ${min}\u2013${max}`, { zoneId });
@@ -213,7 +252,7 @@ function validateZones(zones, add) {
     }
     if (sharesValid && Math.abs(total - SHARE_TOTAL) > SHARE_TOLERANCE) add("shares-not-100", `zone ${zoneId} shares sum to ${total}, not ${SHARE_TOTAL}`, { zoneId });
   }
-  return byId;
+  return byId2;
 }
 function validateFamilies(catalog, lookup, add) {
   const index = /* @__PURE__ */ new Map();
@@ -240,10 +279,24 @@ function validateFamilies(catalog, lookup, add) {
 }
 function validateCategories(catalog, lookup, add) {
   const known = SPECIES_CATEGORY_IDS;
+  for (const category of ["legendary", "mythical"]) {
+    const lists = catalog.categories.filter((c) => c.category === category);
+    if (lists.length === 0) add("missing-event-category", `mandatory ${category} classification is missing`);
+    const expected = new Set(EVENT_SPECIES_IDS[category]);
+    for (const list of lists) {
+      const actual = new Set(list.speciesIds);
+      if (actual.size !== expected.size || [...expected].some((id) => !actual.has(id))) {
+        add("event-category-mismatch", `${category} classification differs from the pinned authoritative snapshot`);
+      }
+    }
+  }
+  const categories = /* @__PURE__ */ new Set();
   for (const category of catalog.excludedCategories) {
     if (!known.includes(category)) add("unknown-category", `excludedCategories names unknown category ${String(category)}`);
   }
   for (const list of catalog.categories) {
+    if (categories.has(list.category)) add("duplicate-category", `category ${list.category} is listed twice`);
+    categories.add(list.category);
     if (!known.includes(list.category)) add("unknown-category", `category list ${String(list.category)} is not a known category`);
     const seen = /* @__PURE__ */ new Set();
     for (const id of list.speciesIds) {
@@ -350,14 +403,15 @@ function candidates(catalog, zoneId, rarity, filter) {
 var tierProbability = (zone, rarity) => zone.rarityShares[rarity] / 100;
 function zoneDistribution(catalog, zoneId, filter) {
   const zone = zoneById(catalog, zoneId);
-  if (!zone) return null;
+  if (!zone || !validShares(zone.rarityShares)) return null;
   const tiers = [];
   const emptyTiers = [];
   let unassigned = 0;
   for (const rarity of ENCOUNTER_RARITIES) {
     const probability = tierProbability(zone, rarity);
     const list = candidates(catalog, zoneId, rarity, filter);
-    const total = list.reduce((sum, entry2) => sum + entry2.weight, 0);
+    const total = tierWeightTotal(list);
+    if (total === null) return null;
     if (probability > 0 && list.length === 0) {
       emptyTiers.push(rarity);
       unassigned += probability;
@@ -370,7 +424,6 @@ function zoneDistribution(catalog, zoneId, filter) {
   }
   return { zoneId, tiers, emptyTiers, unassigned };
 }
-var isWeight = (value) => typeof value === "number" && Number.isFinite(value) && value >= 0;
 function assertRoll(name, value) {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0 || value >= 1) {
     throw new RangeError(`${name} must be a finite number in [0, 1), got ${String(value)}`);
@@ -393,13 +446,12 @@ function pickEncounter(catalog, zoneId, ticket, filter) {
   assertRoll("entryRoll", ticket.entryRoll);
   const zone = zoneById(catalog, zoneId);
   if (!zone) return { ok: false, reason: "unknown-zone" };
-  const shares = ENCOUNTER_RARITIES.map((r) => zone.rarityShares[r]);
-  if (!shares.every(isWeight) || !(shares.reduce((sum, share) => sum + share, 0) > 0)) return { ok: false, reason: "invalid-distribution" };
+  if (!validShares(zone.rarityShares)) return { ok: false, reason: "invalid-distribution" };
   const rarity = walk(ENCOUNTER_RARITIES, (r) => tierProbability(zone, r), ticket.tierRoll, 1);
   const list = candidates(catalog, zoneId, rarity, filter);
   if (list.length === 0) return { ok: false, reason: "empty-tier", rarity };
-  if (!list.every((entry2) => isWeight(entry2.weight) && entry2.weight > 0)) return { ok: false, reason: "invalid-distribution" };
-  const total = list.reduce((sum, entry2) => sum + entry2.weight, 0);
+  const total = tierWeightTotal(list);
+  if (total === null || total <= 0) return { ok: false, reason: "invalid-distribution" };
   return { ok: true, entry: walk(list, (entry2) => entry2.weight, ticket.entryRoll, total), rarity };
 }
 function ticketFrom(next) {
@@ -507,7 +559,12 @@ function createPopulation(config, deps) {
 }
 function draftOf(state) {
   const nests = {};
-  for (const [key, nest] of Object.entries(state.nests)) nests[key] = { generation: nest.generation, alive: [...nest.alive], dueAt: nest.dueAt };
+  for (const [key, nest] of Object.entries(state.nests)) nests[key] = {
+    generation: nest.generation,
+    alive: [...nest.alive],
+    dueAt: nest.dueAt,
+    ...nest.spawnBlockedAt === void 0 ? {} : { spawnBlockedAt: nest.spawnBlockedAt }
+  };
   return { namespace: state.namespace, lastTickAt: state.lastTickAt, areas: { ...state.areas }, nests };
 }
 function roll(random) {
@@ -521,6 +578,7 @@ function assertTime(now) {
   if (typeof now !== "number" || !Number.isFinite(now)) throw new RangeError(`time must be a finite number, got ${String(now)}`);
 }
 var delayFor = (nest, random) => Math.round(nest.respawn.delayMs * (1 + nest.respawn.jitter * (2 * roll(random) - 1)));
+var canDelayZero = (nest) => Math.round(nest.respawn.delayMs * (1 - nest.respawn.jitter)) === 0;
 var staggerFor = (area, random) => Math.round(area.idle.staggerMinMs + roll(random) * (area.idle.staggerMaxMs - area.idle.staggerMinMs));
 function tickPopulation(state, config, deps, input) {
   assertTime(input.now);
@@ -557,7 +615,7 @@ function tickPopulation(state, config, deps, input) {
       events.push({ type: "area-status", areaId: area.areaId, from: current.status, to: "active", cleared: [] });
     }
     for (const { nest, state: nestState } of nests) {
-      if (nestState.dueAt !== null && nestState.dueAt <= now) attemptSpawn(draft, area, nest, nestState, deps, input, events);
+      if (nestState.dueAt !== null && nestState.dueAt <= now && nestState.spawnBlockedAt !== now) attemptSpawn(draft, area, nest, nestState, deps, input, events);
     }
   }
   draft.lastTickAt = now;
@@ -565,6 +623,7 @@ function tickPopulation(state, config, deps, input) {
 }
 function attemptSpawn(draft, area, nest, nestState, deps, input, events) {
   const { now, random } = input;
+  if (canDelayZero(nest)) nestState.spawnBlockedAt = now;
   const fail = (reason, limitedBy) => {
     nestState.dueAt = now + nest.respawn.retryMs;
     events.push({ type: "spawn-failed", areaId: area.areaId, nestId: nest.id, reason, retryAt: nestState.dueAt, ...limitedBy ? { limitedBy } : {} });
@@ -622,7 +681,7 @@ function attemptSpawn(draft, area, nest, nestState, deps, input, events) {
 }
 function retireEncounter(state, config, input) {
   assertTime(input.now);
-  if (state.lastTickAt !== null && input.now < state.lastTickAt) return { ok: false, reason: "clock-regressed", state };
+  if (state.namespace !== config.namespace) return { ok: false, reason: "namespace-mismatch", state };
   const parts = encounterIdParts(input.encounterId);
   if (!parts || parts.namespace !== state.namespace) return { ok: false, reason: "not-alive", state };
   const area = config.areas.find((a) => a.areaId === parts.areaId);
@@ -630,7 +689,9 @@ function retireEncounter(state, config, input) {
   const current = state.nests[nestKey(parts.areaId, parts.nestId)];
   const retired = current?.alive.find((encounter) => encounter.id === input.encounterId);
   if (!nest || !current || !retired) return { ok: false, reason: "not-alive", state };
+  if (state.lastTickAt !== null && input.now < state.lastTickAt) return { ok: false, reason: "clock-regressed", state };
   const draft = draftOf(state);
+  draft.lastTickAt = input.now;
   const nestState = draft.nests[nestKey(parts.areaId, parts.nestId)];
   nestState.alive = nestState.alive.filter((encounter) => encounter.id !== input.encounterId);
   if (nest.respawn.policy === "per-group") {
@@ -638,6 +699,7 @@ function retireEncounter(state, config, input) {
   } else if (nestState.dueAt === null) {
     nestState.dueAt = input.now + delayFor(nest, input.random);
   }
+  if (canDelayZero(nest) && nestState.dueAt !== null && nestState.dueAt <= input.now) nestState.spawnBlockedAt = input.now;
   return { ok: true, state: draft, retired, cause: input.cause, dueAt: nestState.dueAt };
 }
 
@@ -650,7 +712,7 @@ function publicArea(state, areaId) {
 }
 
 // src/features/ecosystem/server/encounterRuntime.ts
-var ENCOUNTER_RUNTIME_API = 1;
+var ENCOUNTER_RUNTIME_API = 2;
 export {
   ECO_1_ENCOUNTER_CATALOG,
   ENCOUNTER_RARITIES,

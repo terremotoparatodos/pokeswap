@@ -9,7 +9,8 @@
 // Not wired: no room, service or route imports the bundle yet.
 
 /** Bundle contract version: bump when the exported surface changes shape. */
-export const ENCOUNTER_RUNTIME_API = 1
+// v2: retirement namespace rejection and optional immediate-respawn state guard.
+export const ENCOUNTER_RUNTIME_API = 2
 
 // ECO-1 · catalog, policy, validation, queries
 export { ECO_1_ENCOUNTER_CATALOG } from '../encounters/initialCatalog'

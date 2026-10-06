@@ -58,7 +58,11 @@ describe('the committed bundle', () => {
 
   it('has no imports, no absolute paths, no timestamps', () => {
     expect(generated).not.toMatch(/^import |require\(/m)
-    expect(generated).not.toMatch(/[A-Za-z]:[\\/]|\/Users\/|\/home\//)
+    // Provenance URLs (https://...) are portable, not Windows drive paths.
+    const absolutePath = /(?:^|["'\s(])[A-Za-z]:[\\/]|\/Users\/|\/home\//m
+    expect('"C:\\private\\source.ts"').toMatch(absolutePath)
+    expect('"https://raw.githubusercontent.com/PokeAPI/pokeapi"').not.toMatch(absolutePath)
+    expect(generated).not.toMatch(absolutePath)
     expect(generated).not.toMatch(/\b20\d\d-\d\d-\d\dT\d\d:/)
   })
 
@@ -68,7 +72,7 @@ describe('the committed bundle', () => {
 
   it('exports exactly the runtime entry surface', () => {
     expect(Object.keys(bundle).sort()).toEqual(Object.keys(source).sort())
-    expect(bundle.ENCOUNTER_RUNTIME_API).toBe(1)
+    expect(bundle.ENCOUNTER_RUNTIME_API).toBe(2)
   })
 
   it('loads in a bare Node process, from outside the repository, with no frontend dependency', () => {
@@ -87,6 +91,41 @@ describe('the committed bundle', () => {
 })
 
 describe('parity: the bundle behaves exactly like the sources', () => {
+  it('both surfaces enforce the audit contracts, beyond merely agreeing with each other', () => {
+    for (const api of [source, bundle] as Api[]) {
+      const catalog = api.ECO_1_ENCOUNTER_CATALOG
+      const shares = { ...catalog, zones: catalog.zones.map(z => ({ ...z, rarityShares: { common: 35, uncommon: 12, rare: 2.75, very_rare: 0.25 } })) }
+      const overflow = { ...catalog, entries: catalog.entries.map(e => ({ ...e, weight: Number.MAX_VALUE })) }
+      for (const invalid of [shares, overflow]) {
+        expect(api.pickEncounter(invalid, 'cueva-inicial', { tierRoll: 0, entryRoll: 0 })).toEqual({ ok: false, reason: 'invalid-distribution' })
+        expect(api.zoneDistribution(invalid, 'cueva-inicial')).toBeNull()
+      }
+      const noCategories = { ...catalog, categories: [], excludedCategories: [] }
+      expect(api.ordinaryEncounterExclusion(noCategories, 150)).toBe('legendary')
+      expect(api.ordinaryEncounterExclusion(noCategories, 151)).toBe('mythical')
+      expect(api.validateEncounterCatalog(noCategories, lookup).ok).toBe(false)
+
+      const config = populationConfig([caveArea([caveNest('zero', row(0, 0, 8), { habitats: ['cave-nook'], respawn: { policy: 'per-member', delayMs: 0, jitter: 0, retryMs: 1 } })], { idle: { dormantAfterMs: 300_000, staggerMinMs: 0, staggerMaxMs: 0 } })])
+      const deps = { catalog }
+      const input = (now: number) => ({ now, random: () => 0, geometry: () => gridGeometry(), activeAreas: new Set(['cueva-inicial']) })
+      const created = api.createPopulation(config, deps)
+      if (!created.ok) throw new Error('valid zero config rejected')
+      const first = api.tickPopulation(created.state, config, deps, input(0))
+      if (!first.ok) throw new Error(first.reason)
+      const id = Object.values(first.state.nests).flatMap(n => n.alive)[0].id
+      const retire = { encounterId: id, cause: 'defeated' as const, now: 100, random: () => 0 }
+      expect(api.retireEncounter(first.state, { ...config, namespace: 'other' }, retire)).toEqual({ ok: false, reason: 'namespace-mismatch', state: first.state })
+      const retired = api.retireEncounter(first.state, config, retire)
+      if (!retired.ok) throw new Error(retired.reason)
+      expect(api.tickPopulation(retired.state, config, deps, input(99))).toEqual({ ok: false, reason: 'clock-regressed', state: retired.state })
+      expect(api.retireEncounter(retired.state, config, { ...retire, now: 99 })).toEqual({ ok: false, reason: 'not-alive', state: retired.state })
+      const same = api.tickPopulation(retired.state, config, deps, input(100))
+      expect(same.state).toEqual(retired.state)
+      const next = api.tickPopulation(same.state, config, deps, input(100.001))
+      expect(Object.values(next.state.nests).flatMap(n => n.alive)).toHaveLength(1)
+    }
+  })
+
   it('ships the same catalog and validates it the same way', () => {
     expect(JSON.stringify(bundle.ECO_1_ENCOUNTER_CATALOG)).toBe(JSON.stringify(source.ECO_1_ENCOUNTER_CATALOG))
     expect(bundle.validateEncounterCatalog(bundle.ECO_1_ENCOUNTER_CATALOG, lookup)).toEqual(source.validateEncounterCatalog(source.ECO_1_ENCOUNTER_CATALOG, lookup))
