@@ -1,4 +1,5 @@
 // Types for the browser-side acceptance tests; the service itself is plain JS.
+import type { EcoArea, EcoRetireResult } from './worldProtocol.js'
 export interface WorldSocket { send(type: string, payload: unknown): void }
 export interface WorldViewer { id?: string; areaId: string; tx: number; ty: number }
 export declare class WorldRoom {
@@ -10,6 +11,11 @@ export declare class WorldRoom {
     now?: () => number
     /** Draws new generations' hidden stock (YIELD-2). Tests only; default: server crypto randomness. */
     stockRandom?: () => number
+    /** ECO-GAMEPLAY-1: the (development-only) ECO population instead of the hourly roster. */
+    ecoExperiment?: boolean
+    /** ECO-GAMEPLAY-1 tests only: the ECO population's randomness (default: server crypto randomness). */
+    ecoRandom?: () => number
+    log?: (message: string) => void
   })
   join(client: WorldSocket, options: unknown, auth: { kind: string; userId?: string; token?: string | null }): void
   leave(client: WorldSocket): void
@@ -18,6 +24,10 @@ export declare class WorldRoom {
   /** `client`: the socket the intent came from (default: the player's). An outdated one gets `client-outdated`. */
   work(actor: WorldViewer, payload: unknown, client?: WorldSocket): Promise<unknown>
   cancel(actor: WorldViewer, payload: unknown, client?: WorldSocket): void
+  /** ECO-GAMEPLAY-1 test retirement (development only). `actor`: null for a guest. */
+  ecoDevRetire(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): EcoRetireResult
+  /** ECO-GAMEPLAY-1: the ECO population (null outside the experiment), for acceptance tests. */
+  readonly eco: { view(areaId: string): EcoArea } | null
   /** Server state, for acceptance tests only. */
   readonly authority: { readonly store: { get(id: string): unknown } }
   tick(now?: number): void
