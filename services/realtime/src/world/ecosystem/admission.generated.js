@@ -4984,6 +4984,7 @@ function publicArea(state, areaId) {
 
 // src/features/ecosystem/server/admissionRuntime.ts
 var ECO_ADMISSION_API = 1;
+var ECO_ADMISSION_AREAS = Object.freeze(Object.keys(SNAPSHOT.areas));
 var NAMESPACE = /^[a-z0-9][a-z0-9-]{0,63}$/;
 var speciesById = new Map(species.map((entry2) => [entry2.id, entry2]));
 var lookupSpecies = (id) => speciesById.get(id) ?? null;
@@ -4999,7 +5000,7 @@ function admitEcoPopulation(input) {
   if (typeof input?.namespace !== "string" || !NAMESPACE.test(input.namespace)) {
     return { ok: false, issues: [{ boundary: "population", code: "invalid-namespace", message: "the namespace must be 1\u201364 lowercase letters, digits or dashes" }] };
   }
-  const areaIds = Object.keys(SNAPSHOT.areas);
+  const areaIds = [...ECO_ADMISSION_AREAS];
   const config = {
     namespace: input.namespace,
     areas: areaIds.map((areaId) => proposedAreaConfig(areaId, PROVISIONAL_RESPAWN, PROVISIONAL_IDLE))
@@ -5048,5 +5049,6 @@ function admitEcoPopulation(input) {
 }
 export {
   ECO_ADMISSION_API,
+  ECO_ADMISSION_AREAS,
   admitEcoPopulation
 };

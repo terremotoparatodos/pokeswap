@@ -34,6 +34,13 @@ import type { ReadinessIssue } from '../map/readiness'
 /** Bundle contract version: bump when the exported surface changes shape. */
 export const ECO_ADMISSION_API = 1
 
+/**
+ * The areas this build's admission covers. The server must supply the CURRENT layout version of
+ * exactly these, read from the authoritative world: the scope is the build's, the values are the
+ * world's (independent of the snapshot), and the gate compares them.
+ */
+export const ECO_ADMISSION_AREAS: readonly string[] = Object.freeze(Object.keys(SNAPSHOT.areas))
+
 /** A namespace the server chose; it becomes the first part of every encounter id. */
 const NAMESPACE = /^[a-z0-9][a-z0-9-]{0,63}$/
 
@@ -88,7 +95,7 @@ export function admitEcoPopulation(input: AdmitInput): AdmitResult {
   if (typeof input?.namespace !== 'string' || !NAMESPACE.test(input.namespace)) {
     return { ok: false, issues: [{ boundary: 'population', code: 'invalid-namespace', message: 'the namespace must be 1–64 lowercase letters, digits or dashes' }] }
   }
-  const areaIds = Object.keys(SNAPSHOT.areas)
+  const areaIds = [...ECO_ADMISSION_AREAS]
   const config: PopulationConfig = {
     namespace: input.namespace,
     areas: areaIds.map(areaId => proposedAreaConfig(areaId, PROVISIONAL_RESPAWN, PROVISIONAL_IDLE)),

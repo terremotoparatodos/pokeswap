@@ -3,13 +3,17 @@
 // references (`testing/sourceImports.ts`), never from text patterns:
 //
 //   1. runtime modules are pure: encounters/ imports only itself; population/
-//      only itself and encounters/; server/ only encounters/ and population/;
+//      only itself and encounters/; server/ only encounters/, population/ and
+//      map/, plus exactly one data file (the battle catalog's species, which the
+//      admission validates the catalog against — ECO-GAMEPLAY-1);
 //      no clock, global randomness, timers or network; encounters/ never
 //      mentions ownership;
 //   2. nothing outside src/features/ecosystem imports the ecosystem modules or
-//      the generated realtime bundle. The only allowed importers are the
-//      module's own files and tests. The bundle generator reaches the entry by
-//      path (esbuild), not by import.
+//      the generated realtime bundles. The only allowed importers are the
+//      module's own files and tests, three dev scripts and — ECO-GAMEPLAY-1 —
+//      ONE realtime file: the experimental population adapter, which imports the
+//      admission bundle only. The bundle generators reach their entries by path
+//      (esbuild), not by import.
 //
 // Replaces encounters/isolation.test.ts and population/isolation.test.ts, whose
 // text scan mistook fixture strings for imports.
@@ -42,13 +46,16 @@ function filesUnder(dir: string, pattern: RegExp): string[] {
 const isRuntime = (file: string) => !/\.test\.ts$/.test(file) && !file.endsWith('/testing.ts')
 const runtimeOf = (folder: string) => filesUnder(join(ECOSYSTEM, folder), /\.ts$/).filter(isRuntime)
 
-/** Import violations of one runtime module: anything resolving outside the allowed folders, or a package. */
-function importViolations(file: string, source: string, allowed: readonly string[]): string[] {
+/** Import violations of one runtime module: anything resolving outside the allowed folders/files, or a package. */
+function importViolations(file: string, source: string, allowed: readonly string[], allowedFiles: readonly string[] = []): string[] {
   return importSpecifiers(file, source).filter(spec => {
     const target = resolveSpecifier(file, spec, ROOT)
-    return target === null || !allowed.some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`))
+    return target === null || !(allowed.some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`)) || allowedFiles.includes(target))
   })
 }
+
+/** ECO-GAMEPLAY-1: the admission validates the catalog against the battle catalog's species — this file only. */
+const BATTLE_SPECIES = fwd(join(ROOT, 'src/features/battle/catalog/generated/core.json'))
 
 const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
 const IMPURE = /\b(Date\.now|new Date|Math\.random|performance\.now|setTimeout|setInterval|queueMicrotask|fetch|WebSocket|crypto\.getRandomValues)\b/
@@ -63,7 +70,12 @@ const ALLOWED_OUTSIDE = new Set([
   fwd(join(ROOT, 'scripts/ecosystem/balance-1.ts')), // ECO-BALANCE-1 runner (dev-only study)
   fwd(join(ROOT, 'scripts/ecosystem/map-nests.ts')), // ECO-MAP-1 nest data generator (dev-only)
   fwd(join(ROOT, 'scripts/ecosystem/validate-inputs.ts')), // F6 offline gate; never a product entrypoint
+  // ECO-GAMEPLAY-1: the experimental population adapter (dev-only mode, refused in production). It is the
+  // ONLY product file allowed in, and only for the admission bundle (checked below).
+  fwd(join(ROOT, 'services/realtime/src/world/ecoPopulation.js')),
 ])
+const ADAPTER = fwd(join(ROOT, 'services/realtime/src/world/ecoPopulation.js'))
+const ADMISSION_BUNDLE = `${BUNDLE_DIR}/admission.generated.js`
 
 function outsideImporters(files: readonly string[], read: (file: string) => string): string[] {
   return files.filter(file => !file.startsWith(`${ECOSYSTEM}/`) && !ALLOWED_OUTSIDE.has(file) && importSpecifiers(file, read(file)).some(spec => {
@@ -73,12 +85,22 @@ function outsideImporters(files: readonly string[], read: (file: string) => stri
 }
 
 describe('runtime modules are pure', () => {
-  const cases: [string, string[]][] = [['encounters', ['encounters']], ['population', ['population', 'encounters']], ['server', ['encounters', 'population']], ['map', ['map', 'encounters', 'population']]]
+  const cases: [string, string[], string[]][] = [
+    ['encounters', ['encounters'], []], ['population', ['population', 'encounters'], []],
+    ['server', ['encounters', 'population', 'map'], [BATTLE_SPECIES]], ['map', ['map', 'encounters', 'population'], []],
+  ]
 
-  it.each(cases)('%s imports only %j', (folder, allowed) => {
-    const files = runtimeOf(folder)
-    expect(files.length).toBeGreaterThan(0)
-    for (const file of files) expect(importViolations(file, readFileSync(file, 'utf8'), allowed), relative(ROOT, file)).toEqual([])
+  it.each(cases)('%s imports only %j (+ %j)', (folder, allowed, files) => {
+    const runtime = runtimeOf(folder)
+    expect(runtime.length).toBeGreaterThan(0)
+    for (const file of runtime) expect(importViolations(file, readFileSync(file, 'utf8'), allowed, files), relative(ROOT, file)).toEqual([])
+  })
+
+  it('the battle-catalog allowance is one file for server/ only, not the battle folder', () => {
+    const entry = `${ECOSYSTEM}/server/admissionRuntime.ts`
+    expect(importViolations(entry, "import { species } from '../../battle/catalog/generated/core.json'", ['encounters', 'population', 'map'], [BATTLE_SPECIES])).toEqual([])
+    expect(importViolations(entry, "import { x } from '../../battle/catalog/other.json'", ['encounters', 'population', 'map'], [BATTLE_SPECIES])).toEqual(['../../battle/catalog/other.json'])
+    expect(importViolations(`${ECOSYSTEM}/population/engine.ts`, "import { species } from '../../battle/catalog/generated/core.json'", ['population', 'encounters'])).toEqual(['../../battle/catalog/generated/core.json'])
   })
 
   it('no clock, global randomness, timers or network in any runtime module; no ownership in the catalog', () => {
@@ -129,6 +151,15 @@ describe('nothing outside the ecosystem imports it or its bundle', () => {
     expect(files.length).toBeGreaterThan(100)
     expect(outsideImporters(files, file => readFileSync(file, 'utf8')).map(file => relative(ROOT, file))).toEqual([])
   }, 30_000) // a cold file-system cache once took 6.8 s: a timeout must never stand in for a verdict
+
+  it('the experimental adapter reaches the ecosystem only through the admission bundle', () => {
+    const targets = (source: string) => importSpecifiers(ADAPTER, source).map(spec => resolveSpecifier(ADAPTER, spec, ROOT))
+      .filter((target): target is string => target !== null && (target.startsWith(`${ECOSYSTEM}/`) || target.startsWith(`${BUNDLE_DIR}/`)))
+    expect(targets(readFileSync(ADAPTER, 'utf8'))).toEqual([ADMISSION_BUNDLE])
+    // negative controls: the bare-engine bundle or a source module would be flagged
+    expect(targets("import { tickPopulation } from './ecosystem/encounters.generated.js'")).not.toEqual([ADMISSION_BUNDLE])
+    expect(targets("import { createPopulation } from '../../../../src/features/ecosystem/population/engine'")).not.toEqual([ADMISSION_BUNDLE])
+  })
 })
 
 describe('negative controls: the guards see real imports and only real imports', () => {

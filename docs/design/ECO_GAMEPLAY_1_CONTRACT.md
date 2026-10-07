@@ -63,7 +63,7 @@ Convención: **FACT** (verificado en el código), **DECISIÓN** (de este contrat
 - **Áreas activas:** las que tienen al menos un cliente de mundo conectado mirando esa área.
 - **Reloj:** `now()` del `WorldRoom`, el mismo que usan el resto del mundo y el snapshot.
   - Cadencia del tick ECO: cada 250 ms (`ECO_TICK_MS`), dentro del tick de 50 ms del mundo.
-- **RNG:** `node:crypto` (`randomInt(2**48) / 2**48`), del servidor y nunca del cliente.
+- **RNG:** `node:crypto` (`randomInt(2**48 − 1) / (2**48 − 1)`, el máximo que acepta `randomInt`), del servidor y nunca del cliente.
 - **Identidad de encuentro:** el id del motor, `<namespace>:<área>:<nido>:<generación>:<miembro>`.
   - No contiene especie ni dueño. Dos ejemplares de la misma especie tienen ids distintos.
   - El cliente lo trata como opaco.

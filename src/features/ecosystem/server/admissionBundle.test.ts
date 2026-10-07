@@ -74,7 +74,9 @@ describe('the committed admission bundle', () => {
   }, 30_000)
 
   it('exports only the admission: never the bare engine', () => {
-    expect(Object.keys(bundle).sort()).toEqual(['ECO_ADMISSION_API', 'admitEcoPopulation'])
+    expect(Object.keys(bundle).sort()).toEqual(['ECO_ADMISSION_API', 'ECO_ADMISSION_AREAS', 'admitEcoPopulation'])
+    expect(bundle.ECO_ADMISSION_AREAS).toEqual(AREAS)
+    expect(Object.isFrozen(bundle.ECO_ADMISSION_AREAS)).toBe(true)
     expect(Object.keys(bundle).sort()).toEqual(Object.keys(source).sort())
     expect(bundle.ECO_ADMISSION_API).toBe(1)
     for (const engine of ['createPopulation', 'tickPopulation', 'retireEncounter', 'createValidatedPopulation']) expect(bundle).not.toHaveProperty(engine)
