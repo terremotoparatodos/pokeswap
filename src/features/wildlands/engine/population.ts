@@ -16,6 +16,7 @@ import type { SharedPopulace } from './area'
 import { buildPatrol } from '../../../../services/realtime/src/world/patrol.js'
 import { NPC_SPEED, WILD_SPEED } from '../../../../services/realtime/src/world/wildPopulation.js'
 import type { WildEntity, WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
+import { EcoActors } from './ecoPopulace'
 
 /** Shared wild Pokémon are materialised within this many tiles of the player, released past the next. */
 const SHARED_WILD_NEAR = 64
@@ -51,13 +52,20 @@ export class Population {
   /** The roster currently on screen; null in legacy mode. */
   private roster: WildRoster | null = null
   private readonly sharedWild = new Map<string, Actor | null>()
+  /**
+   * ECO-GAMEPLAY-1 (experimental): the server's ECO population on screen, by encounter id. Non-null
+   * only when the server runs the experiment; then it replaces the roster entirely — never both.
+   */
+  private readonly ecoActors: EcoActors
   private patrolled = false
 
   constructor(
     private readonly world: World,
     private readonly pokedex: readonly PokedexEntry[],
     private readonly npcSprites: readonly TrainerSprites[],
-  ) {}
+  ) {
+    this.ecoActors = new EcoActors(pokedex, this.actors)
+  }
 
   share(shared: SharedPopulace): void {
     this.shared = shared
@@ -68,7 +76,8 @@ export class Population {
     const allowed = new Set(ids)
     for (let i = this.actors.length - 1; i >= 0; i--) {
       const actor = this.actors[i]
-      if (actor.wild && actor.pokemon && !allowed.has(actor.pokemon.id)) {
+      // An ECO encounter is not one of the cosmetic pool's unique Pokémon: the pool never filters it.
+      if (actor.wild && actor.pokemon && !allowed.has(actor.pokemon.id) && !this.ecoActors.has(actor.id)) {
         this.sharedWild.delete(actor.id)
         this.actors.splice(i, 1)
       }
@@ -78,8 +87,10 @@ export class Population {
   /** Populates chunks within one chunk of the player and releases distant ones. */
   update(playerTx: number, playerTy: number): void {
     const synced = (this.shared?.serverNow() ?? null) !== null
-    const roster = synced ? this.shared!.wildRoster() : null
+    const eco = synced ? this.shared!.ecoArea?.() ?? null : null
+    const roster = synced && eco === null ? this.shared!.wildRoster() : null
     if (roster !== this.roster) this.switchRoster(roster)
+    this.ecoActors.sync(eco, this.shared)
     if (synced && !this.patrolled) {
       this.patrolled = true
       for (const actor of this.actors) if (actor.kind === 'npc') this.patrolNpc(actor)

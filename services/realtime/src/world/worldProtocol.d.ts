@@ -4,15 +4,20 @@ import type { WorkerStand } from './workPlacement.js'
 export declare const WORLD_PROTOCOL: 3
 /** One attempt of a work action and one swing of the worker (SKILLS PROB-2). */
 export declare const WORK_TICK_MS: 600
+export declare const ECO_PROTOCOL: 1
+
 export declare const WORLD_MESSAGE: Readonly<{
   WORK: 'world:work'
   CANCEL: 'world:cancel'
+  ECO_DEV_RETIRE: 'world:eco-dev-retire'
   SNAPSHOT: 'world:snapshot'
   BATCH: 'world:batch'
   WORK_RESULT: 'world:work:result'
   WORK_DONE: 'world:work:done'
   WORK_YIELD: 'world:work:yield'
   WILD: 'world:wild'
+  ECO: 'world:eco'
+  ECO_DEV_RETIRE_RESULT: 'world:eco-dev-retire-result'
   PLAYER_STATE: 'player:state'
 }>
 
@@ -27,6 +32,37 @@ export interface WildEntity {
 }
 
 export type WildStatus = 'loading' | 'ready' | 'unavailable'
+
+/** ECO-GAMEPLAY-1 (experimental): one encounter as every viewer sees it. `id` is opaque; it carries no species or owner meaning. */
+export interface EcoEncounter {
+  readonly id: string
+  readonly groupId: string
+  readonly speciesId: number
+  readonly tx: number
+  readonly ty: number
+}
+
+/** The whole public population of one area. `not-simulated`: nobody there long enough, or no population in this area. */
+export interface EcoArea {
+  readonly protocol: 1
+  readonly areaId: string
+  readonly status: 'active' | 'not-simulated' | 'unavailable'
+  readonly encounters: readonly EcoEncounter[]
+}
+
+export interface EcoMessage {
+  readonly now: number
+  readonly eco: EcoArea
+}
+
+export interface EcoRetireResult {
+  readonly requestId: number | null
+  readonly encounterId: string | null
+  readonly ok: boolean
+  readonly reason?: 'disabled' | 'invalid' | 'not-alive' | 'other-area' | 'not-player' | 'unavailable' | 'client-outdated'
+}
+
+export declare function ecoRetireIntent(value: unknown): { requestId: number; encounterId: string } | null
 
 export interface WildMessage {
   readonly now: number
@@ -72,6 +108,8 @@ export interface WorldSnapshot {
   readonly wild?: WildRoster
   /** Procedural areas only. Without 'ready' there are no wild Pokémon (fail closed). */
   readonly wildStatus?: WildStatus
+  /** ECO-GAMEPLAY-1: only to clients that declared `ecoProtocol`, only from an experimental server. */
+  readonly eco?: EcoArea
   readonly ownAction?: { readonly actionId: string; readonly nodeId: string; readonly startedAt: number }
 }
 

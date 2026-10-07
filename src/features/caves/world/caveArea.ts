@@ -5,6 +5,8 @@
 // browser draws as rock is what the service treats as rock. Nothing here is
 // rolled, generated or placed: no props, nodes, plots, wild Pokémon, NPCs or
 // chests. The only portal is the exit pad back to the cave's area.
+// ECO-GAMEPLAY-1 (experimental, development builds only): the server's ECO encounters of the
+// interior are its only wanderers — never procedural trainers or the hourly roster.
 //
 // The look reuses the cave textures that already exist (`dungeonTerrain.ts`,
 // pure art: palettes and pixel sampling), not the Dungeon prototype itself.
@@ -12,7 +14,9 @@
 import { caveByInterior } from '../../../../services/realtime/src/world/caves.js'
 import { caveInterior, isCaveFloor, type CaveInterior } from '../../../../services/realtime/src/world/caveLayouts.js'
 import { sampleTexture, textureFor, themePaint, type ThemePaint } from '../../dungeonPrototype/world/dungeonTerrain'
-import type { Arrival, Area, AreaId, Populace, Portal } from '../../wildlands/engine/area'
+import type { Arrival, Area, AreaId, Populace, PopulaceContext, Portal } from '../../wildlands/engine/area'
+import { EcoPopulace } from '../../wildlands/engine/ecoPopulace'
+import { ECO_EXPERIMENT } from '../../world/domain/ecoExperiment'
 import type { DecorInstance } from '../../wildlands/engine/chunks'
 import { packColor } from '../../wildlands/engine/pixels'
 import { TILE } from '../../wildlands/engine/world'
@@ -144,8 +148,9 @@ export class CaveArea implements Area {
     return []
   }
 
-  createPopulace(): Populace {
-    return EMPTY_POPULACE
+  createPopulace(context: PopulaceContext): Populace {
+    // Outside the experiment (every production build): empty, exactly as before.
+    return ECO_EXPERIMENT ? new EcoPopulace(context.pokedex) : EMPTY_POPULACE
   }
 
   weather() {

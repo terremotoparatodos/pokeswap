@@ -164,6 +164,7 @@ export class PresenceRoom extends Room {
     this.onMessage(MESSAGE.CHAT, (client, payload) => this.chat(client, payload))
     this.onMessage(WORLD_MESSAGE.WORK, (client, payload) => this.work(client, payload))
     this.onMessage(WORLD_MESSAGE.CANCEL, (client, payload) => this.cancelWork(client, payload))
+    this.onMessage(WORLD_MESSAGE.ECO_DEV_RETIRE, (client, payload) => this.ecoDevRetire(client, payload))
   }
 
   async onJoin(client, options, auth) {
@@ -395,6 +396,11 @@ export class PresenceRoom extends Room {
     const actor = actors.get(client.userData?.actorId)
     if (!actor) return this.reject(client, 'world denied', 'invalid')
     void world.work(actor, payload, client)
+  }
+
+  /** ECO-GAMEPLAY-1 test retirement: the world decides (development-only experiment; a guest has no actor). */
+  ecoDevRetire(client, payload) {
+    world.ecoDevRetire(actors.get(client.userData?.actorId) ?? null, payload, client)
   }
 
   cancelWork(client, payload) {

@@ -32,10 +32,15 @@ export const WORLD_PROTOCOL = 3
  */
 export const WORK_TICK_MS = 600
 
+/** ECO-GAMEPLAY-1 (experimental): the ECO population protocol a client declares on join (`ecoProtocol`). */
+export const ECO_PROTOCOL = 1
+
 export const WORLD_MESSAGE = Object.freeze({
   // client → server
   WORK: 'world:work',
   CANCEL: 'world:cancel',
+  /** ECO-GAMEPLAY-1 (experimental, development only): a test retirement of one encounter. */
+  ECO_DEV_RETIRE: 'world:eco-dev-retire',
   // server → client
   SNAPSHOT: 'world:snapshot',
   BATCH: 'world:batch',
@@ -44,6 +49,9 @@ export const WORLD_MESSAGE = Object.freeze({
   /** One confirmed unit of the owner's sequence (YIELD-2, owner only). */
   WORK_YIELD: 'world:work:yield',
   WILD: 'world:wild',
+  /** ECO-GAMEPLAY-1 (experimental): the shared encounter population of the viewer's area, whole. */
+  ECO: 'world:eco',
+  ECO_DEV_RETIRE_RESULT: 'world:eco-dev-retire-result',
   /** The session's own XP, materials and workable Pokémon (server → that player only). */
   PLAYER_STATE: 'player:state',
 })
@@ -72,6 +80,21 @@ export function workIntent(value) {
 export function cancelIntent(value) {
   if (!value || typeof value !== 'object' || typeof value.actionId !== 'string' || !ACTION_ID.test(value.actionId)) return null
   return { actionId: value.actionId }
+}
+
+/** An encounter id as the server writes it: `<namespace>:<area>:<nest>:<generation>:<member>`. Opaque to clients. */
+const ENCOUNTER_ID = /^[a-z0-9-]{1,64}:[a-z0-9-]{1,32}:[a-z0-9-]{1,48}:[0-9]{1,9}:[0-9]{1,3}$/
+
+/**
+ * `{ requestId, encounterId }` or null (ECO-GAMEPLAY-1 test retirement). Anything else in the
+ * payload (cause, reward, area, species…) is never read: the server fixes the cause and decides.
+ */
+export function ecoRetireIntent(value) {
+  if (!value || typeof value !== 'object') return null
+  const { requestId, encounterId } = value
+  if (!Number.isSafeInteger(requestId) || requestId < 1) return null
+  if (typeof encounterId !== 'string' || !ENCOUNTER_ID.test(encounterId)) return null
+  return { requestId, encounterId }
 }
 
 /**

@@ -22,9 +22,15 @@ const BENCHMARK_PLAYER = /^benchmark-[a-z0-9][a-z0-9-]{0,39}$/
  *              shortens crop growth for physical tests only.
  * transport    WORLD_DEMO_SKILLS=on (never in production): the fake policy,
  *              no database — for measuring the room alone.
+ *
+ * ECO-GAMEPLAY-1  WORLD_ECO_EXPERIMENT=on (development only): the world's wild Pokémon are the
+ *              admitted ECO population instead of the hourly roster — one system, never both.
+ *              Refused in production: the process does not start (`ecoExperiment` below).
  */
 export function worldDependencies(env = process.env) {
   const production = env.NODE_ENV === 'production'
+  const ecoExperiment = env.WORLD_ECO_EXPERIMENT === 'on'
+  if (ecoExperiment && production) throw new Error('WORLD_ECO_EXPERIMENT is a development-only experiment and is refused with NODE_ENV=production')
   const catalog = env.WORLD_WILD_CATALOG === 'synthetic' && !production ? syntheticWildCatalog() : createSupabaseWildCatalog(env)
 
   if (!production && env.WORLD_PLAYERDATA === 'pglite') {
@@ -32,7 +38,7 @@ export function worldDependencies(env = process.env) {
     const scale = Number(env.WORLD_FARM_TIME_SCALE)
     return {
       skills: createSkillsWorldPolicy({ store: playerData, growScale: Number.isFinite(scale) && scale > 0 && scale <= 1 ? scale : 1 }),
-      ownership: ownershipFromPlayerData(playerData), playerData, catalog, mode: 'local-db',
+      ownership: ownershipFromPlayerData(playerData), playerData, catalog, ecoExperiment, mode: 'local-db',
     }
   }
   if (!production && env.WORLD_DEMO_SKILLS === 'on') {
@@ -43,14 +49,14 @@ export function worldDependencies(env = process.env) {
           return BENCHMARK_PLAYER.test(playerId) && Number.isInteger(instanceId) && instanceId >= 1 && instanceId <= 1_000 ? { instanceId, speciesId: instanceId } : null
         },
       },
-      playerData: null, catalog, mode: 'demo',
+      playerData: null, catalog, ecoExperiment, mode: 'demo',
     }
   }
   if (env.WORLD_AUTHORITY_URL && env.WORLD_AUTHORITY_SECRET && env.SUPABASE_PUBLISHABLE_KEY) {
     const playerData = withPlayerDataMetrics(createEdgePlayerData({ url: env.WORLD_AUTHORITY_URL, secret: env.WORLD_AUTHORITY_SECRET, publishableKey: env.SUPABASE_PUBLISHABLE_KEY }))
-    return { skills: createSkillsWorldPolicy({ store: playerData }), ownership: ownershipFromPlayerData(playerData), playerData, catalog, mode: 'authority' }
+    return { skills: createSkillsWorldPolicy({ store: playerData }), ownership: ownershipFromPlayerData(playerData), playerData, catalog, ecoExperiment, mode: 'authority' }
   }
-  return { skills: unavailableSkillPolicy, ownership: noOwnership, playerData: null, catalog, mode: 'unavailable' }
+  return { skills: unavailableSkillPolicy, ownership: noOwnership, playerData: null, catalog, ecoExperiment, mode: 'unavailable' }
 }
 
 /** The dev database opens asynchronously; the world is built synchronously. */

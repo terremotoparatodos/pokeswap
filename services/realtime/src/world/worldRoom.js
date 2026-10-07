@@ -1,9 +1,10 @@
 import { chunkOf, worldArea } from './areas.js'
 import { ResourceAuthority } from './resourceAuthority.js'
 import { chunkKey } from './resourceStore.js'
-import { WORLD_MESSAGE, WORLD_PROTOCOL, cancelIntent, publicNode, workIntent } from './worldProtocol.js'
+import { WORLD_MESSAGE, WORLD_PROTOCOL, cancelIntent, ecoRetireIntent, publicNode, workIntent } from './worldProtocol.js'
 import { chunksInView, isChunkRetained } from './worldInterest.js'
 import { WildService } from './wildService.js'
+import { ECO_PROTOCOL, EcoPopulation } from './ecoPopulation.js'
 
 /**
  * The world's transport glue inside PresenceRoom (WORLD-1B/1C).
@@ -26,7 +27,7 @@ export class WorldRoom {
    * player its own XP, materials and Pokémon. Without it (tests, benchmarks
    * of the transport alone) the world starts empty and ready.
    */
-  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, log = message => console.warn(message) }) {
+  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, eco = undefined, ecoRandom = undefined, log = message => console.warn(message) }) {
     this.now = now
     this.clientForPlayer = clientForPlayer
     this.clients = new Map()
@@ -40,7 +41,12 @@ export class WorldRoom {
     this.ready = playerData === null
     this.waiting = new Map()
     this.metrics = { snapshots: 0, batches: 0, nodeDeltas: 0, chunkEnters: 0, chunkLeaves: 0, maxBatchBytes: 0, bytes: 0, outdatedJoins: 0, outdatedWork: 0 }
-    this.wild = new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
+    // ECO-GAMEPLAY-1: ONE wild system per process. In the (development-only) experiment the admitted
+    // ECO population is the world's wild Pokémon and the hourly roster does not exist at all.
+    /** Areas whose ECO view changed since the last flush. */
+    this.ecoDirty = new Set()
+    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: true, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
+    this.wild = ecoExperiment ? null : new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
       skills, ownership, lookupActor, now, placeActor, log,
       ...(stockRandom ? { random: stockRandom } : {}),
@@ -86,7 +92,9 @@ export class WorldRoom {
       return
     }
     const playerId = auth?.kind === 'player' ? auth.userId : null
-    this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId })
+    // ECO-GAMEPLAY-1: only a client that declared the ECO protocol is sent the ECO population.
+    const eco = this.eco !== null && options?.ecoProtocol === ECO_PROTOCOL
+    this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId, eco })
     if (playerId !== null) this.authority.newConnection(playerId)
     if (playerId !== null && this.playerData) void this.#sendPlayerState(client, playerId)
   }
@@ -125,11 +133,14 @@ export class WorldRoom {
     for (const chunkId of chunks) nodes.push(...this.#subscribe(client, state, chunkId))
     const own = viewer.id ? this.authority.actionOf(viewer.id) : null
     const procedural = worldArea(viewer.areaId)?.procedural === true
-    const wild = this.wild.roster(viewer.areaId)
+    const wild = this.wild?.roster(viewer.areaId) ?? null
+    const eco = state.eco ? this.eco.view(viewer.areaId) : null
     this.#send(client, WORLD_MESSAGE.SNAPSHOT, {
       now: this.now(), areaId: viewer.areaId, chunks, nodes,
       ...(wild ? { wild } : {}),
-      ...(procedural ? { wildStatus: this.wild.status(viewer.areaId) } : {}),
+      // In the ECO experiment there is no roster: a client without the ECO protocol is told so (fail closed).
+      ...(procedural && !eco ? { wildStatus: this.wild ? this.wild.status(viewer.areaId) : 'unavailable' } : {}),
+      ...(eco ? { eco } : {}),
       // Who, what and since when: never the end (PROB-2).
       ...(own ? { ownAction: { actionId: own.actionId, nodeId: own.node.id, startedAt: own.startedAt } } : {}),
     })
@@ -191,16 +202,39 @@ export class WorldRoom {
     if (intent) this.authority.cancel(actor.id, intent.actionId, 'cancelled')
   }
 
+  /**
+   * ECO-GAMEPLAY-1 test retirement (development only; the experiment is refused in production).
+   * `actor`: the player's live actor, or null for a guest. The cause is fixed by the server
+   * (`fled`): no capture, drop, token or persistent value.
+   */
+  ecoDevRetire(actor, payload, client) {
+    const requestId = Number.isSafeInteger(payload?.requestId) ? payload.requestId : null
+    const reply = result => { client?.send(WORLD_MESSAGE.ECO_DEV_RETIRE_RESULT, result); return result }
+    if (!client || !this.clients.has(client)) return reply({ requestId, encounterId: null, ok: false, reason: 'client-outdated' })
+    if (!this.eco) return reply({ requestId, encounterId: null, ok: false, reason: 'disabled' })
+    const intent = ecoRetireIntent(payload)
+    if (!intent) return reply({ requestId, encounterId: null, ok: false, reason: 'invalid' })
+    const result = this.eco.devRetire(actor, intent.encounterId, this.now())
+    return reply({ requestId: intent.requestId, encounterId: intent.encounterId, ...result })
+  }
+
   tick(now = this.now()) {
     this.authority.tick(now)
-    this.wild.tick(now)
+    this.wild?.tick(now)
+    if (this.eco) {
+      // Active = an area with at least one world viewer (player or observer) right now.
+      const activeAreas = new Set()
+      for (const state of this.clients.values()) if (state.areaId) activeAreas.add(state.areaId)
+      this.eco.tick(now, activeAreas)
+    }
   }
 
   /** Aggregate counters for /metrics: sizes and totals only, never an id or a tile. */
   stats() {
     const authority = this.authority
     return {
-      wild: { epoch: this.wild.epoch, ...this.wild.metrics },
+      wild: this.wild ? { epoch: this.wild.epoch, ...this.wild.metrics } : null,
+      eco: this.eco ? { status: this.eco.status, ...this.eco.metrics } : null,
       clients: this.clients.size, subscribedChunks: this.subscribers.size, storedNodes: authority.store.size, nodesByState: authority.store.countByState(),
       runningActions: authority.actions.size, queued: authority.queue.size,
       actions: { ...authority.metrics, rejected: { ...authority.metrics.rejected } }, transport: { ...this.metrics },
@@ -221,6 +255,18 @@ export class WorldRoom {
       if (pending.nodes.size) batch.nodes = [...pending.nodes.values()]
       this.#send(client, WORLD_MESSAGE.BATCH, batch)
       this.metrics.batches++
+    }
+    this.#flushEco(now)
+  }
+
+  /** ECO-GAMEPLAY-1: every changed area's whole view, to its ECO viewers, at the same flush. */
+  #flushEco(now) {
+    if (!this.eco || this.ecoDirty.size === 0) return
+    const views = new Map([...this.ecoDirty].map(areaId => [areaId, this.eco.view(areaId)]))
+    this.ecoDirty.clear()
+    for (const [client, state] of this.clients) {
+      const eco = state.eco ? views.get(state.areaId) : undefined
+      if (eco) this.#send(client, WORLD_MESSAGE.ECO, { now, eco })
     }
   }
 

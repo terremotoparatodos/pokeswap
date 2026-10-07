@@ -9,7 +9,7 @@
 import type { Actor } from './actors'
 import type { Area } from './area'
 import type { Tile } from './pathfinding'
-import type { WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoArea, WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 export interface WorldLayerContext {
   area(): Area
@@ -31,4 +31,6 @@ export interface WorldLayer {
   serverNow(): number | null
   /** The server's wild roster for an area, or null. */
   wildRoster(areaId: string): WildRoster | null
+  /** ECO-GAMEPLAY-1 (experimental): the server's ECO population of this area; absent/null outside the experiment. */
+  ecoArea?(areaId: string): EcoArea | null
 }
