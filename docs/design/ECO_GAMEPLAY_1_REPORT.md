@@ -127,3 +127,18 @@ node scripts/ecosystem/eco-gameplay-local.mjs client
 | `18f478c` | Presentación en el cliente y panel de retirada de prueba (punto 4) |
 | `1433867` | Entorno aislado y prueba e2e (punto 5) |
 | (este documento) | Reporte |
+
+## 7. Smoke humano — registro
+
+| Fecha (UTC) | Sobre | Resultado |
+|---|---|---|
+| 2026-10-07 | `914ac9e` | **Problema reportado:** dentro de la cueva el panel listaba 4 encuentros (#293 en (5, 6), dos #41 en (11, 2) y (7, 2), #75 en (17, 8)) y no se dibujaba ninguno. Causa: `CaveArea.createPopulace()` devolvía siempre un populace vacío. |
+| 2026-10-07 | `0b3de22` | **Corrección** (commit nuevo): `EcoActors`/`EcoPopulace`, compartidos con `Population`; la cueva dibuja solo encuentros ECO con el experimento activo y queda vacía como antes sin él. Regresiones: `caveEcoRoute.test.ts` (ruta real de la cueva, dos clientes; falla en `914ac9e` con `[]` contra 4) y `caveEcoOff.test.ts`. |
+| 2026-10-07 | sandbox con `0b3de22` | **Verificación visual** con dos clientes de comprobación (`eco-check-1/2`): ver el detalle debajo. Consola: solo los errores esperables del placeholder de Supabase; realtime sin errores. |
+| — | — | **Smoke humano:** sigue pendiente. |
+
+**Detalle de la verificación visual sobre `0b3de22`:**
+- **Dibujo:** dentro de la cueva, los dos clientes dibujan los 4 sprites reales (#41 ×2, #75 y #293), con la misma lista.
+- **Retirada:** «Retirar (prueba)» del grupo `cueva-techo-norte:1` (los dos #41) desde un cliente; desaparecen en ambos y queda «2 en el área».
+- **Respawn:** aparece `cueva-techo-norte:2:0` (#50 en (13, 3)) unos 64 s después, igual y dibujado en ambos.
+- **Salida y entrada:** al salir, Pradera no lleva ningún actor de la cueva. Al volver, se ve exactamente la lista vigente, sin los retirados ni duplicados.
