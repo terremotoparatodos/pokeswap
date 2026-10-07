@@ -50,12 +50,19 @@ const runtimeOf = (folder: string) => filesUnder(join(ECOSYSTEM, folder), /\.ts$
 function importViolations(file: string, source: string, allowed: readonly string[], allowedFiles: readonly string[] = []): string[] {
   return importSpecifiers(file, source).filter(spec => {
     const target = resolveSpecifier(file, spec, ROOT)
-    return target === null || !(allowed.some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`)) || allowedFiles.includes(target))
+    return target === null || !(allowed.some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`)) || allowedFiles.some(entry => target === entry || target.startsWith(`${entry}/`)))
   })
 }
 
 /** ECO-GAMEPLAY-1: the admission validates the catalog against the battle catalog's species — this file only. */
 const BATTLE_SPECIES = fwd(join(ROOT, 'src/features/battle/catalog/generated/core.json'))
+/**
+ * ECO-GAMEPLAY-2: the test-battle entry (and ONLY it) wraps the existing battle authority, rules,
+ * catalog and Pokémon model, these four modules only. Any other server/ file importing them fails.
+ */
+const BATTLE_ENTRY = fwd(join(ROOT, 'src/features/ecosystem/server/encounterBattleRuntime.ts'))
+const BATTLE_CORE = ['src/features/battle/authority', 'src/features/battle/catalog', 'src/features/battle/rules', 'src/features/pokemon/model'].map(p => fwd(join(ROOT, p)))
+const allowedFilesFor = (file: string, base: readonly string[]) => (file === BATTLE_ENTRY ? [...base, ...BATTLE_CORE] : base)
 
 const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
 const IMPURE = /\b(Date\.now|new Date|Math\.random|performance\.now|setTimeout|setInterval|queueMicrotask|fetch|WebSocket|crypto\.getRandomValues)\b/
@@ -93,7 +100,14 @@ describe('runtime modules are pure', () => {
   it.each(cases)('%s imports only %j (+ %j)', (folder, allowed, files) => {
     const runtime = runtimeOf(folder)
     expect(runtime.length).toBeGreaterThan(0)
-    for (const file of runtime) expect(importViolations(file, readFileSync(file, 'utf8'), allowed, files), relative(ROOT, file)).toEqual([])
+    for (const file of runtime) expect(importViolations(file, readFileSync(file, 'utf8'), allowed, allowedFilesFor(file, files)), relative(ROOT, file)).toEqual([])
+  })
+
+  it('the battle-core allowance is the test-battle entry only (negative control: the admission cannot)', () => {
+    const spec = "import { createBattleAuthority } from '../../battle/authority'"
+    expect(importViolations(BATTLE_ENTRY, spec, ['encounters', 'population', 'map'], allowedFilesFor(BATTLE_ENTRY, [BATTLE_SPECIES]))).toEqual([])
+    const admission = `${ECOSYSTEM}/server/admissionRuntime.ts`
+    expect(importViolations(admission, spec, ['encounters', 'population', 'map'], allowedFilesFor(admission, [BATTLE_SPECIES]))).toEqual(['../../battle/authority'])
   })
 
   it('the battle-catalog allowance is one file for server/ only, not the battle folder', () => {
