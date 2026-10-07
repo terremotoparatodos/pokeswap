@@ -5,7 +5,7 @@
 // a sink the adapter never declares `worldProtocol`, so the server sends no
 // world messages at all.
 
-import type { PlayerStateMessage, WildMessage, WorkDone, WorkResult, WorkYield, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoMessage, EcoRetireResult, PlayerStateMessage, WildMessage, WorkDone, WorkResult, WorkYield, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 export type WorldSend = (type: string, payload: unknown) => void
 
@@ -25,4 +25,8 @@ export interface WorldTransportSink {
   wild(message: WildMessage): void
   /** The session's own XP, materials and workable Pokémon (INTEGRATION-1). */
   playerState(message: PlayerStateMessage): void
+  /** ECO-GAMEPLAY-1 (experimental): the viewer's area's whole ECO population. */
+  eco?(message: EcoMessage): void
+  /** ECO-GAMEPLAY-1 (experimental): the answer to a dev test retirement. */
+  ecoRetireResult?(result: EcoRetireResult): void
 }

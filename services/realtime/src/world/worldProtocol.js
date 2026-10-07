@@ -32,6 +32,9 @@ export const WORLD_PROTOCOL = 3
  */
 export const WORK_TICK_MS = 600
 
+/** ECO-GAMEPLAY-1 (experimental): the ECO population protocol a client declares on join (`ecoProtocol`). */
+export const ECO_PROTOCOL = 1
+
 export const WORLD_MESSAGE = Object.freeze({
   // client → server
   WORK: 'world:work',

@@ -1,6 +1,7 @@
 import { randomBytes, randomInt } from 'node:crypto'
 import { ECO_ADMISSION_AREAS, admitEcoPopulation } from './ecosystem/admission.generated.js'
 import { layoutVersion } from './layoutVersion.js'
+import { ECO_PROTOCOL } from './worldProtocol.js'
 
 /**
  * The shared encounter population, as the server's authority (ECO-GAMEPLAY-1, EXPERIMENTAL).
@@ -15,7 +16,7 @@ import { layoutVersion } from './layoutVersion.js'
  * never reused. Nothing here grants a capture, drop, token or any persistent value.
  */
 
-export const ECO_PROTOCOL = 1
+export { ECO_PROTOCOL }
 /** The population is advanced at most this often, inside the world's 50 ms tick. */
 export const ECO_TICK_MS = 250
 

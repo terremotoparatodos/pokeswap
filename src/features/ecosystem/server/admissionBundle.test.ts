@@ -178,7 +178,7 @@ describe('an admitted population', () => {
 
   it('shows several individuals of one species, each with its own id; ids carry no species and no owner', () => {
     const { views } = run(source, 60)
-    const last = views.at(-1)!.pradera.encounters
+    const last = views[views.length - 1].pradera.encounters
     const bySpecies = new Map<number, string[]>()
     for (const e of last) bySpecies.set(e.speciesId, [...(bySpecies.get(e.speciesId) ?? []), e.id])
     const repeated = [...bySpecies.values()].filter(ids => ids.length >= 2)
@@ -196,7 +196,7 @@ describe('an admitted population', () => {
     const { population, now: start, random } = run(source, 30)
     const group = population.view('pradera').encounters[0].groupId
     const members = population.view('pradera').encounters.filter(e => e.groupId === group)
-    let now = start
+    const now = start
     for (const member of members) {
       expect(population.retire({ encounterId: member.id, now, random })).toEqual({ ok: true, areaId: 'pradera' })
       expect(population.retire({ encounterId: member.id, now, random })).toEqual({ ok: false, reason: 'not-alive' })

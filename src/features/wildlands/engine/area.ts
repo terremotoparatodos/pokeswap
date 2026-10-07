@@ -5,7 +5,7 @@
 // interface, so travelling between them is just swapping the active area.
 
 import type { Actor, Habitat } from './actors'
-import type { WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoArea, WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WeatherKind } from './atmosphere'
 import type { Dir, TrainerSprites } from './characters'
 import type { ChunkMetrics, DecorInstance } from './chunks'
@@ -39,6 +39,8 @@ export interface SharedPopulace {
   serverNow(): number | null
   /** The server's wild roster for this area, or null when it has none. */
   wildRoster(): WildRoster | null
+  /** ECO-GAMEPLAY-1 (experimental): the server's ECO population of this area. Non-null replaces the roster entirely. */
+  ecoArea?(): EcoArea | null
   /** Static walkability for a wanderer: terrain, props, gates and doors. Identical on every client. */
   walkable(habitat: Habitat, tx: number, ty: number): boolean
 }

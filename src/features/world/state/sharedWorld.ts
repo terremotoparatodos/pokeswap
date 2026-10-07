@@ -6,7 +6,7 @@
 
 import type { Actor } from '../../wildlands/engine/actors'
 import type { WorldLayer, WorldLayerContext } from '../../wildlands/engine/worldLayer'
-import type { PlayerStateMessage, WildMessage, WildRoster, WildStatus, WorkDone, WorkResult, WorkYield, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoArea, EcoMessage, EcoRetireResult, PlayerStateMessage, WildMessage, WildRoster, WildStatus, WorkDone, WorkResult, WorkYield, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WorldSend, WorldTransportSink } from '../api/worldTransport'
 import { devWarn } from '../../../shared/utils/devTools'
@@ -41,6 +41,10 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   /** Why there are (no) wild Pokémon here. Without 'ready' the world shows none: fail closed. */
   wildStatus: WildStatus | null = null
   private readonly wildListeners = new Set<(roster: WildRoster | null) => void>()
+  /** ECO-GAMEPLAY-1 (experimental): the server's ECO population of the current area, as last sent. */
+  private ecoState: EcoArea | null = null
+  private readonly ecoListeners = new Set<(area: EcoArea | null) => void>()
+  private readonly ecoPending = new Map<number, { resolve: (result: EcoRetireResult) => void; timer: ReturnType<typeof setTimeout> }>()
   private player: PlayerStateMessage | null = null
   private readonly playerListeners = new Set<(state: PlayerStateMessage) => void>()
 
@@ -84,6 +88,11 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
       entry.resolve({ requestId, ok: false, reason: 'disconnected' })
     }
     this.pending.clear()
+    for (const [requestId, entry] of this.ecoPending) {
+      clearTimeout(entry.timer)
+      entry.resolve({ requestId, encounterId: null, ok: false, reason: 'unavailable' })
+    }
+    this.ecoPending.clear()
   }
 
   snapshot(snapshot: WorldSnapshot): void {
@@ -92,6 +101,58 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     this.own = snapshot.ownAction ? { actionId: snapshot.ownAction.actionId, nodeId: snapshot.ownAction.nodeId, startedAt: snapshot.ownAction.startedAt } : null
     this.setRoster(snapshot.wild ?? null)
     this.setWildStatus(snapshot.wildStatus ?? null)
+    // Absent outside the experiment: then the roster path applies, unchanged.
+    this.setEco(snapshot.eco ?? null)
+  }
+
+  // ── ECO-GAMEPLAY-1 (experimental) ────────────────────────────────────────
+
+  eco(message: EcoMessage): void {
+    this.clock.sample(message.now)
+    // Another area's population (a message that crossed an area change) is never shown here.
+    if (message.eco.areaId !== this.resources.areaId) return
+    this.setEco(message.eco)
+  }
+
+  /** The server's ECO population of `areaId`; null outside the experiment or for another area. */
+  ecoArea(areaId: string): EcoArea | null {
+    return this.ecoState?.areaId === areaId ? this.ecoState : null
+  }
+
+  onEco(listener: (area: EcoArea | null) => void): () => void {
+    this.ecoListeners.add(listener)
+    listener(this.ecoState)
+    return () => this.ecoListeners.delete(listener)
+  }
+
+  private setEco(area: EcoArea | null): void {
+    if (area === this.ecoState) return
+    this.ecoState = area
+    for (const listener of this.ecoListeners) listener(area)
+  }
+
+  /** A development test retirement. The server decides (and refuses it outside the experiment). */
+  ecoDevRetire(encounterId: string): Promise<EcoRetireResult> {
+    const requestId = this.nextRequestId++
+    if (!this.send) return Promise.resolve({ requestId, encounterId, ok: false, reason: 'unavailable' })
+    const send = this.send
+    return new Promise(resolve => {
+      const timer = setTimeout(() => {
+        this.ecoPending.delete(requestId)
+        resolve({ requestId, encounterId, ok: false, reason: 'unavailable' })
+      }, INTENT_TIMEOUT_MS)
+      this.ecoPending.set(requestId, { resolve, timer })
+      send(WORLD_MESSAGE.ECO_DEV_RETIRE, { requestId, encounterId })
+    })
+  }
+
+  ecoRetireResult(result: EcoRetireResult): void {
+    if (result.requestId === null) return
+    const entry = this.ecoPending.get(result.requestId)
+    if (!entry) return
+    clearTimeout(entry.timer)
+    this.ecoPending.delete(result.requestId)
+    entry.resolve(result)
   }
 
   wild(message: WildMessage): void {

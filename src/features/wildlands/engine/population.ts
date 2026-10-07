@@ -15,7 +15,7 @@ import type { Biome, World } from './world'
 import type { SharedPopulace } from './area'
 import { buildPatrol } from '../../../../services/realtime/src/world/patrol.js'
 import { NPC_SPEED, WILD_SPEED } from '../../../../services/realtime/src/world/wildPopulation.js'
-import type { WildEntity, WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoArea, EcoEncounter, WildEntity, WildRoster } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 /** Shared wild Pokémon are materialised within this many tiles of the player, released past the next. */
 const SHARED_WILD_NEAR = 64
@@ -51,6 +51,13 @@ export class Population {
   /** The roster currently on screen; null in legacy mode. */
   private roster: WildRoster | null = null
   private readonly sharedWild = new Map<string, Actor | null>()
+  /**
+   * ECO-GAMEPLAY-1 (experimental): the server's ECO population on screen, by encounter id (opaque:
+   * not a Pokémon id, not an owner). Non-null only when the server runs the experiment; then it
+   * replaces the roster entirely — one population on screen, never both.
+   */
+  private eco: EcoArea | null = null
+  private readonly ecoActors = new Map<string, Actor | null>()
   private patrolled = false
 
   constructor(
@@ -68,7 +75,8 @@ export class Population {
     const allowed = new Set(ids)
     for (let i = this.actors.length - 1; i >= 0; i--) {
       const actor = this.actors[i]
-      if (actor.wild && actor.pokemon && !allowed.has(actor.pokemon.id)) {
+      // An ECO encounter is not one of the cosmetic pool's unique Pokémon: the pool never filters it.
+      if (actor.wild && actor.pokemon && !allowed.has(actor.pokemon.id) && !this.ecoActors.has(actor.id)) {
         this.sharedWild.delete(actor.id)
         this.actors.splice(i, 1)
       }
@@ -78,8 +86,10 @@ export class Population {
   /** Populates chunks within one chunk of the player and releases distant ones. */
   update(playerTx: number, playerTy: number): void {
     const synced = (this.shared?.serverNow() ?? null) !== null
-    const roster = synced ? this.shared!.wildRoster() : null
+    const eco = synced ? this.shared!.ecoArea?.() ?? null : null
+    const roster = synced && eco === null ? this.shared!.wildRoster() : null
     if (roster !== this.roster) this.switchRoster(roster)
+    if (eco !== this.eco) this.syncEco(eco)
     if (synced && !this.patrolled) {
       this.patrolled = true
       for (const actor of this.actors) if (actor.kind === 'npc') this.patrolNpc(actor)
@@ -116,6 +126,34 @@ export class Population {
     this.roster = roster
     for (let i = this.actors.length - 1; i >= 0; i--) if (this.actors[i].wild) this.actors.splice(i, 1)
     this.sharedWild.clear()
+  }
+
+  /** ECO-GAMEPLAY-1: exactly the server's list — new ids appear, missing ids go, the rest stay as they are. */
+  private syncEco(eco: EcoArea | null): void {
+    this.eco = eco
+    const alive = new Set(eco?.encounters.map(encounter => encounter.id) ?? [])
+    for (const [id, actor] of this.ecoActors) {
+      if (alive.has(id)) continue
+      this.ecoActors.delete(id)
+      const index = actor ? this.actors.indexOf(actor) : -1
+      if (index >= 0) this.actors.splice(index, 1)
+    }
+    for (const encounter of eco?.encounters ?? []) if (!this.ecoActors.has(encounter.id)) this.spawnEco(encounter)
+  }
+
+  private spawnEco(encounter: EcoEncounter): void {
+    const shared = this.shared
+    if (!shared) return
+    this.ecoActors.set(encounter.id, null)
+    // The species' look: the Pokédex entry when it has one, otherwise the overworld sheet by id.
+    void loadWorkerPokemonInfo(this.pokedex, encounter.speciesId).then(info => {
+      if (!info || this.ecoActors.get(encounter.id) !== null) return // retired (or replaced) while loading
+      const actor = createActor({ id: encounter.id, kind: 'pokemon', habitat: 'land', tx: encounter.tx, ty: encounter.ty, speed: WILD_SPEED, pokemon: info, wild: true })
+      // The shared patrol around the server's tile: sampled at server time, the same on every client.
+      actor.patrol = buildPatrol({ key: encounter.id, home: encounter, walkable: (tx, ty) => shared.walkable('land', tx, ty), speed: WILD_SPEED })
+      this.ecoActors.set(encounter.id, actor)
+      this.actors.push(actor)
+    })
   }
 
   private updateSharedWild(playerTx: number, playerTy: number): void {

@@ -4,7 +4,8 @@ import type { Dir } from '../../engine/characters'
 import type { ChatTransportPort, LocalPresencePort, PresenceConnectionStatus, RemoteActorsPort, RemotePresenceActor } from '../domain/presence'
 import type { PlayerVisualIdentity } from '../../identity/playerIdentity'
 import type { WorldTransportSink } from '../../../world/api/worldTransport'
-import { WORLD_MESSAGE, WORLD_PROTOCOL } from '../../../../../services/realtime/src/world/worldProtocol.js'
+import { ECO_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL } from '../../../../../services/realtime/src/world/worldProtocol.js'
+import { ECO_EXPERIMENT } from '../../../world/domain/ecoExperiment'
 import { PRESENCE_PROTOCOL, closeDecision, joinRefusalDecision, type CloseDecision, type ClosingReason } from '../domain/closePolicy'
 
 const SNAPSHOT = 'presence:snapshot'
@@ -95,6 +96,8 @@ export class ColyseusPresence implements LocalPresencePort {
         tabId: TAB_ID,
         ...(resume ? { resume: true } : {}),
         ...(this.world ? { worldProtocol: WORLD_PROTOCOL } : {}),
+        // ECO-GAMEPLAY-1: only a development build of the experiment asks for the ECO population.
+        ...(this.world && ECO_EXPERIMENT ? { ecoProtocol: ECO_PROTOCOL } : {}),
         visual: identity ? { characterId: identity.character.id, companionPokemonId: identity.companion?.id ?? null } : null,
         ...(BENCHMARK_PLAYER ? {
           benchmark: {
@@ -153,6 +156,10 @@ export class ColyseusPresence implements LocalPresencePort {
         room.onMessage(WORLD_MESSAGE.WORK_DONE, done => world.workDone(done))
         room.onMessage(WORLD_MESSAGE.WILD, message => world.wild(message))
         room.onMessage(WORLD_MESSAGE.PLAYER_STATE, message => world.playerState(message))
+        if (ECO_EXPERIMENT) {
+          room.onMessage(WORLD_MESSAGE.ECO, message => world.eco?.(message))
+          room.onMessage(WORLD_MESSAGE.ECO_DEV_RETIRE_RESULT, result => world.ecoRetireResult?.(result))
+        }
         world.attach((type, payload) => { if (this.room === room) room.send(type, payload) })
       }
       // Install every receiver first. The server only sends the initial

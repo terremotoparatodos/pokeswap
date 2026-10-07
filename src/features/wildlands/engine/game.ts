@@ -160,6 +160,7 @@ export class WildlandsGame {
   private readonly sharedPopulace: SharedPopulace = {
     serverNow: () => this.worldLayer?.serverNow() ?? null,
     wildRoster: () => this.worldLayer?.wildRoster(this.area.id) ?? null,
+    ecoArea: () => this.worldLayer?.ecoArea?.(this.area.id) ?? null,
     // Cave footprints and front clearances (CAVES-2) are kept free of wanderers too.
     walkable: (habitat, tx, ty) => !this.area.isSolid(tx, ty) && !isPortalTile(this.area, tx, ty) && !this.entrances.isDoor(this.area, tx, ty)
       && !isCaveReserved(this.area.id, tx, ty)

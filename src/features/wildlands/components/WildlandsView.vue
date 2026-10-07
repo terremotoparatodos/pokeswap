@@ -21,6 +21,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
+    <component :is="EcoDevPanel" v-if="EcoDevPanel" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" />
     <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"
@@ -164,6 +165,7 @@ import { useAuth } from '../../auth/composables/useAuth'
 import { composeWorldProbes } from '../engine/worldProbes'
 import { CompositeOverlay } from '../engine/compositeOverlay'
 import { SharedWorld } from '../../world/state/sharedWorld'
+import { ECO_EXPERIMENT } from '../../world/domain/ecoExperiment'
 import { loadWorkerPokemonInfo } from '../engine/population'
 import { pokeballInfo } from '../engine/pokeball'
 import { isPlaytest } from '../../playtest/playtestBuild'
@@ -176,6 +178,8 @@ import type { PerfCapture } from '../perf/usePerfCapture'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
+// ECO-GAMEPLAY-1: the test-retirement panel exists only in a development build of the experiment.
+const EcoDevPanel = ECO_EXPERIMENT ? defineAsyncComponent(() => import('../../world/components/EcoDevPanel.vue')) : null
 const performanceMode = import.meta.env.VITE_PERF === 'on'
 const PlaytestPerformanceHud = isPlaytest || performanceMode
   ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))
