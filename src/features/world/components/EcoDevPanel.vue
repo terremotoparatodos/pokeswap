@@ -92,7 +92,8 @@ async function retire(id: string) {
 .eco-dev__where { grid-column: 1; opacity: 0.75; }
 .eco-dev__actions { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
 .eco-dev button { font: inherit; padding: 3px 6px; cursor: pointer; }
-.eco-dev button:disabled { cursor: default; opacity: 0.5; }
+/* Disabled («Lejos», «Ocupado»): explicit colours, legible on the dark panel (the browser default at half opacity was not). */
+.eco-dev button:disabled { cursor: default; opacity: 1; color: #c9d3da; background: #34404b; border: 1px solid #5a6874; border-radius: 3px; }
 .eco-dev__empty, .eco-dev__last, .eco-dev__note { margin: 6px 0 0; }
 .eco-dev__note { opacity: 0.6; }
 </style>
