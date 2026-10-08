@@ -118,3 +118,46 @@ Una segunda retirada del mismo id, venga de donde venga, es un no-op (`not-alive
   - sin el experimento no hay combates;
   - el build de producción sin fuentes de batalla ECO ni panel de combate;
   - el bundle no exporta el core suelto.
+
+## 7. Precisiones antes de cablear (tras el plan de aceptación independiente)
+
+Estas precisiones no cambian los parámetros: siguen siendo **provisionales del experimento**, no balance (rango 6, máximo de 120 000 ms de combate, gracia de 15 000 ms).
+
+**Relojes:**
+
+| Reloj | Empieza | Avanza | Se pausa | Límite |
+|---|---|---|---|---|
+| Combate (manual del core, propio de cada combate) | En 0, al aceptarse el engage | Solo en el tick del mundo, por el delta del reloj del servidor desde el último avance, mientras el dueño está conectado | Con el dueño desconectado | Nunca supera `ECO_BATTLE_MAX_MS`: el último paso se recorta al límite exacto |
+| Gracia (reloj del servidor) | Al cerrarse el socket **vigente** del dueño | Siempre | Nunca | `ECO_DISCONNECT_GRACE_MS`. Se comprueba en el tick: la liberación ocurre a más tardar un tick de ECO (250 ms) después del límite |
+
+**Orden de las salidas terminales.** Hay **una sola transición terminal por reserva**:
+- **Cierre previo a efectos:** la reserva pasa a `closed` y deja de estar en los índices **antes** de cualquier efecto (retirada, mensajes, vista). Toda transición posterior es un no-op.
+- **En el tick:**
+  1. si el dueño está desconectado, se comprueba la gracia; no se avanza el combate, así que no puede ganar ni perder desconectado;
+  2. si está conectado, se avanza el combate hasta como mucho el límite; las reglas deciden primero (victoria, derrota o empate);
+  3. solo si siguen en curso y se alcanzó el límite, `expired`.
+- **Huida:** se procesa al recibir el mensaje. Si el combate ya terminó, la huida es un no-op (`no-battle`); si la huida llega primero, el combate deja de avanzar y no puede ganar después.
+- **Desconexión:** pausa. La victoria no puede llegar durante la pausa. Si la victoria ocurrió antes, la reserva ya está cerrada.
+- **Cambio de área del dueño:** libera (`left-area`), sin retirar.
+
+**Fin sin ganador** (`winningSideId: ''` del core, `draw`): libera, sin retirar. Solo `victory` (el lado `player` ganador) retira.
+
+**Victoria → retirada:**
+- se usa la **misma superficie admitida** de ECO-GAMEPLAY-1, `population.retire({ encounterId })`, con la identidad exacta del individuo reservado;
+- la causa interna que fija esa superficie (`fled`) es un valor del motor sin efectos: no persiste ni cambia el respawn. No se cambia la API de admisión;
+- **la huida del combate nunca llama a `retire`**. El resultado `victory` lo registra el adaptador.
+
+**Retirada manual ECO-1 (`world:eco-dev-retire`):** se rechaza (`busy`) para cualquier encuentro reservado, incluso si la pide su dueño. No puede saltarse ni dejar huérfano un combate.
+
+**Validación de acciones antes del core.** El ledger del core responde a un `actionId` ya aceptado antes de autorizar. Por eso el adaptador exige primero:
+1. jugador;
+2. socket vigente del jugador;
+3. reserva activa del jugador, conectada;
+4. `battleId` igual al de esa reserva;
+5. `actionId` con prefijo del propio jugador.
+
+Cualquier fallo es `not-your-battle` (o `no-battle`) **sin llamar al core**.
+
+**Callbacks viejos.** Toda operación sobre una reserva compara su `battleId` y su estado vigente. Un mensaje, socket o callback de un combate cerrado no puede afectar a otra reserva.
+
+**Fallo al crear el combate:** la autoridad se crea **antes** de registrar la reserva. Si falla, no queda reserva (`battle-unavailable`). Sin admisión no hay combate (`unavailable`).

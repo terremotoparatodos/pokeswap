@@ -42,7 +42,8 @@ export type SandboxFixture = { readonly player: { readonly speciesId: number; re
 const SANDBOX_INTENTS = new Set(['useMove', 'switch', 'clearSelection'])
 export const SANDBOX_REJECTION = 'NOT_ALLOWED_IN_SANDBOX'
 
-export type EncounterOutcome = 'ongoing' | 'victory' | 'defeat'
+/** `draw`: the rules ended the battle with no side standing (`winningSideId: ''`). Only `victory` is the player's side winning. */
+export type EncounterOutcome = 'ongoing' | 'victory' | 'defeat' | 'draw'
 
 export interface BattleStep {
   readonly events: readonly AuthorityEventEnvelope[]
@@ -146,7 +147,8 @@ export async function prepareEncounterBattles(fixture: SandboxFixture = ECO_SAND
       const outcome = (): EncounterOutcome => {
         const decided = authority.snapshot().outcome
         if (decided.kind !== 'decided') return 'ongoing'
-        return decided.winningSideId === 'player' ? 'victory' : 'defeat'
+        if (decided.winningSideId === 'player') return 'victory'
+        return decided.winningSideId === '' ? 'draw' : 'defeat'
       }
       let elapsed = 0
       return {

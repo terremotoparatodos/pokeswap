@@ -114105,7 +114105,8 @@ async function prepareEncounterBattles(fixture = ECO_SANDBOX_FIXTURE) {
       const outcome = () => {
         const decided = authority.snapshot().outcome;
         if (decided.kind !== "decided") return "ongoing";
-        return decided.winningSideId === "player" ? "victory" : "defeat";
+        if (decided.winningSideId === "player") return "victory";
+        return decided.winningSideId === "" ? "draw" : "defeat";
       };
       let elapsed = 0;
       return {
