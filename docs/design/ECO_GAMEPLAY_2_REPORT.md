@@ -307,3 +307,38 @@ El usuario aprobó el smoke de dos ventanas el 2026-10-07 sobre `001197f`. Es un
 Las correcciones F1–F3 afectan a fronteras de socket y tiempo que el smoke humano no ejercita. Las cubren las sondas y las regresiones de §9.3.
 
 **Candidato congelado para revisar el delta:** `feat/eco-gameplay-2-0.3` en el commit de este reporte. Sin push ni merge, sin Cloud ni Supabase, y sin cambios en entornos activos.
+
+## 10. Cierre del smoke y comprobación final (sobre `034dc0b`)
+
+El delta F1–F3 (`034dc0b`) lo aprobó la revisión independiente: las sondas originales pasan 9/9, incluida la frontera exacta de reconexión. Después, la comprobación final se hizo en el sandbox local aislado:
+- Node 22, realtime en 2790/2791 y cliente dev en 5199;
+- identidades sintéticas, sin Supabase ni Cloud;
+- el candidato no cambió en ningún momento.
+
+### 10.1 Comprobaciones de Claude (cliente propio, en pantalla)
+
+| Fecha | Comprobación | Resultado |
+|---|---|---|
+| 2026-10-07, sobre `001197f`, antes del smoke humano | Panel de combate real | Se ve: etiqueta del fixture, barras de PS de los dos lados, cuatro movimientos con id y PP, contador y «Huir». |
+| 2026-10-07, sobre `001197f` | Victoria contra un Caterpie | El individuo desaparece de la lista. |
+| 2026-10-07, sobre `001197f` | Huida ante un Oddish | La fila pasa a «ocupado» durante el combate y vuelve a «Combatir» después. |
+| 2026-10-08, sobre `034dc0b` | Legibilidad en el juego real | «Lejos» y «Ocupado» se leen claramente. También los «Retirar (prueba)» y «Combatir» deshabilitados. |
+
+Mis combates de prueba retiraron algunos individuos del sandbox por victoria. Es el comportamiento esperado y los nidos reponen con ids nuevos.
+
+### 10.2 Comprobaciones del usuario (dos ventanas)
+
+| Ronda | Caso | Resultado |
+|---|---|---|
+| Smoke humano sobre `001197f` (2026-10-07) | Combate, huida, disputa entre dos jugadores, victoria, derrota y desconexión | **Aprobados.** Aprobación funcional, no del acabado gráfico. |
+| Comprobación final sobre `034dc0b` (2026-10-08) | Reconexión dentro de la gracia | **OK.** A vuelve al mismo combate sin reiniciarlo y B sigue viendo el Pokémon ocupado. |
+| Comprobación final sobre `034dc0b` (2026-10-08) | Reconexión fuera de la gracia | **OK.** B recupera la disponibilidad y A no recupera el combate anterior. |
+
+### 10.3 No observado y limitaciones
+
+- **Vencimiento: no observado por un humano.** No se registra como smoke aprobado. Lo respaldan solo las pruebas técnicas:
+  - Metapod con semilla 7 → `expired` a 120 000 ms (§4.1);
+  - A08 y A08b;
+  - la frontera exacta de reconexión del §9 (sondas R03 y regresión F2).
+- **Retorno al spawn tras una reconexión tardía:** es una **limitación del sandbox**, no un fallo de la reserva. El sandbox corre sin persistencia de ubicación (`WORLD_LOCATION_PERSISTENCE=off`) y la memoria de reconexión de presencia es breve. La reserva se comportó como dice el contrato.
+- **Pulido gráfico restante** de los paneles ECO y de combate: pendiente, por separado y sin rediseño.
