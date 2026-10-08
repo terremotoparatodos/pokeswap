@@ -15,6 +15,8 @@ import type { EcoArea, EcoEncounter } from '../../../../services/realtime/src/wo
 export class EcoActors {
   private area: EcoArea | null = null
   private readonly byId = new Map<string, Actor | null>()
+  /** ECO-OVERWORLD-BATTLE-1: patrols put aside while their encounter is busy (in a test battle). */
+  private readonly parked = new Map<string, NonNullable<Actor['patrol']>>()
 
   /** `actors`: the populace's own list, where ECO actors are added and removed. */
   constructor(private readonly pokedex: readonly PokedexEntry[], private readonly actors: Actor[]) {}
@@ -32,11 +34,36 @@ export class EcoActors {
     for (const [id, actor] of this.byId) {
       if (alive.has(id)) continue
       this.byId.delete(id)
+      this.parked.delete(id)
       const index = actor ? this.actors.indexOf(actor) : -1
       if (index >= 0) this.actors.splice(index, 1)
     }
     if (!shared) return
     for (const encounter of area?.encounters ?? []) if (!this.byId.has(encounter.id)) this.spawn(encounter, shared)
+    for (const encounter of area?.encounters ?? []) {
+      const actor = this.byId.get(encounter.id)
+      if (actor) this.hold(actor, encounter)
+    }
+  }
+
+  /**
+   * ECO-OVERWORLD-BATTLE-1: a busy encounter (someone's test battle) stands still on the tile the
+   * SERVER lists for it — the same authoritative tile on every client, and the one the engage range
+   * was measured from — instead of its patrol pose. Free again, it rejoins its shared patrol.
+   * Presentation only: the server's population and patrol are unchanged.
+   */
+  private hold(actor: Actor, encounter: EcoEncounter): void {
+    if (encounter.busy) {
+      if (actor.patrol) this.parked.set(encounter.id, actor.patrol)
+      actor.patrol = undefined
+      actor.fromTx = actor.tx = encounter.tx
+      actor.fromTy = actor.ty = encounter.ty
+      actor.progress = 1
+      actor.hop = 0
+      return
+    }
+    const patrol = this.parked.get(encounter.id)
+    if (patrol) { actor.patrol = patrol; this.parked.delete(encounter.id) }
   }
 
   private spawn(encounter: EcoEncounter, shared: SharedPopulace): void {
@@ -49,6 +76,9 @@ export class EcoActors {
       actor.patrol = buildPatrol({ key: encounter.id, home: encounter, walkable: (tx, ty) => shared.walkable('land', tx, ty), speed: WILD_SPEED })
       this.byId.set(encounter.id, actor)
       this.actors.push(actor)
+      // Already busy when it loaded (a battle seen on arrival): it stands still at once.
+      const current = this.area?.encounters.find(e => e.id === encounter.id)
+      if (current) this.hold(actor, current)
     })
   }
 }
