@@ -159,6 +159,10 @@ export class ColyseusPresence implements LocalPresencePort {
         if (ECO_EXPERIMENT) {
           room.onMessage(WORLD_MESSAGE.ECO, message => world.eco?.(message))
           room.onMessage(WORLD_MESSAGE.ECO_DEV_RETIRE_RESULT, result => world.ecoRetireResult?.(result))
+          // ECO-GAMEPLAY-2: the test battle's messages (owner only).
+          for (const type of [WORLD_MESSAGE.ECO_ENGAGE_RESULT, WORLD_MESSAGE.ECO_BATTLE, WORLD_MESSAGE.ECO_BATTLE_END]) {
+            room.onMessage(type, payload => world.ecoBattleMessage?.(type, payload))
+          }
         }
         world.attach((type, payload) => { if (this.room === room) room.send(type, payload) })
       }

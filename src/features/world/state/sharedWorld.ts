@@ -9,6 +9,7 @@ import type { WorldLayer, WorldLayerContext } from '../../wildlands/engine/world
 import type { EcoArea, EcoMessage, EcoRetireResult, PlayerStateMessage, WildMessage, WildRoster, WildStatus, WorkDone, WorkResult, WorkYield, WorldBatch, WorldSnapshot } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WorldSend, WorldTransportSink } from '../api/worldTransport'
+import type { EcoBattleHost, EcoBattleSink } from './ecoBattleSession'
 import { devWarn } from '../../../shared/utils/devTools'
 import { WorldClock } from '../domain/worldClock'
 import { WorldResourceMirror } from '../domain/worldResources'
@@ -25,7 +26,7 @@ export interface OwnAction {
   readonly startedAt: number
 }
 
-export class SharedWorld implements WorldTransportSink, WorldLayer {
+export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHost {
   readonly clock = new WorldClock()
   readonly resources = new WorldResourceMirror()
   readonly overlay: WorldResourceOverlay
@@ -45,6 +46,8 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
   private ecoState: EcoArea | null = null
   private readonly ecoListeners = new Set<(area: EcoArea | null) => void>()
   private readonly ecoPending = new Map<number, { resolve: (result: EcoRetireResult) => void; timer: ReturnType<typeof setTimeout> }>()
+  /** ECO-GAMEPLAY-2 (experimental): the lazily loaded test-battle session, if any. */
+  private ecoBattleSink: EcoBattleSink | null = null
   private player: PlayerStateMessage | null = null
   private readonly playerListeners = new Set<(state: PlayerStateMessage) => void>()
 
@@ -93,6 +96,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
       entry.resolve({ requestId, encounterId: null, ok: false, reason: 'unavailable' })
     }
     this.ecoPending.clear()
+    this.ecoBattleSink?.detached()
   }
 
   snapshot(snapshot: WorldSnapshot): void {
@@ -103,6 +107,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     this.setWildStatus(snapshot.wildStatus ?? null)
     // Absent outside the experiment: then the roster path applies, unchanged.
     this.setEco(snapshot.eco ?? null)
+    this.ecoBattleSink?.worldSnapshot()
   }
 
   // ── ECO-GAMEPLAY-1 (experimental) ────────────────────────────────────────
@@ -153,6 +158,22 @@ export class SharedWorld implements WorldTransportSink, WorldLayer {
     clearTimeout(entry.timer)
     this.ecoPending.delete(result.requestId)
     entry.resolve(result)
+  }
+
+  // ── ECO-GAMEPLAY-2 (experimental): test battles. The session decides nothing; the server does. ──
+
+  setEcoBattleSink(sink: EcoBattleSink | null): void {
+    this.ecoBattleSink = sink
+  }
+
+  ecoSend(type: string, payload: unknown): boolean {
+    if (!this.send) return false
+    this.send(type, payload)
+    return true
+  }
+
+  ecoBattleMessage(type: string, payload: unknown): void {
+    this.ecoBattleSink?.message(type, payload)
   }
 
   wild(message: WildMessage): void {

@@ -35,6 +35,13 @@ export const WORK_TICK_MS = 600
 /** ECO-GAMEPLAY-1 (experimental): the ECO population protocol a client declares on join (`ecoProtocol`). */
 export const ECO_PROTOCOL = 1
 
+/**
+ * ECO-GAMEPLAY-2 (experimental, PROVISIONAL): Chebyshev tiles from a player to an encounter for a
+ * test-battle engage (patrol leash 4 + 2). The server enforces it; a client only uses it to grey out
+ * a button it would refuse anyway.
+ */
+export const ECO_ENGAGE_RANGE = 6
+
 export const WORLD_MESSAGE = Object.freeze({
   // client → server
   WORK: 'world:work',

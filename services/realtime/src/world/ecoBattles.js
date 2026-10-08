@@ -1,5 +1,5 @@
 import { randomBytes } from 'node:crypto'
-import { WORLD_MESSAGE, ecoEngageIntent, ecoFleeIntent } from './worldProtocol.js'
+import { ECO_ENGAGE_RANGE, WORLD_MESSAGE, ecoEngageIntent, ecoFleeIntent } from './worldProtocol.js'
 import { serverRandom } from './ecoPopulation.js'
 
 /**
@@ -21,8 +21,8 @@ import { serverRandom } from './ecoPopulation.js'
  * The parameters are PROVISIONAL values of the experiment, not balance.
  */
 
-/** Chebyshev tiles from the player to the encounter for an engage: patrol leash 4 + 2. */
-export const ECO_ENGAGE_RANGE = 6
+/** Chebyshev tiles from the player to the encounter for an engage (defined in the shared protocol). */
+export { ECO_ENGAGE_RANGE }
 /** Battle time (only advanced while the owner is connected) after which an undecided battle is released. */
 export const ECO_BATTLE_MAX_MS = 120_000
 /** Server time, from the close of the owner's CURRENT socket, before a paused battle is released. */
