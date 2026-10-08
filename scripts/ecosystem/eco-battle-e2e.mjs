@@ -12,6 +12,7 @@
 // individual for both; any other end must leave it in the world. Exit 0 PASS, 1 FAIL, 3 setup.
 // Synthetic data only; nothing is captured, granted or persisted.
 
+import { writeFileSync } from 'node:fs'
 import { Client } from '@colyseus/sdk'
 import { ECO_ENGAGE_RANGE, ECO_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL } from '../../services/realtime/src/world/worldProtocol.js'
 
@@ -36,7 +37,7 @@ async function player(id) {
   room.onMessage(WORLD_MESSAGE.SNAPSHOT, snapshot => { if (snapshot.eco) state.eco = snapshot.eco })
   room.onMessage(WORLD_MESSAGE.ECO, message => { state.eco = message.eco })
   room.onMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, result => state.engage.push(result))
-  room.onMessage(WORLD_MESSAGE.ECO_BATTLE, message => state.battle.push(message))
+  room.onMessage(WORLD_MESSAGE.ECO_BATTLE, message => state.battle.push({ ...message, receivedAt: Date.now() }))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE_END, end => state.ends.push(end))
   room.onMessage(WORLD_MESSAGE.ECO_DEV_RETIRE_RESULT, result => state.retire.push(result))
   room.send('presence:ready')
@@ -72,6 +73,39 @@ async function walkTo(p, encounterId, within, timeoutMs = 90_000) {
     stuck = `${p.state.self.tx},${p.state.self.ty}` === before ? stuck + 1 : 0
   }
   return false
+}
+
+/**
+ * ECO-OVERWORLD-BATTLE-1 — directed sync check (the open «HP and timer standing still» observation of
+ * ECO-PRESENTATION-1). On the wire, for one real battle after its resume: every snapshot the owner
+ * received, when it arrived, its battle time, revision and HP. It FAILS only on inconsistencies the
+ * client could not fix by itself — battle time or revision going backwards, a snapshot's HP that
+ * disagrees with the HP its own events report — and REPORTS the cadence (gaps between messages,
+ * battle time against wall time) without inventing a threshold for it. `--sync-report <file>` saves it.
+ */
+function syncCheck(messages, end) {
+  const rows = messages.map(m => ({
+    receivedAt: m.receivedAt, timeMs: m.snapshot.timeMs, revision: m.snapshot.revision,
+    hp: Object.fromEntries(Object.values(m.snapshot.combatants).map(c => [c.combatantId, c.condition.currentHp ?? c.stats.hp])),
+    events: (m.events ?? []).map(e => e.event.type),
+    lastHpByEvents: Object.fromEntries((m.events ?? []).filter(e => typeof e.event.remainingHp === 'number').map(e => [e.event.combatantId, e.event.remainingHp])),
+  }))
+  for (let i = 1; i < rows.length; i++) {
+    if (rows[i].timeMs < rows[i - 1].timeMs) fail(`sync: battle time went back (${rows[i - 1].timeMs} → ${rows[i].timeMs})`)
+    if (rows[i].revision < rows[i - 1].revision) fail(`sync: revision went back (${rows[i - 1].revision} → ${rows[i].revision})`)
+  }
+  for (const row of rows) {
+    for (const [id, hp] of Object.entries(row.lastHpByEvents)) {
+      if (row.hp[id] !== hp) fail(`sync: snapshot HP of ${id} is ${row.hp[id]} but its events say ${hp} (revision ${row.revision})`)
+    }
+  }
+  const gaps = rows.slice(1).map((r, i) => r.receivedAt - rows[i].receivedAt)
+  const wall = rows.length > 1 ? rows[rows.length - 1].receivedAt - rows[0].receivedAt : 0
+  const battle = rows.length > 1 ? rows[rows.length - 1].timeMs - rows[0].timeMs : 0
+  const report = { messages: rows.length, maxGapMs: gaps.length ? Math.max(...gaps) : null, wallMs: wall, battleMs: battle, endTimeMs: end.snapshot.timeMs, rows }
+  log(`sync: ${rows.length} snapshots, monotonic, HP consistent with events; max gap ${report.maxGapMs} ms; battle ${battle} ms over ${wall} ms of wall time`)
+  const file = arg('sync-report', null)
+  if (file) writeFileSync(file, JSON.stringify(report, null, 2) + String.fromCharCode(10))
 }
 
 let requestId = 0
@@ -154,6 +188,7 @@ try {
   await until(() => a.state.ends.length > 0, 140_000, 'the server to end the battle')
   const end = a.state.ends[0]
   log(`the server ended it: ${end.outcome} after ${end.snapshot.timeMs} ms of battle time (retired: ${end.retired})`)
+  syncCheck(a.state.battle.filter(m => m.battleId === secondBattle && m.snapshot), end)
   await wait(1_000)
   const present = [a, b].map(p => Boolean(encounterOf(p, target.id)))
   if (end.outcome === 'victory') {
