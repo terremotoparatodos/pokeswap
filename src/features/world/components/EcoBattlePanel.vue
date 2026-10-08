@@ -14,17 +14,17 @@
     </template>
 
     <template v-else-if="view.phase === 'battle' || view.phase === 'ended'">
-      <article v-for="side in sides" :key="side.id" class="ebp-side" :class="side.mine ? 'ebp-side--mine' : 'ebp-side--foe'">
+      <article v-for="entry in sides" :key="entry.id" class="ebp-side" :class="entry.mine ? 'ebp-side--mine' : 'ebp-side--foe'">
         <div class="ebp-row">
-          <b>{{ side.name }}</b>
-          <span v-if="side.mine" class="ebp-tag">fixture de prueba</span>
+          <b>{{ entry.name }}</b>
+          <span v-if="entry.mine" class="ebp-tag">fixture de prueba</span>
           <span v-else class="ebp-tag ebp-tag--wild">salvaje</span>
-          <i class="ebp-hp">Nv. {{ side.level }} · {{ side.hp }}/{{ side.maxHp }} PS</i>
+          <i class="ebp-hp">Nv. {{ entry.level }} · {{ entry.hp }}/{{ entry.maxHp }} PS</i>
         </div>
-        <div class="ebp-bar" role="meter" :aria-valuenow="side.hp" aria-valuemin="0" :aria-valuemax="side.maxHp" :aria-label="`PS de ${side.name}`">
-          <i :style="{ width: `${side.pct}%`, background: side.pct > 50 ? '#5fd38a' : side.pct > 20 ? '#ffd27a' : '#ff7a6b' }" />
+        <div class="ebp-bar" role="meter" :aria-valuenow="entry.hp" aria-valuemin="0" :aria-valuemax="entry.maxHp" :aria-label="`PS de ${entry.name}`">
+          <i :style="{ width: `${entry.pct}%`, background: entry.pct > 50 ? '#5fd38a' : entry.pct > 20 ? '#ffd27a' : '#ff7a6b' }" />
         </div>
-        <span v-if="side.status" class="ebp-status">{{ side.status }}</span>
+        <span v-if="entry.status" class="ebp-status">{{ entry.status }}</span>
       </article>
 
       <template v-if="view.phase === 'battle'">

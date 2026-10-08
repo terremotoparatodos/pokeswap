@@ -21,7 +21,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
-    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :player="ecoPlayer" :overlay-slot="ecoOverlaySlot" @battle="(open: boolean) => (ecoBattleOpen = open)" />
+    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :player="ecoPlayer" @overlay="(overlay: SceneOverlay | null) => { if (ecoOverlaySlot) ecoOverlaySlot.current = overlay }" @battle="(open: boolean) => (ecoBattleOpen = open)" />
     <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"

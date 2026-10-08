@@ -48,10 +48,9 @@ const props = defineProps<{
   pokedex?: readonly { readonly id: number; readonly name_es: string }[]
   /** The local trainer's tile (from the engine), for where the battle stands. */
   player?: () => { readonly tx: number; readonly ty: number } | null
-  /** Where the view composes this layer's world overlay into the engine. */
-  overlaySlot?: { current: SceneOverlay | null } | null
 }>()
-const emit = defineEmits<{ battle: [open: boolean] }>()
+/** `overlay`: this layer's world overlay, for the view to compose into the engine (null on unmount). */
+const emit = defineEmits<{ battle: [open: boolean]; overlay: [overlay: SceneOverlay | null] }>()
 
 const area = shallowRef<EcoArea | null>(null)
 const stopEco = props.world.onEco(next => { area.value = next })
@@ -86,9 +85,9 @@ watch([battle, currentArea], ([view, here]) => {
   }
   battleWorld.setBusy(here?.encounters ?? [])
 }, { immediate: true })
-onMounted(() => { if (props.overlaySlot) props.overlaySlot.current = battleWorld.overlay })
+onMounted(() => emit('overlay', battleWorld.overlay))
 onUnmounted(() => {
-  if (props.overlaySlot?.current === battleWorld.overlay) props.overlaySlot.current = null
+  emit('overlay', null)
   stopEco(); stopBattle(); stopEvents(); session.dispose()
 })
 
