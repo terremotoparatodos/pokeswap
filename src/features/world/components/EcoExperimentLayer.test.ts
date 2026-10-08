@@ -152,6 +152,10 @@ describe('ECO experiment layer · battle screen', () => {
     expect(screen().text()).toContain(detail)
     expect(screen().text()).not.toMatch(/capturad|atrapad|obtuviste|ganaste \d|recompensa obtenida|\+\d+ ?(xp|tokens)/i)
     expect(screen().findAll('button').map(b => b.text())).toEqual(['Volver al mapa'])
+    // a click carried over from «Huir» or a move cannot dismiss a result nobody has seen yet
+    expect(screen().find('.eco-battle__primary').attributes('disabled')).toBeDefined()
+    await new Promise(resolve => setTimeout(resolve, 750))
+    expect(screen().find('.eco-battle__primary').attributes('disabled')).toBeUndefined()
     await screen().find('.eco-battle__primary').trigger('click')
     expect(screen().exists()).toBe(false)
     expect(wrapper.emitted('battle')?.slice(-1)[0]).toEqual([false])

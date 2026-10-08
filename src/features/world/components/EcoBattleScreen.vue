@@ -56,7 +56,7 @@
         <template v-else>
           <h2 class="eco-battle__result">{{ outcome.title }}</h2>
           <p class="eco-battle__message" role="status">{{ outcome.detail }}</p>
-          <button class="eco-battle__primary" @click="session.dismiss()">Volver al mapa</button>
+          <button class="eco-battle__primary" :disabled="settling" @click="session.dismiss()">Volver al mapa</button>
         </template>
       </template>
     </section>
@@ -67,7 +67,7 @@
 // ECO-PRESENTATION-1 (experimental, development builds only): the test battle on screen — the
 // server's snapshot drawn with the bundled overworld sprites, the player's move choices and «Huir».
 // It decides nothing: every number comes from the server's snapshot; a choice is only a request.
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
 import type { BattleCatalogIndex } from '../../battle/catalog'
 import { maxPPOf } from '../../pokemon/model/instance'
 import { ECO_OUTCOME_TEXT, ecoClock, ecoRefusalText, ecoSpeciesName } from '../domain/ecoBattleText'
@@ -125,6 +125,18 @@ const selectedName = computed(() => {
   const move = props.catalog?.move(selected.moveId)
   return move ? pretty(move.name) : `#${selected.moveId}`
 })
+
+// The end can arrive while the player is pressing a move or «Huir»: the result's button takes their
+// place, so it ignores clicks for a moment — nobody dismisses a result they never saw.
+const RESULT_SETTLE_MS = 700
+const settling = ref(false)
+let settleTimer: ReturnType<typeof setTimeout> | null = null
+watch(() => props.view.phase === 'ended', ended => {
+  if (settleTimer) clearTimeout(settleTimer)
+  settling.value = ended
+  settleTimer = ended ? setTimeout(() => { settling.value = false }, RESULT_SETTLE_MS) : null
+}, { immediate: true })
+onUnmounted(() => { if (settleTimer) clearTimeout(settleTimer) })
 
 const remainingLabel = computed(() => { void tick.value; return ecoClock(props.session.remainingMs()) })
 const outcome = computed(() => (props.view.phase === 'ended' ? ECO_OUTCOME_TEXT[props.view.outcome] : { title: '', detail: '' }))
