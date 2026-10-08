@@ -130,3 +130,68 @@ Pulsá «Entendido» en el aviso de Skills. El bosque está un paso a la derecha
 El vencimiento con humano sigue siendo opcional: está acreditado técnicamente desde ECO-GAMEPLAY-2.
 
 **Candidato congelado:** `feat/eco-presentation-1-0.3` en el commit de este reporte. Sin push, merge, despliegue, Cloud, Supabase ni cambios en entornos activos.
+
+## 7. Delta tras la revisión independiente de `0881332` (FINDINGS F1–F3, presentación)
+
+La revisión de `0881332` dio tres hallazgos de presentación e interacción. Mantuvo la aprobación técnica de ECO-2: servidor, protocolo, reservas y core no cambian. Las protecciones de 700 ms pasaron sus sondas y **no se tocaron**.
+
+### 7.1 Reproducción previa
+
+- Exportación aislada de `0881332` con `git archive` en `D:\Claude-ECOP1-REPRO-0881332-20261008\code`.
+- Sondas originales copiadas sin cambios a `src/review-eco-presentation.test.ts`, con evidencia en un directorio propio (`evidence-0881332`). Las evidencias originales de la revisión no se tocaron.
+- Resultado: **P02, P03 y P04 fallan**; las otras cinco pasan, igual que en la revisión.
+
+### 7.2 Correcciones (`eea5967`)
+
+- **F1.**
+  - Al empezar un combate por cualquiera de las dos rutas (ficha o depuración) se limpia la selección del mapa. Lo hace el mismo vigilante que avisa de la pausa.
+  - «Volver al mapa» ya no hace reaparecer una ficha anterior.
+- **F2.**
+  - Espacio y Enter sobre los controles de la ficha se detienen en la ficha (`@keydown.space.stop`, `@keydown.enter.stop`). El teclado del mapa, que escucha en `window`, ya no convierte Espacio en «interactuar», y el botón conserva su activación nativa.
+  - Con el foco fuera de la ficha, el mapa sigue caminando e interactuando.
+  - No cambia ningún control ajeno a ECO, ni `keyboard.ts`.
+- **F3.**
+  - El diálogo de combate toma el foco al abrirse y mantiene Tab y Shift+Tab dentro.
+  - Si el foco cae fuera mientras está abierto (depuración, HUD), lo devuelve al diálogo.
+  - El panel de depuración queda `inert`, y el fondo del diálogo pasa a `z-index: 21`: por encima de depuración (20) y del menú (15), por debajo del aviso de conexión (50).
+  - Si el control enfocado desaparece porque cambia la fase (pedido → combate → resultado), el foco sigue en el diálogo.
+  - Al cerrarse, devuelve el foco a donde estaba si ese elemento sigue existiendo (por ejemplo, el canvas); si no, lo libera a la página. También quita su escucha de `focusin`.
+  - La pausa del motor no cambia.
+
+### 7.3 Evidencia
+
+- **Sondas originales P01–P08**, sin relajar ninguna aserción: sobre una exportación del commit `eea5967`, **8/8**, salida `0` (`evidence-eea5967`, `probes-eea5967.txt`).
+- **Regresiones nuevas** en `EcoExperimentLayer.test.ts`:
+
+  | Caso | Qué cubre |
+  |---|---|
+  | F1 | Por la ruta de depuración y por la de la ficha, no reaparece ninguna ficha después de volver al mapa. |
+  | F2 | Espacio y Enter sobre «Combatir» enfocado no se cancelan ni interactúan con el mapa (`KeyboardInput` real). Con el foco fuera, las flechas y Espacio siguen llegando al mapa. |
+  | F3 | Foco en el diálogo al abrir; depuración `inert` y su foco devuelto al diálogo; Tab y Shift+Tab ciclan dentro; el foco se mantiene al llegar el resultado; al cerrar vuelve al canvas y sin escuchas residuales. |
+
+  Las tres fallan con el código de `0881332` y pasan aquí.
+- **Gates** (Node 22.23.2):
+
+  | Gate | Resultado |
+  |---|---|
+  | vitest completo | 235 archivos, 2226/2226 |
+  | `vue-tsc` | exit 0 |
+  | eslint en `src` y `scripts` | 0 errores; 9 avisos previos en `AuthModal.vue` |
+  | Build de producción con `VITE_ECO_EXPERIMENT=on` | 193 fuentes, ninguna de ECO, combate o modelo. 0 apariciones de `EcoExperimentLayer`, `EcoBattleScreen`, `EcoEncounterCard`, `EcoBattleSession`, «Combate de prueba», «Volver al mapa», «fixture de prueba» y `ecoProtocol`. |
+  | Diff protegido contra `0881332` (`services`, `battle`, `ecosystem`, `pokemon`, `wildlands`, paquetes) | Vacío |
+
+- **No se repitió:** servidor, reservas ni Cloud, por indicación. Tampoco hubo una comprobación en pantalla de este delta, porque no se levantó el sandbox.
+
+### 7.4 Smoke humano: alcance registrado
+
+El usuario aprobó el 2026-10-08, con dos ventanas sobre `0881332`, el **funcionamiento de una presentación provisional**: la interacción se entiende y los flujos probados funcionan.
+
+Esa aprobación **no** cubre:
+- las nuevas sondas ni las correcciones F1–F3 de este delta;
+- la protección de 700 ms medida con precisión;
+- casos no observados en esa sesión;
+- el **diseño visual definitivo** del combate.
+
+El diseño definitivo es una tarea futura explícita: arte o sprites, escala, composición y animaciones, como entrega propia. Incluye los pulidos pendientes O-2 y O-3.
+
+**Candidato congelado para revisar el delta:** `feat/eco-presentation-1-0.3` en el commit de este reporte. Sin push, merge, despliegue, servicios externos ni cambios en entornos activos.
