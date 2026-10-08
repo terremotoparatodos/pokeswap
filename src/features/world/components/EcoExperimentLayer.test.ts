@@ -48,7 +48,7 @@ function setup() {
   const wrapper = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', tx: 0, ty: 0 }, attachTo: document.body })
   const layer = wrapper.vm as unknown as { select(id: string): boolean; dismissCard(): void }
   const card = () => wrapper.find('.eco-card')
-  const screen = () => wrapper.find('.eco-battle')
+  const screen = () => wrapper.find('.ebp')
   return { world, sent, wrapper, layer, card, screen }
 }
 
@@ -103,7 +103,7 @@ describe('ECO experiment layer · map selection', () => {
 })
 
 describe('ECO experiment layer · battle screen', () => {
-  it('«Combatir» asks for that individual; the screen shows real sprites, names, levels, HP, moves/PP and «Huir»; the map pauses', async () => {
+  it('«Combatir» asks for that individual; the panel shows names, levels, HP, moves/PP and «Huir»; the trainer is held', async () => {
     const { world, sent, layer, card, screen, wrapper } = setup()
     layer.select(ID('soto', 1)); await flushPromises()
     await card().find('.eco-card__fight').trigger('click')
@@ -112,26 +112,25 @@ describe('ECO experiment layer · battle screen', () => {
     expect(screen().text()).toContain('Pidiendo el encuentro')
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID('soto', 1), ok: true, battle })
     await flushPromises()
-    const sprites = screen().findAll('.eco-sprite').map(s => s.attributes('style'))
-    expect(sprites.some(s => s?.includes('/assets/overworld/0013.png') && s.includes('0% 0%'))).toBe(true) // the wild one, facing the player
-    expect(sprites.some(s => s?.includes('/assets/overworld/0025.png') && s.includes('33.3'))).toBe(true) // the Pikachu, from behind
+    // the Pokémon are drawn in the world (ecoBattleOverlay), not in the panel
+    expect(screen().findAll('.eco-sprite')).toHaveLength(0)
     expect(screen().text()).toContain('fixture de prueba')
     expect(screen().text()).toContain('Nv. 12')
     expect(screen().text()).toContain('Nv. 8')
-    expect(screen().text()).toContain('26 / 26 PS')
-    expect(screen().findAll('.eco-battle__moves button')).toHaveLength(2)
-    expect(screen().text()).toMatch(/30 PP/)
+    expect(screen().text()).toContain('26/26 PS')
+    expect(screen().findAll('.ebp-move')).toHaveLength(2)
+    expect(screen().findAll('.ebp-move small').map(s => s.text())).toEqual(['30', '15'])
     expect(wrapper.emitted('battle')?.slice(-1)[0]).toEqual([true])
     // a move choice and «Huir» are requests; nothing changes until the server answers
-    await screen().findAll('.eco-battle__moves button')[0].trigger('click')
+    await screen().findAll('.ebp-move')[0].trigger('click')
     expect(sent[sent.length - 1]?.[0]).toBe(WORLD_MESSAGE.ECO_BATTLE_ACTION)
     expect((sent[sent.length - 1]?.[1] as { intent: { moveId: number } }).intent.moveId).toBe(84)
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, { battleId: battle.battleId, events: [], snapshot: snapshot(9, 2) })
     await flushPromises()
-    expect(screen().text()).toContain('9 / 26 PS')
-    await screen().find('.eco-battle__flee').trigger('click')
+    expect(screen().text()).toContain('9/26 PS')
+    await screen().find('.ebp-flee').trigger('click')
     expect(sent[sent.length - 1]).toEqual([WORLD_MESSAGE.ECO_FLEE, { battleId: battle.battleId }])
-    expect(screen().find('.eco-battle__flee').exists()).toBe(true)
+    expect(screen().find('.ebp-flee').exists()).toBe(true)
     wrapper.unmount()
   })
 
@@ -149,15 +148,15 @@ describe('ECO experiment layer · battle screen', () => {
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID('soto', 0), ok: true, battle })
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: battle.battleId, encounterId: ID('soto', 0), outcome, retired: outcome === 'victory', snapshot: snapshot(0) })
     await flushPromises()
-    expect(screen().find('.eco-battle__result').text()).toBe(title)
+    expect(screen().find('.ebp-result').text()).toBe(title)
     expect(screen().text()).toContain(detail)
     expect(screen().text()).not.toMatch(/capturad|atrapad|obtuviste|ganaste \d|recompensa obtenida|\+\d+ ?(xp|tokens)/i)
     expect(screen().findAll('button').map(b => b.text())).toEqual(['Volver al mapa'])
     // a click carried over from «Huir» or a move cannot dismiss a result nobody has seen yet
-    expect(screen().find('.eco-battle__primary').attributes('disabled')).toBeDefined()
+    expect(screen().find('.ebp-primary').attributes('disabled')).toBeDefined()
     await new Promise(resolve => setTimeout(resolve, 750))
-    expect(screen().find('.eco-battle__primary').attributes('disabled')).toBeUndefined()
-    await screen().find('.eco-battle__primary').trigger('click')
+    expect(screen().find('.ebp-primary').attributes('disabled')).toBeUndefined()
+    await screen().find('.ebp-primary').trigger('click')
     expect(screen().exists()).toBe(false)
     expect(wrapper.emitted('battle')?.slice(-1)[0]).toEqual([false])
     wrapper.unmount()
@@ -171,7 +170,7 @@ describe('ECO experiment layer · battle screen', () => {
     await flushPromises()
     world.detach(); await flushPromises()
     expect(screen().text()).toContain('Reconectando… el combate está en pausa.')
-    expect(screen().findAll('.eco-battle__moves button').every(b => b.attributes('disabled') !== undefined)).toBe(true)
+    expect(screen().findAll('.ebp-move').every(b => b.attributes('disabled') !== undefined)).toBe(true)
     world.attach(() => {})
     world.snapshot({ now: 3, areaId: 'pradera', chunks: [], nodes: [], eco: area })
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: null, encounterId: ID('soto', 0), ok: true, resumed: true, battle })
@@ -188,7 +187,7 @@ describe('ECO experiment layer · battle screen', () => {
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID('soto', 0), ok: false, reason: 'busy' })
     await flushPromises()
     expect(screen().text()).toContain('Otro entrenador lo está combatiendo.')
-    await screen().find('.eco-battle__primary').trigger('click')
+    await screen().find('.ebp-primary').trigger('click')
     expect(screen().exists()).toBe(false)
     wrapper.unmount()
   })
@@ -225,7 +224,7 @@ describe('ECO experiment layer · review F1–F3', () => {
     await wrapper.findAll('.eco-dev li').find(r => r.text().includes('soto:1:1'))!.findAll('button')[0].trigger('click')
     engageResult(world, ID('soto', 1)); endBattle(world, ID('soto', 1)); await flushPromises()
     await settle()
-    await screen().find('.eco-battle__primary').trigger('click')
+    await screen().find('.ebp-primary').trigger('click')
     expect(screen().exists()).toBe(false)
     expect(card().exists()).toBe(false)
     // and by the card's own route too
@@ -233,7 +232,7 @@ describe('ECO experiment layer · review F1–F3', () => {
     await card().find('.eco-card__fight').trigger('click')
     engageResult(world, ID('soto', 0), 2); endBattle(world, ID('soto', 0)); await flushPromises()
     await settle()
-    await screen().find('.eco-battle__primary').trigger('click')
+    await screen().find('.ebp-primary').trigger('click')
     expect(card().exists()).toBe(false)
     wrapper.unmount()
   })
@@ -267,47 +266,34 @@ describe('ECO experiment layer · review F1–F3', () => {
     }
   })
 
-  it('F3 the battle dialog takes the focus, keeps Tab inside, blocks the debug panel, and gives the focus back on close', async () => {
-    const canvas = document.createElement('canvas')
-    canvas.tabIndex = 0
-    document.body.append(canvas)
-    try {
-      const { world, layer, card, screen, wrapper } = setup()
-      canvas.focus()
-      layer.select(ID('soto', 0)); await flushPromises()
-      ;(card().find('.eco-card__fight').element as HTMLButtonElement).click()
-      engageResult(world, ID('soto', 0)); await flushPromises()
-      const dialog = screen().element as HTMLElement
-      expect(dialog.contains(document.activeElement), 'focus moved into the dialog').toBe(true)
-      // the background is out of reach: inert debug panel, focus pulled back
-      const toggle = wrapper.find('.eco-dev__toggle').element as HTMLButtonElement
-      expect(wrapper.find('.eco-dev').attributes('inert')).toBeDefined()
-      toggle.focus()
-      expect(dialog.contains(document.activeElement)).toBe(true)
-      // Tab and Shift+Tab cycle inside
-      const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button:not([disabled])')]
-      buttons[buttons.length - 1].focus()
-      const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
-      buttons[buttons.length - 1].dispatchEvent(tab)
-      expect(tab.defaultPrevented).toBe(true)
-      expect(document.activeElement).toBe(buttons[0])
-      const back = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })
-      buttons[0].dispatchEvent(back)
-      expect(document.activeElement).toBe(buttons[buttons.length - 1])
-      // the result replaces the focused control: the focus stays in the dialog
-      endBattle(world, ID('soto', 0)); await flushPromises()
-      expect(screen().element.contains(document.activeElement)).toBe(true)
-      await settle()
-      await screen().find('.eco-battle__primary').trigger('click')
-      expect(screen().exists()).toBe(false)
-      expect(document.activeElement, 'back to where it was').toBe(canvas)
-      expect(wrapper.find('.eco-dev').attributes('inert')).toBeUndefined()
-      // no listener left behind: focus goes anywhere again
-      toggle.focus()
-      expect(document.activeElement).toBe(toggle)
-      wrapper.unmount()
-    } finally {
-      canvas.remove()
-    }
+  it('F3 (non-modal panel) the focus moves to the panel, nothing is trapped or made inert, and it returns to the control that asked — the debug button too', async () => {
+    const { world, layer, card, screen, wrapper } = setup()
+    // from the debug panel: the residual case of ECO-PRESENTATION-1's closure review
+    await wrapper.find('.eco-dev__toggle').trigger('click')
+    const debugFight = wrapper.findAll('.eco-dev li').find(r => r.text().includes('soto:1:0'))!.findAll('button')[0].element as HTMLButtonElement
+    debugFight.focus()
+    debugFight.click()
+    engageResult(world, ID('soto', 0)); await flushPromises()
+    const panel = screen().element as HTMLElement
+    expect(panel.contains(document.activeElement), 'focus moved to the panel').toBe(true)
+    expect(wrapper.find('.eco-dev').attributes('inert')).toBeUndefined()
+    const toggle = wrapper.find('.eco-dev__toggle').element as HTMLButtonElement
+    toggle.focus()
+    expect(document.activeElement, 'not modal: the debug panel can take the focus').toBe(toggle)
+    endBattle(world, ID('soto', 0)); await flushPromises()
+    await settle()
+    await screen().find('.ebp-primary').trigger('click')
+    expect(screen().exists()).toBe(false)
+    expect(document.activeElement, 'back to the debug button that asked').toBe(debugFight)
+    // from the card: its button is gone after the battle, so the focus is released to the page
+    layer.select(ID('soto', 1)); await flushPromises()
+    const cardFight = card().find('.eco-card__fight').element as HTMLButtonElement
+    cardFight.focus()
+    cardFight.click()
+    engageResult(world, ID('soto', 1), 2); endBattle(world, ID('soto', 1)); await flushPromises()
+    await settle()
+    await screen().find('.ebp-primary').trigger('click')
+    expect(document.activeElement).toBe(document.body)
+    wrapper.unmount()
   })
 })

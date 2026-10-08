@@ -7,6 +7,7 @@
 // Only the lazily loaded battle panel imports this module, so a production build (where the
 // experiment is a constant `false`) never contains it.
 
+import type { AuthorityEventEnvelope } from '../../battle/authority'
 import type {
   EcoBattleEnd, EcoBattleMessage, EcoBattleOutcome, EcoEngageResult,
 } from '../../../../services/realtime/src/world/worldProtocol.js'
@@ -43,6 +44,8 @@ export type EcoBattleView =
     readonly speciesId: number
     readonly fixtureLabel: string
     readonly snapshot: ClientBattleSnapshot
+    /** Local time (this session's clock) when `snapshot` arrived: the origin of any visual interpolation. */
+    readonly snapshotAt: number
     /** Battle time left as of the last server message (it only passes while connected). */
     readonly expiresInMs: number
     readonly connected: boolean
@@ -62,6 +65,9 @@ export class EcoBattleSession implements EcoBattleSink {
   private controllerId = ''
   private nextSequence = 1
   private battleTimeAt: { ms: number; at: number } | null = null
+  /** ECO-OVERWORLD-BATTLE-1: the server's events, once each (by sequence), for the battlefield marks. */
+  private readonly eventListeners = new Set<(events: readonly AuthorityEventEnvelope[]) => void>()
+  private lastEvent = { battleId: '', sequence: -1 }
 
   constructor(private readonly host: EcoBattleHost, private readonly now: () => number = () => Date.now()) {
     host.setEcoBattleSink(this)
@@ -71,6 +77,18 @@ export class EcoBattleSession implements EcoBattleSink {
     this.clearTimer()
     this.host.setEcoBattleSink(null)
     this.listeners.clear()
+    this.eventListeners.clear()
+  }
+
+  /** The current battle's new events, in order and never twice (a resent or late message adds nothing). */
+  onEvents(listener: (events: readonly AuthorityEventEnvelope[]) => void): () => void {
+    this.eventListeners.add(listener)
+    return () => this.eventListeners.delete(listener)
+  }
+
+  /** Local time, the same clock `snapshotAt` is measured with. */
+  clock(): number {
+    return this.now()
   }
 
   get view(): EcoBattleView {
@@ -174,9 +192,10 @@ export class EcoBattleSession implements EcoBattleSink {
     // A continuation, never a fresh count: actions sent before a reconnection stay below it.
     this.nextSequence = battle.joinAck.nextActionSequence
     this.battleTimeAt = { ms: battle.expiresInMs, at: this.now() }
+    if (this.lastEvent.battleId !== battle.battleId) this.lastEvent = { battleId: battle.battleId, sequence: -1 }
     this.set({
       phase: 'battle', encounterId: result.encounterId, battleId: battle.battleId, speciesId: battle.speciesId,
-      fixtureLabel: battle.fixtureLabel, snapshot: battle.snapshot, expiresInMs: battle.expiresInMs, connected: true, lastRejection: null,
+      fixtureLabel: battle.fixtureLabel, snapshot: battle.snapshot, snapshotAt: this.now(), expiresInMs: battle.expiresInMs, connected: true, lastRejection: null,
     })
   }
 
@@ -197,7 +216,10 @@ export class EcoBattleSession implements EcoBattleSink {
       const passed = snapshot.timeMs - battle.snapshot.timeMs
       this.battleTimeAt = { ms: Math.max(0, battle.expiresInMs - passed), at: this.now() }
     }
-    this.set({ ...battle, snapshot, expiresInMs: this.battleTimeAt?.ms ?? battle.expiresInMs, lastRejection })
+    const fresh = (message.events ?? []).filter(envelope => envelope.sequence > this.lastEvent.sequence)
+    if (fresh.length) this.lastEvent = { battleId: battle.battleId, sequence: fresh[fresh.length - 1].sequence }
+    this.set({ ...battle, snapshot, snapshotAt: snapshot !== battle.snapshot ? this.now() : battle.snapshotAt, expiresInMs: this.battleTimeAt?.ms ?? battle.expiresInMs, lastRejection })
+    if (fresh.length) for (const listener of this.eventListeners) listener(fresh)
   }
 
   private battleEnd(end: EcoBattleEnd): void {

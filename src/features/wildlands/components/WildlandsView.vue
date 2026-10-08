@@ -21,7 +21,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
-    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" @battle="(open: boolean) => (ecoBattleOpen = open)" />
+    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :player="ecoPlayer" :overlay-slot="ecoOverlaySlot" @battle="(open: boolean) => (ecoBattleOpen = open)" />
     <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"
@@ -178,12 +178,22 @@ import type { PerfCapture } from '../perf/usePerfCapture'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
-// ECO-GAMEPLAY-1/2, ECO-PRESENTATION-1: the experiment's interface (map selection card, test-battle
-// screen, secondary debug panel) exists only in a development build of the experiment.
+// ECO-GAMEPLAY-1/2, ECO-PRESENTATION-1, ECO-OVERWORLD-BATTLE-1: the experiment's interface (map
+// selection card, the test battle in the world and its panel, secondary debug panel) exists only in
+// a development build of the experiment.
 const EcoExperimentLayer = ECO_EXPERIMENT ? defineAsyncComponent(() => import('../../world/components/EcoExperimentLayer.vue')) : null
 const ecoLayerRef = shallowRef<{ select(actorId: string): boolean; dismissCard(): void } | null>(null)
-/** A test battle is on screen: the map stops taking movement, like any other open panel. */
+/** A test battle is on: the owner's trainer stays put (the world, its drawing and everyone else go on). */
 const ecoBattleOpen = ref(false)
+/** Filled by the lazily loaded ECO layer with its world overlay; the engine sees it through ecoOverlay. */
+const ecoOverlaySlot: { current: SceneOverlay | null } | null = ECO_EXPERIMENT ? { current: null } : null
+const ecoOverlay: SceneOverlay | null = ecoOverlaySlot ? {
+  ground: (...args) => ecoOverlaySlot.current?.ground?.(...args),
+  sprites: (...args) => ecoOverlaySlot.current?.sprites?.(...args) ?? [],
+  labels: (...args) => ecoOverlaySlot.current?.labels?.(...args) ?? [],
+} : null
+const ecoPlayer = () => game.value?.playerSnapshot() ?? null
+if (ECO_EXPERIMENT) watch(ecoBattleOpen, open => game.value?.setInputLocked(open))
 const performanceMode = import.meta.env.VITE_PERF === 'on'
 const PlaytestPerformanceHud = isPlaytest || performanceMode
   ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))
@@ -424,7 +434,7 @@ const hidden = ref(document.visibilityState === 'hidden')
 
 watchEffect(() => {
   if (isPlaytest) playtest.setSurface(playtestSurface.value?.kind ?? null)
-  game.value?.setPaused(covered.value || plazaOpen.value || professionOpen.value || ecoBattleOpen.value)
+  game.value?.setPaused(covered.value || plazaOpen.value || professionOpen.value)
   game.value?.setVisibilityPaused(hidden.value)
   game.value?.setReducedMotion(reduceMotion.value)
 })
@@ -564,7 +574,7 @@ onMounted(async () => {
   // WORLD-1: the shared world draws first, so a node that is depleted for
   // everyone is a stump whatever a local overlay would have drawn there.
   if (worldPlaytestFeaturesEnabled) await nextTick()
-  const parts = [sharedWorld.overlay, caveOverlay, professionRef.value?.overlay]
+  const parts = [sharedWorld.overlay, caveOverlay, professionRef.value?.overlay, ecoOverlay]
     .filter((part): part is SceneOverlay => !!part)
   created.setSceneOverlay(parts.length === 1 ? parts[0] : new CompositeOverlay(...parts))
   loading.value = false
