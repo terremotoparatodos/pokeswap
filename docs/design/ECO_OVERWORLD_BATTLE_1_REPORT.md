@@ -129,4 +129,24 @@ Sandbox aislado: Node 22, 127.0.0.1:2790/2791/5199, identidades sintéticas, sin
   - la observación «PS y contador quietos», que sigue abierta.
 - **No hecho:** smoke humano. Este reporte solo acredita las comprobaciones de Claude.
 
+## 8. Foco al cerrar y condición E modificada (después de `a10099e`)
+
+Instrucción del usuario: el reemplazo del modal no espera la aprobación completa de `ec4d804`. Ese candidato y su hallazgo (F3 residual) se conservan sin declararlo aprobado ni integrarlo. La procedencia de lo reutilizado está en las notas, §4.
+
+- **Panel, al cerrar:**
+  - vuelve al control de origen si sigue existiendo y es **utilizable**: conectado, habilitado, fuera de `inert` y visible;
+  - si no, va al **canvas del mapa**, que es enfocable, y no al `body`.
+- **Sin contención:** Tab y Shift+Tab nunca se retienen y nada pasa a `inert`.
+- **Teclado:** Espacio y Enter sobre los botones del panel no se cancelan, y el mapa no los toma.
+- **Regresiones nuevas** (`EcoExperimentLayer.test.ts`, «keyboard and focus on close»), con origen:
+  - utilizable;
+  - deshabilitado por el propio panel («Lejos»);
+  - retirado;
+  - dentro de `inert`;
+  - en la ficha;
+  - más una prueba de que no hay contención y de que el teclado queda en los botones.
+
+  Ejecutadas sobre una exportación de `a10099e`, **dos fallan**, las de origen retirado y ficha, que antes liberaban al `body`. Aquí pasan.
+- La vista pasa al panel el canvas (`mapFocus`). No cambia ningún control ajeno a ECO.
+
 **Candidato congelado:** `feat/eco-overworld-battle-0.3` en el commit de este reporte. Sin push, merge, Cloud, Supabase ni cambios en entornos activos. `ec4d804` sigue congelado y sin tocar.

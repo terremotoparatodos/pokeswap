@@ -79,6 +79,8 @@ const props = defineProps<{
   returnFocus?: HTMLElement | null
   /** Which bottom corner: away from the wild Pokémon (framing). */
   side?: 'left' | 'right'
+  /** A valid destination on the map (the game canvas) when the origin is gone or unusable. */
+  mapFocus?: () => HTMLElement | null
 }>()
 
 const root = ref<HTMLElement | null>(null)
@@ -134,19 +136,32 @@ watch(() => props.view.phase === 'ended', ended => {
 }, { immediate: true })
 onUnmounted(() => { if (settleTimer) clearTimeout(settleTimer) })
 
-// Focus, without trapping (the panel is not modal): it moves here when the battle is asked for, so
-// the keyboard can go on; if a phase change removes the focused control, it stays in the panel;
-// on close it goes back to where the battle was asked from, if that still exists (the debug
-// button does — ECO-PRESENTATION-1 F3 residual), else it is released to the page.
+// Focus, without trapping or containment (the panel is NOT modal: Tab leaves it freely, nothing is
+// made inert): it moves here when the battle is asked for, so the keyboard can go on; if a phase
+// change removes the focused control, it lands on the panel again; on close it goes back to the
+// control the battle was asked from IF it still exists and is usable (connected, enabled, not inert,
+// not hidden) — the debug button included, ECO-PRESENTATION-1's closure residual F3 — and otherwise
+// to a valid destination on the map (the game canvas).
 const keepFocus = () => {
   const el = root.value
   if (el && (document.activeElement === document.body || document.activeElement === null)) el.focus()
 }
 onMounted(() => root.value?.focus())
 watch(() => props.view.phase, () => nextTick(keepFocus))
+function usable(el: HTMLElement | null | undefined): el is HTMLElement {
+  if (!el || !el.isConnected || root.value?.contains(el)) return false
+  if ((el as HTMLButtonElement).disabled || el.closest('[inert]')) return false
+  for (let node: HTMLElement | null = el; node; node = node.parentElement) {
+    const style = getComputedStyle(node)
+    if (style.display === 'none' || style.visibility === 'hidden' || node.hidden) return false
+  }
+  return true
+}
 onBeforeUnmount(() => {
   const target = props.returnFocus
-  if (target && target.isConnected && !root.value?.contains(target)) target.focus()
+  if (usable(target)) { target.focus(); return }
+  const map = props.mapFocus?.()
+  if (map && map.isConnected) map.focus({ preventScroll: true })
   else if (root.value?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur()
 })
 </script>

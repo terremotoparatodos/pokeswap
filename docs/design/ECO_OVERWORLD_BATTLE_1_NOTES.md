@@ -56,3 +56,21 @@
 - No cambia tiempos ni balance: se usan los del servidor tal cual (`DEFAULT_BATTLE_RULES_CONFIG`).
 - No cambia servidor ni protocolo. Los espectadores solo ven la marca «en combate», sacada de `busy` (decisión D1). El combate completo para espectadores queda **pendiente de forma explícita**.
 - La observación abierta de «PS y contador quietos» (ECO-PRESENTATION-1) se aborda con la comprobación de sincronización de este incremento (§3.4 de la propuesta). Todavía no tiene causa atribuida.
+
+## 4. Condición E modificada (instrucción del usuario, 2026-10-08)
+
+- **El reemplazo del modal no espera la aprobación completa de `ec4d804`.** No habrá otra entrega para pulir el modal, que se elimina.
+- **`ec4d804` y su hallazgo se conservan tal cual:** F3 residual, el retorno del foco al botón de depuración. No se declara aprobado ni se integra.
+- **Procedencia de lo reutilizado (de `ec4d804`, ECO-PRESENTATION-1):**
+  - la ficha `EcoEncounterCard`;
+  - la selección por individuo en el mapa (`WildHit.actorId`, `select`);
+  - la sesión `EcoBattleSession`;
+  - las correcciones F1 (limpiar la selección al empezar por cualquier ruta) y F2 (Espacio y Enter de la ficha no van al mapa);
+  - los textos `ecoBattleText` y el panel de depuración secundario.
+- **Lo que no se hereda:** la contención modal (foco atrapado, Tab cíclico, `inert`) se queda con el modal eliminado. El panel overworld **no es modal**.
+- **Requisito del panel nuevo, con regresión propia:**
+  - activación correcta con teclado (Espacio y Enter quedan en sus botones);
+  - sin contención de Tab;
+  - al cerrar, el foco vuelve al control de origen **si existe y es utilizable** (conectado, habilitado, fuera de `inert`, visible);
+  - si no, va a un **destino válido del mapa**: el canvas del juego, que es enfocable (`tabindex="0"`).
+- **El candidato overworld tendrá su propia revisión** contra una base explícita, incluida esta regresión. La evidencia original de la revisión de `ec4d804` no se cambia ni se relaja.

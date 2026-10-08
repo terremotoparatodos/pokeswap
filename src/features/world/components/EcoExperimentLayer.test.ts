@@ -312,3 +312,100 @@ describe('ECO experiment layer · framing', () => {
     }
   })
 })
+
+// ── Overworld panel: keyboard and focus on close (the regression ECO-PRESENTATION-1's closure review
+//    left open as F3 on the modal; the modal is gone, the behaviour is required of the new panel) ──
+
+describe('ECO overworld panel · keyboard and focus on close', () => {
+  const engageResult = (world: SharedWorld, encounterId: string, requestId = 1) => world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId, encounterId, ok: true, battle })
+  const endBattle = (world: SharedWorld, encounterId: string, outcome = 'fled') => world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: battle.battleId, encounterId, outcome, retired: outcome === 'victory', snapshot: snapshot(0, 2) })
+  const settle = () => new Promise(resolve => setTimeout(resolve, 750))
+
+  function withMap() {
+    const canvas = document.createElement('canvas')
+    canvas.tabIndex = 0
+    document.body.append(canvas)
+    const s = setup()
+    return { ...s, canvas, mapFocus: () => canvas }
+  }
+  async function fightFromDebug(s: ReturnType<typeof withMap>, member = 0) {
+    await s.wrapper.setProps({ mapFocus: s.mapFocus })
+    await s.wrapper.find('.eco-dev__toggle').trigger('click')
+    const button = s.wrapper.findAll('.eco-dev li').find(r => r.text().includes(`soto:1:${member}`))!.findAll('button')[0].element as HTMLButtonElement
+    button.focus()
+    button.click()
+    engageResult(s.world, ID('soto', member)); await flushPromises()
+    return button
+  }
+  async function close(s: ReturnType<typeof withMap>, member = 0, outcome = 'fled') {
+    endBattle(s.world, ID('soto', member), outcome); await flushPromises()
+    await settle()
+    await s.screen().find('.ebp-primary').trigger('click')
+    expect(s.screen().exists()).toBe(false)
+  }
+
+  it('origin still there and usable (the debug button): the focus goes back to it', async () => {
+    const s = withMap()
+    const origin = await fightFromDebug(s)
+    await close(s)
+    expect(document.activeElement).toBe(origin)
+    s.wrapper.unmount(); s.canvas.remove()
+  })
+
+  it('origin disabled, removed or inside an inert region: the focus goes to the map, never to a dead control', async () => {
+    for (const spoil of ['disabled', 'removed', 'inert'] as const) {
+      const s = withMap()
+      const origin = await fightFromDebug(s)
+      if (spoil === 'disabled') await s.wrapper.setProps({ tx: 50 }) // out of range: the debug row turns «Lejos», disabled by the panel itself
+      if (spoil === 'removed') await s.wrapper.find('.eco-dev__toggle').trigger('click') // the list folds away
+      if (spoil === 'inert') origin.closest('li')!.setAttribute('inert', '')
+      await close(s)
+      if (spoil === 'disabled') expect(origin.disabled).toBe(true)
+      expect(document.activeElement, spoil).toBe(s.canvas)
+      s.wrapper.unmount(); s.canvas.remove()
+    }
+  })
+
+  it('from the card (its button is gone after the battle starts): the focus goes to the map', async () => {
+    const s = withMap()
+    await s.wrapper.setProps({ mapFocus: s.mapFocus })
+    s.layer.select(ID('soto', 1)); await flushPromises()
+    const fight = s.card().find('.eco-card__fight').element as HTMLButtonElement
+    fight.focus()
+    fight.click()
+    engageResult(s.world, ID('soto', 1)); await flushPromises()
+    await close(s, 1)
+    expect(document.activeElement).toBe(s.canvas)
+    s.wrapper.unmount(); s.canvas.remove()
+  })
+
+  it('not modal: Tab and Shift+Tab are never held, nothing is made inert; Space and Enter on its buttons stay theirs', async () => {
+    const s = withMap()
+    let interactions = 0
+    const keys = new KeyboardInput({ cycleLens: () => {}, toggleGrid: () => {}, skipTime: () => {}, interact: () => { interactions++ } })
+    keys.attach()
+    try {
+      await fightFromDebug(s)
+      const panel = s.screen().element as HTMLElement
+      expect(document.querySelectorAll('[inert]')).toHaveLength(0)
+      const buttons = [...panel.querySelectorAll<HTMLButtonElement>('button:not([disabled])')]
+      for (const [button, shiftKey] of [[buttons[buttons.length - 1], false], [buttons[0], true]] as const) {
+        button.focus()
+        const tab = new KeyboardEvent('keydown', { key: 'Tab', shiftKey, bubbles: true, cancelable: true })
+        button.dispatchEvent(tab)
+        expect(tab.defaultPrevented, `Tab${shiftKey ? '+Shift' : ''} is not contained`).toBe(false)
+      }
+      const move = panel.querySelector<HTMLButtonElement>('.ebp-move')!
+      move.focus()
+      for (const key of [' ', 'Enter']) {
+        const down = new KeyboardEvent('keydown', { key, code: key === ' ' ? 'Space' : 'Enter', bubbles: true, cancelable: true })
+        move.dispatchEvent(down)
+        expect(down.defaultPrevented, `${key} keeps the button's native activation`).toBe(false)
+      }
+      expect(interactions, 'the map never took Space or Enter from the panel').toBe(0)
+    } finally {
+      keys.detach()
+      s.wrapper.unmount(); s.canvas.remove()
+    }
+  })
+})

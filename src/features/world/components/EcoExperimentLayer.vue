@@ -13,7 +13,7 @@
   />
   <EcoBattlePanel
     v-if="battle.phase !== 'idle'"
-    :session="session" :view="battle" :catalog="catalog" :pokedex-name="pokedexName" :return-focus="returnFocus" :side="panelSide"
+    :session="session" :view="battle" :catalog="catalog" :pokedex-name="pokedexName" :return-focus="returnFocus" :side="panelSide" :map-focus="mapFocus"
   />
 </template>
 
@@ -46,6 +46,8 @@ const props = defineProps<{
   ty: number
   /** Spanish names when the Pokédex is loaded; empty in the sandbox. */
   pokedex?: readonly { readonly id: number; readonly name_es: string }[]
+  /** A valid focus destination on the map (the game canvas), for when a battle closes. */
+  mapFocus?: () => HTMLElement | null
   /** The local trainer's tile (from the engine), for where the battle stands. */
   player?: () => { readonly tx: number; readonly ty: number } | null
 }>()
