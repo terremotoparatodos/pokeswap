@@ -12,7 +12,8 @@
 //      the generated realtime bundles. The only allowed importers are the
 //      module's own files and tests, three dev scripts and — ECO-GAMEPLAY-1 —
 //      ONE realtime file: the experimental population adapter, which imports the
-//      admission bundle only. The bundle generators reach their entries by path
+//      admission bundle only; and — ECO-GAMEPLAY-2 — the experimental battle
+//      adapter, which imports the test-battle bundle only. The bundle generators reach their entries by path
 //      (esbuild), not by import.
 //
 // Replaces encounters/isolation.test.ts and population/isolation.test.ts, whose
@@ -50,12 +51,19 @@ const runtimeOf = (folder: string) => filesUnder(join(ECOSYSTEM, folder), /\.ts$
 function importViolations(file: string, source: string, allowed: readonly string[], allowedFiles: readonly string[] = []): string[] {
   return importSpecifiers(file, source).filter(spec => {
     const target = resolveSpecifier(file, spec, ROOT)
-    return target === null || !(allowed.some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`)) || allowedFiles.includes(target))
+    return target === null || !(allowed.some(folder => target.startsWith(`${ECOSYSTEM}/${folder}/`)) || allowedFiles.some(entry => target === entry || target.startsWith(`${entry}/`)))
   })
 }
 
 /** ECO-GAMEPLAY-1: the admission validates the catalog against the battle catalog's species — this file only. */
 const BATTLE_SPECIES = fwd(join(ROOT, 'src/features/battle/catalog/generated/core.json'))
+/**
+ * ECO-GAMEPLAY-2: the test-battle entry (and ONLY it) wraps the existing battle authority, rules,
+ * catalog and Pokémon model, these four modules only. Any other server/ file importing them fails.
+ */
+const BATTLE_ENTRY = fwd(join(ROOT, 'src/features/ecosystem/server/encounterBattleRuntime.ts'))
+const BATTLE_CORE = ['src/features/battle/authority', 'src/features/battle/catalog', 'src/features/battle/rules', 'src/features/pokemon/model'].map(p => fwd(join(ROOT, p)))
+const allowedFilesFor = (file: string, base: readonly string[]) => (file === BATTLE_ENTRY ? [...base, ...BATTLE_CORE] : base)
 
 const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
 const IMPURE = /\b(Date\.now|new Date|Math\.random|performance\.now|setTimeout|setInterval|queueMicrotask|fetch|WebSocket|crypto\.getRandomValues)\b/
@@ -73,9 +81,13 @@ const ALLOWED_OUTSIDE = new Set([
   // ECO-GAMEPLAY-1: the experimental population adapter (dev-only mode, refused in production). It is the
   // ONLY product file allowed in, and only for the admission bundle (checked below).
   fwd(join(ROOT, 'services/realtime/src/world/ecoPopulation.js')),
+  // ECO-GAMEPLAY-2: the experimental battle adapter, only for the test-battle bundle (checked below).
+  fwd(join(ROOT, 'services/realtime/src/world/ecoBattles.js')),
 ])
 const ADAPTER = fwd(join(ROOT, 'services/realtime/src/world/ecoPopulation.js'))
 const ADMISSION_BUNDLE = `${BUNDLE_DIR}/admission.generated.js`
+const BATTLE_ADAPTER = fwd(join(ROOT, 'services/realtime/src/world/ecoBattles.js'))
+const BATTLE_BUNDLE = `${BUNDLE_DIR}/encounterBattle.generated.js`
 
 function outsideImporters(files: readonly string[], read: (file: string) => string): string[] {
   return files.filter(file => !file.startsWith(`${ECOSYSTEM}/`) && !ALLOWED_OUTSIDE.has(file) && importSpecifiers(file, read(file)).some(spec => {
@@ -93,7 +105,14 @@ describe('runtime modules are pure', () => {
   it.each(cases)('%s imports only %j (+ %j)', (folder, allowed, files) => {
     const runtime = runtimeOf(folder)
     expect(runtime.length).toBeGreaterThan(0)
-    for (const file of runtime) expect(importViolations(file, readFileSync(file, 'utf8'), allowed, files), relative(ROOT, file)).toEqual([])
+    for (const file of runtime) expect(importViolations(file, readFileSync(file, 'utf8'), allowed, allowedFilesFor(file, files)), relative(ROOT, file)).toEqual([])
+  })
+
+  it('the battle-core allowance is the test-battle entry only (negative control: the admission cannot)', () => {
+    const spec = "import { createBattleAuthority } from '../../battle/authority'"
+    expect(importViolations(BATTLE_ENTRY, spec, ['encounters', 'population', 'map'], allowedFilesFor(BATTLE_ENTRY, [BATTLE_SPECIES]))).toEqual([])
+    const admission = `${ECOSYSTEM}/server/admissionRuntime.ts`
+    expect(importViolations(admission, spec, ['encounters', 'population', 'map'], allowedFilesFor(admission, [BATTLE_SPECIES]))).toEqual(['../../battle/authority'])
   })
 
   it('the battle-catalog allowance is one file for server/ only, not the battle folder', () => {
@@ -159,6 +178,15 @@ describe('nothing outside the ecosystem imports it or its bundle', () => {
     // negative controls: the bare-engine bundle or a source module would be flagged
     expect(targets("import { tickPopulation } from './ecosystem/encounters.generated.js'")).not.toEqual([ADMISSION_BUNDLE])
     expect(targets("import { createPopulation } from '../../../../src/features/ecosystem/population/engine'")).not.toEqual([ADMISSION_BUNDLE])
+  })
+
+  it('the battle adapter reaches the ecosystem only through the test-battle bundle', () => {
+    const targets = (source: string) => importSpecifiers(BATTLE_ADAPTER, source).map(spec => resolveSpecifier(BATTLE_ADAPTER, spec, ROOT))
+      .filter((target): target is string => target !== null && (target.startsWith(`${ECOSYSTEM}/`) || target.startsWith(`${BUNDLE_DIR}/`)))
+    expect(targets(readFileSync(BATTLE_ADAPTER, 'utf8'))).toEqual([BATTLE_BUNDLE])
+    // negative controls: the admission bundle or a source module would be flagged
+    expect(targets("import { admitEcoPopulation } from './ecosystem/admission.generated.js'")).not.toEqual([BATTLE_BUNDLE])
+    expect(targets("import { prepareEncounterBattles } from '../../../../src/features/ecosystem/server/encounterBattleRuntime'")).not.toEqual([BATTLE_BUNDLE])
   })
 })
 

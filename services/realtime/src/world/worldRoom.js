@@ -5,6 +5,7 @@ import { WORLD_MESSAGE, WORLD_PROTOCOL, cancelIntent, ecoRetireIntent, publicNod
 import { chunksInView, isChunkRetained } from './worldInterest.js'
 import { WildService } from './wildService.js'
 import { ECO_PROTOCOL, EcoPopulation } from './ecoPopulation.js'
+import { EcoBattles } from './ecoBattles.js'
 
 /**
  * The world's transport glue inside PresenceRoom (WORLD-1B/1C).
@@ -27,7 +28,7 @@ export class WorldRoom {
    * player its own XP, materials and Pokémon. Without it (tests, benchmarks
    * of the transport alone) the world starts empty and ready.
    */
-  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, eco = undefined, ecoRandom = undefined, log = message => console.warn(message) }) {
+  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, eco = undefined, ecoRandom = undefined, ecoBattles = undefined, log = message => console.warn(message) }) {
     this.now = now
     this.clientForPlayer = clientForPlayer
     this.clients = new Map()
@@ -45,7 +46,13 @@ export class WorldRoom {
     // ECO population is the world's wild Pokémon and the hourly roster does not exist at all.
     /** Areas whose ECO view changed since the last flush. */
     this.ecoDirty = new Set()
-    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: true, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
+    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: true, isBusy: id => this.ecoBattles?.isBusy(id) ?? false, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
+    // ECO-GAMEPLAY-2: test battles against those encounters (same experiment; nothing outside it loads the battle bundle).
+    // `ecoBattles` (tests only): EcoBattles options to override (`prepare`, `random`, `newId`).
+    this.ecoBattles = this.eco ? new EcoBattles({
+      population: this.eco, now, log, send: (client, type, payload) => this.#send(client, type, payload),
+      onChange: areaId => this.ecoDirty.add(areaId), ...(ecoBattles ?? {}),
+    }) : null
     this.wild = ecoExperiment ? null : new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
       skills, ownership, lookupActor, now, placeActor, log,
@@ -86,15 +93,19 @@ export class WorldRoom {
    * id, and every later check asks the server-side player data about that id.
    */
   join(client, options, auth) {
+    const playerId = auth?.kind === 'player' ? auth.userId : null
     if (!(Number.isInteger(options?.worldProtocol) && options.worldProtocol >= WORLD_PROTOCOL)) {
       this.outdated.add(client)
       this.metrics.outdatedJoins++
+      // ECO-GAMEPLAY-2: it is the player's socket now — a running battle loses its old one (paused).
+      if (playerId !== null) this.ecoBattles?.socketJoined(client, playerId, false)
       return
     }
-    const playerId = auth?.kind === 'player' ? auth.userId : null
     // ECO-GAMEPLAY-1: only a client that declared the ECO protocol is sent the ECO population.
     const eco = this.eco !== null && options?.ecoProtocol === ECO_PROTOCOL
     this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId, eco })
+    // ECO-GAMEPLAY-2: the player's new socket. ECO: takes its battle over; otherwise the battle pauses.
+    if (playerId !== null) this.ecoBattles?.socketJoined(client, playerId, eco)
     if (playerId !== null) this.authority.newConnection(playerId)
     if (playerId !== null && this.playerData) void this.#sendPlayerState(client, playerId)
   }
@@ -106,6 +117,8 @@ export class WorldRoom {
     // The owner's socket is gone (not replaced by a newer one): the unit in
     // progress finishes and settles, then the worker retires (YIELD-2).
     if (state.playerId !== null && this.clientForPlayer?.(state.playerId) === client) this.authority.ownerLeft(state.playerId)
+    // ECO-GAMEPLAY-2: only the battle's current socket pauses it (a replaced one changes nothing).
+    if (state.playerId !== null) this.ecoBattles?.socketLeft(client, state.playerId)
     this.#unsubscribeAll(client, state)
     this.clients.delete(client)
   }
@@ -145,6 +158,8 @@ export class WorldRoom {
       ...(own ? { ownAction: { actionId: own.actionId, nodeId: own.node.id, startedAt: own.startedAt } } : {}),
     })
     this.metrics.snapshots++
+    // ECO-GAMEPLAY-2: the owner's running battle, again, after its world snapshot (reconnection resume).
+    if (eco && state.playerId !== null) this.ecoBattles.resume(client, state.playerId)
   }
 
   /** The viewer moved: adjust its chunk window (usually a no-op) and keep its action physical. */
@@ -174,6 +189,8 @@ export class WorldRoom {
   /** An actor changed area or rejoined: its action cannot survive a teleport. */
   actorPlaced(actor) {
     this.authority.reconcileActor(actor)
+    // ECO-GAMEPLAY-2: a battle does not follow its owner to another area (released, nothing retired).
+    this.ecoBattles?.actorPlaced(actor)
   }
 
   /**
@@ -218,6 +235,34 @@ export class WorldRoom {
     return reply({ requestId: intent.requestId, encounterId: intent.encounterId, ...result })
   }
 
+  /** ECO-GAMEPLAY-2: reserve an encounter for a test battle (development-only experiment). */
+  ecoEngage(actor, payload, client) {
+    const requestId = Number.isSafeInteger(payload?.requestId) ? payload.requestId : null
+    const refuse = reason => { const r = { requestId, encounterId: null, ok: false, reason }; client?.send(WORLD_MESSAGE.ECO_ENGAGE_RESULT, r); return r }
+    if (!this.ecoBattles) return refuse('disabled')
+    if (!client || !this.clients.get(client)?.eco) return refuse('client-outdated')
+    return this.ecoBattles.engage(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
+  }
+
+  /** ECO-GAMEPLAY-2: one battle action; the controller is this transport's player. */
+  ecoBattleAction(actor, payload, client) {
+    if (!this.ecoBattles || !client || !this.clients.get(client)?.eco) return this.#ecoBattleRefused(client, this.ecoBattles ? 'client-outdated' : 'disabled', payload)
+    return this.ecoBattles.action(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
+  }
+
+  /** ECO-GAMEPLAY-2: flee the test battle (released, nothing retired). */
+  ecoFlee(actor, payload, client) {
+    if (!this.ecoBattles || !client || !this.clients.get(client)?.eco) return this.#ecoBattleRefused(client, this.ecoBattles ? 'client-outdated' : 'disabled', payload)
+    return this.ecoBattles.flee(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
+  }
+
+  #ecoBattleRefused(client, reason, payload) {
+    const battleId = typeof payload?.battleId === 'string' ? payload.battleId.slice(0, 64) : null
+    const actionId = typeof payload?.actionId === 'string' ? payload.actionId.slice(0, 96) : null
+    client?.send(WORLD_MESSAGE.ECO_BATTLE, { battleId, events: [], result: { kind: 'rejected', reason, actionId } })
+    return reason
+  }
+
   tick(now = this.now()) {
     this.authority.tick(now)
     this.wild?.tick(now)
@@ -226,6 +271,7 @@ export class WorldRoom {
       const activeAreas = new Set()
       for (const state of this.clients.values()) if (state.areaId) activeAreas.add(state.areaId)
       this.eco.tick(now, activeAreas)
+      this.ecoBattles.tick(now)
     }
   }
 
@@ -234,7 +280,7 @@ export class WorldRoom {
     const authority = this.authority
     return {
       wild: this.wild ? { epoch: this.wild.epoch, ...this.wild.metrics } : null,
-      eco: this.eco ? { status: this.eco.status, ...this.eco.metrics } : null,
+      eco: this.eco ? { status: this.eco.status, ...this.eco.metrics, battles: this.ecoBattles.stats() } : null,
       clients: this.clients.size, subscribedChunks: this.subscribers.size, storedNodes: authority.store.size, nodesByState: authority.store.countByState(),
       runningActions: authority.actions.size, queued: authority.queue.size,
       actions: { ...authority.metrics, rejected: { ...authority.metrics.rejected } }, transport: { ...this.metrics },

@@ -35,12 +35,24 @@ export const WORK_TICK_MS = 600
 /** ECO-GAMEPLAY-1 (experimental): the ECO population protocol a client declares on join (`ecoProtocol`). */
 export const ECO_PROTOCOL = 1
 
+/**
+ * ECO-GAMEPLAY-2 (experimental, PROVISIONAL): Chebyshev tiles from a player to an encounter for a
+ * test-battle engage (patrol leash 4 + 2). The server enforces it; a client only uses it to grey out
+ * a button it would refuse anyway.
+ */
+export const ECO_ENGAGE_RANGE = 6
+
 export const WORLD_MESSAGE = Object.freeze({
   // client → server
   WORK: 'world:work',
   CANCEL: 'world:cancel',
   /** ECO-GAMEPLAY-1 (experimental, development only): a test retirement of one encounter. */
   ECO_DEV_RETIRE: 'world:eco-dev-retire',
+  /** ECO-GAMEPLAY-2 (experimental, development only): reserve one encounter for a test battle. */
+  ECO_ENGAGE: 'world:eco-engage',
+  /** ECO-GAMEPLAY-2: the battle core's TransportAction (its controller is the transport's player, never the payload's). */
+  ECO_BATTLE_ACTION: 'world:eco-battle-action',
+  ECO_FLEE: 'world:eco-flee',
   // server → client
   SNAPSHOT: 'world:snapshot',
   BATCH: 'world:batch',
@@ -52,6 +64,12 @@ export const WORLD_MESSAGE = Object.freeze({
   /** ECO-GAMEPLAY-1 (experimental): the shared encounter population of the viewer's area, whole. */
   ECO: 'world:eco',
   ECO_DEV_RETIRE_RESULT: 'world:eco-dev-retire-result',
+  /** ECO-GAMEPLAY-2, owner only: the answer to an engage, or the running battle again after a snapshot (`resumed`). */
+  ECO_ENGAGE_RESULT: 'world:eco-engage-result',
+  /** ECO-GAMEPLAY-2, owner only: battle snapshot and events, and the result of an action. */
+  ECO_BATTLE: 'world:eco-battle',
+  /** ECO-GAMEPLAY-2, owner only: the one end of a reservation, decided by the server. */
+  ECO_BATTLE_END: 'world:eco-battle-end',
   /** The session's own XP, materials and workable Pokémon (server → that player only). */
   PLAYER_STATE: 'player:state',
 })
@@ -95,6 +113,20 @@ export function ecoRetireIntent(value) {
   if (!Number.isSafeInteger(requestId) || requestId < 1) return null
   if (typeof encounterId !== 'string' || !ENCOUNTER_ID.test(encounterId)) return null
   return { requestId, encounterId }
+}
+
+/** ECO-GAMEPLAY-2: `{ requestId, encounterId }` or null. Nothing else is read: the server decides the battle. */
+export function ecoEngageIntent(value) {
+  return ecoRetireIntent(value)
+}
+
+/** A battle id as the server writes it. Opaque to clients. */
+const BATTLE_ID = /^eco-battle-[a-z0-9]{1,16}-[0-9a-f]{8}$/
+
+/** ECO-GAMEPLAY-2: `{ battleId }` or null. */
+export function ecoFleeIntent(value) {
+  if (!value || typeof value !== 'object' || typeof value.battleId !== 'string' || !BATTLE_ID.test(value.battleId)) return null
+  return { battleId: value.battleId }
 }
 
 /**

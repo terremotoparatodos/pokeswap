@@ -81,7 +81,7 @@ describe('the committed admission bundle', () => {
     expect(bundle.ECO_ADMISSION_API).toBe(1)
     for (const engine of ['createPopulation', 'tickPopulation', 'retireEncounter', 'createValidatedPopulation']) expect(bundle).not.toHaveProperty(engine)
     const population = admit(bundle as Api)
-    expect(Object.keys(population).sort()).toEqual(['areaIds', 'areaOf', 'retire', 'tick', 'view'])
+    expect(Object.keys(population).sort()).toEqual(['areaIds', 'areaOf', 'exists', 'retire', 'tick', 'view'])
     expect(Object.isFrozen(population)).toBe(true)
   })
 
@@ -225,6 +225,25 @@ describe('an admitted population', () => {
     expect(population.areaOf(id)).toBe('pradera')
     expect(population.areaOf(id.replace(/^eco-test/, 'eco-other'))).toBeNull()
     expect(population.areaOf('not-an-id')).toBeNull()
+  })
+
+  it('exists: the exact individual, shown or hidden; never a merely well-formed id (ECO-GAMEPLAY-2)', () => {
+    const { population, now, random } = run(source, 20)
+    const [target, other] = population.view('pradera').encounters
+    const [ns, area, nest, generation, member] = target.id.split(':')
+    expect(population.exists(target.id)).toBe(true)
+    expect(population.exists([ns, area, nest, Number(generation) + 100, member].join(':'))).toBe(false)
+    expect(population.exists(target.id.replace(/^eco-test/, 'eco-other'))).toBe(false)
+    expect(population.exists('not-an-id')).toBe(false)
+    expect(population.retire({ encounterId: target.id, now, random }).ok).toBe(true)
+    expect(population.exists(target.id)).toBe(false)
+    // idle: hidden but kept; dormant: cleared
+    population.tick({ now: now + 1_000, random, activeAreas: new Set() })
+    expect(population.view('pradera').encounters).toEqual([])
+    expect(population.exists(other.id)).toBe(true)
+    let t = now + 1_000
+    for (; t < now + PROVISIONAL_IDLE.dormantAfterMs + 5_000; t += 1_000) population.tick({ now: t, random, activeAreas: new Set() })
+    expect(population.exists(other.id)).toBe(false)
   })
 
   it('an area without viewers stops being simulated: a viewer sees nothing, not an empty world', () => {

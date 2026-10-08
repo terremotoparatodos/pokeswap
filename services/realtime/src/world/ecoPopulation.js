@@ -33,16 +33,18 @@ export class EcoPopulation {
   /**
    * `now`: the world's clock. `onChange(areaId)`: the public view of an area changed.
    * `devRetire`: test retirements accepted (development only; the world config decides).
+   * `isBusy(encounterId)`: ECO-GAMEPLAY-2 — the encounter is reserved for a test battle.
    */
-  constructor({ now, onChange = () => {}, devRetire = false, random = serverRandom, namespace = newEcoNamespace(now()), layouts = areaId => layoutVersion(areaId), log = message => console.warn(message) }) {
+  constructor({ now, onChange = () => {}, devRetire = false, isBusy = () => false, random = serverRandom, namespace = newEcoNamespace(now()), layouts = areaId => layoutVersion(areaId), log = message => console.warn(message) }) {
     this.now = now
     this.onChange = onChange
     this.devRetireAllowed = devRetire
+    this.isBusy = isBusy
     this.random = random
     this.namespace = namespace
     this.log = log
     this.lastTickAt = null
-    this.metrics = { ticks: 0, rejectedTicks: 0, changes: 0, retired: 0, refusedRetire: 0 }
+    this.metrics = { ticks: 0, rejectedTicks: 0, changes: 0, retired: 0, refusedRetire: 0, retiredByVictory: 0 }
     // The scope is the build's; every value comes from the authoritative world, not from the snapshot.
     const admitted = admitEcoPopulation({ namespace, currentLayouts: Object.fromEntries(ECO_ADMISSION_AREAS.map(areaId => [areaId, layouts(areaId)])) })
     this.population = admitted.ok ? admitted.population : null
@@ -76,8 +78,41 @@ export class EcoPopulation {
     const area = this.population.view(areaId)
     return {
       protocol: ECO_PROTOCOL, areaId, status: area.simulated ? 'active' : 'not-simulated',
-      encounters: area.encounters.map(({ id, groupId, speciesId, tile }) => ({ id, groupId, speciesId, tx: tile.tx, ty: tile.ty })),
+      encounters: area.encounters.map(({ id, groupId, speciesId, tile }) => ({ id, groupId, speciesId, tx: tile.tx, ty: tile.ty, busy: this.isBusy(id) })),
     }
+  }
+
+  /**
+   * ECO-GAMEPLAY-2: this individual still exists, shown or not. An area nobody views goes idle
+   * (hidden, individuals kept) before it goes dormant (cleared): a battle whose owner is inside the
+   * reconnection grace must not read "hidden" as "gone".
+   */
+  alive(encounterId) {
+    // The exact individual (not its namespace and area): retired, never spawned or cleared ones are not alive.
+    return Boolean(this.population && typeof encounterId === 'string' && this.population.exists(encounterId))
+  }
+
+  /** ECO-GAMEPLAY-2: the live, SHOWN individual with exactly this id (area, tile, species, group), or null. */
+  encounter(encounterId) {
+    if (!this.population || typeof encounterId !== 'string') return null
+    const areaId = this.population.areaOf(encounterId)
+    if (areaId === null) return null
+    const found = this.population.view(areaId).encounters.find(e => e.id === encounterId)
+    return found ? { id: found.id, groupId: found.groupId, speciesId: found.speciesId, areaId, tx: found.tile.tx, ty: found.tile.ty } : null
+  }
+
+  /**
+   * ECO-GAMEPLAY-2: a server-decided battle VICTORY retires exactly this individual, through the same
+   * admitted surface as everything else (its internal cause value has no effect: nothing persists and
+   * the respawn policy is unchanged). True only for the call that actually retired it.
+   */
+  retireVictory(encounterId, now = this.now()) {
+    if (!this.population) return false
+    const result = this.population.retire({ encounterId, now, random: this.random })
+    if (!result.ok) return false
+    this.metrics.retiredByVictory++
+    this.onChange(result.areaId)
+    return true
   }
 
   /**
@@ -94,6 +129,8 @@ export class EcoPopulation {
     const areaId = this.population.areaOf(encounterId)
     if (areaId === null) return refuse('not-alive')
     if (actor.areaId !== areaId) return refuse('other-area')
+    // ECO-GAMEPLAY-2: a reserved encounter belongs to its battle — never retired from outside it, not even by its owner.
+    if (this.isBusy(encounterId)) return refuse('busy')
     const result = this.population.retire({ encounterId, now, random: this.random })
     if (!result.ok) return refuse(result.reason === 'not-alive' ? 'not-alive' : 'invalid')
     this.metrics.retired++

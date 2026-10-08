@@ -29,4 +29,6 @@ export interface WorldTransportSink {
   eco?(message: EcoMessage): void
   /** ECO-GAMEPLAY-1 (experimental): the answer to a dev test retirement. */
   ecoRetireResult?(result: EcoRetireResult): void
+  /** ECO-GAMEPLAY-2 (experimental): an engage result, battle update or battle end, for this player only. */
+  ecoBattleMessage?(type: string, payload: unknown): void
 }

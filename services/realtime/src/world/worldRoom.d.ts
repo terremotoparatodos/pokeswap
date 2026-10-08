@@ -1,5 +1,5 @@
 // Types for the browser-side acceptance tests; the service itself is plain JS.
-import type { EcoArea, EcoRetireResult } from './worldProtocol.js'
+import type { EcoArea, EcoEngageResult, EcoRetireResult } from './worldProtocol.js'
 export interface WorldSocket { send(type: string, payload: unknown): void }
 export interface WorldViewer { id?: string; areaId: string; tx: number; ty: number }
 export declare class WorldRoom {
@@ -15,6 +15,8 @@ export declare class WorldRoom {
     ecoExperiment?: boolean
     /** ECO-GAMEPLAY-1 tests only: the ECO population's randomness (default: server crypto randomness). */
     ecoRandom?: () => number
+    /** ECO-GAMEPLAY-2 tests only: test-battle overrides (`prepare`, `random`, `newId`). */
+    ecoBattles?: Record<string, unknown>
     log?: (message: string) => void
   })
   join(client: WorldSocket, options: unknown, auth: { kind: string; userId?: string; token?: string | null }): void
@@ -26,6 +28,12 @@ export declare class WorldRoom {
   cancel(actor: WorldViewer, payload: unknown, client?: WorldSocket): void
   /** ECO-GAMEPLAY-1 test retirement (development only). `actor`: null for a guest. */
   ecoDevRetire(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): EcoRetireResult
+  /** ECO-GAMEPLAY-2 test battles (development only). `actor`: null for a guest. */
+  ecoEngage(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): EcoEngageResult
+  ecoBattleAction(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): unknown
+  ecoFlee(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): unknown
+  /** ECO-GAMEPLAY-2: the reservations (null outside the experiment), for acceptance tests. */
+  readonly ecoBattles: { readonly ready: Promise<void>; readonly status: string; readonly active: number; isBusy(encounterId: string): boolean } | null
   /** ECO-GAMEPLAY-1: the ECO population (null outside the experiment), for acceptance tests. */
   readonly eco: { view(areaId: string): EcoArea } | null
   /** Server state, for acceptance tests only. */

@@ -7,11 +7,15 @@
     <ol v-if="nearest.length">
       <li v-for="row in nearest" :key="row.id">
         <span class="eco-dev__who">#{{ row.speciesId }} · {{ row.short }}</span>
-        <span class="eco-dev__where">({{ row.tx }}, {{ row.ty }}) · {{ row.distance }} t</span>
-        <button type="button" :disabled="busy" @click="retire(row.id)">Retirar (prueba)</button>
+        <span class="eco-dev__where">({{ row.tx }}, {{ row.ty }}) · {{ row.distance }} t<template v-if="row.busy"> · ocupado</template></span>
+        <span class="eco-dev__actions">
+          <button type="button" :disabled="!canEngage(row)" :title="engageHint(row)" @click="session.engage(row.id)">{{ row.busy ? 'Ocupado' : row.distance > ECO_ENGAGE_RANGE ? 'Lejos' : 'Combatir' }}</button>
+          <button type="button" :disabled="busy || row.busy" @click="retire(row.id)">Retirar (prueba)</button>
+        </span>
       </li>
     </ol>
     <p v-else class="eco-dev__empty">Sin encuentros visibles en esta área.</p>
+    <EcoBattlePanel v-if="battle.phase !== 'idle'" :session="session" :view="battle" />
     <p v-if="last" class="eco-dev__last" role="status">{{ last }}</p>
     <p class="eco-dev__note">Retirada de simulación: sin captura, drop ni recompensa.</p>
   </aside>
@@ -21,15 +25,26 @@
 // ECO-GAMEPLAY-1 (experimental, development builds only): lists the server's ECO population of the
 // current area and asks the server for a TEST retirement. It decides nothing: the server validates,
 // retires with a simulated cause and every client then receives the same new list.
+//
+// ECO-GAMEPLAY-2: it also starts a TEST battle against one encounter (the server reserves it,
+// validates identity, area, distance and that nobody else holds it, and decides the result).
 import { computed, onUnmounted, ref, shallowRef } from 'vue'
-import type { EcoArea } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoArea, EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
+import { ECO_ENGAGE_RANGE } from '../../../../services/realtime/src/world/worldProtocol.js'
+import { EcoBattleSession, type EcoBattleView } from '../state/ecoBattleSession'
 import type { SharedWorld } from '../state/sharedWorld'
+import EcoBattlePanel from './EcoBattlePanel.vue'
 
 const props = defineProps<{ world: SharedWorld; areaId: string; tx: number; ty: number }>()
 
 const area = shallowRef<EcoArea | null>(null)
 const stop = props.world.onEco(next => { area.value = next })
 onUnmounted(stop)
+
+const session = new EcoBattleSession(props.world)
+const battle = shallowRef<EcoBattleView>(session.view)
+const stopBattle = session.subscribe(view => { battle.value = view })
+onUnmounted(() => { stopBattle(); session.dispose() })
 
 const encounters = computed(() => (area.value?.areaId === props.areaId ? area.value.encounters : []))
 const statusLabel = computed(() => ({ active: 'activa', 'not-simulated': 'sin simular', unavailable: 'no disponible' })[area.value?.status ?? 'unavailable'] ?? '—')
@@ -43,8 +58,11 @@ const last = ref('')
 const REASONS: Record<string, string> = {
   disabled: 'el servidor no tiene el experimento activo', invalid: 'pedido inválido', 'not-alive': 'ya no estaba',
   'other-area': 'está en otra área', 'not-player': 'solo un jugador puede retirar', unavailable: 'sin respuesta del servidor',
-  'client-outdated': 'cliente desactualizado',
+  'client-outdated': 'cliente desactualizado', busy: 'está en combate',
 }
+
+const canEngage = (row: EcoEncounter & { distance: number }) => !row.busy && row.distance <= ECO_ENGAGE_RANGE && (battle.value.phase === 'idle' || battle.value.phase === 'ended' || battle.value.phase === 'refused')
+const engageHint = (row: EcoEncounter & { distance: number }) => (row.busy ? 'Otro jugador lo está combatiendo' : row.distance > ECO_ENGAGE_RANGE ? `Acercate a ${ECO_ENGAGE_RANGE} casillas o menos` : 'Combate de prueba con un fixture sintético')
 
 async function retire(id: string) {
   busy.value = true
@@ -72,7 +90,10 @@ async function retire(id: string) {
 .eco-dev ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .eco-dev li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; }
 .eco-dev__where { grid-column: 1; opacity: 0.75; }
-.eco-dev button { grid-column: 2; grid-row: 1 / span 2; font: inherit; padding: 3px 6px; cursor: pointer; }
+.eco-dev__actions { grid-column: 2; grid-row: 1 / span 2; display: flex; gap: 4px; }
+.eco-dev button { font: inherit; padding: 3px 6px; cursor: pointer; }
+/* Disabled («Lejos», «Ocupado»): explicit colours, legible on the dark panel (the browser default at half opacity was not). */
+.eco-dev button:disabled { cursor: default; opacity: 1; color: #c9d3da; background: #34404b; border: 1px solid #5a6874; border-radius: 3px; }
 .eco-dev__empty, .eco-dev__last, .eco-dev__note { margin: 6px 0 0; }
 .eco-dev__note { opacity: 0.6; }
 </style>
