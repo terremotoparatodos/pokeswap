@@ -477,6 +477,128 @@ test('A12 nothing persists: no player data, ownership or store is touched by a w
   assert.equal(s.world.authority.store.size, 0, 'no world node changed')
 })
 
+// ── Review findings on 001197f (F1–F3): regressions ──
+
+test('F1 a socket replaced by one WITHOUT the ECO protocol (or an outdated one) loses the battle at once, before its onLeave', async () => {
+  for (const kind of ['no-eco', 'outdated']) {
+    const s = await setup()
+    const a = s.join('eco-a')
+    const target = s.populated(a)
+    s.standNear(a, target.id)
+    const { battle } = s.engage(a, target.id)
+    const core = s.scripted.made[0]
+    assert.equal(s.action(a, battle.battleId, 1).kind, 'accepted')
+    const old = a.client
+    // the new socket becomes the player's current one; the old one's onLeave has not run yet
+    let fresh
+    if (kind === 'no-eco') fresh = s.join('eco-a', { eco: false, actor: a.actor }).client
+    else { fresh = fakeClient('eco-a-outdated'); s.sockets.set('eco-a', fresh); s.world.join(fresh, {}, { kind: 'player', userId: 'eco-a', token: null }) }
+    const before = old.messages.length
+    assert.equal(s.world.ecoBattleAction(a.actor, { actionId: 'eco-a:1', battleId: battle.battleId }, old), 'not-your-battle', `${kind}: replay of an accepted action`)
+    assert.equal(s.action(a, battle.battleId, 2), 'not-your-battle', `${kind}: a new action`)
+    assert.equal(s.world.ecoFlee(a.actor, { battleId: battle.battleId }, old), false, `${kind}: flee`)
+    assert.equal(core.submits.length, 1, 'nothing reached the ledger')
+    const elapsed = core.elapsed
+    s.run(1_000)
+    assert.equal(core.elapsed, elapsed, 'paused: no socket of the player can follow it')
+    const after = old.messages.slice(before)
+    assert.ok(after.every(m => m.type !== WORLD_MESSAGE.ECO_BATTLE || m.payload.snapshot === undefined), 'no snapshot to the replaced socket')
+    assert.deepEqual(after.filter(m => m.type === WORLD_MESSAGE.ECO_BATTLE_END), [])
+    assert.equal(s.world.ecoBattles.isBusy(target.id), true, 'still reserved inside the grace')
+    // the old socket's late onLeave changes nothing; an ECO socket inside the grace takes the battle back
+    s.world.leave(old)
+    const back = s.join('eco-a', { actor: a.actor })
+    assert.equal(lastMessage(back.client, WORLD_MESSAGE.ECO_ENGAGE_RESULT).battle.battleId, battle.battleId)
+    assert.equal(s.action(back, battle.battleId, 2).kind, 'accepted')
+    s.world.leave(fresh)
+    assert.equal(s.reservation('eco-a').client, back.client, 'the intermediate socket leaving does not pause it again')
+  }
+})
+
+test('F2 a reconnection is checked against the grace BEFORE resuming: before, at and after the limit, with no tick in between', async () => {
+  for (const [offset, resumes] of [[ECO_DISCONNECT_GRACE_MS - 1, true], [ECO_DISCONNECT_GRACE_MS, false], [ECO_DISCONNECT_GRACE_MS + 1, false]]) {
+    const s = await setup()
+    const a = s.join('eco-a')
+    const b = s.join('eco-b') // keeps Pradera active
+    const target = s.populated(a)
+    s.standNear(a, target.id)
+    const { battle } = s.engage(a, target.id)
+    s.world.leave(a.client)
+    s.sockets.delete('eco-a')
+    s.clock.advance(offset) // no tick: the limit falls between callbacks
+    const back = s.join('eco-a', { actor: a.actor })
+    const resumed = lastMessage(back.client, WORLD_MESSAGE.ECO_ENGAGE_RESULT)
+    if (resumes) {
+      assert.equal(resumed?.battle.battleId, battle.battleId, `+${offset} ms resumes`)
+      s.run(TICK)
+      assert.equal(s.world.ecoBattles.isBusy(target.id), true)
+    } else {
+      assert.equal(resumed, undefined, `+${offset} ms is past the grace: nothing to resume`)
+      assert.equal(s.world.ecoBattles.isBusy(target.id), false, 'released at once, not at the next tick')
+      assert.deepEqual(s.world.ecoBattles.stats().ended, { disconnected: 1 })
+      assert.ok(s.world.eco.alive(target.id), 'not retired')
+      assert.equal(s.action(back, battle.battleId, 1), 'no-battle')
+      // the same player may engage it again (a new battle), and so may anyone else
+      s.standNear(b, target.id)
+      assert.equal(s.engage(b, target.id).ok, true)
+    }
+  }
+  // the engage path too: an engage after the grace (no tick yet) does not resume the old battle
+  const s = await setup()
+  const a = s.join('eco-a')
+  s.join('eco-b')
+  const target = s.populated(a)
+  s.standNear(a, target.id)
+  const { battle } = s.engage(a, target.id)
+  s.world.leave(a.client)
+  s.clock.advance(ECO_DISCONNECT_GRACE_MS)
+  const back = s.join('eco-a', { eco: false, actor: a.actor }) // no automatic resume for a non-ECO socket
+  back.client.messages.length = 0
+  const eco = s.join('eco-a', { actor: a.actor })
+  s.standNear(eco, target.id)
+  const again = s.engage(eco, target.id, 9)
+  assert.equal(again.ok, true)
+  assert.notEqual(again.battle.battleId, battle.battleId, 'a new battle, never the expired one')
+})
+
+test('F3 alive is the exact individual: shown or hidden (idle) is alive; retired, never spawned or cleared is not', async () => {
+  const s = await setup()
+  const a = s.join('eco-a')
+  const target = s.populated(a)
+  const [ns, area, nest, generation, member] = target.id.split(':')
+  assert.equal(s.world.eco.alive(target.id), true)
+  assert.equal(s.world.eco.alive([ns, area, nest, Number(generation) + 100, member].join(':')), false, 'a generation that never spawned')
+  assert.equal(s.world.eco.alive([ns, area, nest, generation, 99].join(':')), false, 'a member that never spawned')
+  assert.equal(s.world.eco.alive(target.id.replace(/^eco-[^:]+/, 'eco-other')), false)
+  // hidden, not gone: nobody watches the area (idle)
+  s.world.leave(a.client)
+  s.run(1_000)
+  assert.equal(s.world.eco.encounter(target.id), null)
+  assert.equal(s.world.eco.alive(target.id), true)
+  // dormant clears the individuals: no longer alive
+  s.run(5 * 60_000 + 5_000)
+  assert.equal(s.world.eco.alive(target.id), false)
+  // a retired individual is not alive
+  const s2 = await setup()
+  const p = s2.join('eco-a')
+  const t2 = s2.populated(p)
+  assert.equal(s2.world.ecoDevRetire(p.actor, { requestId: 1, encounterId: t2.id }, p.client).ok, true)
+  assert.equal(s2.world.eco.alive(t2.id), false)
+})
+
+test('F3 an individual that disappears under a reservation (server-side transition) ends it as vanished, nothing retired twice', async () => {
+  const s = await setup()
+  const a = s.join('eco-a')
+  const target = s.populated(a)
+  s.standNear(a, target.id)
+  s.engage(a, target.id)
+  // a server-side removal of the reserved individual (no client path exists: dev retire answers busy)
+  assert.equal(s.world.eco.retireVictory(target.id), true)
+  s.run(TICK)
+  assert.deepEqual(ended(a.client).map(e => [e.outcome, e.retired]), [['vanished', false]])
+  assert.equal(s.world.ecoBattles.isBusy(target.id), false)
+})
+
 // ── The REAL test-battle bundle through the whole reservation cycle (fixed seed 7) ──
 // Reproductions with a FIXED seed: in the sandbox the server draws a random seed per battle, so a
 // human reproduces the outcome kind, not these exact times. The species is forced (the bundle's

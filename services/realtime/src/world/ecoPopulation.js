@@ -88,7 +88,8 @@ export class EcoPopulation {
    * reconnection grace must not read "hidden" as "gone".
    */
   alive(encounterId) {
-    return Boolean(this.population && typeof encounterId === 'string' && this.population.areaOf(encounterId) !== null)
+    // The exact individual (not its namespace and area): retired, never spawned or cleared ones are not alive.
+    return Boolean(this.population && typeof encounterId === 'string' && this.population.exists(encounterId))
   }
 
   /** ECO-GAMEPLAY-2: the live, SHOWN individual with exactly this id (area, tile, species, group), or null. */

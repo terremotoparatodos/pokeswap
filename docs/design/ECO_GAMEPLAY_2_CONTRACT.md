@@ -161,3 +161,20 @@ Cualquier fallo es `not-your-battle` (o `no-battle`) **sin llamar al core**.
 **Callbacks viejos.** Toda operación sobre una reserva compara su `battleId` y su estado vigente. Un mensaje, socket o callback de un combate cerrado no puede afectar a otra reserva.
 
 **Fallo al crear el combate:** la autoridad se crea **antes** de registrar la reserva. Si falla, no queda reserva (`battle-unavailable`). Sin admisión no hay combate (`unavailable`).
+
+## 8. Correcciones tras la revisión independiente de `001197f` (F1–F3)
+
+Estas correcciones no cambian los parámetros provisionales ni el alcance.
+
+- **F1. El socket vigente es el del mapa autoritativo.**
+  - Acción y huida se aceptan solo desde el socket vigente del mapa de presencia (`clientForPlayer`) que además lleva la reserva. Hasta ahora bastaba con el socket guardado en la reserva.
+  - Si el nuevo socket del jugador no declara el protocolo ECO, o declara un protocolo de mundo viejo, la reserva queda **sin socket** en el momento en que entra. Se pausa y la gracia empieza a contar desde ahí. El socket anterior no alcanza el ledger y no recibe snapshots, ni siquiera antes de su `onLeave`.
+  - Se mantienen la reconexión ECO válida y la protección frente al `onLeave` tardío.
+- **F2. La gracia se comprueba al reanudar.**
+  - Antes de reanudar (por el `join` o por un engage del mismo encuentro), se compara el plazo con el reloj del servidor.
+  - En el límite (`≥ 15 000 ms`) o después, la reserva se libera en ese momento (`disconnected`, sin retirar) y no se reanuda, aunque todavía no haya pasado el siguiente tick.
+  - La tolerancia de 250 ms del tick solo afecta a cuándo se **publica** la liberación. No alarga el plazo para reconectar.
+- **F3. `alive` es la existencia exacta del individuo.**
+  - La población admitida expone `exists(id)`, un predicado de solo lectura y la única ampliación de su superficie: es verdadero solo si ese individuo exacto vive en el estado.
+  - Un individuo oculto porque su área está `idle` sigue vivo. Uno retirado, que nunca apareció o que se limpió al pasar el área a `dormant`, no.
+  - La visibilidad no sustituye a la existencia. El engage sigue exigiendo un individuo **mostrado**.

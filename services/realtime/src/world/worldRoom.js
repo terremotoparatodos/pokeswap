@@ -93,16 +93,19 @@ export class WorldRoom {
    * id, and every later check asks the server-side player data about that id.
    */
   join(client, options, auth) {
+    const playerId = auth?.kind === 'player' ? auth.userId : null
     if (!(Number.isInteger(options?.worldProtocol) && options.worldProtocol >= WORLD_PROTOCOL)) {
       this.outdated.add(client)
       this.metrics.outdatedJoins++
+      // ECO-GAMEPLAY-2: it is the player's socket now — a running battle loses its old one (paused).
+      if (playerId !== null) this.ecoBattles?.socketJoined(client, playerId, false)
       return
     }
-    const playerId = auth?.kind === 'player' ? auth.userId : null
     // ECO-GAMEPLAY-1: only a client that declared the ECO protocol is sent the ECO population.
     const eco = this.eco !== null && options?.ecoProtocol === ECO_PROTOCOL
     this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId, eco })
-    if (eco && playerId !== null) this.ecoBattles?.socketJoined(client, playerId)
+    // ECO-GAMEPLAY-2: the player's new socket. ECO: takes its battle over; otherwise the battle pauses.
+    if (playerId !== null) this.ecoBattles?.socketJoined(client, playerId, eco)
     if (playerId !== null) this.authority.newConnection(playerId)
     if (playerId !== null && this.playerData) void this.#sendPlayerState(client, playerId)
   }
@@ -244,13 +247,13 @@ export class WorldRoom {
   /** ECO-GAMEPLAY-2: one battle action; the controller is this transport's player. */
   ecoBattleAction(actor, payload, client) {
     if (!this.ecoBattles || !client || !this.clients.get(client)?.eco) return this.#ecoBattleRefused(client, this.ecoBattles ? 'client-outdated' : 'disabled', payload)
-    return this.ecoBattles.action(actor, payload, client)
+    return this.ecoBattles.action(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
   }
 
   /** ECO-GAMEPLAY-2: flee the test battle (released, nothing retired). */
   ecoFlee(actor, payload, client) {
     if (!this.ecoBattles || !client || !this.clients.get(client)?.eco) return this.#ecoBattleRefused(client, this.ecoBattles ? 'client-outdated' : 'disabled', payload)
-    return this.ecoBattles.flee(actor, payload, client)
+    return this.ecoBattles.flee(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
   }
 
   #ecoBattleRefused(client, reason, payload) {

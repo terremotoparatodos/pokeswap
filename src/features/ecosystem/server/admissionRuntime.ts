@@ -75,6 +75,12 @@ export interface AdmittedPopulation {
   view(areaId: string): PublicArea
   /** The area an encounter id names, or null when it is not an encounter id of this population. */
   areaOf(encounterId: string): string | null
+  /**
+   * ECO-GAMEPLAY-2 (read-only): this exact individual is alive in the population — shown or not.
+   * An idle area hides its individuals but keeps them; a retired, never-spawned or dormant-cleared
+   * one does not exist. Never true for a mere well-formed id of this namespace and area.
+   */
+  exists(encounterId: string): boolean
 }
 
 export type AdmitResult =
@@ -137,6 +143,11 @@ export function admitEcoPopulation(input: AdmitInput): AdmitResult {
     areaOf(encounterId) {
       const parts = encounterIdParts(encounterId)
       return parts && parts.namespace === state.namespace && areaIds.includes(parts.areaId) ? parts.areaId : null
+    },
+    exists(encounterId) {
+      const parts = encounterIdParts(encounterId)
+      if (!parts || parts.namespace !== state.namespace || !areaIds.includes(parts.areaId)) return false
+      return Object.values(state.nests).some(nest => nest.alive.some(encounter => encounter.id === encounterId))
     },
   }
   return { ok: true, population: Object.freeze(population) }

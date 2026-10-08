@@ -96,7 +96,9 @@ export class EcoBattles {
     if (this.status !== 'ready') return refuse('battle-unavailable', encounterId)
     if (!actor) return refuse('not-player', encounterId)
     if (client !== currentClient) return refuse('not-current-socket', encounterId)
-    const own = this.byPlayer.get(actor.id)
+    let own = this.byPlayer.get(actor.id)
+    // A paused reservation whose grace ran out (no tick has released it yet) is released now: it is not this player's any more.
+    if (own && this.#graceOver(own)) { this.#end(own, 'disconnected'); own = undefined }
     if (own) {
       if (own.encounterId !== encounterId) return refuse('already-battling', encounterId)
       // The same encounter again: the battle that exists, never a second one.
@@ -135,8 +137,10 @@ export class EcoBattles {
    * `world:eco-battle-action`: the core's TransportAction. Before the core (its ledger answers an
    * already-accepted actionId before authorising): player, current socket, active connected
    * reservation, same battleId, actionId prefixed by the player. The controller is the transport's.
+   * `currentClient`: the player's CURRENT socket in the authoritative presence map. A replaced socket
+   * is refused even before its onLeave, and even when the new socket did not declare the ECO protocol.
    */
-  action(actor, payload, client) {
+  action(actor, payload, client, currentClient) {
     const battleId = typeof payload?.battleId === 'string' ? payload.battleId.slice(0, 64) : null
     const actionId = typeof payload?.actionId === 'string' ? payload.actionId.slice(0, 96) : null
     const refuse = reason => {
@@ -148,7 +152,7 @@ export class EcoBattles {
     if (!actor) return refuse('not-your-battle')
     const reservation = this.byPlayer.get(actor.id)
     if (!reservation) return refuse('no-battle')
-    if (reservation.client === null || reservation.client !== client) return refuse('not-your-battle')
+    if (client !== currentClient || reservation.client === null || reservation.client !== client) return refuse('not-your-battle')
     if (payload?.battleId !== reservation.battleId) return refuse('not-your-battle')
     if (typeof payload.actionId !== 'string' || !payload.actionId.startsWith(`${actor.id}:`)) return refuse('not-your-battle')
     const result = reservation.battle.submit(actor.id, payload)
@@ -158,10 +162,10 @@ export class EcoBattles {
   }
 
   /** `world:eco-flee`: processed on receipt. After the end (or for another battle) it is a no-op. */
-  flee(actor, payload, client) {
+  flee(actor, payload, client, currentClient) {
     const intent = ecoFleeIntent(payload)
     const reservation = actor ? this.byPlayer.get(actor.id) : undefined
-    if (!intent || !reservation || reservation.battleId !== intent.battleId || reservation.client !== client) {
+    if (!intent || !reservation || reservation.battleId !== intent.battleId || client !== currentClient || reservation.client !== client) {
       client?.send(WORLD_MESSAGE.ECO_BATTLE, { battleId: intent?.battleId ?? null, events: [], result: { kind: 'rejected', reason: 'no-battle', actionId: null } })
       return false
     }
@@ -177,7 +181,7 @@ export class EcoBattles {
     for (const reservation of [...this.byPlayer.values()]) {
       if (reservation.state !== 'active') continue
       if (reservation.client === null) {
-        if (now - reservation.disconnectedAt >= ECO_DISCONNECT_GRACE_MS) this.#end(reservation, 'disconnected')
+        if (this.#graceOver(reservation, now)) this.#end(reservation, 'disconnected')
         continue
       }
       if (!this.population.alive(reservation.encounterId)) { this.#end(reservation, 'vanished'); continue }
@@ -193,10 +197,17 @@ export class EcoBattles {
     }
   }
 
-  /** A world socket joined. The owner's new socket takes over (the battle resumes on its snapshot). */
-  socketJoined(client, playerId) {
+  /**
+   * A socket of this player joined and is now its current one. An ECO socket takes the battle over
+   * (it resumes on its snapshot) — if the grace has not run out. Any other socket (no ECO protocol,
+   * or an outdated world protocol) leaves the battle with NO socket: paused, grace running from now,
+   * so the replaced socket can neither act nor receive anything before its own onLeave.
+   */
+  socketJoined(client, playerId, eco = true) {
     const reservation = playerId ? this.byPlayer.get(playerId) : undefined
-    if (reservation) this.#attach(reservation, client)
+    if (!reservation) return
+    if (eco) { this.#attach(reservation, client); return }
+    if (reservation.client !== null) { reservation.client = null; reservation.disconnectedAt = this.now() }
   }
 
   /** A world socket left. Only the owner's CURRENT socket pauses the battle and starts the grace. */
@@ -224,12 +235,27 @@ export class EcoBattles {
     return { status: this.status, active: this.active, ...this.metrics, refused: { ...this.metrics.refused }, ended: { ...this.metrics.ended }, refusedActions: { ...this.metrics.refusedActions } }
   }
 
+  /**
+   * The ECO socket `client` takes the reservation over. A paused one whose grace already ran out —
+   * even if no tick has released it yet — is released here instead (`disconnected`): a late return
+   * never rescues it. False when the reservation did not survive.
+   */
   #attach(reservation, client) {
-    if (reservation.client === client) return
+    if (reservation.client === client) return true
+    if (this.#graceOver(reservation)) {
+      this.#end(reservation, 'disconnected')
+      return false
+    }
     reservation.client = client
     reservation.disconnectedAt = null
     // Paused time is not battle time.
     reservation.lastAdvanceAt = this.now()
+    return true
+  }
+
+  /** Paused, and its grace (from the close of its last current socket) has run out. */
+  #graceOver(reservation, now = this.now()) {
+    return reservation.client === null && now - reservation.disconnectedAt >= ECO_DISCONNECT_GRACE_MS
   }
 
   /** The one terminal transition: closed and out of the indexes first, then its effects. */

@@ -5043,6 +5043,11 @@ function admitEcoPopulation(input) {
     areaOf(encounterId) {
       const parts = encounterIdParts(encounterId);
       return parts && parts.namespace === state.namespace && areaIds.includes(parts.areaId) ? parts.areaId : null;
+    },
+    exists(encounterId) {
+      const parts = encounterIdParts(encounterId);
+      if (!parts || parts.namespace !== state.namespace || !areaIds.includes(parts.areaId)) return false;
+      return Object.values(state.nests).some((nest) => nest.alive.some((encounter) => encounter.id === encounterId));
     }
   };
   return { ok: true, population: Object.freeze(population) };
