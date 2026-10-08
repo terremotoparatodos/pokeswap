@@ -1,6 +1,6 @@
 <template>
   <div class="eco-battle-backdrop">
-    <section class="eco-battle" role="dialog" aria-modal="true" aria-label="Combate de prueba">
+    <section ref="dialog" class="eco-battle" role="dialog" aria-modal="true" aria-label="Combate de prueba" tabindex="-1" @keydown="onKeydown">
       <p class="eco-battle__kicker">Combate de prueba · sandbox de desarrollo</p>
 
       <template v-if="view.phase === 'engaging'">
@@ -67,7 +67,7 @@
 // ECO-PRESENTATION-1 (experimental, development builds only): the test battle on screen — the
 // server's snapshot drawn with the bundled overworld sprites, the player's move choices and «Huir».
 // It decides nothing: every number comes from the server's snapshot; a choice is only a request.
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, onUnmounted, onUpdated, ref, watch } from 'vue'
 import type { BattleCatalogIndex } from '../../battle/catalog'
 import { maxPPOf } from '../../pokemon/model/instance'
 import { ECO_OUTCOME_TEXT, ecoClock, ecoRefusalText, ecoSpeciesName } from '../domain/ecoBattleText'
@@ -138,12 +138,54 @@ watch(() => props.view.phase === 'ended', ended => {
 }, { immediate: true })
 onUnmounted(() => { if (settleTimer) clearTimeout(settleTimer) })
 
+// ── Modal focus: the dialog takes the focus when it opens, keeps Tab / Shift+Tab inside, pulls back any
+// focus that lands outside it (the debug panel, the HUD) while it is open, and gives the focus back to
+// where it was — or releases it to the page — when it closes. The engine is paused by the view.
+const dialog = ref<HTMLElement | null>(null)
+let returnFocus: HTMLElement | null = null
+const focusables = () => [...(dialog.value?.querySelectorAll<HTMLElement>('button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])') ?? [])]
+const keepFocusInside = () => {
+  const el = dialog.value
+  if (el && !el.contains(document.activeElement)) el.focus()
+}
+const onFocusIn = (event: FocusEvent) => {
+  if (dialog.value && event.target instanceof Node && !dialog.value.contains(event.target)) dialog.value.focus()
+}
+function onKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Tab') return
+  const items = focusables()
+  if (!items.length) { event.preventDefault(); dialog.value?.focus(); return }
+  const first = items[0]
+  const last = items[items.length - 1]
+  const active = document.activeElement
+  if (event.shiftKey && (active === first || active === dialog.value)) { event.preventDefault(); last.focus() }
+  else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus() }
+}
+onMounted(() => {
+  returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  dialog.value?.focus()
+  document.addEventListener('focusin', onFocusIn)
+})
+// A phase change (request → battle → result) replaces the focused control: the focus stays in the dialog.
+onUpdated(keepFocusInside)
+onBeforeUnmount(() => {
+  document.removeEventListener('focusin', onFocusIn)
+  const target = returnFocus
+  returnFocus = null
+  // Back to where it was if that still exists outside the dialog (e.g. the canvas); the card's
+  // «Combatir» is gone by now, so then the focus is released to the page (the map keys still work).
+  if (target && target.isConnected && !dialog.value?.contains(target)) target.focus()
+  else if (dialog.value?.contains(document.activeElement)) (document.activeElement as HTMLElement).blur()
+})
+
 const remainingLabel = computed(() => { void tick.value; return ecoClock(props.session.remainingMs()) })
 const outcome = computed(() => (props.view.phase === 'ended' ? ECO_OUTCOME_TEXT[props.view.outcome] : { title: '', detail: '' }))
 </script>
 
 <style scoped>
-.eco-battle-backdrop { position: absolute; inset: 0; z-index: 14; display: grid; place-items: center; padding: 1rem; background: rgba(6, 10, 22, .55); }
+/* Above the debug panel (20) and the HUD menu (15), below the connection overlay (50): the dialog is modal. */
+.eco-battle-backdrop { position: absolute; inset: 0; z-index: 21; display: grid; place-items: center; padding: 1rem; background: rgba(6, 10, 22, .55); }
+.eco-battle:focus { outline: none; }
 .eco-battle { box-sizing: border-box; width: min(420px, 100%); max-height: calc(100% - 1rem); overflow: auto; padding: 1rem; border: 2px solid #3a5fb8; border-radius: 14px; background: rgba(16, 26, 54, .97); color: #fff; box-shadow: 0 12px 32px rgba(0,0,0,.45); }
 h2, p { margin: 0; }
 .eco-battle__kicker { color: #9fb2da; font-size: .72rem; text-transform: uppercase; letter-spacing: .06em; margin-bottom: .6rem; }

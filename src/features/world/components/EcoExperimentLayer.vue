@@ -1,5 +1,6 @@
 <template>
-  <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" />
+  <!-- While the battle dialog is open, the debug panel is inert (no focus, no clicks): the dialog is modal. -->
+  <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" :inert="battle.phase !== 'idle' || undefined" />
   <EcoEncounterCard
     v-if="selected && battle.phase === 'idle'"
     :encounter-id="selected.id"
@@ -65,7 +66,12 @@ const selectedLive = computed(() => currentArea.value?.encounters.find(e => e.id
 
 // Another area: whatever was selected there is not here (the server releases a battle left behind).
 watch(() => props.areaId, () => { selectedId.value = null })
-watch(() => battle.value.phase !== 'idle', open => emit('battle', open), { immediate: true })
+// A battle started by EITHER route (the card or the debug panel) ends the selection: back on the map
+// after the battle, no older card comes back by itself.
+watch(() => battle.value.phase !== 'idle', open => {
+  if (open) selectedId.value = null
+  emit('battle', open)
+}, { immediate: true })
 
 function engage(encounterId: string) {
   selectedId.value = null

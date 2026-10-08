@@ -10,6 +10,7 @@ import type { EcoArea, EcoBattleInfo } from '../../../../services/realtime/src/w
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { ClientBattleSnapshot } from '../../battle/authority'
 import type { PokemonInfo } from '../../wildlands/engine/actors'
+import { KeyboardInput } from '../../wildlands/engine/keyboard'
 import { SharedWorld } from '../state/sharedWorld'
 import EcoExperimentLayer from './EcoExperimentLayer.vue'
 
@@ -206,5 +207,107 @@ describe('ECO experiment layer · debug panel', () => {
     expect(sent).toEqual([[WORLD_MESSAGE.ECO_ENGAGE, { requestId: 1, encounterId: ID('soto', 0) }]])
     expect(screen().exists()).toBe(true)
     wrapper.unmount()
+  })
+})
+
+// ── Review of 0881332 (F1–F3): regressions ──
+
+describe('ECO experiment layer · review F1–F3', () => {
+  const engageResult = (world: SharedWorld, encounterId: string, requestId = 1) => world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId, encounterId, ok: true, battle })
+  const endBattle = (world: SharedWorld, encounterId: string) => world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: battle.battleId, encounterId, outcome: 'victory', retired: true, snapshot: snapshot(0, 2) })
+  const settle = () => new Promise(resolve => setTimeout(resolve, 750))
+
+  it('F1 a battle started from the debug panel clears the earlier map selection: back on the map, no old card returns', async () => {
+    const { world, layer, card, screen, wrapper } = setup()
+    layer.select(ID('soto', 0)); await flushPromises()
+    expect(card().exists()).toBe(true)
+    await wrapper.find('.eco-dev__toggle').trigger('click')
+    await wrapper.findAll('.eco-dev li').find(r => r.text().includes('soto:1:1'))!.findAll('button')[0].trigger('click')
+    engageResult(world, ID('soto', 1)); endBattle(world, ID('soto', 1)); await flushPromises()
+    await settle()
+    await screen().find('.eco-battle__primary').trigger('click')
+    expect(screen().exists()).toBe(false)
+    expect(card().exists()).toBe(false)
+    // and by the card's own route too
+    layer.select(ID('soto', 0)); await flushPromises()
+    await card().find('.eco-card__fight').trigger('click')
+    engageResult(world, ID('soto', 0), 2); endBattle(world, ID('soto', 0)); await flushPromises()
+    await settle()
+    await screen().find('.eco-battle__primary').trigger('click')
+    expect(card().exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('F2 Space on the focused «Combatir» belongs to the button, not to the map; with focus elsewhere the map keys still work', async () => {
+    const { layer, card, wrapper } = setup()
+    let interactions = 0
+    const keys = new KeyboardInput({ cycleLens: () => {}, toggleGrid: () => {}, skipTime: () => {}, interact: () => { interactions++ } })
+    keys.attach()
+    try {
+      layer.select(ID('soto', 0)); await flushPromises()
+      const fight = card().find('.eco-card__fight').element as HTMLButtonElement
+      fight.focus()
+      for (const key of [' ', 'Enter']) {
+        const down = new KeyboardEvent('keydown', { key, code: key === ' ' ? 'Space' : 'Enter', bubbles: true, cancelable: true })
+        fight.dispatchEvent(down)
+        expect(down.defaultPrevented, `${key} kept its native button activation`).toBe(false)
+      }
+      expect(interactions).toBe(0)
+      // focus outside the card's controls: the map keyboard is untouched (walk, interact)
+      fight.blur()
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', code: 'ArrowDown' }))
+      expect(keys.direction).toBe('down')
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowDown', code: 'ArrowDown' }))
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true, cancelable: true }))
+      expect(interactions).toBe(1)
+      expect(card().exists()).toBe(true)
+    } finally {
+      keys.detach()
+      wrapper.unmount()
+    }
+  })
+
+  it('F3 the battle dialog takes the focus, keeps Tab inside, blocks the debug panel, and gives the focus back on close', async () => {
+    const canvas = document.createElement('canvas')
+    canvas.tabIndex = 0
+    document.body.append(canvas)
+    try {
+      const { world, layer, card, screen, wrapper } = setup()
+      canvas.focus()
+      layer.select(ID('soto', 0)); await flushPromises()
+      ;(card().find('.eco-card__fight').element as HTMLButtonElement).click()
+      engageResult(world, ID('soto', 0)); await flushPromises()
+      const dialog = screen().element as HTMLElement
+      expect(dialog.contains(document.activeElement), 'focus moved into the dialog').toBe(true)
+      // the background is out of reach: inert debug panel, focus pulled back
+      const toggle = wrapper.find('.eco-dev__toggle').element as HTMLButtonElement
+      expect(wrapper.find('.eco-dev').attributes('inert')).toBeDefined()
+      toggle.focus()
+      expect(dialog.contains(document.activeElement)).toBe(true)
+      // Tab and Shift+Tab cycle inside
+      const buttons = [...dialog.querySelectorAll<HTMLButtonElement>('button:not([disabled])')]
+      buttons[buttons.length - 1].focus()
+      const tab = new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true })
+      buttons[buttons.length - 1].dispatchEvent(tab)
+      expect(tab.defaultPrevented).toBe(true)
+      expect(document.activeElement).toBe(buttons[0])
+      const back = new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true, bubbles: true, cancelable: true })
+      buttons[0].dispatchEvent(back)
+      expect(document.activeElement).toBe(buttons[buttons.length - 1])
+      // the result replaces the focused control: the focus stays in the dialog
+      endBattle(world, ID('soto', 0)); await flushPromises()
+      expect(screen().element.contains(document.activeElement)).toBe(true)
+      await settle()
+      await screen().find('.eco-battle__primary').trigger('click')
+      expect(screen().exists()).toBe(false)
+      expect(document.activeElement, 'back to where it was').toBe(canvas)
+      expect(wrapper.find('.eco-dev').attributes('inert')).toBeUndefined()
+      // no listener left behind: focus goes anywhere again
+      toggle.focus()
+      expect(document.activeElement).toBe(toggle)
+      wrapper.unmount()
+    } finally {
+      canvas.remove()
+    }
   })
 })

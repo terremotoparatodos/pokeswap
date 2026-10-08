@@ -1,5 +1,7 @@
 <template>
-  <section class="eco-card" role="dialog" :aria-label="`${name}, Pokémon salvaje`">
+  <!-- Space and Enter on the card's own controls belong to them, not to the map's keyboard (which listens on
+       window and would otherwise turn Space into «interact»); with focus elsewhere the map still walks. -->
+  <section class="eco-card" role="dialog" :aria-label="`${name}, Pokémon salvaje`" @keydown.space.stop @keydown.enter.stop>
     <header>
       <EcoSprite :species-id="speciesId" facing="down" :size="64" :label="name" />
       <div class="eco-card__title">
