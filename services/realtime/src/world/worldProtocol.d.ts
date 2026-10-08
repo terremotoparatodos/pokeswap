@@ -1,5 +1,7 @@
 import type { WorkKind } from './resourceLayout.js'
 import type { WorkerStand } from './workPlacement.js'
+// ECO-GAMEPLAY-2: types only (the battle core's own wire types); the service never imports the core.
+import type { AuthorityEventEnvelope, AuthoritySubmitResult, ClientBattleSnapshot, JoinAck } from '../../../../src/features/battle/authority'
 
 export declare const WORLD_PROTOCOL: 3
 /** One attempt of a work action and one swing of the worker (SKILLS PROB-2). */
@@ -10,6 +12,9 @@ export declare const WORLD_MESSAGE: Readonly<{
   WORK: 'world:work'
   CANCEL: 'world:cancel'
   ECO_DEV_RETIRE: 'world:eco-dev-retire'
+  ECO_ENGAGE: 'world:eco-engage'
+  ECO_BATTLE_ACTION: 'world:eco-battle-action'
+  ECO_FLEE: 'world:eco-flee'
   SNAPSHOT: 'world:snapshot'
   BATCH: 'world:batch'
   WORK_RESULT: 'world:work:result'
@@ -18,6 +23,9 @@ export declare const WORLD_MESSAGE: Readonly<{
   WILD: 'world:wild'
   ECO: 'world:eco'
   ECO_DEV_RETIRE_RESULT: 'world:eco-dev-retire-result'
+  ECO_ENGAGE_RESULT: 'world:eco-engage-result'
+  ECO_BATTLE: 'world:eco-battle'
+  ECO_BATTLE_END: 'world:eco-battle-end'
   PLAYER_STATE: 'player:state'
 }>
 
@@ -40,6 +48,8 @@ export interface EcoEncounter {
   readonly speciesId: number
   readonly tx: number
   readonly ty: number
+  /** ECO-GAMEPLAY-2: reserved for someone's test battle (absent from an older server). */
+  readonly busy?: boolean
 }
 
 /** The whole public population of one area. `not-simulated`: nobody there long enough, or no population in this area. */
@@ -59,10 +69,62 @@ export interface EcoRetireResult {
   readonly requestId: number | null
   readonly encounterId: string | null
   readonly ok: boolean
-  readonly reason?: 'disabled' | 'invalid' | 'not-alive' | 'other-area' | 'not-player' | 'unavailable' | 'client-outdated'
+  readonly reason?: 'disabled' | 'invalid' | 'not-alive' | 'other-area' | 'not-player' | 'unavailable' | 'client-outdated' | 'busy'
 }
 
 export declare function ecoRetireIntent(value: unknown): { requestId: number; encounterId: string } | null
+
+// ── ECO-GAMEPLAY-2 (experimental, development only): test battles against one encounter ──
+
+export declare function ecoEngageIntent(value: unknown): { requestId: number; encounterId: string } | null
+export declare function ecoFleeIntent(value: unknown): { battleId: string } | null
+
+export type EcoEngageRefusal =
+  | 'invalid' | 'unavailable' | 'battle-unavailable' | 'not-player' | 'not-current-socket' | 'already-battling'
+  | 'not-alive' | 'other-area' | 'too-far' | 'busy' | 'client-outdated' | 'disabled'
+
+/** A running test battle as its owner receives it. The player's side is a SYNTHETIC fixture. */
+export interface EcoBattleInfo {
+  readonly battleId: string
+  readonly speciesId: number
+  readonly fixture: true
+  readonly fixtureLabel: string
+  readonly joinAck: JoinAck
+  readonly snapshot: ClientBattleSnapshot
+  /** Battle time left (it only passes while the owner is connected). */
+  readonly expiresInMs: number
+}
+
+export interface EcoEngageResult {
+  /** null for a resume the server sends after a snapshot. */
+  readonly requestId: number | null
+  readonly encounterId: string | null
+  readonly ok: boolean
+  readonly reason?: EcoEngageRefusal
+  readonly resumed?: true
+  readonly battle?: EcoBattleInfo
+}
+
+/** Refusals of an action or a flee BEFORE the core (no snapshot is sent with them). */
+export type EcoBattleRefusal = 'not-your-battle' | 'no-battle' | 'client-outdated' | 'disabled'
+
+export interface EcoBattleMessage {
+  readonly battleId: string | null
+  readonly snapshot?: ClientBattleSnapshot
+  readonly events: readonly AuthorityEventEnvelope[]
+  readonly result?: AuthoritySubmitResult | { readonly kind: 'rejected'; readonly reason: EcoBattleRefusal | 'NOT_ALLOWED_IN_SANDBOX'; readonly actionId: string | null }
+}
+
+export type EcoBattleOutcome = 'victory' | 'defeat' | 'draw' | 'fled' | 'expired' | 'disconnected' | 'left-area' | 'vanished'
+
+export interface EcoBattleEnd {
+  readonly battleId: string
+  readonly encounterId: string
+  readonly outcome: EcoBattleOutcome
+  /** True only for the victory that actually retired the individual. */
+  readonly retired: boolean
+  readonly snapshot: ClientBattleSnapshot
+}
 
 export interface WildMessage {
   readonly now: number

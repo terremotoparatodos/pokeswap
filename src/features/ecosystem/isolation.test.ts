@@ -12,7 +12,8 @@
 //      the generated realtime bundles. The only allowed importers are the
 //      module's own files and tests, three dev scripts and — ECO-GAMEPLAY-1 —
 //      ONE realtime file: the experimental population adapter, which imports the
-//      admission bundle only. The bundle generators reach their entries by path
+//      admission bundle only; and — ECO-GAMEPLAY-2 — the experimental battle
+//      adapter, which imports the test-battle bundle only. The bundle generators reach their entries by path
 //      (esbuild), not by import.
 //
 // Replaces encounters/isolation.test.ts and population/isolation.test.ts, whose
@@ -80,9 +81,13 @@ const ALLOWED_OUTSIDE = new Set([
   // ECO-GAMEPLAY-1: the experimental population adapter (dev-only mode, refused in production). It is the
   // ONLY product file allowed in, and only for the admission bundle (checked below).
   fwd(join(ROOT, 'services/realtime/src/world/ecoPopulation.js')),
+  // ECO-GAMEPLAY-2: the experimental battle adapter, only for the test-battle bundle (checked below).
+  fwd(join(ROOT, 'services/realtime/src/world/ecoBattles.js')),
 ])
 const ADAPTER = fwd(join(ROOT, 'services/realtime/src/world/ecoPopulation.js'))
 const ADMISSION_BUNDLE = `${BUNDLE_DIR}/admission.generated.js`
+const BATTLE_ADAPTER = fwd(join(ROOT, 'services/realtime/src/world/ecoBattles.js'))
+const BATTLE_BUNDLE = `${BUNDLE_DIR}/encounterBattle.generated.js`
 
 function outsideImporters(files: readonly string[], read: (file: string) => string): string[] {
   return files.filter(file => !file.startsWith(`${ECOSYSTEM}/`) && !ALLOWED_OUTSIDE.has(file) && importSpecifiers(file, read(file)).some(spec => {
@@ -173,6 +178,15 @@ describe('nothing outside the ecosystem imports it or its bundle', () => {
     // negative controls: the bare-engine bundle or a source module would be flagged
     expect(targets("import { tickPopulation } from './ecosystem/encounters.generated.js'")).not.toEqual([ADMISSION_BUNDLE])
     expect(targets("import { createPopulation } from '../../../../src/features/ecosystem/population/engine'")).not.toEqual([ADMISSION_BUNDLE])
+  })
+
+  it('the battle adapter reaches the ecosystem only through the test-battle bundle', () => {
+    const targets = (source: string) => importSpecifiers(BATTLE_ADAPTER, source).map(spec => resolveSpecifier(BATTLE_ADAPTER, spec, ROOT))
+      .filter((target): target is string => target !== null && (target.startsWith(`${ECOSYSTEM}/`) || target.startsWith(`${BUNDLE_DIR}/`)))
+    expect(targets(readFileSync(BATTLE_ADAPTER, 'utf8'))).toEqual([BATTLE_BUNDLE])
+    // negative controls: the admission bundle or a source module would be flagged
+    expect(targets("import { admitEcoPopulation } from './ecosystem/admission.generated.js'")).not.toEqual([BATTLE_BUNDLE])
+    expect(targets("import { prepareEncounterBattles } from '../../../../src/features/ecosystem/server/encounterBattleRuntime'")).not.toEqual([BATTLE_BUNDLE])
   })
 })
 

@@ -65,7 +65,8 @@ test('two clients see the same authoritative population, with several individual
   assert.ok([...bySpecies.values()].some(ids => ids.length >= 2), 'several individuals of one species')
   assert.equal(new Set(seenA.encounters.map(e => e.id)).size, seenA.encounters.length, 'every individual has its own id')
   for (const e of seenA.encounters) {
-    assert.deepEqual(Object.keys(e).sort(), ['groupId', 'id', 'speciesId', 'tx', 'ty'])
+    assert.deepEqual(Object.keys(e).sort(), ['busy', 'groupId', 'id', 'speciesId', 'tx', 'ty'])
+    assert.equal(e.busy, false, 'ECO-GAMEPLAY-2: nobody is battling it')
     assert.match(e.id, /^eco-[0-9a-z]+-[0-9a-f]{8}:pradera:[a-z0-9-]+:\d+:\d+$/, 'namespace, area, nest, generation, member: no species, no owner')
   }
   assert.ok(seenA.encounters.length <= 18, 'the provisional area maximum')
