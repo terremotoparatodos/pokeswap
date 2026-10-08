@@ -21,7 +21,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
-    <component :is="EcoDevPanel" v-if="EcoDevPanel" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" />
+    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" @battle="(open: boolean) => (ecoBattleOpen = open)" />
     <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"
@@ -178,8 +178,12 @@ import type { PerfCapture } from '../perf/usePerfCapture'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
-// ECO-GAMEPLAY-1: the test-retirement panel exists only in a development build of the experiment.
-const EcoDevPanel = ECO_EXPERIMENT ? defineAsyncComponent(() => import('../../world/components/EcoDevPanel.vue')) : null
+// ECO-GAMEPLAY-1/2, ECO-PRESENTATION-1: the experiment's interface (map selection card, test-battle
+// screen, secondary debug panel) exists only in a development build of the experiment.
+const EcoExperimentLayer = ECO_EXPERIMENT ? defineAsyncComponent(() => import('../../world/components/EcoExperimentLayer.vue')) : null
+const ecoLayerRef = shallowRef<{ select(actorId: string): boolean; dismissCard(): void } | null>(null)
+/** A test battle is on screen: the map stops taking movement, like any other open panel. */
+const ecoBattleOpen = ref(false)
 const performanceMode = import.meta.env.VITE_PERF === 'on'
 const PlaytestPerformanceHud = isPlaytest || performanceMode
   ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))
@@ -420,7 +424,7 @@ const hidden = ref(document.visibilityState === 'hidden')
 
 watchEffect(() => {
   if (isPlaytest) playtest.setSurface(playtestSurface.value?.kind ?? null)
-  game.value?.setPaused(covered.value || plazaOpen.value || professionOpen.value)
+  game.value?.setPaused(covered.value || plazaOpen.value || professionOpen.value || ecoBattleOpen.value)
   game.value?.setVisibilityPaused(hidden.value)
   game.value?.setReducedMotion(reduceMotion.value)
 })
@@ -510,7 +514,8 @@ onMounted(async () => {
   const created = new WildlandsGame(canvasRef.value, {
     pokedex: pokedex.value, onHud, spawn, startArea,
     onEnterBuilding: (_building, feature) => openFeature(feature, 'door'),
-    onInspect: hit => plazaRef.value?.inspect(hit),
+    // ECO-PRESENTATION-1: an ECO individual opens its own card (by encounter id); anything else as before.
+    onInspect: hit => { if (!(hit.kind === 'wild' && ecoLayerRef.value?.select(hit.actorId))) plazaRef.value?.inspect(hit) },
     onWorldObject: hasWorldProviders ? target => worldProbes.inspect(target) : undefined,
     isWorldObject: hasWorldProviders ? target => worldProbes.isWorldObject(target) : undefined,
     placedObjectsIn: hasWorldProviders ? area => worldProbes.placedObjects(area) : undefined,
