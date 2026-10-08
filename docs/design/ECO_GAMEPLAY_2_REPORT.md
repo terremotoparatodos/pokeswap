@@ -224,3 +224,86 @@ Para cada fila conviene guardar una captura de A y de B, la hora, el id corto y 
   - la decisión de retirar el roster horario.
 
 **Candidato congelado:** `feat/eco-gameplay-2-0.3` en el commit de este reporte. Sin push ni merge, sin Cloud ni Supabase, sin tocar `pokeswap-int1` ni el entorno oscuro.
+
+## 9. Delta tras la revisión independiente de `001197f` (FINDINGS F1–F3)
+
+La revisión independiente de `001197fa` dio FINDINGS (F1, F2 bloqueantes; F3 defecto técnico). El usuario autorizó corregir F1–F3 dentro del alcance actual, más un commit aparte de legibilidad. El contrato registra las correcciones en su §8.
+
+| Commit | Contenido |
+|---|---|
+| `32a6c22` | F1, F2 y F3, con sus regresiones. Regenera el bundle de admisión (`exists`). |
+| `b6b5938` | Solo la legibilidad de los botones deshabilitados «Lejos» y «Ocupado». |
+| (este) | Este delta del reporte. |
+
+### 9.1 Reproducción previa
+
+Los fallos se reprodujeron sobre una exportación aislada de `001197f` (`git archive`) en `D:\Claude-ECO2-REPRO-001197fa-20261008\code`, con Node 22.23.2 y sin tocar las evidencias originales:
+- se usaron las sondas originales de la revisión, sin cambios;
+- su salida va a un directorio propio, `evidence-001197fa`;
+- resultado: R02, R03 y R09 **fallan** y las otras seis pasan, igual que en la revisión.
+
+### 9.2 Correcciones
+
+- **F1, socket vigente.**
+  - Acción y huida exigen que el socket sea el vigente del mapa autoritativo (`clientForPlayer`) **y** el de la reserva.
+  - Si entra un socket del jugador sin protocolo ECO (o con un protocolo de mundo viejo), la reserva queda sin socket en ese momento: pausada, con la gracia contando desde ahí.
+  - El socket reemplazado no alcanza el ledger ni recibe snapshots, ni siquiera antes de su `onLeave`.
+  - Se conservan la reconexión ECO válida y la protección frente al `onLeave` tardío.
+- **F2, gracia al reanudar.**
+  - La gracia se comprueba antes de borrar `disconnectedAt`, tanto al entrar el socket como en el engage del mismo encuentro.
+  - En `≥ 15 000 ms` la reserva se libera en ese momento (`disconnected`, sin retirar), aunque no haya pasado un tick.
+  - El tick usa el mismo predicado.
+- **F3, existencia exacta.**
+  - La población admitida suma `exists(id)`, de solo lectura. Es el único cambio de su superficie: comprueba el individuo exacto en el estado.
+  - `alive` lo usa. Un individuo oculto porque su área está `idle` sigue vivo; uno retirado, inexistente o limpiado al pasar a `dormant`, no.
+  - El engage sigue exigiendo un individuo mostrado.
+
+### 9.3 Evidencia
+
+- **Sondas originales R01–R09**, sin relajar ninguna aserción:
+  - sobre una exportación del commit `b6b5938`: **9/9**, salida `0`;
+  - salida en `D:\Claude-ECO2-REPRO-001197fa-20261008\evidence-b6b5938e…` y log en `probes-b6b5938e….txt`.
+- **Regresiones nuevas** en `ecoBattles.test.js`:
+
+  | Caso | Qué cubre |
+  |---|---|
+  | F1 | Reemplazo sin ECO y reemplazo con protocolo viejo. Replay aceptado, acción nueva y huida rechazados sin llegar al ledger. Pausa inmediata, sin snapshots al socket viejo. Su `onLeave` tardío no cambia nada. Un socket ECO dentro de la gracia reanuda. |
+  | F2 | Reconexión a límite −1 ms (reanuda), a límite exacto y a límite +1 ms (libera en el acto), sin tick entre medio. También el engage tras la gracia: combate nuevo, nunca el vencido. |
+  | F3 | `alive` con el individuo mostrado, oculto (`idle`), limpiado (`dormant`), retirado, con generación o miembro inexistentes y con otro namespace. Además, la desaparición bajo una reserva termina como `vanished`. |
+  | `admissionBundle.test.ts` | La superficie suma `exists`, que se prueba con mostrado, oculto, dormido, retirado e inexistente. |
+
+  Las cuatro pruebas nuevas de `ecoBattles.test.js` **fallan** con el código de `001197f`: se ejecutaron sobre su exportación y dieron 16 aprobadas y 4 fallidas. Con la corrección pasan.
+
+### 9.4 Gates (Node 22.23.2)
+
+| Gate | Resultado |
+|---|---|
+| Realtime completo | 645 pruebas: 611 pasan, 0 fallan, 34 omitidas (condicionales previas). |
+| vitest completo | 235 archivos, 2213/2213. |
+| `vue-tsc` | exit 0. |
+| eslint en `src/features/world`, `src/features/ecosystem` y `scripts/ecosystem` | exit 0. |
+| `--check` de los bundles `battle`, `admission`, `encounters` y `skills` | Todos al día. |
+| Build de producción con `VITE_ECO_EXPERIMENT=on` | 193 fuentes. La única ECO sigue siendo `ecoPopulace.ts`, inerte. 0 apariciones de `EcoBattlePanel`, `EcoBattleSession`, `EcoDevPanel`, «Combatir», «Combate de prueba», «fixture de prueba», `prepareEncounterBattles` y `ecoProtocol`. |
+
+**No se repitió:** el e2e de red (`eco-battle-e2e.mjs`) necesita levantar el realtime aislado, y esta corrección no autorizó procesos nuevos. La revisión tampoco lo usó como evidencia.
+
+### 9.5 Legibilidad (commit aparte)
+
+Antes, los botones deshabilitados de `EcoDevPanel.vue` usaban el estilo del navegador con `opacity: 0.5` y casi no se veían. Ahora tienen texto `#c9d3da`, fondo `#34404b` y borde `#5a6874`.
+- No cambian el comportamiento, la distribución ni ningún otro estilo.
+- Se comprobó en el navegador con una maqueta estática que usa los colores exactos del panel (antes y después).
+
+El pulido gráfico restante de los paneles queda pendiente, por separado y sin rediseño.
+
+### 9.6 Smoke humano (registrado)
+
+El usuario aprobó el smoke de dos ventanas el 2026-10-07 sobre `001197f`. Es una **aprobación funcional**, no del acabado gráfico.
+
+| Caso | Resultado |
+|---|---|
+| Combate, huida, disputa entre dos jugadores, victoria, derrota y desconexión | Funcionaron correctamente. |
+| Vencimiento | **No observado por el humano.** No se registra como smoke aprobado; queda respaldado solo por la prueba técnica (§4.1, Metapod con semilla 7 → `expired` a 120 000 ms, y A08/A08b). |
+
+Las correcciones F1–F3 afectan a fronteras de socket y tiempo que el smoke humano no ejercita. Las cubren las sondas y las regresiones de §9.3.
+
+**Candidato congelado para revisar el delta:** `feat/eco-gameplay-2-0.3` en el commit de este reporte. Sin push ni merge, sin Cloud ni Supabase, y sin cambios en entornos activos.
