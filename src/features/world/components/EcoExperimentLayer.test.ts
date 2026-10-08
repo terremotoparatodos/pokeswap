@@ -297,3 +297,18 @@ describe('ECO experiment layer · review F1–F3', () => {
     wrapper.unmount()
   })
 })
+
+describe('ECO experiment layer · framing', () => {
+  it('the panel stands in the bottom corner away from the wild Pokémon, so it never covers it', async () => {
+    for (const [tx, side] of [[0, 'left'], [5, 'right']] as const) {
+      const { world, layer, card, screen, wrapper } = setup()
+      await wrapper.setProps({ tx })
+      layer.select(ID('soto', 0)); await flushPromises() // the encounter at tx 2
+      await card().find('.eco-card__fight').trigger('click')
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID('soto', 0), ok: true, battle })
+      await flushPromises()
+      expect(screen().classes().includes('ebp--left'), `trainer at ${tx}, wild at 2`).toBe(side === 'left')
+      wrapper.unmount()
+    }
+  })
+})

@@ -13,7 +13,7 @@
   />
   <EcoBattlePanel
     v-if="battle.phase !== 'idle'"
-    :session="session" :view="battle" :catalog="catalog" :pokedex-name="pokedexName" :return-focus="returnFocus"
+    :session="session" :view="battle" :catalog="catalog" :pokedex-name="pokedexName" :return-focus="returnFocus" :side="panelSide"
   />
 </template>
 
@@ -90,6 +90,19 @@ onMounted(() => { if (props.overlaySlot) props.overlaySlot.current = battleWorld
 onUnmounted(() => {
   if (props.overlaySlot?.current === battleWorld.overlay) props.overlaySlot.current = null
   stopEco(); stopBattle(); stopEvents(); session.dispose()
+})
+
+/**
+ * Framing: the panel stands on the side away from the wild Pokémon, so an encounter inside the
+ * engage range is never under it (measured in the sandbox: one at +5,+2 tiles fell inside the
+ * bottom-right panel). The trainer cannot move during the battle, so this is fixed per battle.
+ */
+const panelSide = computed((): 'left' | 'right' => {
+  const view = battle.value
+  if (view.phase !== 'battle' && view.phase !== 'ended' && view.phase !== 'engaging') return 'right'
+  const wild = wildTiles.get(view.encounterId ?? '')
+  const player = props.player?.() ?? { tx: props.tx, ty: props.ty }
+  return wild && wild.tx > player.tx ? 'left' : 'right'
 })
 
 /** The tapped individual: its id and species as they were when tapped (kept if it leaves the list). */

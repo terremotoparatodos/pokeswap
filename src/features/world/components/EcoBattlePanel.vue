@@ -1,7 +1,7 @@
 <template>
   <!-- Not modal: the battle is in the world; this panel only carries the choices and the words.
        Space/Enter on its controls belong to them, never to the map (ECO-PRESENTATION-1 F2). -->
-  <section ref="root" class="ebp" role="region" aria-label="Combate de prueba" tabindex="-1" @keydown.space.stop @keydown.enter.stop>
+  <section ref="root" class="ebp" :class="{ 'ebp--left': side === 'left' }" role="region" aria-label="Combate de prueba" tabindex="-1" @keydown.space.stop @keydown.enter.stop>
     <p class="ebp-kicker">Combate de prueba · sandbox</p>
 
     <template v-if="view.phase === 'engaging'">
@@ -77,6 +77,8 @@ const props = defineProps<{
   pokedexName?: (speciesId: number) => string | null
   /** Where the focus was when the battle was asked for (the card's or the debug panel's button). */
   returnFocus?: HTMLElement | null
+  /** Which bottom corner: away from the wild Pokémon (framing). */
+  side?: 'left' | 'right'
 }>()
 
 const root = ref<HTMLElement | null>(null)
@@ -157,6 +159,8 @@ onBeforeUnmount(() => {
   color: #e8eeff; font-size: 0.74rem; box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
 }
 .ebp:focus { outline: none; }
+/* Bottom-left, above the Skills and Chat buttons. */
+.ebp--left { right: auto; left: 12px; bottom: 7.5rem; }
 .ebp-kicker { margin: 0 0 6px; color: #9fb2da; font-size: 0.62rem; letter-spacing: 0.06em; text-transform: uppercase; }
 .ebp-side { padding: 5px 6px; border: 1px solid #222d4c; border-radius: 8px; background: #0d1426; }
 .ebp-side + .ebp-side { margin-top: 5px; }
