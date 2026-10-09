@@ -222,3 +222,83 @@ Lo demás de §1–§5 quedó acreditado por la revisión.
 - Sin push, merge, túneles ni sandbox activo.
 - El plan de playtest privado sigue sin seguimiento en el checkout principal y no forma parte de estos commits; no autoriza publicar ni integrar.
 - El smoke humano con dos ventanas sigue pendiente.
+
+## 7. Cierre de `4cb773d`: S1 residual y clasificación de reintentos del e2e (2026-10-09)
+
+**Revisión:** `ECO-BATTLE-SPECTATORS-1-CLOSURE-4cb773d.md`, FINDINGS.
+- **F1, S1 residual:** el snapshot y la vista fresca podían llegar antes del cambio visible de área; la escena quedaba oculta hasta otro mensaje.
+- **F2:** el e2e trataba una recepción mutua perdida como «combate demasiado corto» y reintentaba.
+- S2, los casos originales de S1 y C1 quedaron acreditados.
+
+| Commit | Qué |
+|---|---|
+| `e506086` | F1 y sus regresiones |
+| `555a0a6` | F2 y el control negativo |
+| (este commit) | Este apartado |
+
+**Reproducción propia antes de corregir** (`4cb773d`, scripts del revisor copiados fuera de su carpeta y sin modificar):
+- **Matriz de barrera vitest:** 3 de 8 fallan (snapshot primero en el cruce aceptado, en el rechazado y en el regreso), con 0 barras.
+- **Barrera en Chrome nativo:** los tres órdenes fallan (0 de 4 lecturas).
+
+**F1, corrección.** `setViewArea` notifica a sus suscriptores en **cada** cambio del área visible. Antes solo lo hacía si descartaba algo. Así, lo que ya se recibió tras el snapshot del área que ahora se ve aparece de inmediato, aunque sea un combate pausado que no vuelve a emitir. La limpieza inmediata y el rechazo del área dejada hasta el próximo snapshot no cambian.
+
+**Regresiones** (`EcoExperimentLayer.spectators.test.ts`, verificadas sobre lo que recibe el renderer, no sobre `list()`):
+
+| Caso | `4cb773d` | Con el arreglo |
+|---|---|---|
+| Snapshot y vista fresca de un combate **pausado** antes del cambio visible | Falla | Pasa |
+| Cruce rechazado con snapshot de Pradera antes de la reversión visible | Falla | Pasa |
+| Control: orden inverso (cambio visible primero) | Pasa | Pasa |
+| Control: mensajes atrasados del área dejada, antes y después del snapshot nuevo | Pasa | Pasa |
+
+**F2, corrección del e2e.**
+- **Sin reintentos en el ruteo.** Ambos dueños se acercan primero y reservan uno tras otro. La recepción mutua se lee del **inicio** de cada combate (seq 1, enviado al reservar, dure lo que dure). Si falta, la espera vence y es **FAIL**: nunca se reintenta.
+- **Escenario largo y reproducible, sin tocar el balance.** Cada dueño elige Doble Equipo (#104, un movimiento legal del fixture que no hace daño) con el intent normal de acción. En las corridas 7–9, sin ningún reintento.
+- **Reintentos restantes:** son acotados y quedan registrados en `report.retries`. Solo valen ante una razón que dio el servidor:
+  - un fin comunicado al dueño (`world:eco-battle-end`) antes de poder mostrar el paso, en la llegada de D, la pausa o el viaje a la cueva;
+  - un engage rechazado por posición o disponibilidad (`too-far`, `not-alive`, `busy`).
+
+  Cualquier otra causa (mensaje faltante, timeout o infraestructura) es FAIL.
+- **Ids propios por corrida.** Las corridas 4–6 fallaron con `already-battling`: heredaban la reserva en gracia de una corrida anterior interrumpida con los mismos ids. Fue un FAIL correcto que quedó como evidencia.
+- **Control negativo `--drop <receptor>:<dueño>`.** El receptor descarta, desde el primero, todos los mensajes públicos del primer combate de ese dueño. Es inyección de fallos solo en el arnés; servidor y producto intactos.
+
+**Corridas con el script final** (`D:\Claude-SPECT-E2E3-evidence`; realtime aislado sobre una exportación de `e506086` con el script final):
+
+| Corrida | Resultado |
+|---|---|
+| `run7`–`run9` | **3/3 PASS**, `retries: []` |
+| `negative-a-b-v3` (A pierde el primer combate de B) | **FAIL** exit 1, «timed out waiting for every viewer to receive both battles' start (a lost public receipt fails, it is not retried)»; descartó seq 1–4; `retries: []` |
+| `negative-c-a-v3` (C pierde el primer combate de A) | **FAIL** exit 1, mismo mensaje; descartó seq 1–4; `retries: []` |
+
+Los intentos anteriores también se conservan:
+- `run1`–`run3`: PASS, con ids compartidos.
+- `negative-*` y `-v2`: uno falló primero por un engage rechazado sin motivo registrado, lo que llevó a registrarlo; otro, por la reserva heredada.
+- `run4`–`run6`: FAIL por la reserva heredada.
+
+**Verificación sobre `555a0a6`:**
+
+| Comprobación | Resultado |
+|---|---|
+| Matriz de barrera original, sin modificar | **6/8**: los tres órdenes de F1 ya muestran la escena |
+| Variante de la matriz con ids consistentes | **8/8**; sobre `4cb773d` falla en los mismos 3 casos de F1 |
+| Barrera en Chrome nativo | `pass: true` |
+| Fronteras S1/S2 originales | 2/2 |
+| Renderer nativo de espectadores | `pass: true` |
+| C1 nativo del dueño | `pass: true` |
+| Estado y capa de espectadores | 20/20 |
+| `vue-tsc` | exit 0 |
+| eslint del delta | exit 0 |
+| Build de producción con `VITE_ECO_EXPERIMENT=on` | Las mismas 193 fuentes que `a675b0e`; ninguna aparición del espectador; solo la constante `world:eco-battle-public` |
+
+Sobre la matriz original:
+- Los dos casos que siguen fallando lo hacen en la aserción de rótulos: esperan `[]` y obtienen «en combate».
+- En esos casos la vista fresca cacheada nombra un individuo que no está en la lista (`pradera:individual`), mientras el área lista a `THEIRS` como ocupado sin combate informado. «en combate» sobre un ocupado sin escena es el respaldo D1 aprobado.
+- En `4cb773d` esos casos fallaban antes, en las barras.
+- La variante (`review-snapshot-barrier.consistent-ids.test.ts`, en la evidencia) cambia solo ese id por el ocupado, como lo enviaría el servidor, y conserva todas las aserciones.
+
+**Precisión sobre §6 (los «cero pares de B»).** El FACT de §6 describe **solo** la corrida de diagnóstico `debug1`. No explica todos los ceros históricos sobre `3decc3d`: por ejemplo, el `run5` anterior tuvo B #187, cero pares y desenlace `fled`. Esos reportes no guardan los payloads necesarios para reconstruirlos. Las corridas actuales prueban sus propios escenarios, no la causa retrospectiva.
+
+**Candidato congelado:** `feat/eco-battle-spectators-0.3` en el commit que agrega este apartado.
+- Evidencia en `D:\Claude-SPECT-REPRO2-evidence` y `D:\Claude-SPECT-E2E3-evidence`.
+- Sin push, merge, túneles ni servidores activos.
+- El smoke humano con dos ventanas sigue pendiente.
