@@ -14,6 +14,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { Client } from '@colyseus/sdk'
+import { isWalkable } from '../../services/realtime/src/world/navigation.js'
 import { ECO_ENGAGE_RANGE, ECO_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL } from '../../services/realtime/src/world/worldProtocol.js'
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : fallback }
@@ -53,7 +54,35 @@ async function until(predicate, timeoutMs, what) {
 const encounterOf = (p, id) => p.state.eco?.encounters.find(e => e.id === id) ?? null
 const distance = (p, e) => Math.max(Math.abs(p.state.self.tx - e.tx), Math.abs(p.state.self.ty - e.ty))
 
-/** Walks toward the (moving) encounter until `within` tiles, greedily, sidestepping when blocked. */
+const STEPS = Object.freeze({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] })
+
+/** The first step of a shortest walkable path (the server's own walkability) to a tile `goal` accepts. */
+function firstStep(from, goal, limit = 40_000) {
+  const key = (x, y) => `${x},${y}`
+  const seen = new Map([[key(from.tx, from.ty), null]])
+  const queue = [[from.tx, from.ty]]
+  for (let i = 0; i < queue.length && i < limit; i++) {
+    const [x, y] = queue[i]
+    if (goal(x, y)) {
+      let at = key(x, y), step = null
+      while (seen.get(at)) { step = seen.get(at); at = step.from }
+      return step?.direction ?? null
+    }
+    for (const [direction, [dx, dy]] of Object.entries(STEPS)) {
+      const nx = x + dx, ny = y + dy
+      if (seen.has(key(nx, ny)) || !isWalkable('pradera', nx, ny)) continue
+      seen.set(key(nx, ny), { from: key(x, y), direction })
+      queue.push([nx, ny])
+    }
+  }
+  return null
+}
+
+/**
+ * Walks toward the (moving) encounter until `within` tiles along a shortest walkable path, planned
+ * again every step (ECO-BATTLE-ENDING-1: the 3-tile start limit leaves no room for greedy steps that
+ * do not go round obstacles). Blocked by someone in the way, or no path: a random step, then plan again.
+ */
 async function walkTo(p, encounterId, within, timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs
   let stuck = 0
@@ -61,12 +90,8 @@ async function walkTo(p, encounterId, within, timeoutMs = 90_000) {
     const e = encounterOf(p, encounterId)
     if (!e) return false
     if (distance(p, e) <= within) return true
-    const dx = e.tx - p.state.self.tx
-    const dy = e.ty - p.state.self.ty
-    const primary = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up')
-    const secondary = Math.abs(dx) >= Math.abs(dy) ? (dy >= 0 ? 'down' : 'up') : (dx >= 0 ? 'right' : 'left')
-    const sidestep = ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)]
-    const direction = stuck > 6 ? sidestep : stuck > 2 ? secondary : primary
+    const planned = firstStep(p.state.self, (x, y) => Math.max(Math.abs(x - e.tx), Math.abs(y - e.ty)) <= within)
+    const direction = !planned || stuck > 3 ? Object.keys(STEPS)[Math.floor(Math.random() * 4)] : planned
     const before = `${p.state.self.tx},${p.state.self.ty}`
     p.room.send('move', { direction, running: false, sequence: ++p.state.sequence })
     await wait(STEP_MS)
