@@ -32,22 +32,28 @@
 //
 // ECO-PRESENTATION-1: a SECONDARY tool (collapsed by default). Playing goes through the map (tap an
 // individual → its card → the battle screen); this list shares that same session and screen.
+// SC-R1: positions and distances are where each individual is SEEN now (`seenAt`, its shared patrol
+// pose), the tile the server measures the start range from — the same as the card's.
 // Space and Enter on its controls stay here: the map listens on the window and would take Space as
 // «interact» (and cancel the button's own activation), like the card and the battle panel.
 import { computed, ref } from 'vue'
 import type { EcoArea, EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { ECO_ENGAGE_RANGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { EcoBattleSession, EcoBattleView } from '../state/ecoBattleSession'
+import { tileDistance, type Tile } from '../domain/ecoSeenTile'
 import type { SharedWorld } from '../state/sharedWorld'
 
-const props = defineProps<{ world: SharedWorld; session: EcoBattleSession; battle: EcoBattleView; area: EcoArea | null; tx: number; ty: number }>()
+const props = defineProps<{ world: SharedWorld; session: EcoBattleSession; battle: EcoBattleView; area: EcoArea | null; tx: number; ty: number; seenAt: (encounter: EcoEncounter) => Tile }>()
 
 const collapsed = ref(true)
 const battle = computed(() => props.battle)
 const encounters = computed(() => props.area?.encounters ?? [])
 const statusLabel = computed(() => ({ active: 'activa', 'not-simulated': 'sin simular', unavailable: 'no disponible' })[props.area?.status ?? 'unavailable'] ?? '—')
 const nearest = computed(() => encounters.value
-  .map(e => ({ ...e, short: e.id.split(':').slice(2).join(':'), distance: Math.max(Math.abs(e.tx - props.tx), Math.abs(e.ty - props.ty)) }))
+  .map(e => {
+    const seen = props.seenAt(e)
+    return { ...e, ...seen, short: e.id.split(':').slice(2).join(':'), distance: tileDistance(seen, { tx: props.tx, ty: props.ty }) }
+  })
   .sort((a, b) => a.distance - b.distance || a.id.localeCompare(b.id))
   .slice(0, 8))
 

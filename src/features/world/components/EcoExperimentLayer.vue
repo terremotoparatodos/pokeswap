@@ -1,9 +1,10 @@
 <template>
-  <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" />
+  <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" :seen-at="seenAt" />
   <EcoEncounterCard
     v-if="selected && !holds(battle.phase)"
     :encounter-id="selected.id"
     :encounter="selectedLive"
+    :seen="selectedLive && seenAt(selectedLive)"
     :species-id="selected.speciesId"
     :name="nameOf(selected.speciesId)"
     :tx="tx"
@@ -33,11 +34,12 @@
 //     the world plays the end out (Pikachu back to its ball; the wild one fades only on a victory).
 // Presentation only: the server reserves, validates, runs and ends every battle.
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
-import type { EcoArea } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoArea, EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
 import { loadBattleCatalog } from '../../battle/catalog'
 import type { BattleCatalogIndex } from '../../battle/catalog'
 import { ECO_OUTCOME_TEXT, ecoSpeciesName } from '../domain/ecoBattleText'
+import { ecoSeenTile, type Tile } from '../domain/ecoSeenTile'
 import { EcoBattleOverlay } from '../render/ecoBattleOverlay'
 import { EcoBattleSession, type EcoBattleView } from '../state/ecoBattleSession'
 import { EcoSpectatedBattles } from '../state/ecoSpectatedBattles'
@@ -130,6 +132,17 @@ const selectedId = ref<string | null>(null)
 const selectedSpecies = ref(0)
 const selected = computed(() => (selectedId.value ? { id: selectedId.value, speciesId: selectedSpecies.value } : null))
 const selectedLive = computed(() => currentArea.value?.encounters.find(e => e.id === selectedId.value) ?? null)
+
+/**
+ * SC-R1: where each encounter is seen now, for the card's and the debug panel's distance — its
+ * shared patrol pose at the shared world clock, the tile the map draws and the server measures the
+ * start range from. The clock is re-read on a short beat so the distance follows the patrol.
+ */
+const SEEN_REFRESH_MS = 200
+const seenClock = ref(props.world.serverNow())
+const seenTimer = setInterval(() => { seenClock.value = props.world.serverNow() }, SEEN_REFRESH_MS)
+onUnmounted(() => clearInterval(seenTimer))
+const seenAt = (encounter: EcoEncounter): Tile => ecoSeenTile(encounter, props.areaId, seenClock.value)
 
 /** Where the focus was when the battle was asked for — by the card or by the debug panel. */
 const returnFocus = shallowRef<HTMLElement | null>(null)

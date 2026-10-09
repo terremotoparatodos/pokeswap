@@ -21,17 +21,21 @@
 // ECO-PRESENTATION-1 (experimental, development builds only): what the player tapped on the map —
 // this exact individual (its encounter id), its species, whether it can be fought now, and why not.
 // The availability shown is the server's last word (busy) plus the distance it will check; the
-// server still decides when «Combatir» is pressed.
+// server still decides when «Combatir» is pressed. SC-R1: that distance is measured from where the
+// individual is SEEN now (its shared patrol pose, `seen`), as the server measures it — not its home.
 import { computed, onMounted, onUnmounted } from 'vue'
 import type { EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { ECO_ENGAGE_RANGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { ecoShortId } from '../domain/ecoBattleText'
+import { tileDistance, type Tile } from '../domain/ecoSeenTile'
 import EcoSprite from './EcoSprite.vue'
 
 const props = defineProps<{
   encounterId: string
   /** Null when the server's list no longer has it (retired, or out of view). */
   encounter: EcoEncounter | null
+  /** Where that encounter is seen now (`ecoSeenTile`), kept current while it patrols. */
+  seen: Tile | null
   speciesId: number
   name: string
   tx: number
@@ -43,7 +47,7 @@ const state = computed((): { kind: 'free' | 'busy' | 'far' | 'gone'; text: strin
   const e = props.encounter
   if (!e) return { kind: 'gone', text: 'Ya no está aquí.' }
   if (e.busy) return { kind: 'busy', text: 'Ocupado: otro entrenador lo está combatiendo.' }
-  const distance = Math.max(Math.abs(e.tx - props.tx), Math.abs(e.ty - props.ty))
+  const distance = tileDistance(props.seen ?? e, { tx: props.tx, ty: props.ty })
   if (distance > ECO_ENGAGE_RANGE) return { kind: 'far', text: `Lejos: estás a ${distance} casillas. Acercate a ${ECO_ENGAGE_RANGE} o menos.` }
   return { kind: 'free', text: 'Libre: podés combatirlo.' }
 })
