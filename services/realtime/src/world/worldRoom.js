@@ -51,7 +51,10 @@ export class WorldRoom {
     // `ecoBattles` (tests only): EcoBattles options to override (`prepare`, `random`, `newId`).
     this.ecoBattles = this.eco ? new EcoBattles({
       population: this.eco, now, log, send: (client, type, payload) => this.#send(client, type, payload),
-      onChange: areaId => this.ecoDirty.add(areaId), ...(ecoBattles ?? {}),
+      onChange: areaId => this.ecoDirty.add(areaId),
+      // ECO-BATTLE-SPECTATORS-1: the other ECO viewers of the battle's area (never the owner's sockets).
+      broadcast: (areaId, type, payload, exceptPlayerId) => this.#sendToEcoArea(areaId, type, payload, exceptPlayerId),
+      ...(ecoBattles ?? {}),
     }) : null
     this.wild = ecoExperiment ? null : new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
@@ -160,6 +163,9 @@ export class WorldRoom {
     this.metrics.snapshots++
     // ECO-GAMEPLAY-2: the owner's running battle, again, after its world snapshot (reconnection resume).
     if (eco && state.playerId !== null) this.ecoBattles.resume(client, state.playerId)
+    // ECO-BATTLE-SPECTATORS-1: everyone else's running battles here, as they are now (no past effects).
+    // The snapshot is a full reset for the client: nothing it saw before arriving is kept.
+    if (eco) for (const view of this.ecoBattles.publicBattlesIn(viewer.areaId, state.playerId)) this.#send(client, WORLD_MESSAGE.ECO_BATTLE_PUBLIC, view)
   }
 
   /** The viewer moved: adjust its chunk window (usually a no-op) and keep its action physical. */
@@ -368,6 +374,15 @@ export class WorldRoom {
   #pending(state) {
     state.pending ??= { enter: [], leave: [], nodes: new Map() }
     return state.pending
+  }
+
+  /** ECO-BATTLE-SPECTATORS-1: every ECO viewer whose area is `areaId`, except any socket of `exceptPlayerId`. */
+  #sendToEcoArea(areaId, type, payload, exceptPlayerId) {
+    for (const [client, state] of this.clients) {
+      if (!state.eco || state.areaId !== areaId) continue
+      if (exceptPlayerId !== null && exceptPlayerId !== undefined && state.playerId === exceptPlayerId) continue
+      this.#send(client, type, payload)
+    }
   }
 
   #sendToPlayer(playerId, type, payload) {

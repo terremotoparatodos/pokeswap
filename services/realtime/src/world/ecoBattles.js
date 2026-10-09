@@ -1,6 +1,7 @@
 import { randomBytes } from 'node:crypto'
 import { ECO_ENGAGE_RANGE, WORLD_MESSAGE, ecoEngageIntent, ecoFleeIntent } from './worldProtocol.js'
 import { serverRandom } from './ecoPopulation.js'
+import { publicBattleView } from './ecoBattlePublic.js'
 
 /**
  * ECO-GAMEPLAY-2 (EXPERIMENTAL, development sandbox only): authoritative reservations of ECO
@@ -14,6 +15,11 @@ import { serverRandom } from './ecoPopulation.js'
  * Exits — exactly ONE per reservation, and the reservation leaves the indexes BEFORE any effect:
  *   victory               → the exact individual is retired for everyone, once (existing respawn cycle)
  *   defeat · draw · fled · expired · disconnected · left-area · vanished → released, nothing retired
+ *
+ * ECO-BATTLE-SPECTATORS-1: every change the owner is told of is also told, as a whitelisted public
+ * view (ecoBattlePublic.js), to the OTHER ECO viewers of the battle's area — through `broadcast`, at
+ * the same moments and never more often; and a viewer arriving in the area gets the running ones
+ * (`publicBattlesIn`). The owner's own channel is unchanged.
  *
  * Nothing here persists or grants anything: no capture, ownership, XP, drop or token. In memory and
  * single-host: a restart forgets every reservation (and the population starts over with new ids).
@@ -41,13 +47,21 @@ export class EcoBattles {
    * `population`: the EcoPopulation (its `encounter`, `alive`, `retireVictory` and `status`).
    * `send(client, type, payload)`: one message to one socket.
    * `onChange(areaId)`: the busy state of an area's encounters changed.
+   * `broadcast(areaId, type, payload, exceptPlayerId)`: one message to every ECO viewer of an area
+   *   but that player (ECO-BATTLE-SPECTATORS-1).
    * `prepare()`: resolves to `{ ok, battles }` or `{ ok: false, reason }` (default: the bundle).
    */
-  constructor({ population, now, send, onChange = () => {}, prepare = prepareBundledBattles, random = serverRandom, newId = newBattleId, log = message => console.warn(message) }) {
+  constructor({ population, now, send, onChange = () => {}, broadcast = () => {}, prepare = prepareBundledBattles, random = serverRandom, newId = newBattleId, log = message => console.warn(message) }) {
     this.population = population
     this.now = now
     this.send = send
     this.onChange = onChange
+    this.broadcast = broadcast
+    /**
+     * Spectators' side of a reservation, kept apart from it: the tiles fixed when it was reserved and
+     * its public stream counter (`seq`, strictly increasing per battle).
+     */
+    this.spectated = new WeakMap()
     this.random = random
     this.newId = newId
     this.log = log
@@ -56,7 +70,7 @@ export class EcoBattles {
     /** encounterId → reservation; playerId → reservation. A closed reservation is in neither. */
     this.byEncounter = new Map()
     this.byPlayer = new Map()
-    this.metrics = { engaged: 0, resumed: 0, refused: {}, ended: {}, actions: 0, refusedActions: {} }
+    this.metrics = { engaged: 0, resumed: 0, refused: {}, ended: {}, actions: 0, refusedActions: {}, published: 0 }
     this.ready = Promise.resolve()
       .then(prepare)
       .then(result => {
@@ -128,9 +142,12 @@ export class EcoBattles {
     }
     this.byEncounter.set(encounterId, reservation)
     this.byPlayer.set(actor.id, reservation)
+    this.spectated.set(reservation, { seq: 0, stage: { owner: { tx: actor.tx, ty: actor.ty }, wild: { tx: encounter.tx, ty: encounter.ty } } })
     this.metrics.engaged++
     this.onChange(reservation.areaId)
-    return this.#reply(client, { requestId, encounterId, ok: true, battle: this.#battleInfo(reservation) })
+    const reply = this.#reply(client, { requestId, encounterId, ok: true, battle: this.#battleInfo(reservation) })
+    this.#publish(reservation)
+    return reply
   }
 
   /**
@@ -157,7 +174,9 @@ export class EcoBattles {
     if (typeof payload.actionId !== 'string' || !payload.actionId.startsWith(`${actor.id}:`)) return refuse('not-your-battle')
     const result = reservation.battle.submit(actor.id, payload)
     this.metrics.actions++
-    this.send(client, WORLD_MESSAGE.ECO_BATTLE, { battleId: reservation.battleId, snapshot: reservation.battle.snapshot(), events: [], result })
+    const snapshot = reservation.battle.snapshot()
+    this.send(client, WORLD_MESSAGE.ECO_BATTLE, { battleId: reservation.battleId, snapshot, events: [], result })
+    if (result?.kind === 'accepted') this.#publish(reservation, { snapshot })
     return result
   }
 
@@ -191,6 +210,7 @@ export class EcoBattles {
       const result = battle.advance(step)
       if (result.events.length && reservation.client) {
         this.send(reservation.client, WORLD_MESSAGE.ECO_BATTLE, { battleId: reservation.battleId, snapshot: result.snapshot, events: result.events })
+        this.#publish(reservation, { snapshot: result.snapshot, events: result.events })
       }
       if (result.outcome !== 'ongoing') this.#end(reservation, result.outcome)
       else if (battle.elapsedMs() >= ECO_BATTLE_MAX_MS) this.#end(reservation, 'expired')
@@ -207,7 +227,7 @@ export class EcoBattles {
     const reservation = playerId ? this.byPlayer.get(playerId) : undefined
     if (!reservation) return
     if (eco) { this.#attach(reservation, client); return }
-    if (reservation.client !== null) { reservation.client = null; reservation.disconnectedAt = this.now() }
+    if (reservation.client !== null) { reservation.client = null; reservation.disconnectedAt = this.now(); this.#publish(reservation) }
   }
 
   /** A world socket left. Only the owner's CURRENT socket pauses the battle and starts the grace. */
@@ -216,6 +236,7 @@ export class EcoBattles {
     if (!reservation || reservation.client !== client) return
     reservation.client = null
     reservation.disconnectedAt = this.now()
+    this.#publish(reservation)
   }
 
   /** The owner was placed (area change, rejoin): another area releases the reservation. */
@@ -229,6 +250,20 @@ export class EcoBattles {
     const reservation = playerId ? this.byPlayer.get(playerId) : undefined
     if (!reservation || reservation.client !== client) return
     this.#reply(client, { requestId: null, encounterId: reservation.encounterId, ok: true, resumed: true, battle: this.#battleInfo(reservation) })
+  }
+
+  /**
+   * ECO-BATTLE-SPECTATORS-1: the running battles of an area as a viewer arriving there sees them
+   * (current state, no past events), minus that viewer's own battle.
+   */
+  publicBattlesIn(areaId, exceptPlayerId = null) {
+    const out = []
+    for (const reservation of this.byPlayer.values()) {
+      if (reservation.state !== 'active' || reservation.areaId !== areaId || reservation.playerId === exceptPlayerId) continue
+      const view = this.#publicView(reservation, { snapshot: reservation.battle.snapshot() })
+      if (view) out.push(view)
+    }
+    return out
   }
 
   stats() {
@@ -246,10 +281,12 @@ export class EcoBattles {
       this.#end(reservation, 'disconnected')
       return false
     }
+    const resumed = reservation.client === null
     reservation.client = client
     reservation.disconnectedAt = null
     // Paused time is not battle time.
     reservation.lastAdvanceAt = this.now()
+    if (resumed) this.#publish(reservation)
     return true
   }
 
@@ -267,10 +304,31 @@ export class EcoBattles {
     this.metrics.ended[outcome] = (this.metrics.ended[outcome] ?? 0) + 1
     const retired = outcome === 'victory' ? this.population.retireVictory(reservation.encounterId, this.now()) : false
     this.onChange(reservation.areaId)
+    const snapshot = reservation.battle.snapshot()
     if (reservation.client) {
-      this.send(reservation.client, WORLD_MESSAGE.ECO_BATTLE_END, { battleId: reservation.battleId, encounterId: reservation.encounterId, outcome, retired, snapshot: reservation.battle.snapshot() })
+      this.send(reservation.client, WORLD_MESSAGE.ECO_BATTLE_END, { battleId: reservation.battleId, encounterId: reservation.encounterId, outcome, retired, snapshot })
     }
+    this.#publish(reservation, { snapshot, ended: outcome })
     return true
+  }
+
+  /** One public message to the battle's area, owner excluded: the next `seq`, the given (or current) state. */
+  #publish(reservation, { snapshot = reservation.battle.snapshot(), events = null, ended = null } = {}) {
+    const meta = this.spectated.get(reservation)
+    if (!meta) return
+    meta.seq++
+    const view = this.#publicView(reservation, { snapshot, events, ended })
+    this.metrics.published++
+    this.broadcast(reservation.areaId, WORLD_MESSAGE.ECO_BATTLE_PUBLIC, view, reservation.playerId)
+  }
+
+  #publicView(reservation, { snapshot, events = null, ended = null }) {
+    const meta = this.spectated.get(reservation)
+    if (!meta) return null
+    return publicBattleView({
+      battleId: reservation.battleId, encounterId: reservation.encounterId, areaId: reservation.areaId, seq: meta.seq, stage: meta.stage,
+      snapshot, connected: reservation.client !== null, events, ended,
+    })
   }
 
   #battleInfo(reservation) {
