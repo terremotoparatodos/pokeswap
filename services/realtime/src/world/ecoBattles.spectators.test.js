@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ECO_BATTLE_MAX_MS, ECO_DISCONNECT_GRACE_MS } from './ecoBattles.js'
 import { PUBLIC_EVENT_FIELDS } from './ecoBattlePublic.js'
+import { facing, wildPoseAt, wildWalkable } from './ecoScene.js'
 import { WORLD_MESSAGE } from './worldProtocol.js'
 import { lastMessage, messagesOf } from './testing.js'
 import { TICK, ended, realCycle, setup } from './ecoBattlesTestkit.js'
@@ -25,12 +26,18 @@ test('S01 routing: the area\'s other ECO viewers (players and guests) get it; th
   const target = s.populated(a)
   s.standNear(a, target.id, 2)
   const before = a.actor.tx
+  const seen = wildPoseAt(s.world.eco.encounter(target.id), s.clock.now())
   s.engage(a, target.id)
   for (const viewer of [b, guest]) {
     const [first] = publics(viewer.client)
     assert.ok(first, `${viewer.id} sees the battle start`)
     assert.deepEqual([first.seq, first.connected, first.areaId, first.encounterId], [1, true, 'pradera', target.id])
-    assert.deepEqual(first.stage, { owner: { tx: before, ty: a.actor.ty }, wild: { tx: target.tx, ty: target.ty } })
+    // ECO-BATTLE-SCENE-1: the wild one where it was seen; the player's Pokémon in front of it, facing it
+    assert.deepEqual([first.stage.owner, first.stage.wild], [{ tx: before, ty: a.actor.ty }, seen])
+    const { pokemon } = first.stage
+    assert.equal(Math.abs(pokemon.tx - seen.tx) + Math.abs(pokemon.ty - seen.ty), 1, 'beside the wild one')
+    assert.ok(wildWalkable('pradera', pokemon.tx, pokemon.ty))
+    assert.equal(first.stage.pokemonFacing, facing(pokemon, seen))
     assert.equal(first.events, undefined, 'the start carries no effects')
   }
   for (const other of [a, plain, away]) assert.equal(publics(other.client).length, 0, `${other.id} gets nothing`)

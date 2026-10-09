@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto'
 import { ECO_ENGAGE_RANGE, WORLD_MESSAGE, ecoEngageIntent, ecoFleeIntent } from './worldProtocol.js'
 import { serverRandom } from './ecoPopulation.js'
 import { publicBattleView } from './ecoBattlePublic.js'
+import { battleStage, wildPoseAt } from './ecoScene.js'
 
 /**
  * ECO-GAMEPLAY-2 (EXPERIMENTAL, development sandbox only): authoritative reservations of ECO
@@ -20,6 +21,13 @@ import { publicBattleView } from './ecoBattlePublic.js'
  * view (ecoBattlePublic.js), to the OTHER ECO viewers of the battle's area — through `broadcast`, at
  * the same moments and never more often; and a viewer arriving in the area gets the running ones
  * (`publicBattlesIn`). The owner's own channel is unchanged.
+ *
+ * ECO-BATTLE-SCENE-1: the battle's scene is decided here, once, when it is reserved — the wild one
+ * frozen on the tile of its shared patrol at that instant (where the player saw it; the 3-tile limit
+ * is measured from there), the player's Pokémon in front of it (ecoScene.js) — and told to the owner
+ * (`battle.stage`), to spectators (the public view) and to the whole area (`stand` in its view).
+ * While it runs its owner may walk the area but not leave it nor start another activity
+ * (`inBattle`, checked by the presence room and by the work intent).
  *
  * Nothing here persists or grants anything: no capture, ownership, XP, drop or token. In memory and
  * single-host: a restart forgets every reservation (and the population starts over with new ids).
@@ -123,8 +131,12 @@ export class EcoBattles {
     const encounter = this.population.encounter(encounterId)
     if (!encounter) return refuse('not-alive', encounterId)
     if (actor.areaId !== encounter.areaId) return refuse('other-area', encounterId)
-    if (Math.max(Math.abs(actor.tx - encounter.tx), Math.abs(actor.ty - encounter.ty)) > ECO_ENGAGE_RANGE) return refuse('too-far', encounterId)
+    // Where every client sees it now (its shared patrol at server time), not its home tile.
+    const pose = wildPoseAt(encounter, this.now())
+    if (Math.max(Math.abs(actor.tx - pose.tx), Math.abs(actor.ty - pose.ty)) > ECO_ENGAGE_RANGE) return refuse('too-far', encounterId)
     if (this.byEncounter.has(encounterId)) return refuse('busy', encounterId)
+    const stage = battleStage({ areaId: encounter.areaId, trainer: actor, wild: pose })
+    if (!stage) return refuse('no-room', encounterId)
     // The authority exists BEFORE the reservation: a failed creation leaves nothing reserved.
     const battleId = this.newId()
     const seed = Math.floor(this.random() * 0x7fffffff)
@@ -142,7 +154,7 @@ export class EcoBattles {
     }
     this.byEncounter.set(encounterId, reservation)
     this.byPlayer.set(actor.id, reservation)
-    this.spectated.set(reservation, { seq: 0, stage: { owner: { tx: actor.tx, ty: actor.ty }, wild: { tx: encounter.tx, ty: encounter.ty } } })
+    this.spectated.set(reservation, { seq: 0, stage })
     this.metrics.engaged++
     this.onChange(reservation.areaId)
     const reply = this.#reply(client, { requestId, encounterId, ok: true, battle: this.#battleInfo(reservation) })
@@ -266,6 +278,19 @@ export class EcoBattles {
     return out
   }
 
+  /** ECO-BATTLE-SCENE-1: the player has a battle (running or paused in its grace): no area change, no other activity. */
+  inBattle(playerId) {
+    const reservation = playerId ? this.byPlayer.get(playerId) : undefined
+    return Boolean(reservation && reservation.state === 'active')
+  }
+
+  /** ECO-BATTLE-SCENE-1: where a reserved encounter stands frozen (its battle's scene), or null. */
+  standOf(encounterId) {
+    const reservation = this.byEncounter.get(encounterId)
+    const stage = reservation ? this.spectated.get(reservation)?.stage : null
+    return stage ? { tx: stage.wild.tx, ty: stage.wild.ty } : null
+  }
+
   stats() {
     return { status: this.status, active: this.active, ...this.metrics, refused: { ...this.metrics.refused }, ended: { ...this.metrics.ended }, refusedActions: { ...this.metrics.refusedActions } }
   }
@@ -336,6 +361,7 @@ export class EcoBattles {
     return {
       battleId: reservation.battleId, speciesId: reservation.speciesId, fixture: true, fixtureLabel: this.battles.fixture?.label ?? 'fixture de prueba',
       joinAck: battle.joinAck(reservation.playerId), snapshot: battle.snapshot(), expiresInMs: Math.max(0, ECO_BATTLE_MAX_MS - battle.elapsedMs()),
+      stage: stageCopy(this.spectated.get(reservation)?.stage),
     }
   }
 
@@ -343,4 +369,11 @@ export class EcoBattles {
     client?.send(WORLD_MESSAGE.ECO_ENGAGE_RESULT, result)
     return result
   }
+}
+
+/** The scene as sent: tiles and facings, copied by name. */
+function stageCopy(stage) {
+  if (!stage) return null
+  const tile = t => ({ tx: t.tx, ty: t.ty })
+  return { owner: tile(stage.owner), wild: tile(stage.wild), pokemon: tile(stage.pokemon), pokemonFacing: stage.pokemonFacing, wildFacing: stage.wildFacing }
 }

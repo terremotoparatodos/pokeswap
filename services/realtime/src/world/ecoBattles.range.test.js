@@ -1,6 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ECO_ENGAGE_RANGE } from './ecoBattles.js'
+import { wildPoseAt } from './ecoScene.js'
 import { TICK, setup } from './ecoBattlesTestkit.js'
 
 // ECO-BATTLE-ENDING-1: the start limit is 3 tiles, Chebyshev, decided by the server. It limits
@@ -13,7 +14,8 @@ test('E01 the start limit is 3 tiles (Chebyshev): 3 starts, 4 is refused on eith
     const a = s.join('eco-a')
     const target = s.populated(a)
     const e = s.world.eco.encounter(target.id)
-    a.actor.areaId = e.areaId; a.actor.tx = e.tx + dx; a.actor.ty = e.ty + dy
+    const seen = wildPoseAt(e, s.clock.now()) // measured from where it is seen (ECO-BATTLE-SCENE-1)
+    a.actor.areaId = e.areaId; a.actor.tx = seen.tx + dx; a.actor.ty = seen.ty + dy
     const answer = s.engage(a, target.id)
     assert.equal(answer.ok, ok, `${dx},${dy}`)
     if (!ok) assert.equal(answer.reason, 'too-far')

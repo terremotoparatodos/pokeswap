@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import { ECO_PROTOCOL } from './ecoPopulation.js'
 import { prepareBundledBattles } from './ecoBattles.js'
+import { wildPoseAt } from './ecoScene.js'
 import { createDemoSkillPolicy } from './demoSkillPolicy.js'
 import { createStaticOwnership } from './pokemonOwnership.js'
 import { seededRandom } from './wildPopulation.js'
@@ -81,10 +82,14 @@ export async function setup({ prepare, ecoExperiment = true, random = () => 0.25
   const ecoOf = client => lastMessage(client, WORLD_MESSAGE.ECO)?.eco ?? lastMessage(client, WORLD_MESSAGE.SNAPSHOT)?.eco
   /** Populates Pradera (someone must be watching) and returns a live encounter. */
   const populated = viewer => { assert.ok(run(90_000, () => (ecoOf(viewer.client)?.encounters.length ?? 0) > 1), 'Pradera fills'); return ecoOf(viewer.client).encounters[0] }
-  /** Stands `player` `distance` tiles (Chebyshev) from the encounter's CURRENT tile. */
+  /**
+   * Stands `player` `distance` tiles (Chebyshev) from where the encounter is SEEN now: its shared
+   * patrol at server time (ECO-BATTLE-SCENE-1: the 3-tile limit is measured from there).
+   */
   const standNear = (player, encounterId, distance = 0) => {
     const e = world.eco.encounter(encounterId)
-    player.actor.areaId = e.areaId; player.actor.tx = e.tx + distance; player.actor.ty = e.ty
+    const seen = wildPoseAt(e, clock.now())
+    player.actor.areaId = e.areaId; player.actor.tx = seen.tx + distance; player.actor.ty = seen.ty
   }
   const engage = (player, encounterId, requestId = 1) => world.ecoEngage(player.actor, { requestId, encounterId }, player.client)
   const action = (player, battleId, sequence, intent = { kind: 'useMove', combatantId: 'player-0', moveId: 84, targetId: 'wild-0' }, actionId = `${player.id}:${sequence}`) => {

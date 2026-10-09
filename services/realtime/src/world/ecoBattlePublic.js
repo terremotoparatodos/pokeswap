@@ -77,7 +77,11 @@ export function publicBattleView({ battleId, encounterId, areaId, seq, stage, sn
   const config = snapshot?.config
   return {
     battleId, encounterId, areaId, seq,
-    stage: { owner: { tx: stage.owner.tx, ty: stage.owner.ty }, wild: { tx: stage.wild.tx, ty: stage.wild.ty } },
+    stage: {
+      owner: { tx: stage.owner.tx, ty: stage.owner.ty }, wild: { tx: stage.wild.tx, ty: stage.wild.ty },
+      // ECO-BATTLE-SCENE-1: the player's Pokémon's tile and both facings, decided by the server.
+      ...(stage.pokemon ? { pokemon: { tx: stage.pokemon.tx, ty: stage.pokemon.ty }, pokemonFacing: stage.pokemonFacing, wildFacing: stage.wildFacing } : {}),
+    },
     revision: snapshot?.revision ?? 0,
     timeMs: snapshot?.timeMs ?? 0,
     connected: connected === true,

@@ -35,11 +35,13 @@ export class EcoPopulation {
    * `devRetire`: test retirements accepted (development only; the world config decides).
    * `isBusy(encounterId)`: ECO-GAMEPLAY-2 — the encounter is reserved for a test battle.
    */
-  constructor({ now, onChange = () => {}, devRetire = false, isBusy = () => false, random = serverRandom, namespace = newEcoNamespace(now()), layouts = areaId => layoutVersion(areaId), log = message => console.warn(message) }) {
+  constructor({ now, onChange = () => {}, devRetire = false, isBusy = () => false, standOf = () => null, random = serverRandom, namespace = newEcoNamespace(now()), layouts = areaId => layoutVersion(areaId), log = message => console.warn(message) }) {
     this.now = now
     this.onChange = onChange
     this.devRetireAllowed = devRetire
     this.isBusy = isBusy
+    /** ECO-BATTLE-SCENE-1: where a busy encounter stands frozen (its battle's scene), or null. */
+    this.standOf = standOf
     this.random = random
     this.namespace = namespace
     this.log = log
@@ -78,7 +80,11 @@ export class EcoPopulation {
     const area = this.population.view(areaId)
     return {
       protocol: ECO_PROTOCOL, areaId, status: area.simulated ? 'active' : 'not-simulated',
-      encounters: area.encounters.map(({ id, groupId, speciesId, tile }) => ({ id, groupId, speciesId, tx: tile.tx, ty: tile.ty, busy: this.isBusy(id) })),
+      encounters: area.encounters.map(({ id, groupId, speciesId, tile }) => {
+        const busy = this.isBusy(id)
+        const stand = busy ? this.standOf(id) : null
+        return { id, groupId, speciesId, tx: tile.tx, ty: tile.ty, busy, ...(stand ? { stand: { tx: stand.tx, ty: stand.ty } } : {}) }
+      }),
     }
   }
 

@@ -46,7 +46,7 @@ export class WorldRoom {
     // ECO population is the world's wild Pokémon and the hourly roster does not exist at all.
     /** Areas whose ECO view changed since the last flush. */
     this.ecoDirty = new Set()
-    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: true, isBusy: id => this.ecoBattles?.isBusy(id) ?? false, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
+    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: true, isBusy: id => this.ecoBattles?.isBusy(id) ?? false, standOf: id => this.ecoBattles?.standOf(id) ?? null, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
     // ECO-GAMEPLAY-2: test battles against those encounters (same experiment; nothing outside it loads the battle bundle).
     // `ecoBattles` (tests only): EcoBattles options to override (`prepare`, `random`, `newId`).
     this.ecoBattles = this.eco ? new EcoBattles({
@@ -192,6 +192,11 @@ export class WorldRoom {
     }
   }
 
+  /** ECO-BATTLE-SCENE-1: whether this player may cross into another area now (not during a test battle). */
+  mayLeaveArea(playerId) {
+    return !this.ecoBattles?.inBattle(playerId)
+  }
+
   /** An actor changed area or rejoined: its action cannot survive a teleport. */
   actorPlaced(actor) {
     this.authority.reconcileActor(actor)
@@ -215,6 +220,8 @@ export class WorldRoom {
     }
     const intent = workIntent(payload)
     if (!intent) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: null, ok: false, reason: 'invalid' })
+    // ECO-BATTLE-SCENE-1: one activity at a time — a test battle in progress (or paused) comes first.
+    if (this.ecoBattles?.inBattle(actor.id)) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: intent.requestId, ok: false, reason: 'in-battle', message: 'Terminá o huí del combate para hacer otra actividad.' })
     if (!this.ready) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: intent.requestId, ok: false, reason: 'world-loading' })
     return this.authority.requestWork(actor, intent)
   }

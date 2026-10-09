@@ -53,6 +53,20 @@ export interface EcoEncounter {
   readonly ty: number
   /** ECO-GAMEPLAY-2: reserved for someone's test battle (absent from an older server). */
   readonly busy?: boolean
+  /** ECO-BATTLE-SCENE-1: where a busy encounter stands frozen (its battle's scene); absent when free. */
+  readonly stand?: { readonly tx: number; readonly ty: number }
+}
+
+/** ECO-BATTLE-SCENE-1: a test battle's scene, decided by the server when it is reserved. */
+export interface EcoBattleStage {
+  /** The owner's tile when it was reserved (the owner may walk afterwards). */
+  readonly owner: { readonly tx: number; readonly ty: number }
+  /** The wild one, frozen where it was seen. */
+  readonly wild: { readonly tx: number; readonly ty: number }
+  /** The player's Pokémon, in front of the wild one. */
+  readonly pokemon: { readonly tx: number; readonly ty: number }
+  readonly pokemonFacing: 'up' | 'down' | 'left' | 'right'
+  readonly wildFacing: 'up' | 'down' | 'left' | 'right'
 }
 
 /** The whole public population of one area. `not-simulated`: nobody there long enough, or no population in this area. */
@@ -84,7 +98,7 @@ export declare function ecoFleeIntent(value: unknown): { battleId: string } | nu
 
 export type EcoEngageRefusal =
   | 'invalid' | 'unavailable' | 'battle-unavailable' | 'not-player' | 'not-current-socket' | 'already-battling'
-  | 'not-alive' | 'other-area' | 'too-far' | 'busy' | 'client-outdated' | 'disabled'
+  | 'not-alive' | 'other-area' | 'too-far' | 'busy' | 'no-room' | 'client-outdated' | 'disabled'
 
 /** A running test battle as its owner receives it. The player's side is a SYNTHETIC fixture. */
 export interface EcoBattleInfo {
@@ -96,6 +110,8 @@ export interface EcoBattleInfo {
   readonly snapshot: ClientBattleSnapshot
   /** Battle time left (it only passes while the owner is connected). */
   readonly expiresInMs: number
+  /** ECO-BATTLE-SCENE-1: where the battle stands (absent from an older server). */
+  readonly stage?: EcoBattleStage | null
 }
 
 export interface EcoEngageResult {
@@ -166,7 +182,7 @@ export interface EcoPublicBattle {
   readonly encounterId: string
   readonly areaId: string
   readonly seq: number
-  readonly stage: { readonly owner: { readonly tx: number; readonly ty: number }; readonly wild: { readonly tx: number; readonly ty: number } }
+  readonly stage: { readonly owner: { readonly tx: number; readonly ty: number }; readonly wild: { readonly tx: number; readonly ty: number } } & Partial<Pick<EcoBattleStage, 'pokemon' | 'pokemonFacing' | 'wildFacing'>>
   readonly revision: number
   readonly timeMs: number
   /** False while the owner is disconnected (the battle is paused). */
