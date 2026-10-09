@@ -65,6 +65,7 @@ async function fighting() {
   const world = new SharedWorld(async () => null, id => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo)
   world.attach(() => {})
   world.snapshot({ now: 1, areaId: 'pradera', chunks: [], nodes: [], eco: pradera })
+  world.ecoBattleMessage('world:eco-combatant-state', { requestId: null, ok: true, speciesId: 25, options: [25, 19, 43, 74, 41, 10].map(speciesId => ({ speciesId, level: 12 })) })
   const wrapper = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', tx: 0, ty: 0 }, attachTo: document.body })
   ;(wrapper.vm as unknown as { select(id: string): boolean }).select(ID); await flushPromises()
   await wrapper.find('.eco-card__fight').trigger('click')
@@ -246,6 +247,7 @@ describe('ECO overworld battle · the scene stays in its area (F1)', () => {
         const world = new SharedWorld(async () => null, id => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo)
         world.attach(() => {})
         world.snapshot({ now: 1, areaId: 'pradera', chunks: [], nodes: [], eco: pradera })
+        world.ecoBattleMessage('world:eco-combatant-state', { requestId: null, ok: true, speciesId: 25, options: [25, 19, 43, 74, 41, 10].map(speciesId => ({ speciesId, level: 12 })) })
         const watcher = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', tx: 9, ty: 9 }, attachTo: document.body })
         try {
           const view = {

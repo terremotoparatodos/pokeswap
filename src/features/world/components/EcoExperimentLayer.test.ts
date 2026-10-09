@@ -49,6 +49,7 @@ function setup() {
   const sent: [string, unknown][] = []
   world.attach((type, payload) => sent.push([type, payload]))
   world.snapshot({ now: 1, areaId: 'pradera', chunks: [], nodes: [], eco: area })
+  world.ecoBattleMessage('world:eco-combatant-state', { requestId: null, ok: true, speciesId: 25, options: [25, 19, 43, 74, 41, 10].map(speciesId => ({ speciesId, level: 12 })) })
   const wrapper = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', tx: 0, ty: 0 }, attachTo: document.body })
   const layer = wrapper.vm as unknown as { select(id: string): boolean; dismissCard(): void }
   const card = () => wrapper.find('.eco-card')
@@ -57,6 +58,34 @@ function setup() {
 }
 
 describe('ECO experiment layer · map selection', () => {
+  it('selects a server-confirmed combatant before fighting; card, panel and debug controls share the choice', async () => {
+    const { world, sent, wrapper, layer, card } = setup()
+    layer.select(ID('soto', 0)); await flushPromises()
+    expect(card().find('select').findAll('option')).toHaveLength(6)
+    expect(card().find('[role="img"]').attributes('style')).toContain('0013.png')
+    await card().find('select').setValue('43')
+    expect(sent).toEqual([[WORLD_MESSAGE.ECO_COMBATANT_SELECT, { requestId: 1, speciesId: 43 }]])
+    expect(card().find('.eco-card__fight').attributes('disabled')).toBeDefined()
+    expect(card().text()).toContain('Confirmando elección')
+    world.ecoBattleMessage(WORLD_MESSAGE.ECO_COMBATANT_STATE, { requestId: 1, ok: true, speciesId: 43, options: [25, 19, 43, 74, 41, 10].map(speciesId => ({ speciesId, level: 12 })) })
+    await flushPromises()
+    expect((card().find('select').element as HTMLSelectElement).value).toBe('43')
+    expect(card().findAll('[role="img"]').some(img => img.attributes('style')?.includes('0043.png'))).toBe(true)
+    await card().find('.eco-card__fight').trigger('click')
+    const selectedSnapshot = snapshot()
+    const player = selectedSnapshot.combatants['player-0']
+    const selectedBattle = { ...battle, snapshot: { ...selectedSnapshot, combatants: { ...selectedSnapshot.combatants, 'player-0': { ...player, instance: { ...player.instance, speciesId: 43 } } } } }
+    world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID('soto', 0), ok: true, battle: selectedBattle })
+    await flushPromises()
+    await wrapper.find('.ebp-info').trigger('click')
+    expect(wrapper.find('.ebp-details').text()).toContain('#43')
+    await wrapper.find('.eco-dev__toggle').trigger('click')
+    expect((wrapper.find('.eco-dev select').element as HTMLSelectElement).value).toBe('43')
+    expect(wrapper.find('.eco-dev select').attributes('disabled')).toBeDefined()
+    world.detach(); await flushPromises()
+    expect(wrapper.find('.eco-dev select').attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
   it('opens the card of the EXACT individual tapped; two of the same species stay distinct', async () => {
     const { layer, card, wrapper } = setup()
     expect(layer.select(ID('soto', 0))).toBe(true)

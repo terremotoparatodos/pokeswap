@@ -58,6 +58,7 @@ function setup() {
   const world = new SharedWorld(async () => null, id => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo)
   world.attach(() => {})
   world.snapshot({ now: 1, areaId: 'pradera', chunks: [], nodes: [], eco: pradera })
+  world.ecoBattleMessage('world:eco-combatant-state', { requestId: null, ok: true, speciesId: 25, options: [25, 19, 43, 74, 41, 10].map(speciesId => ({ speciesId, level: 12 })) })
   const locks: boolean[] = []
   const wrapper = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', tx: 0, ty: 0, onBattle: (open: boolean) => locks.push(open) }, attachTo: document.body })
   const overlay = wrapper.emitted('overlay')![0][0] as SceneOverlay

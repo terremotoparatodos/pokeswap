@@ -1,5 +1,7 @@
 <template>
-  <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" :seen-at="seenAt" />
+  <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" :seen-at="seenAt" :combatant-ready="choice.ready">
+    <EcoCombatantSelector :view="choice" :locked="battle.phase === 'battle' || battle.phase === 'engaging'" :name-of="nameOf" @select="selection.select($event)" />
+  </EcoDevPanel>
   <EcoEncounterCard
     v-if="selected && !holds(battle.phase)"
     :encounter-id="selected.id"
@@ -9,9 +11,14 @@
     :name="nameOf(selected.speciesId)"
     :tx="tx"
     :ty="ty"
+    :combatant-ready="choice.ready"
     @close="selectedId = null"
     @engage="engage"
-  />
+  >
+    <template #combatant>
+      <EcoCombatantSelector :view="choice" :locked="false" :name-of="nameOf" @select="selection.select($event)" />
+    </template>
+  </EcoEncounterCard>
   <EcoBattlePanel
     v-if="holds(battle.phase)"
     ref="panelRef"
@@ -45,6 +52,8 @@ import { EcoBattleOverlay, tileFeet } from '../render/ecoBattleOverlay'
 import { usePanelAnchor } from '../render/ecoBattlePanelAnchor'
 import type { ProjectWorld } from '../domain/ecoBattlePanelPlacement'
 import { EcoBattleSession, type EcoBattleView } from '../state/ecoBattleSession'
+import { EcoCombatantSelection, type EcoCombatantView } from '../state/ecoCombatantSelection'
+import EcoCombatantSelector from './EcoCombatantSelector.vue'
 import { EcoSpectatedBattles } from '../state/ecoSpectatedBattles'
 import type { SharedWorld } from '../state/sharedWorld'
 import EcoBattlePanel from './EcoBattlePanel.vue'
@@ -71,6 +80,9 @@ const area = shallowRef<EcoArea | null>(null)
 const stopEco = props.world.onEco(next => { area.value = next })
 
 const session = new EcoBattleSession(props.world)
+const selection = new EcoCombatantSelection(props.world)
+const choice = shallowRef<EcoCombatantView>(selection.view)
+const stopChoice = selection.subscribe(view => { choice.value = view })
 const battle = shallowRef<EcoBattleView>(session.view)
 const stopBattle = session.subscribe(view => { battle.value = view })
 
@@ -117,6 +129,7 @@ onMounted(() => emit('overlay', battleWorld.overlay))
 onUnmounted(() => {
   emit('overlay', null)
   stopEco(); stopBattle(); stopEvents(); session.dispose()
+  stopChoice(); selection.dispose()
   stopSpectated(); stopSpectatorEvents(); spectators.dispose()
 })
 
@@ -215,7 +228,7 @@ watch(() => holds(battle.value.phase), open => {
 watch(() => battle.value.phase === 'engaging' || battle.value.phase === 'battle', inBattle => emit('battle', inBattle), { immediate: true, flush: 'sync' })
 
 function engage(encounterId: string) {
-  session.engage(encounterId)
+  if (choice.value.ready) session.engage(encounterId)
 }
 
 defineExpose({

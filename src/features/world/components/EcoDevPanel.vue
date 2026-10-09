@@ -5,6 +5,7 @@
       <span>{{ statusLabel }} · {{ encounters.length }} en el área</span>
     </header>
     <template v-if="!collapsed">
+    <slot />
     <ol v-if="nearest.length">
       <li v-for="row in nearest" :key="row.id">
         <span class="eco-dev__who">#{{ row.speciesId }} · {{ row.short }}</span>
@@ -43,7 +44,7 @@ import type { EcoBattleSession, EcoBattleView } from '../state/ecoBattleSession'
 import { tileDistance, type Tile } from '../domain/ecoSeenTile'
 import type { SharedWorld } from '../state/sharedWorld'
 
-const props = defineProps<{ world: SharedWorld; session: EcoBattleSession; battle: EcoBattleView; area: EcoArea | null; tx: number; ty: number; seenAt: (encounter: EcoEncounter) => Tile }>()
+const props = defineProps<{ world: SharedWorld; session: EcoBattleSession; battle: EcoBattleView; area: EcoArea | null; tx: number; ty: number; seenAt: (encounter: EcoEncounter) => Tile; combatantReady: boolean }>()
 
 const collapsed = ref(true)
 const battle = computed(() => props.battle)
@@ -65,7 +66,7 @@ const REASONS: Record<string, string> = {
   'client-outdated': 'cliente desactualizado', busy: 'está en combate',
 }
 
-const canEngage = (row: EcoEncounter & { distance: number }) => !row.busy && row.distance <= ECO_ENGAGE_RANGE && (battle.value.phase === 'idle' || battle.value.phase === 'ended' || battle.value.phase === 'refused')
+const canEngage = (row: EcoEncounter & { distance: number }) => props.combatantReady && !row.busy && row.distance <= ECO_ENGAGE_RANGE && (battle.value.phase === 'idle' || battle.value.phase === 'ended' || battle.value.phase === 'refused')
 const engageHint = (row: EcoEncounter & { distance: number }) => (row.busy ? 'Otro jugador lo está combatiendo' : row.distance > ECO_ENGAGE_RANGE ? `Acercate a ${ECO_ENGAGE_RANGE} casillas o menos` : 'Combate de prueba con un fixture sintético')
 
 async function retire(id: string) {

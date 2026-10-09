@@ -39,6 +39,7 @@ describe('the start range from where the individual is seen (SC-R1)', () => {
     const world = new SharedWorld(async () => null, id => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo)
     world.attach((type, payload) => { sent.push([type, payload]) })
     world.snapshot({ now: NOW, areaId: 'pradera', chunks: [], nodes: [], eco: areaWith(encounter) })
+    world.ecoBattleMessage('world:eco-combatant-state', { requestId: null, ok: true, speciesId: 25, options: [25, 19, 43, 74, 41, 10].map(speciesId => ({ speciesId, level: 12 })) })
     wrapper = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', ...trainer }, attachTo: document.body })
     ;(wrapper.vm as unknown as { select(id: string): boolean }).select(encounter.id)
     await flushPromises()
