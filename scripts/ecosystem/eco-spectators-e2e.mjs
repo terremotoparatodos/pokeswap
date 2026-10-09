@@ -19,6 +19,17 @@
 //     outcome; nothing follows;
 //   - no private data: no public payload carries moves, PP, the selection, joinAck, controller,
 //     action ids, private event types or a player id.
+//
+// Long enough, reproducibly, without touching balance: each owner selects Double Team (#104, a
+// legal move of the fixture that deals no damage) through the ordinary action intent, so its
+// Pikachu does not knock the wild one out early. A lost or late public message is never retried:
+// mutual receipt is read from each battle's START (seq 1, sent when it is reserved, whatever its
+// length) and a timeout FAILS. The only retries left (D's arrival, the pause, the cave trip) need
+// an end the SERVER told the owner (world:eco-battle-end) before the step could be shown; anything
+// else — a missing message, a timeout, the infrastructure — FAILS. Every retry is recorded.
+//
+// Negative control: --drop <receiver>:<owner> (a, b, c or d; a or b) makes that receiver discard
+// every public message of the owner's FIRST battle, from the first one. The run must FAIL.
 // Exit 0 PASS, 1 FAIL, 3 setup. Synthetic data only; nothing is captured, granted or persisted.
 
 import { writeFileSync } from 'node:fs'
@@ -46,6 +57,28 @@ function save() {
   if (file) writeFileSync(file, JSON.stringify(report, null, 2) + String.fromCharCode(10))
 }
 
+/**
+ * Each run's own synthetic players: a run never inherits a reservation (a battle in its reconnection
+ * grace) from an earlier run of the same server.
+ */
+const RUN = arg('run', Date.now().toString(36))
+const pid = letter => `eco-spect-${letter}-${RUN}`
+report.run = RUN
+
+/** --drop <receiver>:<owner>: the negative control (see the header). */
+const DROP = (() => {
+  const spec = arg('drop', null)
+  if (!spec) return null
+  const [receiver, owner] = spec.split(':')
+  if (!['a', 'b', 'c', 'd'].includes(receiver) || !['a', 'b'].includes(owner)) { console.error('[eco-spectators-e2e] --drop <a|b|c|d>:<a|b>'); process.exit(3) }
+  return { receiver: pid(receiver), owner }
+})()
+/** Each owner's FIRST target, known before its engage is sent (so a drop misses nothing). */
+const firstTargets = {}
+const dropped = []
+report.negativeControl = DROP ? { drop: arg('drop', null), dropped } : null
+report.retries = []
+
 const PRIVATE = ['joinAck', 'controller', '"moves"', '"pp"', 'selected', 'actionId', 'serverTimeMs', 'lastMoveId', 'PP_CHANGED', 'ACTION_STARTED', 'ACTION_READY', '"atk"', '"spa"', 'benchmark-']
 
 /** `previous`: the same player's earlier connection — its received history is kept (a rejoin adds to it). */
@@ -65,7 +98,10 @@ async function player(id, previous = null) {
   room.onMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, result => state.engage.push(result))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE, message => state.battle.push(message))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE_END, end => state.ends.push({ ...end, at: Date.now() }))
-  room.onMessage(WORLD_MESSAGE.ECO_BATTLE_PUBLIC, view => state.publics.push({ view, raw: JSON.stringify(view), at: Date.now() }))
+  room.onMessage(WORLD_MESSAGE.ECO_BATTLE_PUBLIC, view => {
+    if (DROP && id === DROP.receiver && view?.encounterId === firstTargets[DROP.owner]) { dropped.push({ receiver: id, battleId: view.battleId, seq: view.seq, at: Date.now() }); return }
+    state.publics.push({ view, raw: JSON.stringify(view), at: Date.now() })
+  })
   room.send('presence:ready')
   return { id, room, state }
 }
@@ -183,9 +219,9 @@ function streamInvariants(p, battleId) {
 
 let a, b, c, d
 try {
-  a = await player('eco-spect-a', a)
-  b = await player('eco-spect-b')
-  c = await player('eco-spect-c')
+  a = await player(pid('a'), a)
+  b = await player(pid('b'))
+  c = await player(pid('c'))
 } catch (error) {
   console.error(`[eco-spectators-e2e] setup: cannot join ${URL} (${error?.message ?? error}); start the isolated realtime first`)
   process.exit(3)
@@ -199,18 +235,51 @@ const ownerOf = id => (owners.get(id) === 'a' ? a : b)
 const endedFor = id => ownerOf(id).state.ends.some(e => e.battleId === id) || publics(c, id).some(v => v.ended)
 const byDistance = p => [...p.state.eco.encounters].filter(e => !e.busy).sort((x, y) => distance(p, x) - distance(p, y))
 
-/** Walks to the nearest free encounters in turn (one may wander off or be out of reach) and reserves one. */
+const ownerEnd = id => ownerOf(id).state.ends.find(e => e.battleId === id) ?? null
+/** A retry is allowed only for an end the server told the owner; recorded in the report. */
+function retryAfterEnd(step, id) {
+  const end = ownerEnd(id)
+  if (!end) fail(`${step}: ${id} gave no sign the step could use, and its owner was told no end — not retried`)
+  report.retries.push({ step, battleId: id, outcome: end.outcome, revision: end.snapshot.revision })
+  log(`${step}: ${id} ended (${end.outcome}, told to its owner) before the step could be shown; again`)
+}
+
+/** Walks to the nearest free encounter it can reach (one may wander off) and stays in range. */
+async function approach(p, skip = null) {
+  for (const candidate of byDistance(p).filter(e => e.id !== skip).slice(0, 6)) {
+    if (await walkTo(p, candidate.id, ECO_ENGAGE_RANGE - 2, 40_000)) return candidate
+  }
+  return fail(`${p.id} could not reach any encounter`)
+}
+
+/** Reserves the encounter and selects Double Team, the owner's own legal choice (see the header). */
+async function reserveAt(p, name, candidate) {
+  if (!firstTargets[name]) firstTargets[name] = candidate.id
+  const answer = await engage(p, candidate.id)
+  if (!answer.ok) {
+    // Only the server's own word on position or availability may send the owner to another encounter.
+    if (!['too-far', 'not-alive', 'busy'].includes(answer.reason)) fail(`${p.id}'s engage refused: ${answer.reason}`)
+    report.retries.push({ step: 'engage', player: p.id, encounterId: candidate.id, reason: answer.reason })
+    log(`${p.id}: engage refused by the server (${answer.reason}); another encounter`)
+    return null
+  }
+  const { battleId, joinAck, snapshot } = answer.battle
+  owners.set(battleId, name)
+  targets.set(battleId, { id: candidate.id, tx: candidate.tx, ty: candidate.ty })
+  const actionId = `${joinAck.controllerId}:${joinAck.nextActionSequence}`
+  p.room.send(WORLD_MESSAGE.ECO_BATTLE_ACTION, { actionId, battleId, catalogVersion: snapshot.catalogVersion, battleRulesVersion: snapshot.battleRulesVersion, intent: { kind: 'useMove', combatantId: 'player-0', moveId: 104, targetId: 'player-0' } })
+  await until(() => p.state.battle.some(m => m.result?.actionId === actionId), 5_000, `${p.id}'s Double Team selection to be answered`)
+  const result = p.state.battle.find(m => m.result?.actionId === actionId).result
+  if (result.kind !== 'accepted') fail(`${p.id}'s Double Team selection: ${result.kind} ${result.reason ?? ''}`)
+  log(`${p.id} battles ${battleId} (#${candidate.speciesId}), Double Team selected`)
+  return battleId
+}
+
+/** Approaches and reserves (the next candidate if one was refused). */
 async function reserve(p, name) {
-  for (const candidate of byDistance(p).slice(0, 6)) {
-    if (!(await walkTo(p, candidate.id, ECO_ENGAGE_RANGE - 2, 40_000))) continue
-    const answer = await engage(p, candidate.id)
-    if (answer.ok) {
-      owners.set(answer.battle.battleId, name)
-      targets.set(answer.battle.battleId, { id: candidate.id, tx: candidate.tx, ty: candidate.ty })
-      log(`${p.id} battles ${answer.battle.battleId} (#${candidate.speciesId})`)
-      return { target: candidate, battleId: answer.battle.battleId }
-    }
-    log(`${p.id}: ${candidate.id.split(':').slice(2).join(':')} refused (${answer.reason}); next`)
+  for (let i = 0; i < 6; i++) {
+    const battleId = await reserveAt(p, name, await approach(p))
+    if (battleId) return { battleId }
   }
   return fail(`${p.id} could not reserve any encounter`)
 }
@@ -231,21 +300,25 @@ try {
   if (!(await walkTo(c, mouth, 1, 120_000))) fail('C could not reach the cave mouth')
 
   // 1–2. Two battles at once, really active together, and routed to everyone but their owners.
-  //   Retried on fresh battles when one ends before every check below has been met.
-  let b1 = null, b2 = null
-  for (let attempt = 0; ; attempt++) {
-    if (attempt === 3) fail('the two battles kept ending before routing and synchronisation could be checked')
-    const one = await running('a'), two = await running('b')
-    const bothLive = () => !endedFor(one) && !endedFor(two)
-    const received = () => publics(c, one).length > 0 && publics(c, two).length > 0 && publics(a, two).length > 0 && publics(b, one).length > 0
-    // mutual receipt and a positive owner/spectator event pair for EACH battle (a battle may end on
-    // the very tick of its pair: the pair still counts; one that ended without it does not)
-    const ready = () => received() && syncAgainst(a, c, one) > 0 && syncAgainst(b, c, two) > 0
-    await until(() => ready() || !bothLive(), 30_000, 'C and each owner to receive the battles, with an event pair of each')
-    if (!ready()) { log('a battle ended before routing and an event pair of each were shown; again'); continue }
-    b1 = one; b2 = two
-    break
+  //   No retry here: both owners stand in range first and engage back to back; every viewer must
+  //   receive each START (seq 1, sent at the reservation whatever the battle's length); a timeout FAILS.
+  const near = { a: await approach(a), b: null }
+  near.b = await approach(b, near.a.id)
+  /** Engages; after a refusal the server explained (recorded), it approaches another encounter — at most twice more. */
+  const firstBattle = async (p, name, candidate, skip) => {
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const battleId = await reserveAt(p, name, candidate)
+      if (battleId) return battleId
+      candidate = await approach(p, skip())
+      firstTargets[name] = candidate.id
+    }
+    return fail(`${p.id}: three engages refused`)
   }
+  const b1 = await firstBattle(a, 'a', near.a, () => near.b.id)
+  const b2 = await firstBattle(b, 'b', near.b, () => targets.get(b1).id)
+  const startedFor = (p, id) => publics(p, id).some(v => v.seq === 1)
+  await until(() => startedFor(c, b1) && startedFor(c, b2) && startedFor(a, b2) && startedFor(b, b1), 5_000, 'every viewer to receive both battles\' start (a lost public receipt fails, it is not retried)')
+  await until(() => syncAgainst(a, c, b1) > 0 && syncAgainst(b, c, b2) > 0, 30_000, 'an owner/spectator event pair of each battle')
   if ([...owners].some(([id, who]) => publics(who === 'a' ? a : b, id).length)) fail('an owner received its own battle as public')
   if (!publics(a, b2).length || !publics(b, b1).length) fail('an owner did not receive the other battle')
   if (targets.get(b1).id === targets.get(b2).id) fail('the two battles are against the same individual')
@@ -268,14 +341,14 @@ try {
   for (let attempt = 0; ; attempt++) {
     if (attempt === 3) fail('no battle stayed live for D\'s arrival')
     const live = [b1, b2].find(id => !endedFor(id) && syncAgainst(ownerOf(id), c, id) > 0) ?? await running('b')
-    await until(() => endedFor(live) || publics(c, live).some(v => v.events?.length), 20_000, 'C to have seen events of the live battle')
-    if (endedFor(live)) continue
-    d = await player('eco-spect-d', d)
+    await until(() => ownerEnd(live) || publics(c, live).some(v => v.events?.length), 20_000, 'C to have seen events of the live battle')
+    if (!publics(c, live).some(v => v.events?.length)) { retryAfterEnd('late arrival', live); continue }
+    d = await player(pid('d'), d)
     await until(() => d.state.areaId === 'pradera', 15_000, 'D in Pradera')
     const joinedAt = d.state.publics.findLast(m => m.snapshot === 'pradera').at
-    await until(() => endedFor(live) || d.state.publics.some(m => m.at >= joinedAt && m.view?.battleId === live), 5_000, 'D to receive the live battle')
+    await until(() => (ownerEnd(live) && ownerEnd(live).at <= joinedAt) || d.state.publics.some(m => m.at >= joinedAt && m.view?.battleId === live), 5_000, 'D to receive the live battle')
     const arrival = d.state.publics.find(m => m.at >= joinedAt && m.view?.battleId === live)
-    if (!arrival) { await d.room.leave(); continue } // it ended just before D arrived
+    if (!arrival) { retryAfterEnd('late arrival', live); await d.room.leave(); continue } // ended before D arrived (the owner was told)
     if (arrival.view.ended) fail(`D's first view of ${live} was its end`)
     if (arrival.view.events) fail(`D's first view of ${live} carried past events`)
     const cBefore = c.state.publics.filter(m => m.view?.battleId === live && m.at <= arrival.at).at(-1)?.view
@@ -295,10 +368,10 @@ try {
     await a.room.leave()
     await until(() => publics(c, paused0).at(-1)?.connected === false || endedFor(paused0), 5_000, 'C to see the pause')
     const paused = publics(c, paused0).at(-1)
-    if (paused.ended) { a = await player('eco-spect-a', a); await until(() => a.state.areaId === 'pradera', 15_000, 'A back'); continue }
+    if (paused.ended) { retryAfterEnd('pause', paused0); a = await player(pid('a'), a); await until(() => a.state.areaId === 'pradera', 15_000, 'A back'); continue }
     await wait(1_500)
     const quiet = publics(c, paused0).at(-1) === paused
-    a = await player('eco-spect-a', a)
+    a = await player(pid('a'), a)
     await until(() => a.state.engage.some(r => r.resumed), 8_000, 'A\'s battle to resume')
     await until(() => publics(c, paused0).at(-1)?.connected === true || endedFor(paused0), 5_000, 'C to see the resume')
     const resumed = publics(c, paused0).find(v => v.seq > paused.seq)
@@ -327,7 +400,7 @@ try {
     for (const end of ownersEnds.filter(e => e.at > outAt && e.at < backAt)) {
       if (after.some(m => m.view.battleId === end.battleId)) fail(`${end.battleId} ended while C was away and came back`)
     }
-    if (endedFor(kept) && !after.some(m => m.view.battleId === kept)) { log('the kept battle ended during the trip; again'); continue }
+    if (!after.some(m => m.view.battleId === kept) && ownerEnd(kept)) { retryAfterEnd('area change', kept); continue }
     const firstBack = after.find(m => m.view.battleId === kept)?.view
     if (!firstBack) fail(`back in Pradera, C did not receive the running battle ${kept}`)
     if (firstBack.events) fail('back in Pradera, the running battle came with past events')
