@@ -21,7 +21,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
-    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :map-focus="ecoMapFocus" @overlay="(overlay: SceneOverlay | null) => { if (ecoOverlaySlot) ecoOverlaySlot.current = overlay }" @battle="(open: boolean) => (ecoBattleOpen = open)" />
+    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :map-focus="mapFocus" @overlay="(overlay: SceneOverlay | null) => { if (ecoOverlaySlot) ecoOverlaySlot.current = overlay }" @battle="(open: boolean) => (ecoBattleOpen = open)" />
     <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"
@@ -99,6 +99,8 @@
       :is="ChatPanel"
       v-if="ChatPanel && !playtestSurface"
       ref="chatRef"
+      :map-focus="mapFocus"
+      :shortcut-blocked="overHud || !worldPlayable(entry)"
       @open="(open: boolean) => { chatOpen = open; onHudPanel('chat', open) }"
     />
 
@@ -156,7 +158,7 @@ import WorldHintTray from './WorldHintTray.vue'
 import { visibleWorldHints, type WorldHint } from './worldHints'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
 import { ColyseusPresence, REALTIME_CONFIGURED } from '../multiplayer/api/colyseusPresence'
-import { initialWorldEntry, type WorldEntryState } from '../multiplayer/domain/worldEntry'
+import { initialWorldEntry, worldPlayable, type WorldEntryState } from '../multiplayer/domain/worldEntry'
 import { WorldEntryController } from '../multiplayer/state/worldEntryController'
 import WorldEntryOverlay from './WorldEntryOverlay.vue'
 import type { Chat } from '../../chat/state/useChat'
@@ -195,7 +197,8 @@ const ecoOverlay: SceneOverlay | null = ecoOverlaySlot ? {
   sprites: (...args) => ecoOverlaySlot.current?.sprites?.(...args) ?? [],
   labels: (...args) => ecoOverlaySlot.current?.labels?.(...args) ?? [],
 } : null
-const ecoMapFocus = () => canvasRef.value ?? null
+/** The map, for whoever hands the keys back to it: the battle panel, the chat's Escape and Enter (CHAT-SHORTCUT-1). */
+const mapFocus = () => canvasRef.value ?? null
 if (ECO_EXPERIMENT) watch(ecoBattleOpen, open => game.value?.setBattleRestricted(open))
 const performanceMode = import.meta.env.VITE_PERF === 'on'
 const PlaytestPerformanceHud = isPlaytest || performanceMode
@@ -358,11 +361,14 @@ function closeHudPanel(): void {
   else if (hudPanel.value === 'skills') professionRef.value?.closeSkills()
   else if (hudPanel.value === 'bag') professionRef.value?.closeBag()
 }
+/** Something above the HUD panels owns the keys: its own Escape (and Enter) win. */
+const overHud = computed(() =>
+  covered.value || plazaOpen.value || professionOpen.value || !!professionRef.value?.actionOpen)
 // Capture phase: this runs before the menu's own handler closes the menu, so
 // one Escape never closes two things.
 const onHudEscape = (event: KeyboardEvent) => {
   if (event.key !== 'Escape' || !hudPanel.value) return
-  if (covered.value || plazaOpen.value || professionOpen.value || professionRef.value?.actionOpen) return
+  if (overHud.value) return
   closeHudPanel()
 }
 const worldHints = computed(() => visibleWorldHints(
