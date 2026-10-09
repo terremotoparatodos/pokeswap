@@ -67,16 +67,19 @@ describe('ECO experiment layer · map selection', () => {
     wrapper.unmount()
   })
 
-  it('explains busy, far and gone; «Combatir» only when free and in range (the range itself unchanged)', async () => {
+  it('explains busy, far and gone; «Combatir» only when free and within 3 tiles (ECO-BATTLE-ENDING-1: 3 starts, 4 does not)', async () => {
     const { world, layer, card, wrapper } = setup()
     const fight = () => card().find('.eco-card__fight')
     layer.select(ID('claro', 0)); await flushPromises()
     expect(card().text()).toContain('Ocupado: otro entrenador lo está combatiendo')
     expect(fight().attributes('disabled')).toBeDefined()
     layer.select(ID('lejos', 0)); await flushPromises()
-    expect(card().text()).toContain('Lejos: estás a 9 casillas. Acercate a 6 o menos.')
+    expect(card().text()).toContain('Lejos: estás a 9 casillas. Acercate a 3 o menos.')
     expect(fight().attributes('disabled')).toBeDefined()
-    await wrapper.setProps({ tx: 3 }) // 6 tiles away now: in range
+    await wrapper.setProps({ tx: 5 }) // 4 tiles away: still far
+    expect(card().text()).toContain('Lejos: estás a 4 casillas. Acercate a 3 o menos.')
+    expect(fight().attributes('disabled')).toBeDefined()
+    await wrapper.setProps({ tx: 6 }) // exactly 3 tiles: in range
     expect(card().text()).toContain('Libre')
     expect(fight().attributes('disabled')).toBeUndefined()
     // retired while the card is open: it says so instead of vanishing silently
@@ -84,6 +87,19 @@ describe('ECO experiment layer · map selection', () => {
     await flushPromises()
     expect(card().text()).toContain('Ya no está aquí.')
     expect(fight().attributes('disabled')).toBeDefined()
+    wrapper.unmount()
+  })
+
+  it('the debug panel shows the same 3-tile limit: «Combatir» at 3 tiles, «Lejos» at 4 (ECO-BATTLE-ENDING-1)', async () => {
+    const { wrapper } = setup()
+    await wrapper.find('.eco-dev__toggle').trigger('click')
+    const button = () => wrapper.findAll('.eco-dev li').find(r => r.text().includes('soto:1:1'))!.findAll('button')[0] // at (3, 1)
+    expect(button().text()).toBe('Combatir')
+    expect(button().attributes('disabled')).toBeUndefined()
+    await wrapper.setProps({ tx: -1 }) // 4 tiles away now
+    expect(button().text()).toBe('Lejos')
+    expect(button().attributes('disabled')).toBeDefined()
+    expect(button().attributes('title')).toBe('Acercate a 3 casillas o menos')
     wrapper.unmount()
   })
 

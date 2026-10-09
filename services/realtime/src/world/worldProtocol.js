@@ -37,10 +37,11 @@ export const ECO_PROTOCOL = 1
 
 /**
  * ECO-GAMEPLAY-2 (experimental, PROVISIONAL): Chebyshev tiles from a player to an encounter for a
- * test-battle engage (patrol leash 4 + 2). The server enforces it; a client only uses it to grey out
- * a button it would refuse anyway.
+ * test-battle engage. ECO-BATTLE-ENDING-1: 3 (was 6), by the owner's decision. It limits STARTING a
+ * battle only — a running battle is never cancelled by distance. The server enforces it; a client
+ * only uses it to grey out a button it would refuse anyway.
  */
-export const ECO_ENGAGE_RANGE = 6
+export const ECO_ENGAGE_RANGE = 3
 
 export const WORLD_MESSAGE = Object.freeze({
   // client → server

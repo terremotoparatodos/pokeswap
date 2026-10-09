@@ -37,13 +37,13 @@ const THEIRS = 'eco-n:pradera:soto:1:0'
 const MINE = 'eco-n:pradera:soto:1:1'
 const pradera: EcoArea = {
   protocol: 1, areaId: 'pradera', status: 'active',
-  encounters: [{ id: THEIRS, groupId: 'g', speciesId: 13, tx: 4, ty: 2, busy: true }, { id: MINE, groupId: 'g', speciesId: 16, tx: 2, ty: 0, busy: false }],
+  encounters: [{ id: THEIRS, groupId: 'g', speciesId: 13, tx: 3, ty: 2, busy: true }, { id: MINE, groupId: 'g', speciesId: 16, tx: 2, ty: 0, busy: false }],
 }
 const cave: EcoArea = { protocol: 1, areaId: 'cueva-inicial', status: 'active', encounters: [] }
 const combatant = (speciesId: number, currentHp: number) => ({ speciesId, level: 10, maxHp: 30, currentHp, majorStatus: 'none', confused: false, spe: 60, speStage: 0, actionElapsedMs: 400, cooldownMultiplier: 1 })
 const theirs = (seq: number, over: Partial<EcoPublicBattle> = {}): EcoPublicBattle => ({
   battleId: 'b-theirs', encounterId: THEIRS, areaId: 'pradera', seq, revision: seq, timeMs: seq * 100, connected: true,
-  stage: { owner: { tx: 1, ty: 2 }, wild: { tx: 4, ty: 2 } }, // in engage range of the spectator at (0,0)
+  stage: { owner: { tx: 1, ty: 2 }, wild: { tx: 3, ty: 2 } }, // in the 3-tile engage range of the spectator at (0,0)
   config: { actionBar: DEFAULT_BATTLE_RULES_CONFIG.actionBar, statStages: DEFAULT_BATTLE_RULES_CONFIG.statStages },
   combatants: { 'player-0': combatant(25, 30), 'wild-0': combatant(13, 20) },
   ...over,
@@ -170,7 +170,7 @@ describe('ECO experiment layer · watching someone else’s battle', () => {
       await s.send(another(1))
       await s.send(theirs(2, { ended: { outcome: 'fled' } }))
       expect(s.labels()).toContain('Huyó')
-      await s.send(theirs(1, { battleId: 'b-theirs-again', stage: { owner: { tx: 2, ty: 2 }, wild: { tx: 4, ty: 2 } } }))
+      await s.send(theirs(1, { battleId: 'b-theirs-again', stage: { owner: { tx: 2, ty: 2 }, wild: { tx: 3, ty: 2 } } }))
       const pikachus = s.drawn().filter(x => x.sprite)
       expect(pikachus).toHaveLength(2) // this individual's new battle + the other individual's
       expect(s.drawn().filter(x => x.bar)).toHaveLength(4)

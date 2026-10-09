@@ -8,7 +8,7 @@ export declare const WORLD_PROTOCOL: 3
 export declare const WORK_TICK_MS: 600
 export declare const ECO_PROTOCOL: 1
 /** ECO-GAMEPLAY-2 (provisional): engage range in Chebyshev tiles; the server enforces it. */
-export declare const ECO_ENGAGE_RANGE: 6
+export declare const ECO_ENGAGE_RANGE: 3
 
 export declare const WORLD_MESSAGE: Readonly<{
   WORK: 'world:work'

@@ -68,13 +68,13 @@ test('A02 actions before the core: current socket, own battle, own actionId — 
   assert.equal(core.submits.length, 2)
 })
 
-test('A03 identity, area and distance are the server\'s: range boundary 6 / 7, other area, guest', async () => {
+test('A03 identity, area and distance are the server\'s: range boundary 3 / 4, other area, guest', async () => {
   const s = await setup()
   const a = s.join('eco-a')
   const target = s.populated(a)
   s.standNear(a, target.id, ECO_ENGAGE_RANGE + 1)
   assert.equal(s.engage(a, target.id).reason, 'too-far')
-  a.actor.tx -= 2 * (ECO_ENGAGE_RANGE + 1) // the other side, 7 tiles away too
+  a.actor.tx -= 2 * (ECO_ENGAGE_RANGE + 1) // the other side, out of range too
   assert.equal(s.engage(a, target.id).reason, 'too-far')
   s.standNear(a, target.id)
   a.actor.ty += ECO_ENGAGE_RANGE + 1
@@ -92,7 +92,7 @@ test('A03 identity, area and distance are the server\'s: range boundary 6 / 7, o
   assert.equal(s.scripted.made.length, 0)
   const fresh = { ...a, client: s.sockets.get('eco-a') }
   s.standNear(fresh, target.id, ECO_ENGAGE_RANGE)
-  assert.equal(s.engage(fresh, target.id).ok, true, 'exactly 6 tiles is in range')
+  assert.equal(s.engage(fresh, target.id).ok, true, `exactly ${ECO_ENGAGE_RANGE} tiles is in range`)
 })
 
 test('A04 only a live individual id: unknown, retired, old generation and malformed ids are refused', async () => {

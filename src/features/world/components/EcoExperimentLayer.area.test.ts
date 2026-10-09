@@ -32,7 +32,7 @@ vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
 const { default: EcoExperimentLayer } = await import('./EcoExperimentLayer.vue')
 
 const ID = 'eco-n:pradera:soto:1:0'
-const pradera: EcoArea = { protocol: 1, areaId: 'pradera', status: 'active', encounters: [{ id: ID, groupId: 'g', speciesId: 13, tx: 4, ty: 0, busy: false }] }
+const pradera: EcoArea = { protocol: 1, areaId: 'pradera', status: 'active', encounters: [{ id: ID, groupId: 'g', speciesId: 13, tx: 3, ty: 0, busy: false }] } // within the 3-tile start limit
 const cave: EcoArea = { protocol: 1, areaId: 'cueva-inicial', status: 'active', encounters: [] }
 const snapshot = (revision = 1, timeMs = 0) => ({
   battleId: 'b', revision, timeMs, catalogVersion: 'c', battleRulesVersion: 'r', config: DEFAULT_BATTLE_RULES_CONFIG, outcome: { kind: 'ongoing' },
