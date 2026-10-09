@@ -70,6 +70,11 @@ export const WORLD_MESSAGE = Object.freeze({
   ECO_BATTLE: 'world:eco-battle',
   /** ECO-GAMEPLAY-2, owner only: the one end of a reservation, decided by the server. */
   ECO_BATTLE_END: 'world:eco-battle-end',
+  /**
+   * ECO-BATTLE-SPECTATORS-1, every OTHER ECO viewer of the battle's area: its public view (a
+   * whitelisted projection, see ecoBattlePublic.js). Never sent to the owner, never asked for.
+   */
+  ECO_BATTLE_PUBLIC: 'world:eco-battle-public',
   /** The session's own XP, materials and workable Pokémon (server → that player only). */
   PLAYER_STATE: 'player:state',
 })

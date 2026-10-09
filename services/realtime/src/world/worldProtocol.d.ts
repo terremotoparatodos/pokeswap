@@ -28,6 +28,7 @@ export declare const WORLD_MESSAGE: Readonly<{
   ECO_ENGAGE_RESULT: 'world:eco-engage-result'
   ECO_BATTLE: 'world:eco-battle'
   ECO_BATTLE_END: 'world:eco-battle-end'
+  ECO_BATTLE_PUBLIC: 'world:eco-battle-public'
   PLAYER_STATE: 'player:state'
 }>
 
@@ -126,6 +127,57 @@ export interface EcoBattleEnd {
   /** True only for the victory that actually retired the individual. */
   readonly retired: boolean
   readonly snapshot: ClientBattleSnapshot
+}
+
+/** ECO-BATTLE-SPECTATORS-1: one combatant as a spectator sees it (whitelisted fields only). */
+export interface EcoPublicCombatant {
+  readonly speciesId: number | null
+  readonly level: number | null
+  readonly maxHp: number | null
+  readonly currentHp: number | null
+  readonly majorStatus: string
+  readonly confused: boolean
+  readonly spe: number | null
+  readonly speStage: number
+  readonly actionElapsedMs: number
+  readonly cooldownMultiplier: number
+}
+
+/** The event types a spectator draws, each with only its whitelisted fields. */
+export type EcoPublicEvent =
+  | { readonly type: 'MOVE_USED'; readonly combatantId: string; readonly moveId: number; readonly targetId: string | null; readonly hits: number }
+  | { readonly type: 'MOVE_MISSED'; readonly combatantId: string; readonly moveId: number }
+  | { readonly type: 'DAMAGE'; readonly combatantId: string; readonly sourceId: string | null; readonly amount: number; readonly remainingHp: number; readonly critical: boolean; readonly effectiveness: number; readonly hit: number; readonly cause: string }
+  | { readonly type: 'HEAL'; readonly combatantId: string; readonly amount: number; readonly remainingHp: number; readonly cause: string }
+  | { readonly type: 'STATUS_APPLIED'; readonly combatantId: string; readonly status: string; readonly sourceId: string | null }
+  | { readonly type: 'CONFUSION_APPLIED' | 'PROTECT_GAINED' | 'PROTECT_BLOCKED' | 'FAINTED'; readonly combatantId: string }
+
+export interface EcoPublicEventEnvelope {
+  readonly sequence: number
+  readonly event: EcoPublicEvent
+}
+
+/**
+ * ECO-BATTLE-SPECTATORS-1 (`world:eco-battle-public`): someone else's test battle in this area.
+ * `seq` grows strictly per battle; `ended` marks its last message.
+ */
+export interface EcoPublicBattle {
+  readonly battleId: string
+  readonly encounterId: string
+  readonly areaId: string
+  readonly seq: number
+  readonly stage: { readonly owner: { readonly tx: number; readonly ty: number }; readonly wild: { readonly tx: number; readonly ty: number } }
+  readonly revision: number
+  readonly timeMs: number
+  /** False while the owner is disconnected (the battle is paused). */
+  readonly connected: boolean
+  readonly config: {
+    readonly actionBar: { readonly baseSeconds?: number; readonly referenceSpeed?: number; readonly minSeconds?: number; readonly maxSeconds?: number; readonly paralysisMultiplier?: number }
+    readonly statStages: { readonly minStage?: number; readonly maxStage?: number; readonly multiplierByStage: Readonly<Record<string, number>> }
+  }
+  readonly combatants: Readonly<Record<string, EcoPublicCombatant>>
+  readonly events?: readonly EcoPublicEventEnvelope[]
+  readonly ended?: { readonly outcome: EcoBattleOutcome }
 }
 
 export interface WildMessage {
