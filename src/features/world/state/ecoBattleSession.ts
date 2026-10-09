@@ -211,14 +211,20 @@ export class EcoBattleSession implements EcoBattleSink {
     } else if (result) {
       lastRejection = null
     }
-    const snapshot = message.snapshot && message.snapshot.revision >= battle.snapshot.revision ? message.snapshot : battle.snapshot
-    if (snapshot !== battle.snapshot && this.battleTimeAt) {
+    // The snapshot is deduplicated on its own: the rest of the message (the result above, the
+    // events below) is handled whatever it brings. Only a later state replaces the one shown and
+    // restarts the interpolation and the countdown from it; the same state received again (a
+    // replay, a copy deserialized anew) or an older one changes neither. Resuming after a
+    // reconnection is `engageResult` (`resumed`), which always restarts both from the server.
+    const snapshot = message.snapshot && isLater(message.snapshot, battle.snapshot) ? message.snapshot : battle.snapshot
+    const advanced = snapshot !== battle.snapshot
+    if (advanced && this.battleTimeAt) {
       const passed = snapshot.timeMs - battle.snapshot.timeMs
       this.battleTimeAt = { ms: Math.max(0, battle.expiresInMs - passed), at: this.now() }
     }
     const fresh = (message.events ?? []).filter(envelope => envelope.sequence > this.lastEvent.sequence)
     if (fresh.length) this.lastEvent = { battleId: battle.battleId, sequence: fresh[fresh.length - 1].sequence }
-    this.set({ ...battle, snapshot, snapshotAt: snapshot !== battle.snapshot ? this.now() : battle.snapshotAt, expiresInMs: this.battleTimeAt?.ms ?? battle.expiresInMs, lastRejection })
+    this.set({ ...battle, snapshot, snapshotAt: advanced ? this.now() : battle.snapshotAt, expiresInMs: this.battleTimeAt?.ms ?? battle.expiresInMs, lastRejection })
     if (fresh.length) for (const listener of this.eventListeners) listener(fresh)
   }
 
@@ -242,4 +248,12 @@ export class EcoBattleSession implements EcoBattleSink {
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
   }
+}
+
+/**
+ * A later authoritative state. The battle authority advances the revision on every change it
+ * commits, the passing of time included, so an equal revision is the same state.
+ */
+function isLater(next: ClientBattleSnapshot, current: ClientBattleSnapshot): boolean {
+  return next.revision > current.revision
 }
