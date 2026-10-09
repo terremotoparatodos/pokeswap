@@ -1,7 +1,7 @@
 <template>
   <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" />
   <EcoEncounterCard
-    v-if="selected && battle.phase === 'idle'"
+    v-if="selected && !holds(battle.phase)"
     :encounter-id="selected.id"
     :encounter="selectedLive"
     :species-id="selected.speciesId"
@@ -12,9 +12,10 @@
     @engage="engage"
   />
   <EcoBattlePanel
-    v-if="battle.phase !== 'idle'"
+    v-if="holds(battle.phase)"
     :session="session" :view="battle" :catalog="catalog" :pokedex-name="pokedexName" :return-focus="returnFocus" :side="panelSide" :map-focus="mapFocus"
   />
+  <EcoBattleToast v-if="result" :key="result.key" :title="result.title" :detail="result.detail" />
 </template>
 
 <script setup lang="ts">
@@ -26,19 +27,23 @@
 //     a non-modal panel with the choices — it replaces ECO-PRESENTATION-1's modal;
 //   - ECO-BATTLE-SPECTATORS-1: the OTHER players' battles in this area, drawn the same way from the
 //     server's public view — watched only: no panel, no controls, the player keeps walking;
-//   - the debug panel, a secondary tool sharing the same session.
+//   - the debug panel, a secondary tool sharing the same session;
+//   - ECO-BATTLE-ENDING-1: the server's end needs no acceptance. The player gets the map back at
+//     once (no lock, no panel, no «Volver al mapa»); a brief non-modal notice names the result, and
+//     the world plays the end out (Pikachu back to its ball; the wild one fades only on a victory).
 // Presentation only: the server reserves, validates, runs and ends every battle.
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
 import type { EcoArea } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
 import { loadBattleCatalog } from '../../battle/catalog'
 import type { BattleCatalogIndex } from '../../battle/catalog'
-import { ecoSpeciesName } from '../domain/ecoBattleText'
+import { ECO_OUTCOME_TEXT, ecoSpeciesName } from '../domain/ecoBattleText'
 import { EcoBattleOverlay } from '../render/ecoBattleOverlay'
 import { EcoBattleSession, type EcoBattleView } from '../state/ecoBattleSession'
 import { EcoSpectatedBattles } from '../state/ecoSpectatedBattles'
 import type { SharedWorld } from '../state/sharedWorld'
 import EcoBattlePanel from './EcoBattlePanel.vue'
+import EcoBattleToast from './EcoBattleToast.vue'
 import EcoDevPanel from './EcoDevPanel.vue'
 import EcoEncounterCard from './EcoEncounterCard.vue'
 
@@ -84,14 +89,16 @@ const wildTiles = new Map<string, { tx: number; ty: number }>()
  */
 let battleArea: string | null = null
 watch([battle, currentArea, () => props.areaId], ([view, here, areaId]) => {
-  if (battleArea !== null && battleArea !== areaId) { battleArea = null; wildTiles.clear() }
+  if (battleArea !== null && battleArea !== areaId) { battleArea = null; wildTiles.clear(); battleWorld.dropOwnEnding() }
   for (const e of here?.encounters ?? []) wildTiles.set(e.id, { tx: e.tx, ty: e.ty })
-  if ((view.phase === 'battle' || view.phase === 'ended') && battleArea) {
+  if (view.phase === 'battle' && battleArea) {
     const wildTile = wildTiles.get(view.encounterId)
     battleWorld.setBattle(wildTile ? {
-      snapshot: view.snapshot, snapshotAt: view.phase === 'battle' ? view.snapshotAt : session.clock(),
-      connected: view.phase === 'battle' && view.connected, encounterId: view.encounterId, wildTile,
+      snapshot: view.snapshot, snapshotAt: view.snapshotAt, connected: view.connected, encounterId: view.encounterId, wildTile,
     } : null)
+  } else if (view.phase === 'ended' && battleArea) {
+    // The server's end: played out in the world, holding nothing (the wild one fades only on a victory it retired).
+    battleWorld.finish(view.encounterId, view.outcome === 'victory' && view.retired)
   } else {
     battleWorld.setBattle(null)
   }
@@ -133,6 +140,29 @@ const selectedLive = computed(() => currentArea.value?.encounters.find(e => e.id
 /** Where the focus was when the battle was asked for — by the card or by the debug panel. */
 const returnFocus = shallowRef<HTMLElement | null>(null)
 
+/**
+ * ECO-BATTLE-ENDING-1: what holds the player and shows the panel — asking, fighting, or a refusal
+ * to read. An END does not: it is the server's, and the map comes back the moment it arrives.
+ */
+const holds = (phase: EcoBattleView['phase']) => phase === 'engaging' || phase === 'battle' || phase === 'refused'
+
+/** The brief notice of the owner's last end (non-modal; it leaves on its own or when another battle starts). */
+const RESULT_NOTICE_MS = 3_000
+const result = shallowRef<{ key: string; title: string; detail: string } | null>(null)
+let resultTimer: ReturnType<typeof setTimeout> | null = null
+watch(battle, (view, previous) => {
+  if (view.phase === 'ended' && (previous?.phase !== 'ended' || previous.battleId !== view.battleId)) {
+    const text = ECO_OUTCOME_TEXT[view.outcome]
+    result.value = { key: view.battleId, title: text.title, detail: text.detail }
+    if (resultTimer) clearTimeout(resultTimer)
+    resultTimer = setTimeout(() => { result.value = null; resultTimer = null }, RESULT_NOTICE_MS)
+  } else if (view.phase === 'engaging' && result.value) {
+    if (resultTimer) clearTimeout(resultTimer)
+    result.value = null; resultTimer = null
+  }
+}, { flush: 'sync' })
+onUnmounted(() => { if (resultTimer) clearTimeout(resultTimer) })
+
 // Another area: whatever was selected there is not here (the server releases a battle left behind).
 watch(() => props.areaId, () => { selectedId.value = null })
 // Every battle asked for (or resumed) fixes its OWN area, also when it starts straight from the
@@ -147,7 +177,7 @@ watch(battle, (view, previous) => {
 }, { immediate: true, flush: 'sync' })
 // A battle started by EITHER route (the card or the debug panel) ends the selection, and remembers
 // the control that asked for it (synchronously, before anything else moves the focus).
-watch(() => battle.value.phase !== 'idle', open => {
+watch(() => holds(battle.value.phase), open => {
   if (open) {
     selectedId.value = null
     returnFocus.value = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
@@ -167,7 +197,7 @@ defineExpose({
   select(actorId: string): boolean {
     const encounter = currentArea.value?.encounters.find(e => e.id === actorId)
     if (!encounter) return false
-    if (battle.value.phase === 'idle') {
+    if (!holds(battle.value.phase)) {
       selectedId.value = encounter.id
       selectedSpecies.value = encounter.speciesId
     }

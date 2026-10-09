@@ -13,7 +13,7 @@
       <button type="button" class="ebp-primary" @click="session.dismiss()">Volver al mapa</button>
     </template>
 
-    <template v-else-if="view.phase === 'battle' || view.phase === 'ended'">
+    <template v-else-if="view.phase === 'battle'">
       <article v-for="entry in sides" :key="entry.id" class="ebp-side" :class="entry.mine ? 'ebp-side--mine' : 'ebp-side--foe'">
         <div class="ebp-row">
           <b>{{ entry.name }}</b>
@@ -27,31 +27,23 @@
         <span v-if="entry.status" class="ebp-status">{{ entry.status }}</span>
       </article>
 
-      <template v-if="view.phase === 'battle'">
-        <p v-if="!view.connected" class="ebp-log ebp-log--warn" role="status">Reconectando… el combate está en pausa.</p>
-        <p v-else class="ebp-log">
-          Tiempo restante {{ remainingLabel }}<template v-if="selectedName"> · se repite: {{ selectedName }}</template>
-        </p>
-        <div class="ebp-moves">
-          <button
-            v-for="move in moves" :key="move.id" type="button" class="ebp-move"
-            :class="{ 'ebp-move--on': move.selected }" :style="{ '--tint': colourOfType(move.type) }"
-            :disabled="!view.connected || move.pp <= 0" :title="move.category"
-            @click="session.useMove(move.id, move.targetsUser)"
-          >
-            <span class="ebp-move-top"><CombatIcon :name="move.icon" /><b>{{ move.name }}</b></span>
-            <span class="ebp-move-foot"><i class="ebp-pp"><em :style="{ width: `${move.ppPct}%` }" /></i><small>{{ move.pp }}</small></span>
-          </button>
-        </div>
-        <button type="button" class="ebp-flee" :disabled="!view.connected" @click="session.flee()"><CombatIcon name="flee" /> Huir</button>
-        <p v-if="view.lastRejection" class="ebp-log ebp-log--warn" role="status">El servidor no aceptó esa acción ({{ view.lastRejection }}).</p>
-      </template>
-
-      <template v-else>
-        <h2 class="ebp-result">{{ outcome.title }}</h2>
-        <p class="ebp-log" role="status">{{ outcome.detail }}</p>
-        <button type="button" class="ebp-primary" :disabled="settling" @click="session.dismiss()">Volver al mapa</button>
-      </template>
+      <p v-if="!view.connected" class="ebp-log ebp-log--warn" role="status">Reconectando… el combate está en pausa.</p>
+      <p v-else class="ebp-log">
+        Tiempo restante {{ remainingLabel }}<template v-if="selectedName"> · se repite: {{ selectedName }}</template>
+      </p>
+      <div class="ebp-moves">
+        <button
+          v-for="move in moves" :key="move.id" type="button" class="ebp-move"
+          :class="{ 'ebp-move--on': move.selected }" :style="{ '--tint': colourOfType(move.type) }"
+          :disabled="!view.connected || move.pp <= 0" :title="move.category"
+          @click="session.useMove(move.id, move.targetsUser)"
+        >
+          <span class="ebp-move-top"><CombatIcon :name="move.icon" /><b>{{ move.name }}</b></span>
+          <span class="ebp-move-foot"><i class="ebp-pp"><em :style="{ width: `${move.ppPct}%` }" /></i><small>{{ move.pp }}</small></span>
+        </button>
+      </div>
+      <button type="button" class="ebp-flee" :disabled="!view.connected" @click="session.flee()"><CombatIcon name="flee" /> Huir</button>
+      <p v-if="view.lastRejection" class="ebp-log ebp-log--warn" role="status">El servidor no aceptó esa acción ({{ view.lastRejection }}).</p>
     </template>
   </section>
 </template>
@@ -66,7 +58,7 @@ import type { BattleCatalogIndex } from '../../battle/catalog'
 import { maxPPOf } from '../../pokemon/model/instance'
 import CombatIcon, { type IconName } from '../../dungeonPrototype/components/CombatIcon.vue'
 import { colourOfType } from '../../dungeonPrototype/render/worldOverlay'
-import { ECO_OUTCOME_TEXT, ecoClock, ecoRefusalText, ecoSpeciesName } from '../domain/ecoBattleText'
+import { ecoClock, ecoRefusalText, ecoSpeciesName } from '../domain/ecoBattleText'
 import { PLAYER_COMBATANT, WILD_COMBATANT } from '../domain/ecoBattlePresentation'
 import type { EcoBattleSession, EcoBattleView } from '../state/ecoBattleSession'
 
@@ -92,7 +84,7 @@ const STATUS: Record<string, string> = { paralysis: 'paralizado', poison: 'enven
 const ICON: Record<string, IconName> = { physical: 'physical', special: 'special', status: 'status' }
 const pretty = (name: string) => name.split('-').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
 const nameOf = (speciesId: number) => ecoSpeciesName(speciesId, props.pokedexName?.(speciesId), props.catalog?.species(speciesId)?.name)
-const snapshot = computed(() => (props.view.phase === 'battle' || props.view.phase === 'ended' ? props.view.snapshot : null))
+const snapshot = computed(() => (props.view.phase === 'battle' ? props.view.snapshot : null))
 
 const sides = computed(() => [WILD_COMBATANT, PLAYER_COMBATANT].flatMap(id => {
   const c = snapshot.value?.combatants[id]
@@ -122,19 +114,8 @@ const moves = computed(() => {
 })
 const selectedName = computed(() => moves.value.find(m => m.selected)?.name ?? '')
 const remainingLabel = computed(() => { void tick.value; return ecoClock(props.session.remainingMs()) })
-const outcome = computed(() => (props.view.phase === 'ended' ? ECO_OUTCOME_TEXT[props.view.outcome] : { title: '', detail: '' }))
-
-// The end can arrive while a move or «Huir» is being pressed: the result's button takes their place,
-// so it ignores clicks for a moment (unchanged from ECO-PRESENTATION-1).
-const RESULT_SETTLE_MS = 700
-const settling = ref(false)
-let settleTimer: ReturnType<typeof setTimeout> | null = null
-watch(() => props.view.phase === 'ended', ended => {
-  if (settleTimer) clearTimeout(settleTimer)
-  settling.value = ended
-  settleTimer = ended ? setTimeout(() => { settling.value = false }, RESULT_SETTLE_MS) : null
-}, { immediate: true })
-onUnmounted(() => { if (settleTimer) clearTimeout(settleTimer) })
+// ECO-BATTLE-ENDING-1: the end is no longer shown here. The panel leaves the moment the server's end
+// arrives (the layer stops holding the player), so no result button needs a settling guard.
 
 // Focus, without trapping or containment (the panel is NOT modal: Tab leaves it freely, nothing is
 // made inert): it moves here when the battle is asked for, so the keyboard can go on; if a phase
@@ -207,5 +188,4 @@ onBeforeUnmount(() => {
 .ebp-flee, .ebp-primary { display: flex; gap: 4px; align-items: center; justify-content: center; width: 100%; min-height: 40px; margin-top: 6px; border-radius: 7px; font: inherit; font-weight: 700; cursor: pointer; }
 .ebp-flee { border: 1px solid #7a4a3a; background: #101a2e; color: #ffc0a8; }
 .ebp-primary { border: 0; background: #ffd27a; color: #101a36; }
-.ebp-result { margin: 6px 0 0; font-size: 1.05rem; }
 </style>

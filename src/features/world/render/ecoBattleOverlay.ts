@@ -18,10 +18,17 @@
 //
 // Positions are authoritative: the wild one stands on its server-listed tile while busy (see
 // EcoActors), the Pikachu one tile from the trainer toward it.
+//
+// ECO-BATTLE-ENDING-1: an end the server decided is played out briefly in the world, for the owner
+// and for spectators alike, and never holds anything: the Pikachu goes back into its Poké Ball
+// (reusing the engine's own ball sprite), and the wild one fades ONLY on a victory and only once
+// the server's population no longer lists it (fled, defeat, expiry: it stays, as the populace's
+// actor). A new battle of the owner drops its previous ending at once.
 
 import type { Area } from '../../wildlands/engine/area'
 import type { OverlayLabel, OverlaySprite, SceneOverlay } from '../../wildlands/engine/sceneOverlay'
 import { TILE } from '../../wildlands/engine/world'
+import { pokeballInfo } from '../../wildlands/engine/pokeball'
 import { speciesSprite } from '../../dungeonPrototype/render/dungeonSprites'
 import { colourOfType, createWorldOverlay, type StatusMark, type WorldBar, type WorldEffect, type WorldText } from '../../dungeonPrototype/render/worldOverlay'
 import type { BattleCatalogIndex } from '../../battle/catalog'
@@ -59,9 +66,27 @@ interface Scene {
   readonly encounterId: string
   /** Someone else's battle that ended: its short label (shown while the store keeps it). */
   readonly endLabel: string | null
+  /** An ended battle being played out (seconds of the overlay's clock), or null while it runs. */
+  readonly ending: { readonly at: number; readonly victory: boolean } | null
 }
 
 const OWN = 'own'
+const OWN_ENDING = 'own-ending'
+
+/** The ending's timing, in seconds (presentation only; nothing waits for it). */
+export const ENDING = Object.freeze({
+  /** The Pikachu shrinks and fades into its ball. */
+  recall: 0.35,
+  /** The ball shows, then fades. */
+  ball: 0.9,
+  /** The wild one fades after a victory, from when the population stops listing it. */
+  fade: 0.7,
+  /** How long a victory waits for the population to drop the wild one before giving up the fade. */
+  wait: 3,
+})
+
+/** The engine's own drawn Poké Ball (pokeball.ts), resting frame. */
+const ballSprite = () => pokeballInfo({ id: 0, name_es: '' }).frames.down[0]
 
 export interface EcoBattleOverlayInput {
   /** The local trainer's tile, or null before it is placed. */
@@ -83,6 +108,12 @@ export class EcoBattleOverlay {
   private stage: Stage | null = null
   /** Others' battles in this area (ECO-BATTLE-SPECTATORS-1), keyed by battle id. */
   private spectated = new Map<string, Scene>()
+  /** ECO-BATTLE-ENDING-1: the owner's last battle being played out after its end. */
+  private ownEnding: Scene | null = null
+  /** Encounter ids the server lists in this area now (a victory's fade waits until it is gone). */
+  private listed = new Set<string>()
+  /** When each ending's wild one was first seen unlisted (seconds). */
+  private fadeFrom = new Map<string, number>()
 
   constructor(private readonly input: EcoBattleOverlayInput) {
     const seconds = () => this.input.now() / 1000
@@ -96,7 +127,7 @@ export class EcoBattleOverlay {
     })
     this.overlay = {
       ground: world.ground,
-      sprites: (area: Area, s: number): readonly OverlaySprite[] => (this.battle || this.busy.length || this.spectated.size ? world.sprites?.(area, s) ?? [] : []),
+      sprites: (area: Area, s: number): readonly OverlaySprite[] => (this.battle || this.ownEnding || this.busy.length || this.spectated.size ? world.sprites?.(area, s) ?? [] : []),
       labels: (area: Area, s: number): readonly OverlayLabel[] => [...(world.labels?.(area, s) ?? []), ...this.markers()],
     }
   }
@@ -105,15 +136,38 @@ export class EcoBattleOverlay {
     this.catalog = catalog
   }
 
-  /** The owner's battle (or null). A new battle fixes a new stage and drops old marks. */
+  /**
+   * The owner's battle (or null). A new battle fixes a new stage and drops old marks — and the
+   * previous battle's ending, so a quick new battle never shows two Pikachu.
+   */
   setBattle(battle: OverlayBattle | null): void {
     if (!battle) { this.battle = null; this.stage = null; this.dropMarks(OWN); return }
     if (this.battle?.encounterId !== battle.encounterId || !this.stage) {
       const player = this.input.player()
       this.stage = player ? stageOf({ player, wild: battle.wildTile }) : null
       this.dropMarks(OWN)
+      this.dropOwnEnding()
     }
     this.battle = battle
+  }
+
+  /**
+   * ECO-BATTLE-ENDING-1: the server ended the owner's battle against `encounterId`. Its scene is
+   * played out (Pikachu back to its ball; the wild one fades only if `victory`, as the server
+   * confirmed it) and nothing waits for it. No-op unless that battle is the one drawn.
+   */
+  finish(encounterId: string, victory: boolean): void {
+    const own = this.ownScene()
+    if (!own || own.encounterId !== encounterId) return
+    this.ownEnding = { ...own, key: OWN_ENDING, ending: { at: this.input.now() / 1000, victory } }
+    this.battle = null
+    this.stage = null
+  }
+
+  /** The owner's ending goes now (another area, or a new battle). */
+  dropOwnEnding(): void {
+    if (this.ownEnding) this.fadeFrom.delete(OWN_ENDING)
+    this.ownEnding = null
   }
 
   /**
@@ -129,9 +183,10 @@ export class EcoBattleOverlay {
         key: b.battleId, snapshot: spectatorSnapshot(b.view, b.ended !== null), receivedAt: b.receivedAt, connected: b.view.connected,
         stage: stageOf({ player: owner, wild }), wildTile: wild, encounterId: b.encounterId,
         endLabel: b.ended ? ECO_SPECTATOR_OUTCOME_TEXT[b.ended.outcome] ?? null : null,
+        ending: b.ended ? { at: b.ended.at / 1000, victory: b.ended.outcome === 'victory' } : null,
       })
     }
-    for (const key of this.spectated.keys()) if (!next.has(key)) this.dropMarks(key)
+    for (const key of this.spectated.keys()) if (!next.has(key)) { this.dropMarks(key); this.fadeFrom.delete(key) }
     this.spectated = next
   }
 
@@ -145,6 +200,7 @@ export class EcoBattleOverlay {
   setBusy(encounters: readonly EcoEncounter[]): void {
     const own = this.battle?.encounterId
     this.busy = encounters.filter(e => e.busy && e.id !== own)
+    this.listed = new Set(encounters.map(e => e.id))
   }
 
   /** The server's new events: marks on the two Pokémon, stamped now. */
@@ -183,13 +239,20 @@ export class EcoBattleOverlay {
   private ownScene(): Scene | null {
     if (!this.battle || !this.stage) return null
     const b = this.battle
-    return { key: OWN, snapshot: b.snapshot, receivedAt: b.snapshotAt, connected: b.connected, stage: this.stage, wildTile: b.wildTile, encounterId: b.encounterId, endLabel: null }
+    return { key: OWN, snapshot: b.snapshot, receivedAt: b.snapshotAt, connected: b.connected, stage: this.stage, wildTile: b.wildTile, encounterId: b.encounterId, endLabel: null, ending: null }
   }
 
-  /** Scenes drawn now: the owner's, then the others'. */
+  /** Running scenes drawn now: the owner's, then the others'. */
   private scenes(): Scene[] {
     const own = this.ownScene()
-    return own ? [own, ...this.spectated.values()] : [...this.spectated.values()]
+    const others = [...this.spectated.values()].filter(scene => !scene.ending)
+    return own ? [own, ...others] : others
+  }
+
+  /** Ended scenes being played out: the owner's last one, then the others'. */
+  private endings(): Scene[] {
+    const others = [...this.spectated.values()].filter(scene => scene.ending)
+    return this.ownEnding ? [this.ownEnding, ...others] : others
   }
 
   private present(scene: Scene): { player: PresentedCombatant | null; wild: PresentedCombatant | null } {
@@ -213,18 +276,47 @@ export class EcoBattleOverlay {
 
   /** One Pikachu per battle, beside its trainer (the wild one is the populace's own actor). */
   private props(seconds: number) {
-    const out = []
+    const out: { wx: number; wy: number; sprite: ReturnType<typeof speciesSprite>; alpha?: number; scale?: number; lift?: number; depthBias: number }[] = []
     for (const scene of this.scenes()) {
       const { player } = this.present(scene)
       if (!player || player.hp <= 0) continue
       const at = tileFeet(scene.stage.pikachu.tx, scene.stage.pikachu.ty)
       out.push({ wx: at.x, wy: at.y, sprite: speciesSprite(player.speciesId, scene.stage.pikachuFacing, seconds), depthBias: 1 })
     }
+    for (const scene of this.endings()) out.push(...this.ending(scene, seconds))
+    return out
+  }
+
+  /**
+   * One ended scene, played out: the Pikachu shrinks and fades into its ball, the ball fades, and —
+   * after a victory, once the population no longer lists the wild one — a short fade of the wild one
+   * where it stood (it is no longer drawn by the populace then, so it is never drawn twice).
+   */
+  private ending(scene: Scene, seconds: number) {
+    const out: { wx: number; wy: number; sprite: ReturnType<typeof speciesSprite>; alpha?: number; scale?: number; lift?: number; depthBias: number }[] = []
+    const t = seconds - (scene.ending?.at ?? seconds)
+    const at = tileFeet(scene.stage.pikachu.tx, scene.stage.pikachu.ty)
+    const pikachu = scene.snapshot.combatants[PLAYER_COMBATANT]
+    if (pikachu && t < ENDING.recall) {
+      const k = Math.max(0, t) / ENDING.recall
+      out.push({ wx: at.x, wy: at.y, sprite: speciesSprite(pikachu.instance.speciesId, scene.stage.pikachuFacing, seconds), alpha: 1 - k, scale: 1 - 0.7 * k, depthBias: 1 })
+    }
+    if (t < ENDING.ball) out.push({ wx: at.x, wy: at.y, sprite: ballSprite(), alpha: Math.min(1, Math.max(0, t) / 0.12, (ENDING.ball - t) / 0.3), depthBias: 1 })
+    const wild = scene.snapshot.combatants[WILD_COMBATANT]
+    if (scene.ending?.victory && wild && t < ENDING.wait + ENDING.fade && !this.listed.has(scene.encounterId)) {
+      const from = this.fadeFrom.get(scene.key) ?? seconds
+      this.fadeFrom.set(scene.key, from)
+      const k = (seconds - from) / ENDING.fade
+      const spot = tileFeet(scene.wildTile.tx, scene.wildTile.ty)
+      if (k < 1 && from - (scene.ending.at) < ENDING.wait) out.push({ wx: spot.x, wy: spot.y, sprite: speciesSprite(wild.instance.speciesId, scene.stage.wildFacing, seconds), alpha: 1 - k, depthBias: 0 })
+    }
+    if (scene === this.ownEnding && t > Math.max(ENDING.ball, scene.ending?.victory ? ENDING.wait + ENDING.fade : 0)) this.dropOwnEnding()
     return out
   }
 
   private markers(): OverlayLabel[] {
-    const watched = new Set([...this.spectated.values()].map(scene => scene.encounterId))
+    // Drawn (running or ending) battles carry no «en combate»: the others' and the owner's ending one.
+    const watched = new Set([...this.spectated.values(), ...(this.ownEnding ? [this.ownEnding] : [])].map(scene => scene.encounterId))
     const out: OverlayLabel[] = this.busy.filter(e => !watched.has(e.id)).map(e => {
       const at = tileFeet(e.tx, e.ty)
       return { wx: at.x, wy: at.y, lift: 30, text: 'en combate', color: '#ffd27a' }

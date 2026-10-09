@@ -12,6 +12,8 @@ import type { EcoPublicBattle, EcoPublicEventEnvelope } from '../../../../servic
 import type { SpectatedBattle } from '../state/ecoSpectatedBattles'
 
 vi.mock('../../dungeonPrototype/render/dungeonSprites', () => ({ speciesSprite: (id: number, dir: string) => ({ id, dir }) }))
+// The engine's ball is drawn with a canvas (none in jsdom): a marker stands in for it.
+vi.mock('../../wildlands/engine/pokeball', () => ({ pokeballInfo: () => ({ frames: { down: [{ ball: true }] } }) }))
 vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
   const real = await importOriginal<typeof import('../../dungeonPrototype/render/worldOverlay')>()
   // The real overlay draws sprites for bars and effects through canvas helpers; here only its inputs matter.
@@ -26,7 +28,7 @@ vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
   }
 })
 
-const { EcoBattleOverlay, tileFeet } = await import('./ecoBattleOverlay')
+const { EcoBattleOverlay, ENDING, tileFeet } = await import('./ecoBattleOverlay')
 
 const combatant = (combatantId: string, speciesId: number, hp: number, max: number) => ({
   combatantId, sideId: combatantId.split('-')[0], level: 10, wild: combatantId === 'wild-0', stats: { hp: max, atk: 20, def: 20, spa: 20, spd: 20, spe: 60 },
@@ -163,7 +165,7 @@ describe('EcoBattleOverlay · spectators', () => {
     expect(o.overlay.sprites!(area, 0)).toEqual([])
   })
 
-  it('bars follow the receive time like the owner’s; paused or ended they stand still', () => {
+  it('bars follow the receive time like the owner’s; paused they stand still; ended they go (ECO-BATTLE-ENDING-1)', () => {
     const { o, clock } = overlay(0)
     const fill = () => drawn(o).filter(s => s.bar)[0].bar!.action!
     o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 })])
@@ -173,6 +175,97 @@ describe('EcoBattleOverlay · spectators', () => {
     o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }, { view: { ...watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }).view, connected: false } })])
     expect(fill()).toBe(start)
     o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }, { ended: { outcome: 'fled', at: 0 } })])
-    expect(fill()).toBe(start)
+    expect(drawn(o).filter(s => s.bar)).toHaveLength(0)
+  })
+})
+
+// ── ECO-BATTLE-ENDING-1: the end is played out, briefly, and holds nothing ──
+
+type Played = { wx: number; wy: number; sprite?: { id?: number; dir?: string; ball?: boolean }; alpha?: number; scale?: number; bar?: unknown }
+const played = (o: InstanceType<typeof EcoBattleOverlay>) => o.overlay.sprites!(area, 0) as unknown as Played[]
+const pikachus = (o: InstanceType<typeof EcoBattleOverlay>) => played(o).filter(s => s.sprite?.id === 25)
+const balls = (o: InstanceType<typeof EcoBattleOverlay>) => played(o).filter(s => s.sprite?.ball)
+const wilds = (o: InstanceType<typeof EcoBattleOverlay>) => played(o).filter(s => s.sprite?.id === 13)
+
+describe('EcoBattleOverlay · the end played out (ECO-BATTLE-ENDING-1)', () => {
+  it('the owner\u2019s end: no bars; the Pikachu shrinks and fades into its ball; the ball fades; then nothing', () => {
+    const { o, clock } = overlay(1_000)
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBusy([busy('e', 4, 0)])
+    o.finish('e', false)
+    expect(played(o).filter(s => s.bar)).toHaveLength(0)
+    expect(pikachus(o)).toHaveLength(1)
+    expect(balls(o)).toHaveLength(1)
+    clock.now = 1_000 + ENDING.recall * 500
+    const [half] = pikachus(o)
+    expect(half.scale!).toBeLessThan(1)
+    expect(half.alpha!).toBeLessThan(1)
+    clock.now = 1_000 + ENDING.recall * 1000 + 50
+    expect(pikachus(o)).toHaveLength(0)
+    expect(balls(o)).toHaveLength(1)
+    clock.now = 1_000 + ENDING.ball * 1000 + 50
+    expect(played(o)).toEqual([])
+  })
+
+  it('fled, defeat or expiry: the wild one never fades, listed or not', () => {
+    const { o, clock } = overlay(1_000)
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.finish('e', false)
+    o.setBusy([]) // even if it left the list (released and walked off), a non-victory draws no fade
+    for (const t of [0, 300, 900]) { clock.now = 1_000 + t; expect(wilds(o)).toHaveLength(0) }
+  })
+
+  it('a victory the server confirmed: the wild one fades only once the population no longer lists it', () => {
+    const { o, clock } = overlay(1_000)
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBusy([busy('e', 4, 0)])
+    o.finish('e', true)
+    expect(wilds(o), 'still listed: the populace draws it, never twice').toHaveLength(0)
+    clock.now = 1_200
+    o.setBusy([]) // the server retired it
+    const [ghost] = wilds(o)
+    expect([ghost.wx, ghost.wy, ghost.alpha]).toEqual([tileFeet(4, 0).x, tileFeet(4, 0).y, 1])
+    clock.now = 1_200 + ENDING.fade * 500
+    expect(wilds(o)[0].alpha!).toBeCloseTo(0.5, 5)
+    clock.now = 1_200 + ENDING.fade * 1000 + 10
+    expect(wilds(o)).toHaveLength(0)
+  })
+
+  it('a new battle right after (even against the same individual) drops the old ending: one Pikachu, no ball', () => {
+    const { o } = overlay(1_000)
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.finish('e', false)
+    expect(balls(o)).toHaveLength(1)
+    o.setBattle({ snapshot, snapshotAt: 1_100, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    expect(balls(o)).toHaveLength(0)
+    expect(pikachus(o)).toHaveLength(1)
+    expect(played(o).filter(s => s.bar)).toHaveLength(2)
+  })
+
+  it('finish is about the battle drawn: another encounter\u2019s end changes nothing; dropOwnEnding clears it at once', () => {
+    const { o } = overlay(1_000)
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.finish('other', true)
+    expect(played(o).filter(s => s.bar)).toHaveLength(2)
+    o.finish('e', true)
+    o.dropOwnEnding()
+    expect(played(o)).toEqual([])
+  })
+
+  it('spectators see the same: no bars once ended, the ball, the label; the wild one fades only on a victory it no longer lists', () => {
+    const { o, clock } = overlay(1_000)
+    o.setBusy([busy('e1', 13, 5), busy('e2', -6, 0)])
+    o.setSpectated([
+      watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }, { ended: { outcome: 'victory', at: 1_000 } }),
+      watched('b2', 'e2', { tx: -6, ty: 3 }, { tx: -6, ty: 0 }, { ended: { outcome: 'fled', at: 1_000 } }),
+    ])
+    expect(played(o).filter(s => s.bar)).toHaveLength(0)
+    expect(balls(o)).toHaveLength(2)
+    expect(o.overlay.labels!(area, 0).map(l => l.text).sort()).toEqual(['Ganó', 'Huyó'])
+    expect(wilds(o)).toHaveLength(0)
+    clock.now = 1_100
+    o.setBusy([]) // both left the list: only the victory fades
+    const ghosts = wilds(o)
+    expect(ghosts.map(g => g.wx)).toEqual([tileFeet(13, 5).x])
   })
 })

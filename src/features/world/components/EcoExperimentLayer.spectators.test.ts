@@ -17,6 +17,8 @@ import { ECO_SPECTATOR_END_MS } from '../state/ecoSpectatedBattles'
 import { SharedWorld } from '../state/sharedWorld'
 
 vi.mock('../../dungeonPrototype/render/dungeonSprites', () => ({ speciesSprite: (id: number) => ({ id }) }))
+// The engine's ball is drawn with a canvas (none in jsdom): a marker stands in for it.
+vi.mock('../../wildlands/engine/pokeball', () => ({ pokeballInfo: () => ({ frames: { down: [{ ball: true }] } }) }))
 vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
   const real = await importOriginal<typeof import('../../dungeonPrototype/render/worldOverlay')>()
   // Only the overlay's inputs matter here: what it would draw (sprites, bars, effects, texts).
@@ -243,5 +245,22 @@ describe('ECO experiment layer · watching someone else’s battle', () => {
         expect(s.labels()).toEqual([])
       } finally { s.wrapper.unmount() }
     })
+  })
+
+  it('ECO-BATTLE-ENDING-1: someone else\u2019s end is played out the same way — no bars, the ball, the label; the wild one fades only on a victory it no longer lists', async () => {
+    type Played = { sprite?: { id?: number; ball?: boolean }; bar?: unknown }
+    const s = setup()
+    try {
+      await s.send(theirs(2))
+      await s.send(theirs(3, { ended: { outcome: 'victory' } }))
+      const now = () => s.drawn() as unknown as readonly Played[]
+      expect(now().filter(x => x.bar)).toHaveLength(0)
+      expect(now().filter(x => x.sprite?.ball)).toHaveLength(1)
+      expect(s.labels()).toContain('Ganó')
+      expect(now().filter(x => x.sprite?.id === 13), 'still listed').toHaveLength(0)
+      s.world.eco({ now: 3, eco: { ...pradera, encounters: pradera.encounters.filter(e => e.id !== THEIRS) } }); await flushPromises()
+      expect(now().filter(x => x.sprite?.id === 13), 'retired: the fade').toHaveLength(1)
+      expect(s.locks).toEqual([false])
+    } finally { s.wrapper.unmount() }
   })
 })

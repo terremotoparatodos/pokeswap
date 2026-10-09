@@ -15,6 +15,8 @@ import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
 import { SharedWorld } from '../state/sharedWorld'
 
 vi.mock('../../dungeonPrototype/render/dungeonSprites', () => ({ speciesSprite: (id: number) => ({ id }) }))
+// The engine's ball is drawn with a canvas (none in jsdom): a marker stands in for it.
+vi.mock('../../wildlands/engine/pokeball', () => ({ pokeballInfo: () => ({ frames: { down: [{ ball: true }] } }) }))
 vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
   const real = await importOriginal<typeof import('../../dungeonPrototype/render/worldOverlay')>()
   // Only the overlay's inputs matter here: what it would draw (sprites, bars, effects, texts).
@@ -30,6 +32,7 @@ vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
 })
 
 const { default: EcoExperimentLayer } = await import('./EcoExperimentLayer.vue')
+const { ENDING } = await import('../render/ecoBattleOverlay')
 
 const ID = 'eco-n:pradera:soto:1:0'
 const pradera: EcoArea = { protocol: 1, areaId: 'pradera', status: 'active', encounters: [{ id: ID, groupId: 'g', speciesId: 13, tx: 3, ty: 0, busy: false }] } // within the 3-tile start limit
@@ -52,7 +55,6 @@ const caveBattle = (): EcoBattleInfo => ({
   ...battle, battleId: 'b2', speciesId: 41, snapshot: { ...snapshot(), battleId: 'b2' } as ClientBattleSnapshot,
   joinAck: { ...battle.joinAck, battleId: 'b2' },
 })
-const settle = () => new Promise(resolve => setTimeout(resolve, 750))
 const damage = (sequence: number) => ({ battleId: 'b', sequence, revision: 2, actionId: null, serverTimeMs: 0, event: { type: 'DAMAGE', combatantId: 'wild-0', sourceId: 'player-0', amount: 3, remainingHp: 17, critical: false, effectiveness: 1, hit: 1, cause: 'move' } })
 const area = {} as Area
 
@@ -75,14 +77,14 @@ async function fighting() {
 }
 
 describe('ECO overworld battle · the scene stays in its area (F1)', () => {
-  it('after leaving: no Pikachu, bars or marks in the new area — even from late events — while the result may stay; coming back brings nothing back', async () => {
+  it('after leaving: no Pikachu, bars, marks or ending in the new area — even from late events — while the notice may stay; coming back brings nothing back', async () => {
     const { world, wrapper, drawn, toArea } = await fighting()
     try {
       expect(drawn().sprites.filter(s => s.bar)).toHaveLength(2)
       world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'left-area', retired: false, snapshot: snapshot(3, 500) })
       await toArea(cave, 20, 20)
       expect(drawn()).toEqual({ sprites: [], labels: [] })
-      expect(wrapper.find('.ebp').exists(), 'the result text may stay on screen').toBe(true)
+      expect(wrapper.find('.ebt').exists(), 'the result notice may stay on screen').toBe(true)
       await toArea(pradera, 0, 0)
       expect(drawn(), 'back in the battle\'s area: the old scene does not return').toEqual({ sprites: [], labels: [] })
     } finally { wrapper.unmount() }
@@ -100,11 +102,16 @@ describe('ECO overworld battle · the scene stays in its area (F1)', () => {
     } finally { wrapper.unmount() }
   })
 
-  it('in its own area an ended battle is still drawn while its result shows (leaving drops it, ending does not)', async () => {
+  it('in its own area the end is played out briefly (ECO-BATTLE-ENDING-1): no bars, the Pikachu goes back into its ball, then nothing remains', async () => {
     const { world, wrapper, drawn } = await fighting()
     try {
       world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'fled', retired: false, snapshot: snapshot(3, 500) }); await flushPromises()
-      expect(drawn().sprites.filter(s => s.bar)).toHaveLength(2)
+      expect(drawn().sprites.filter(s => s.bar)).toHaveLength(0)
+      const ending = drawn().sprites as unknown as readonly { sprite?: { id?: number; ball?: boolean }; alpha?: number }[]
+      expect(ending.filter(s => s.sprite?.id === 25), 'the Pikachu, recalled').toHaveLength(1)
+      expect(ending.filter(s => s.sprite?.ball), 'its ball').toHaveLength(1)
+      await new Promise(resolve => setTimeout(resolve, (ENDING.ball + 0.1) * 1000))
+      expect(drawn()).toEqual({ sprites: [], labels: [] })
     } finally { wrapper.unmount() }
   })
 
@@ -112,13 +119,13 @@ describe('ECO overworld battle · the scene stays in its area (F1)', () => {
     const accept = (world: SharedWorld, requestId: number) => world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId, encounterId: CAVE_ID, ok: true, battle: caveBattle() })
     const barsDrawn = (drawn: () => { sprites: readonly { bar?: unknown }[] }) => drawn().sprites.filter(s => s.bar).map(s => { const { wx, wy, hp } = s.bar as { wx: number; wy: number; hp: number }; return { wx, wy, hp } }) // the action fill moves with the clock
 
-    it('from the debug panel while the old result is still open: the new battle is drawn; the old one’s late messages change nothing', async () => {
+    it('from the debug panel right after the end (nothing to close any more): the new battle is drawn; the old one’s late messages change nothing', async () => {
       const { world, wrapper, drawn, toArea } = await fighting()
       try {
         world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'left-area', retired: false, snapshot: snapshot(3, 500) })
         await toArea(caveWithOne, 20, 20)
         expect(drawn()).toEqual({ sprites: [], labels: [] })
-        expect(wrapper.find('.ebp').exists(), 'the old result is still open').toBe(true)
+        expect(wrapper.find('.ebp').exists(), 'no result panel to close (ECO-BATTLE-ENDING-1)').toBe(false)
         await wrapper.find('.eco-dev__toggle').trigger('click')
         await wrapper.findAll('.eco-dev li').find(r => r.text().includes('gruta:1:0'))!.findAll('button')[0].trigger('click')
         accept(world, 2); await flushPromises()
@@ -134,14 +141,12 @@ describe('ECO overworld battle · the scene stays in its area (F1)', () => {
       } finally { wrapper.unmount() }
     })
 
-    it('after closing the old result first, from the debug panel or from the card: drawn as well', async () => {
+    it('after the end, from the debug panel or from the card: drawn as well', async () => {
       for (const route of ['debug', 'card'] as const) {
         const { world, wrapper, drawn, toArea } = await fighting()
         try {
           world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'left-area', retired: false, snapshot: snapshot(3, 500) })
           await toArea(caveWithOne, 20, 20)
-          await settle()
-          await wrapper.find('.ebp-primary').trigger('click')
           expect(wrapper.find('.ebp').exists()).toBe(false)
           if (route === 'debug') {
             await wrapper.find('.eco-dev__toggle').trigger('click')
@@ -152,6 +157,43 @@ describe('ECO overworld battle · the scene stays in its area (F1)', () => {
           }
           accept(world, 2); await flushPromises()
           expect(barsDrawn(drawn), route).toHaveLength(2)
+        } finally { wrapper.unmount() }
+      }
+    })
+  })
+
+  // ── ECO-BATTLE-ENDING-1 ──
+
+  describe('the end needs no acceptance and holds nothing (ECO-BATTLE-ENDING-1)', () => {
+    type Played = { sprite?: { id?: number; ball?: boolean }; bar?: unknown; alpha?: number }
+
+    it('fled, then the same individual again at once: the trainer was released on the end, the new battle shows one Pikachu and no leftover ball', async () => {
+      const { world, wrapper, drawn } = await fighting()
+      try {
+        const lastLock = () => { const all = wrapper.emitted('battle')!; return all[all.length - 1][0] }
+        expect(lastLock()).toBe(true)
+        world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'fled', retired: false, snapshot: snapshot(3, 500) }); await flushPromises()
+        expect(lastLock(), 'released on the end itself').toBe(false)
+        expect(wrapper.find('.ebp').exists()).toBe(false)
+        ;(wrapper.vm as unknown as { select(id: string): boolean }).select(ID); await flushPromises()
+        await wrapper.find('.eco-card__fight').trigger('click')
+        world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 2, encounterId: ID, ok: true, battle: { ...battle, battleId: 'b2', snapshot: { ...snapshot(), battleId: 'b2' } as ClientBattleSnapshot } }); await flushPromises()
+        const now = drawn().sprites as unknown as readonly Played[]
+        expect(now.filter(x => x.sprite?.id === 25)).toHaveLength(1)
+        expect(now.filter(x => x.sprite?.ball)).toHaveLength(0)
+        expect(now.filter(x => x.bar)).toHaveLength(2)
+      } finally { wrapper.unmount() }
+    })
+
+    it('a victory the server retired: the wild one fades once the population drops it; a flight leaves it to the populace', async () => {
+      for (const [outcome, retired, fades] of [['victory', true, true], ['fled', false, false], ['defeat', false, false], ['expired', false, false]] as const) {
+        const { world, wrapper, drawn } = await fighting()
+        try {
+          world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome, retired, snapshot: snapshot(3, 500) }); await flushPromises()
+          const wild = () => (drawn().sprites as unknown as readonly Played[]).filter(x => x.sprite?.id === 13)
+          expect(wild(), `${outcome}: listed, drawn by the populace only`).toHaveLength(0)
+          world.eco({ now: 3, eco: { ...pradera, encounters: retired ? [] : pradera.encounters } }); await flushPromises()
+          expect(wild().length, outcome).toBe(fades ? 1 : 0)
         } finally { wrapper.unmount() }
       }
     })

@@ -157,26 +157,54 @@ describe('ECO experiment layer · battle screen', () => {
     ['expired', 'Se acabó el tiempo', 'sigue en el mapa'],
     ['disconnected', 'Combate liberado', 'sin conexión'],
     ['left-area', 'Combate liberado', 'Saliste del área'],
-  ])('shows the server\'s end %s plainly, never a capture or a reward', async (outcome, title, detail) => {
+  ])('the server\'s end %s needs no acceptance (ECO-BATTLE-ENDING-1): the map comes back at once, a brief notice names it, never a capture or a reward', async (outcome, title, detail) => {
     const { world, layer, card, screen, wrapper } = setup()
     layer.select(ID('soto', 0)); await flushPromises()
     await card().find('.eco-card__fight').trigger('click')
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID('soto', 0), ok: true, battle })
+    await flushPromises()
+    expect(wrapper.emitted('battle')?.slice(-1)[0]).toEqual([true])
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: battle.battleId, encounterId: ID('soto', 0), outcome, retired: outcome === 'victory', snapshot: snapshot(0) })
     await flushPromises()
-    expect(screen().find('.ebp-result').text()).toBe(title)
-    expect(screen().text()).toContain(detail)
-    expect(screen().text()).not.toMatch(/capturad|atrapad|obtuviste|ganaste \d|recompensa obtenida|\+\d+ ?(xp|tokens)/i)
-    expect(screen().findAll('button').map(b => b.text())).toEqual(['Volver al mapa'])
-    // a click carried over from «Huir» or a move cannot dismiss a result nobody has seen yet
-    expect(screen().find('.ebp-primary').attributes('disabled')).toBeDefined()
-    await new Promise(resolve => setTimeout(resolve, 750))
-    expect(screen().find('.ebp-primary').attributes('disabled')).toBeUndefined()
-    await screen().find('.ebp-primary').trigger('click')
+    // released on the end itself: no panel, no button to press, the trainer is not held
     expect(screen().exists()).toBe(false)
+    expect(wrapper.find('.ebp-primary').exists()).toBe(false)
     expect(wrapper.emitted('battle')?.slice(-1)[0]).toEqual([false])
+    // a brief, non-modal notice of the server's result: words only, no control, no reward
+    const notice = wrapper.find('.ebt')
+    expect(notice.attributes('role')).toBe('status')
+    expect(notice.find('.ebt-title').text()).toBe(title)
+    expect(notice.text()).toContain(detail)
+    expect(notice.findAll('button, a, input')).toHaveLength(0)
+    expect(notice.text()).not.toMatch(/capturad|atrapad|obtuviste|ganaste \d|recompensa obtenida|\+\d+ ?(xp|tokens)/i)
+    // the map is usable right away: another individual's card opens
+    layer.select(ID('soto', 1)); await flushPromises()
+    expect(card().exists()).toBe(true)
     wrapper.unmount()
   })
+
+  it('the notice leaves on its own (3 s), and at once when another battle is asked for (ECO-BATTLE-ENDING-1)', async () => {
+    const { world, layer, card, wrapper } = setup()
+    const fight = async (member: number, requestId: number) => {
+      const battleId = `eco-battle-a-0000000${requestId}`
+      layer.select(ID('soto', member)); await flushPromises()
+      await card().find('.eco-card__fight').trigger('click')
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId, encounterId: ID('soto', member), ok: true, battle: { ...battle, battleId } })
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId, encounterId: ID('soto', member), outcome: 'fled', retired: false, snapshot: snapshot(26) })
+      await flushPromises()
+    }
+    await fight(0, 1)
+    expect(wrapper.find('.ebt').exists()).toBe(true)
+    await new Promise(resolve => setTimeout(resolve, 3_100))
+    await flushPromises()
+    expect(wrapper.find('.ebt').exists()).toBe(false)
+    await fight(1, 2)
+    expect(wrapper.find('.ebt').exists()).toBe(true)
+    layer.select(ID('soto', 0)); await flushPromises()
+    await card().find('.eco-card__fight').trigger('click') // a new battle asked for: the old notice goes
+    expect(wrapper.find('.ebt').exists()).toBe(false)
+    wrapper.unmount()
+  }, 10_000)
 
   it('reconnection: paused banner, controls disabled, then the same battle again', async () => {
     const { world, layer, card, screen, wrapper } = setup()
@@ -230,8 +258,6 @@ describe('ECO experiment layer · debug panel', () => {
 describe('ECO experiment layer · review F1–F3', () => {
   const engageResult = (world: SharedWorld, encounterId: string, requestId = 1) => world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId, encounterId, ok: true, battle })
   const endBattle = (world: SharedWorld, encounterId: string) => world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: battle.battleId, encounterId, outcome: 'victory', retired: true, snapshot: snapshot(0, 2) })
-  const settle = () => new Promise(resolve => setTimeout(resolve, 750))
-
   it('F1 a battle started from the debug panel clears the earlier map selection: back on the map, no old card returns', async () => {
     const { world, layer, card, screen, wrapper } = setup()
     layer.select(ID('soto', 0)); await flushPromises()
@@ -239,16 +265,12 @@ describe('ECO experiment layer · review F1–F3', () => {
     await wrapper.find('.eco-dev__toggle').trigger('click')
     await wrapper.findAll('.eco-dev li').find(r => r.text().includes('soto:1:1'))!.findAll('button')[0].trigger('click')
     engageResult(world, ID('soto', 1)); endBattle(world, ID('soto', 1)); await flushPromises()
-    await settle()
-    await screen().find('.ebp-primary').trigger('click')
-    expect(screen().exists()).toBe(false)
+    expect(screen().exists()).toBe(false) // the end itself closes it (ECO-BATTLE-ENDING-1)
     expect(card().exists()).toBe(false)
     // and by the card's own route too
     layer.select(ID('soto', 0)); await flushPromises()
     await card().find('.eco-card__fight').trigger('click')
     engageResult(world, ID('soto', 0), 2); endBattle(world, ID('soto', 0)); await flushPromises()
-    await settle()
-    await screen().find('.ebp-primary').trigger('click')
     expect(card().exists()).toBe(false)
     wrapper.unmount()
   })
@@ -297,9 +319,7 @@ describe('ECO experiment layer · review F1–F3', () => {
     toggle.focus()
     expect(document.activeElement, 'not modal: the debug panel can take the focus').toBe(toggle)
     endBattle(world, ID('soto', 0)); await flushPromises()
-    await settle()
-    await screen().find('.ebp-primary').trigger('click')
-    expect(screen().exists()).toBe(false)
+    expect(screen().exists()).toBe(false) // the end itself closes it (ECO-BATTLE-ENDING-1)
     expect(document.activeElement, 'back to the debug button that asked').toBe(debugFight)
     // from the card: its button is gone after the battle, so the focus is released to the page
     layer.select(ID('soto', 1)); await flushPromises()
@@ -307,8 +327,6 @@ describe('ECO experiment layer · review F1–F3', () => {
     cardFight.focus()
     cardFight.click()
     engageResult(world, ID('soto', 1), 2); endBattle(world, ID('soto', 1)); await flushPromises()
-    await settle()
-    await screen().find('.ebp-primary').trigger('click')
     expect(document.activeElement).toBe(document.body)
     wrapper.unmount()
   })
@@ -335,8 +353,6 @@ describe('ECO experiment layer · framing', () => {
 describe('ECO overworld panel · keyboard and focus on close', () => {
   const engageResult = (world: SharedWorld, encounterId: string, requestId = 1) => world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId, encounterId, ok: true, battle })
   const endBattle = (world: SharedWorld, encounterId: string, outcome = 'fled') => world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: battle.battleId, encounterId, outcome, retired: outcome === 'victory', snapshot: snapshot(0, 2) })
-  const settle = () => new Promise(resolve => setTimeout(resolve, 750))
-
   function withMap() {
     const canvas = document.createElement('canvas')
     canvas.tabIndex = 0
@@ -353,10 +369,9 @@ describe('ECO overworld panel · keyboard and focus on close', () => {
     engageResult(s.world, ID('soto', member)); await flushPromises()
     return button
   }
+  /** The server's end closes the panel by itself (ECO-BATTLE-ENDING-1: no acceptance). */
   async function close(s: ReturnType<typeof withMap>, member = 0, outcome = 'fled') {
     endBattle(s.world, ID('soto', member), outcome); await flushPromises()
-    await settle()
-    await s.screen().find('.ebp-primary').trigger('click')
     expect(s.screen().exists()).toBe(false)
   }
 
