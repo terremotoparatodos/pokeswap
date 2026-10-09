@@ -302,3 +302,51 @@ Sobre la matriz original:
 - Evidencia en `D:\Claude-SPECT-REPRO2-evidence` y `D:\Claude-SPECT-E2E3-evidence`.
 - Sin push, merge, túneles ni servidores activos.
 - El smoke humano con dos ventanas sigue pendiente.
+
+## 8. Cierre de `d2efc94`: actualizaciones posteriores y reenvío al regresar (2026-10-09)
+
+**Revisión:** `ECO-BATTLE-SPECTATORS-1-CLOSURE2-d2efc94.md`, FINDINGS.
+- S1 quedó acreditado, con la explicación del 6/8 respaldada. No se reabre ni se cambia producto por esas dos aserciones.
+- **F1:** el e2e daba PASS aunque un dueño solo recibiera el inicio del combate ajeno.
+- **F2:** un fin posterior al regreso convertía la pérdida del reenvío en un reintento con PASS.
+
+**Cambios solo en el e2e** (`fc44504`; sin balance, servidor, protocolo ni producto):
+
+- **F1.** El inicio y la sincronización posterior se acreditan por separado, en **cada** espectador de los dos primeros combates (C y el otro dueño).
+  - Hace falta al menos una actualización pública posterior al inicio (seq > 1, no final) que coincida con una actualización real del dueño: un tick en curso con eventos, nunca el inicio ni el resultado final solos.
+  - Deben coincidir el combate, el encuentro, la revisión, el tiempo, los PS y los eventos dibujables.
+  - Se exige antes de D y al final. Si falta, la espera vence y es FAIL, sin reintento.
+  - Además, el fin de cada combate debe llegar una vez a C y al otro dueño.
+- **F2.** Al volver de la cueva, cada combate cuyo dueño **no** recibió un fin antes del regreso de C debe reenviarse a C fresco: primer mensaje no final y sin eventos pasados.
+  - Si falta, es FAIL, informando cuándo llegó el fin del dueño.
+  - Un fin posterior no habilita reintento. Solo queda reintento si **todos** los combates terminaron, según su dueño, antes del regreso.
+- **Controles negativos** (inyección solo en el arnés):
+  - `--drop-mode updates`, con `--drop`: conserva el inicio y descarta el resto del primer combate del dueño en ese receptor.
+  - `--drop-return`: C descarta el reenvío del combate elegido para el viaje y B huye 150 ms después. Reproduce el escenario de la revisión.
+
+**Reproducción propia antes de corregir** (`d2efc94`, scripts del revisor copiados sin modificar, su runner con un realtime nuevo por corrida en 31390/31391):
+
+| Corrida | Clasificación | Resultado |
+|---|---|---|
+| `updates-a-b` (`review-spectators-update-drop.mjs`, `--drop a:b`) | **falso PASS** reproducido | exit 0 |
+| `updates-b-a` (ídem, `--drop b:a`) | **falso PASS** reproducido | exit 0 |
+| `return-loss` (`review-spectators-return-loss.mjs`) | **falso PASS** reproducido, con reintento `area change / fled` | exit 0 |
+
+Evidencia en `D:\Claude-SPECT-REPRO3-evidence`.
+
+**Corridas con el script final** (`D:\Claude-SPECT-E2E4-evidence`, el mismo runner, realtime nuevo por corrida, script idéntico al de `fc44504`):
+
+| Corrida | Clasificación | Resultado |
+|---|---|---|
+| `positive-1`…`positive-3` | **PASS legítimo**, `retries: []` | exit 0. Pares posteriores por espectador en todas; al final, p. ej., 31/31 y 2/3. El regreso reenvía fresco el combate activo |
+| `updates-a-b` (`--drop a:b --drop-mode updates`) | **FAIL esperado**, pérdida de actualizaciones A←B | exit 1, «post-start owner update … received by every viewer (a lost update fails, it is not retried)»; descartó seq 2–17, conservó el inicio; `retries: []` |
+| `updates-b-a` (`--drop b:a --drop-mode updates`) | **FAIL esperado**, pérdida B←A | exit 1, mismo motivo; descartó seq 2–17; `retries: []` |
+| `updates-c-a` (`--drop c:a --drop-mode updates`), control | **FAIL esperado** | exit 1, mismo motivo; `retries: []` |
+| `return-loss` (`--drop-return`) | **FAIL esperado**, reenvío perdido | exit 1, «C got no fresh re-send of … running at its return (its owner's end … came 157 ms after)»; descartó seq 6 (reenvío) y 7 (fin); `retries: []` |
+| `start-a-b` (`--drop a:b`), control del inicio | **FAIL esperado** | exit 1, recepción inicial; descartó seq 1–4; `retries: []` |
+
+Las sondas originales del revisor contienen su propia copia del e2e anterior, así que repetirlas tal cual seguiría midiendo ese script. Por eso sus dos inyecciones se reprodujeron como opciones del e2e corregido, con los mismos filtros (conservar seq 1 y descartar el resto; descartar el reenvío y huir 150 ms después). Con el script final dan FAIL.
+
+**Verificación:** eslint del e2e exit 0. No hubo cambios de producto, así que no se repitieron typecheck, suites ni el build de producción; la exclusión productiva de §7 no cambia. Ningún proceso queda activo y los puertos 31390, 31391, 2790, 2791 y 5199 están libres.
+
+**Candidato congelado:** `feat/eco-battle-spectators-0.3` en el commit que agrega este apartado. Sin push, merge ni túneles. El smoke humano con dos ventanas sigue pendiente.
