@@ -222,3 +222,43 @@ Las otras 3 sondas pasan. La evidencia original no se tocó.
 No se repitieron servidor, core ni Cloud.
 
 **Candidato congelado:** `feat/eco-overworld-battle-0.3` en el commit que agrega este apartado. Reemplaza a `b8fdcc1`, mencionado en §8. Sin push, merge, Cloud, Supabase ni cambios en entornos activos.
+
+## 10. Cierre de `e548dbd`: C1 (2026-10-09)
+
+**Revisión:** `ECO-OVERWORLD-BATTLE-1-CLOSURE-e548dbd.md`, FINDINGS.
+- F1–F3 y el foco de `b8fdcc1` quedan acreditados.
+- **C1 (P2):** después de salir del área con el resultado todavía abierto, un combate nuevo iniciado desde depuración aparecía en el panel sin Pikachu ni barras.
+
+**Causa.** El área se fijaba solo en la transición `idle` → abierto. La secuencia `ended → engaging → battle` nunca pasa por `idle`, así que el combate nuevo heredaba el descarte del anterior (`battleArea = null`).
+
+**Reproducción propia antes de corregir.** Sobre una exportación propia de `e548dbd`, con los scripts del revisor copiados fuera de su carpeta:
+- `closure-extra-probes.test.ts`: 4 de 5; falla justo C1 (`expected [] to have a length of 2`).
+- `closure-new-battle-native.mjs` (Chrome nativo): `pass: false` y `sprites: []`.
+
+**Corrección** (`8df1aa0`, `EcoExperimentLayer.vue`). Cada combate pedido, o reanudado, fija **su propia** área: al entrar en `engaging`, o en `battle` sin venir de `engaging`. Al volver a `idle` se olvida.
+
+Lo demás no cambia:
+- el descarte definitivo al salir del área;
+- los mensajes tardíos del combate anterior, que la sesión ignora porque traen otro `battleId`;
+- la prohibición de resucitar la escena vieja.
+
+No cambian servidor, protocolo, core, balance ni controles globales, y la ruta de depuración se conserva.
+
+**Regresiones** (`EcoExperimentLayer.area.test.ts`, «a NEW battle after leaving»):
+- **Desde depuración con el resultado anterior abierto:** el combate nuevo dibuja las dos barras, con el salvaje en su casilla de la cueva. Los mensajes tardíos del combate anterior (`ECO_BATTLE` y `ECO_BATTLE_END` con `battleId` viejo) no cambian nada. **Falla en `e548dbd`** y pasa con la corrección.
+- **Control, tras cerrar antes el resultado, desde depuración y desde la ficha:** se dibuja. Pasa en ambos commits.
+
+**Verificación acotada sobre `8df1aa0`:**
+
+| Comprobación | Resultado |
+|---|---|
+| Sondas del revisor (`closure-extra` + sondas originales de `a10099e`) | 10/10 |
+| C1 en Chrome nativo | `pass: true`; Pikachu y barras en (24,14) y (72,14) |
+| Pruebas relacionadas (`world` + `wildTaps`) | 131/131, tres corridas |
+| `vue-tsc` | exit 0 |
+| eslint del delta | exit 0 |
+| Build de producción con `VITE_ECO_EXPERIMENT=on` | las mismas 193 fuentes que `a10099e`; 0 textos o módulos ECO |
+
+**Observación, fuera del alcance de C1 y sin cambios.** En esa misma transición sin `idle`, el origen de foco que se guarda sigue siendo el del combate anterior. Al cerrar, el foco va a ese control si sigue siendo utilizable; si no, al mapa. Queda a decisión del usuario.
+
+**Candidato congelado:** `feat/eco-overworld-battle-0.3` en el commit que agrega este apartado. Reemplaza a `e548dbd`. Sin push, merge ni cambios en entornos activos. El smoke humano del overworld sigue pendiente.
