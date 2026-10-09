@@ -150,3 +150,75 @@ Instrucción del usuario: el reemplazo del modal no espera la aprobación comple
 - La vista pasa al panel el canvas (`mapFocus`). No cambia ningún control ajeno a ECO.
 
 **Candidato congelado:** `feat/eco-overworld-battle-0.3` en el commit de este reporte. Sin push, merge, Cloud, Supabase ni cambios en entornos activos. `ec4d804` sigue congelado y sin tocar.
+
+## 9. Revisión de `a10099e`: F1, F2 y F3 (2026-10-09)
+
+**Revisión:** `ECO-OVERWORLD-BATTLE-1-REVIEW-a10099e.md`, FINDINGS. La revisión no cubre `b8fdcc1`.
+
+**Delta completo desde `a10099e`:**
+
+| Commit | Qué |
+|---|---|
+| `b8fdcc1` | Foco al cerrar el panel (§8). Ya existía antes de la revisión y se conserva sin reset ni amend. |
+| `3ce1566` | F1: la escena del combate queda en su área. |
+| `8bf0f6a` | F2: un snapshot repetido no rebobina la barra ni el contador. |
+| `b81b194` | F3: Espacio y Enter en el panel de depuración se quedan en sus controles. |
+| (este commit) | Este apartado. |
+
+**Reproducción propia antes de corregir.** Sobre una exportación propia de `a10099e`, con las sondas originales sin cambios, copiadas fuera de la carpeta de la revisión:
+- **F2:** relleno 0,34615 → 0,15385, y el contador visible pasa de 119 400 a 119 900 ms.
+- **F1:** tras cambiar de área siguen el Pikachu y dos barras en (24,14) y (72,14).
+- **F3** (Chrome nativo): Espacio en «Combatir» de depuración deja la sesión `idle`, sin envío de engage nuevo, y el mapa recibe 1 `interact`.
+
+Las otras 3 sondas pasan. La evidencia original no se tocó.
+
+**Correcciones (solo cliente ECO; sin servidor, core, protocolo ni Cloud):**
+
+- **F1** (`EcoExperimentLayer.vue`). La escena queda asociada al área donde se pidió el combate.
+  - Si el jugador está en otra área, se descarta **para siempre**: ni Pikachu, ni barras, ni marcas, tampoco las de eventos que lleguen tarde.
+  - El panel puede seguir mostrando el texto del resultado.
+  - Volver al área no la redibuja.
+  - En su propia área, un combate terminado se sigue dibujando mientras se muestra el resultado.
+- **F2** (`ecoBattleSession.ts`). La deduplicación del snapshot va aparte del resto del mensaje.
+  - Solo una revisión **estrictamente mayor** reemplaza el snapshot y reinicia el origen de interpolación y el contador.
+    - FACT: el core avanza la revisión en cada cambio que confirma, incluido el paso del tiempo (`authority.ts`, `commit`). Por eso una revisión igual es el mismo estado.
+  - El mismo estado otra vez (copia deserializada) o uno anterior no cambian ninguno de los dos.
+  - El resultado del mensaje (rechazo o aceptación, `nextActionSequence`) y los eventos nuevos se siguen procesando.
+  - La reanudación (`engage-result` con `resumed`) sigue reiniciando ambos desde los números del servidor.
+  - La pausa por desconexión no cambia.
+- **F3** (`EcoDevPanel.vue`).
+  - La raíz del panel de depuración detiene Espacio y Enter, igual que la ficha y el panel de combate. El mapa ya no toma Espacio como `interact` ni cancela la activación del botón.
+  - Las teclas del mapa fuera del panel no cambian. No se tocó `keyboard.ts`.
+
+**Regresiones nuevas.** Las cuatro fallan sobre una exportación de `b8fdcc1` con solo las pruebas nuevas, y pasan con las correcciones:
+- `EcoExperimentLayer.area.test.ts` (F1):
+  - salir con el resultado en pantalla, incluido el regreso al área;
+  - salir con el combate en curso, con eventos tardíos;
+  - control: en su área, un combate terminado se dibuja. Pasa en ambos casos.
+- `ecoBattleSession.test.ts` (F2), en una sola secuencia:
+  - duplicado deserializado con rechazo y evento nuevo;
+  - estado anterior con aceptación;
+  - estado posterior;
+  - pausa y reanudación válida;
+  - duplicado `structuredClone` tras reanudar.
+- `EcoExperimentLayer.test.ts` (F3): Espacio y Enter sobre el plegador, «Combatir» y «Retirar» no se cancelan y el mapa no interactúa. El clic pide ese individuo. Fuera del panel, Espacio y las flechas siguen funcionando con el `KeyboardInput` real.
+
+**Sondas originales repetidas sobre `b81b194`, sin relajar expectativas:**
+
+| Sonda | Resultado |
+|---|---|
+| vitest | 7/7. Relleno 0,34615 → 0,34615, contador 119 400 → 119 400, sprites tras cambiar de área `[]` |
+| Chrome nativo | `pass: true` y `debugSpacePassed: true`. Espacio en «Combatir» de depuración → `engaging`, 0 `interact`. El resto de los casos sigue pasando, incluido el retorno de foco al botón de depuración |
+
+**Gates (Node 22.23.2):**
+
+| Gate | Resultado |
+|---|---|
+| vitest completo | 239 archivos, 2252/2252 |
+| `vue-tsc` | exit 0 |
+| eslint | exit 0; solo los avisos previos de `AuthModal.vue` |
+| Build de producción con `VITE_ECO_EXPERIMENT=on` | 193 fuentes, la **misma lista** que `a10099e` construido igual. 0 apariciones de `EcoExperimentLayer`, `EcoBattlePanel`, `EcoBattleOverlay`, `EcoDevPanel`, «en combate», «Combate de prueba», «fixture de prueba», «depuración (dev)» y `ecoProtocol` |
+
+No se repitieron servidor, core ni Cloud.
+
+**Candidato congelado:** `feat/eco-overworld-battle-0.3` en el commit que agrega este apartado. Reemplaza a `b8fdcc1`, mencionado en §8. Sin push, merge, Cloud, Supabase ni cambios en entornos activos.
