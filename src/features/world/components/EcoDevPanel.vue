@@ -1,5 +1,5 @@
 <template>
-  <aside class="eco-dev" :class="{ 'eco-dev--collapsed': collapsed }" aria-label="ECO experimental (desarrollo)">
+  <aside class="eco-dev" :class="{ 'eco-dev--collapsed': collapsed }" aria-label="ECO experimental (desarrollo)" @keydown.space.stop @keydown.enter.stop>
     <header>
       <button type="button" class="eco-dev__toggle" :aria-expanded="!collapsed" @click="collapsed = !collapsed">{{ collapsed ? '▸' : '▾' }} ECO · depuración (dev)</button>
       <span>{{ statusLabel }} · {{ encounters.length }} en el área</span>
@@ -32,6 +32,8 @@
 //
 // ECO-PRESENTATION-1: a SECONDARY tool (collapsed by default). Playing goes through the map (tap an
 // individual → its card → the battle screen); this list shares that same session and screen.
+// Space and Enter on its controls stay here: the map listens on the window and would take Space as
+// «interact» (and cancel the button's own activation), like the card and the battle panel.
 import { computed, ref } from 'vue'
 import type { EcoArea, EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { ECO_ENGAGE_RANGE } from '../../../../services/realtime/src/world/worldProtocol.js'

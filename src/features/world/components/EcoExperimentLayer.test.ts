@@ -379,6 +379,42 @@ describe('ECO overworld panel · keyboard and focus on close', () => {
     s.wrapper.unmount(); s.canvas.remove()
   })
 
+  it('the debug panel (review of a10099e, F3): Space and Enter on its controls stay theirs — no map interaction; outside it the map keys still work', async () => {
+    const s = withMap()
+    let interactions = 0
+    const keys = new KeyboardInput({ cycleLens: () => {}, toggleGrid: () => {}, skipTime: () => {}, interact: () => { interactions++ } })
+    keys.attach()
+    try {
+      const toggle = s.wrapper.find('.eco-dev__toggle').element as HTMLButtonElement
+      await s.wrapper.find('.eco-dev__toggle').trigger('click')
+      const row = s.wrapper.findAll('.eco-dev li').find(r => r.text().includes('soto:1:0'))!
+      const [fight, retire] = row.findAll('button').map(b => b.element as HTMLButtonElement)
+      for (const control of [toggle, fight, retire]) {
+        control.focus()
+        for (const key of [' ', 'Enter']) {
+          const down = new KeyboardEvent('keydown', { key, code: key === ' ' ? 'Space' : 'Enter', bubbles: true, cancelable: true })
+          control.dispatchEvent(down)
+          expect(down.defaultPrevented, `${key} on «${control.textContent}» keeps its native activation`).toBe(false)
+        }
+      }
+      expect(interactions, 'the map never took Space or Enter from the debug panel').toBe(0)
+      // its activation (what the browser does with that kept keypress) asks for that individual
+      fight.click()
+      const engages = s.sent.filter(([type]) => type === WORLD_MESSAGE.ECO_ENGAGE)
+      expect(engages[engages.length - 1]?.[1]).toMatchObject({ encounterId: ID('soto', 0) })
+      // outside the panel the map controls are untouched
+      fight.blur()
+      document.body.dispatchEvent(new KeyboardEvent('keydown', { key: ' ', code: 'Space', bubbles: true, cancelable: true }))
+      expect(interactions).toBe(1)
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', code: 'ArrowLeft' }))
+      expect(keys.direction).toBe('left')
+      window.dispatchEvent(new KeyboardEvent('keyup', { key: 'ArrowLeft', code: 'ArrowLeft' }))
+    } finally {
+      keys.detach()
+      s.wrapper.unmount(); s.canvas.remove()
+    }
+  })
+
   it('not modal: Tab and Shift+Tab are never held, nothing is made inert; Space and Enter on its buttons stay theirs', async () => {
     const s = withMap()
     let interactions = 0
