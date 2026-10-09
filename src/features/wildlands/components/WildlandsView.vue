@@ -100,7 +100,7 @@
       v-if="ChatPanel && !playtestSurface"
       ref="chatRef"
       :map-focus="mapFocus"
-      :shortcut-blocked="overHud"
+      :shortcut-blocked="overHud || !worldPlayable(entry)"
       @open="(open: boolean) => { chatOpen = open; onHudPanel('chat', open) }"
     />
 
@@ -158,7 +158,7 @@ import WorldHintTray from './WorldHintTray.vue'
 import { visibleWorldHints, type WorldHint } from './worldHints'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
 import { ColyseusPresence, REALTIME_CONFIGURED } from '../multiplayer/api/colyseusPresence'
-import { initialWorldEntry, type WorldEntryState } from '../multiplayer/domain/worldEntry'
+import { initialWorldEntry, worldPlayable, type WorldEntryState } from '../multiplayer/domain/worldEntry'
 import { WorldEntryController } from '../multiplayer/state/worldEntryController'
 import WorldEntryOverlay from './WorldEntryOverlay.vue'
 import type { Chat } from '../../chat/state/useChat'

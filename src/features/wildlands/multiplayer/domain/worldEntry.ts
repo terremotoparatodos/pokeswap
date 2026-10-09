@@ -61,6 +61,14 @@ export function initialWorldEntry(online: boolean): WorldEntryState {
   return { phase: online ? 'connecting' : 'offline', failed: null, authority: false, prepared: false, live: false, sceneShown: false }
 }
 
+/**
+ * The world is there to play: the local world, or a live scene. Every other phase shows the
+ * entry overlay (WorldEntryOverlay), which makes the map and the HUD inert (CHAT-SHORTCUT-1, CH-R1).
+ */
+export function worldPlayable(state: WorldEntryState): boolean {
+  return state.phase === 'offline' || state.phase === 'ready'
+}
+
 /** Waiting for the server: the phases a timeout applies to. */
 export function isWaiting(state: WorldEntryState): boolean {
   return state.phase === 'connecting' || state.phase === 'reconnecting'

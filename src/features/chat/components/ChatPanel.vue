@@ -76,7 +76,10 @@ const AREA_LABELS: Readonly<Record<string, string>> = {
 const props = defineProps<{
   /** The map to type from and return to (CHAT-SHORTCUT-1). Without it there is no Enter shortcut. */
   mapFocus?: () => HTMLElement | null
-  /** Something sits over the map (menu, a building, a card): Enter belongs to it. */
+  /**
+   * Something sits over the map (menu, a building, a card), or the world is not there to play
+   * (connecting, reconnecting: CH-R1): Enter belongs to it, and the chat stays closed.
+   */
   shortcutBlocked?: boolean
 }>()
 const chat = useChat()
