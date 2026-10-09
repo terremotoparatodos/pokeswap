@@ -91,21 +91,21 @@ export class EcoSpectatedBattles implements EcoSpectatorSink {
   }
 
   /**
-   * The area the player sees changed (it may run ahead of the server's world snapshot): the other
-   * areas' battles go now, with their end timers, and the area left is not taken again until the
-   * next world snapshot.
+   * The area the player sees changed (it may run ahead of the server's world snapshot, or lag
+   * behind it): the other areas' battles go now, with their end timers; the area left is not taken
+   * again until the next world snapshot; and what was already received for the area now seen (its
+   * snapshot and fresh views came first — e.g. a paused battle that will not send again) is shown
+   * at once. Every change is told to the listeners, whether something left, appeared, or neither.
    */
   setViewArea(areaId: string | null): void {
     if (areaId === this.viewArea) return
     if (this.viewArea !== null) this.left.add(this.viewArea)
     this.viewArea = areaId
-    let dropped = false
     for (const entry of [...this.battles.values()]) {
       if (areaId === null || entry.areaId === areaId) continue
       this.drop(entry.battleId)
-      dropped = true
     }
-    if (dropped) this.notify()
+    this.notify()
   }
 
   subscribe(listener: (battles: readonly SpectatedBattle[]) => void): () => void {

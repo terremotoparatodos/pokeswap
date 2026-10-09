@@ -181,4 +181,67 @@ describe('ECO experiment layer · watching someone else’s battle', () => {
       expect(s.labels()).toEqual([])
     } finally { s.wrapper.unmount() }
   })
+
+  // ── Closure review of 4cb773d: S1 residual (the snapshot and the fresh view may come before the visible change) ──
+
+  describe('S1 residual: what the server already re-sent for the area now seen is drawn when the player sees it', () => {
+    const caveBattle = (seq: number, over: Partial<EcoPublicBattle> = {}) => theirs(seq, { battleId: 'b-cave', encounterId: 'eco-n:cueva-inicial:x:1:0', areaId: 'cueva-inicial', ...over })
+    const snapshotOf = (s: ReturnType<typeof setup>, next: EcoArea) => s.world.snapshot({ now: 5, areaId: next.areaId, chunks: [], nodes: [], eco: next })
+    const see = async (s: ReturnType<typeof setup>, next: EcoArea) => { await s.wrapper.setProps({ areaId: next.areaId }); await flushPromises() }
+
+    it('snapshot and a PAUSED battle’s fresh view first, the visible change after: its scene appears with no further message', async () => {
+      const s = setup()
+      try {
+        await s.send(theirs(7, { events: [damage(1)] }))
+        snapshotOf(s, cave)
+        await s.send(caveBattle(30, { connected: false })) // owner away: this battle sends nothing more for now
+        expect(s.drawn(), 'not seen yet: the player still sees Pradera').toEqual([])
+        await see(s, cave)
+        expect(s.drawn().filter(x => x.bar)).toHaveLength(2)
+        expect(s.drawn().filter(x => x.sprite)).toHaveLength(1)
+        expect(s.labels()).toEqual([])
+      } finally { s.wrapper.unmount() }
+    })
+
+    it('a refused crossing: the snapshot of Pradera and its fresh view come before the visible rollback; it appears on the rollback', async () => {
+      const s = setup()
+      try {
+        await s.send(theirs(7))
+        await see(s, cave)
+        snapshotOf(s, pradera)
+        await s.send(theirs(30, { connected: false }))
+        expect(s.drawn()).toEqual([])
+        await see(s, pradera)
+        expect(s.drawn().filter(x => x.bar)).toHaveLength(2)
+      } finally { s.wrapper.unmount() }
+    })
+
+    it('control, the inverse order (visible change first, then snapshot and fresh view): drawn when the view arrives', async () => {
+      const s = setup()
+      try {
+        await s.send(theirs(7))
+        await see(s, cave)
+        expect(s.drawn()).toEqual([])
+        snapshotOf(s, cave)
+        await s.send(caveBattle(30, { connected: false }))
+        expect(s.drawn().filter(x => x.bar)).toHaveLength(2)
+      } finally { s.wrapper.unmount() }
+    })
+
+    it('control, late messages of the area left: dropped at once, never back — before or after the new area’s battle appears', async () => {
+      const s = setup()
+      try {
+        await s.send(theirs(7, { events: [damage(1)] }))
+        await see(s, cave)
+        await s.send(theirs(8, { events: [damage(2)] })) // Pradera's, before any snapshot
+        expect(s.drawn()).toEqual([])
+        expect(s.labels()).toEqual([])
+        snapshotOf(s, cave)
+        await s.send(caveBattle(30, { connected: false }))
+        await s.send(theirs(9, { events: [damage(3)] })) // Pradera's again, after the cave snapshot
+        expect(s.drawn().filter(x => x.bar)).toHaveLength(2) // only the cave battle
+        expect(s.labels()).toEqual([])
+      } finally { s.wrapper.unmount() }
+    })
+  })
 })
