@@ -9,6 +9,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import type { EcoArea, EcoBattleInfo } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { ClientBattleSnapshot } from '../../battle/authority'
+import { DEFAULT_BATTLE_RULES_CONFIG } from '../../battle/rules/config'
 import type { PokemonInfo } from '../../wildlands/engine/actors'
 import { KeyboardInput } from '../../wildlands/engine/keyboard'
 import { SharedWorld } from '../state/sharedWorld'
@@ -26,13 +27,14 @@ const area: EcoArea = {
   ],
 }
 const combatant = (combatantId: string, speciesId: number, hp: number, max: number) => ({
-  combatantId, sideId: combatantId.split('-')[0], level: combatantId === 'player-0' ? 12 : 8, wild: combatantId === 'wild-0', stats: { hp: max },
+  combatantId, sideId: combatantId.split('-')[0], level: combatantId === 'player-0' ? 12 : 8, wild: combatantId === 'wild-0', stats: { hp: max, atk: 20, def: 20, spa: 20, spd: 20, spe: 60 },
   condition: { currentHp: hp, pp: {}, majorStatus: 'none' },
   instance: { speciesId, moves: [{ moveId: 84, ppUps: 0 }, { moveId: 104, ppUps: 0 }] },
-  runtime: { selected: null },
+  // the real runtime's shape (ECO-BATTLE-PANEL-1's Info reads the action bar from it, as the world does)
+  runtime: { selected: null, actionElapsedMs: 0, cooldownMultiplier: 1, stages: {}, confusionRemainingMs: 0 },
 })
 const snapshot = (wildHp = 26, revision = 1) => ({
-  battleId: 'eco-battle-a-0000000a', revision, timeMs: 0, catalogVersion: 'c', battleRulesVersion: 'r', outcome: { kind: 'ongoing' },
+  battleId: 'eco-battle-a-0000000a', revision, timeMs: 0, catalogVersion: 'c', battleRulesVersion: 'r', config: DEFAULT_BATTLE_RULES_CONFIG, outcome: { kind: 'ongoing' },
   combatants: { 'player-0': combatant('player-0', 25, 34, 34), 'wild-0': combatant('wild-0', 13, wildHp, 26) },
 }) as unknown as ClientBattleSnapshot
 const battle: EcoBattleInfo = {
@@ -132,6 +134,10 @@ describe('ECO experiment layer · battle screen', () => {
     await flushPromises()
     // the Pokémon are drawn in the world (ecoBattleOverlay), not in the panel
     expect(screen().findAll('.eco-sprite')).toHaveLength(0)
+    // ECO-BATTLE-PANEL-1: life and the rest are behind «Info», closed until the player opens it
+    expect(screen().find('.ebp-details').exists()).toBe(false)
+    expect(screen().find('.ebp-info').attributes('aria-expanded')).toBe('false')
+    await screen().find('.ebp-info').trigger('click')
     expect(screen().text()).toContain('fixture de prueba')
     expect(screen().text()).toContain('Nv. 12')
     expect(screen().text()).toContain('Nv. 8')
@@ -222,7 +228,7 @@ describe('ECO experiment layer · battle screen', () => {
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: null, encounterId: ID('soto', 0), ok: true, resumed: true, battle })
     await flushPromises()
     expect(screen().text()).not.toContain('Reconectando')
-    expect(screen().text()).toContain('Tiempo restante')
+    expect(screen().find('.ebp-time').attributes('title')).toContain('Tiempo restante') // ECO-BATTLE-PANEL-1: compact header
     wrapper.unmount()
   })
 
@@ -331,21 +337,6 @@ describe('ECO experiment layer · review F1–F3', () => {
     engageResult(world, ID('soto', 1), 2); endBattle(world, ID('soto', 1)); await flushPromises()
     expect(document.activeElement).toBe(document.body)
     wrapper.unmount()
-  })
-})
-
-describe('ECO experiment layer · framing', () => {
-  it('the panel stands in the bottom corner away from the wild Pokémon, so it never covers it', async () => {
-    for (const [tx, side] of [[0, 'left'], [5, 'right']] as const) {
-      const { world, layer, card, screen, wrapper } = setup()
-      await wrapper.setProps({ tx })
-      layer.select(ID('soto', 0)); await flushPromises() // the encounter at tx 2
-      await card().find('.eco-card__fight').trigger('click')
-      world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID('soto', 0), ok: true, battle })
-      await flushPromises()
-      expect(screen().classes().includes('ebp--left'), `trainer at ${tx}, wild at 2`).toBe(side === 'left')
-      wrapper.unmount()
-    }
   })
 })
 

@@ -14,7 +14,8 @@
   />
   <EcoBattlePanel
     v-if="holds(battle.phase)"
-    :session="session" :view="battle" :catalog="catalog" :pokedex-name="pokedexName" :return-focus="returnFocus" :side="panelSide" :map-focus="mapFocus"
+    ref="panelRef"
+    :session="session" :view="battle" :catalog="catalog" :pokedex-name="pokedexName" :return-focus="returnFocus" :anchor="panelAnchor" :map-focus="mapFocus"
   />
   <EcoBattleToast v-if="result" :key="result.key" :title="result.title" :detail="result.detail" />
 </template>
@@ -40,7 +41,9 @@ import { loadBattleCatalog } from '../../battle/catalog'
 import type { BattleCatalogIndex } from '../../battle/catalog'
 import { ECO_OUTCOME_TEXT, ecoSpeciesName } from '../domain/ecoBattleText'
 import { ecoSeenTile, type Tile } from '../domain/ecoSeenTile'
-import { EcoBattleOverlay } from '../render/ecoBattleOverlay'
+import { EcoBattleOverlay, tileFeet } from '../render/ecoBattleOverlay'
+import { usePanelAnchor } from '../render/ecoBattlePanelAnchor'
+import type { ProjectWorld } from '../domain/ecoBattlePanelPlacement'
 import { EcoBattleSession, type EcoBattleView } from '../state/ecoBattleSession'
 import { EcoSpectatedBattles } from '../state/ecoSpectatedBattles'
 import type { SharedWorld } from '../state/sharedWorld'
@@ -58,6 +61,8 @@ const props = defineProps<{
   pokedex?: readonly { readonly id: number; readonly name_es: string }[]
   /** A valid focus destination on the map (the game canvas), for when a battle closes. */
   mapFocus?: () => HTMLElement | null
+  /** ECO-BATTLE-PANEL-1: where a world point was drawn last frame (CSS px on the canvas), to anchor the panel. */
+  project?: ProjectWorld
 }>()
 /** `overlay`: this layer's world overlay, for the view to compose into the engine (null on unmount). */
 const emit = defineEmits<{ battle: [open: boolean]; overlay: [overlay: SceneOverlay | null] }>()
@@ -116,15 +121,27 @@ onUnmounted(() => {
 })
 
 /**
- * Framing: the panel stands on the side away from the wild Pokémon, so the battle is never under it
- * (measured in the sandbox: one at +5,+2 tiles fell inside the bottom-right panel). ECO-BATTLE-SCENE-1:
- * the trainer may walk during the battle, so it follows the trainer's tile against the frozen wild one.
+ * ECO-BATTLE-PANEL-1: the panel stands beside its battle on screen, on one side for the whole battle,
+ * following the camera, never over the combatants or their bars (usePanelAnchor). Before the scene
+ * exists (asking, a refusal) it stands beside the individual that was asked for.
  */
-const panelSide = computed((): 'left' | 'right' => {
+const panelRef = shallowRef<{ root: HTMLElement | null } | null>(null)
+const panelFeet = () => {
   const view = battle.value
-  const wild = view.phase === 'battle' ? view.stage?.wild : null
-  const player = { tx: props.tx, ty: props.ty }
-  return wild && wild.tx > player.tx ? 'left' : 'right'
+  if (view.phase === 'battle' && view.stage) return [tileFeet(view.stage.wild.tx, view.stage.wild.ty), tileFeet(view.stage.pokemon.tx, view.stage.pokemon.ty)]
+  const id = view.phase === 'engaging' || view.phase === 'refused' ? view.encounterId : null
+  const asked = id ? currentArea.value?.encounters.find(e => e.id === id) : null
+  if (!asked) return []
+  const seen = seenAt(asked)
+  return [tileFeet(seen.tx, seen.ty)]
+}
+const panelAnchor = usePanelAnchor({
+  active: () => holds(battle.value.phase),
+  key: () => ('encounterId' in battle.value ? battle.value.encounterId : null),
+  feet: panelFeet,
+  project: () => props.project,
+  panel: () => panelRef.value?.root ?? null,
+  viewport: () => props.mapFocus?.() ?? null,
 })
 
 /** The tapped individual: its id and species as they were when tapped (kept if it leaves the list). */

@@ -705,6 +705,11 @@ export class WildlandsGame {
     this.worldLayer = layer
   }
 
+  /** Where a world point (world px) was drawn last frame, in CSS px on the canvas (ECO-BATTLE-PANEL-1). */
+  screenOf(wx: number, wy: number): { x: number; y: number; scale: number } | null {
+    return this.renderer.screenOf(wx, wy)
+  }
+
   /** Prototype effects drawn with the scene; null removes them. */
   setSceneOverlay(overlay: SceneOverlay | null): void {
     this.overlay = overlay

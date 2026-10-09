@@ -21,7 +21,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
-    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :map-focus="mapFocus" @overlay="(overlay: SceneOverlay | null) => { if (ecoOverlaySlot) ecoOverlaySlot.current = overlay }" @battle="(open: boolean) => (ecoBattleOpen = open)" />
+    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :map-focus="mapFocus" :project="projectWorld" @overlay="(overlay: SceneOverlay | null) => { if (ecoOverlaySlot) ecoOverlaySlot.current = overlay }" @battle="(open: boolean) => (ecoBattleOpen = open)" />
     <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"
@@ -199,6 +199,8 @@ const ecoOverlay: SceneOverlay | null = ecoOverlaySlot ? {
 } : null
 /** The map, for whoever hands the keys back to it: the battle panel, the chat's Escape and Enter (CHAT-SHORTCUT-1). */
 const mapFocus = () => canvasRef.value ?? null
+/** Where a world point was drawn last frame (CSS px on the canvas): the ECO battle panel stands beside its battle (ECO-BATTLE-PANEL-1). */
+const projectWorld = (wx: number, wy: number) => game.value?.screenOf(wx, wy) ?? null
 if (ECO_EXPERIMENT) watch(ecoBattleOpen, open => game.value?.setBattleRestricted(open))
 const performanceMode = import.meta.env.VITE_PERF === 'on'
 const PlaytestPerformanceHud = isPlaytest || performanceMode
