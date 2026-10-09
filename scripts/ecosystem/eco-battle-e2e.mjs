@@ -15,6 +15,7 @@
 import { writeFileSync } from 'node:fs'
 import { Client } from '@colyseus/sdk'
 import { isWalkable } from '../../services/realtime/src/world/navigation.js'
+import { wildPoseAt } from '../../services/realtime/src/world/ecoScene.js'
 import { ECO_ENGAGE_RANGE, ECO_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL } from '../../services/realtime/src/world/worldProtocol.js'
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : fallback }
@@ -26,7 +27,7 @@ const log = message => console.log(`[eco-battle-e2e] ${message}`)
 const fail = message => { console.error(`[eco-battle-e2e] FAIL: ${message}`); process.exit(1) }
 
 async function player(id) {
-  const state = { eco: null, self: null, engage: [], battle: [], ends: [], retire: [], sequence: 0 }
+  const state = { eco: null, self: null, engage: [], battle: [], ends: [], retire: [], work: [], clock: null, sequence: 0 }
   const room = await new Client(URL).joinOrCreate('presence', {
     token: null, presenceProtocol: PRESENCE_PROTOCOL, worldProtocol: WORLD_PROTOCOL, ecoProtocol: ECO_PROTOCOL,
     tabId: `e2e-${id}-${Date.now()}`, benchmark: { id, username: id, area: 'pradera' },
@@ -35,8 +36,9 @@ async function player(id) {
   room.onMessage('*', () => {})
   room.onMessage('presence:snapshot', snapshot => { if (snapshot.self) { state.self = snapshot.self; state.sequence = snapshot.self.moveSequence ?? 0 } })
   room.onMessage('presence:self', self => { state.self = self; state.sequence = Math.max(state.sequence, self.moveSequence ?? 0) })
-  room.onMessage(WORLD_MESSAGE.SNAPSHOT, snapshot => { if (snapshot.eco) state.eco = snapshot.eco })
-  room.onMessage(WORLD_MESSAGE.ECO, message => { state.eco = message.eco })
+  room.onMessage(WORLD_MESSAGE.SNAPSHOT, snapshot => { state.clock = { now: snapshot.now, at: Date.now() }; if (snapshot.eco) state.eco = snapshot.eco })
+  room.onMessage(WORLD_MESSAGE.ECO, message => { state.clock = { now: message.now, at: Date.now() }; state.eco = message.eco })
+  room.onMessage(WORLD_MESSAGE.WORK_RESULT, result => state.work.push(result))
   room.onMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, result => state.engage.push(result))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE, message => state.battle.push({ ...message, receivedAt: Date.now() }))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE_END, end => state.ends.push(end))
@@ -51,7 +53,19 @@ async function until(predicate, timeoutMs, what) {
   fail(`timed out waiting for ${what}`)
 }
 
-const encounterOf = (p, id) => p.state.eco?.encounters.find(e => e.id === id) ?? null
+/** The server's clock as this client last heard it (world snapshots and ECO views carry `now`). */
+const serverNow = p => (p.state.clock ? p.state.clock.now + (Date.now() - p.state.clock.at) : Date.now())
+/**
+ * An encounter where it is SEEN (ECO-BATTLE-SCENE-1): busy, where the server froze it (`stand`);
+ * free, on its shared patrol at the server's time — the tile the 3-tile limit is measured from. The
+ * home tile stays in `home`.
+ */
+const encounterOf = (p, id) => {
+  const e = p.state.eco?.encounters.find(x => x.id === id)
+  if (!e) return null
+  const seen = e.stand ?? wildPoseAt({ id: e.id, areaId: p.state.eco.areaId, tx: e.tx, ty: e.ty }, serverNow(p))
+  return { ...e, home: { tx: e.tx, ty: e.ty }, tx: seen.tx, ty: seen.ty }
+}
 const distance = (p, e) => Math.max(Math.abs(p.state.self.tx - e.tx), Math.abs(p.state.self.ty - e.ty))
 
 const STEPS = Object.freeze({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] })
@@ -167,6 +181,22 @@ try {
   if (!first.ok || !first.battle?.fixture) fail(`A's engage: ${JSON.stringify({ ...first, battle: undefined })}`)
   const battleId = first.battle.battleId
   log(`A reserved it: ${battleId} (fixture: ${first.battle.fixtureLabel}, ${first.battle.expiresInMs} ms of battle time)`)
+
+  // 1b. ECO-BATTLE-SCENE-1, on the wire: the scene is the server's; the owner walks during the battle;
+  //     another activity is refused by the server; the battle goes on.
+  const stage = first.battle.stage
+  if (!stage || Math.abs(stage.pokemon.tx - stage.wild.tx) + Math.abs(stage.pokemon.ty - stage.wild.ty) !== 1) fail(`stage: ${JSON.stringify(stage)}`)
+  await until(() => encounterOf(b, target.id)?.stand, 3_000, 'the area list to carry the frozen tile')
+  if (encounterOf(b, target.id).tx !== stage.wild.tx || encounterOf(b, target.id).ty !== stage.wild.ty) fail('the area list freezes it elsewhere than the scene')
+  const from = { tx: a.state.self.tx, ty: a.state.self.ty }
+  for (const direction of ['left', 'left', 'right']) { a.room.send('move', { direction, running: false, sequence: ++a.state.sequence }); await wait(STEP_MS) }
+  await wait(300)
+  if (a.state.self.tx === from.tx && a.state.self.ty === from.ty) log('A did not move (blocked tiles around it); walking is covered by the room tests')
+  a.room.send(WORLD_MESSAGE.WORK, { nodeId: 'pradera:0:0:tree', pokemonInstanceId: 1, requestId: 41 })
+  await until(() => a.state.work.some(r => r.requestId === 41), 3_000, 'the work answer during the battle')
+  if (a.state.work.find(r => r.requestId === 41).reason !== 'in-battle') fail(`work during the battle: ${JSON.stringify(a.state.work.find(r => r.requestId === 41))}`)
+  if (a.state.ends.length) fail('the battle ended while the owner walked')
+  log(`scene from the server (wild ${stage.wild.tx},${stage.wild.ty}, Pokémon ${stage.pokemon.tx},${stage.pokemon.ty}); A walked; another activity refused (in-battle)`)
 
   // 2. B, also in range, is refused and sees it busy.
   if (!(await walkTo(b, target.id, ECO_ENGAGE_RANGE - 2))) fail('B could not reach the encounter')

@@ -46,6 +46,7 @@ import { writeFileSync } from 'node:fs'
 import { Client } from '@colyseus/sdk'
 import { isWalkable, portalTo } from '../../services/realtime/src/world/navigation.js'
 import { PUBLIC_EVENT_FIELDS } from '../../services/realtime/src/world/ecoBattlePublic.js'
+import { wildPoseAt } from '../../services/realtime/src/world/ecoScene.js'
 import { ECO_ENGAGE_RANGE, ECO_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL } from '../../services/realtime/src/world/worldProtocol.js'
 
 const arg = (name, fallback) => { const i = process.argv.indexOf(`--${name}`); return i >= 0 ? process.argv[i + 1] : fallback }
@@ -99,7 +100,7 @@ const PRIVATE = ['joinAck', 'controller', '"moves"', '"pp"', 'selected', 'action
 /** `previous`: the same player's earlier connection — its received history is kept (a rejoin adds to it). */
 async function player(id, previous = null) {
   const kept = previous?.state
-  const state = { eco: null, areaId: null, self: null, engage: [...(kept?.engage ?? [])], battle: [...(kept?.battle ?? [])], ends: [...(kept?.ends ?? [])], publics: [...(kept?.publics ?? [])], sequence: 0 }
+  const state = { eco: null, areaId: null, self: null, engage: [...(kept?.engage ?? [])], battle: [...(kept?.battle ?? [])], ends: [...(kept?.ends ?? [])], publics: [...(kept?.publics ?? [])], clock: null, sequence: 0 }
   const room = await new Client(URL).joinOrCreate('presence', {
     token: null, presenceProtocol: PRESENCE_PROTOCOL, worldProtocol: WORLD_PROTOCOL, ecoProtocol: ECO_PROTOCOL,
     tabId: `e2e-${id}-${Date.now()}`, benchmark: { id, username: id, area: 'pradera' },
@@ -110,13 +111,14 @@ async function player(id, previous = null) {
   room.onMessage('presence:self', self => { state.self = self; state.sequence = Math.max(state.sequence, self.moveSequence ?? 0) })
   room.onMessage(WORLD_MESSAGE.SNAPSHOT, snapshot => {
     const from = state.areaId
+    state.clock = { now: snapshot.now, at: Date.now() }
     state.areaId = snapshot.areaId; state.eco = snapshot.eco ?? null; state.publics.push({ snapshot: snapshot.areaId, at: Date.now() })
     if (DROP_RETURN && id === pid('c') && from === 'cueva-inicial' && snapshot.areaId === 'pradera' && keptForTrip && !returnDrop) {
       returnDrop = keptForTrip
       setTimeout(() => b.room.send(WORLD_MESSAGE.ECO_FLEE, { battleId: returnDrop }), 150)
     }
   })
-  room.onMessage(WORLD_MESSAGE.ECO, message => { state.eco = message.eco })
+  room.onMessage(WORLD_MESSAGE.ECO, message => { state.clock = { now: message.now, at: Date.now() }; state.eco = message.eco })
   room.onMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, result => state.engage.push(result))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE, message => state.battle.push(message))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE_END, end => state.ends.push({ ...end, at: Date.now() }))
@@ -136,7 +138,19 @@ async function until(predicate, timeoutMs, what) {
   fail(`timed out waiting for ${what}`)
 }
 
-const encounterOf = (p, id) => p.state.eco?.encounters.find(e => e.id === id) ?? null
+/** The server's clock as this client last heard it (world snapshots and ECO views carry `now`). */
+const serverNow = p => (p.state.clock ? p.state.clock.now + (Date.now() - p.state.clock.at) : Date.now())
+/**
+ * An encounter where it is SEEN (ECO-BATTLE-SCENE-1): busy, where the server froze it (`stand`);
+ * free, on its shared patrol at the server's time — the tile the 3-tile limit is measured from. The
+ * home tile stays in `home`.
+ */
+const encounterOf = (p, id) => {
+  const e = p.state.eco?.encounters.find(x => x.id === id)
+  if (!e) return null
+  const seen = e.stand ?? wildPoseAt({ id: e.id, areaId: p.state.eco.areaId, tx: e.tx, ty: e.ty }, serverNow(p))
+  return { ...e, home: { tx: e.tx, ty: e.ty }, tx: seen.tx, ty: seen.ty }
+}
 const distance = (p, t) => Math.max(Math.abs(p.state.self.tx - t.tx), Math.abs(p.state.self.ty - t.ty))
 /** The public messages a player received (in order), optionally of one battle. */
 const publics = (p, battleId = null) => p.state.publics.filter(m => m.view && (battleId === null || m.view.battleId === battleId)).map(m => m.view)
@@ -383,6 +397,9 @@ try {
     const target = targets.get(id)
     if (first.seq !== 1 || first.events || first.ended) fail(`C's first view of ${id}: ${JSON.stringify({ seq: first.seq, events: first.events?.length, ended: first.ended })}`)
     if (first.encounterId !== target.id) fail(`${id} names ${first.encounterId}, reserved against ${target.id}`)
+    // ECO-BATTLE-SCENE-1: the area list freezes it on the scene's tile (`stand`), and the Pokémon stands in front of it
+    await until(() => encounterOf(c, target.id)?.stand, 3_000, 'the area list to carry the frozen tile')
+    if (Math.abs(first.stage.pokemon.tx - first.stage.wild.tx) + Math.abs(first.stage.pokemon.ty - first.stage.wild.ty) !== 1) fail(`${id}: the Pokémon is not in front of the wild one: ${JSON.stringify(first.stage)}`)
     const listed = encounterOf(c, target.id)
     if (!listed || first.stage.wild.tx !== listed.tx || first.stage.wild.ty !== listed.ty) fail(`${id}: wild tile ${JSON.stringify(first.stage.wild)} vs listed ${JSON.stringify(listed && { tx: listed.tx, ty: listed.ty })}`)
   }
