@@ -1,0 +1,103 @@
+// ECO-OVERWORLD-BATTLE-1 (review of a10099e, F1): the battle's scene belongs to the area it is fought
+// in. Once the player is in another area nothing of it is drawn there — no Pikachu, no bars, no
+// marks, not even from events that still arrive — while the panel may keep showing the result.
+// Coming back does not bring an old scene back. In its own area an ended battle is still drawn.
+
+import { describe, expect, it, vi } from 'vitest'
+import { flushPromises, mount } from '@vue/test-utils'
+import type { EcoArea, EcoBattleInfo } from '../../../../services/realtime/src/world/worldProtocol.js'
+import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { ClientBattleSnapshot } from '../../battle/authority'
+import { DEFAULT_BATTLE_RULES_CONFIG } from '../../battle/rules/config'
+import type { PokemonInfo } from '../../wildlands/engine/actors'
+import type { Area } from '../../wildlands/engine/area'
+import type { SceneOverlay } from '../../wildlands/engine/sceneOverlay'
+import { SharedWorld } from '../state/sharedWorld'
+
+vi.mock('../../dungeonPrototype/render/dungeonSprites', () => ({ speciesSprite: (id: number) => ({ id }) }))
+vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
+  const real = await importOriginal<typeof import('../../dungeonPrototype/render/worldOverlay')>()
+  // Only the overlay's inputs matter here: what it would draw (sprites, bars, effects, texts).
+  return {
+    ...real,
+    createWorldOverlay: (source: Parameters<typeof real.createWorldOverlay>[0]) => ({
+      decor: () => null,
+      ground: () => {},
+      sprites: () => [...source.props(), ...source.bars().map(bar => ({ bar })), ...source.effects().map(effect => ({ effect }))] as never,
+      labels: () => source.texts().map(t => ({ wx: t.wx, wy: t.wy, lift: 26, text: t.text, color: t.colour })),
+    }),
+  }
+})
+
+const { default: EcoExperimentLayer } = await import('./EcoExperimentLayer.vue')
+
+const ID = 'eco-n:pradera:soto:1:0'
+const pradera: EcoArea = { protocol: 1, areaId: 'pradera', status: 'active', encounters: [{ id: ID, groupId: 'g', speciesId: 13, tx: 4, ty: 0, busy: false }] }
+const cave: EcoArea = { protocol: 1, areaId: 'cueva-inicial', status: 'active', encounters: [] }
+const snapshot = (revision = 1, timeMs = 0) => ({
+  battleId: 'b', revision, timeMs, catalogVersion: 'c', battleRulesVersion: 'r', config: DEFAULT_BATTLE_RULES_CONFIG, outcome: { kind: 'ongoing' },
+  combatants: Object.fromEntries([['player-0', 25], ['wild-0', 13]].map(([key, speciesId]) => [key, {
+    combatantId: key, sideId: String(key).split('-')[0], level: 12, wild: key === 'wild-0', stats: { hp: 30, atk: 20, def: 20, spa: 20, spd: 20, spe: 60 },
+    condition: { currentHp: 20, pp: {}, majorStatus: 'none' }, instance: { speciesId, moves: [{ moveId: 84, ppUps: 0 }] },
+    runtime: { actionElapsedMs: 400, cooldownMultiplier: 1, stages: {}, confusionRemainingMs: 0, selected: null },
+  }])),
+}) as unknown as ClientBattleSnapshot
+const battle: EcoBattleInfo = {
+  battleId: 'b', speciesId: 13, fixture: true, fixtureLabel: 'fixture de prueba', expiresInMs: 120_000, snapshot: snapshot(),
+  joinAck: { battleId: 'b', controllerId: 'p', currentRevision: 1, nextActionSequence: 1, catalogVersion: 'c', battleRulesVersion: 'r', controlledCombatantIds: ['player-0'] },
+}
+const damage = (sequence: number) => ({ battleId: 'b', sequence, revision: 2, actionId: null, serverTimeMs: 0, event: { type: 'DAMAGE', combatantId: 'wild-0', sourceId: 'player-0', amount: 3, remainingHp: 17, critical: false, effectiveness: 1, hit: 1, cause: 'move' } })
+const area = {} as Area
+
+async function fighting() {
+  const world = new SharedWorld(async () => null, id => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo)
+  world.attach(() => {})
+  world.snapshot({ now: 1, areaId: 'pradera', chunks: [], nodes: [], eco: pradera })
+  const wrapper = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', tx: 0, ty: 0 }, attachTo: document.body })
+  ;(wrapper.vm as unknown as { select(id: string): boolean }).select(ID); await flushPromises()
+  await wrapper.find('.eco-card__fight').trigger('click')
+  world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID, ok: true, battle }); await flushPromises()
+  const overlay = wrapper.emitted('overlay')![0][0] as SceneOverlay
+  // The mocked overlay hands back its inputs: props, `{ bar }` and `{ effect }` entries.
+  const drawn = () => ({ sprites: (overlay.sprites?.(area, 0) ?? []) as unknown as readonly { bar?: unknown; effect?: unknown }[], labels: overlay.labels?.(area, 0) ?? [] })
+  const toArea = async (next: EcoArea, tx: number, ty: number) => {
+    world.snapshot({ now: 2, areaId: next.areaId, chunks: [], nodes: [], eco: next })
+    await wrapper.setProps({ areaId: next.areaId, tx, ty }); await flushPromises()
+  }
+  return { world, wrapper, drawn, toArea }
+}
+
+describe('ECO overworld battle · the scene stays in its area (F1)', () => {
+  it('after leaving: no Pikachu, bars or marks in the new area — even from late events — while the result may stay; coming back brings nothing back', async () => {
+    const { world, wrapper, drawn, toArea } = await fighting()
+    try {
+      expect(drawn().sprites.filter(s => s.bar)).toHaveLength(2)
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'left-area', retired: false, snapshot: snapshot(3, 500) })
+      await toArea(cave, 20, 20)
+      expect(drawn()).toEqual({ sprites: [], labels: [] })
+      expect(wrapper.find('.ebp').exists(), 'the result text may stay on screen').toBe(true)
+      await toArea(pradera, 0, 0)
+      expect(drawn(), 'back in the battle\'s area: the old scene does not return').toEqual({ sprites: [], labels: [] })
+    } finally { wrapper.unmount() }
+  })
+
+  it('leaving while the battle still runs drops it at once; late events draw nothing anywhere', async () => {
+    const { world, wrapper, drawn, toArea } = await fighting()
+    try {
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, { battleId: 'b', events: [damage(1)], snapshot: snapshot(2, 100) }); await flushPromises()
+      expect(drawn().labels.length + drawn().sprites.filter(s => s.effect).length).toBeGreaterThan(0)
+      await toArea(cave, 20, 20)
+      expect(drawn()).toEqual({ sprites: [], labels: [] })
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, { battleId: 'b', events: [damage(2)], snapshot: snapshot(3, 200) }); await flushPromises()
+      expect(drawn()).toEqual({ sprites: [], labels: [] })
+    } finally { wrapper.unmount() }
+  })
+
+  it('in its own area an ended battle is still drawn while its result shows (leaving drops it, ending does not)', async () => {
+    const { world, wrapper, drawn } = await fighting()
+    try {
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'fled', retired: false, snapshot: snapshot(3, 500) }); await flushPromises()
+      expect(drawn().sprites.filter(s => s.bar)).toHaveLength(2)
+    } finally { wrapper.unmount() }
+  })
+})

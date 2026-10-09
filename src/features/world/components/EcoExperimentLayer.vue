@@ -74,9 +74,16 @@ const stopEvents = session.onEvents(events => battleWorld.pushEvents(events))
 watch(catalog, value => battleWorld.setCatalog(value), { immediate: true })
 /** The encounter's last server-listed tile (kept if it leaves the list, e.g. retired by the victory). */
 const wildTiles = new Map<string, { tx: number; ty: number }>()
-watch([battle, currentArea], ([view, here]) => {
+/**
+ * The area the battle is fought in, fixed when it is asked for. Its scene (the Pikachu, the bars,
+ * the marks) is drawn there only: once the player is in another area it is dropped for good, even
+ * while the panel still shows the result, and coming back does not bring it back.
+ */
+let battleArea: string | null = null
+watch([battle, currentArea, () => props.areaId], ([view, here, areaId]) => {
+  if (battleArea !== null && battleArea !== areaId) { battleArea = null; wildTiles.clear() }
   for (const e of here?.encounters ?? []) wildTiles.set(e.id, { tx: e.tx, ty: e.ty })
-  if (view.phase === 'battle' || view.phase === 'ended') {
+  if ((view.phase === 'battle' || view.phase === 'ended') && battleArea) {
     const wildTile = wildTiles.get(view.encounterId)
     battleWorld.setBattle(wildTile ? {
       snapshot: view.snapshot, snapshotAt: view.phase === 'battle' ? view.snapshotAt : session.clock(),
@@ -120,6 +127,7 @@ watch(() => props.areaId, () => { selectedId.value = null })
 // A battle started by EITHER route (the card or the debug panel) ends the selection, and remembers
 // the control that asked for it (synchronously, before anything else moves the focus).
 watch(() => battle.value.phase !== 'idle', open => {
+  battleArea = open ? props.areaId : null
   if (open) {
     selectedId.value = null
     returnFocus.value = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
