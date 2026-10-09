@@ -1,7 +1,7 @@
 // ECO-BATTLE-PANEL-1: the panel's place beside its battle — one side, on screen, never over the scene.
 
 import { describe, expect, it } from 'vitest'
-import { PANEL_GAP, SCREEN_EDGE, panelSide, placePanel, sceneRect, type ScreenRect } from './ecoBattlePanelPlacement'
+import { PANEL_GAP, SCREEN_EDGE, panelSide, placePanel, sceneRect, sideAwayFrom, type ScreenRect } from './ecoBattlePanelPlacement'
 
 const viewport = { width: 800, height: 600 }
 const panel = { width: 184, height: 160 }
@@ -21,6 +21,14 @@ describe('where the battle panel stands (ECO-BATTLE-PANEL-1)', () => {
     expect(panelSide({ ...scene, left: 560, right: 660 }, panel, viewport)).toBe('left')
     // neither fits (a narrow screen): right, and the clamp keeps it on screen
     expect(panelSide({ left: 100, top: 100, right: 300, bottom: 200 }, panel, { width: 320, height: 600 })).toBe('right')
+  })
+
+  it('away from the trainer when there is room there, so it does not start over the player', () => {
+    expect(sideAwayFrom(scene, 500)).toBe('left') // the trainer on the right of the scene
+    expect(sideAwayFrom(scene, 200)).toBe('right')
+    expect(sideAwayFrom(scene, null)).toBe('right')
+    expect(panelSide(scene, panel, viewport, 'left')).toBe('left')
+    expect(panelSide({ ...scene, left: 120, right: 220 }, panel, viewport, 'left'), 'no room on the left').toBe('right')
   })
 
   it('beside the scene on its side, top-aligned with it, never over it', () => {

@@ -139,6 +139,7 @@ const panelAnchor = usePanelAnchor({
   active: () => holds(battle.value.phase),
   key: () => ('encounterId' in battle.value ? battle.value.encounterId : null),
   feet: panelFeet,
+  trainer: () => tileFeet(props.tx, props.ty),
   project: () => props.project,
   panel: () => panelRef.value?.root ?? null,
   viewport: () => props.mapFocus?.() ?? null,

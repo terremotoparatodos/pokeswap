@@ -1,10 +1,11 @@
 // ECO-BATTLE-PANEL-1: where the battle panel stands on screen. Presentation only.
 //
 // The panel is anchored to the battle: beside the on-screen box that holds both combatants and
-// their bars, on ONE side chosen when the battle is first placed (the side with room; the right one
-// when both have it). It never flips on its own afterwards. It follows the camera with the scene,
-// and is moved only as much as it must to stay on screen; if that pushes it onto the combatants it
-// steps below the scene (or above it), never over it. Its top edge is the anchor, so the panel
+// their bars, on ONE side chosen when the battle is first placed — away from the trainer when that
+// side has room (so the panel does not start over the player), else the other one. It never flips
+// on its own afterwards. It follows the camera with the scene, and is moved only as much as it must
+// to stay on screen; if that pushes it onto the combatants it steps below the scene (or above it),
+// never over it. Its top edge is the anchor, so the panel
 // growing (Info, a warning) extends it downwards instead of making it jump.
 
 export interface ScreenRect { readonly left: number; readonly top: number; readonly right: number; readonly bottom: number }
@@ -40,11 +41,19 @@ export function sceneRect(feet: readonly { x: number; y: number }[], project: Pr
   return rect
 }
 
-/** The side for the whole battle: where the panel fits beside the scene, the right one first. */
-export function panelSide(scene: ScreenRect, panel: ScreenSize, viewport: ScreenSize): PanelSide {
-  const fitsRight = scene.right + PANEL_GAP + panel.width + SCREEN_EDGE <= viewport.width
-  const fitsLeft = scene.left - PANEL_GAP - panel.width >= SCREEN_EDGE
-  return fitsRight || !fitsLeft ? 'right' : 'left'
+/**
+ * The side for the whole battle: `preferred` (away from the trainer) when the panel fits there
+ * beside the scene, else the other side if it fits, else `preferred` (the clamp keeps it on screen).
+ */
+export function panelSide(scene: ScreenRect, panel: ScreenSize, viewport: ScreenSize, preferred: PanelSide = 'right'): PanelSide {
+  const fits = { right: scene.right + PANEL_GAP + panel.width + SCREEN_EDGE <= viewport.width, left: scene.left - PANEL_GAP - panel.width >= SCREEN_EDGE }
+  const other: PanelSide = preferred === 'right' ? 'left' : 'right'
+  return fits[preferred] || !fits[other] ? preferred : other
+}
+
+/** Away from the trainer: the side of the scene the trainer is not on (the right one when level). */
+export function sideAwayFrom(scene: ScreenRect, trainerX: number | null): PanelSide {
+  return trainerX !== null && trainerX > (scene.left + scene.right) / 2 ? 'left' : 'right'
 }
 
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(value, high))

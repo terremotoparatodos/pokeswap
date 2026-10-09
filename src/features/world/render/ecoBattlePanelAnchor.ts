@@ -1,12 +1,12 @@
 // ECO-BATTLE-PANEL-1: keeps the battle panel beside its battle on screen, frame by frame.
 //
 // The camera follows the trainer, who may walk during the battle, so the scene moves on screen; the
-// panel moves with it (placePanel). Its side is chosen once per battle — keyed by the encounter —
-// and kept until the panel closes: snapshots, events, a warning or Info opening never flip it.
+// panel moves with it (placePanel). Its side is chosen once per battle — keyed by the encounter,
+// away from where the trainer stood then — and kept until the panel closes: snapshots, events, a warning or Info opening never flip it.
 // Read-only: it projects with the engine's last frame and decides nothing about the battle.
 
 import { onUnmounted, shallowRef, type ShallowRef } from 'vue'
-import { panelSide, placePanel, sceneRect, type PanelSide, type ProjectWorld, type ScreenPoint } from '../domain/ecoBattlePanelPlacement'
+import { panelSide, placePanel, sceneRect, sideAwayFrom, type PanelSide, type ProjectWorld, type ScreenPoint } from '../domain/ecoBattlePanelPlacement'
 
 export interface PanelAnchorInput {
   /** The panel is on screen. */
@@ -15,6 +15,8 @@ export interface PanelAnchorInput {
   key(): string | null
   /** The combatants' feet (world px): the scene, or the asked individual before the scene exists. */
   feet(): readonly { x: number; y: number }[]
+  /** The trainer's feet (world px), read once per battle to start the panel on the other side. */
+  trainer(): { x: number; y: number } | null
   project(): ProjectWorld | undefined
   /** The panel's own element, measured each frame (Info and warnings change its size). */
   panel(): HTMLElement | null
@@ -41,7 +43,11 @@ export function usePanelAnchor(input: PanelAnchorInput): ShallowRef<ScreenPoint 
     }
     const size = { width: panel.offsetWidth, height: panel.offsetHeight }
     const screen = { width: viewport.clientWidth, height: viewport.clientHeight }
-    if (side?.key !== key) side = { key, side: panelSide(scene, size, screen) }
+    if (side?.key !== key) {
+      const at = input.trainer()
+      const trainerX = at && project ? project(at.x, at.y)?.x ?? null : null
+      side = { key, side: panelSide(scene, size, screen, sideAwayFrom(scene, trainerX)) }
+    }
     const next = placePanel(scene, size, screen, side.side)
     const now = anchor.value
     if (!now || Math.abs(now.x - next.x) >= 0.5 || Math.abs(now.y - next.y) >= 0.5) anchor.value = next

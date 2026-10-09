@@ -44,7 +44,7 @@ const frames = () => new Promise(resolve => setTimeout(resolve, 60)) // a few an
 let wrapper: VueWrapper | null = null
 afterEach(() => { wrapper?.unmount(); wrapper = null; document.body.replaceChildren(); camera.x = 300; camera.y = 300 })
 
-async function fighting() {
+async function fighting(trainer = { tx: 0, ty: 0 }) {
   const canvas = document.createElement('canvas')
   Object.defineProperty(canvas, 'clientWidth', { value: 800 })
   Object.defineProperty(canvas, 'clientHeight', { value: 600 })
@@ -53,7 +53,7 @@ async function fighting() {
   const sent: [string, unknown][] = []
   world.attach((type, payload) => sent.push([type, payload]))
   world.snapshot({ now: 1, areaId: 'pradera', chunks: [], nodes: [], eco: area })
-  wrapper = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', tx: 0, ty: 0, project, mapFocus: () => canvas }, attachTo: document.body })
+  wrapper = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', ...trainer, project, mapFocus: () => canvas }, attachTo: document.body })
   ;(wrapper.vm as unknown as { select(id: string): boolean }).select(ID); await flushPromises()
   await wrapper.find('.eco-card__fight').trigger('click')
   world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID, ok: true, battle }); await flushPromises()
@@ -86,6 +86,14 @@ describe('the compact battle panel (ECO-BATTLE-PANEL-1)', () => {
     await wrapper!.setProps({ tx: 5, ty: 2 }) // the old corner rule flipped sides here
     await frames(); await flushPromises()
     expect(at()).toEqual(placed)
+  })
+
+  it('starts on the side away from the trainer and stays there while the trainer walks around', async () => {
+    const { at } = await fighting({ tx: 5, ty: 0 }) // the trainer right of the wild one
+    expect(at()).toEqual({ x: scene().left - PANEL_GAP - 184, y: scene().top })
+    await wrapper!.setProps({ tx: -3, ty: 1 }) // now on the left: the panel does not follow it over
+    await frames(); await flushPromises()
+    expect(at()).toEqual({ x: scene().left - PANEL_GAP - 184, y: scene().top })
   })
 
   it('at the edge of the screen it moves only as needed, below the scene instead of over it', async () => {
