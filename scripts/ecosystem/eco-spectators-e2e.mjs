@@ -23,7 +23,7 @@
 
 import { writeFileSync } from 'node:fs'
 import { Client } from '@colyseus/sdk'
-import { portalTo } from '../../services/realtime/src/world/navigation.js'
+import { isWalkable, portalTo } from '../../services/realtime/src/world/navigation.js'
 import { PUBLIC_EVENT_FIELDS } from '../../services/realtime/src/world/ecoBattlePublic.js'
 import { ECO_ENGAGE_RANGE, ECO_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL } from '../../services/realtime/src/world/worldProtocol.js'
 
@@ -79,7 +79,31 @@ const distance = (p, t) => Math.max(Math.abs(p.state.self.tx - t.tx), Math.abs(p
 /** The public messages a player received (in order), optionally of one battle. */
 const publics = (p, battleId = null) => p.state.publics.filter(m => m.view && (battleId === null || m.view.battleId === battleId)).map(m => m.view)
 
-/** Walks greedily toward a target (a tile, or a moving encounter) until `within` tiles. */
+const STEPS = Object.freeze({ up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] })
+
+/** The first step of a shortest walkable path (the server's own walkability) to a tile `goal` accepts. */
+function firstStep(areaId, from, goal, limit = 40_000) {
+  const key = (x, y) => `${x},${y}`
+  const seen = new Map([[key(from.tx, from.ty), null]])
+  const queue = [[from.tx, from.ty]]
+  for (let i = 0; i < queue.length && i < limit; i++) {
+    const [x, y] = queue[i]
+    if (goal(x, y)) {
+      let at = key(x, y), step = null
+      while (seen.get(at)) { step = seen.get(at); at = step.from }
+      return step?.direction ?? null
+    }
+    for (const [direction, [dx, dy]] of Object.entries(STEPS)) {
+      const nx = x + dx, ny = y + dy
+      if (seen.has(key(nx, ny)) || !isWalkable(areaId, nx, ny)) continue
+      seen.set(key(nx, ny), { from: key(x, y), direction })
+      queue.push([nx, ny])
+    }
+  }
+  return null
+}
+
+/** Walks a shortest path toward a target (a tile, or a moving encounter) until `within` tiles, re-planning every step. */
 async function walkTo(p, target, within, timeoutMs = 90_000) {
   const deadline = Date.now() + timeoutMs
   let stuck = 0
@@ -87,13 +111,11 @@ async function walkTo(p, target, within, timeoutMs = 90_000) {
     const t = typeof target === 'string' ? encounterOf(p, target) : target
     if (!t) return false
     if (distance(p, t) <= within) return true
-    const dx = t.tx - p.state.self.tx
-    const dy = t.ty - p.state.self.ty
-    const primary = Math.abs(dx) >= Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up')
-    const secondary = Math.abs(dx) >= Math.abs(dy) ? (dy >= 0 ? 'down' : 'up') : (dx >= 0 ? 'right' : 'left')
-    const sidestep = ['up', 'down', 'left', 'right'][Math.floor(Math.random() * 4)]
-    const direction = stuck > 6 ? sidestep : stuck > 2 ? secondary : primary
-    const before = `${p.state.self.tx},${p.state.self.ty}`
+    const here = p.state.self
+    const planned = firstStep(p.state.areaId ?? here.areaId, here, (x, y) => Math.max(Math.abs(x - t.tx), Math.abs(y - t.ty)) <= within)
+    // Blocked by someone standing in the way (or no path): a random step, then plan again.
+    const direction = !planned || stuck > 3 ? Object.keys(STEPS)[Math.floor(Math.random() * 4)] : planned
+    const before = `${here.tx},${here.ty}`
     p.room.send('move', { direction, running: false, sequence: ++p.state.sequence })
     await wait(STEP_MS)
     stuck = `${p.state.self.tx},${p.state.self.ty}` === before ? stuck + 1 : 0
@@ -167,117 +189,140 @@ try {
   process.exit(3)
 }
 
+/** Which owner each battle belongs to (the owner objects change when A rejoins). */
+const owners = new Map()
+const ownerOf = id => (owners.get(id) === 'a' ? a : b)
+const endedFor = id => ownerOf(id).state.ends.some(e => e.battleId === id) || publics(c, id).some(v => v.ended)
+const byDistance = p => [...p.state.eco.encounters].filter(e => !e.busy).sort((x, y) => distance(p, x) - distance(p, y))
+
+/** Walks to the nearest free encounters in turn (one may wander off or be out of reach) and reserves one. */
+async function reserve(p, name) {
+  for (const candidate of byDistance(p).slice(0, 6)) {
+    if (!(await walkTo(p, candidate.id, ECO_ENGAGE_RANGE - 2, 40_000))) continue
+    const answer = await engage(p, candidate.id)
+    if (answer.ok) {
+      owners.set(answer.battle.battleId, name)
+      log(`${p.id} battles ${answer.battle.battleId} (#${candidate.speciesId})`)
+      return { target: candidate, battleId: answer.battle.battleId }
+    }
+    log(`${p.id}: ${candidate.id.split(':').slice(2).join(':')} refused (${answer.reason}); next`)
+  }
+  return fail(`${p.id} could not reserve any encounter`)
+}
+
+/** A battle of `name`'s that is running now: the current one, or a new one. */
+async function running(name) {
+  const p = name === 'a' ? a : b
+  const current = [...owners].filter(([id, who]) => who === name && !endedFor(id)).map(([id]) => id).at(-1)
+  return current ?? (await reserve(p, name)).battleId
+}
+
 try {
   await until(() => [a, b, c].every(p => p.state.self && p.state.areaId === 'pradera' && p.state.eco), 15_000, 'A, B and C in Pradera')
   await until(() => (a.state.eco.encounters.length ?? 0) >= 3, 60_000, 'Pradera to fill')
 
+  // 0. C waits beside the cave portal, still in Pradera (so its crossing later is one step).
+  const mouth = portalTo('pradera', 'cueva-inicial')
+  if (!(await walkTo(c, mouth, 1, 120_000))) fail('C could not reach the cave mouth')
+
   // 1. Two battles at once: A and B each reserve a different encounter.
-  const byDistance = p => [...p.state.eco.encounters].filter(e => !e.busy).sort((x, y) => distance(p, x) - distance(p, y))
-  const t1 = byDistance(a)[0]
-  if (!(await walkTo(a, t1.id, ECO_ENGAGE_RANGE - 2))) fail('A could not reach its encounter')
-  const one = await engage(a, t1.id)
-  if (!one.ok) fail(`A's engage: ${one.reason}`)
-  const t2 = byDistance(b).find(e => e.id !== t1.id)
-  if (!(await walkTo(b, t2.id, ECO_ENGAGE_RANGE - 2))) fail('B could not reach its encounter')
-  const two = await engage(b, t2.id)
-  if (!two.ok) fail(`B's engage: ${two.reason}`)
-  const b1 = one.battle.battleId, b2 = two.battle.battleId
-  log(`battles: A ${b1} (#${t1.speciesId}), B ${b2} (#${t2.speciesId})`)
+  const b1 = await running('a')
+  const b2 = await running('b')
 
   // 2. Routing.
   await until(() => publics(c, b1).length > 0 && publics(c, b2).length > 0, 5_000, 'C to see both battles')
-  await until(() => publics(a, b2).length > 0 && publics(b, b1).length > 0, 5_000, 'each owner to see the other battle')
-  if (publics(a, b1).length || publics(b, b2).length) fail('an owner received its own battle as public')
+  await until(() => (publics(a, b2).length > 0 || endedFor(b2)) && (publics(b, b1).length > 0 || endedFor(b1)), 5_000, 'each owner to see the other battle')
+  if ([...owners].some(([id, who]) => publics(who === 'a' ? a : b, id).length)) fail('an owner received its own battle as public')
   const start = publics(c, b1)[0]
-  if (start.encounterId !== t1.id || start.stage.wild.tx !== encounterOf(c, t1.id)?.tx) fail(`C's view of b1 does not stand on its encounter: ${JSON.stringify(start.stage)}`)
-  check('routing: C sees both battles; each owner only the other one; nobody its own')
+  if (start.encounterId === undefined || start.seq !== 1 || start.events) fail(`C's first view of b1: ${JSON.stringify({ seq: start.seq, events: start.events?.length })}`)
+  const overlap = c.state.publics.filter(m => m.view && [b1, b2].includes(m.view.battleId))
+  check('routing: C sees both battles at once; each owner only the other one; nobody its own', { interleaved: new Set(overlap.slice(0, 6).map(m => m.view.battleId)).size === 2 })
 
-  // 3. Late arrival: D joins now.
-  await wait(4_000)
+  // 3. Late arrival: D joins while a battle runs.
+  const live = await running('b')
   d = await player('eco-spect-d')
   await until(() => d.state.areaId === 'pradera', 15_000, 'D in Pradera')
-  await until(() => [b1, b2].every(id => publics(d, id).length > 0 || publics(c, id).some(v => v.ended)), 5_000, 'D to receive the running battles')
-  for (const id of [b1, b2]) {
+  await until(() => publics(d, live).length > 0 || endedFor(live), 5_000, 'D to receive the running battle')
+  for (const id of owners.keys()) {
     const arrival = d.state.publics.find(m => m.view?.battleId === id)
-    if (!arrival) continue // it ended before D arrived
+    if (!arrival) continue
     if (arrival.view.events) fail(`D's first view of ${id} carried past events`)
-    if (arrival.view.ended) fail(`D got an ended battle on arrival: ${id}`)
+    if (arrival.view.ended) fail(`D got an already-ended battle on arrival: ${id}`)
     const cBefore = c.state.publics.filter(m => m.view?.battleId === id && m.at <= arrival.at).at(-1)?.view
     if (cBefore && arrival.view.revision < cBefore.revision) fail(`D's first view of ${id} is older than what C already had`)
   }
-  check('late arrival: D sees the running battles as they are, with no past effects')
+  check('late arrival: D sees the running battle as it is, with no past effects')
 
-  // 4. Pause and resume: A drops its socket and comes back inside the grace.
-  const aliveBeforePause = !publics(c, b1).some(v => v.ended)
-  if (aliveBeforePause) {
+  // 4. Pause and resume: A drops its socket mid-battle and comes back inside the grace.
+  for (let attempt = 0; ; attempt++) {
+    if (attempt === 3) fail('A\'s battles kept ending before a pause could be checked')
+    const paused0 = await running('a')
     await a.room.leave()
-    await until(() => publics(c, b1).at(-1)?.connected === false || publics(c, b1).some(v => v.ended), 5_000, 'C to see the pause')
-    const paused = publics(c, b1).at(-1)
-    if (!paused.ended) {
-      await wait(1_500)
-      const quiet = publics(c, b1).at(-1) === paused
-      a = await player('eco-spect-a')
-      await until(() => a.state.engage.some(r => r.resumed), 8_000, 'A\'s battle to resume')
-      await until(() => publics(c, b1).at(-1)?.connected === true, 5_000, 'C to see the resume')
-      const resumed = publics(c, b1).find(v => v.seq > paused.seq && v.connected)
-      if (resumed.revision !== paused.revision || resumed.timeMs !== paused.timeMs) fail(`resume moved battle time: ${paused.revision}/${paused.timeMs} → ${resumed.revision}/${resumed.timeMs}`)
-      check('pause and resume reach the spectator, the resume at the same revision', { revision: paused.revision, quietWhilePaused: quiet })
-    } else log('b1 ended before it could be paused; pause/resume not exercised this run')
+    await until(() => publics(c, paused0).at(-1)?.connected === false || endedFor(paused0), 5_000, 'C to see the pause')
+    const paused = publics(c, paused0).at(-1)
+    if (paused.ended) { a = await player('eco-spect-a'); await until(() => a.state.areaId === 'pradera', 15_000, 'A back'); continue }
+    await wait(1_500)
+    const quiet = publics(c, paused0).at(-1) === paused
+    a = await player('eco-spect-a')
+    await until(() => a.state.engage.some(r => r.resumed), 8_000, 'A\'s battle to resume')
+    await until(() => publics(c, paused0).at(-1)?.connected === true || endedFor(paused0), 5_000, 'C to see the resume')
+    const resumed = publics(c, paused0).find(v => v.seq > paused.seq)
+    if (!resumed.connected) fail('the message after the pause was not the resume')
+    if (resumed.revision !== paused.revision || resumed.timeMs !== paused.timeMs) fail(`resume moved battle time: ${paused.revision}/${paused.timeMs} → ${resumed.revision}/${resumed.timeMs}`)
+    if (!quiet) fail('messages arrived while the battle was paused')
+    check('pause and resume reach the spectator; the resume keeps the revision', { battle: paused0, revision: paused.revision })
+    break
   }
 
-  // 5. Area change: C crosses into the cave and back, for real.
-  const before = c.state.publics.length
-  const leftAt = Date.now()
-  await cross(c, 'pradera', 'cueva-inicial')
-  const crossedAt = c.state.publics.findIndex((m, i) => i >= before && m.snapshot === 'cueva-inicial')
-  await wait(3_000)
-  const whileAway = c.state.publics.slice(crossedAt + 1).filter(m => m.view)
-  if (whileAway.length) fail(`C received ${whileAway.length} public messages while in the cave`)
-  check('area change: nothing from Pradera while in the cave')
-  const awayIndex = c.state.publics.length
-  await cross(c, 'cueva-inicial', 'pradera')
-  const backAt = c.state.publics.slice(awayIndex).find(m => m.snapshot === 'pradera')?.at ?? Date.now()
-  const back = c.state.publics.slice(awayIndex)
-  const running = [b1, b2].filter(id => !publics(a, id).some(v => v.ended) && !publics(c, id).some(v => v.ended) && !a.state.ends.some(e => e.battleId === id) && !b.state.ends.some(e => e.battleId === id))
-  await until(() => running.every(id => back.some(m => m.view?.battleId === id) || c.state.publics.slice(awayIndex).some(m => m.view?.battleId === id)), 5_000, 'C to receive the running battles again')
-  for (const id of running) {
-    const firstBack = c.state.publics.slice(awayIndex).find(m => m.view?.battleId === id).view
-    if (firstBack.events) fail(`back in Pradera, ${id} came with past events`)
-  }
-  check('back in Pradera: the still-running battles again, as they are now', { running: running.length })
-
-  // 6. Ends: B flees (if its battle still runs); the server ends A's.
-  if (!b.state.ends.some(e => e.battleId === b2)) {
-    b.room.send(WORLD_MESSAGE.ECO_FLEE, { battleId: b2 })
-    await until(() => b.state.ends.some(e => e.battleId === b2), 5_000, 'B\'s flight')
-  }
-  await until(() => a.state.ends.some(e => e.battleId === b1) || publics(c, b1).some(v => v.ended), 150_000, 'the server to end A\'s battle')
-  await wait(1_500)
-  for (const [owner, id] of [[a, b1], [b, b2]]) {
-    const end = owner.state.ends.find(e => e.battleId === id)
-    const seen = publics(c, id).filter(v => v.ended)
-    // An end while C was in the cave is not C's to see: it was not there, and nothing brings it back.
-    if (end && end.at >= leftAt && end.at <= backAt) {
-      if (seen.length) fail(`C saw the end of ${id}, which happened while it was away`)
-      continue
+  // 5. Area change: C crosses into the cave and back, for real, while a battle runs.
+  for (let attempt = 0; ; attempt++) {
+    if (attempt === 3) fail('no battle survived C\'s trip to the cave')
+    const kept = await running('b')
+    if (!(await walkTo(c, mouth, 1, 60_000))) fail('C could not get back beside the cave mouth')
+    await cross(c, 'pradera', 'cueva-inicial')
+    const outAt = c.state.publics.findLast(m => m.snapshot === 'cueva-inicial').at
+    await wait(2_500)
+    const whileAway = c.state.publics.filter(m => m.at > outAt && m.view)
+    if (whileAway.length) fail(`C received ${whileAway.length} public messages while in the cave`)
+    await cross(c, 'cueva-inicial', 'pradera')
+    const backAt = c.state.publics.findLast(m => m.snapshot === 'pradera').at
+    await wait(800)
+    const after = c.state.publics.filter(m => m.at >= backAt && m.view)
+    const ownersEnds = [...owners.keys()].map(id => ownerOf(id).state.ends.find(e => e.battleId === id)).filter(Boolean)
+    for (const end of ownersEnds.filter(e => e.at > outAt && e.at < backAt)) {
+      if (after.some(m => m.view.battleId === end.battleId)) fail(`${end.battleId} ended while C was away and came back`)
     }
-    if (end && seen.length !== 1) fail(`C saw ${seen.length} ends of ${id}`)
-    if (end && seen[0].ended.outcome !== end.outcome) fail(`C saw ${seen[0].ended.outcome}, the owner ${end.outcome}`)
-    if (end && seen[0].revision !== end.snapshot.revision) fail(`the end of ${id}: revision ${seen[0].revision} vs owner ${end.snapshot.revision}`)
+    if (endedFor(kept) && !after.some(m => m.view.battleId === kept)) { log('the kept battle ended during the trip; again'); continue }
+    const firstBack = after.find(m => m.view.battleId === kept)?.view
+    if (!firstBack) fail(`back in Pradera, C did not receive the running battle ${kept}`)
+    if (firstBack.events) fail('back in Pradera, the running battle came with past events')
+    check('area change: nothing from Pradera while in the cave; back, the running battle as it is now, without past effects', { battle: kept, revision: firstBack.revision })
+    break
   }
-  const ends = { a: a.state.ends.find(e => e.battleId === b1)?.outcome ?? null, b: b.state.ends.find(e => e.battleId === b2)?.outcome ?? null }
-  check('ends reach the spectator once, with the owner\'s outcome', ends)
-  const afterEnds = c.state.publics.length
-  await wait(2_000)
-  if (c.state.publics.slice(afterEnds).some(m => m.view && [b1, b2].includes(m.view.battleId))) fail('a message followed an end')
 
-  // 7. Synchronisation and stream invariants.
-  const compared = { b1: syncAgainst(a, c, b1), b2: syncAgainst(b, c, b2) }
-  if (compared.b1 + compared.b2 === 0) fail('no public message with events could be compared with its owner\'s')
+  // 6. Ends: B flees its running battle; the server ends A's.
+  const fleeing = await running('b')
+  b.room.send(WORLD_MESSAGE.ECO_FLEE, { battleId: fleeing })
+  await until(() => b.state.ends.some(e => e.battleId === fleeing), 5_000, 'B\'s flight')
+  const decided = await running('a')
+  await until(() => a.state.ends.some(e => e.battleId === decided), 150_000, 'the server to end A\'s battle')
+  await wait(2_000)
+  for (const id of [fleeing, decided]) {
+    const end = ownerOf(id).state.ends.find(e => e.battleId === id)
+    const seen = publics(c, id).filter(v => v.ended)
+    if (seen.length !== 1) fail(`C saw ${seen.length} ends of ${id}`)
+    if (seen[0].ended.outcome !== end.outcome || seen[0].revision !== end.snapshot.revision) fail(`the end of ${id}: C ${seen[0].ended.outcome}/${seen[0].revision}, owner ${end.outcome}/${end.snapshot.revision}`)
+  }
+  check('ends reach the spectator once, last, with the owner\'s outcome and state', { fled: fleeing, decided: a.state.ends.find(e => e.battleId === decided).outcome })
+
+  // 7. Synchronisation and stream invariants over every battle of the run.
+  const compared = {}
+  for (const id of owners.keys()) compared[id] = syncAgainst(ownerOf(id), c, id)
+  if (Object.values(compared).reduce((x, y) => x + y, 0) === 0) fail('no public message with events could be compared with its owner\'s')
   check('synchronised with the owners (same revision → same time, HP and drawable events)', compared)
   report.streams = {}
-  for (const p of [a, b, c, d]) for (const id of [b1, b2]) if (publics(p, id).length) report.streams[`${p.id}:${id}`] = streamInvariants(p, id)
-  check('streams: revision and time never back; one end, last', report.streams)
+  for (const p of [a, b, c, d]) for (const id of owners.keys()) if (publics(p, id).length) report.streams[`${p.id}:${id}`] = streamInvariants(p, id)
+  check('streams: seq grows between world snapshots; revision and time never back; one end, last', report.streams)
 
   // 8. No private data on the wire.
   let payloads = 0
