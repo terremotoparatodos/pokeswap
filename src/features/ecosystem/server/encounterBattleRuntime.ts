@@ -23,7 +23,7 @@ import { PERFECT_IVS, ZERO_STATS, createPokemonCatalogView, createPokemonInstanc
 import type { PokemonInstance } from '../../pokemon/model'
 
 /** Bundle contract version: bump when the exported surface changes shape. */
-export const ECO_BATTLE_API = 1
+export const ECO_BATTLE_API = 2
 
 /**
  * SYNTHETIC TEST FIXTURES — not balance, not a player's team. Shown to players as «fixture de prueba».
@@ -36,7 +36,9 @@ export const ECO_SANDBOX_FIXTURE = Object.freeze({
   wildLevel: 8,
 })
 
-export type SandboxFixture = { readonly player: { readonly speciesId: number; readonly level: number; readonly moves: readonly string[] }; readonly wildLevel: number }
+export type SandboxFixture = { readonly player: { readonly speciesId: number; readonly level: number }; readonly wildLevel: number }
+
+const PLAYER_SPECIES = [25, 19, 43, 74, 41, 10] as const
 
 /** Intents the sandbox offers. Capture and items are refused before they reach the authority. */
 const SANDBOX_INTENTS = new Set(['useMove', 'switch', 'clearSelection'])
@@ -71,7 +73,8 @@ export type StartResult =
 
 export interface EncounterBattles {
   readonly fixture: SandboxFixture
-  start(input: { readonly battleId: string; readonly controllerId: string; readonly speciesId: number; readonly seed: number }): StartResult
+  readonly combatants: readonly { readonly speciesId: number; readonly level: number }[]
+  start(input: { readonly battleId: string; readonly controllerId: string; readonly speciesId: number; readonly playerSpeciesId?: number; readonly seed: number }): StartResult
 }
 
 export type PrepareResult =
@@ -81,7 +84,8 @@ export type PrepareResult =
 const FIXED_AT = '2026-01-01T00:00:00.000Z' // a fixture's acquisition stamp: constant, never a clock
 
 /** Loads the battle catalog once and checks the fixture against it. Fails closed. */
-export async function prepareEncounterBattles(fixture: SandboxFixture = ECO_SANDBOX_FIXTURE): Promise<PrepareResult> {
+export async function prepareEncounterBattles(): Promise<PrepareResult> {
+  const fixture = ECO_SANDBOX_FIXTURE
   let index, learnsets
   try {
     [index, learnsets] = await Promise.all([loadBattleCatalog(), loadLearnsets()])
@@ -93,20 +97,13 @@ export async function prepareEncounterBattles(fixture: SandboxFixture = ECO_SAND
   const hardy = index.catalog.natures.find(nature => nature.name === 'hardy')
   if (!hardy) return { ok: false, reason: 'fixture-invalid' }
 
-  const playerMoveIds: number[] = []
-  for (const name of fixture.player.moves) {
-    const move = index.moveNamed(name)
-    if (!move || !isExecutable(move)) return { ok: false, reason: 'fixture-invalid' }
-    playerMoveIds.push(move.id)
-  }
-
-  /** The wild side's moves: the last four executable level-up moves at or below the fixture level. */
-  const wildMoves = (speciesId: number): number[] => {
+  /** The last four executable level-up moves at/below the requested fixture level. */
+  const learnedMoves = (speciesId: number, atLevel: number): number[] => {
     const learnset = learnsets.get(speciesId)
     if (!learnset) return []
     // Level entries are `[moveId, level]` (CatalogLearnset).
     const learned = [...learnset.level]
-      .filter(([moveId, level]) => level <= fixture.wildLevel && (() => { const move = index.move(moveId); return Boolean(move && isExecutable(move)) })())
+      .filter(([moveId, level]) => level <= atLevel && (() => { const move = index.move(moveId); return Boolean(move && isExecutable(move)) })())
       .sort((a, b) => a[1] - b[1] || a[0] - b[0])
       .map(([moveId]) => moveId)
     return [...new Set(learned)].slice(-4)
@@ -122,13 +119,35 @@ export async function prepareEncounterBattles(fixture: SandboxFixture = ECO_SAND
       return null
     }
   }
-  if (!instance(fixture.player.speciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, 'fixture-check')) return { ok: false, reason: 'fixture-invalid' }
+  const playerMoves = new Map<number, readonly number[]>()
+  for (const speciesId of PLAYER_SPECIES) {
+    let moves = learnedMoves(speciesId, fixture.player.level)
+    // Preserve the original Pikachu's legal fixture: level-up at/below 12 or machine moves.
+    // Names, ids, legality and core support all come from the catalog; no fallback substitution.
+    if (speciesId === fixture.player.speciesId) {
+      const learnset = learnsets.get(speciesId)
+      moves = []
+      for (const name of fixture.player.moves) {
+        const move = index.moveNamed(name)
+        const legal = move && (learnset?.machine.includes(move.id) || learnset?.level.some(([id, level]) => id === move.id && level <= fixture.player.level))
+        if (!move || !legal || !isExecutable(move)) return { ok: false, reason: `combatant-invalid:${speciesId}:illegal-or-unsupported-${name}` }
+        moves.push(move.id)
+      }
+    }
+    if (!moves.length) return { ok: false, reason: `combatant-invalid:${speciesId}:no-executable-level-moves` }
+    if (!instance(speciesId, fixture.player.level, moves, ECO_SANDBOX_FIXTURE.ownerId, 'fixture-check')) {
+      return { ok: false, reason: `combatant-invalid:${speciesId}:model-construction-failed` }
+    }
+    playerMoves.set(speciesId, moves)
+  }
 
   const battles: EncounterBattles = {
     fixture,
-    start({ battleId, controllerId, speciesId, seed }) {
-      const moves = wildMoves(speciesId)
-      const player = instance(fixture.player.speciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, `${battleId}:player`)
+    combatants: Object.freeze(PLAYER_SPECIES.map(speciesId => Object.freeze({ speciesId, level: fixture.player.level }))),
+    start({ battleId, controllerId, speciesId, playerSpeciesId = fixture.player.speciesId, seed }) {
+      const moves = learnedMoves(speciesId, fixture.wildLevel)
+      const playerMoveIds = playerMoves.get(playerSpeciesId)
+      const player = playerMoveIds ? instance(playerSpeciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, `${battleId}:player`) : null
       const wild = moves.length ? instance(speciesId, fixture.wildLevel, moves, null, `${battleId}:wild`) : null
       if (!player || !wild) return { ok: false, reason: 'battle-unavailable' }
       const clock: ManualClock = createManualClock(0)

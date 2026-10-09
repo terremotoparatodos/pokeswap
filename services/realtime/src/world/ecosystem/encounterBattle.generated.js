@@ -114030,17 +114030,19 @@ function loadLearnsets() {
 }
 
 // src/features/ecosystem/server/encounterBattleRuntime.ts
-var ECO_BATTLE_API = 1;
+var ECO_BATTLE_API = 2;
 var ECO_SANDBOX_FIXTURE = Object.freeze({
   label: "fixture de prueba",
   ownerId: "eco-sandbox-fixture",
   player: Object.freeze({ speciesId: 25, level: 12, moves: Object.freeze(["thunder-shock", "quick-attack", "thunder-wave", "double-team"]) }),
   wildLevel: 8
 });
+var PLAYER_SPECIES = [25, 19, 43, 74, 41, 10];
 var SANDBOX_INTENTS = /* @__PURE__ */ new Set(["useMove", "switch", "clearSelection"]);
 var SANDBOX_REJECTION = "NOT_ALLOWED_IN_SANDBOX";
 var FIXED_AT = "2026-01-01T00:00:00.000Z";
-async function prepareEncounterBattles(fixture = ECO_SANDBOX_FIXTURE) {
+async function prepareEncounterBattles() {
+  const fixture = ECO_SANDBOX_FIXTURE;
   let index, learnsets;
   try {
     [index, learnsets] = await Promise.all([loadBattleCatalog(), loadLearnsets()]);
@@ -114051,16 +114053,10 @@ async function prepareEncounterBattles(fixture = ECO_SANDBOX_FIXTURE) {
   const catalog = createBattleRulesCatalog(index);
   const hardy = index.catalog.natures.find((nature) => nature.name === "hardy");
   if (!hardy) return { ok: false, reason: "fixture-invalid" };
-  const playerMoveIds = [];
-  for (const name of fixture.player.moves) {
-    const move = index.moveNamed(name);
-    if (!move || !isExecutable(move)) return { ok: false, reason: "fixture-invalid" };
-    playerMoveIds.push(move.id);
-  }
-  const wildMoves = (speciesId) => {
+  const learnedMoves = (speciesId, atLevel) => {
     const learnset = learnsets.get(speciesId);
     if (!learnset) return [];
-    const learned = [...learnset.level].filter(([moveId, level]) => level <= fixture.wildLevel && (() => {
+    const learned = [...learnset.level].filter(([moveId, level]) => level <= atLevel && (() => {
       const move = index.move(moveId);
       return Boolean(move && isExecutable(move));
     })()).sort((a, b) => a[1] - b[1] || a[0] - b[0]).map(([moveId]) => moveId);
@@ -114078,12 +114074,32 @@ async function prepareEncounterBattles(fixture = ECO_SANDBOX_FIXTURE) {
       return null;
     }
   };
-  if (!instance(fixture.player.speciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, "fixture-check")) return { ok: false, reason: "fixture-invalid" };
+  const playerMoves = /* @__PURE__ */ new Map();
+  for (const speciesId of PLAYER_SPECIES) {
+    let moves = learnedMoves(speciesId, fixture.player.level);
+    if (speciesId === fixture.player.speciesId) {
+      const learnset = learnsets.get(speciesId);
+      moves = [];
+      for (const name of fixture.player.moves) {
+        const move = index.moveNamed(name);
+        const legal = move && (learnset?.machine.includes(move.id) || learnset?.level.some(([id, level]) => id === move.id && level <= fixture.player.level));
+        if (!move || !legal || !isExecutable(move)) return { ok: false, reason: `combatant-invalid:${speciesId}:illegal-or-unsupported-${name}` };
+        moves.push(move.id);
+      }
+    }
+    if (!moves.length) return { ok: false, reason: `combatant-invalid:${speciesId}:no-executable-level-moves` };
+    if (!instance(speciesId, fixture.player.level, moves, ECO_SANDBOX_FIXTURE.ownerId, "fixture-check")) {
+      return { ok: false, reason: `combatant-invalid:${speciesId}:model-construction-failed` };
+    }
+    playerMoves.set(speciesId, moves);
+  }
   const battles = {
     fixture,
-    start({ battleId, controllerId, speciesId, seed }) {
-      const moves = wildMoves(speciesId);
-      const player = instance(fixture.player.speciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, `${battleId}:player`);
+    combatants: Object.freeze(PLAYER_SPECIES.map((speciesId) => Object.freeze({ speciesId, level: fixture.player.level }))),
+    start({ battleId, controllerId, speciesId, playerSpeciesId = fixture.player.speciesId, seed }) {
+      const moves = learnedMoves(speciesId, fixture.wildLevel);
+      const playerMoveIds = playerMoves.get(playerSpeciesId);
+      const player = playerMoveIds ? instance(playerSpeciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, `${battleId}:player`) : null;
       const wild = moves.length ? instance(speciesId, fixture.wildLevel, moves, null, `${battleId}:wild`) : null;
       if (!player || !wild) return { ok: false, reason: "battle-unavailable" };
       const clock = createManualClock(0);

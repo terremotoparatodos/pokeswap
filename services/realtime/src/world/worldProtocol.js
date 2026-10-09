@@ -54,6 +54,7 @@ export const WORLD_MESSAGE = Object.freeze({
   /** ECO-GAMEPLAY-2: the battle core's TransportAction (its controller is the transport's player, never the payload's). */
   ECO_BATTLE_ACTION: 'world:eco-battle-action',
   ECO_FLEE: 'world:eco-flee',
+  ECO_COMBATANT_SELECT: 'world:eco-combatant-select',
   // server → client
   SNAPSHOT: 'world:snapshot',
   BATCH: 'world:batch',
@@ -76,6 +77,7 @@ export const WORLD_MESSAGE = Object.freeze({
    * whitelisted projection, see ecoBattlePublic.js). Never sent to the owner, never asked for.
    */
   ECO_BATTLE_PUBLIC: 'world:eco-battle-public',
+  ECO_COMBATANT_STATE: 'world:eco-combatant-state',
   /** The session's own XP, materials and workable Pokémon (server → that player only). */
   PLAYER_STATE: 'player:state',
 })

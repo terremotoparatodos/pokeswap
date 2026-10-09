@@ -3,6 +3,7 @@ import { ECO_ENGAGE_RANGE, WORLD_MESSAGE, ecoEngageIntent, ecoFleeIntent } from 
 import { serverRandom } from './ecoPopulation.js'
 import { publicBattleView } from './ecoBattlePublic.js'
 import { battleStage, wildPoseAt } from './ecoScene.js'
+import { EcoCombatants } from './ecoCombatants.js'
 
 /**
  * ECO-GAMEPLAY-2 (EXPERIMENTAL, development sandbox only): authoritative reservations of ECO
@@ -78,6 +79,7 @@ export class EcoBattles {
     /** encounterId → reservation; playerId → reservation. A closed reservation is in neither. */
     this.byEncounter = new Map()
     this.byPlayer = new Map()
+    this.combatants = new EcoCombatants({ battles: () => this.battles, inBattle: id => this.byPlayer.has(id) })
     this.metrics = { engaged: 0, resumed: 0, refused: {}, ended: {}, actions: 0, refusedActions: {}, published: 0 }
     this.ready = Promise.resolve()
       .then(prepare)
@@ -142,7 +144,7 @@ export class EcoBattles {
     const seed = Math.floor(this.random() * 0x7fffffff)
     let started
     try {
-      started = this.battles.start({ battleId, controllerId: actor.id, speciesId: encounter.speciesId, seed })
+      started = this.battles.start({ battleId, controllerId: actor.id, speciesId: encounter.speciesId, playerSpeciesId: this.combatants.speciesOf(actor.id), seed })
     } catch {
       started = { ok: false }
     }

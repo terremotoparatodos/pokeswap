@@ -21,6 +21,7 @@ export function scriptedBattles() {
   const made = []
   const battles = {
     fixture: { label: 'fixture de prueba' },
+    combatants: [25, 19, 43, 74, 41, 10].map(speciesId => ({ speciesId, level: 12 })),
     fail: false,
     start(input) {
       if (battles.fail) return { ok: false, reason: 'battle-unavailable' }
@@ -107,7 +108,7 @@ export async function realCycle(speciesId) {
   assert.equal(prepared.ok, true)
   const s = await setup({
     random: () => 7.5 / 0x7fffffff, // seed 7
-    prepare: async () => ({ ok: true, battles: { fixture: prepared.battles.fixture, start: input => (assert.equal(input.seed, 7), prepared.battles.start({ ...input, speciesId })) } }),
+    prepare: async () => ({ ok: true, battles: { fixture: prepared.battles.fixture, combatants: prepared.battles.combatants, start: input => (assert.equal(input.seed, 7), prepared.battles.start({ ...input, speciesId })) } }),
   })
   const a = s.join('eco-a')
   const target = s.populated(a)

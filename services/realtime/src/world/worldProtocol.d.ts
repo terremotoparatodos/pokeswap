@@ -17,6 +17,7 @@ export declare const WORLD_MESSAGE: Readonly<{
   ECO_ENGAGE: 'world:eco-engage'
   ECO_BATTLE_ACTION: 'world:eco-battle-action'
   ECO_FLEE: 'world:eco-flee'
+  ECO_COMBATANT_SELECT: 'world:eco-combatant-select'
   SNAPSHOT: 'world:snapshot'
   BATCH: 'world:batch'
   WORK_RESULT: 'world:work:result'
@@ -29,6 +30,7 @@ export declare const WORLD_MESSAGE: Readonly<{
   ECO_BATTLE: 'world:eco-battle'
   ECO_BATTLE_END: 'world:eco-battle-end'
   ECO_BATTLE_PUBLIC: 'world:eco-battle-public'
+  ECO_COMBATANT_STATE: 'world:eco-combatant-state'
   PLAYER_STATE: 'player:state'
 }>
 
@@ -80,6 +82,15 @@ export interface EcoArea {
 export interface EcoMessage {
   readonly now: number
   readonly eco: EcoArea
+}
+
+/** ECO-COMBATANT-1: private, server-confirmed synthetic choice and prepared pool. */
+export interface EcoCombatantState {
+  readonly requestId: number | null
+  readonly ok: boolean
+  readonly reason?: string
+  readonly speciesId: number | null
+  readonly options: readonly { readonly speciesId: number; readonly level: number }[]
 }
 
 export interface EcoRetireResult {
