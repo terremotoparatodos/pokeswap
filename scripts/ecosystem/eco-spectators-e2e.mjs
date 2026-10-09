@@ -28,8 +28,18 @@
 // an end the SERVER told the owner (world:eco-battle-end) before the step could be shown; anything
 // else — a missing message, a timeout, the infrastructure — FAILS. Every retry is recorded.
 //
-// Negative control: --drop <receiver>:<owner> (a, b, c or d; a or b) makes that receiver discard
-// every public message of the owner's FIRST battle, from the first one. The run must FAIL.
+// Start and later synchronisation are accredited separately, at EVERY viewer of each of the first
+// two battles (C and the other owner): its start, then at least one real owner update after the
+// start (an ongoing tick with events, never the start or a final result alone) received publicly
+// with the same battle, encounter, revision, time, HP and drawable events. Back from the cave,
+// every battle whose owner was told no end before C's return must be re-sent fresh to C; a later
+// end never excuses a missing re-send.
+//
+// Negative controls (harness only; server and product untouched). Each run must FAIL, unretried:
+//   --drop <receiver>:<owner> (a, b, c or d; a or b): that receiver discards every public message of
+//     the owner's FIRST battle; with --drop-mode updates it keeps the start (seq 1) and discards the rest;
+//   --drop-return: back in Pradera, C discards the fresh re-send of the battle kept for the trip, and
+//     B flees it 150 ms later (an end told to its owner AFTER the return).
 // Exit 0 PASS, 1 FAIL, 3 setup. Synthetic data only; nothing is captured, granted or persisted.
 
 import { writeFileSync } from 'node:fs'
@@ -73,10 +83,15 @@ const DROP = (() => {
   if (!['a', 'b', 'c', 'd'].includes(receiver) || !['a', 'b'].includes(owner)) { console.error('[eco-spectators-e2e] --drop <a|b|c|d>:<a|b>'); process.exit(3) }
   return { receiver: pid(receiver), owner }
 })()
+const DROP_MODE = arg('drop-mode', 'all')
+if (!['all', 'updates'].includes(DROP_MODE)) { console.error('[eco-spectators-e2e] --drop-mode all|updates'); process.exit(3) }
+const DROP_RETURN = process.argv.includes('--drop-return')
 /** Each owner's FIRST target, known before its engage is sent (so a drop misses nothing). */
 const firstTargets = {}
 const dropped = []
-report.negativeControl = DROP ? { drop: arg('drop', null), dropped } : null
+/** --drop-return: the battle kept for the cave trip, and the one C discards after its return. */
+let keptForTrip = null, returnDrop = null
+report.negativeControl = DROP || DROP_RETURN ? { drop: arg('drop', null), mode: DROP ? DROP_MODE : null, dropReturn: DROP_RETURN, dropped } : null
 report.retries = []
 
 const PRIVATE = ['joinAck', 'controller', '"moves"', '"pp"', 'selected', 'actionId', 'serverTimeMs', 'lastMoveId', 'PP_CHANGED', 'ACTION_STARTED', 'ACTION_READY', '"atk"', '"spa"', 'benchmark-']
@@ -93,13 +108,22 @@ async function player(id, previous = null) {
   room.onMessage('*', () => {})
   room.onMessage('presence:snapshot', snapshot => { if (snapshot.self) { state.self = snapshot.self; state.sequence = snapshot.self.moveSequence ?? 0 } })
   room.onMessage('presence:self', self => { state.self = self; state.sequence = Math.max(state.sequence, self.moveSequence ?? 0) })
-  room.onMessage(WORLD_MESSAGE.SNAPSHOT, snapshot => { state.areaId = snapshot.areaId; state.eco = snapshot.eco ?? null; state.publics.push({ snapshot: snapshot.areaId, at: Date.now() }) })
+  room.onMessage(WORLD_MESSAGE.SNAPSHOT, snapshot => {
+    const from = state.areaId
+    state.areaId = snapshot.areaId; state.eco = snapshot.eco ?? null; state.publics.push({ snapshot: snapshot.areaId, at: Date.now() })
+    if (DROP_RETURN && id === pid('c') && from === 'cueva-inicial' && snapshot.areaId === 'pradera' && keptForTrip && !returnDrop) {
+      returnDrop = keptForTrip
+      setTimeout(() => b.room.send(WORLD_MESSAGE.ECO_FLEE, { battleId: returnDrop }), 150)
+    }
+  })
   room.onMessage(WORLD_MESSAGE.ECO, message => { state.eco = message.eco })
   room.onMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, result => state.engage.push(result))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE, message => state.battle.push(message))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE_END, end => state.ends.push({ ...end, at: Date.now() }))
   room.onMessage(WORLD_MESSAGE.ECO_BATTLE_PUBLIC, view => {
-    if (DROP && id === DROP.receiver && view?.encounterId === firstTargets[DROP.owner]) { dropped.push({ receiver: id, battleId: view.battleId, seq: view.seq, at: Date.now() }); return }
+    const dropFirst = DROP && id === DROP.receiver && view?.encounterId === firstTargets[DROP.owner] && (DROP_MODE === 'all' || view.seq > 1)
+    const dropReturn = DROP_RETURN && id === pid('c') && returnDrop && view?.battleId === returnDrop
+    if (dropFirst || dropReturn) { dropped.push({ receiver: id, battleId: view.battleId, seq: view.seq, ended: Boolean(view.ended), at: Date.now() }); return }
     state.publics.push({ view, raw: JSON.stringify(view), at: Date.now() })
   })
   room.send('presence:ready')
@@ -195,6 +219,32 @@ function syncAgainst(owner, watcher, battleId) {
     compared++
   }
   return compared
+}
+
+/**
+ * Post-start synchronisation of one battle at one viewer: public updates (seq > 1, not an end) that
+ * match a real owner update — an ongoing tick with events (never the start, never the final
+ * result) — of the same revision, with the same battle, encounter, time, HP and drawable events.
+ */
+function updatePairs(owner, watcher, battleId) {
+  const updates = new Map(owner.state.battle
+    .filter(m => m.battleId === battleId && m.snapshot && m.events?.length && m.snapshot.outcome?.kind === 'ongoing')
+    .map(m => [m.snapshot.revision, m]))
+  let matched = 0
+  for (const view of publics(watcher, battleId).filter(v => v.seq > 1 && !v.ended && v.events)) {
+    const mine = updates.get(view.revision)
+    if (!mine) continue
+    if (view.battleId !== mine.battleId || view.encounterId !== targets.get(battleId)?.id) fail(`update ${battleId} at ${watcher.id}: identity`)
+    if (view.timeMs !== mine.snapshot.timeMs) fail(`update ${battleId} at ${watcher.id}: time ${view.timeMs} vs owner ${mine.snapshot.timeMs}`)
+    for (const id of ['player-0', 'wild-0']) {
+      const own = mine.snapshot.combatants[id]
+      if (view.combatants[id]?.currentHp !== (own.condition.currentHp ?? own.stats.hp)) fail(`update ${battleId} at ${watcher.id}: HP of ${id} at revision ${view.revision}`)
+    }
+    const drawable = mine.events.filter(e => PUBLIC_EVENT_FIELDS[e.event.type]).map(e => e.sequence).join(',')
+    if (view.events.map(e => e.sequence).join(',') !== drawable) fail(`update ${battleId} at ${watcher.id}: events at revision ${view.revision}`)
+    matched++
+  }
+  return matched
 }
 
 /**
@@ -318,7 +368,13 @@ try {
   const b2 = await firstBattle(b, 'b', near.b, () => targets.get(b1).id)
   const startedFor = (p, id) => publics(p, id).some(v => v.seq === 1)
   await until(() => startedFor(c, b1) && startedFor(c, b2) && startedFor(a, b2) && startedFor(b, b1), 5_000, 'every viewer to receive both battles\' start (a lost public receipt fails, it is not retried)')
-  await until(() => syncAgainst(a, c, b1) > 0 && syncAgainst(b, c, b2) > 0, 30_000, 'an owner/spectator event pair of each battle')
+  // Later synchronisation, separately from the start: a real owner update after the start, received
+  // publicly by EACH viewer of each battle (C and the other owner). A loss is a timeout: FAIL, unretried.
+  /** The viewers of each first battle, as they are now (A's object changes when it rejoins). */
+  const viewersOf = id => (id === b1 ? [c, b] : [c, a])
+  const updatesSeen = () => Object.fromEntries([b1, b2].flatMap(id => viewersOf(id).map(v => [`${v.id}:${id}`, updatePairs(ownerOf(id), v, id)])))
+  await until(() => Object.values(updatesSeen()).every(n => n > 0), 30_000, 'a post-start owner update of each battle received by every viewer (a lost update fails, it is not retried)')
+  report.updatesBeforeD = updatesSeen()
   if ([...owners].some(([id, who]) => publics(who === 'a' ? a : b, id).length)) fail('an owner received its own battle as public')
   if (!publics(a, b2).length || !publics(b, b1).length) fail('an owner did not receive the other battle')
   if (targets.get(b1).id === targets.get(b2).id) fail('the two battles are against the same individual')
@@ -386,6 +442,7 @@ try {
   for (let attempt = 0; ; attempt++) {
     if (attempt === 3) fail('no battle survived C\'s trip to the cave')
     const kept = await running('b')
+    keptForTrip = kept
     if (!(await walkTo(c, mouth, 1, 60_000))) fail('C could not get back beside the cave mouth')
     await cross(c, 'pradera', 'cueva-inicial')
     const outAt = c.state.publics.findLast(m => m.snapshot === 'cueva-inicial').at
@@ -400,11 +457,19 @@ try {
     for (const end of ownersEnds.filter(e => e.at > outAt && e.at < backAt)) {
       if (after.some(m => m.view.battleId === end.battleId)) fail(`${end.battleId} ended while C was away and came back`)
     }
-    if (!after.some(m => m.view.battleId === kept) && ownerEnd(kept)) { retryAfterEnd('area change', kept); continue }
-    const firstBack = after.find(m => m.view.battleId === kept)?.view
-    if (!firstBack) fail(`back in Pradera, C did not receive the running battle ${kept}`)
-    if (firstBack.events) fail('back in Pradera, the running battle came with past events')
-    check('area change: nothing from Pradera while in the cave; back, the running battle as it is now, without past effects', { battle: kept, revision: firstBack.revision })
+    // Every battle whose owner was told no end BEFORE C's return was running at it: the server re-sends
+    // it right after the snapshot. Its absence FAILS — an end told later never excuses it.
+    const activeAtReturn = [...owners.keys()].filter(id => !(ownerEnd(id) && ownerEnd(id).at < backAt))
+    const resent = {}
+    for (const id of activeAtReturn) {
+      const first = after.find(m => m.view.battleId === id)?.view
+      if (!first || first.ended) fail(`back in Pradera, C got no fresh re-send of ${id}, running at its return (its owner's end, if any, came ${ownerEnd(id) ? ownerEnd(id).at - backAt + ' ms after' : 'never'})`)
+      if (first.events) fail(`back in Pradera, ${id} came with past events`)
+      resent[id] = first.revision
+    }
+    // A retry only when every battle had ended, as told to its owner, before C came back.
+    if (!activeAtReturn.length) { retryAfterEnd('area change', kept); continue }
+    check('area change: nothing from Pradera while in the cave; back, every running battle re-sent fresh, without past effects', { resent })
     break
   }
 
@@ -417,16 +482,21 @@ try {
   await wait(2_000)
   for (const id of [fleeing, decided]) {
     const end = ownerOf(id).state.ends.find(e => e.battleId === id)
-    const seen = publics(c, id).filter(v => v.ended)
-    if (seen.length !== 1) fail(`C saw ${seen.length} ends of ${id}`)
-    if (seen[0].ended.outcome !== end.outcome || seen[0].revision !== end.snapshot.revision) fail(`the end of ${id}: C ${seen[0].ended.outcome}/${seen[0].revision}, owner ${end.outcome}/${end.snapshot.revision}`)
+    const other = owners.get(id) === 'a' ? b : a
+    for (const viewer of [c, other]) {
+      const seen = publics(viewer, id).filter(v => v.ended)
+      if (seen.length !== 1) fail(`${viewer.id} saw ${seen.length} ends of ${id}`)
+      if (seen[0].ended.outcome !== end.outcome || seen[0].revision !== end.snapshot.revision) fail(`the end of ${id}: ${viewer.id} ${seen[0].ended.outcome}/${seen[0].revision}, owner ${end.outcome}/${end.snapshot.revision}`)
+    }
   }
-  check('ends reach the spectator once, last, with the owner\'s outcome and state', { fled: fleeing, decided: a.state.ends.find(e => e.battleId === decided).outcome })
+  check('ends reach C and the other owner once, last, with the owner\'s outcome and state', { fled: fleeing, decided: a.state.ends.find(e => e.battleId === decided).outcome })
 
   // 7. Synchronisation and stream invariants over every battle of the run.
   const compared = {}
   for (const id of owners.keys()) compared[id] = syncAgainst(ownerOf(id), c, id)
   for (const id of [b1, b2]) if (!(compared[id] > 0)) fail(`no event pair compared for ${id}`)
+  report.updatesAtEnd = Object.fromEntries([b1, b2].flatMap(id => viewersOf(id).map(v => [`${v.id}:${id}`, updatePairs(ownerOf(id), v, id)])))
+  for (const [key, n] of Object.entries(report.updatesAtEnd)) if (!(n > 0)) fail(`no post-start update pair for ${key}`)
   check('synchronised with the owners (same revision → same time, HP and drawable events)', compared)
   report.streams = {}
   for (const p of [a, b, c, d]) for (const id of owners.keys()) if (publics(p, id).length) report.streams[`${p.id}:${id}`] = streamInvariants(p, id)
