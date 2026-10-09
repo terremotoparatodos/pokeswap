@@ -185,7 +185,8 @@ onBeforeUnmount(() => {
 /* ECO-BATTLE-PANEL-1: compact and see-through; beside its battle when anchored, else this corner. */
 .ebp {
   position: absolute; right: 12px; bottom: 5.5rem; z-index: 12; box-sizing: border-box;
-  width: 184px; padding: 6px; border: 1px solid rgba(70, 90, 140, 0.55); border-radius: 10px;
+  /* Wide enough for the longest move name with the in-use mark and its PP (checked in the browser). */
+  width: 208px; padding: 6px; border: 1px solid rgba(70, 90, 140, 0.55); border-radius: 10px;
   background: rgba(9, 13, 25, 0.66); backdrop-filter: blur(2px);
   color: #e8eeff; font-size: 0.7rem; box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
 }
