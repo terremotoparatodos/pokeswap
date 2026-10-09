@@ -8,6 +8,8 @@ import type { AuthorityEventEnvelope, ClientBattleSnapshot } from '../../battle/
 import { DEFAULT_BATTLE_RULES_CONFIG } from '../../battle/rules/config'
 import type { EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { Area } from '../../wildlands/engine/area'
+import type { EcoPublicBattle, EcoPublicEventEnvelope } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { SpectatedBattle } from '../state/ecoSpectatedBattles'
 
 vi.mock('../../dungeonPrototype/render/dungeonSprites', () => ({ speciesSprite: (id: number, dir: string) => ({ id, dir }) }))
 vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
@@ -97,5 +99,80 @@ describe('EcoBattleOverlay', () => {
     expect([pikachu.wx, pikachu.wy, pikachu.sprite!.dir]).toEqual([tileFeet(0, -1).x, tileFeet(0, -1).y, 'up'])
     o.setBattle(null)
     expect(o.overlay.sprites!(area, 0)).toEqual([])
+  })
+})
+
+// ── ECO-BATTLE-SPECTATORS-1: someone else's battles, from the public view ──
+
+const publicCombatant = (speciesId: number, currentHp: number, maxHp: number) => ({ speciesId, level: 10, maxHp, currentHp, majorStatus: 'none', confused: false, spe: 60, speStage: 0, actionElapsedMs: 1300, cooldownMultiplier: 1 })
+const watched = (battleId: string, encounterId: string, owner: { tx: number; ty: number }, wild: { tx: number; ty: number }, over: Partial<SpectatedBattle> = {}): SpectatedBattle => ({
+  battleId, encounterId, areaId: 'pradera', receivedAt: 0, ended: null,
+  view: {
+    battleId, encounterId, areaId: 'pradera', seq: 1, revision: 1, timeMs: 0, connected: true, stage: { owner, wild },
+    config: { actionBar: DEFAULT_BATTLE_RULES_CONFIG.actionBar, statStages: DEFAULT_BATTLE_RULES_CONFIG.statStages },
+    combatants: { 'player-0': publicCombatant(25, 30, 34), 'wild-0': publicCombatant(13, 10, 26) },
+  } as unknown as EcoPublicBattle,
+  ...over,
+})
+type Drawn = { wx: number; wy: number; sprite?: { id: number; dir: string }; bar?: { wx: number; wy: number; hp: number; action: number | null }; effect?: { toX: number } }
+const drawn = (o: InstanceType<typeof EcoBattleOverlay>) => o.overlay.sprites!(area, 0) as unknown as Drawn[]
+
+describe('EcoBattleOverlay · spectators', () => {
+  it('someone else’s battle: the Pikachu beside ITS trainer, both bars — and no second wild Pokémon (the populace draws it)', () => {
+    const { o } = overlay()
+    o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 })])
+    const sprites = drawn(o)
+    const pokemon = sprites.filter(s => s.sprite)
+    expect(pokemon.map(s => [s.wx, s.wy, s.sprite!.id, s.sprite!.dir])).toEqual([[tileFeet(11, 5).x, tileFeet(11, 5).y, 25, 'right']])
+    expect(sprites.filter(s => s.bar).map(s => [s.bar!.wx, s.bar!.hp])).toEqual([[tileFeet(11, 5).x, 30 / 34], [tileFeet(13, 5).x, 10 / 26]])
+    // its encounter no longer carries «en combate»; another busy one without a told battle still does
+    o.setBusy([busy('e1', 13, 5), busy('e9', 2, 2)])
+    expect(o.overlay.labels!(area, 0).map(l => [l.text, l.wx])).toEqual([['en combate', tileFeet(2, 2).x]])
+  })
+
+  it('two battles at once, and the owner’s own: each drawn once, each with its own Pikachu and bars', () => {
+    const { o } = overlay()
+    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'mine', wildTile: { tx: 4, ty: 0 } })
+    o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }), watched('b2', 'e2', { tx: -6, ty: 3 }, { tx: -6, ty: 0 })])
+    const sprites = drawn(o)
+    expect(sprites.filter(s => s.sprite)).toHaveLength(3)
+    expect(sprites.filter(s => s.bar)).toHaveLength(6)
+    expect(sprites.filter(s => s.sprite).map(s => s.sprite!.dir)).toEqual(['right', 'right', 'up'])
+  })
+
+  it('the same marks as the owner, on that battle’s Pokémon; a battle that goes takes its marks; the end shows a short label', () => {
+    const { o } = overlay(1_000)
+    o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }), watched('b2', 'e2', { tx: -6, ty: 3 }, { tx: -6, ty: 0 })])
+    const ev = [{ sequence: 1, event: { type: 'MOVE_USED', combatantId: 'player-0', moveId: 84, targetId: 'wild-0', hits: 1 } }, { sequence: 2, event: { type: 'DAMAGE', combatantId: 'wild-0', sourceId: 'player-0', amount: 7, remainingHp: 3, critical: false, effectiveness: 1, hit: 1, cause: 'move' } }] as unknown as EcoPublicEventEnvelope[]
+    o.pushSpectatorEvents('b1', ev)
+    o.pushSpectatorEvents('unknown', ev)
+    expect(drawn(o).filter(s => s.effect).map(s => s.effect!.toX)).toEqual([tileFeet(13, 5).x])
+    expect(o.overlay.labels!(area, 0).map(l => [l.text, l.wx])).toEqual([['-7', tileFeet(13, 5).x]])
+    // the owner's view of the same events gives the same marks
+    const owner = overlay(1_000).o
+    owner.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'mine', wildTile: { tx: 13, ty: 5 } })
+    owner.pushEvents(ev.map(e => ({ battleId: 'x', revision: 1, actionId: null, serverTimeMs: 0, ...e })) as unknown as AuthorityEventEnvelope[])
+    expect(owner.overlay.labels!(area, 0).map(l => l.text)).toEqual(['-7'])
+    // b1 ends: its label over its wild one; then it goes with its marks
+    o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }, { ended: { outcome: 'victory', at: 1_000 } }), watched('b2', 'e2', { tx: -6, ty: 3 }, { tx: -6, ty: 0 })])
+    expect(o.overlay.labels!(area, 0).map(l => l.text)).toEqual(['-7', 'Ganó'])
+    o.setSpectated([watched('b2', 'e2', { tx: -6, ty: 3 }, { tx: -6, ty: 0 })])
+    expect(o.overlay.labels!(area, 0)).toEqual([])
+    expect(drawn(o).filter(s => s.effect)).toEqual([])
+    o.setSpectated([])
+    expect(o.overlay.sprites!(area, 0)).toEqual([])
+  })
+
+  it('bars follow the receive time like the owner’s; paused or ended they stand still', () => {
+    const { o, clock } = overlay(0)
+    const fill = () => drawn(o).filter(s => s.bar)[0].bar!.action!
+    o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 })])
+    const start = fill()
+    clock.now = 500
+    expect(fill()).toBeGreaterThan(start)
+    o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }, { view: { ...watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }).view, connected: false } })])
+    expect(fill()).toBe(start)
+    o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }, { ended: { outcome: 'fled', at: 0 } })])
+    expect(fill()).toBe(start)
   })
 })

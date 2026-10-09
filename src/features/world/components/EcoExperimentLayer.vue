@@ -24,6 +24,8 @@
 //   - ECO-OVERWORLD-BATTLE-1: the battle IN the world (an overlay the view composes into the
 //     engine: the Pikachu beside the trainer, bars, marks; «en combate» over others' battles) and
 //     a non-modal panel with the choices — it replaces ECO-PRESENTATION-1's modal;
+//   - ECO-BATTLE-SPECTATORS-1: the OTHER players' battles in this area, drawn the same way from the
+//     server's public view — watched only: no panel, no controls, the player keeps walking;
 //   - the debug panel, a secondary tool sharing the same session.
 // Presentation only: the server reserves, validates, runs and ends every battle.
 import { computed, onMounted, onUnmounted, ref, shallowRef, watch } from 'vue'
@@ -34,6 +36,7 @@ import type { BattleCatalogIndex } from '../../battle/catalog'
 import { ecoSpeciesName } from '../domain/ecoBattleText'
 import { EcoBattleOverlay } from '../render/ecoBattleOverlay'
 import { EcoBattleSession, type EcoBattleView } from '../state/ecoBattleSession'
+import { EcoSpectatedBattles } from '../state/ecoSpectatedBattles'
 import type { SharedWorld } from '../state/sharedWorld'
 import EcoBattlePanel from './EcoBattlePanel.vue'
 import EcoDevPanel from './EcoDevPanel.vue'
@@ -94,10 +97,16 @@ watch([battle, currentArea, () => props.areaId], ([view, here, areaId]) => {
   }
   battleWorld.setBusy(here?.encounters ?? [])
 }, { immediate: true })
+// ── Others' battles here (ECO-BATTLE-SPECTATORS-1): watched, never controlled ──
+const ownBattleId = () => (battle.value.phase === 'battle' || battle.value.phase === 'ended' ? battle.value.battleId : null)
+const spectators = new EcoSpectatedBattles(props.world, () => session.clock(), ownBattleId)
+const stopSpectated = spectators.subscribe(list => battleWorld.setSpectated(list))
+const stopSpectatorEvents = spectators.onEvents((battleId, events) => battleWorld.pushSpectatorEvents(battleId, events))
 onMounted(() => emit('overlay', battleWorld.overlay))
 onUnmounted(() => {
   emit('overlay', null)
   stopEco(); stopBattle(); stopEvents(); session.dispose()
+  stopSpectated(); stopSpectatorEvents(); spectators.dispose()
 })
 
 /**
