@@ -15,6 +15,7 @@ import type { BattleCatalogIndex } from '../../battle/catalog'
 import { actionBarFill } from '../../battle/rules/actionBar'
 import type { BattleCombatant } from '../../battle/rules/state'
 import type { MajorStatus } from '../../pokemon/model/condition'
+import type { EcoPublicBattle } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 export const PLAYER_COMBATANT = 'player-0'
 export const WILD_COMBATANT = 'wild-0'
@@ -62,6 +63,26 @@ function fillOf(view: ClientCombatantView, snapshot: ClientBattleSnapshot, extra
   // The client view carries every field `cooldownMs` reads; the cast only names that fact.
   const shifted = { ...view, runtime: { ...view.runtime, actionElapsedMs: view.runtime.actionElapsedMs + extraMs } }
   return Math.min(1, actionBarFill(shifted as unknown as BattleCombatant, snapshot.config))
+}
+
+/**
+ * ECO-BATTLE-SPECTATORS-1: someone else's battle (the server's whitelisted public view) in the shape
+ * `presentCombatant` reads — the same fields the owner's snapshot has for HP, status and the action
+ * bar, nothing else. A combatant without species or HP is left out. `ended`: no interpolation.
+ */
+export function spectatorSnapshot(view: EcoPublicBattle, ended: boolean): ClientBattleSnapshot {
+  const combatants: Record<string, unknown> = {}
+  for (const [id, c] of Object.entries(view.combatants)) {
+    if (c.speciesId === null || c.maxHp === null) continue
+    combatants[id] = {
+      combatantId: id, level: c.level ?? 0, instance: { speciesId: c.speciesId },
+      stats: { hp: c.maxHp, spe: c.spe ?? 1 },
+      condition: { currentHp: c.currentHp, majorStatus: c.majorStatus },
+      runtime: { actionElapsedMs: c.actionElapsedMs, cooldownMultiplier: c.cooldownMultiplier, stages: { spe: c.speStage }, confusionRemainingMs: c.confused ? 1 : 0 },
+    }
+  }
+  // The cast names the fact above: every field `presentCombatant` and `actionBarFill` read is here.
+  return { revision: view.revision, timeMs: view.timeMs, outcome: { kind: ended ? 'ended' : 'ongoing' }, config: view.config, combatants } as unknown as ClientBattleSnapshot
 }
 
 // ── Effects from events ─────────────────────────────────────────────────────

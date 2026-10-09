@@ -11,7 +11,10 @@ import { describe, expect, it } from 'vitest'
 import type { AuthorityEventEnvelope, ClientBattleSnapshot } from '../../battle/authority'
 import { createAuthorityHarness } from '../../battle/authority/harness'
 import { actionBarFill } from '../../battle/rules/actionBar'
-import { WILD_COMBATANT, presentCombatant, stageOf, vfxOf } from './ecoBattlePresentation'
+import { WILD_COMBATANT, presentCombatant, spectatorSnapshot, stageOf, vfxOf } from './ecoBattlePresentation'
+// ECO-BATTLE-SPECTATORS-1: the server's own projection, to check what a spectator draws from it.
+import { publicBattleView, publicEvents } from '../../../../services/realtime/src/world/ecoBattlePublic.js'
+import type { EcoPublicBattle } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 /** The harness's player combatant (ECO's own battles call it 'player-0'; the adapter takes any id). */
 const PLAYER_COMBATANT = 'ally-0'
@@ -147,5 +150,54 @@ describe('stageOf · where the Pikachu stands', () => {
     expect(stageOf({ player: { tx: 0, ty: 0 }, wild: { tx: 4, ty: 1 } })).toEqual({ pikachu: { tx: 1, ty: 0 }, pikachuFacing: 'right', wildFacing: 'left' })
     expect(stageOf({ player: { tx: 0, ty: 0 }, wild: { tx: -1, ty: -5 } })).toEqual({ pikachu: { tx: 0, ty: -1 }, pikachuFacing: 'up', wildFacing: 'down' })
     expect(stageOf({ player: { tx: 3, ty: 3 }, wild: { tx: 4, ty: 3 } }).pikachu).toEqual({ tx: 3, ty: 3 })
+  })
+})
+
+describe('spectatorSnapshot · a spectator draws what the owner draws (ECO-BATTLE-SPECTATORS-1)', () => {
+  /** The owner's snapshot with the ECO combatant ids, through the server's projection and the wire (JSON). */
+  const asSpectator = (owner: ClientBattleSnapshot, connected = true): EcoPublicBattle => {
+    const renamed = { ...owner, combatants: { 'player-0': owner.combatants[PLAYER_COMBATANT], 'wild-0': owner.combatants[WILD_COMBATANT] } }
+    const stage = { owner: { tx: 0, ty: 0 }, wild: { tx: 3, ty: 0 } }
+    return JSON.parse(JSON.stringify(publicBattleView({ battleId: 'b', encounterId: 'e', areaId: 'pradera', seq: 1, stage, snapshot: renamed, connected })))
+  }
+  // A decided snapshot reaches a spectator with `ended` in the same server tick (the end is published right after it).
+  const same = (owner: ClientBattleSnapshot, receivedAt: number, now: number, connected = true, ended = owner.outcome.kind !== 'ongoing') => {
+    const theirs = spectatorSnapshot(asSpectator(owner, connected), ended)
+    for (const [mine, public_] of [[PLAYER_COMBATANT, 'player-0'], [WILD_COMBATANT, 'wild-0']] as const) {
+      const a = presentCombatant(owner, mine, { receivedAt, now, connected })!
+      const b = presentCombatant(theirs, public_, { receivedAt, now, connected })!
+      expect({ ...b, combatantId: a.combatantId }).toEqual(a)
+    }
+  }
+
+  it('HP, status, level, species and the interpolated action bar are identical, through a whole real battle', async () => {
+    const b = await battle()
+    let checked = 0
+    for (let i = 0; i < 600 && b.outcome() === 'ongoing'; i++) {
+      const { snapshot } = b.advance(100)
+      for (const elapsed of [0, 250, 900, 5_000]) same(snapshot, 1_000, 1_000 + elapsed)
+      checked++
+    }
+    expect(checked).toBeGreaterThan(20)
+  })
+
+  it('paused (owner disconnected) and ended: frozen, like the owner’s', async () => {
+    const b = await battle()
+    const { snapshot } = b.advance(700)
+    same(snapshot, 0, 2_000, false)
+    const theirs = spectatorSnapshot(asSpectator(snapshot), true)
+    const frozen = presentCombatant(theirs, 'player-0', { receivedAt: 0, now: 0, connected: true })!
+    expect(presentCombatant(theirs, 'player-0', { receivedAt: 0, now: 3_000, connected: true })!.actionFill).toBe(frozen.actionFill)
+  })
+
+  it('the public events give the same marks as the owner’s events (same effects, decision P3)', async () => {
+    const b = await battle()
+    const events: AuthorityEventEnvelope[] = []
+    for (let i = 0; i < 400 && events.length < 20; i++) events.push(...b.advance(100).events)
+    const rename = (id: unknown) => (id === PLAYER_COMBATANT ? 'player-0' : id)
+    const owners = events.map(e => ({ ...e, event: { ...e.event, ...('combatantId' in e.event ? { combatantId: rename(e.event.combatantId) } : {}), ...('targetId' in e.event ? { targetId: rename(e.event.targetId) } : {}), ...('sourceId' in e.event ? { sourceId: rename(e.event.sourceId) } : {}) } })) as unknown as AuthorityEventEnvelope[]
+    const wire = JSON.parse(JSON.stringify(publicEvents(owners))) as AuthorityEventEnvelope[]
+    expect(vfxOf(wire, null, colour)).toEqual(vfxOf(owners, null, colour))
+    expect(vfxOf(owners, null, colour).length).toBeGreaterThan(0)
   })
 })

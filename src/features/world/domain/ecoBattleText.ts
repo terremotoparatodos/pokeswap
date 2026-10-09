@@ -16,6 +16,18 @@ export const ECO_OUTCOME_TEXT: Readonly<Record<EcoBattleOutcome, { readonly titl
   vanished: { title: 'Combate terminado', detail: 'Ese Pokémon ya no está en el mapa.' },
 }
 
+/** ECO-BATTLE-SPECTATORS-1: how someone else's battle ended, as a short label over it (shown briefly). */
+export const ECO_SPECTATOR_OUTCOME_TEXT: Readonly<Record<EcoBattleOutcome, string>> = {
+  victory: 'Ganó',
+  defeat: 'Perdió',
+  draw: 'Empate',
+  fled: 'Huyó',
+  expired: 'Sin ganador',
+  disconnected: 'Combate liberado',
+  'left-area': 'Combate liberado',
+  vanished: 'Combate terminado',
+}
+
 /** Why the server did not start a battle (or why the request did not reach it). */
 export const ECO_REFUSAL_TEXT: Readonly<Record<string, string>> = {
   busy: 'Otro entrenador lo está combatiendo.',
