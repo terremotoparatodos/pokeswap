@@ -1,0 +1,33 @@
+
+ RUN  v3.2.7 D:/CHATGPT/Datos-Codex/worktrees/eco-combatant-1/pokeswap/src
+
+ ✓ features/world/state/ecoCombatantSelection.test.ts (2 tests) 8ms
+ ✓ features/wildlands/multiplayer/api/colyseusPresence.test.ts (6 tests) 10ms
+ ✓ features/world/domain/ecoBattlePresentation.test.ts (11 tests) 154ms
+ ✓ features/ecosystem/server/combatantPool.test.ts (1 test) 69ms
+ ✓ features/ecosystem/server/admissionBundle.test.ts (18 tests) 358ms
+ ✓ features/ecosystem/server/battleBundle.test.ts (10 tests) 390ms
+ ✓ features/world/state/ecoSpectatedBattles.test.ts (10 tests) 10ms
+ ✓ features/world/state/ecoBattleSession.test.ts (9 tests) 10ms
+ ✓ features/ecosystem/server/encounterBundle.test.ts (13 tests) 982ms
+   ✓ drift and --check > --check fails on a missing or stale file and never writes; passes on a fresh one  426ms
+ ✓ features/world/render/ecoBattleOverlay.test.ts (25 tests) 18ms
+ ✓ features/world/components/EcoExperimentLayer.seen.test.ts (5 tests) 151ms
+ ✓ features/world/components/EcoExperimentLayer.area.test.ts (10 tests) 1205ms
+   ✓ ECO overworld battle · the scene stays in its area (F1) > in its own area the end is played out briefly (ECO-BATTLE-ENDING-1): no bars, the Pikachu goes back into its ball, then nothing remains  1013ms
+ ✓ features/world/components/EcoExperimentLayer.spectators.test.ts (11 tests) 1722ms
+   ✓ ECO experiment layer · watching someone else’s battle > the end shows a short label for 1.5 s, then the battle is gone; nothing reopens it  1615ms
+ ✓ features/world/components/EcoExperimentLayer.panel.test.ts (6 tests) 2597ms
+   ✓ the compact battle panel (ECO-BATTLE-PANEL-1) > stands beside its battle, clear of the combatants and their bars  421ms
+   ✓ the compact battle panel (ECO-BATTLE-PANEL-1) > anchored to the battle: it follows the camera and never flips on its own (updates, Info, the trainer walking)  515ms
+   ✓ the compact battle panel (ECO-BATTLE-PANEL-1) > starts on the side away from the trainer and stays there while the trainer walks around  452ms
+   ✓ the compact battle panel (ECO-BATTLE-PANEL-1) > at the edge of the screen it moves only as needed, below the scene instead of over it  439ms
+   ✓ the compact battle panel (ECO-BATTLE-PANEL-1) > four moves in one column, each with its name, the one in use marked and the empty one unavailable  375ms
+   ✓ the compact battle panel (ECO-BATTLE-PANEL-1) > «Info» opens life, recharge and the rest inside the same panel, and closes it; never on its own  393ms
+ ✓ features/world/components/EcoExperimentLayer.test.ts (24 tests) 3458ms
+   ✓ ECO experiment layer · battle screen > the notice leaves on its own (3 s), and at once when another battle is asked for (ECO-BATTLE-ENDING-1)  3117ms
+
+ Test Files  15 passed (15)
+      Tests  161 passed (161)
+   Start at  20:25:00
+   Duration  6.19s (transform 3.90s, setup 0ms, collect 15.01s, tests 11.14s, environment 11.31s, prepare 2.33s)
