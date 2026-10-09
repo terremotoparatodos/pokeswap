@@ -124,10 +124,19 @@ const returnFocus = shallowRef<HTMLElement | null>(null)
 
 // Another area: whatever was selected there is not here (the server releases a battle left behind).
 watch(() => props.areaId, () => { selectedId.value = null })
+// Every battle asked for (or resumed) fixes its OWN area, also when it starts straight from the
+// previous one's open result (ended → engaging never passes through idle): what the previous
+// battle dropped on leaving its area is never inherited, and never brought back.
+watch(battle, (view, previous) => {
+  const starts = view.phase === 'engaging'
+    ? previous?.phase !== 'engaging'
+    : view.phase === 'battle' && previous?.phase !== 'engaging' && previous?.phase !== 'battle'
+  if (starts) battleArea = props.areaId
+  else if (view.phase === 'idle') battleArea = null
+}, { immediate: true, flush: 'sync' })
 // A battle started by EITHER route (the card or the debug panel) ends the selection, and remembers
 // the control that asked for it (synchronously, before anything else moves the focus).
 watch(() => battle.value.phase !== 'idle', open => {
-  battleArea = open ? props.areaId : null
   if (open) {
     selectedId.value = null
     returnFocus.value = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null

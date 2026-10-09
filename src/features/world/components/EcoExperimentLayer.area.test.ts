@@ -46,6 +46,13 @@ const battle: EcoBattleInfo = {
   battleId: 'b', speciesId: 13, fixture: true, fixtureLabel: 'fixture de prueba', expiresInMs: 120_000, snapshot: snapshot(),
   joinAck: { battleId: 'b', controllerId: 'p', currentRevision: 1, nextActionSequence: 1, catalogVersion: 'c', battleRulesVersion: 'r', controlledCombatantIds: ['player-0'] },
 }
+const CAVE_ID = 'eco-n:cueva-inicial:gruta:1:0'
+const caveWithOne: EcoArea = { protocol: 1, areaId: 'cueva-inicial', status: 'active', encounters: [{ id: CAVE_ID, groupId: 'g2', speciesId: 41, tx: 21, ty: 20, busy: false }] }
+const caveBattle = (): EcoBattleInfo => ({
+  ...battle, battleId: 'b2', speciesId: 41, snapshot: { ...snapshot(), battleId: 'b2' } as ClientBattleSnapshot,
+  joinAck: { ...battle.joinAck, battleId: 'b2' },
+})
+const settle = () => new Promise(resolve => setTimeout(resolve, 750))
 const damage = (sequence: number) => ({ battleId: 'b', sequence, revision: 2, actionId: null, serverTimeMs: 0, event: { type: 'DAMAGE', combatantId: 'wild-0', sourceId: 'player-0', amount: 3, remainingHp: 17, critical: false, effectiveness: 1, hit: 1, cause: 'move' } })
 const area = {} as Area
 
@@ -99,5 +106,54 @@ describe('ECO overworld battle · the scene stays in its area (F1)', () => {
       world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'fled', retired: false, snapshot: snapshot(3, 500) }); await flushPromises()
       expect(drawn().sprites.filter(s => s.bar)).toHaveLength(2)
     } finally { wrapper.unmount() }
+  })
+
+  describe('a NEW battle after leaving (closure review of e548dbd, C1): it sets its own scene and area', () => {
+    const accept = (world: SharedWorld, requestId: number) => world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId, encounterId: CAVE_ID, ok: true, battle: caveBattle() })
+    const barsDrawn = (drawn: () => { sprites: readonly { bar?: unknown }[] }) => drawn().sprites.filter(s => s.bar).map(s => { const { wx, wy, hp } = s.bar as { wx: number; wy: number; hp: number }; return { wx, wy, hp } }) // the action fill moves with the clock
+
+    it('from the debug panel while the old result is still open: the new battle is drawn; the old one’s late messages change nothing', async () => {
+      const { world, wrapper, drawn, toArea } = await fighting()
+      try {
+        world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'left-area', retired: false, snapshot: snapshot(3, 500) })
+        await toArea(caveWithOne, 20, 20)
+        expect(drawn()).toEqual({ sprites: [], labels: [] })
+        expect(wrapper.find('.ebp').exists(), 'the old result is still open').toBe(true)
+        await wrapper.find('.eco-dev__toggle').trigger('click')
+        await wrapper.findAll('.eco-dev li').find(r => r.text().includes('gruta:1:0'))!.findAll('button')[0].trigger('click')
+        accept(world, 2); await flushPromises()
+        const bars = barsDrawn(drawn)
+        expect(bars, 'the Pikachu’s and the wild one’s bars').toHaveLength(2)
+        expect(bars).toContainEqual(expect.objectContaining({ wx: 21 * 16 + 8, wy: 20 * 16 + 14 }))
+        // the old battle's late messages: ignored, nothing of it comes back, the new scene stays
+        world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, { battleId: 'b', events: [damage(9)], snapshot: snapshot(9, 900) })
+        world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'fled', retired: false, snapshot: snapshot(9, 900) }); await flushPromises()
+        expect(wrapper.find('.ebp-move').exists(), 'still in the new battle').toBe(true)
+        expect(barsDrawn(drawn)).toEqual(bars)
+        expect(drawn().labels).toEqual([])
+      } finally { wrapper.unmount() }
+    })
+
+    it('after closing the old result first, from the debug panel or from the card: drawn as well', async () => {
+      for (const route of ['debug', 'card'] as const) {
+        const { world, wrapper, drawn, toArea } = await fighting()
+        try {
+          world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'left-area', retired: false, snapshot: snapshot(3, 500) })
+          await toArea(caveWithOne, 20, 20)
+          await settle()
+          await wrapper.find('.ebp-primary').trigger('click')
+          expect(wrapper.find('.ebp').exists()).toBe(false)
+          if (route === 'debug') {
+            await wrapper.find('.eco-dev__toggle').trigger('click')
+            await wrapper.findAll('.eco-dev li').find(r => r.text().includes('gruta:1:0'))!.findAll('button')[0].trigger('click')
+          } else {
+            ;(wrapper.vm as unknown as { select(id: string): boolean }).select(CAVE_ID); await flushPromises()
+            await wrapper.find('.eco-card__fight').trigger('click')
+          }
+          accept(world, 2); await flushPromises()
+          expect(barsDrawn(drawn), route).toHaveLength(2)
+        } finally { wrapper.unmount() }
+      }
+    })
   })
 })
