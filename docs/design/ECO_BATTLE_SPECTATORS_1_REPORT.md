@@ -149,3 +149,76 @@ Evidencia en `D:\Claude-SPECT-E2E-evidence` (`run*.log`, `run*.json` y `realtime
 - **Smoke humano con dos ventanas:** pendiente, se prepara después (proposal §7).
 
 **Candidato congelado:** `feat/eco-battle-spectators-0.3` en el commit que agrega este reporte, para revisión independiente. Sin push, merge, Cloud, Supabase ni cambios en otros entornos. Ningún sandbox queda activo.
+
+## 6. Revisión de `3decc3d`: S1, S2 y acreditación del e2e (2026-10-09)
+
+**Revisión:** `ECO-BATTLE-SPECTATORS-1-REVIEW-3decc3d.md`, FINDINGS.
+- **S1:** el área dibujada cambiaba antes del snapshot del mundo y las escenas del área anterior seguían ahí.
+- **S2:** si alguien volvía a combatir al mismo individuo durante el desenlace anterior, se acumulaban dos escenas.
+- **e2e:** había huecos de acreditación.
+
+Lo demás de §1–§5 quedó acreditado por la revisión.
+
+| Commit | Qué |
+|---|---|
+| `4c5119a` | S1 y S2, con sus regresiones |
+| `0a9a7c4` | e2e: comprueba lo que reporta |
+| (este commit) | Este apartado |
+
+**Reproducción propia antes de corregir.** Sobre una exportación propia de `3decc3d`, con los scripts del revisor copiados fuera de su carpeta (su evidencia quedó intacta):
+- **`review-spectators-boundaries.test.ts`:** 2 fallos.
+  - S1: siguen el Pikachu, las barras y `-3` tras el cambio local de área.
+  - S2: dos Pikachu, en `(216,-1474)` y `(232,-1474)`.
+- **`spectators-native.mjs` (Chrome 147):** `pass: false`, con hallazgos S1 y S2.
+
+**Correcciones** (solo cliente; sin servidor, protocolo, core, balance, reservas ni persistencia):
+
+- **S1.** La capa informa al estado del espectador el área que ve el jugador (`setViewArea`, síncrono y en cuanto cambia).
+  - Las batallas de otras áreas y sus temporizadores de desenlace se van **de inmediato**.
+  - El área que se dejó no se vuelve a aceptar **hasta el próximo snapshot del mundo**. Los mensajes atrasados no la reintroducen.
+  - Volver al área muestra solo lo que el servidor reenvía tras su snapshot.
+    - FACT: todo cruce, aceptado o rechazado, termina en uno (`PresenceRoom.sendSnapshot` → `world.snapshot`).
+  - Si el snapshot llega antes que el cambio local, lo recibido para la nueva área espera, sin dibujarse, hasta que el jugador la ve.
+- **S2.** Una batalla nueva contra un `encounterId` **reemplaza** a cualquier otra todavía mostrada para él (un desenlace en curso).
+  - La reemplazada se recuerda como terminada y nunca se vuelve a tomar.
+  - Los combates contra individuos distintos siguen juntos.
+
+**Regresiones.** Las 5 fallan sobre `3decc3d` y pasan con el arreglo:
+- **Estado (3 tests):**
+  - S1 con mensajes atrasados y vuelta sin snapshot;
+  - S1 con el snapshot primero;
+  - S2 con otro individuo al lado.
+- **Capa (2 tests):** S1 y S2 sobre lo que se dibuja.
+
+**e2e endurecido (solo los puntos del informe; no se quitó ningún escenario ni se rebajó ninguna aserción):**
+- **Ruteo:** exige que cada dueño reciba la batalla del otro, sin la salida «o terminó».
+  - El solapamiento activo pasa a ser una aserción: ambos combates empezaron antes de que terminara cualquiera, según C.
+  - Individuos distintos.
+  - Recupera la comprobación exacta de `encounterId` y casilla del salvaje para **cada** combate.
+- **Sincronización:** al menos un par dueño/espectador con eventos **para cada uno** de los dos combates iniciales, antes de D y al final.
+  - FACT de la corrida de diagnóstico: los «cero pares de B» se debían a combates que terminaban en su primera ventana con eventos, no a un desfase.
+  - El par cuenta aunque el combate termine en ese mismo tick.
+  - Si un combate termina sin su par, se reintenta con combates nuevos.
+- **D:** debe recibir una llegada **viva** sin eventos, después de que C ya vio eventos de esa batalla.
+- **Reconexión de A:** se conserva su historial.
+
+**Verificación:**
+
+| Comprobación | Resultado |
+|---|---|
+| Sondas del revisor sobre `0a9a7c4`, sin cambios | Fronteras 2/2; Chrome nativo `pass: true`, sin hallazgos |
+| Control del dueño | C1 nativo `pass: true` |
+| Pruebas relacionadas | `world` + `wildlands` 687/687; servidor (proyección, difusión, kit) 29/29 |
+| `vue-tsc` | exit 0 |
+| eslint del delta | exit 0 |
+| e2e endurecido | 3/3 PASS (`run2`–`run4`), de 43 a 91 payloads públicos sin datos privados |
+| Build de producción con `VITE_ECO_EXPERIMENT=on` | Las mismas 193 fuentes que `a675b0e`; ninguna aparición del espectador; solo la constante `world:eco-battle-public` |
+
+- La corrida `run1` (espera anterior, que exigía ambos vivos con par) y `debug1` (diagnóstico) quedan como evidencia.
+- Evidencia en `D:\Claude-SPECT-REPRO-evidence` y `D:\Claude-SPECT-E2E2-evidence`.
+- El realtime quedó apagado y los puertos 2790/2791/5199 libres.
+
+**Candidato congelado:** `feat/eco-battle-spectators-0.3` en el commit que agrega este apartado, para revisión independiente.
+- Sin push, merge, túneles ni sandbox activo.
+- El plan de playtest privado sigue sin seguimiento en el checkout principal y no forma parte de estos commits; no autoriza publicar ni integrar.
+- El smoke humano con dos ventanas sigue pendiente.
