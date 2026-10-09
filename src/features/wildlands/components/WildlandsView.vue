@@ -21,7 +21,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
-    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :player="ecoPlayer" :map-focus="ecoMapFocus" @overlay="(overlay: SceneOverlay | null) => { if (ecoOverlaySlot) ecoOverlaySlot.current = overlay }" @battle="(open: boolean) => (ecoBattleOpen = open)" />
+    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :map-focus="ecoMapFocus" @overlay="(overlay: SceneOverlay | null) => { if (ecoOverlaySlot) ecoOverlaySlot.current = overlay }" @battle="(open: boolean) => (ecoBattleOpen = open)" />
     <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"
@@ -183,7 +183,10 @@ const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHe
 // a development build of the experiment.
 const EcoExperimentLayer = ECO_EXPERIMENT ? defineAsyncComponent(() => import('../../world/components/EcoExperimentLayer.vue')) : null
 const ecoLayerRef = shallowRef<{ select(actorId: string): boolean; dismissCard(): void } | null>(null)
-/** A test battle is on: the owner's trainer stays put (the world, its drawing and everyone else go on). */
+/**
+ * A test battle is on (ECO-BATTLE-SCENE-1): the owner's trainer walks the area and chats, but takes
+ * no portal and starts no other activity (the server refuses both as well).
+ */
 const ecoBattleOpen = ref(false)
 /** Filled by the lazily loaded ECO layer with its world overlay; the engine sees it through ecoOverlay. */
 const ecoOverlaySlot: { current: SceneOverlay | null } | null = ECO_EXPERIMENT ? { current: null } : null
@@ -192,9 +195,8 @@ const ecoOverlay: SceneOverlay | null = ecoOverlaySlot ? {
   sprites: (...args) => ecoOverlaySlot.current?.sprites?.(...args) ?? [],
   labels: (...args) => ecoOverlaySlot.current?.labels?.(...args) ?? [],
 } : null
-const ecoPlayer = () => game.value?.playerSnapshot() ?? null
 const ecoMapFocus = () => canvasRef.value ?? null
-if (ECO_EXPERIMENT) watch(ecoBattleOpen, open => game.value?.setInputLocked(open))
+if (ECO_EXPERIMENT) watch(ecoBattleOpen, open => game.value?.setBattleRestricted(open))
 const performanceMode = import.meta.env.VITE_PERF === 'on'
 const PlaytestPerformanceHud = isPlaytest || performanceMode
   ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))

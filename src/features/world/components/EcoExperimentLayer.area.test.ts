@@ -48,12 +48,15 @@ const snapshot = (revision = 1, timeMs = 0) => ({
 const battle: EcoBattleInfo = {
   battleId: 'b', speciesId: 13, fixture: true, fixtureLabel: 'fixture de prueba', expiresInMs: 120_000, snapshot: snapshot(),
   joinAck: { battleId: 'b', controllerId: 'p', currentRevision: 1, nextActionSequence: 1, catalogVersion: 'c', battleRulesVersion: 'r', controlledCombatantIds: ['player-0'] },
+  // ECO-BATTLE-SCENE-1: the scene the server decided (the wild one frozen where it was seen, the Pikachu in front)
+  stage: { owner: { tx: 0, ty: 0 }, wild: { tx: 3, ty: 0 }, pokemon: { tx: 2, ty: 0 }, pokemonFacing: 'right', wildFacing: 'left' },
 }
 const CAVE_ID = 'eco-n:cueva-inicial:gruta:1:0'
 const caveWithOne: EcoArea = { protocol: 1, areaId: 'cueva-inicial', status: 'active', encounters: [{ id: CAVE_ID, groupId: 'g2', speciesId: 41, tx: 21, ty: 20, busy: false }] }
 const caveBattle = (): EcoBattleInfo => ({
   ...battle, battleId: 'b2', speciesId: 41, snapshot: { ...snapshot(), battleId: 'b2' } as ClientBattleSnapshot,
   joinAck: { ...battle.joinAck, battleId: 'b2' },
+  stage: { owner: { tx: 20, ty: 20 }, wild: { tx: 21, ty: 20 }, pokemon: { tx: 21, ty: 21 }, pokemonFacing: 'up', wildFacing: 'down' },
 })
 const damage = (sequence: number) => ({ battleId: 'b', sequence, revision: 2, actionId: null, serverTimeMs: 0, event: { type: 'DAMAGE', combatantId: 'wild-0', sourceId: 'player-0', amount: 3, remainingHp: 17, critical: false, effectiveness: 1, hit: 1, cause: 'move' } })
 const area = {} as Area
@@ -196,6 +199,67 @@ describe('ECO overworld battle · the scene stays in its area (F1)', () => {
           expect(wild().length, outcome).toBe(fades ? 1 : 0)
         } finally { wrapper.unmount() }
       }
+    })
+  })
+
+  // ── ECO-BATTLE-SCENE-1 ──
+
+  describe('the server’s scene, and a trainer free to walk (ECO-BATTLE-SCENE-1)', () => {
+    type Played = { wx?: number; wy?: number; sprite?: { id?: number }; bar?: { wx: number; wy: number } }
+    const placed = (drawn: () => { sprites: readonly unknown[] }) => (drawn().sprites as readonly Played[]).map(x => x.bar ? ['bar', x.bar.wx, x.bar.wy] : ['sprite', x.sprite?.id, x.wx, x.wy])
+
+    it('drawn where the server put it (Pikachu in front of the frozen wild one), and nothing moves while the trainer walks the area', async () => {
+      const { wrapper, drawn } = await fighting()
+      try {
+        const before = placed(drawn)
+        expect(before).toContainEqual(['sprite', 25, 2 * 16 + 8, 0 * 16 + 14]) // stage.pokemon (2,0)
+        expect(before).toContainEqual(['bar', 3 * 16 + 8, 0 * 16 + 14]) // the wild one's bar at stage.wild (3,0)
+        for (const [tx, ty] of [[1, 0], [1, 3], [-4, 5], [8, -2]]) {
+          await wrapper.setProps({ tx, ty }); await flushPromises()
+          expect(placed(drawn), `trainer at ${tx},${ty}`).toEqual(before)
+        }
+      } finally { wrapper.unmount() }
+    })
+
+    it('restrictions (no portal, no other activity) are on while asked for and fought; a refusal or the end lifts them', async () => {
+      const { world, wrapper } = await fighting()
+      try {
+        const flags = () => wrapper.emitted('battle')!.map(([on]) => on)
+        expect(flags()[flags().length - 1]).toBe(true)
+        world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: 'b', encounterId: ID, outcome: 'fled', retired: false, snapshot: snapshot(3, 500) }); await flushPromises()
+        expect(flags()[flags().length - 1]).toBe(false)
+        // a refusal is not a battle: the panel explains it, nothing is restricted
+        ;(wrapper.vm as unknown as { select(id: string): boolean }).select(ID); await flushPromises()
+        await wrapper.find('.eco-card__fight').trigger('click')
+        expect(flags()[flags().length - 1]).toBe(true) // asked for
+        world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 2, encounterId: ID, ok: false, reason: 'no-room' }); await flushPromises()
+        expect(flags()[flags().length - 1]).toBe(false)
+        expect(wrapper.find('.ebp').exists()).toBe(true)
+      } finally { wrapper.unmount() }
+    })
+
+    it('the owner and a spectator draw the same scene from the same server tiles', async () => {
+      const owner = await fighting()
+      try {
+        const ownerScene = placed(owner.drawn)
+        // a second client watching that battle: the public view carries the same stage
+        const world = new SharedWorld(async () => null, id => ({ id, name: String(id), shiny: false, frames: {} }) as unknown as PokemonInfo)
+        world.attach(() => {})
+        world.snapshot({ now: 1, areaId: 'pradera', chunks: [], nodes: [], eco: pradera })
+        const watcher = mount(EcoExperimentLayer, { props: { world, areaId: 'pradera', tx: 9, ty: 9 }, attachTo: document.body })
+        try {
+          const view = {
+            battleId: 'b-other-owner', encounterId: ID, areaId: 'pradera', seq: 1, revision: 1, timeMs: 0, connected: true, stage: battle.stage!,
+            config: { actionBar: DEFAULT_BATTLE_RULES_CONFIG.actionBar, statStages: DEFAULT_BATTLE_RULES_CONFIG.statStages },
+            combatants: Object.fromEntries([['player-0', 25], ['wild-0', 13]].map(([key, speciesId]) => [key, { speciesId, level: 12, maxHp: 30, currentHp: 20, majorStatus: 'none', confused: false, spe: 60, speStage: 0, actionElapsedMs: 400, cooldownMultiplier: 1 }])),
+          }
+          world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_PUBLIC, JSON.parse(JSON.stringify(view))); await flushPromises()
+          const overlay = watcher.emitted('overlay')![0][0] as SceneOverlay
+          const watched = (overlay.sprites?.(area, 0) ?? []) as readonly Played[]
+          const watcherScene = watched.map(x => x.bar ? ['bar', x.bar.wx, x.bar.wy] : ['sprite', x.sprite?.id, x.wx, x.wy])
+          expect(watcherScene).toEqual(ownerScene)
+        } finally { watcher.unmount() }
+      } finally { owner.wrapper.unmount() }
     })
   })
 })

@@ -32,6 +32,7 @@ export const ECO_SPECTATOR_OUTCOME_TEXT: Readonly<Record<EcoBattleOutcome, strin
 export const ECO_REFUSAL_TEXT: Readonly<Record<string, string>> = {
   busy: 'Otro entrenador lo está combatiendo.',
   'too-far': 'Estás demasiado lejos.',
+  'no-room': 'No hay lugar delante de ese Pokémon para tu Pikachu: probá desde otro lado.',
   'other-area': 'Está en otra área.',
   'not-alive': 'Ya no está aquí.',
   'already-battling': 'Ya tenés un combate en curso.',

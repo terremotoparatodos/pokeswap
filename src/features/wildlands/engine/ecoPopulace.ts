@@ -47,17 +47,20 @@ export class EcoActors {
   }
 
   /**
-   * ECO-OVERWORLD-BATTLE-1: a busy encounter (someone's test battle) stands still on the tile the
-   * SERVER lists for it — the same authoritative tile on every client, and the one the engage range
-   * was measured from — instead of its patrol pose. Free again, it rejoins its shared patrol.
-   * Presentation only: the server's population and patrol are unchanged.
+   * ECO-OVERWORLD-BATTLE-1: a busy encounter (someone's test battle) stands still instead of
+   * following its patrol. ECO-BATTLE-SCENE-1: where the SERVER froze it — `stand`, the tile of its
+   * shared patrol when the battle was reserved, facing the player's Pokémon — the same on every
+   * client, never back at its home tile (the home tile only from an older server). Free again, it
+   * rejoins its shared patrol. Presentation only: the server's population is unchanged.
    */
   private hold(actor: Actor, encounter: EcoEncounter): void {
     if (encounter.busy) {
       if (actor.patrol) this.parked.set(encounter.id, actor.patrol)
       actor.patrol = undefined
-      actor.fromTx = actor.tx = encounter.tx
-      actor.fromTy = actor.ty = encounter.ty
+      const at = encounter.stand ?? { tx: encounter.tx, ty: encounter.ty }
+      actor.fromTx = actor.tx = at.tx
+      actor.fromTy = actor.ty = at.ty
+      if (encounter.stand) actor.dir = encounter.stand.dir
       actor.progress = 1
       actor.hop = 0
       return

@@ -38,6 +38,8 @@ const snapshot = (wildHp = 26, revision = 1) => ({
 const battle: EcoBattleInfo = {
   battleId: 'eco-battle-a-0000000a', speciesId: 13, fixture: true, fixtureLabel: 'fixture de prueba', expiresInMs: 120_000, snapshot: snapshot(),
   joinAck: { battleId: 'eco-battle-a-0000000a', controllerId: 'p', currentRevision: 1, nextActionSequence: 1, catalogVersion: 'c', battleRulesVersion: 'r', controlledCombatantIds: ['player-0'] },
+  // ECO-BATTLE-SCENE-1: the scene the server decided (the wild one frozen where it was seen, the Pikachu in front)
+  stage: { owner: { tx: 0, ty: 0 }, wild: { tx: 2, ty: 0 }, pokemon: { tx: 1, ty: 0 }, pokemonFacing: 'right', wildFacing: 'left' },
 }
 
 function setup() {
@@ -119,7 +121,7 @@ describe('ECO experiment layer · map selection', () => {
 })
 
 describe('ECO experiment layer · battle screen', () => {
-  it('«Combatir» asks for that individual; the panel shows names, levels, HP, moves/PP and «Huir»; the trainer is held', async () => {
+  it('«Combatir» asks for that individual; the panel shows names, levels, HP, moves/PP and «Huir»; the battle restrictions are on (ECO-BATTLE-SCENE-1: no portal, no other activity; walking stays)', async () => {
     const { world, sent, layer, card, screen, wrapper } = setup()
     layer.select(ID('soto', 1)); await flushPromises()
     await card().find('.eco-card__fight').trigger('click')
@@ -166,7 +168,7 @@ describe('ECO experiment layer · battle screen', () => {
     expect(wrapper.emitted('battle')?.slice(-1)[0]).toEqual([true])
     world.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE_END, { battleId: battle.battleId, encounterId: ID('soto', 0), outcome, retired: outcome === 'victory', snapshot: snapshot(0) })
     await flushPromises()
-    // released on the end itself: no panel, no button to press, the trainer is not held
+    // released on the end itself: no panel, no button to press, the battle restrictions are off
     expect(screen().exists()).toBe(false)
     expect(wrapper.find('.ebp-primary').exists()).toBe(false)
     expect(wrapper.emitted('battle')?.slice(-1)[0]).toEqual([false])

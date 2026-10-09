@@ -30,6 +30,18 @@ vi.mock('../../dungeonPrototype/render/worldOverlay', async importOriginal => {
 
 const { EcoBattleOverlay, ENDING, tileFeet } = await import('./ecoBattleOverlay')
 
+/**
+ * A scene as the server sends it (ECO-BATTLE-SCENE-1: the server decides it; the overlay only draws
+ * it). The fixture puts the Pikachu one tile from the trainer toward the wild one, facing it.
+ */
+function fixtureStage(owner: { tx: number; ty: number }, wild: { tx: number; ty: number }) {
+  const dx = wild.tx - owner.tx, dy = wild.ty - owner.ty
+  const across = Math.abs(dx) >= Math.abs(dy)
+  const face = (x: number, y: number) => (Math.abs(x) >= Math.abs(y) ? (x >= 0 ? 'right' : 'left') : (y >= 0 ? 'down' : 'up')) as 'up' | 'down' | 'left' | 'right'
+  const pokemon = Math.max(Math.abs(dx), Math.abs(dy)) > 1 ? { tx: owner.tx + (across ? Math.sign(dx) : 0), ty: owner.ty + (across ? 0 : Math.sign(dy)) } : { ...owner }
+  return { owner, wild, pokemon, pokemonFacing: face(dx, dy), wildFacing: face(-dx, -dy) }
+}
+
 const combatant = (combatantId: string, speciesId: number, hp: number, max: number) => ({
   combatantId, sideId: combatantId.split('-')[0], level: 10, wild: combatantId === 'wild-0', stats: { hp: max, atk: 20, def: 20, spa: 20, spd: 20, spe: 60 },
   condition: { currentHp: hp, pp: {}, majorStatus: 'none' },
@@ -42,7 +54,7 @@ const busy = (id: string, tx: number, ty: number, isBusy = true): EcoEncounter =
 
 function overlay(now = 0) {
   const clock = { now }
-  const o = new EcoBattleOverlay({ player: () => ({ tx: 0, ty: 0 }), now: () => clock.now })
+  const o = new EcoBattleOverlay({ now: () => clock.now })
   return { o, clock }
 }
 
@@ -56,7 +68,7 @@ describe('EcoBattleOverlay', () => {
 
   it('the Pikachu stands one tile toward the wild one; both bars carry the snapshot\'s HP', () => {
     const { o } = overlay()
-    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     const sprites = o.overlay.sprites!(area, 0) as unknown as { wx: number; wy: number; sprite?: { id: number; dir: string }; bar?: { wx: number; hp: number; action: number } }[]
     const pikachu = sprites.find(s => s.sprite)!
     expect([pikachu.wx, pikachu.wy]).toEqual([tileFeet(1, 0).x, tileFeet(1, 0).y])
@@ -68,7 +80,7 @@ describe('EcoBattleOverlay', () => {
 
   it('the server\'s events land on the right Pokémon, and fade', () => {
     const { o, clock } = overlay(1_000)
-    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     const e = (event: Record<string, unknown>) => ({ battleId: 'b', sequence: 1, revision: 1, actionId: null, serverTimeMs: 0, event }) as unknown as AuthorityEventEnvelope
     o.pushEvents([e({ type: 'MOVE_USED', combatantId: 'player-0', moveId: 84, targetId: 'wild-0', hits: 1 }), e({ type: 'DAMAGE', combatantId: 'wild-0', sourceId: 'player-0', amount: 7, remainingHp: 3, critical: false, effectiveness: 1, hit: 1, cause: 'move' })])
     const effects = (o.overlay.sprites!(area, 0) as unknown as { effect?: { toX: number } }[]).filter(s => s.effect)
@@ -81,7 +93,7 @@ describe('EcoBattleOverlay', () => {
 
   it('«en combate» only over OTHER busy encounters (decision D1), on their server tile', () => {
     const { o } = overlay()
-    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'mine', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'mine', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     o.setBusy([busy('mine', 4, 0), busy('theirs', 9, 2), busy('free', 1, 1, false)])
     expect(o.overlay.labels!(area, 0)).toEqual([{ wx: tileFeet(9, 2).x, wy: tileFeet(9, 2).y, lift: 30, text: 'en combate', color: '#ffd27a' }])
     // a spectator with no battle of its own still sees the mark
@@ -93,9 +105,9 @@ describe('EcoBattleOverlay', () => {
 
   it('a new battle fixes a new stage and drops the old marks; null clears everything', () => {
     const { o } = overlay()
-    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'a', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'a', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     o.pushEvents([{ battleId: 'b', sequence: 1, revision: 1, actionId: null, serverTimeMs: 0, event: { type: 'FAINTED', combatantId: 'wild-0' } } as unknown as AuthorityEventEnvelope])
-    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'b', wildTile: { tx: 0, ty: -3 } })
+    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'b', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 0, ty: -3 }) })
     expect(o.overlay.labels!(area, 0)).toEqual([])
     const pikachu = (o.overlay.sprites!(area, 0) as unknown as { wx: number; wy: number; sprite?: { dir: string } }[]).find(s => s.sprite)!
     expect([pikachu.wx, pikachu.wy, pikachu.sprite!.dir]).toEqual([tileFeet(0, -1).x, tileFeet(0, -1).y, 'up'])
@@ -110,7 +122,7 @@ const publicCombatant = (speciesId: number, currentHp: number, maxHp: number) =>
 const watched = (battleId: string, encounterId: string, owner: { tx: number; ty: number }, wild: { tx: number; ty: number }, over: Partial<SpectatedBattle> = {}): SpectatedBattle => ({
   battleId, encounterId, areaId: 'pradera', receivedAt: 0, ended: null,
   view: {
-    battleId, encounterId, areaId: 'pradera', seq: 1, revision: 1, timeMs: 0, connected: true, stage: { owner, wild },
+    battleId, encounterId, areaId: 'pradera', seq: 1, revision: 1, timeMs: 0, connected: true, stage: fixtureStage(owner, wild),
     config: { actionBar: DEFAULT_BATTLE_RULES_CONFIG.actionBar, statStages: DEFAULT_BATTLE_RULES_CONFIG.statStages },
     combatants: { 'player-0': publicCombatant(25, 30, 34), 'wild-0': publicCombatant(13, 10, 26) },
   } as unknown as EcoPublicBattle,
@@ -134,7 +146,7 @@ describe('EcoBattleOverlay · spectators', () => {
 
   it('two battles at once, and the owner’s own: each drawn once, each with its own Pikachu and bars', () => {
     const { o } = overlay()
-    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'mine', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 0, connected: true, encounterId: 'mine', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 }), watched('b2', 'e2', { tx: -6, ty: 3 }, { tx: -6, ty: 0 })])
     const sprites = drawn(o)
     expect(sprites.filter(s => s.sprite)).toHaveLength(3)
@@ -152,7 +164,7 @@ describe('EcoBattleOverlay · spectators', () => {
     expect(o.overlay.labels!(area, 0).map(l => [l.text, l.wx])).toEqual([['-7', tileFeet(13, 5).x]])
     // the owner's view of the same events gives the same marks
     const owner = overlay(1_000).o
-    owner.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'mine', wildTile: { tx: 13, ty: 5 } })
+    owner.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'mine', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 13, ty: 5 }) })
     owner.pushEvents(ev.map(e => ({ battleId: 'x', revision: 1, actionId: null, serverTimeMs: 0, ...e })) as unknown as AuthorityEventEnvelope[])
     expect(owner.overlay.labels!(area, 0).map(l => l.text)).toEqual(['-7'])
     // b1 ends: its label over its wild one; then it goes with its marks
@@ -190,7 +202,7 @@ const wilds = (o: InstanceType<typeof EcoBattleOverlay>) => played(o).filter(s =
 describe('EcoBattleOverlay · the end played out (ECO-BATTLE-ENDING-1)', () => {
   it('the owner\u2019s end: no bars; the Pikachu shrinks and fades into its ball; the ball fades; then nothing', () => {
     const { o, clock } = overlay(1_000)
-    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     o.setBusy([busy('e', 4, 0)])
     o.finish('e', false)
     expect(played(o).filter(s => s.bar)).toHaveLength(0)
@@ -209,7 +221,7 @@ describe('EcoBattleOverlay · the end played out (ECO-BATTLE-ENDING-1)', () => {
 
   it('fled, defeat or expiry: the wild one never fades, listed or not', () => {
     const { o, clock } = overlay(1_000)
-    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     o.finish('e', false)
     o.setBusy([]) // even if it left the list (released and walked off), a non-victory draws no fade
     for (const t of [0, 300, 900]) { clock.now = 1_000 + t; expect(wilds(o)).toHaveLength(0) }
@@ -217,7 +229,7 @@ describe('EcoBattleOverlay · the end played out (ECO-BATTLE-ENDING-1)', () => {
 
   it('a victory the server confirmed: the wild one fades only once the population no longer lists it', () => {
     const { o, clock } = overlay(1_000)
-    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     o.setBusy([busy('e', 4, 0)])
     o.finish('e', true)
     expect(wilds(o), 'still listed: the populace draws it, never twice').toHaveLength(0)
@@ -233,10 +245,10 @@ describe('EcoBattleOverlay · the end played out (ECO-BATTLE-ENDING-1)', () => {
 
   it('a new battle right after (even against the same individual) drops the old ending: one Pikachu, no ball', () => {
     const { o } = overlay(1_000)
-    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     o.finish('e', false)
     expect(balls(o)).toHaveLength(1)
-    o.setBattle({ snapshot, snapshotAt: 1_100, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 1_100, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     expect(balls(o)).toHaveLength(0)
     expect(pikachus(o)).toHaveLength(1)
     expect(played(o).filter(s => s.bar)).toHaveLength(2)
@@ -244,7 +256,7 @@ describe('EcoBattleOverlay · the end played out (ECO-BATTLE-ENDING-1)', () => {
 
   it('finish is about the battle drawn: another encounter\u2019s end changes nothing; dropOwnEnding clears it at once', () => {
     const { o } = overlay(1_000)
-    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', wildTile: { tx: 4, ty: 0 } })
+    o.setBattle({ snapshot, snapshotAt: 1_000, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
     o.finish('other', true)
     expect(played(o).filter(s => s.bar)).toHaveLength(2)
     o.finish('e', true)

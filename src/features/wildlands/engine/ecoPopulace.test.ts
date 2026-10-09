@@ -56,4 +56,23 @@ describe('EcoActors · busy encounters stand still on the server tile', () => {
     b.eco.sync(area(true), shared)
     expect([a.actor.tx, a.actor.ty]).toEqual([b.actor.tx, b.actor.ty])
   })
+
+  // ── ECO-BATTLE-SCENE-1: frozen where it was seen (the server's `stand`), never back at home ──
+
+  it('busy with a stand: it stands on the stand tile, facing the Pokémon — not on its home tile — and every client agrees', async () => {
+    const withStand = (busy: boolean): EcoArea => ({ protocol: 1, areaId: 'pradera', status: 'active', encounters: [{ id: ID, groupId: 'g', speciesId: 13, tx: 4, ty: 2, busy, ...(busy ? { stand: { tx: 6, ty: 1, dir: 'left' as const } } : {}) }] })
+    const a = await spawned(false)
+    const b = await spawned(false)
+    followPatrol(a.actor, 10_000)
+    followPatrol(b.actor, 77_000)
+    a.eco.sync(withStand(true), shared)
+    b.eco.sync(withStand(true), shared)
+    for (const { actor } of [a, b]) {
+      expect([actor.tx, actor.ty, actor.fromTx, actor.fromTy, actor.progress, actor.dir]).toEqual([6, 1, 6, 1, 1, 'left'])
+      expect(actor.patrol).toBeUndefined()
+    }
+    // free again: back on its shared patrol
+    a.eco.sync(withStand(false), shared)
+    expect(a.actor.patrol).toBeDefined()
+  })
 })

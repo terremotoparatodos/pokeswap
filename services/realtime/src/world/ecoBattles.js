@@ -288,7 +288,7 @@ export class EcoBattles {
   standOf(encounterId) {
     const reservation = this.byEncounter.get(encounterId)
     const stage = reservation ? this.spectated.get(reservation)?.stage : null
-    return stage ? { tx: stage.wild.tx, ty: stage.wild.ty } : null
+    return stage ? { tx: stage.wild.tx, ty: stage.wild.ty, dir: stage.wildFacing } : null
   }
 
   stats() {

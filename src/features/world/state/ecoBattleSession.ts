@@ -9,7 +9,7 @@
 
 import type { AuthorityEventEnvelope } from '../../battle/authority'
 import type {
-  EcoBattleEnd, EcoBattleMessage, EcoBattleOutcome, EcoEngageResult,
+  EcoBattleEnd, EcoBattleMessage, EcoBattleOutcome, EcoBattleStage, EcoEngageResult,
 } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { ClientBattleSnapshot } from '../../battle/authority'
@@ -50,6 +50,8 @@ export type EcoBattleView =
     readonly expiresInMs: number
     readonly connected: boolean
     readonly lastRejection: string | null
+    /** ECO-BATTLE-SCENE-1: where the battle stands, as the server decided it (null from an older server). */
+    readonly stage: EcoBattleStage | null
   }
   | { readonly phase: 'ended'; readonly encounterId: string; readonly battleId: string; readonly outcome: EcoBattleOutcome; readonly retired: boolean; readonly snapshot: ClientBattleSnapshot }
 
@@ -196,6 +198,7 @@ export class EcoBattleSession implements EcoBattleSink {
     this.set({
       phase: 'battle', encounterId: result.encounterId, battleId: battle.battleId, speciesId: battle.speciesId,
       fixtureLabel: battle.fixtureLabel, snapshot: battle.snapshot, snapshotAt: this.now(), expiresInMs: battle.expiresInMs, connected: true, lastRejection: null,
+      stage: battle.stage ?? null,
     })
   }
 

@@ -11,7 +11,7 @@ import { describe, expect, it } from 'vitest'
 import type { AuthorityEventEnvelope, ClientBattleSnapshot } from '../../battle/authority'
 import { createAuthorityHarness } from '../../battle/authority/harness'
 import { actionBarFill } from '../../battle/rules/actionBar'
-import { WILD_COMBATANT, presentCombatant, spectatorSnapshot, stageOf, vfxOf } from './ecoBattlePresentation'
+import { WILD_COMBATANT, presentCombatant, spectatorSnapshot, stageFrom, vfxOf } from './ecoBattlePresentation'
 // ECO-BATTLE-SPECTATORS-1: the server's own projection, to check what a spectator draws from it.
 import { publicBattleView, publicEvents } from '../../../../services/realtime/src/world/ecoBattlePublic.js'
 import type { EcoPublicBattle } from '../../../../services/realtime/src/world/worldProtocol.js'
@@ -145,11 +145,11 @@ describe('vfxOf · the server\'s events as marks, nothing more', () => {
   })
 })
 
-describe('stageOf · where the Pikachu stands', () => {
-  it('one tile from the trainer toward the wild Pokémon, both facing each other', () => {
-    expect(stageOf({ player: { tx: 0, ty: 0 }, wild: { tx: 4, ty: 1 } })).toEqual({ pikachu: { tx: 1, ty: 0 }, pikachuFacing: 'right', wildFacing: 'left' })
-    expect(stageOf({ player: { tx: 0, ty: 0 }, wild: { tx: -1, ty: -5 } })).toEqual({ pikachu: { tx: 0, ty: -1 }, pikachuFacing: 'up', wildFacing: 'down' })
-    expect(stageOf({ player: { tx: 3, ty: 3 }, wild: { tx: 4, ty: 3 } }).pikachu).toEqual({ tx: 3, ty: 3 })
+describe('stageFrom · the server\u2019s scene (ECO-BATTLE-SCENE-1)', () => {
+  it('takes the Pikachu\u2019s tile and both facings as the server decided them; none without them', () => {
+    expect(stageFrom({ pokemon: { tx: 5, ty: 2 }, pokemonFacing: 'right', wildFacing: 'left' })).toEqual({ pikachu: { tx: 5, ty: 2 }, pikachuFacing: 'right', wildFacing: 'left' })
+    expect(stageFrom(null)).toBeNull()
+    expect(stageFrom({ pokemonFacing: 'up', wildFacing: 'down' })).toBeNull()
   })
 })
 

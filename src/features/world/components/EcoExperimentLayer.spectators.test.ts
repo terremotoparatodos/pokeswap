@@ -45,7 +45,8 @@ const cave: EcoArea = { protocol: 1, areaId: 'cueva-inicial', status: 'active', 
 const combatant = (speciesId: number, currentHp: number) => ({ speciesId, level: 10, maxHp: 30, currentHp, majorStatus: 'none', confused: false, spe: 60, speStage: 0, actionElapsedMs: 400, cooldownMultiplier: 1 })
 const theirs = (seq: number, over: Partial<EcoPublicBattle> = {}): EcoPublicBattle => ({
   battleId: 'b-theirs', encounterId: THEIRS, areaId: 'pradera', seq, revision: seq, timeMs: seq * 100, connected: true,
-  stage: { owner: { tx: 1, ty: 2 }, wild: { tx: 3, ty: 2 } }, // in the 3-tile engage range of the spectator at (0,0)
+  // the server's scene (ECO-BATTLE-SCENE-1); the wild one within the 3-tile engage range of the spectator at (0,0)
+  stage: { owner: { tx: 1, ty: 2 }, wild: { tx: 3, ty: 2 }, pokemon: { tx: 2, ty: 2 }, pokemonFacing: 'right', wildFacing: 'left' },
   config: { actionBar: DEFAULT_BATTLE_RULES_CONFIG.actionBar, statStages: DEFAULT_BATTLE_RULES_CONFIG.statStages },
   combatants: { 'player-0': combatant(25, 30), 'wild-0': combatant(13, 20) },
   ...over,
@@ -80,7 +81,7 @@ describe('ECO experiment layer · watching someone else’s battle', () => {
       expect(s.drawn().filter(x => x.effect)).toEqual([])
       expect(s.labels(), 'no «en combate» over a battle that is drawn, no old damage numbers').toEqual([])
       expect(s.wrapper.find('.ebp').exists()).toBe(false)
-      expect(s.locks, 'the spectator is never held').toEqual([false])
+      expect(s.locks, 'a spectator is never restricted').toEqual([false])
       await s.send(theirs(8, { events: [damage(31)] }))
       expect(s.labels()).toEqual(['-3'])
       // the same message again: nothing repeats
@@ -129,10 +130,11 @@ describe('ECO experiment layer · watching someone else’s battle', () => {
       const snapshot = { battleId: 'b-mine', revision: 1, timeMs: 0, catalogVersion: 'c', battleRulesVersion: 'r', config: DEFAULT_BATTLE_RULES_CONFIG, outcome: { kind: 'ongoing' },
         combatants: Object.fromEntries([['player-0', 25], ['wild-0', 16]].map(([key, speciesId]) => [key, { combatantId: key, sideId: String(key).split('-')[0], level: 12, stats: { hp: 30, spe: 60 }, condition: { currentHp: 30, pp: {}, majorStatus: 'none' }, instance: { speciesId, moves: [] }, runtime: { actionElapsedMs: 0, cooldownMultiplier: 1, stages: {}, confusionRemainingMs: 0, selected: null } }])) } as unknown as ClientBattleSnapshot
       const battle: EcoBattleInfo = { battleId: 'b-mine', speciesId: 16, fixture: true, fixtureLabel: 'fixture de prueba', expiresInMs: 120_000, snapshot,
-        joinAck: { battleId: 'b-mine', controllerId: 'p', currentRevision: 1, nextActionSequence: 1, catalogVersion: 'c', battleRulesVersion: 'r', controlledCombatantIds: ['player-0'] } }
+        joinAck: { battleId: 'b-mine', controllerId: 'p', currentRevision: 1, nextActionSequence: 1, catalogVersion: 'c', battleRulesVersion: 'r', controlledCombatantIds: ['player-0'] },
+        stage: { owner: { tx: 0, ty: 0 }, wild: { tx: 2, ty: 0 }, pokemon: { tx: 1, ty: 0 }, pokemonFacing: 'right', wildFacing: 'left' } }
       s.world.ecoBattleMessage(M.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: MINE, ok: true, battle }); await flushPromises()
       await s.send(theirs(2))
-      await s.send(theirs(1, { battleId: 'b-mine', encounterId: MINE, stage: { owner: { tx: 0, ty: 0 }, wild: { tx: 2, ty: 0 } } })) // never sent by the server; ignored if it were
+      await s.send(theirs(1, { battleId: 'b-mine', encounterId: MINE, stage: { owner: { tx: 0, ty: 0 }, wild: { tx: 2, ty: 0 }, pokemon: { tx: 1, ty: 0 }, pokemonFacing: 'right', wildFacing: 'left' } })) // never sent by the server; ignored if it were
       expect(s.drawn().filter(x => x.sprite)).toHaveLength(2)
       expect(s.drawn().filter(x => x.bar)).toHaveLength(4)
       expect(s.locks, 'only the own battle holds the player').toEqual([false, true])
@@ -167,12 +169,12 @@ describe('ECO experiment layer · watching someone else’s battle', () => {
   it('S2 the same individual fought again while the earlier end shows: one Pikachu and one pair of bars; another individual’s battle stays', async () => {
     const s = setup()
     try {
-      const another = (seq: number) => theirs(seq, { battleId: 'b-another', encounterId: MINE, stage: { owner: { tx: 0, ty: 3 }, wild: { tx: 2, ty: 0 } } })
+      const another = (seq: number) => theirs(seq, { battleId: 'b-another', encounterId: MINE, stage: { owner: { tx: 0, ty: 3 }, wild: { tx: 2, ty: 0 }, pokemon: { tx: 2, ty: 1 }, pokemonFacing: 'up', wildFacing: 'down' } })
       await s.send(theirs(1))
       await s.send(another(1))
       await s.send(theirs(2, { ended: { outcome: 'fled' } }))
       expect(s.labels()).toContain('Huyó')
-      await s.send(theirs(1, { battleId: 'b-theirs-again', stage: { owner: { tx: 2, ty: 2 }, wild: { tx: 3, ty: 2 } } }))
+      await s.send(theirs(1, { battleId: 'b-theirs-again', stage: { owner: { tx: 2, ty: 2 }, wild: { tx: 3, ty: 2 }, pokemon: { tx: 4, ty: 2 }, pokemonFacing: 'left', wildFacing: 'right' } }))
       const pikachus = s.drawn().filter(x => x.sprite)
       expect(pikachus).toHaveLength(2) // this individual's new battle + the other individual's
       expect(s.drawn().filter(x => x.bar)).toHaveLength(4)

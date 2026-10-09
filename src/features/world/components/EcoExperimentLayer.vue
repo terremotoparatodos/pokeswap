@@ -56,8 +56,6 @@ const props = defineProps<{
   pokedex?: readonly { readonly id: number; readonly name_es: string }[]
   /** A valid focus destination on the map (the game canvas), for when a battle closes. */
   mapFocus?: () => HTMLElement | null
-  /** The local trainer's tile (from the engine), for where the battle stands. */
-  player?: () => { readonly tx: number; readonly ty: number } | null
 }>()
 /** `overlay`: this layer's world overlay, for the view to compose into the engine (null on unmount). */
 const emit = defineEmits<{ battle: [open: boolean]; overlay: [overlay: SceneOverlay | null] }>()
@@ -77,11 +75,9 @@ const pokedexName = (speciesId: number) => props.pokedex?.find(entry => entry.id
 const nameOf = (speciesId: number) => ecoSpeciesName(speciesId, pokedexName(speciesId), catalog.value?.species(speciesId)?.name)
 
 // ── The battle in the world ──
-const battleWorld = new EcoBattleOverlay({ player: () => props.player?.() ?? { tx: props.tx, ty: props.ty }, now: () => session.clock() })
+const battleWorld = new EcoBattleOverlay({ now: () => session.clock() })
 const stopEvents = session.onEvents(events => battleWorld.pushEvents(events))
 watch(catalog, value => battleWorld.setCatalog(value), { immediate: true })
-/** The encounter's last server-listed tile (kept if it leaves the list, e.g. retired by the victory). */
-const wildTiles = new Map<string, { tx: number; ty: number }>()
 /**
  * The area the battle is fought in, fixed when it is asked for. Its scene (the Pikachu, the bars,
  * the marks) is drawn there only: once the player is in another area it is dropped for good, even
@@ -89,12 +85,11 @@ const wildTiles = new Map<string, { tx: number; ty: number }>()
  */
 let battleArea: string | null = null
 watch([battle, currentArea, () => props.areaId], ([view, here, areaId]) => {
-  if (battleArea !== null && battleArea !== areaId) { battleArea = null; wildTiles.clear(); battleWorld.dropOwnEnding() }
-  for (const e of here?.encounters ?? []) wildTiles.set(e.id, { tx: e.tx, ty: e.ty })
+  if (battleArea !== null && battleArea !== areaId) { battleArea = null; battleWorld.dropOwnEnding() }
   if (view.phase === 'battle' && battleArea) {
-    const wildTile = wildTiles.get(view.encounterId)
-    battleWorld.setBattle(wildTile ? {
-      snapshot: view.snapshot, snapshotAt: view.snapshotAt, connected: view.connected, encounterId: view.encounterId, wildTile,
+    // ECO-BATTLE-SCENE-1: the scene is the server's, never computed from where the trainer stands.
+    battleWorld.setBattle(view.stage ? {
+      snapshot: view.snapshot, snapshotAt: view.snapshotAt, connected: view.connected, encounterId: view.encounterId, stage: view.stage,
     } : null)
   } else if (view.phase === 'ended' && battleArea) {
     // The server's end: played out in the world, holding nothing (the wild one fades only on a victory it retired).
@@ -119,15 +114,14 @@ onUnmounted(() => {
 })
 
 /**
- * Framing: the panel stands on the side away from the wild Pokémon, so an encounter inside the
- * engage range is never under it (measured in the sandbox: one at +5,+2 tiles fell inside the
- * bottom-right panel). The trainer cannot move during the battle, so this is fixed per battle.
+ * Framing: the panel stands on the side away from the wild Pokémon, so the battle is never under it
+ * (measured in the sandbox: one at +5,+2 tiles fell inside the bottom-right panel). ECO-BATTLE-SCENE-1:
+ * the trainer may walk during the battle, so it follows the trainer's tile against the frozen wild one.
  */
 const panelSide = computed((): 'left' | 'right' => {
   const view = battle.value
-  if (view.phase !== 'battle' && view.phase !== 'ended' && view.phase !== 'engaging') return 'right'
-  const wild = wildTiles.get(view.encounterId ?? '')
-  const player = props.player?.() ?? { tx: props.tx, ty: props.ty }
+  const wild = view.phase === 'battle' ? view.stage?.wild : null
+  const player = { tx: props.tx, ty: props.ty }
   return wild && wild.tx > player.tx ? 'left' : 'right'
 })
 
@@ -141,8 +135,8 @@ const selectedLive = computed(() => currentArea.value?.encounters.find(e => e.id
 const returnFocus = shallowRef<HTMLElement | null>(null)
 
 /**
- * ECO-BATTLE-ENDING-1: what holds the player and shows the panel — asking, fighting, or a refusal
- * to read. An END does not: it is the server's, and the map comes back the moment it arrives.
+ * What shows the panel — asking, fighting, or a refusal to read (ECO-BATTLE-ENDING-1: an END does
+ * not; it is the server's). ECO-BATTLE-SCENE-1: none of them holds the trainer in place any more.
  */
 const holds = (phase: EcoBattleView['phase']) => phase === 'engaging' || phase === 'battle' || phase === 'refused'
 
@@ -178,12 +172,16 @@ watch(battle, (view, previous) => {
 // A battle started by EITHER route (the card or the debug panel) ends the selection, and remembers
 // the control that asked for it (synchronously, before anything else moves the focus).
 watch(() => holds(battle.value.phase), open => {
-  if (open) {
-    selectedId.value = null
-    returnFocus.value = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
-  }
-  emit('battle', open)
+  if (!open) return
+  selectedId.value = null
+  returnFocus.value = document.activeElement instanceof HTMLElement && document.activeElement !== document.body ? document.activeElement : null
 }, { immediate: true, flush: 'sync' })
+/**
+ * ECO-BATTLE-SCENE-1: `battle` tells the view whether a battle is being asked for or fought — the
+ * trainer then keeps walking the area and chatting, but takes no portal and starts no other
+ * activity (the server refuses both anyway). A refusal or the end lifts it.
+ */
+watch(() => battle.value.phase === 'engaging' || battle.value.phase === 'battle', inBattle => emit('battle', inBattle), { immediate: true, flush: 'sync' })
 
 function engage(encounterId: string) {
   session.engage(encounterId)

@@ -16,8 +16,10 @@
 // busy), the trainer is the presence avatar; this overlay adds only the Pikachu, bars and marks.
 // It draws in world coordinates: the engine projects through the camera and skips what is off it.
 //
-// Positions are authoritative: the wild one stands on its server-listed tile while busy (see
-// EcoActors), the Pikachu one tile from the trainer toward it.
+// Positions are authoritative (ECO-BATTLE-SCENE-1): the server decides the scene once, when the
+// battle is reserved — the wild one frozen where it was seen (EcoActors stands it there, `stand`),
+// the Pikachu in front of it, both facings — and the owner and every spectator draw exactly that,
+// wherever the trainer walks afterwards.
 //
 // ECO-BATTLE-ENDING-1: an end the server decided is played out briefly in the world, for the owner
 // and for spectators alike, and never holds anything: the Pikachu goes back into its Poké Ball
@@ -33,9 +35,9 @@ import { speciesSprite } from '../../dungeonPrototype/render/dungeonSprites'
 import { colourOfType, createWorldOverlay, type StatusMark, type WorldBar, type WorldEffect, type WorldText } from '../../dungeonPrototype/render/worldOverlay'
 import type { BattleCatalogIndex } from '../../battle/catalog'
 import type { AuthorityEventEnvelope, ClientBattleSnapshot } from '../../battle/authority'
-import type { EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoBattleStage, EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { EcoPublicEventEnvelope } from '../../../../services/realtime/src/world/worldProtocol.js'
-import { PLAYER_COMBATANT, WILD_COMBATANT, presentCombatant, spectatorSnapshot, stageOf, vfxOf, type PresentedCombatant, type Stage } from '../domain/ecoBattlePresentation'
+import { PLAYER_COMBATANT, WILD_COMBATANT, presentCombatant, spectatorSnapshot, stageFrom, vfxOf, type PresentedCombatant, type Stage } from '../domain/ecoBattlePresentation'
 import { ECO_SPECTATOR_OUTCOME_TEXT } from '../domain/ecoBattleText'
 import type { SpectatedBattle } from '../state/ecoSpectatedBattles'
 
@@ -51,8 +53,8 @@ export interface OverlayBattle {
   readonly snapshotAt: number
   readonly connected: boolean
   readonly encounterId: string
-  /** The encounter's server-listed tile. */
-  readonly wildTile: { readonly tx: number; readonly ty: number }
+  /** ECO-BATTLE-SCENE-1: the scene the server decided (the wild one's frozen tile, the Pikachu's, facings). */
+  readonly stage: EcoBattleStage
 }
 
 /** One battle drawn in the world: the owner's own (`OWN`) or someone else's (its battle id). */
@@ -89,8 +91,6 @@ export const ENDING = Object.freeze({
 const ballSprite = () => pokeballInfo({ id: 0, name_es: '' }).frames.down[0]
 
 export interface EcoBattleOverlayInput {
-  /** The local trainer's tile, or null before it is placed. */
-  player(): { readonly tx: number; readonly ty: number } | null
   /** Local ms, the session's clock (the same one `snapshotAt` uses). */
   now(): number
 }
@@ -143,8 +143,7 @@ export class EcoBattleOverlay {
   setBattle(battle: OverlayBattle | null): void {
     if (!battle) { this.battle = null; this.stage = null; this.dropMarks(OWN); return }
     if (this.battle?.encounterId !== battle.encounterId || !this.stage) {
-      const player = this.input.player()
-      this.stage = player ? stageOf({ player, wild: battle.wildTile }) : null
+      this.stage = stageFrom(battle.stage)
       this.dropMarks(OWN)
       this.dropOwnEnding()
     }
@@ -178,10 +177,11 @@ export class EcoBattleOverlay {
   setSpectated(battles: readonly SpectatedBattle[]): void {
     const next = new Map<string, Scene>()
     for (const b of battles) {
-      const { owner, wild } = b.view.stage
+      const stage = stageFrom(b.view.stage)
+      if (!stage) continue // a scene the server did not give is not drawn (an older server)
       next.set(b.battleId, {
         key: b.battleId, snapshot: spectatorSnapshot(b.view, b.ended !== null), receivedAt: b.receivedAt, connected: b.view.connected,
-        stage: stageOf({ player: owner, wild }), wildTile: wild, encounterId: b.encounterId,
+        stage, wildTile: b.view.stage.wild, encounterId: b.encounterId,
         endLabel: b.ended ? ECO_SPECTATOR_OUTCOME_TEXT[b.ended.outcome] ?? null : null,
         ending: b.ended ? { at: b.ended.at / 1000, victory: b.ended.outcome === 'victory' } : null,
       })
@@ -239,7 +239,7 @@ export class EcoBattleOverlay {
   private ownScene(): Scene | null {
     if (!this.battle || !this.stage) return null
     const b = this.battle
-    return { key: OWN, snapshot: b.snapshot, receivedAt: b.snapshotAt, connected: b.connected, stage: this.stage, wildTile: b.wildTile, encounterId: b.encounterId, endLabel: null, ending: null }
+    return { key: OWN, snapshot: b.snapshot, receivedAt: b.snapshotAt, connected: b.connected, stage: this.stage, wildTile: b.stage.wild, encounterId: b.encounterId, endLabel: null, ending: null }
   }
 
   /** Running scenes drawn now: the owner's, then the others'. */

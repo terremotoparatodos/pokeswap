@@ -83,7 +83,7 @@ export class EcoPopulation {
       encounters: area.encounters.map(({ id, groupId, speciesId, tile }) => {
         const busy = this.isBusy(id)
         const stand = busy ? this.standOf(id) : null
-        return { id, groupId, speciesId, tx: tile.tx, ty: tile.ty, busy, ...(stand ? { stand: { tx: stand.tx, ty: stand.ty } } : {}) }
+        return { id, groupId, speciesId, tx: tile.tx, ty: tile.ty, busy, ...(stand ? { stand: { tx: stand.tx, ty: stand.ty, dir: stand.dir } } : {}) }
       }),
     }
   }

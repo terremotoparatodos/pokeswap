@@ -15,7 +15,7 @@ import type { BattleCatalogIndex } from '../../battle/catalog'
 import { actionBarFill } from '../../battle/rules/actionBar'
 import type { BattleCombatant } from '../../battle/rules/state'
 import type { MajorStatus } from '../../pokemon/model/condition'
-import type { EcoPublicBattle } from '../../../../services/realtime/src/world/worldProtocol.js'
+import type { EcoBattleStage, EcoPublicBattle } from '../../../../services/realtime/src/world/worldProtocol.js'
 
 export const PLAYER_COMBATANT = 'player-0'
 export const WILD_COMBATANT = 'wild-0'
@@ -151,29 +151,19 @@ export function vfxOf(
 
 // ── Where the battle stands ─────────────────────────────────────────────────
 
-export interface StageInput {
-  /** The trainer's tile (the local player, owner of the battle). */
-  readonly player: { readonly tx: number; readonly ty: number }
-  /** The encounter's server-listed tile (where it stands still while busy). */
-  readonly wild: { readonly tx: number; readonly ty: number }
-}
-
 export interface Stage {
-  /** Tile of the synthetic Pikachu: beside the trainer, on the wild one's side. */
+  /** Tile of the synthetic Pikachu: in front of the wild one, as the server placed it. */
   readonly pikachu: { readonly tx: number; readonly ty: number }
   readonly pikachuFacing: 'up' | 'down' | 'left' | 'right'
   readonly wildFacing: 'up' | 'down' | 'left' | 'right'
 }
 
-const facing = (dx: number, dy: number): Stage['pikachuFacing'] =>
-  Math.abs(dx) >= Math.abs(dy) ? (dx >= 0 ? 'right' : 'left') : (dy >= 0 ? 'down' : 'up')
-
-/** The Pikachu one tile from the trainer toward the wild Pokémon (on the trainer's tile when they touch). */
-export function stageOf({ player, wild }: StageInput): Stage {
-  const dx = wild.tx - player.tx
-  const dy = wild.ty - player.ty
-  const horizontal = Math.abs(dx) >= Math.abs(dy)
-  const step = { x: horizontal ? Math.sign(dx) : 0, y: horizontal ? 0 : Math.sign(dy) }
-  const pikachu = Math.max(Math.abs(dx), Math.abs(dy)) > 1 ? { tx: player.tx + step.x, ty: player.ty + step.y } : { tx: player.tx, ty: player.ty }
-  return { pikachu, pikachuFacing: facing(dx, dy), wildFacing: facing(-dx, -dy) }
+/**
+ * ECO-BATTLE-SCENE-1: the battle's scene is the server's (decided once, when it was reserved): the
+ * Pikachu's tile and both facings. No client computes it any more, so the owner and every spectator
+ * draw the very same scene, wherever the trainer walks. Null when the server gave none.
+ */
+export function stageFrom(stage: Partial<Pick<EcoBattleStage, 'pokemon' | 'pokemonFacing' | 'wildFacing'>> | null | undefined): Stage | null {
+  if (!stage?.pokemon || !stage.pokemonFacing || !stage.wildFacing) return null
+  return { pikachu: { tx: stage.pokemon.tx, ty: stage.pokemon.ty }, pikachuFacing: stage.pokemonFacing, wildFacing: stage.wildFacing }
 }

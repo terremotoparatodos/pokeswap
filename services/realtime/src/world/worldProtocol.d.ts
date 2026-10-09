@@ -54,7 +54,7 @@ export interface EcoEncounter {
   /** ECO-GAMEPLAY-2: reserved for someone's test battle (absent from an older server). */
   readonly busy?: boolean
   /** ECO-BATTLE-SCENE-1: where a busy encounter stands frozen (its battle's scene); absent when free. */
-  readonly stand?: { readonly tx: number; readonly ty: number }
+  readonly stand?: { readonly tx: number; readonly ty: number; readonly dir: 'up' | 'down' | 'left' | 'right' }
 }
 
 /** ECO-BATTLE-SCENE-1: a test battle's scene, decided by the server when it is reserved. */

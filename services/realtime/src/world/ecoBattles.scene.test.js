@@ -48,7 +48,7 @@ test('SC01 the wild one freezes where it is seen, not at home; owner, spectators
   const pub = messagesOf(b.client, WORLD_MESSAGE.ECO_BATTLE_PUBLIC)[0]
   assert.deepEqual([pub.stage.wild, pub.stage.pokemon, pub.stage.pokemonFacing], [stage.wild, stage.pokemon, stage.pokemonFacing])
   s.world.flush()
-  for (const viewer of [a, b]) assert.deepEqual(view(s, viewer.client, target.id).stand, stage.wild, `${viewer.id}'s area list`)
+  for (const viewer of [a, b]) assert.deepEqual(view(s, viewer.client, target.id).stand, { ...stage.wild, dir: stage.wildFacing }, `${viewer.id}'s area list`)
 })
 
 test('SC02 the 3-tile limit is measured from where it is seen: in range of the pose though 4+ from home starts; 4 from the pose does not', async () => {
@@ -88,7 +88,7 @@ test('SC03 the scene stays put: ticks pass and the owner walks away; tiles and f
   }
   for (const m of messagesOf(b.client, WORLD_MESSAGE.ECO_BATTLE_PUBLIC)) assert.deepEqual([m.stage.wild, m.stage.pokemon], [stage.wild, stage.pokemon])
   s.world.flush()
-  assert.deepEqual(view(s, b.client, target.id).stand, stage.wild)
+  assert.deepEqual(view(s, b.client, target.id).stand, { ...stage.wild, dir: stage.wildFacing })
   assert.equal(s.world.ecoBattles.isBusy(target.id), true, 'walking away never cancels it')
 })
 
