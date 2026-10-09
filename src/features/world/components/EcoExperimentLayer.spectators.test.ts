@@ -136,4 +136,49 @@ describe('ECO experiment layer · watching someone else’s battle', () => {
       expect(s.locks, 'only the own battle holds the player').toEqual([false, true])
     } finally { s.wrapper.unmount() }
   })
+
+  // ── Review of 3decc3d: S1 and S2 ──
+
+  it('S1 the area shown changes before the world snapshot: scenes and marks leave at once; late messages do not bring them back', async () => {
+    const s = setup()
+    try {
+      await s.send(theirs(7, { events: [damage(1)] }))
+      expect(s.drawn().filter(x => x.bar)).toHaveLength(2)
+      expect(s.labels()).toEqual(['-3'])
+      await s.wrapper.setProps({ areaId: 'cueva-inicial' }); await flushPromises() // the game entered; no snapshot yet
+      expect(s.drawn()).toEqual([])
+      expect(s.labels()).toEqual([])
+      await s.send(theirs(8, { events: [damage(2)] }))
+      expect(s.drawn()).toEqual([])
+      expect(s.labels()).toEqual([])
+      // back without a snapshot (a refused crossing): still nothing until the server re-sends
+      await s.wrapper.setProps({ areaId: 'pradera' }); await flushPromises()
+      await s.send(theirs(9, { events: [damage(3)] }))
+      expect(s.drawn()).toEqual([])
+      s.world.snapshot({ now: 3, areaId: 'pradera', chunks: [], nodes: [], eco: pradera }); await flushPromises()
+      await s.send(theirs(9))
+      expect(s.drawn().filter(x => x.bar)).toHaveLength(2)
+      expect(s.labels()).toEqual([])
+    } finally { s.wrapper.unmount() }
+  })
+
+  it('S2 the same individual fought again while the earlier end shows: one Pikachu and one pair of bars; another individual’s battle stays', async () => {
+    const s = setup()
+    try {
+      const another = (seq: number) => theirs(seq, { battleId: 'b-another', encounterId: MINE, stage: { owner: { tx: 0, ty: 3 }, wild: { tx: 2, ty: 0 } } })
+      await s.send(theirs(1))
+      await s.send(another(1))
+      await s.send(theirs(2, { ended: { outcome: 'fled' } }))
+      expect(s.labels()).toContain('Huyó')
+      await s.send(theirs(1, { battleId: 'b-theirs-again', stage: { owner: { tx: 2, ty: 2 }, wild: { tx: 4, ty: 2 } } }))
+      const pikachus = s.drawn().filter(x => x.sprite)
+      expect(pikachus).toHaveLength(2) // this individual's new battle + the other individual's
+      expect(s.drawn().filter(x => x.bar)).toHaveLength(4)
+      expect(s.labels()).not.toContain('Huyó')
+      // nothing of the replaced battle comes back
+      await s.send(theirs(5, { events: [damage(9)] }))
+      expect(s.drawn().filter(x => x.sprite)).toHaveLength(2)
+      expect(s.labels()).toEqual([])
+    } finally { s.wrapper.unmount() }
+  })
 })

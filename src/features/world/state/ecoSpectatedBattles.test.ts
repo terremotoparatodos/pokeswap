@@ -142,6 +142,57 @@ describe('EcoSpectatedBattles', () => {
     expect(s.store.list()).toEqual([])
   })
 
+  // ── Review of 3decc3d: S1 (the seen area runs ahead of the world snapshot), S2 (one scene per individual) ──
+
+  it('S1 the area the player sees changes before the snapshot: its battles and their end timers go at once; late messages do not bring them back; coming back waits for the server', () => {
+    const s = setup()
+    s.store.setViewArea('pradera')
+    s.send(view({ seq: 1, events: [damage(1)] }))
+    s.send(view({ seq: 1, battleId: 'b2', encounterId: 'eco-n:pradera:soto:1:1', ended: { outcome: 'fled' } }))
+    expect(s.store.list()).toHaveLength(2)
+    s.store.setViewArea('cueva-inicial') // the game entered the cave; the server has not answered yet
+    expect(s.store.list()).toEqual([])
+    expect(s.timers.every(t => t.cancelled)).toBe(true)
+    s.send(view({ seq: 2, revision: 2, events: [damage(2)] })) // Pradera's, still flowing to this socket
+    expect(s.store.list()).toEqual([])
+    expect(s.events).toEqual([['b1', [1]]])
+    // back in Pradera before any snapshot (e.g. a refused crossing): nothing until the server re-sends
+    s.store.setViewArea('pradera')
+    s.send(view({ seq: 3, revision: 3, events: [damage(3)] }))
+    expect(s.store.list()).toEqual([])
+    s.w.snapshot({ now: 2, areaId: 'pradera', chunks: [], nodes: [] })
+    s.send(view({ seq: 3, revision: 4 }))
+    expect(s.store.list().map(b => [b.battleId, b.view.revision])).toEqual([['b1', 4]])
+    expect(s.events).toEqual([['b1', [1]]])
+  })
+
+  it('S1 the snapshot may also come first: the new area’s battles wait, unseen, until the player sees that area', () => {
+    const s = setup()
+    s.store.setViewArea('pradera')
+    s.w.snapshot({ now: 2, areaId: 'cueva-inicial', chunks: [], nodes: [] })
+    s.send(view({ seq: 1, areaId: 'cueva-inicial', events: [damage(1)] }))
+    expect(s.store.list()).toEqual([])
+    expect(s.events).toEqual([])
+    s.store.setViewArea('cueva-inicial')
+    expect(s.store.list().map(b => b.areaId)).toEqual(['cueva-inicial'])
+  })
+
+  it('S2 a new battle against the same individual replaces the earlier one still showing its end; distinct individuals stay side by side', () => {
+    const s = setup()
+    s.store.setViewArea('pradera')
+    s.send(view({ seq: 1 }))
+    s.send(view({ seq: 1, battleId: 'other', encounterId: 'eco-n:pradera:soto:1:9' }))
+    s.send(view({ seq: 2, revision: 5, ended: { outcome: 'fled' } }))
+    s.advance(300)
+    s.send(view({ seq: 1, battleId: 'b1-again', revision: 1, stage: { owner: { tx: 2, ty: 0 }, wild: { tx: 3, ty: 0 } } }))
+    expect(s.store.list().map(b => b.battleId).sort()).toEqual(['b1-again', 'other'])
+    expect(s.timers.filter(t => !t.cancelled)).toHaveLength(0)
+    // the replaced battle never comes back, whatever arrives for it
+    s.send(view({ seq: 9, revision: 9 }))
+    s.advance(ECO_SPECTATOR_END_MS)
+    expect(s.store.list().map(b => b.battleId).sort()).toEqual(['b1-again', 'other'])
+  })
+
   it('dispose unhooks it from the world', () => {
     const s = setup()
     s.store.dispose()

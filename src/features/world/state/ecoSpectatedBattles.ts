@@ -10,7 +10,13 @@
 //     time), restarts the interpolation origin;
 //   - an end is shown for ECO_SPECTATOR_END_MS, then the battle is gone;
 //   - a world snapshot (arrival, area change, rejoin) or a lost connection drops everything: the
-//     server sends what is still running, as it is now, right after the snapshot.
+//     server sends what is still running, as it is now, right after the snapshot;
+//   - the area the player SEES can change before that snapshot (the game enters the new area, then
+//     asks the server): its battles go at once, and that area's late messages are not taken again
+//     until the next world snapshot — so coming back shows only what the server re-sends then
+//     (every crossing, accepted or refused, ends in one);
+//   - one individual, one scene: a new battle against an encounter replaces any earlier one still
+//     shown (an end being displayed), which is then never taken again.
 
 import type { EcoBattleOutcome, EcoPublicBattle, EcoPublicEventEnvelope } from '../../../../services/realtime/src/world/worldProtocol.js'
 
@@ -57,6 +63,10 @@ export class EcoSpectatedBattles implements EcoSpectatorSink {
   private readonly removals = new Map<string, () => void>()
   private readonly listeners = new Set<(battles: readonly SpectatedBattle[]) => void>()
   private readonly eventListeners = new Set<(battleId: string, events: readonly EcoPublicEventEnvelope[]) => void>()
+  /** The area the player sees (the layer's), or null before it is known. */
+  private viewArea: string | null = null
+  /** Areas left since the last world snapshot: their messages are not taken until the next one. */
+  private readonly left = new Set<string>()
 
   /** `own()`: this player's own battle id, if any — never watched as someone else's. */
   constructor(
@@ -75,9 +85,27 @@ export class EcoSpectatedBattles implements EcoSpectatorSink {
     this.eventListeners.clear()
   }
 
-  /** The battles watched now (this area only). */
+  /** The battles watched now: those of the area the player sees. */
   list(): readonly SpectatedBattle[] {
-    return [...this.battles.values()]
+    return [...this.battles.values()].filter(entry => this.visible(entry.areaId))
+  }
+
+  /**
+   * The area the player sees changed (it may run ahead of the server's world snapshot): the other
+   * areas' battles go now, with their end timers, and the area left is not taken again until the
+   * next world snapshot.
+   */
+  setViewArea(areaId: string | null): void {
+    if (areaId === this.viewArea) return
+    if (this.viewArea !== null) this.left.add(this.viewArea)
+    this.viewArea = areaId
+    let dropped = false
+    for (const entry of [...this.battles.values()]) {
+      if (areaId === null || entry.areaId === areaId) continue
+      this.drop(entry.battleId)
+      dropped = true
+    }
+    if (dropped) this.notify()
   }
 
   subscribe(listener: (battles: readonly SpectatedBattle[]) => void): () => void {
@@ -97,9 +125,15 @@ export class EcoSpectatedBattles implements EcoSpectatorSink {
   message(payload: unknown): void {
     const view = publicBattle(payload)
     if (!view || this.endedIds.includes(view.battleId) || view.battleId === this.own()) return
-    if (view.areaId !== this.host.currentAreaId()) return
+    if (view.areaId !== this.host.currentAreaId() || this.left.has(view.areaId)) return
     const previous = this.battles.get(view.battleId)
     if (previous && view.seq <= previous.view.seq) return
+    // A new battle against an individual replaces any earlier one still shown for it.
+    if (!previous) {
+      for (const entry of [...this.battles.values()]) {
+        if (entry.encounterId === view.encounterId) { this.drop(entry.battleId); this.remember(entry.battleId) }
+      }
+    }
     const now = this.now()
     // Revisions never go back on one battle's stream; if one did, its state would not be taken.
     const state = previous && view.revision < previous.view.revision ? { ...previous.view, seq: view.seq, connected: view.connected, ended: view.ended } : view
@@ -114,7 +148,7 @@ export class EcoSpectatedBattles implements EcoSpectatorSink {
     })
     if (ended) this.finish(view.battleId)
     this.notify()
-    if (fresh.length) for (const listener of this.eventListeners) listener(view.battleId, fresh)
+    if (fresh.length && this.visible(view.areaId)) for (const listener of this.eventListeners) listener(view.battleId, fresh)
   }
 
   detached(): void {
@@ -122,6 +156,7 @@ export class EcoSpectatedBattles implements EcoSpectatorSink {
   }
 
   worldSnapshot(): void {
+    this.left.clear()
     this.clear()
   }
 
@@ -129,12 +164,29 @@ export class EcoSpectatedBattles implements EcoSpectatorSink {
 
   /** Shown for ECO_SPECTATOR_END_MS from its arrival, then removed; its id is never taken again. */
   private finish(battleId: string): void {
-    this.endedIds.push(battleId)
-    if (this.endedIds.length > ENDED_MEMORY) this.endedIds.shift()
+    this.remember(battleId)
     this.removals.set(battleId, this.schedule(() => {
       this.removals.delete(battleId)
       if (this.battles.delete(battleId)) this.notify()
     }, ECO_SPECTATOR_END_MS))
+  }
+
+  /** A battle id that is never taken again (finished, or replaced by a newer battle of its individual). */
+  private remember(battleId: string): void {
+    if (this.endedIds.includes(battleId)) return
+    this.endedIds.push(battleId)
+    if (this.endedIds.length > ENDED_MEMORY) this.endedIds.shift()
+  }
+
+  /** Out of the list now, with its end timer if any. */
+  private drop(battleId: string): void {
+    this.removals.get(battleId)?.()
+    this.removals.delete(battleId)
+    this.battles.delete(battleId)
+  }
+
+  private visible(areaId: string): boolean {
+    return this.viewArea === null || areaId === this.viewArea
   }
 
   private clear(): void {

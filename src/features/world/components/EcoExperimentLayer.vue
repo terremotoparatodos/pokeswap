@@ -102,6 +102,8 @@ const ownBattleId = () => (battle.value.phase === 'battle' || battle.value.phase
 const spectators = new EcoSpectatedBattles(props.world, () => session.clock(), ownBattleId)
 const stopSpectated = spectators.subscribe(list => battleWorld.setSpectated(list))
 const stopSpectatorEvents = spectators.onEvents((battleId, events) => battleWorld.pushSpectatorEvents(battleId, events))
+// The area the player sees, as soon as it changes (before the server's snapshot of the new one).
+watch(() => props.areaId, areaId => spectators.setViewArea(areaId), { immediate: true, flush: 'sync' })
 onMounted(() => emit('overlay', battleWorld.overlay))
 onUnmounted(() => {
   emit('overlay', null)
