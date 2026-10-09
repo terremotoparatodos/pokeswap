@@ -167,6 +167,11 @@ export class WildlandsGame {
       && (habitat === 'any' || this.area.isWater(tx, ty) === (habitat === 'water')),
   }
   private inputLocked = false
+  /**
+   * ECO-BATTLE-SCENE-1: a test battle is being fought. The trainer walks and chats as ever, but takes
+   * no portal and starts no other activity (the server refuses both too: this is only the courtesy).
+   */
+  private battleRestricted = false
   private readonly travel = new AreaTravel()
   private readonly entrances: Entrances
   private readonly onInspect?: (hit: PlazaHit | WildHit) => void
@@ -700,6 +705,11 @@ export class WildlandsGame {
     this.worldLayer = layer
   }
 
+  /** Where a world point (world px) was drawn last frame, in CSS px on the canvas (ECO-BATTLE-PANEL-1). */
+  screenOf(wx: number, wy: number): { x: number; y: number; scale: number } | null {
+    return this.renderer.screenOf(wx, wy)
+  }
+
   /** Prototype effects drawn with the scene; null removes them. */
   setSceneOverlay(overlay: SceneOverlay | null): void {
     this.overlay = overlay
@@ -709,6 +719,18 @@ export class WildlandsGame {
   setInputLocked(locked: boolean): void {
     this.inputLocked = locked
     if (locked) this.nav.cancel()
+  }
+
+  /** ECO-BATTLE-SCENE-1: a test battle restricts portals and activities, never movement (see the field). */
+  setBattleRestricted(restricted: boolean): void {
+    this.battleRestricted = restricted
+  }
+
+  /** True (and said) when the battle keeps an activity on this tile from starting. */
+  private heldByBattle(target: WorldObjectTarget): boolean {
+    if (!this.battleRestricted || !(this.isWorldObject?.(target) ?? false)) return false
+    this.say('Terminá o huí del combate para hacer otra actividad.')
+    return true
   }
 
   /** Read-only snapshot of the local player for overlays. */
@@ -772,6 +794,7 @@ export class WildlandsGame {
     const dx = tile.tx - this.player.tx
     const dy = tile.ty - this.player.ty
     if (Math.abs(dx) + Math.abs(dy) !== 1) return false
+    if (this.heldByBattle({ area: this.area, tx: tile.tx, ty: tile.ty })) return true
     const handled = this.onWorldObject({ area: this.area, tx: tile.tx, ty: tile.ty })
     if (handled) this.player.dir = dx > 0 ? 'right' : dx < 0 ? 'left' : dy > 0 ? 'down' : 'up'
     return handled
@@ -788,6 +811,11 @@ export class WildlandsGame {
 
   /** Starts a fade-out trip to another area. */
   travelTo(to: AreaId): void {
+    if (this.battleRestricted) {
+      this.nav.cancel()
+      this.say('No podés salir del área durante un combate.')
+      return
+    }
     // R30 intentionally shares just Ciudad Corazón and Pradera. Letting a
     // legacy local-only gate transition while presence is active would split
     // client and server area authority.
@@ -850,6 +878,7 @@ export class WildlandsGame {
       this.onInspect!(hit)
       return
     }
+    if (!other && this.heldByBattle({ area: this.area, tx, ty })) return
     if (!other && this.onWorldObject?.({ area: this.area, tx, ty })) return
     const said = other ? actorLine(other, this.area.kind === 'town', tx, ty) : null
     if (other && said) {

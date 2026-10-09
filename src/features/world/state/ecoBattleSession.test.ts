@@ -116,6 +116,58 @@ describe('EcoBattleSession', () => {
     expect(session.view).toMatchObject({ phase: 'ended', outcome: 'disconnected', retired: false })
   })
 
+  it('the same snapshot again (a copy deserialized anew) or an older one restarts neither the interpolation nor the countdown; the rest of the message still counts; a resume restarts both', () => {
+    const { w, session, advance } = connected()
+    const delivered: number[] = []
+    session.onEvents(events => delivered.push(...events.map(e => e.sequence)))
+    const event = (sequence: number) => ({ battleId: 'eco-battle-a-0000000a', sequence, revision: 2, actionId: null, serverTimeMs: 0, event: { type: 'ACTION_STARTED', combatantId: 'wild-0' } })
+    const battleView = () => { const view = session.view; if (view.phase !== 'battle') throw new Error('battle expected'); return view }
+    session.engage('x')
+    w.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: 'x', ok: true, battle: info(1, 60_000) })
+    w.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, { battleId: 'eco-battle-a-0000000a', events: [event(1)], snapshot: snap(2, 100) })
+    const shown = battleView().snapshot
+    expect(battleView().snapshotAt).toBe(1_000)
+    advance(500)
+    expect(session.remainingMs()).toBe(59_400)
+
+    // the same state, deserialized again, with a result and a new event: those count, the clock does not move back
+    w.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, {
+      battleId: 'eco-battle-a-0000000a', events: [event(1), event(2)], snapshot: JSON.parse(JSON.stringify(snap(2, 100))),
+      result: { kind: 'rejected', reason: 'STALE_ACTION', actionId: 'player-a:1', revision: 2, nextActionSequence: 4 },
+    })
+    expect(battleView()).toMatchObject({ snapshotAt: 1_000, lastRejection: 'STALE_ACTION' })
+    expect(battleView().snapshot).toBe(shown)
+    expect(session.remainingMs()).toBe(59_400)
+    expect(delivered).toEqual([1, 2])
+    expect(session.useMove(84, false)).toBe(true)
+
+    // an older state: ignored; its accepted result still clears the rejection
+    w.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, { battleId: 'eco-battle-a-0000000a', events: [], snapshot: snap(1, 0), result: { kind: 'accepted', actionId: 'player-a:4', revision: 2, events: [] } })
+    expect(battleView()).toMatchObject({ snapshotAt: 1_000, lastRejection: null })
+    expect(battleView().snapshot).toBe(shown)
+    expect(session.remainingMs()).toBe(59_400)
+
+    // a later state: restarts both from the server's numbers
+    w.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, { battleId: 'eco-battle-a-0000000a', events: [], snapshot: snap(3, 700) })
+    expect(battleView()).toMatchObject({ snapshotAt: 1_500, snapshot: { revision: 3 } })
+    expect(session.remainingMs()).toBe(59_300)
+
+    // pause and a valid resume: the server's battle again, the clock from its numbers; then the same state again changes nothing
+    w.detach()
+    advance(3_000)
+    expect(session.remainingMs()).toBe(59_300)
+    w.attach(() => {})
+    w.snapshot({ now: 2, areaId: 'pradera', chunks: [], nodes: [] })
+    w.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: null, encounterId: 'x', ok: true, resumed: true, battle: { ...info(5, 40_000), snapshot: snap(3, 700) } })
+    expect(battleView()).toMatchObject({ connected: true, snapshotAt: 4_500, snapshot: { revision: 3 } })
+    expect(session.remainingMs()).toBe(40_000)
+    advance(200)
+    w.ecoBattleMessage(WORLD_MESSAGE.ECO_BATTLE, { battleId: 'eco-battle-a-0000000a', events: [event(2)], snapshot: structuredClone(snap(3, 700)) })
+    expect(battleView().snapshotAt).toBe(4_500)
+    expect(session.remainingMs()).toBe(39_800)
+    expect(delivered).toEqual([1, 2])
+  })
+
   it('offline or unanswered engages resolve locally as refused (the server still decides)', () => {
     vi.useFakeTimers()
     try {

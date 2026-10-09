@@ -8,7 +8,7 @@ export declare const WORLD_PROTOCOL: 3
 export declare const WORK_TICK_MS: 600
 export declare const ECO_PROTOCOL: 1
 /** ECO-GAMEPLAY-2 (provisional): engage range in Chebyshev tiles; the server enforces it. */
-export declare const ECO_ENGAGE_RANGE: 6
+export declare const ECO_ENGAGE_RANGE: 3
 
 export declare const WORLD_MESSAGE: Readonly<{
   WORK: 'world:work'
@@ -28,6 +28,7 @@ export declare const WORLD_MESSAGE: Readonly<{
   ECO_ENGAGE_RESULT: 'world:eco-engage-result'
   ECO_BATTLE: 'world:eco-battle'
   ECO_BATTLE_END: 'world:eco-battle-end'
+  ECO_BATTLE_PUBLIC: 'world:eco-battle-public'
   PLAYER_STATE: 'player:state'
 }>
 
@@ -52,6 +53,20 @@ export interface EcoEncounter {
   readonly ty: number
   /** ECO-GAMEPLAY-2: reserved for someone's test battle (absent from an older server). */
   readonly busy?: boolean
+  /** ECO-BATTLE-SCENE-1: where a busy encounter stands frozen (its battle's scene); absent when free. */
+  readonly stand?: { readonly tx: number; readonly ty: number; readonly dir: 'up' | 'down' | 'left' | 'right' }
+}
+
+/** ECO-BATTLE-SCENE-1: a test battle's scene, decided by the server when it is reserved. */
+export interface EcoBattleStage {
+  /** The owner's tile when it was reserved (the owner may walk afterwards). */
+  readonly owner: { readonly tx: number; readonly ty: number }
+  /** The wild one, frozen where it was seen. */
+  readonly wild: { readonly tx: number; readonly ty: number }
+  /** The player's Pokémon, in front of the wild one. */
+  readonly pokemon: { readonly tx: number; readonly ty: number }
+  readonly pokemonFacing: 'up' | 'down' | 'left' | 'right'
+  readonly wildFacing: 'up' | 'down' | 'left' | 'right'
 }
 
 /** The whole public population of one area. `not-simulated`: nobody there long enough, or no population in this area. */
@@ -83,7 +98,7 @@ export declare function ecoFleeIntent(value: unknown): { battleId: string } | nu
 
 export type EcoEngageRefusal =
   | 'invalid' | 'unavailable' | 'battle-unavailable' | 'not-player' | 'not-current-socket' | 'already-battling'
-  | 'not-alive' | 'other-area' | 'too-far' | 'busy' | 'client-outdated' | 'disabled'
+  | 'not-alive' | 'other-area' | 'too-far' | 'busy' | 'no-room' | 'client-outdated' | 'disabled'
 
 /** A running test battle as its owner receives it. The player's side is a SYNTHETIC fixture. */
 export interface EcoBattleInfo {
@@ -95,6 +110,8 @@ export interface EcoBattleInfo {
   readonly snapshot: ClientBattleSnapshot
   /** Battle time left (it only passes while the owner is connected). */
   readonly expiresInMs: number
+  /** ECO-BATTLE-SCENE-1: where the battle stands (absent from an older server). */
+  readonly stage?: EcoBattleStage | null
 }
 
 export interface EcoEngageResult {
@@ -126,6 +143,57 @@ export interface EcoBattleEnd {
   /** True only for the victory that actually retired the individual. */
   readonly retired: boolean
   readonly snapshot: ClientBattleSnapshot
+}
+
+/** ECO-BATTLE-SPECTATORS-1: one combatant as a spectator sees it (whitelisted fields only). */
+export interface EcoPublicCombatant {
+  readonly speciesId: number | null
+  readonly level: number | null
+  readonly maxHp: number | null
+  readonly currentHp: number | null
+  readonly majorStatus: string
+  readonly confused: boolean
+  readonly spe: number | null
+  readonly speStage: number
+  readonly actionElapsedMs: number
+  readonly cooldownMultiplier: number
+}
+
+/** The event types a spectator draws, each with only its whitelisted fields. */
+export type EcoPublicEvent =
+  | { readonly type: 'MOVE_USED'; readonly combatantId: string; readonly moveId: number; readonly targetId: string | null; readonly hits: number }
+  | { readonly type: 'MOVE_MISSED'; readonly combatantId: string; readonly moveId: number }
+  | { readonly type: 'DAMAGE'; readonly combatantId: string; readonly sourceId: string | null; readonly amount: number; readonly remainingHp: number; readonly critical: boolean; readonly effectiveness: number; readonly hit: number; readonly cause: string }
+  | { readonly type: 'HEAL'; readonly combatantId: string; readonly amount: number; readonly remainingHp: number; readonly cause: string }
+  | { readonly type: 'STATUS_APPLIED'; readonly combatantId: string; readonly status: string; readonly sourceId: string | null }
+  | { readonly type: 'CONFUSION_APPLIED' | 'PROTECT_GAINED' | 'PROTECT_BLOCKED' | 'FAINTED'; readonly combatantId: string }
+
+export interface EcoPublicEventEnvelope {
+  readonly sequence: number
+  readonly event: EcoPublicEvent
+}
+
+/**
+ * ECO-BATTLE-SPECTATORS-1 (`world:eco-battle-public`): someone else's test battle in this area.
+ * `seq` grows strictly per battle; `ended` marks its last message.
+ */
+export interface EcoPublicBattle {
+  readonly battleId: string
+  readonly encounterId: string
+  readonly areaId: string
+  readonly seq: number
+  readonly stage: { readonly owner: { readonly tx: number; readonly ty: number }; readonly wild: { readonly tx: number; readonly ty: number } } & Partial<Pick<EcoBattleStage, 'pokemon' | 'pokemonFacing' | 'wildFacing'>>
+  readonly revision: number
+  readonly timeMs: number
+  /** False while the owner is disconnected (the battle is paused). */
+  readonly connected: boolean
+  readonly config: {
+    readonly actionBar: { readonly baseSeconds?: number; readonly referenceSpeed?: number; readonly minSeconds?: number; readonly maxSeconds?: number; readonly paralysisMultiplier?: number }
+    readonly statStages: { readonly minStage?: number; readonly maxStage?: number; readonly multiplierByStage: Readonly<Record<string, number>> }
+  }
+  readonly combatants: Readonly<Record<string, EcoPublicCombatant>>
+  readonly events?: readonly EcoPublicEventEnvelope[]
+  readonly ended?: { readonly outcome: EcoBattleOutcome }
 }
 
 export interface WildMessage {

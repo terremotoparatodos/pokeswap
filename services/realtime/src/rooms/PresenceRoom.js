@@ -328,7 +328,11 @@ export class PresenceRoom extends Room {
     // with the actor's real area and tile, so a client waiting for the area
     // it asked for (an old bundle's "Ciudad" included) reconciles to where it
     // actually is. Running work is untouched: the actor did not move.
-    const transition = areaTransition(actor, intent.areaId)
+    // ECO-BATTLE-SCENE-1: a test battle keeps its owner in its area until it ends (refused like a
+    // crossing the rules do not allow: nothing moves, the client is told where it really is).
+    // A request for its own area (a resync) is not a crossing and stays allowed.
+    const held = intent.areaId !== actor.areaId && !world.mayLeaveArea(actor.id)
+    const transition = held ? null : areaTransition(actor, intent.areaId)
     if (!transition) {
       this.reject(client, AREA_TRANSITION_DENIED, 'area')
       this.sendSnapshot(client, actor)

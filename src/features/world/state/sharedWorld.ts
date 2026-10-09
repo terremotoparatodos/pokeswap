@@ -10,6 +10,7 @@ import type { EcoArea, EcoMessage, EcoRetireResult, PlayerStateMessage, WildMess
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { WorldSend, WorldTransportSink } from '../api/worldTransport'
 import type { EcoBattleHost, EcoBattleSink } from './ecoBattleSession'
+import type { EcoSpectatorHost, EcoSpectatorSink } from './ecoSpectatedBattles'
 import { devWarn } from '../../../shared/utils/devTools'
 import { WorldClock } from '../domain/worldClock'
 import { WorldResourceMirror } from '../domain/worldResources'
@@ -26,7 +27,7 @@ export interface OwnAction {
   readonly startedAt: number
 }
 
-export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHost {
+export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHost, EcoSpectatorHost {
   readonly clock = new WorldClock()
   readonly resources = new WorldResourceMirror()
   readonly overlay: WorldResourceOverlay
@@ -48,6 +49,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHos
   private readonly ecoPending = new Map<number, { resolve: (result: EcoRetireResult) => void; timer: ReturnType<typeof setTimeout> }>()
   /** ECO-GAMEPLAY-2 (experimental): the lazily loaded test-battle session, if any. */
   private ecoBattleSink: EcoBattleSink | null = null
+  private ecoSpectatorSink: EcoSpectatorSink | null = null
   private player: PlayerStateMessage | null = null
   private readonly playerListeners = new Set<(state: PlayerStateMessage) => void>()
 
@@ -97,6 +99,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHos
     }
     this.ecoPending.clear()
     this.ecoBattleSink?.detached()
+    this.ecoSpectatorSink?.detached()
   }
 
   snapshot(snapshot: WorldSnapshot): void {
@@ -108,6 +111,7 @@ export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHos
     // Absent outside the experiment: then the roster path applies, unchanged.
     this.setEco(snapshot.eco ?? null)
     this.ecoBattleSink?.worldSnapshot()
+    this.ecoSpectatorSink?.worldSnapshot()
   }
 
   // ── ECO-GAMEPLAY-1 (experimental) ────────────────────────────────────────
@@ -173,7 +177,17 @@ export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHos
   }
 
   ecoBattleMessage(type: string, payload: unknown): void {
-    this.ecoBattleSink?.message(type, payload)
+    // ECO-BATTLE-SPECTATORS-1: someone else's battle goes to the spectator side, never to the owner's session.
+    if (type === WORLD_MESSAGE.ECO_BATTLE_PUBLIC) this.ecoSpectatorSink?.message(payload)
+    else this.ecoBattleSink?.message(type, payload)
+  }
+
+  setEcoSpectatorSink(sink: EcoSpectatorSink | null): void {
+    this.ecoSpectatorSink = sink
+  }
+
+  currentAreaId(): string | null {
+    return this.resources.areaId ?? null
   }
 
   wild(message: WildMessage): void {

@@ -10,12 +10,12 @@ const companion = createActor({ id: 'companion:25', kind: 'pokemon', habitat: 'a
 
 describe('wild taps', () => {
   it('selects only marked wild actors in worlds', () => {
-    expect(wildHitAt(world, { tile: null, actor: wild })).toEqual({ kind: 'wild', pokemonId: 25 })
+    expect(wildHitAt(world, { tile: null, actor: wild })).toMatchObject({ kind: 'wild', pokemonId: 25, actorId: wild.id })
     expect(wildHitAt(world, { tile: null, actor: companion })).toBeNull()
     expect(wildHitAt(town, { tile: null, actor: wild })).toBeNull()
   })
   it('supports the action key facing a wild actor', () => {
-    expect(wildHitFacing(world, wild)).toEqual({ kind: 'wild', pokemonId: 25 })
+    expect(wildHitFacing(world, wild)).toMatchObject({ kind: 'wild', pokemonId: 25, actorId: wild.id })
     expect(wildHitFacing(world, companion)).toBeNull()
   })
 })

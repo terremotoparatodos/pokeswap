@@ -1,23 +1,24 @@
 <template>
-  <aside class="eco-dev" aria-label="ECO experimental (desarrollo)">
+  <aside class="eco-dev" :class="{ 'eco-dev--collapsed': collapsed }" aria-label="ECO experimental (desarrollo)" @keydown.space.stop @keydown.enter.stop>
     <header>
-      <strong>ECO · experimento (dev)</strong>
+      <button type="button" class="eco-dev__toggle" :aria-expanded="!collapsed" @click="collapsed = !collapsed">{{ collapsed ? '▸' : '▾' }} ECO · depuración (dev)</button>
       <span>{{ statusLabel }} · {{ encounters.length }} en el área</span>
     </header>
+    <template v-if="!collapsed">
     <ol v-if="nearest.length">
       <li v-for="row in nearest" :key="row.id">
         <span class="eco-dev__who">#{{ row.speciesId }} · {{ row.short }}</span>
         <span class="eco-dev__where">({{ row.tx }}, {{ row.ty }}) · {{ row.distance }} t<template v-if="row.busy"> · ocupado</template></span>
         <span class="eco-dev__actions">
-          <button type="button" :disabled="!canEngage(row)" :title="engageHint(row)" @click="session.engage(row.id)">{{ row.busy ? 'Ocupado' : row.distance > ECO_ENGAGE_RANGE ? 'Lejos' : 'Combatir' }}</button>
+          <button type="button" :disabled="!canEngage(row)" :title="engageHint(row)" @click="props.session.engage(row.id)">{{ row.busy ? 'Ocupado' : row.distance > ECO_ENGAGE_RANGE ? 'Lejos' : 'Combatir' }}</button>
           <button type="button" :disabled="busy || row.busy" @click="retire(row.id)">Retirar (prueba)</button>
         </span>
       </li>
     </ol>
     <p v-else class="eco-dev__empty">Sin encuentros visibles en esta área.</p>
-    <EcoBattlePanel v-if="battle.phase !== 'idle'" :session="session" :view="battle" />
     <p v-if="last" class="eco-dev__last" role="status">{{ last }}</p>
-    <p class="eco-dev__note">Retirada de simulación: sin captura, drop ni recompensa.</p>
+    <p class="eco-dev__note">Herramienta secundaria: para jugar, tocá un Pokémon en el mapa. Retirada de simulación: sin captura, drop ni recompensa.</p>
+    </template>
   </aside>
 </template>
 
@@ -28,28 +29,31 @@
 //
 // ECO-GAMEPLAY-2: it also starts a TEST battle against one encounter (the server reserves it,
 // validates identity, area, distance and that nobody else holds it, and decides the result).
-import { computed, onUnmounted, ref, shallowRef } from 'vue'
+//
+// ECO-PRESENTATION-1: a SECONDARY tool (collapsed by default). Playing goes through the map (tap an
+// individual → its card → the battle screen); this list shares that same session and screen.
+// SC-R1: positions and distances are where each individual is SEEN now (`seenAt`, its shared patrol
+// pose), the tile the server measures the start range from — the same as the card's.
+// Space and Enter on its controls stay here: the map listens on the window and would take Space as
+// «interact» (and cancel the button's own activation), like the card and the battle panel.
+import { computed, ref } from 'vue'
 import type { EcoArea, EcoEncounter } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { ECO_ENGAGE_RANGE } from '../../../../services/realtime/src/world/worldProtocol.js'
-import { EcoBattleSession, type EcoBattleView } from '../state/ecoBattleSession'
+import type { EcoBattleSession, EcoBattleView } from '../state/ecoBattleSession'
+import { tileDistance, type Tile } from '../domain/ecoSeenTile'
 import type { SharedWorld } from '../state/sharedWorld'
-import EcoBattlePanel from './EcoBattlePanel.vue'
 
-const props = defineProps<{ world: SharedWorld; areaId: string; tx: number; ty: number }>()
+const props = defineProps<{ world: SharedWorld; session: EcoBattleSession; battle: EcoBattleView; area: EcoArea | null; tx: number; ty: number; seenAt: (encounter: EcoEncounter) => Tile }>()
 
-const area = shallowRef<EcoArea | null>(null)
-const stop = props.world.onEco(next => { area.value = next })
-onUnmounted(stop)
-
-const session = new EcoBattleSession(props.world)
-const battle = shallowRef<EcoBattleView>(session.view)
-const stopBattle = session.subscribe(view => { battle.value = view })
-onUnmounted(() => { stopBattle(); session.dispose() })
-
-const encounters = computed(() => (area.value?.areaId === props.areaId ? area.value.encounters : []))
-const statusLabel = computed(() => ({ active: 'activa', 'not-simulated': 'sin simular', unavailable: 'no disponible' })[area.value?.status ?? 'unavailable'] ?? '—')
+const collapsed = ref(true)
+const battle = computed(() => props.battle)
+const encounters = computed(() => props.area?.encounters ?? [])
+const statusLabel = computed(() => ({ active: 'activa', 'not-simulated': 'sin simular', unavailable: 'no disponible' })[props.area?.status ?? 'unavailable'] ?? '—')
 const nearest = computed(() => encounters.value
-  .map(e => ({ ...e, short: e.id.split(':').slice(2).join(':'), distance: Math.max(Math.abs(e.tx - props.tx), Math.abs(e.ty - props.ty)) }))
+  .map(e => {
+    const seen = props.seenAt(e)
+    return { ...e, ...seen, short: e.id.split(':').slice(2).join(':'), distance: tileDistance(seen, { tx: props.tx, ty: props.ty }) }
+  })
   .sort((a, b) => a.distance - b.distance || a.id.localeCompare(b.id))
   .slice(0, 8))
 
@@ -87,6 +91,8 @@ async function retire(id: string) {
   font: 12px/1.35 system-ui, sans-serif;
 }
 .eco-dev header { display: flex; flex-direction: column; margin-bottom: 6px; }
+.eco-dev--collapsed header { margin-bottom: 0; }
+.eco-dev__toggle { align-self: flex-start; padding: 0; border: 0; background: none; color: inherit; font-weight: 700; cursor: pointer; }
 .eco-dev ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; }
 .eco-dev li { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; align-items: center; }
 .eco-dev__where { grid-column: 1; opacity: 0.75; }

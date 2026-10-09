@@ -7,8 +7,9 @@
 // Only the lazily loaded battle panel imports this module, so a production build (where the
 // experiment is a constant `false`) never contains it.
 
+import type { AuthorityEventEnvelope } from '../../battle/authority'
 import type {
-  EcoBattleEnd, EcoBattleMessage, EcoBattleOutcome, EcoEngageResult,
+  EcoBattleEnd, EcoBattleMessage, EcoBattleOutcome, EcoBattleStage, EcoEngageResult,
 } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProtocol.js'
 import type { ClientBattleSnapshot } from '../../battle/authority'
@@ -43,10 +44,14 @@ export type EcoBattleView =
     readonly speciesId: number
     readonly fixtureLabel: string
     readonly snapshot: ClientBattleSnapshot
+    /** Local time (this session's clock) when `snapshot` arrived: the origin of any visual interpolation. */
+    readonly snapshotAt: number
     /** Battle time left as of the last server message (it only passes while connected). */
     readonly expiresInMs: number
     readonly connected: boolean
     readonly lastRejection: string | null
+    /** ECO-BATTLE-SCENE-1: where the battle stands, as the server decided it (null from an older server). */
+    readonly stage: EcoBattleStage | null
   }
   | { readonly phase: 'ended'; readonly encounterId: string; readonly battleId: string; readonly outcome: EcoBattleOutcome; readonly retired: boolean; readonly snapshot: ClientBattleSnapshot }
 
@@ -62,6 +67,9 @@ export class EcoBattleSession implements EcoBattleSink {
   private controllerId = ''
   private nextSequence = 1
   private battleTimeAt: { ms: number; at: number } | null = null
+  /** ECO-OVERWORLD-BATTLE-1: the server's events, once each (by sequence), for the battlefield marks. */
+  private readonly eventListeners = new Set<(events: readonly AuthorityEventEnvelope[]) => void>()
+  private lastEvent = { battleId: '', sequence: -1 }
 
   constructor(private readonly host: EcoBattleHost, private readonly now: () => number = () => Date.now()) {
     host.setEcoBattleSink(this)
@@ -71,6 +79,18 @@ export class EcoBattleSession implements EcoBattleSink {
     this.clearTimer()
     this.host.setEcoBattleSink(null)
     this.listeners.clear()
+    this.eventListeners.clear()
+  }
+
+  /** The current battle's new events, in order and never twice (a resent or late message adds nothing). */
+  onEvents(listener: (events: readonly AuthorityEventEnvelope[]) => void): () => void {
+    this.eventListeners.add(listener)
+    return () => this.eventListeners.delete(listener)
+  }
+
+  /** Local time, the same clock `snapshotAt` is measured with. */
+  clock(): number {
+    return this.now()
   }
 
   get view(): EcoBattleView {
@@ -174,9 +194,11 @@ export class EcoBattleSession implements EcoBattleSink {
     // A continuation, never a fresh count: actions sent before a reconnection stay below it.
     this.nextSequence = battle.joinAck.nextActionSequence
     this.battleTimeAt = { ms: battle.expiresInMs, at: this.now() }
+    if (this.lastEvent.battleId !== battle.battleId) this.lastEvent = { battleId: battle.battleId, sequence: -1 }
     this.set({
       phase: 'battle', encounterId: result.encounterId, battleId: battle.battleId, speciesId: battle.speciesId,
-      fixtureLabel: battle.fixtureLabel, snapshot: battle.snapshot, expiresInMs: battle.expiresInMs, connected: true, lastRejection: null,
+      fixtureLabel: battle.fixtureLabel, snapshot: battle.snapshot, snapshotAt: this.now(), expiresInMs: battle.expiresInMs, connected: true, lastRejection: null,
+      stage: battle.stage ?? null,
     })
   }
 
@@ -192,12 +214,21 @@ export class EcoBattleSession implements EcoBattleSink {
     } else if (result) {
       lastRejection = null
     }
-    const snapshot = message.snapshot && message.snapshot.revision >= battle.snapshot.revision ? message.snapshot : battle.snapshot
-    if (snapshot !== battle.snapshot && this.battleTimeAt) {
+    // The snapshot is deduplicated on its own: the rest of the message (the result above, the
+    // events below) is handled whatever it brings. Only a later state replaces the one shown and
+    // restarts the interpolation and the countdown from it; the same state received again (a
+    // replay, a copy deserialized anew) or an older one changes neither. Resuming after a
+    // reconnection is `engageResult` (`resumed`), which always restarts both from the server.
+    const snapshot = message.snapshot && isLater(message.snapshot, battle.snapshot) ? message.snapshot : battle.snapshot
+    const advanced = snapshot !== battle.snapshot
+    if (advanced && this.battleTimeAt) {
       const passed = snapshot.timeMs - battle.snapshot.timeMs
       this.battleTimeAt = { ms: Math.max(0, battle.expiresInMs - passed), at: this.now() }
     }
-    this.set({ ...battle, snapshot, expiresInMs: this.battleTimeAt?.ms ?? battle.expiresInMs, lastRejection })
+    const fresh = (message.events ?? []).filter(envelope => envelope.sequence > this.lastEvent.sequence)
+    if (fresh.length) this.lastEvent = { battleId: battle.battleId, sequence: fresh[fresh.length - 1].sequence }
+    this.set({ ...battle, snapshot, snapshotAt: advanced ? this.now() : battle.snapshotAt, expiresInMs: this.battleTimeAt?.ms ?? battle.expiresInMs, lastRejection })
+    if (fresh.length) for (const listener of this.eventListeners) listener(fresh)
   }
 
   private battleEnd(end: EcoBattleEnd): void {
@@ -220,4 +251,12 @@ export class EcoBattleSession implements EcoBattleSink {
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
   }
+}
+
+/**
+ * A later authoritative state. The battle authority advances the revision on every change it
+ * commits, the passing of time included, so an equal revision is the same state.
+ */
+function isLater(next: ClientBattleSnapshot, current: ClientBattleSnapshot): boolean {
+  return next.revision > current.revision
 }

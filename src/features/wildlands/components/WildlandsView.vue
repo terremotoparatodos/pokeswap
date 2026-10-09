@@ -21,7 +21,7 @@
     </transition>
 
     <DevHelp v-if="DevHelp" :fps="hud.fps" :frame-ms="hud.frameMs" />
-    <component :is="EcoDevPanel" v-if="EcoDevPanel" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" />
+    <component :is="EcoExperimentLayer" v-if="EcoExperimentLayer" ref="ecoLayerRef" :world="sharedWorld" :area-id="hud.areaId" :tx="hud.tx" :ty="hud.ty" :pokedex="pokedex" :map-focus="mapFocus" :project="projectWorld" @overlay="(overlay: SceneOverlay | null) => { if (ecoOverlaySlot) ecoOverlaySlot.current = overlay }" @battle="(open: boolean) => (ecoBattleOpen = open)" />
     <component :is="PerfPanel" v-if="PerfPanel && perfCapture" :session="perfCapture.session" :auto-scenario="perfCapture.autoScenario" :auto-label="perfCapture.autoLabel" />
     <component
       :is="PlaytestPerformanceHud"
@@ -99,6 +99,8 @@
       :is="ChatPanel"
       v-if="ChatPanel && !playtestSurface"
       ref="chatRef"
+      :map-focus="mapFocus"
+      :shortcut-blocked="overHud || !worldPlayable(entry)"
       @open="(open: boolean) => { chatOpen = open; onHudPanel('chat', open) }"
     />
 
@@ -156,7 +158,7 @@ import WorldHintTray from './WorldHintTray.vue'
 import { visibleWorldHints, type WorldHint } from './worldHints'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
 import { ColyseusPresence, REALTIME_CONFIGURED } from '../multiplayer/api/colyseusPresence'
-import { initialWorldEntry, type WorldEntryState } from '../multiplayer/domain/worldEntry'
+import { initialWorldEntry, worldPlayable, type WorldEntryState } from '../multiplayer/domain/worldEntry'
 import { WorldEntryController } from '../multiplayer/state/worldEntryController'
 import WorldEntryOverlay from './WorldEntryOverlay.vue'
 import type { Chat } from '../../chat/state/useChat'
@@ -178,8 +180,28 @@ import type { PerfCapture } from '../perf/usePerfCapture'
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
-// ECO-GAMEPLAY-1: the test-retirement panel exists only in a development build of the experiment.
-const EcoDevPanel = ECO_EXPERIMENT ? defineAsyncComponent(() => import('../../world/components/EcoDevPanel.vue')) : null
+// ECO-GAMEPLAY-1/2, ECO-PRESENTATION-1, ECO-OVERWORLD-BATTLE-1: the experiment's interface (map
+// selection card, the test battle in the world and its panel, secondary debug panel) exists only in
+// a development build of the experiment.
+const EcoExperimentLayer = ECO_EXPERIMENT ? defineAsyncComponent(() => import('../../world/components/EcoExperimentLayer.vue')) : null
+const ecoLayerRef = shallowRef<{ select(actorId: string): boolean; dismissCard(): void } | null>(null)
+/**
+ * A test battle is on (ECO-BATTLE-SCENE-1): the owner's trainer walks the area and chats, but takes
+ * no portal and starts no other activity (the server refuses both as well).
+ */
+const ecoBattleOpen = ref(false)
+/** Filled by the lazily loaded ECO layer with its world overlay; the engine sees it through ecoOverlay. */
+const ecoOverlaySlot: { current: SceneOverlay | null } | null = ECO_EXPERIMENT ? { current: null } : null
+const ecoOverlay: SceneOverlay | null = ecoOverlaySlot ? {
+  ground: (...args) => ecoOverlaySlot.current?.ground?.(...args),
+  sprites: (...args) => ecoOverlaySlot.current?.sprites?.(...args) ?? [],
+  labels: (...args) => ecoOverlaySlot.current?.labels?.(...args) ?? [],
+} : null
+/** The map, for whoever hands the keys back to it: the battle panel, the chat's Escape and Enter (CHAT-SHORTCUT-1). */
+const mapFocus = () => canvasRef.value ?? null
+/** Where a world point was drawn last frame (CSS px on the canvas): the ECO battle panel stands beside its battle (ECO-BATTLE-PANEL-1). */
+const projectWorld = (wx: number, wy: number) => game.value?.screenOf(wx, wy) ?? null
+if (ECO_EXPERIMENT) watch(ecoBattleOpen, open => game.value?.setBattleRestricted(open))
 const performanceMode = import.meta.env.VITE_PERF === 'on'
 const PlaytestPerformanceHud = isPlaytest || performanceMode
   ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))
@@ -341,11 +363,14 @@ function closeHudPanel(): void {
   else if (hudPanel.value === 'skills') professionRef.value?.closeSkills()
   else if (hudPanel.value === 'bag') professionRef.value?.closeBag()
 }
+/** Something above the HUD panels owns the keys: its own Escape (and Enter) win. */
+const overHud = computed(() =>
+  covered.value || plazaOpen.value || professionOpen.value || !!professionRef.value?.actionOpen)
 // Capture phase: this runs before the menu's own handler closes the menu, so
 // one Escape never closes two things.
 const onHudEscape = (event: KeyboardEvent) => {
   if (event.key !== 'Escape' || !hudPanel.value) return
-  if (covered.value || plazaOpen.value || professionOpen.value || professionRef.value?.actionOpen) return
+  if (overHud.value) return
   closeHudPanel()
 }
 const worldHints = computed(() => visibleWorldHints(
@@ -510,7 +535,8 @@ onMounted(async () => {
   const created = new WildlandsGame(canvasRef.value, {
     pokedex: pokedex.value, onHud, spawn, startArea,
     onEnterBuilding: (_building, feature) => openFeature(feature, 'door'),
-    onInspect: hit => plazaRef.value?.inspect(hit),
+    // ECO-PRESENTATION-1: an ECO individual opens its own card (by encounter id); anything else as before.
+    onInspect: hit => { if (!(hit.kind === 'wild' && ecoLayerRef.value?.select(hit.actorId))) plazaRef.value?.inspect(hit) },
     onWorldObject: hasWorldProviders ? target => worldProbes.inspect(target) : undefined,
     isWorldObject: hasWorldProviders ? target => worldProbes.isWorldObject(target) : undefined,
     placedObjectsIn: hasWorldProviders ? area => worldProbes.placedObjects(area) : undefined,
@@ -559,7 +585,7 @@ onMounted(async () => {
   // WORLD-1: the shared world draws first, so a node that is depleted for
   // everyone is a stump whatever a local overlay would have drawn there.
   if (worldPlaytestFeaturesEnabled) await nextTick()
-  const parts = [sharedWorld.overlay, caveOverlay, professionRef.value?.overlay]
+  const parts = [sharedWorld.overlay, caveOverlay, professionRef.value?.overlay, ecoOverlay]
     .filter((part): part is SceneOverlay => !!part)
   created.setSceneOverlay(parts.length === 1 ? parts[0] : new CompositeOverlay(...parts))
   loading.value = false

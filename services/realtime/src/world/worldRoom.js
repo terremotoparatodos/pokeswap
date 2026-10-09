@@ -46,12 +46,15 @@ export class WorldRoom {
     // ECO population is the world's wild Pokémon and the hourly roster does not exist at all.
     /** Areas whose ECO view changed since the last flush. */
     this.ecoDirty = new Set()
-    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: true, isBusy: id => this.ecoBattles?.isBusy(id) ?? false, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
+    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: true, isBusy: id => this.ecoBattles?.isBusy(id) ?? false, standOf: id => this.ecoBattles?.standOf(id) ?? null, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
     // ECO-GAMEPLAY-2: test battles against those encounters (same experiment; nothing outside it loads the battle bundle).
     // `ecoBattles` (tests only): EcoBattles options to override (`prepare`, `random`, `newId`).
     this.ecoBattles = this.eco ? new EcoBattles({
       population: this.eco, now, log, send: (client, type, payload) => this.#send(client, type, payload),
-      onChange: areaId => this.ecoDirty.add(areaId), ...(ecoBattles ?? {}),
+      onChange: areaId => this.ecoDirty.add(areaId),
+      // ECO-BATTLE-SPECTATORS-1: the other ECO viewers of the battle's area (never the owner's sockets).
+      broadcast: (areaId, type, payload, exceptPlayerId) => this.#sendToEcoArea(areaId, type, payload, exceptPlayerId),
+      ...(ecoBattles ?? {}),
     }) : null
     this.wild = ecoExperiment ? null : new WildService({ catalog, now, onRoster: roster => this.#rosterChanged(roster), onUnavailable: areaId => this.#wildUnavailable(areaId) })
     this.authority = authority ?? new ResourceAuthority({
@@ -160,6 +163,9 @@ export class WorldRoom {
     this.metrics.snapshots++
     // ECO-GAMEPLAY-2: the owner's running battle, again, after its world snapshot (reconnection resume).
     if (eco && state.playerId !== null) this.ecoBattles.resume(client, state.playerId)
+    // ECO-BATTLE-SPECTATORS-1: everyone else's running battles here, as they are now (no past effects).
+    // The snapshot is a full reset for the client: nothing it saw before arriving is kept.
+    if (eco) for (const view of this.ecoBattles.publicBattlesIn(viewer.areaId, state.playerId)) this.#send(client, WORLD_MESSAGE.ECO_BATTLE_PUBLIC, view)
   }
 
   /** The viewer moved: adjust its chunk window (usually a no-op) and keep its action physical. */
@@ -186,6 +192,11 @@ export class WorldRoom {
     }
   }
 
+  /** ECO-BATTLE-SCENE-1: whether this player may cross into another area now (not during a test battle). */
+  mayLeaveArea(playerId) {
+    return !this.ecoBattles?.inBattle(playerId)
+  }
+
   /** An actor changed area or rejoined: its action cannot survive a teleport. */
   actorPlaced(actor) {
     this.authority.reconcileActor(actor)
@@ -209,6 +220,8 @@ export class WorldRoom {
     }
     const intent = workIntent(payload)
     if (!intent) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: null, ok: false, reason: 'invalid' })
+    // ECO-BATTLE-SCENE-1: one activity at a time — a test battle in progress (or paused) comes first.
+    if (this.ecoBattles?.inBattle(actor.id)) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: intent.requestId, ok: false, reason: 'in-battle', message: 'Terminá o huí del combate para hacer otra actividad.' })
     if (!this.ready) return this.#sendToPlayer(actor.id, WORLD_MESSAGE.WORK_RESULT, { requestId: intent.requestId, ok: false, reason: 'world-loading' })
     return this.authority.requestWork(actor, intent)
   }
@@ -368,6 +381,15 @@ export class WorldRoom {
   #pending(state) {
     state.pending ??= { enter: [], leave: [], nodes: new Map() }
     return state.pending
+  }
+
+  /** ECO-BATTLE-SPECTATORS-1: every ECO viewer whose area is `areaId`, except any socket of `exceptPlayerId`. */
+  #sendToEcoArea(areaId, type, payload, exceptPlayerId) {
+    for (const [client, state] of this.clients) {
+      if (!state.eco || state.areaId !== areaId) continue
+      if (exceptPlayerId !== null && exceptPlayerId !== undefined && state.playerId === exceptPlayerId) continue
+      this.#send(client, type, payload)
+    }
   }
 
   #sendToPlayer(playerId, type, payload) {

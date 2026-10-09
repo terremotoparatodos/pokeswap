@@ -34,6 +34,7 @@
 
       <form class="ch-form" @submit.prevent="submit">
         <input
+          ref="inputRef"
           v-model="draft"
           class="ch-input"
           type="text"
@@ -53,10 +54,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onUnmounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { MAX_CHAT_LENGTH, formatTime } from '../domain/chatLine'
 import { useChat } from '../state/useChat'
 import { trackKeyboardInset } from '../../../shared/ui/keyboardInset'
+import { isMapEnter } from './mapEnterShortcut'
 
 // A log, a box and Enter — the Habbo shape, not a social network. Every line on
 // screen came back from the server, including your own, so what you read is
@@ -71,11 +73,21 @@ const AREA_LABELS: Readonly<Record<string, string>> = {
   pradera: 'Pradera Brisa',
 }
 
+const props = defineProps<{
+  /** The map to type from and return to (CHAT-SHORTCUT-1). Without it there is no Enter shortcut. */
+  mapFocus?: () => HTMLElement | null
+  /**
+   * Something sits over the map (menu, a building, a card), or the world is not there to play
+   * (connecting, reconnecting: CH-R1): Enter belongs to it, and the chat stays closed.
+   */
+  shortcutBlocked?: boolean
+}>()
 const chat = useChat()
 // The host hides the world hint tray while the open panel owns that corner.
 const emit = defineEmits<{ open: [open: boolean] }>()
 const draft = ref('')
 const logRef = ref<HTMLElement | null>(null)
+const inputRef = ref<HTMLInputElement | null>(null)
 
 const areaLabel = computed(() => {
   const id = chat.areaId.value
@@ -104,10 +116,29 @@ function toggle(): void {
   else openChat()
 }
 
-/** Escape inside the box closes the chat; every other key stays out of the game. */
+/**
+ * Escape inside the box closes the chat and hands the keys back to the map;
+ * every other key stays out of the game. A held Enter repeats: only the first
+ * press sends, so a key held from the map never sends what was left in the box.
+ */
 function onInputKey(event: KeyboardEvent): void {
-  if (event.key === 'Escape') close()
+  if (event.key === 'Escape') {
+    close()
+    props.mapFocus?.()?.focus({ preventScroll: true })
+  } else if (event.key === 'Enter' && event.repeat) {
+    event.preventDefault()
+  }
 }
+
+/** CHAT-SHORTCUT-1: Enter on the map opens the chat and puts the cursor in the box. */
+function onMapEnter(event: KeyboardEvent): void {
+  if (!props.mapFocus || props.shortcutBlocked || !isMapEnter(event, props.mapFocus())) return
+  // Not the box's Enter too: this keystroke must not also submit it.
+  event.preventDefault()
+  if (!chat.open.value) openChat()
+  void nextTick(() => inputRef.value?.focus())
+}
+onMounted(() => window.addEventListener('keydown', onMapEnter))
 
 // iOS may pan the page to reveal a focused input even though the page itself
 // never scrolls; put it back when the keyboard goes away.
@@ -145,6 +176,7 @@ watch(chat.open, isOpen => {
 // Immediate: the open state is shared, so the panel can mount already open.
 watch(chat.open, isOpen => emit('open', isOpen), { immediate: true })
 onUnmounted(() => {
+  window.removeEventListener('keydown', onMapEnter)
   stopKeyboard?.()
   emit('open', false)
 })

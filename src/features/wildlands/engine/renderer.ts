@@ -269,6 +269,18 @@ export class Renderer {
     return { x0, y0, x1, y1 }
   }
 
+  /**
+   * Where a world point (world px) was drawn in the last rendered frame, in CSS pixels on the
+   * canvas, with the frame's scale (CSS px per world px). Null before the first frame or behind the
+   * camera. Read-only: for HUD placed beside something in the world (ECO-BATTLE-PANEL-1).
+   */
+  screenOf(wx: number, wy: number): { x: number; y: number; scale: number } | null {
+    const frame = this.frame
+    if (!frame) return null
+    const p = frame.proj.project(wx - frame.camX, wy - frame.camY)
+    return p ? { x: p.x / frame.dpr, y: p.y / frame.dpr, scale: p.scale / frame.dpr } : null
+  }
+
   /** Resolves a CSS-pixel point on the canvas against the last rendered frame. */
   pick(cssX: number, cssY: number): Pick {
     const frame = this.frame

@@ -37,10 +37,11 @@ export const ECO_PROTOCOL = 1
 
 /**
  * ECO-GAMEPLAY-2 (experimental, PROVISIONAL): Chebyshev tiles from a player to an encounter for a
- * test-battle engage (patrol leash 4 + 2). The server enforces it; a client only uses it to grey out
- * a button it would refuse anyway.
+ * test-battle engage. ECO-BATTLE-ENDING-1: 3 (was 6), by the owner's decision. It limits STARTING a
+ * battle only — a running battle is never cancelled by distance. The server enforces it; a client
+ * only uses it to grey out a button it would refuse anyway.
  */
-export const ECO_ENGAGE_RANGE = 6
+export const ECO_ENGAGE_RANGE = 3
 
 export const WORLD_MESSAGE = Object.freeze({
   // client → server
@@ -70,6 +71,11 @@ export const WORLD_MESSAGE = Object.freeze({
   ECO_BATTLE: 'world:eco-battle',
   /** ECO-GAMEPLAY-2, owner only: the one end of a reservation, decided by the server. */
   ECO_BATTLE_END: 'world:eco-battle-end',
+  /**
+   * ECO-BATTLE-SPECTATORS-1, every OTHER ECO viewer of the battle's area: its public view (a
+   * whitelisted projection, see ecoBattlePublic.js). Never sent to the owner, never asked for.
+   */
+  ECO_BATTLE_PUBLIC: 'world:eco-battle-public',
   /** The session's own XP, materials and workable Pokémon (server → that player only). */
   PLAYER_STATE: 'player:state',
 })
