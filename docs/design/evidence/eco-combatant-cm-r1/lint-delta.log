@@ -1,0 +1,7 @@
+
+D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1\pokeswap\scripts\ecosystem\eco-combatant-keyboard-native.mjs
+   78:292  error  Expected an assignment or function call and instead saw an expression  @typescript-eslint/no-unused-expressions
+  168:62   error  Empty block statement                                                  no-empty
+
+✖ 2 problems (2 errors, 0 warnings)
+
