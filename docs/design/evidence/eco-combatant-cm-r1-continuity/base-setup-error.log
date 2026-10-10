@@ -1,0 +1,106 @@
+X [ERROR] Could not resolve "vue"
+
+    review-selector-native.ts:2:39:
+      2 │ import {createApp,h,ref,nextTick} from 'vue';
+        ╵                                        ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/world/components/EcoExperimentLayer.vue:1:52:
+      1 │ import { defineComponent as _defineComponent } from 'vue'
+        ╵                                                     ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/world/render/ecoBattlePanelAnchor.ts:8:57:
+      8 │ import { onUnmounted, shallowRef, type ShallowRef } from 'vue'
+        ╵                                                          ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/world/components/EcoCombatantSelector.vue:1:52:
+      1 │ import { defineComponent as _defineComponent } from 'vue'
+        ╵                                                     ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/world/components/EcoEncounterCard.vue:1:52:
+      1 │ import { defineComponent as _defineComponent } from 'vue'
+        ╵                                                     ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/world/components/EcoBattleToast.vue:1:52:
+      1 │ import { defineComponent as _defineComponent } from 'vue'
+        ╵                                                     ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/world/components/EcoDevPanel.vue:1:52:
+      1 │ import { defineComponent as _defineComponent } from 'vue'
+        ╵                                                     ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/world/components/EcoBattlePanel.vue:1:52:
+      1 │ import { defineComponent as _defineComponent } from 'vue'
+        ╵                                                     ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/world/components/EcoSprite.vue:1:52:
+      1 │ import { defineComponent as _defineComponent } from 'vue'
+        ╵                                                     ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+X [ERROR] Could not resolve "vue"
+
+    src/features/dungeonPrototype/components/CombatIcon.vue:1:52:
+      1 │ import { defineComponent as _defineComponent } from 'vue'
+        ╵                                                     ~~~~~
+
+  You can mark the path "vue" as external to exclude it from the bundle, which will remove this error and leave the unresolved path in the bundle.
+
+D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:1467
+  let error = new Error(text);
+              ^
+
+Error: Build failed with 10 errors:
+review-selector-native.ts:2:39: ERROR: Could not resolve "vue"
+src/features/dungeonPrototype/components/CombatIcon.vue:1:52: ERROR: Could not resolve "vue"
+src/features/world/components/EcoBattlePanel.vue:1:52: ERROR: Could not resolve "vue"
+src/features/world/components/EcoBattleToast.vue:1:52: ERROR: Could not resolve "vue"
+src/features/world/components/EcoCombatantSelector.vue:1:52: ERROR: Could not resolve "vue"
+...
+    at failureErrorWithLog (D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:1467:15)
+    at D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:926:25
+    at runOnEndCallbacks (D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:1307:45)
+    at buildResponseToResult (D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:924:7)
+    at D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:951:16
+    at responseCallbacks.<computed> (D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:603:9)
+    at handleIncomingPacket (D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:658:12)
+    at Socket.readFromStdout (D:\CHATGPT\Datos-Codex\worktrees\eco-combatant-cm-r1-continuity\pokeswap\node_modules\esbuild\lib\main.js:581:7)
+    at Socket.emit (node:events:519:28)
+    at addChunk (node:internal/streams/readable:561:12) {
+  errors: [Getter/Setter],
+  warnings: [Getter/Setter]
+}
+
+Node.js v22.23.3

@@ -1,0 +1,8021 @@
+{
+  "pass": true,
+  "node": "v22.23.3",
+  "browser": "Chrome/147.0.7727.138",
+  "nativeKeyEvents": 96,
+  "nativeEvents": [
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "Enter",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "INPUT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "CANVAS",
+      "prevented": true
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "BUTTON",
+      "prevented": true
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "Enter",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "INPUT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "CANVAS",
+      "prevented": true
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "SELECT",
+      "prevented": false
+    },
+    {
+      "key": "ArrowUp",
+      "trusted": true,
+      "target": "BUTTON",
+      "prevented": true
+    },
+    {
+      "key": "ArrowDown",
+      "trusted": true,
+      "target": "CANVAS",
+      "prevented": true
+    },
+    {
+      "key": " ",
+      "trusted": true,
+      "target": "CANVAS",
+      "prevented": true
+    }
+  ],
+  "checks": [
+    {
+      "route": ".eco-card select",
+      "key": "ArrowDown",
+      "speciesId": 19,
+      "requestId": 1
+    },
+    {
+      "route": ".eco-card select",
+      "key": "ArrowUp",
+      "speciesId": 25,
+      "requestId": 2
+    },
+    {
+      "route": ".eco-card select",
+      "key": "ArrowDown",
+      "speciesId": 19,
+      "requestId": 3
+    },
+    {
+      "route": ".eco-card select",
+      "key": "ArrowDown",
+      "speciesId": 43,
+      "requestId": 4
+    },
+    {
+      "route": ".eco-card select",
+      "key": "ArrowUp",
+      "speciesId": 19,
+      "requestId": 5
+    },
+    {
+      "route": ".eco-card select",
+      "key": "ArrowUp",
+      "speciesId": 25,
+      "requestId": 6
+    },
+    {
+      "route": ".eco-card select",
+      "key": "Enter",
+      "nativeDefault": true,
+      "committedSpeciesId": 19
+    },
+    {
+      "route": ".eco-card select",
+      "destination": "chat",
+      "lateAcknowledgementRespectsFocus": true
+    },
+    {
+      "route": ".eco-card select",
+      "destination": "map",
+      "lateAcknowledgementRespectsFocus": true
+    },
+    {
+      "route": ".eco-card select",
+      "destination": "other",
+      "lateAcknowledgementRespectsFocus": true
+    },
+    {
+      "route": ".eco-dev select",
+      "key": "ArrowDown",
+      "speciesId": 19,
+      "requestId": 11
+    },
+    {
+      "route": ".eco-dev select",
+      "key": "ArrowUp",
+      "speciesId": 25,
+      "requestId": 12
+    },
+    {
+      "route": ".eco-dev select",
+      "key": "ArrowDown",
+      "speciesId": 19,
+      "requestId": 13
+    },
+    {
+      "route": ".eco-dev select",
+      "key": "ArrowDown",
+      "speciesId": 43,
+      "requestId": 14
+    },
+    {
+      "route": ".eco-dev select",
+      "key": "ArrowUp",
+      "speciesId": 19,
+      "requestId": 15
+    },
+    {
+      "route": ".eco-dev select",
+      "key": "ArrowUp",
+      "speciesId": 25,
+      "requestId": 16
+    },
+    {
+      "route": ".eco-dev select",
+      "key": "Enter",
+      "nativeDefault": true,
+      "committedSpeciesId": 19
+    },
+    {
+      "route": ".eco-dev select",
+      "destination": "chat",
+      "lateAcknowledgementRespectsFocus": true
+    },
+    {
+      "route": ".eco-dev select",
+      "destination": "map",
+      "lateAcknowledgementRespectsFocus": true
+    },
+    {
+      "route": ".eco-dev select",
+      "destination": "other",
+      "lateAcknowledgementRespectsFocus": true
+    },
+    {
+      "route": "#map",
+      "movement": true,
+      "interact": true,
+      "listenerRetained": true
+    }
+  ],
+  "serverRequests": [
+    {
+      "payload": {
+        "requestId": 1,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 1,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 2,
+        "speciesId": 25
+      },
+      "result": {
+        "requestId": 2,
+        "ok": true,
+        "speciesId": 25,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 3,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 3,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 4,
+        "speciesId": 43
+      },
+      "result": {
+        "requestId": 4,
+        "ok": true,
+        "speciesId": 43,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 5,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 5,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 6,
+        "speciesId": 25
+      },
+      "result": {
+        "requestId": 6,
+        "ok": true,
+        "speciesId": 25,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 7,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 7,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 8,
+        "speciesId": 43
+      },
+      "result": {
+        "requestId": 8,
+        "ok": true,
+        "speciesId": 43,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 9,
+        "speciesId": 43
+      },
+      "result": {
+        "requestId": 9,
+        "ok": true,
+        "speciesId": 43,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 10,
+        "speciesId": 43
+      },
+      "result": {
+        "requestId": 10,
+        "ok": true,
+        "speciesId": 43,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 11,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 11,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 12,
+        "speciesId": 25
+      },
+      "result": {
+        "requestId": 12,
+        "ok": true,
+        "speciesId": 25,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 13,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 13,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 14,
+        "speciesId": 43
+      },
+      "result": {
+        "requestId": 14,
+        "ok": true,
+        "speciesId": 43,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 15,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 15,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 16,
+        "speciesId": 25
+      },
+      "result": {
+        "requestId": 16,
+        "ok": true,
+        "speciesId": 25,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 17,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 17,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 18,
+        "speciesId": 43
+      },
+      "result": {
+        "requestId": 18,
+        "ok": true,
+        "speciesId": 43,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 19,
+        "speciesId": 43
+      },
+      "result": {
+        "requestId": 19,
+        "ok": true,
+        "speciesId": 43,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 20,
+        "speciesId": 43
+      },
+      "result": {
+        "requestId": 20,
+        "ok": true,
+        "speciesId": 43,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    }
+  ],
+  "observed": [
+    {
+      "label": "no server acknowledgement",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BODY",
+        "focusId": "",
+        "focusRoute": null,
+        "sprites": [],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 0,
+        "sentCount": 0,
+        "selects": [
+          {
+            "value": "",
+            "disabled": true,
+            "ariaDisabled": null,
+            "optionCount": 1
+          },
+          {
+            "value": "",
+            "disabled": true,
+            "ariaDisabled": null,
+            "optionCount": 1
+          }
+        ]
+      }
+    },
+    {
+      "label": "default confirmed by actual server service",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BODY",
+        "focusId": "",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 0,
+        "sentCount": 0,
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 0,
+        "sentCount": 0,
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 1,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 1,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 1,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending after ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 1,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 1,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 1,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 1,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 1,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 1,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 1,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 1,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 1,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 2,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 2,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 2,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending after ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 2,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 2,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 2,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowUp acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 2,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 2,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 2,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 2,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 2,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 2,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 3,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 3,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 3,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending after ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 3,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 3,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 3,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 4,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 3,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 3,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 5,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 3,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 3,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 5,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 3,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 3,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 5,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 3,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 3,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 6,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 4,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 4,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending after ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 6,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 4,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 4,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 7,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 4,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 4,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 8,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 4,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 4,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 8,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 4,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 4,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 8,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 4,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 4,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 9,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 5,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 5,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending after ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 9,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 5,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 5,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 10,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 5,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 5,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 11,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 5,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 5,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowUp acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 11,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 5,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 5,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 11,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 5,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 5,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 12,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 6,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 6,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending after ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 12,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 6,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 6,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 13,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 6,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 6,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 14,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 6,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 6,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowUp acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 14,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 6,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 6,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before Enter",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 14,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 6,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 6,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select native Enter",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 15,
+        "lastEvent": {
+          "key": "Enter",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 6,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 6,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select Enter committed native popup choice",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 15,
+        "lastEvent": {
+          "key": "Enter",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 7,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 7,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before leaving to chat",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 15,
+        "lastEvent": {
+          "key": "Enter",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 7,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 7,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before voluntary click",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 16,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 8,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 8,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select voluntarily left to chat",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "INPUT",
+        "focusId": "chat",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 16,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 8,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 8,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select late acknowledgement while at chat",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "INPUT",
+        "focusId": "chat",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 16,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 8,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 8,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select keyboard after leaving to chat",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "INPUT",
+        "focusId": "chat",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 17,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "INPUT",
+          "prevented": false
+        },
+        "sentCount": 8,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 8,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select reset without restoring focus",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "INPUT",
+        "focusId": "chat",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 17,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "INPUT",
+          "prevented": false
+        },
+        "sentCount": 8,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 8,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before leaving to map",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 17,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "INPUT",
+          "prevented": false
+        },
+        "sentCount": 8,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 8,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before voluntary click",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 18,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 9,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 9,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select voluntarily left to map",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 18,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 9,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 9,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select late acknowledgement while at map",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 18,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 9,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 9,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select keyboard after leaving to map",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 19,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 9,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 9,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select reset without restoring focus",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 19,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 9,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 9,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before leaving to other",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 19,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 9,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 9,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select before voluntary click",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 20,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 10,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 10,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select voluntarily left to other",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BUTTON",
+        "focusId": "other",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 20,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 10,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 10,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select late acknowledgement while at other",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BUTTON",
+        "focusId": "other",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 20,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 10,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 10,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select keyboard after leaving to other",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BUTTON",
+        "focusId": "other",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 21,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "BUTTON",
+          "prevented": true
+        },
+        "sentCount": 10,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 10,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select reset without restoring focus",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BUTTON",
+        "focusId": "other",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 21,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "BUTTON",
+          "prevented": true
+        },
+        "sentCount": 10,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 10,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 21,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "BUTTON",
+          "prevented": true
+        },
+        "sentCount": 10,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 10,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 22,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 11,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 11,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending after ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 22,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 11,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 11,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowDown acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 22,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 11,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 11,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 22,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 11,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 11,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 23,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 12,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 12,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending after ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 23,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 12,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 12,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowUp acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 23,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 12,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 12,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 23,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 12,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 12,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 24,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 13,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 13,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending after ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 24,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 13,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 13,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 25,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 13,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 13,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 26,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 13,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 13,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowDown acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 26,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 13,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 13,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 26,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 13,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 13,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 27,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 14,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 14,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending after ArrowDown",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 27,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 14,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 14,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 28,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 14,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 14,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 29,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 14,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 14,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowDown acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 29,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 14,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 14,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 29,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 14,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 14,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 30,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 15,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 15,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending after ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 30,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 15,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 15,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 31,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 15,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 15,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 32,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 15,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 15,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowUp acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 32,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 15,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 15,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 32,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 15,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 15,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 33,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 16,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 16,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending after ArrowUp",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 33,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 16,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 16,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending ArrowDown held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 34,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 16,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 16,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select pending ArrowUp held",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 35,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 16,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 16,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select ArrowUp acknowledged by server",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 35,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 16,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 16,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before Enter",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 35,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 16,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 16,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select native Enter",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 36,
+        "lastEvent": {
+          "key": "Enter",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 16,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 16,
+            "speciesId": 25
+          }
+        },
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select Enter committed native popup choice",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 36,
+        "lastEvent": {
+          "key": "Enter",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 17,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 17,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before leaving to chat",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 36,
+        "lastEvent": {
+          "key": "Enter",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 17,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 17,
+            "speciesId": 19
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before voluntary click",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 37,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 18,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 18,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select voluntarily left to chat",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "INPUT",
+        "focusId": "chat",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 37,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 18,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 18,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select late acknowledgement while at chat",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "INPUT",
+        "focusId": "chat",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 37,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 18,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 18,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select keyboard after leaving to chat",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "INPUT",
+        "focusId": "chat",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 38,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "INPUT",
+          "prevented": false
+        },
+        "sentCount": 18,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 18,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select reset without restoring focus",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "INPUT",
+        "focusId": "chat",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 38,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "INPUT",
+          "prevented": false
+        },
+        "sentCount": 18,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 18,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before leaving to map",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 38,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "INPUT",
+          "prevented": false
+        },
+        "sentCount": 18,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 18,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before voluntary click",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 39,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 19,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 19,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select voluntarily left to map",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 39,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 19,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 19,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select late acknowledgement while at map",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 39,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 19,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 19,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select keyboard after leaving to map",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 40,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 19,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 19,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select reset without restoring focus",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 40,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 19,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 19,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before leaving to other",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 40,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 19,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 19,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select before voluntary click",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-dev select",
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 41,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 20,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 20,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select voluntarily left to other",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BUTTON",
+        "focusId": "other",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ],
+        "eventCount": 41,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 20,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 20,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": "true",
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select late acknowledgement while at other",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BUTTON",
+        "focusId": "other",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 41,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "SELECT",
+          "prevented": false
+        },
+        "sentCount": 20,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 20,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select keyboard after leaving to other",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BUTTON",
+        "focusId": "other",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          },
+          {
+            "label": "Oddish",
+            "style": "url(\"/assets/overworld/0043.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 42,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "BUTTON",
+          "prevented": true
+        },
+        "sentCount": 20,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 20,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "43",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": ".eco-dev select reset without restoring focus",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "BUTTON",
+        "focusId": "other",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 42,
+        "lastEvent": {
+          "key": "ArrowUp",
+          "trusted": true,
+          "target": "BUTTON",
+          "prevented": true
+        },
+        "sentCount": 20,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 20,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": "map ArrowDown held outside selector",
+      "state": {
+        "interactions": 0,
+        "direction": "down",
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 43,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 20,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 20,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": "map ArrowDown released",
+      "state": {
+        "interactions": 0,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 43,
+        "lastEvent": {
+          "key": "ArrowDown",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 20,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 20,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    },
+    {
+      "label": "map native Space interact",
+      "state": {
+        "interactions": 1,
+        "direction": null,
+        "battle": false,
+        "focus": "CANVAS",
+        "focusId": "map",
+        "focusRoute": null,
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": [],
+        "eventCount": 44,
+        "lastEvent": {
+          "key": " ",
+          "trusted": true,
+          "target": "CANVAS",
+          "prevented": true
+        },
+        "sentCount": 20,
+        "lastIntent": {
+          "type": "world:eco-combatant-select",
+          "payload": {
+            "requestId": 20,
+            "speciesId": 43
+          }
+        },
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "ariaDisabled": null,
+            "optionCount": 6
+          }
+        ]
+      }
+    }
+  ],
+  "limitations": [
+    "One initial focus per continuous route, six successive choices without refocus, pending keydowns and native Enter. Independent voluntary-departure scenarios use trusted mouse clicks.",
+    "Selection crosses HTTP to actual EcoCombatants and the existing prepared battle bundle. Colyseus transport is unchanged and its previous verification is retained."
+  ]
+}

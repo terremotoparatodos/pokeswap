@@ -1,0 +1,1775 @@
+{
+  "pass": true,
+  "node": "v22.23.3",
+  "browser": "Chrome/147.0.7727.138",
+  "nativeKeyEvents": 14,
+  "checks": [
+    {
+      "route": ".eco-card select",
+      "key": "ArrowDown",
+      "speciesId": 19,
+      "requestId": 1
+    },
+    {
+      "route": ".eco-card select",
+      "key": "ArrowUp",
+      "speciesId": 25,
+      "requestId": 2
+    },
+    {
+      "route": ".eco-card select",
+      "key": "Enter",
+      "nativeDefault": true,
+      "committedSpeciesId": 19
+    },
+    {
+      "route": "#map",
+      "movement": true,
+      "interact": true,
+      "listenerRetained": true
+    }
+  ],
+  "serverRequests": [
+    {
+      "payload": {
+        "requestId": 1,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 1,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 2,
+        "speciesId": 25
+      },
+      "result": {
+        "requestId": 2,
+        "ok": true,
+        "speciesId": 25,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    },
+    {
+      "payload": {
+        "requestId": 3,
+        "speciesId": 19
+      },
+      "result": {
+        "requestId": 3,
+        "ok": true,
+        "speciesId": 19,
+        "options": [
+          {
+            "speciesId": 25,
+            "level": 12
+          },
+          {
+            "speciesId": 19,
+            "level": 12
+          },
+          {
+            "speciesId": 43,
+            "level": 12
+          },
+          {
+            "speciesId": 74,
+            "level": 12
+          },
+          {
+            "speciesId": 41,
+            "level": 12
+          },
+          {
+            "speciesId": 10,
+            "level": 12
+          }
+        ]
+      }
+    }
+  ],
+  "observed": [
+    {
+      "label": "no server acknowledgement",
+      "state": {
+        "sent": [],
+        "interactions": 0,
+        "direction": null,
+        "events": [],
+        "battle": false,
+        "focus": "BODY",
+        "selects": [
+          {
+            "value": "",
+            "disabled": true,
+            "options": [
+              {
+                "value": "",
+                "text": "Esperando al servidor…"
+              }
+            ]
+          },
+          {
+            "value": "",
+            "disabled": true,
+            "options": [
+              {
+                "value": "",
+                "text": "Esperando al servidor…"
+              }
+            ]
+          }
+        ],
+        "sprites": [],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": "default confirmed by actual server service",
+      "state": {
+        "sent": [],
+        "interactions": 0,
+        "direction": null,
+        "events": [],
+        "battle": false,
+        "focus": "BODY",
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowDown",
+      "state": {
+        "sent": [],
+        "interactions": 0,
+        "direction": null,
+        "events": [],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown held",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown acknowledged by server",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowUp",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select ArrowUp held",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 2,
+              "speciesId": 25
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowUp",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select ArrowUp acknowledged by server",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 2,
+              "speciesId": 25
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowUp",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select before Enter",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 2,
+              "speciesId": 25
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowUp",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select native Enter",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 2,
+              "speciesId": 25
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowUp",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "Enter",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select Enter committed native popup choice",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 2,
+              "speciesId": 25
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 3,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowUp",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "Enter",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "SELECT",
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": "map ArrowDown held outside selector",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 2,
+              "speciesId": 25
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 3,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": "down",
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowUp",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "Enter",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "CANVAS",
+            "prevented": true
+          }
+        ],
+        "battle": false,
+        "focus": "CANVAS",
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": "map ArrowDown released",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 2,
+              "speciesId": 25
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 3,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowUp",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "Enter",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "CANVAS",
+            "prevented": true
+          }
+        ],
+        "battle": false,
+        "focus": "CANVAS",
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": "map native Space interact",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 2,
+              "speciesId": 25
+            }
+          },
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 3,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 1,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowUp",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "Enter",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          },
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "CANVAS",
+            "prevented": true
+          },
+          {
+            "key": " ",
+            "trusted": true,
+            "target": "CANVAS",
+            "prevented": true
+          }
+        ],
+        "battle": false,
+        "focus": "CANVAS",
+        "selects": [
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "19",
+            "disabled": false,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          },
+          {
+            "label": "Rattata",
+            "style": "url(\"/assets/overworld/0019.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    }
+  ],
+  "limitations": [
+    "Isolated real components and real map KeyboardInput; trusted native Chrome key events.",
+    "Selection crosses HTTP to actual EcoCombatants and the existing prepared battle bundle. Colyseus transport is unchanged and its previous verification is retained."
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "base": "5d502eae3f2c70203340d8d2373eb3ef357ca1fb",
+  "node": "v22.23.3",
+  "chrome": "147.0.7727.138",
+  "reviewSHA256": "B6BEC0AB7FFB1312B729058D9067640358C13161A363ABDB7F492A957F1BEB35",
+  "originalProbeSHA256": "38ACCE2252EA8988EED591C90864E30C82DC5D053235FC47FED9678E65C6B89C",
+  "preservedProbeSHA256": "38ACCE2252EA8988EED591C90864E30C82DC5D053235FC47FED9678E65C6B89C",
+  "baseContinuity": {
+    "focusAfterAck": "BODY",
+    "cardExit": 1,
+    "nextDirection": "up",
+    "debugExit": 1
+  },
+  "fixedOriginalContinuity": {
+    "cardExit": 0,
+    "debugExit": 0
+  },
+  "tests": {
+    "basePassed": 18,
+    "fixedFailed": 0,
+    "baseFailed": 2,
+    "fixedPassed": 46
+  },
+  "native": {
+    "snapshots": 111,
+    "events": 96,
+    "serverRequests": 20,
+    "checks": 21,
+    "pass": true
+  },
+  "types": {
+    "exit": 0,
+    "stdout": "empty",
+    "command": "node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.app.json"
+  },
+  "lint": {
+    "exit": 0,
+    "stdout": "empty",
+    "command": "node node_modules/eslint/bin/eslint.js src/features/world/components/EcoCombatantSelector.vue src/features/world/components/EcoCombatantSelector.keyboard.test.ts scripts/ecosystem/eco-combatant-keyboard-native.mjs"
+  },
+  "cleanup": {
+    "runs": [
+      {
+        "browserPid": 34260,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 58647,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 12908,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 58662,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 36204,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 58674,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 17808,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 58743,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 14080,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 58749,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 2272,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 58755,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 33892,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 58685,
+        "staticServerClosed": true
+      }
+    ],
+    "remainingBrowserPids": [],
+    "remainingProbeListeners": []
+  }
+}

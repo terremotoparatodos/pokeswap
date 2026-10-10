@@ -1,0 +1,21 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: pending must retain selector focus
++ actual - expected
+
++ null
+- '.eco-card select'
+
+    at file:///D:/CHATGPT/Datos-Codex/worktrees/eco-combatant-cm-r1-continuity/pokeswap/scripts/ecosystem/eco-combatant-keyboard-native.mjs:296:14
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: null,
+  expected: '.eco-card select',
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v22.23.3
