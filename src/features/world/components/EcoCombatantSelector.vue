@@ -3,7 +3,7 @@
     <EcoSprite v-if="view.speciesId" :species-id="view.speciesId" :size="40" :label="nameOf(view.speciesId)" />
     <label>
       Tu Pokémon de prueba · Nv. 12
-      <select aria-label="Pokémon de prueba" :value="view.speciesId ?? ''" :disabled="locked || view.pending || !view.options.length" @keydown.stop @change="choose">
+      <select aria-label="Pokémon de prueba" :value="view.speciesId ?? ''" :disabled="locked || !view.options.length" :aria-disabled="view.pending || undefined" @keydown.stop @change="choose">
         <option v-if="!view.options.length" value="">Esperando al servidor…</option>
         <option v-for="entry in view.options" :key="entry.speciesId" :value="entry.speciesId">{{ nameOf(entry.speciesId) }}</option>
       </select>
@@ -25,7 +25,8 @@ const reasonText = computed(() => ({
   'battle-unavailable': 'Combatientes no disponibles.', 'invalid-species': 'Esa especie no está disponible.',
 }[props.view.reason ?? ''] ?? 'El servidor rechazó la elección.'))
 function choose(event: Event): void {
-  emit('select', Number((event.target as HTMLSelectElement).value))
+  // Native disabled blurs the select in Chrome. Pending keeps focus, but accepts no new intent.
+  if (!props.view.pending) emit('select', Number((event.target as HTMLSelectElement).value))
   // Native select changes immediately; keep showing the confirmed choice while waiting.
   ;(event.target as HTMLSelectElement).value = String(props.view.speciesId ?? '')
 }
