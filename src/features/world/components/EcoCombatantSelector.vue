@@ -3,7 +3,7 @@
     <EcoSprite v-if="view.speciesId" :species-id="view.speciesId" :size="40" :label="nameOf(view.speciesId)" />
     <label>
       Tu Pokémon de prueba · Nv. 12
-      <select aria-label="Pokémon de prueba" :value="view.speciesId ?? ''" :disabled="locked || view.pending || !view.options.length" @change="choose">
+      <select aria-label="Pokémon de prueba" :value="view.speciesId ?? ''" :disabled="locked || view.pending || !view.options.length" @keydown.stop @change="choose">
         <option v-if="!view.options.length" value="">Esperando al servidor…</option>
         <option v-for="entry in view.options" :key="entry.speciesId" :value="entry.speciesId">{{ nameOf(entry.speciesId) }}</option>
       </select>
