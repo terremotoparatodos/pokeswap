@@ -5,7 +5,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-// CM-R1 native regression, adapted from the original independent selector-native.mjs probe.
+// CM-R1 continuity regression: one focus per scenario, no focus recovery between keys/ACKs.
 // Node 22 + Chrome; real components, SharedWorld and KeyboardInput, isolated static/choice server.
 // node scripts/ecosystem/eco-combatant-keyboard-native.mjs <repo> <new-evidence-dir>
 const [codeArg, evidenceArg] = process.argv.slice(2)
@@ -31,6 +31,7 @@ const choice = new EcoCombatants({ battles: () => prepared.battles, inBattle: ()
 const actor = { id: 'native-selector-player' },
   client = { send() {} }
 const serverRequests = []
+const replies = []
 const M = (
   await import(pathToFileURL(join(code, 'services/realtime/src/world/worldProtocol.js')).href)
 ).WORLD_MESSAGE
@@ -52,7 +53,7 @@ const layer=ref(null),onBattle=ref(false);
 const app=createApp({setup:()=>()=>h(Layer,{ref:layer,world,areaId:'pradera',tx:0,ty:0,mapFocus:()=>document.querySelector('#map'),onBattle:open=>onBattle.value=open})});app.mount('#layer');
 document.addEventListener('keydown',e=>{const row={key:e.key,trusted:e.isTrusted,target:e.target.tagName,prevented:false};events.push(row);queueMicrotask(()=>row.prevented=e.defaultPrevented)},true);
 window.addEventListener('keydown',e=>{const row=events.at(-1);if(row?.key===e.key)row.prevented=e.defaultPrevented});
-const state=()=>({sent:sent.slice(),interactions,direction:keys.direction,events:events.slice(),battle:onBattle.value,focus:document.activeElement?.tagName,selects:[...document.querySelectorAll('select')].map(e=>({value:e.value,disabled:e.disabled,options:[...e.options].map(o=>({value:o.value,text:o.textContent}))})),sprites:[...document.querySelectorAll('.eco-choice .eco-sprite')].map(e=>({label:e.getAttribute('aria-label'),style:e.style.backgroundImage})),fight:[...document.querySelectorAll('.eco-card__fight,.eco-dev__actions button:first-child')].map(e=>({disabled:e.disabled,text:e.textContent})),status:[...document.querySelectorAll('.eco-choice [role=status]')].map(e=>e.textContent),details:document.querySelector('.ebp-details')?.textContent});
+const state=()=>({sent:sent.slice(),interactions,direction:keys.direction,events:events.slice(),battle:onBattle.value,focus:document.activeElement?.tagName,focusId:document.activeElement?.id,focusRoute:document.activeElement?.matches('select')?(document.activeElement.closest('.eco-card')?'.eco-card select':'.eco-dev select'):null,choiceError:window.choiceError,selects:[...document.querySelectorAll('select')].map(e=>({value:e.value,disabled:e.disabled,ariaDisabled:e.getAttribute('aria-disabled'),options:[...e.options].map(o=>({value:o.value,text:o.textContent}))})),sprites:[...document.querySelectorAll('.eco-choice .eco-sprite')].map(e=>({label:e.getAttribute('aria-label'),style:e.style.backgroundImage})),fight:[...document.querySelectorAll('.eco-card__fight,.eco-dev__actions button:first-child')].map(e=>({disabled:e.disabled,text:e.textContent})),status:[...document.querySelectorAll('.eco-choice [role=status]')].map(e=>e.textContent),details:document.querySelector('.ebp-details')?.textContent});
 window.review={state,nextTick,open:()=>layer.value.select(encounter.id),ack:m=>world.ecoBattleMessage('world:eco-combatant-state',m),message:(type,m)=>world.ecoBattleMessage(type,m),detach:()=>world.detach(),unmount:()=>{app.unmount();keys.detach()}};
 `
 await esbuild.build({
@@ -94,7 +95,7 @@ await esbuild.build({
 })
 await writeFile(
   join(fixture, 'fixture.html'),
-  '<!doctype html><meta charset="utf-8"><style>body{margin:0;background:#253945}#layer{position:relative;height:700px;width:1000px}#map{position:absolute;width:1000px;height:700px}</style><canvas id="map" tabindex="0"></canvas><div id="layer"></div><script src="/fixture.js"></script>',
+  '<!doctype html><meta charset="utf-8"><style>body{margin:0;background:#253945}#layer{position:relative;height:700px;width:1000px}#map{position:fixed;left:650px;top:0;width:100px;height:40px;z-index:10000;background:#668}#other-controls{position:fixed;left:0;top:0;z-index:10000}</style><canvas id="map" tabindex="0"></canvas><div id="other-controls"><input id="chat" aria-label="Chat de prueba"><button id="other">Otro control</button></div><div id="layer"></div><script src="/fixture.js"></script>',
 )
 const http = createServer(async (req, res) => {
   try {
@@ -105,8 +106,8 @@ const http = createServer(async (req, res) => {
       const payload = JSON.parse(body)
       const result = choice.select(actor, payload, client, client)
       serverRequests.push({ payload, result })
-      // Keep the pending state observable; this is the harness's reply delay, never core timing.
-      await new Promise((resolve) => setTimeout(resolve, 150))
+      // The driver releases the HTTP reply after pending-key/focus checks, never core timing.
+      await new Promise((resolve) => replies.push(resolve))
       res.setHeader('Content-Type', 'application/json')
       res.end(JSON.stringify(result))
       return
@@ -216,7 +217,22 @@ try {
     evaluate('(async()=>{' + source + ';await review.nextTick();return review.state()})()')
   const snapshot = async (label) => {
     const state = await evaluate('review.state()')
-    observed.push({ label, state })
+    // Keep assertions on full state; avoid duplicating the cumulative event/intent history.
+    const { events, sent, selects, ...summary } = state
+    observed.push({
+      label,
+      state: {
+        ...summary,
+        eventCount: events.length,
+        lastEvent: events.at(-1),
+        sentCount: sent.length,
+        lastIntent: sent.at(-1),
+        selects: selects.map(({ options, ...control }) => ({
+          ...control,
+          optionCount: options.length,
+        })),
+      },
+    })
     return state
   }
   const edge = async (type, name, code, vk) => {
@@ -258,9 +274,19 @@ try {
   )
   const checks = []
   const confirmed = async (speciesId) => {
+    for (let i = 0; replies.length === 0 && i < 100; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+    assert(replies.length > 0, 'choice must reach server before acknowledgement')
+    while (replies.length) replies.shift()()
     for (let i = 0; i < 100; i++) {
       const state = await evaluate('review.state()')
-      if (state.selects.every((x) => x.value === String(speciesId) && !x.disabled)) return state
+      if (
+        state.selects.every(
+          (x) => x.value === String(speciesId) && !x.disabled && x.ariaDisabled !== 'true',
+        )
+      )
+        return state
       await new Promise((resolve) => setTimeout(resolve, 20))
     }
     throw Error('Timed out waiting for real server confirmation ' + speciesId)
@@ -269,11 +295,15 @@ try {
     // Each route starts from actual server state; never changes the select value in script.
     choice.select(actor, { requestId: 1000 + checks.length, speciesId: 25 }, client, client)
     await ack(choice.state(actor.id))
-    for (const [name, vk, speciesId] of [
+    await run('document.querySelector(' + JSON.stringify(route) + ').focus()') // Once per route.
+    for (const [index, [name, vk, speciesId]] of [
       ['ArrowDown', 40, 19],
       ['ArrowUp', 38, 25],
-    ]) {
-      await run('document.querySelector(' + JSON.stringify(route) + ').focus()')
+      ['ArrowDown', 40, 19],
+      ['ArrowDown', 40, 43],
+      ['ArrowUp', 38, 19],
+      ['ArrowUp', 38, 25],
+    ].entries()) {
       const before = await snapshot(route + ' before ' + name)
       await edge('keyDown', name, name, vk)
       const held = await snapshot(route + ' ' + name + ' held')
@@ -282,7 +312,31 @@ try {
       assert.equal(held.events.at(-1).trusted, true)
       assert.equal(held.events.at(-1).prevented, false, 'native select default must be preserved')
       await edge('keyUp', name, name, vk)
+      const waiting = await snapshot(route + ' pending after ' + name)
+      assert.equal(waiting.focusRoute, route, 'pending must retain selector focus')
+      assert(waiting.selects.every((x) => !x.disabled && x.ariaDisabled === 'true'))
+      assert(waiting.selects.every((x) => x.value === before.selects[0].value))
+      assert(waiting.fight.every((x) => x.disabled))
+      // First Down -> ACK -> Up is uninterrupted; later choices also exercise pending keys.
+      if (index >= 2) {
+        for (const [pendingKey, vk] of [
+          ['ArrowDown', 40],
+          ['ArrowUp', 38],
+        ]) {
+          await edge('keyDown', pendingKey, pendingKey, vk)
+          const during = await snapshot(route + ' pending ' + pendingKey + ' held')
+          assert.equal(during.focusRoute, route)
+          assert.equal(during.direction, null)
+          assert.equal(during.interactions, before.interactions)
+          assert.equal(during.sent.length, before.sent.length + 1)
+          assert.equal(during.events.at(-1).trusted, true)
+          assert.equal(during.events.at(-1).prevented, false)
+          assert(during.selects.every((x) => x.value === before.selects[0].value))
+          await edge('keyUp', pendingKey, pendingKey, vk)
+        }
+      }
       const after = await confirmed(speciesId)
+      assert.equal(after.focusRoute, route, 'acknowledgement must retain selector focus')
       assert.equal(after.sent.length, before.sent.length + 1)
       assert.equal(after.sent.at(-1).type, M.ECO_COMBATANT_SELECT)
       assert.equal(after.sent.at(-1).payload.speciesId, speciesId)
@@ -297,7 +351,6 @@ try {
       await snapshot(route + ' ' + name + ' acknowledged by server')
       checks.push({ route, key: name, speciesId, requestId: received.payload.requestId })
     }
-    await run('document.querySelector(' + JSON.stringify(route) + ').focus()')
     const beforeEnter = await snapshot(route + ' before Enter')
     await key('Enter', 'Enter', 13)
     const enter = await snapshot(route + ' native Enter')
@@ -311,11 +364,53 @@ try {
     await key('ArrowDown', 'ArrowDown', 40)
     await key('Enter', 'Enter', 13)
     const committed = await confirmed(19)
+    assert.equal(committed.focusRoute, route)
     assert.equal(committed.interactions, beforeEnter.interactions)
     assert.equal(committed.direction, null)
     assert.equal(choice.speciesOf(actor.id), 19)
     await snapshot(route + ' Enter committed native popup choice')
     checks.push({ route, key: 'Enter', nativeDefault: true, committedSpeciesId: 19 })
+
+    for (const destination of ['chat', 'map', 'other']) {
+      // Independent abandonment scenario: focus initially, then leave by trusted mouse click.
+      await run('document.querySelector(' + JSON.stringify(route) + ').focus()')
+      const beforeLeave = await snapshot(route + ' before leaving to ' + destination)
+      await key('ArrowDown', 'ArrowDown', 40)
+      assert.equal((await snapshot(route + ' before voluntary click')).focusRoute, route)
+      const point = await evaluate(
+        '(()=>{const r=document.getElementById(' +
+          JSON.stringify(destination) +
+          ').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2}})()',
+      )
+      await call(
+        'Input.dispatchMouseEvent',
+        { type: 'mousePressed', ...point, button: 'left', clickCount: 1 },
+        sessionId,
+      )
+      await call(
+        'Input.dispatchMouseEvent',
+        { type: 'mouseReleased', ...point, button: 'left', clickCount: 1 },
+        sessionId,
+      )
+      assert.equal(
+        (await snapshot(route + ' voluntarily left to ' + destination)).focusId,
+        destination,
+      )
+      const late = await confirmed(43)
+      assert.equal(late.focusId, destination, 'late reply must never steal focus')
+      assert.equal(late.sent.length, beforeLeave.sent.length + 1)
+      await snapshot(route + ' late acknowledgement while at ' + destination)
+      await key('ArrowUp', 'ArrowUp', 38)
+      const outside = await snapshot(route + ' keyboard after leaving to ' + destination)
+      assert.equal(outside.focusId, destination)
+      assert.equal(outside.sent.length, late.sent.length)
+      assert.equal(outside.interactions, beforeLeave.interactions)
+      // Start the next independent scenario from a real confirmed Rattata state.
+      choice.select(actor, { requestId: 2000 + checks.length, speciesId: 19 }, client, client)
+      await ack(choice.state(actor.id))
+      assert.equal((await snapshot(route + ' reset without restoring focus')).focusId, destination)
+      checks.push({ route, destination, lateAcknowledgementRespectsFocus: true })
+    }
   }
   // No listener detachment: the same real map keyboard must work once focus is elsewhere.
   await run('document.querySelector("#map").focus()')
@@ -346,11 +441,12 @@ try {
         node: process.version,
         browser: version.product,
         nativeKeyEvents: keyEvents,
+        nativeEvents: (await evaluate('review.state()')).events,
         checks,
         serverRequests,
         observed,
         limitations: [
-          'Isolated real components and real map KeyboardInput; trusted native Chrome key events.',
+          'One initial focus per continuous route, six successive choices without refocus, pending keydowns and native Enter. Independent voluntary-departure scenarios use trusted mouse clicks.',
           'Selection crosses HTTP to actual EcoCombatants and the existing prepared battle bundle. Colyseus transport is unchanged and its previous verification is retained.',
         ],
       },
@@ -359,7 +455,7 @@ try {
     ),
   )
   console.log(
-    'PASS native ArrowDown/ArrowUp, actual server confirmation, native Enter, both routes and map outside selector',
+    'PASS native continuous choices, pending keys, voluntary focus departure, Enter and map',
   )
   await run('review.unmount()')
 } catch (error) {
