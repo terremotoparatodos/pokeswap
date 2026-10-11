@@ -11,6 +11,8 @@ export const limitedEntry = {
   ready: () => { phase.value = 'ready' },
   lost: () => { if (phase.value === 'ready') phase.value = 'connecting' },
   refuse(code: unknown): boolean {
+    if (code === 403) code = LIMITED_ACCESS_DENIED
+    if (code === 410) code = LIMITED_ACCESS_EXPIRED
     if (code !== LIMITED_ACCESS_DENIED && code !== LIMITED_ACCESS_EXPIRED) return false
     phase.value = code === LIMITED_ACCESS_EXPIRED ? 'expired' : 'denied'
     return true

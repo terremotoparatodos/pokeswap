@@ -193,6 +193,7 @@ export class ColyseusPresence implements LocalPresencePort {
         if (ECO_LIMITED && limitedEntry.refuse(code)) { this.disconnect(); return }
         this.room = null
         this.clearActors()
+        if (ECO_LIMITED) limitedEntry.lost()
         const now = Date.now()
         const decision = closeDecision({ code, closing, serverProtocol, livedMs: now - joinedAt, now, lastAmbiguousAt: lastAmbiguousCloseAt })
         if (decision.ambiguous) lastAmbiguousCloseAt = now

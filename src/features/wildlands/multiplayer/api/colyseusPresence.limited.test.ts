@@ -16,10 +16,10 @@ function room() {
   return { reconnection: { enabled: true }, handlers, onMessage: (t: string, fn: (p: unknown) => void) => handlers.set(t, fn), send: vi.fn(), leave: vi.fn(async () => {}), onDrop: vi.fn(), onError: vi.fn(), onLeave: (fn: typeof closed) => { closed = fn }, close: (code: number) => closed(code) }
 }
 describe('SCRIPTED SDK limited transport (no hosted Auth)', () => {
-  it.each([4403, 4408])('stops a refused join %s without automatic retries', async code => {
+  it.each([403, 410, 4403, 4408])('stops a refused join %s without automatic retries', async code => {
     scripted.join.mockRejectedValue({ code })
     const m = await setup(); await m.socket.connect()
-    expect(m.limitedEntry.phase.value).toBe(code === 4408 ? 'expired' : 'denied')
+    expect(m.limitedEntry.phase.value).toBe(code === 4408 || code === 410 ? 'expired' : 'denied')
     await vi.advanceTimersByTimeAsync(30_000)
     expect(scripted.join).toHaveBeenCalledOnce()
   })

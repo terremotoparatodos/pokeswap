@@ -45,7 +45,7 @@ test('expiry is rechecked after slow Auth; a late answer creates no authenticate
     const Room = limitedPresenceRoom(class {}, admission, { SUPABASE_URL: 'https://auth-scripted.invalid', SUPABASE_PUBLISHABLE_KEY: 'SCRIPTED' })
     const result = Room.onAuth(null, { token: 'SCRIPTED-token' }, { headers: new Headers({ origin: ORIGIN }) })
     now = 1_000; resolve(Response.json({ id: A, user_metadata: { username: 'SCRIPTED' } }))
-    await assert.rejects(result, { code: 4408 })
+    await assert.rejects(result, { code: 410 })
   } finally { globalThis.fetch = original }
 })
 
@@ -59,4 +59,19 @@ test('limited origins are exclusive; normal production origin assertions still h
   assert.equal(originPolicy(env)(new Request('https://realtime-scripted.invalid', { headers: { origin: 'https://pokeswap.lol' } })).status, 403)
   assert.equal(originPolicy(env)(new Request('https://realtime-scripted.invalid', { headers: { origin: ORIGIN } })), undefined)
   assert.ok(allowedOrigins({ NODE_ENV: 'production' }).has('https://pokeswap.lol'))
+})
+
+test('private Auth envelope survives Colyseus serialization and rejects tampering before join', async () => {
+  const admission = new LimitedAdmission(config, { now: () => 0 })
+  const original = globalThis.fetch
+  globalThis.fetch = async () => Response.json({ id: A, user_metadata: { username: 'SCRIPTED' } })
+  try {
+    const Room = limitedPresenceRoom(class {}, admission, { SUPABASE_URL: 'https://auth-scripted.invalid', SUPABASE_PUBLISHABLE_KEY: 'SCRIPTED' })
+    const auth = JSON.parse(JSON.stringify(await Room.onAuth(null, { token: 'SCRIPTED-token' }, { headers: new Headers({ origin: ORIGIN }) })))
+    new Room().assertAdmission(null, {}, auth)
+    for (const [field, value] of [['userId', '22222222-2222-4222-8222-222222222222'], ['token', 'forged'], ['kind', 'guest'], ['username', 'forged'], ['limitedOrigin', 'https://pokeswap.lol'], ['limitedProof', 'bad']]) {
+      assert.throws(() => new Room().assertAdmission(null, {}, { ...auth, [field]: value }), { code: 4403 })
+    }
+    assert.throws(() => new Room().assertAdmission(null, {}, { kind: 'player', userId: A }), { code: 4403 })
+  } finally { globalThis.fetch = original }
 })
