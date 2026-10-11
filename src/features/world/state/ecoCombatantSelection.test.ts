@@ -15,6 +15,22 @@ function setup() {
 }
 afterEach(() => vi.useRealTimers())
 describe('synthetic choice acknowledgement', () => {
+  it('owned mode names only a slot, waits for ACK, refuses readiness on errors and refreshes explicitly', () => {
+    const s = setup()
+    const own: EcoCombatantState = { requestId: null, ok: true, mode: 'owned', speciesId: null, selectedSlotPokemonId: null,
+      attributeSource: 'legacy-m1-derived', options: [{ slotPokemonId: 25, speciesId: 25, level: 12, eligible: true }] }
+    s.message(own)
+    expect(s.selection.view.ready).toBe(false)
+    s.selection.select(25)
+    expect(s.sent[0]?.payload).toEqual({ requestId: 1, slotPokemonId: 25 })
+    s.message({ ...own, requestId: 1, speciesId: 25, selectedSlotPokemonId: 25, level: 12 })
+    expect(s.selection.view).toMatchObject({ ready: true, mode: 'owned', level: 12, attributeSource: 'legacy-m1-derived' })
+    s.selection.refresh()
+    expect(s.sent[1]?.payload).toEqual({ requestId: 2, refresh: true })
+    s.message({ ...own, requestId: 2, speciesId: 25, selectedSlotPokemonId: 25, ok: false, reason: 'locked' })
+    expect(s.selection.view.ready).toBe(false)
+    s.selection.dispose()
+  })
   it('waits for confirmation, ignores stale replies and does not optimistically change species', () => {
     const s = setup()
     expect(s.selection.view.ready).toBe(false)

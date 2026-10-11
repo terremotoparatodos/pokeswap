@@ -112016,9 +112016,12 @@ function drawChance(rng, chance) {
 }
 
 // src/features/pokemon/model/stats.ts
+var STAT_KEYS = ["hp", "atk", "def", "spa", "spd", "spe"];
 var MIN_LEVEL = 1;
 var MAX_LEVEL = 100;
 var MAX_IV = 31;
+var MAX_EV_PER_STAT = 252;
+var MAX_EV_TOTAL = 510;
 var ZERO_STATS = { hp: 0, atk: 0, def: 0, spa: 0, spd: 0, spe: 0 };
 var PERFECT_IVS = { hp: 31, atk: 31, def: 31, spa: 31, spd: 31, spe: 31 };
 var statsFromTuple = (tuple) => ({
@@ -112068,6 +112071,15 @@ function deriveStats(input, alwaysOneHp = false) {
 }
 var isWholeInRange = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
 var isValidLevel = (level) => isWholeInRange(level, MIN_LEVEL, MAX_LEVEL);
+function validateIvs(ivs) {
+  return STAT_KEYS.filter((key) => !isWholeInRange(ivs[key], 0, MAX_IV)).map((key) => `IV ${key} must be a whole number between 0 and ${MAX_IV}`);
+}
+function validateEvs(evs) {
+  const issues = STAT_KEYS.filter((key) => !isWholeInRange(evs[key], 0, MAX_EV_PER_STAT)).map((key) => `EV ${key} must be a whole number between 0 and ${MAX_EV_PER_STAT}`);
+  const total = STAT_KEYS.reduce((sum, key) => sum + (Number.isFinite(evs[key]) ? evs[key] : 0), 0);
+  if (total > MAX_EV_TOTAL) issues.push(`EVs total ${total}, above the ${MAX_EV_TOTAL} limit`);
+  return issues;
+}
 
 // src/features/progression/utils/xpLevel.ts
 var MAX_LEVEL2 = 100;
@@ -112094,14 +112106,85 @@ function experienceForLevel(level) {
 var levelForExperience = (experience) => xpToLevel(experience);
 
 // src/features/pokemon/model/condition.ts
+var MAJOR_STATUSES = ["none", "burn", "paralysis", "poison", "badlyPoisoned", "freeze", "sleep"];
 var HEALTHY = { currentHp: null, pp: {}, majorStatus: "none" };
 var remainingPP = (condition, moveId, maxPP) => condition.pp[moveId] ?? maxPP;
+function validateCondition(condition, maxPPOfMove) {
+  const issues = [];
+  if (condition.currentHp !== null && (!Number.isInteger(condition.currentHp) || condition.currentHp < 0)) {
+    issues.push("currentHp must be null or a whole number of zero or more");
+  }
+  if (!MAJOR_STATUSES.includes(condition.majorStatus)) {
+    issues.push(`major status ${String(condition.majorStatus)} is not one this game has`);
+  }
+  for (const [key, value] of Object.entries(condition.pp)) {
+    const moveId = Number(key);
+    const max = maxPPOfMove(moveId);
+    if (max === null) {
+      issues.push(`PP recorded for move ${key}, which this Pok\xE9mon does not know`);
+      continue;
+    }
+    if (!Number.isInteger(value) || value < 0 || value > max) {
+      issues.push(`PP of move ${key} must be between 0 and ${max}`);
+    }
+  }
+  return issues;
+}
 
 // src/features/pokemon/model/instance.ts
 var INSTANCE_SCHEMA_VERSION = 2;
 var MAX_MOVE_SLOTS = 4;
 var MAX_PP_UPS = 3;
 var maxPPOf = (basePP, ppUps) => basePP + Math.floor(basePP * Math.min(ppUps, MAX_PP_UPS) / 5);
+function validateInstance(instance, catalog) {
+  const issues = [...validateIvs(instance.ivs), ...validateEvs(instance.evs)];
+  if (instance.schemaVersion !== INSTANCE_SCHEMA_VERSION) {
+    issues.push(`schema version ${instance.schemaVersion}, expected ${INSTANCE_SCHEMA_VERSION}`);
+  }
+  if (!instance.instanceId) issues.push("instanceId is empty");
+  if (!Number.isInteger(instance.experience) || instance.experience < 0) {
+    issues.push("experience must be a whole number of zero or more");
+  }
+  const form = catalog.form(instance.formId);
+  if (!form) issues.push(`form ${instance.formId} is not in the catalog`);
+  else if (form.speciesId !== instance.speciesId) {
+    issues.push(`form ${instance.formId} belongs to species ${form.speciesId}, not ${instance.speciesId}`);
+  }
+  if (!catalog.species(instance.speciesId)) issues.push(`species ${instance.speciesId} is not in the catalog`);
+  if (!catalog.nature(instance.natureId)) issues.push(`nature ${instance.natureId} is not in the catalog`);
+  if (!catalog.ability(instance.abilityId)) issues.push(`ability ${instance.abilityId} is not in the catalog`);
+  else if (form) {
+    const allowed = [form.abilities.slot1, form.abilities.slot2, form.abilities.hidden].filter((id) => id !== null);
+    if (!allowed.includes(instance.abilityId)) {
+      issues.push(`ability ${instance.abilityId} is not one this form can have`);
+    }
+  }
+  if (instance.moves.length === 0) issues.push("a Pok\xE9mon needs at least one move");
+  if (instance.moves.length > MAX_MOVE_SLOTS) issues.push(`more than ${MAX_MOVE_SLOTS} move slots`);
+  const seen = /* @__PURE__ */ new Set();
+  for (const slot of instance.moves) {
+    const move = catalog.move(slot.moveId);
+    if (!move) {
+      issues.push(`move ${slot.moveId} is not in the catalog`);
+      continue;
+    }
+    if (seen.has(slot.moveId)) issues.push(`move ${slot.moveId} is in two slots`);
+    seen.add(slot.moveId);
+    if (!isWholeInRange(slot.ppUps, 0, MAX_PP_UPS)) issues.push(`PP Ups of move ${slot.moveId} must be 0\u2013${MAX_PP_UPS}`);
+  }
+  issues.push(...validateCondition(instance.condition, (moveId) => maxPPOfInstance(instance, moveId, catalog)));
+  if (instance.state === "expeditionPending" && instance.ownership.ownerId !== null) {
+    issues.push("a pending capture cannot have an owner yet (I-1)");
+  }
+  if (instance.nickname !== null && instance.nickname.trim() === "") issues.push("nickname is empty");
+  return issues;
+}
+function maxPPOfInstance(instance, moveId, catalog) {
+  const slot = instance.moves.find((entry) => entry.moveId === moveId);
+  if (!slot) return null;
+  const move = catalog.move(moveId);
+  return move ? maxPPOf(move.pp, slot.ppUps) : null;
+}
 
 // src/features/pokemon/model/catalogView.ts
 function createPokemonCatalogView(index, learnsets) {
@@ -112645,6 +112728,231 @@ var LEGACY_MOVE_TABLES = {
   canonicalCount: Object.keys(legacyMoves_default.aliases).length,
   incompatibleCount: Object.keys(legacyMoves_default.incompatible).length
 };
+var ALWAYS_MISSING = [
+  { field: "natureId", reason: "production has never stored a nature" },
+  { field: "abilityId", reason: "production has never stored an ability" },
+  { field: "ivs", reason: "production has never stored IVs" },
+  { field: "evs", reason: "production has never stored EVs" },
+  { field: "gender", reason: "production has never stored a gender" },
+  { field: "shiny", reason: "shininess exists only on swap_history rows, per event" }
+];
+function projectLegacyPokemon(xp, catalog, options = {}) {
+  const problems = [];
+  const speciesId = xp.pokemon_id;
+  const species = catalog.speciesOf(speciesId);
+  if (!species) problems.push(`species ${speciesId} is not in the Battle Catalog`);
+  const level = levelForExperience(xp.xp);
+  const levelDisagrees = Number.isFinite(xp.level) && xp.level !== level;
+  if (levelDisagrees) problems.push(`stored level ${xp.level} but ${xp.xp} xp is level ${level}`);
+  const { moves, unresolved } = readLegacyMoves(xp.moves, catalog);
+  for (const problem of unresolved) {
+    problems.push(problem.kind === "incompatible" ? `move ${problem.slug} does not exist in ORAS (generation ${problem.generation})` : `move ${problem.slug} cannot be identified`);
+  }
+  const gaps = [...ALWAYS_MISSING];
+  const defaultForm = catalog.defaultForm(speciesId);
+  if (!defaultForm) {
+    gaps.push({ field: "formId", reason: "the species has no default form in the catalog" });
+  }
+  if (moves.length === 0) {
+    gaps.push({ field: "moves", reason: "the row carries no move this catalog recognises" });
+  }
+  const ownerId = options.slot?.owner_id ?? null;
+  if (options.slot && options.slot.owner_id !== null && options.slot.owner_id !== xp.user_id) {
+    problems.push(`progression belongs to ${xp.user_id}, who no longer owns this slot`);
+  }
+  const known = {
+    schemaVersion: INSTANCE_SCHEMA_VERSION,
+    speciesId,
+    experience: Math.max(0, Math.floor(xp.xp)),
+    level,
+    moves,
+    ownership: {
+      ownerId,
+      originalTrainerId: options.slot?.first_owner_id ?? null
+    },
+    /** Whose training this is. Metadata for the audit; never ownership. */
+    progressionTrainerId: xp.user_id,
+    state: "owned",
+    nickname: null,
+    levelDisagrees
+  };
+  return { known, gaps, problems, unresolvedMoves: unresolved };
+}
+function readLegacyMoves(blob, catalog) {
+  if (!blob) return { moves: [], unresolved: [] };
+  const raw = Array.isArray(blob) ? blob : Object.values(blob);
+  const moves = [];
+  const unresolved = [];
+  for (const entry of raw) {
+    const id = resolveMoveId(entry, catalog);
+    if (id === null) {
+      unresolved.push(describeProblem(entry));
+      continue;
+    }
+    if (moves.some((slot) => slot.moveId === id)) continue;
+    moves.push({ moveId: id, ppUps: 0 });
+  }
+  return { moves: moves.slice(0, MAX_MOVE_SLOTS), unresolved };
+}
+function legacySlugOf(entry) {
+  const value = typeof entry === "object" && entry !== null ? entry.id ?? entry.name : entry;
+  if (typeof value !== "string") return null;
+  const slug = value.trim().toLowerCase().replace(/[\s_]+/g, "-");
+  return slug === "" ? null : slug;
+}
+function canonicalMoveId(slug, catalog) {
+  const exact = catalog.moveNamed(slug);
+  if (exact) return exact.id;
+  const canonical = CANONICAL_MOVE_IDS[slug];
+  return canonical !== void 0 && catalog.move(canonical) ? canonical : null;
+}
+function resolveMoveId(entry, catalog) {
+  const value = typeof entry === "object" && entry !== null ? entry.id ?? entry.name : entry;
+  if (typeof value === "number" && catalog.move(value)) return value;
+  const slug = legacySlugOf(entry);
+  if (slug !== null) {
+    const id = canonicalMoveId(slug, catalog);
+    if (id !== null) return id;
+    const numeric = Number(slug);
+    if (Number.isInteger(numeric) && catalog.move(numeric)) return numeric;
+  }
+  return null;
+}
+function describeProblem(entry) {
+  const slug = legacySlugOf(entry) ?? describe(entry);
+  const generation = INCOMPATIBLE_MOVES[slug];
+  return generation !== void 0 ? { slug, kind: "incompatible", generation } : { slug, kind: "unknown" };
+}
+var describe = (entry) => typeof entry === "object" && entry !== null ? JSON.stringify(entry) : String(entry);
+
+// src/features/pokemon/model/migration.ts
+var LEGACY_MIGRATION_VERSION = 1;
+var LEGACY_MIGRATION_SALT = "pokeswap-legacy-backfill";
+var DEFAULT_MIGRATION = {
+  version: LEGACY_MIGRATION_VERSION,
+  salt: LEGACY_MIGRATION_SALT
+};
+function hash32(text) {
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return mix322(hash);
+}
+function mix322(value) {
+  let hash = value >>> 0;
+  hash ^= hash >>> 16;
+  hash = Math.imul(hash, 2246822507) >>> 0;
+  hash ^= hash >>> 13;
+  hash = Math.imul(hash, 3266489909) >>> 0;
+  hash ^= hash >>> 16;
+  return hash >>> 0;
+}
+var legacyIdentityOf = (row) => ({ slotPokemonId: row.pokemon_id });
+var migrationHash = (rules, key, field) => hash32(`${rules.salt}|v${rules.version}|slot:${key.slotPokemonId}|${field}`);
+function migrationIvs(rules, key) {
+  const of = (stat) => migrationHash(rules, key, `iv:${stat}`) % (MAX_IV + 1);
+  return { hp: of("hp"), atk: of("atk"), def: of("def"), spa: of("spa"), spd: of("spd"), spe: of("spe") };
+}
+function migrationNature(rules, key, natureIds) {
+  if (natureIds.length === 0) throw new LegacyMigrationError("the catalog has no natures");
+  return natureIds[migrationHash(rules, key, "nature") % natureIds.length];
+}
+function migrationAbility(rules, key, abilities) {
+  const pool = [abilities.slot1, abilities.slot2].filter((id) => id !== null);
+  if (pool.length === 0) throw new LegacyMigrationError(`slot ${key.slotPokemonId} has no normal ability`);
+  return pool[migrationHash(rules, key, "ability") % pool.length];
+}
+function migrationGender(rules, key, genderRate) {
+  if (genderRate < 0) return "genderless";
+  if (genderRate === 0) return "male";
+  if (genderRate >= 8) return "female";
+  return migrationHash(rules, key, "gender") % 8 < genderRate ? "female" : "male";
+}
+var LegacyMigrationError = class extends Error {
+};
+function migrateLegacyPokemon(row, catalog, options) {
+  const rules = options.rules ?? DEFAULT_MIGRATION;
+  const key = legacyIdentityOf(row);
+  const projection = projectLegacyPokemon(row, catalog, { slot: options.slot });
+  const species = catalog.speciesOf(row.pokemon_id);
+  if (!species) throw new LegacyMigrationError(`species ${row.pokemon_id} is not in the Battle Catalog`);
+  const form = catalog.defaultForm(row.pokemon_id);
+  if (!form) throw new LegacyMigrationError(`species ${row.pokemon_id} has no default form`);
+  const moves = projection.known.moves;
+  const acquisition = {
+    source: "legacy_migration",
+    at: options.at,
+    catalogVersion: options.catalogVersion,
+    migration: { version: rules.version, salt: rules.salt }
+  };
+  const experience = projection.known.experience;
+  const draft = {
+    schemaVersion: INSTANCE_SCHEMA_VERSION,
+    speciesId: species.id,
+    // The default form: production never stored one, and the alternate forms of
+    // Gen VI are all either battle-only or earned in ways the old game had not.
+    formId: form.id,
+    experience,
+    natureId: migrationNature(rules, key, catalog.natureIds()),
+    abilityId: migrationAbility(rules, key, form.abilities),
+    ivs: migrationIvs(rules, key),
+    // Approved: the old game never recorded EV training, so nobody starts with
+    // an advantage they never earned.
+    evs: ZERO_STATS,
+    moves,
+    // A migrated Pokémon arrives rested. Condition is wear, and the old game
+    // had none to carry over.
+    condition: HEALTHY,
+    state: "owned",
+    ownership: projection.known.ownership,
+    acquisition,
+    shiny: options.shiny === true,
+    gender: migrationGender(rules, key, species.genderRate),
+    nickname: null
+  };
+  const report = {
+    identity: key,
+    rules,
+    preserved: ["speciesId", "experience", "ownership", ...moves.length > 0 ? ["moves"] : []],
+    derived: ["natureId", "abilityId", "ivs", "gender"],
+    gaps: projection.gaps,
+    problems: projection.problems,
+    needsMoveBackfill: moves.length === 0,
+    unresolvedMoves: projection.unresolvedMoves,
+    ignoredStoredLevel: projection.known.levelDisagrees ? row.level : null,
+    ignoredHistoricalProgressions: options.ignoredHistoricalProgressions ?? 0,
+    missingCurrentOwnerProgression: options.missingCurrentOwnerProgression === true
+  };
+  if (levelForExperience(draft.experience) !== projection.known.level) {
+    throw new LegacyMigrationError("experience and level disagree after migration");
+  }
+  return { draft, report };
+}
+function migrateLegacySlot(input, catalog, options) {
+  const { slot, progressions = [] } = input;
+  const identity = legacyIdentityOf(slot);
+  const ownerId = slot.owner_id;
+  if (ownerId === null) return { kind: "skipped", reason: "unowned", identity };
+  const forThisSpecies = progressions.filter((row2) => row2.pokemon_id === slot.pokemon_id);
+  const current = forThisSpecies.find((row2) => row2.user_id === ownerId) ?? null;
+  const ignoredHistoricalProgressions = forThisSpecies.length - (current ? 1 : 0);
+  const row = current ?? {
+    user_id: ownerId,
+    pokemon_id: slot.pokemon_id,
+    xp: 0,
+    level: 1,
+    moves: null
+  };
+  const { draft, report } = migrateLegacyPokemon(row, catalog, {
+    ...options,
+    slot,
+    ignoredHistoricalProgressions,
+    missingCurrentOwnerProgression: current === null
+  });
+  return { kind: "migrated", draft, report };
+}
 
 // src/features/battle/rules/catalogView.ts
 function createBattleRulesCatalog(index) {
@@ -114029,8 +114337,64 @@ function loadLearnsets() {
   });
 }
 
+// src/features/ecosystem/server/ownedCombatant.ts
+var record = (value) => Boolean(value && typeof value === "object" && !Array.isArray(value));
+function freeze(value) {
+  if (value && typeof value === "object") {
+    Object.values(value).forEach(freeze);
+    Object.freeze(value);
+  }
+  return value;
+}
+function createOwnedCombatantBuilder(index, learnsets) {
+  const view = createPokemonCatalogView(index, learnsets);
+  return (row, ownerId) => {
+    const fail2 = (reason) => ({ ok: false, reason });
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(ownerId)) return fail2("not-player");
+    if (!record(row) || !record(row.slot)) return fail2("invalid-data");
+    const slot = row.slot;
+    if (slot.owner_id !== ownerId) return fail2("not-owner");
+    if (!Number.isSafeInteger(slot.pokemon_id) || slot.pokemon_id < 1 || slot.is_locked !== false && slot.is_locked !== null || slot.first_owner_id !== null && typeof slot.first_owner_id !== "string" || slot.owned_since !== null && typeof slot.owned_since !== "string") return fail2(slot.is_locked === true ? "locked" : "invalid-data");
+    const xp = row.progression;
+    if (!record(xp)) return fail2("missing-progression");
+    if (xp.user_id !== ownerId || xp.pokemon_id !== slot.pokemon_id) return fail2("invalid-progression-owner");
+    if (!Number.isSafeInteger(xp.xp) || xp.xp < 0 || !Number.isInteger(xp.level)) return fail2("invalid-progression");
+    const speciesId = slot.pokemon_id;
+    const form = index.formOf(speciesId);
+    if (!form) return fail2("unsupported-species");
+    if (!xp.moves || typeof xp.moves !== "object") return fail2("missing-moves");
+    const raw = Object.values(xp.moves);
+    if (!raw.length) return fail2("missing-moves");
+    if (raw.length > 4) return fail2("invalid-move-set");
+    const resolved = readLegacyMoves(xp.moves, view);
+    if (resolved.unresolved.length) return fail2("unknown-move");
+    if (resolved.moves.length !== raw.length) return fail2("invalid-move-set");
+    const learned = learnsets.get(form.id);
+    const level = levelForExperience(xp.xp);
+    if (!learned) return fail2("missing-learnset");
+    for (const { moveId } of resolved.moves) {
+      if (!learned.level.some(([id, at]) => id === moveId && at <= level) && !learned.machine.includes(moveId) && !learned.egg.includes(moveId) && !learned.tutor.includes(moveId)) return fail2("illegal-move");
+      const move = index.move(moveId);
+      if (!move || !isExecutable(move)) return fail2("unsupported-move");
+    }
+    try {
+      const result = migrateLegacySlot({ slot, progressions: [xp] }, view, {
+        // Projection provenance, not an acquisition time or invented historical attributes.
+        at: "2026-10-11T00:00:00.000Z",
+        catalogVersion: index.catalogVersion
+      });
+      if (result.kind !== "migrated") return fail2("not-owner");
+      const instance = { ...result.draft, instanceId: `legacy-slot:${speciesId}` };
+      if (validateInstance(instance, view).length) return fail2("invalid-instance");
+      return { ok: true, instance: freeze(instance), level, ignoredStoredLevel: result.report.ignoredStoredLevel };
+    } catch {
+      return fail2("invalid-instance");
+    }
+  };
+}
+
 // src/features/ecosystem/server/encounterBattleRuntime.ts
-var ECO_BATTLE_API = 2;
+var ECO_BATTLE_API = 3;
 var ECO_SANDBOX_FIXTURE = Object.freeze({
   label: "fixture de prueba",
   ownerId: "eco-sandbox-fixture",
@@ -114051,6 +114415,7 @@ async function prepareEncounterBattles() {
   }
   const modelView = createPokemonCatalogView(index, learnsets);
   const catalog = createBattleRulesCatalog(index);
+  const ownedCombatant = createOwnedCombatantBuilder(index, learnsets);
   const hardy = index.catalog.natures.find((nature) => nature.name === "hardy");
   if (!hardy) return { ok: false, reason: "fixture-invalid" };
   const learnedMoves = (speciesId, atLevel) => {
@@ -114095,11 +114460,13 @@ async function prepareEncounterBattles() {
   }
   const battles = {
     fixture,
+    ownedCombatant,
     combatants: Object.freeze(PLAYER_SPECIES.map((speciesId) => Object.freeze({ speciesId, level: fixture.player.level }))),
-    start({ battleId, controllerId, speciesId, playerSpeciesId = fixture.player.speciesId, seed }) {
+    start({ battleId, controllerId, speciesId, playerSpeciesId = fixture.player.speciesId, seed, mode = "synthetic", ownedRow }) {
       const moves = learnedMoves(speciesId, fixture.wildLevel);
       const playerMoveIds = playerMoves.get(playerSpeciesId);
-      const player = playerMoveIds ? instance(playerSpeciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, `${battleId}:player`) : null;
+      const owned = mode === "owned" ? ownedCombatant(ownedRow, controllerId) : null;
+      const player = mode === "owned" ? owned?.ok ? owned.instance : null : mode === "synthetic" && playerMoveIds ? instance(playerSpeciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, `${battleId}:player`) : null;
       const wild = moves.length ? instance(speciesId, fixture.wildLevel, moves, null, `${battleId}:wild`) : null;
       if (!player || !wild) return { ok: false, reason: "battle-unavailable" };
       const clock = createManualClock(0);

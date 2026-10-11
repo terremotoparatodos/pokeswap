@@ -4,6 +4,7 @@ import { serverRandom } from './ecoPopulation.js'
 import { publicBattleView } from './ecoBattlePublic.js'
 import { battleStage, wildPoseAt } from './ecoScene.js'
 import { EcoCombatants } from './ecoCombatants.js'
+import { OwnedEcoCombatants } from './ownedEcoCombatants.js'
 
 /**
  * ECO-GAMEPLAY-2 (EXPERIMENTAL, development sandbox only): authoritative reservations of ECO
@@ -60,7 +61,9 @@ export class EcoBattles {
    *   but that player (ECO-BATTLE-SPECTATORS-1).
    * `prepare()`: resolves to `{ ok, battles }` or `{ ok: false, reason }` (default: the bundle).
    */
-  constructor({ population, now, send, onChange = () => {}, broadcast = () => {}, prepare = prepareBundledBattles, random = serverRandom, newId = newBattleId, log = message => console.warn(message) }) {
+  constructor({ population, now, send, onChange = () => {}, broadcast = () => {}, prepare = prepareBundledBattles, random = serverRandom, newId = newBattleId, combatantMode = 'synthetic', readCombatants = null, isCurrent = () => false, log = message => console.warn(message) }) {
+    if (!['synthetic', 'owned'].includes(combatantMode)) throw new Error('invalid ECO combatant mode')
+    this.combatantMode = combatantMode
     this.population = population
     this.now = now
     this.send = send
@@ -79,7 +82,8 @@ export class EcoBattles {
     /** encounterId → reservation; playerId → reservation. A closed reservation is in neither. */
     this.byEncounter = new Map()
     this.byPlayer = new Map()
-    this.combatants = new EcoCombatants({ battles: () => this.battles, inBattle: id => this.byPlayer.has(id) })
+    const dependencies = { battles: () => this.battles, inBattle: id => this.byPlayer.has(id) }
+    this.combatants = combatantMode === 'owned' ? new OwnedEcoCombatants({ ...dependencies, read: readCombatants, isCurrent }) : new EcoCombatants(dependencies)
     this.metrics = { engaged: 0, resumed: 0, refused: {}, ended: {}, actions: 0, refusedActions: {}, published: 0 }
     this.ready = Promise.resolve()
       .then(prepare)
@@ -107,7 +111,7 @@ export class EcoBattles {
    * `world:eco-engage`. `actor`: the player's live actor (null for a guest). `client`: the socket the
    * intent came from, which must be the player's current one. Validation order: contract §3 and §7.
    */
-  engage(actor, payload, client, currentClient) {
+  engage(actor, payload, client, currentClient, ownedRow = undefined) {
     const requestId = Number.isSafeInteger(payload?.requestId) ? payload.requestId : null
     const refuse = (reason, encounterId = null) => {
       this.metrics.refused[reason] = (this.metrics.refused[reason] ?? 0) + 1
@@ -130,6 +134,11 @@ export class EcoBattles {
       this.metrics.resumed++
       return this.#reply(client, { requestId, encounterId, ok: true, battle: this.#battleInfo(own) })
     }
+    if (this.combatantMode === 'owned') {
+      if (!this.combatants.current(actor, client)) return refuse('not-player', encounterId)
+      if (ownedRow === undefined) return this.combatants.withBattle(actor, client,
+        row => this.engage(actor, payload, client, currentClient, row), reason => refuse(reason, encounterId))
+    }
     const encounter = this.population.encounter(encounterId)
     if (!encounter) return refuse('not-alive', encounterId)
     if (actor.areaId !== encounter.areaId) return refuse('other-area', encounterId)
@@ -144,7 +153,8 @@ export class EcoBattles {
     const seed = Math.floor(this.random() * 0x7fffffff)
     let started
     try {
-      started = this.battles.start({ battleId, controllerId: actor.id, speciesId: encounter.speciesId, playerSpeciesId: this.combatants.speciesOf(actor.id), seed })
+      started = this.battles.start({ battleId, controllerId: actor.id, speciesId: encounter.speciesId, seed,
+        ...(this.combatantMode === 'owned' ? { mode: 'owned', ownedRow } : { mode: 'synthetic', playerSpeciesId: this.combatants.speciesOf(actor.id) }) })
     } catch {
       started = { ok: false }
     }

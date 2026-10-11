@@ -14,7 +14,7 @@
     <p class="eco-card__state" :class="`eco-card__state--${state.kind}`" role="status">{{ state.text }}</p>
     <slot name="combatant" />
     <button class="eco-card__fight" :disabled="state.kind !== 'free' || !combatantReady" @click="emit('engage', encounterId)">Combatir</button>
-    <p class="eco-card__note">Combatiente sintético: sin captura ni recompensas.</p>
+    <p class="eco-card__note">Combate de prueba: sin captura ni recompensas.</p>
   </section>
 </template>
 

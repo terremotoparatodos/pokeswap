@@ -68,6 +68,29 @@ async function setup(route: string) {
 }
 
 describe.each(['.eco-card', '.eco-dev'])('CM-R1 keyboard ownership in %s', (route) => {
+  it('owned presentation is explicit, pending stays focused, late ACK respects voluntary departure', async () => {
+    const s = await setup(route)
+    const own = (id: number | null, requestId: number | null = null) => ({ requestId, ok: true, mode: 'owned' as const,
+      attributeSource: 'legacy-m1-derived' as const, speciesId: id, selectedSlotPokemonId: id, level: id ? 12 : null,
+      options: [{ slotPokemonId: 25, speciesId: 25, level: 12, eligible: true }, { slotPokemonId: 19, speciesId: 19, level: 12, eligible: true },
+        { slotPokemonId: 43, speciesId: 43, level: null, eligible: false, reason: 'missing-moves' }] })
+    try {
+      s.world.ecoBattleMessage(M.ECO_COMBATANT_STATE, own(25)); await flushPromises()
+      expect(s.wrapper.find(route).text()).toContain('IVs, naturaleza y habilidad derivados')
+      expect(s.element.getAttribute('aria-label')).toBe('Pokémon propio')
+      expect(s.element.querySelector('option[value="43"]')?.hasAttribute('disabled')).toBe(true)
+      s.element.value = '19'; s.element.dispatchEvent(new Event('change', { bubbles: true })); await flushPromises()
+      expect(s.sent[s.sent.length - 1]?.[1]).toEqual({ requestId: 1, slotPokemonId: 19 })
+      expect(document.activeElement).toBe(s.element)
+      expect(s.element.disabled).toBe(false)
+      const event = key('keydown', 'ArrowUp'); s.element.dispatchEvent(event)
+      expect(event.defaultPrevented).toBe(false); expect(s.keyboard.direction).toBeNull()
+      const chat = document.createElement('input'); document.body.append(chat); chat.focus()
+      s.world.ecoBattleMessage(M.ECO_COMBATANT_STATE, own(19, 1)); await flushPromises()
+      expect(document.activeElement).toBe(chat)
+      expect(s.element.value).toBe('19'); chat.remove()
+    } finally { s.dispose() }
+  })
   it.each(['ArrowDown', 'ArrowUp', 'ArrowLeft', 'ArrowRight'])(
     '%s stays native and never reaches map movement',
     async (arrow) => {

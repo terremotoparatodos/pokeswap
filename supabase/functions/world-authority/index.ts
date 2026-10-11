@@ -11,6 +11,7 @@
 
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { handleWorldAuthority } from './handler.ts';
+import { readEcoCombatants } from './ecoCombatantRead.ts';
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL')!,
@@ -20,6 +21,20 @@ const supabase = createClient(
 
 Deno.serve(req => handleWorldAuthority(req, {
   secret: Deno.env.get('WORLD_AUTHORITY_SECRET'),
+  ecoCombatants: (userId, pokemonId) => readEcoCombatants({
+    async slots(id, selected) {
+      let query = supabase.from('slots').select('pokemon_id,owner_id,is_locked,first_owner_id,owned_since').eq('owner_id', id).order('pokemon_id');
+      if (selected !== null) query = query.eq('pokemon_id', selected);
+      const { data, error } = await query;
+      if (error) throw new Error('eco slot read failed');
+      return data ?? [];
+    },
+    async progressions(id, ids) {
+      const { data, error } = await supabase.from('pokemon_xp').select('user_id,pokemon_id,xp,level,moves').eq('user_id', id).in('pokemon_id', ids);
+      if (error) throw new Error('eco progression read failed');
+      return data ?? [];
+    },
+  }, userId, pokemonId),
   rpc: async (fn, args) => {
     const { data, error } = await supabase.rpc(fn, args);
     if (error) console.error('world-authority rpc failed', fn, error.code ?? '');

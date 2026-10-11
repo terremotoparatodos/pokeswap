@@ -152,6 +152,26 @@ describe('ECO experiment layer · map selection', () => {
 })
 
 describe('ECO experiment layer · battle screen', () => {
+  it('labels the owned projection in battle info without presenting it as the synthetic fixture', async () => {
+    const { world, layer, card, screen, wrapper } = setup()
+    try {
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_COMBATANT_STATE, { requestId: null, ok: true, mode: 'owned', speciesId: 25, selectedSlotPokemonId: 25,
+        level: 12, attributeSource: 'legacy-m1-derived', options: [{ slotPokemonId: 25, speciesId: 25, level: 12, eligible: true }] })
+      layer.select(ID('soto', 0)); await flushPromises()
+      expect(card().text()).toContain('Proyección temporal M-1')
+      expect(card().text()).not.toContain('Combatiente sintético')
+      await card().find('.eco-card__fight').trigger('click')
+      const own = snapshot(), player = own.combatants['player-0']!
+      // UI-only snapshot adapter: not recovered account data or a stats construction test.
+      const ownBattle = { ...battle, snapshot: { ...own, combatants: { ...own.combatants,
+        'player-0': { ...player, instance: { ...player.instance, acquisition: { source: 'legacy_migration' as const, at: '2026-10-11', catalogVersion: 'c' } } } } } }
+      world.ecoBattleMessage(WORLD_MESSAGE.ECO_ENGAGE_RESULT, { requestId: 1, encounterId: ID('soto', 0), ok: true, battle: ownBattle })
+      await flushPromises(); await screen().find('.ebp-info').trigger('click')
+      expect(screen().find('.ebp-details').text()).toContain('propio · proyección temporal M-1 · no se guarda')
+      expect(screen().find('.ebp-details').text()).not.toContain('fixture de prueba')
+    } finally { wrapper.unmount() }
+  })
+
   it('«Combatir» asks for that individual; the panel shows names, levels, HP, moves/PP and «Huir»; the battle restrictions are on (ECO-BATTLE-SCENE-1: no portal, no other activity; walking stays)', async () => {
     const { world, sent, layer, card, screen, wrapper } = setup()
     layer.select(ID('soto', 1)); await flushPromises()

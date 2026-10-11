@@ -1,7 +1,7 @@
 import { chunkOf, worldArea } from './areas.js'
 import { ResourceAuthority } from './resourceAuthority.js'
 import { chunkKey } from './resourceStore.js'
-import { WORLD_MESSAGE, WORLD_PROTOCOL, cancelIntent, ecoRetireIntent, publicNode, workIntent } from './worldProtocol.js'
+import { ECO_COMBATANT_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL, cancelIntent, ecoRetireIntent, publicNode, workIntent } from './worldProtocol.js'
 import { chunksInView, isChunkRetained } from './worldInterest.js'
 import { WildService } from './wildService.js'
 import { ECO_PROTOCOL, EcoPopulation } from './ecoPopulation.js'
@@ -28,9 +28,10 @@ export class WorldRoom {
    * player its own XP, materials and Pokémon. Without it (tests, benchmarks
    * of the transport alone) the world starts empty and ready.
    */
-  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, eco = undefined, ecoRandom = undefined, ecoBattles = undefined, log = message => console.warn(message) }) {
+  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, ecoCombatantMode = 'synthetic', eco = undefined, ecoRandom = undefined, ecoBattles = undefined, log = message => console.warn(message) }) {
     this.now = now
     this.clientForPlayer = clientForPlayer
+    this.lookupActor = lookupActor
     this.clients = new Map()
     /** Sockets that declared an older world protocol (or none): no world state, no work (PROB-2). */
     this.outdated = new WeakSet()
@@ -51,6 +52,10 @@ export class WorldRoom {
     // `ecoBattles` (tests only): EcoBattles options to override (`prepare`, `random`, `newId`).
     this.ecoBattles = this.eco ? new EcoBattles({
       population: this.eco, now, log, send: (client, type, payload) => this.#send(client, type, payload),
+      combatantMode: ecoCombatantMode,
+      // Synthetic battles must not even inspect the owned-only player data capability (A12).
+      readCombatants: ecoCombatantMode === 'owned' && playerData?.readEcoCombatants ? (id, slot) => playerData.readEcoCombatants(id, slot) : null,
+      isCurrent: (actor, client) => lookupActor(actor.id) === actor && clientForPlayer(actor.id) === client && this.clients.get(client)?.eco === true,
       onChange: areaId => this.ecoDirty.add(areaId),
       // ECO-BATTLE-SPECTATORS-1: the other ECO viewers of the battle's area (never the owner's sockets).
       broadcast: (areaId, type, payload, exceptPlayerId) => this.#sendToEcoArea(areaId, type, payload, exceptPlayerId),
@@ -106,6 +111,7 @@ export class WorldRoom {
     }
     // ECO-GAMEPLAY-1: only a client that declared the ECO protocol is sent the ECO population.
     const eco = this.eco !== null && options?.ecoProtocol === ECO_PROTOCOL
+      && (this.ecoBattles.combatantMode !== 'owned' || options?.ecoCombatantProtocol === ECO_COMBATANT_PROTOCOL)
     this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId, eco })
     // ECO-GAMEPLAY-2: the player's new socket. ECO: takes its battle over; otherwise the battle pauses.
     if (playerId !== null) this.ecoBattles?.socketJoined(client, playerId, eco)
@@ -164,7 +170,10 @@ export class WorldRoom {
     if (eco && state.playerId !== null) {
       const sendChoice = () => {
         if (this.clients.get(client)?.eco && this.clientForPlayer(state.playerId) === client) {
-          this.#send(client, WORLD_MESSAGE.ECO_COMBATANT_STATE, this.ecoBattles.combatants.state(state.playerId))
+          if (this.ecoBattles.combatantMode === 'owned') {
+            const actor = this.lookupActor(state.playerId)
+            if (actor) void this.ecoBattles.combatants.refresh(actor, client)
+          } else this.#send(client, WORLD_MESSAGE.ECO_COMBATANT_STATE, this.ecoBattles.combatants.state(state.playerId))
         }
       }
       if (this.ecoBattles.status === 'loading') void this.ecoBattles.ready.then(sendChoice)
@@ -266,13 +275,17 @@ export class WorldRoom {
     return this.ecoBattles.engage(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
   }
 
-  /** ECO-COMBATANT-1: choice is per transport player; no real Pokémon or writes. */
+  /** Choice per session player: explicit synthetic or read-only owned M-1 mode; no writes. */
   ecoCombatantSelect(actor, payload, client) {
     if (!this.ecoBattles || !client || !this.clients.get(client)?.eco) {
       const result = { requestId: Number.isSafeInteger(payload?.requestId) ? payload.requestId : null, ok: false,
         reason: this.ecoBattles ? 'client-outdated' : 'disabled', speciesId: null, options: [] }
       client?.send(WORLD_MESSAGE.ECO_COMBATANT_STATE, result)
       return result
+    }
+    if (this.ecoBattles.combatantMode === 'owned' && payload?.refresh === true
+      && Object.keys(payload).every(key => ['requestId', 'refresh'].includes(key)) && Number.isSafeInteger(payload.requestId) && payload.requestId > 0) {
+      return this.ecoBattles.combatants.refresh(actor, client, payload.requestId)
     }
     return this.ecoBattles.combatants.select(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
   }
