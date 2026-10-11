@@ -53,7 +53,8 @@ export class WorldRoom {
     this.ecoBattles = this.eco ? new EcoBattles({
       population: this.eco, now, log, send: (client, type, payload) => this.#send(client, type, payload),
       combatantMode: ecoCombatantMode,
-      readCombatants: playerData?.readEcoCombatants ? (id, slot) => playerData.readEcoCombatants(id, slot) : null,
+      // Synthetic battles must not even inspect the owned-only player data capability (A12).
+      readCombatants: ecoCombatantMode === 'owned' && playerData?.readEcoCombatants ? (id, slot) => playerData.readEcoCombatants(id, slot) : null,
       isCurrent: (actor, client) => lookupActor(actor.id) === actor && clientForPlayer(actor.id) === client && this.clients.get(client)?.eco === true,
       onChange: areaId => this.ecoDirty.add(areaId),
       // ECO-BATTLE-SPECTATORS-1: the other ECO viewers of the battle's area (never the owner's sockets).
