@@ -10,8 +10,10 @@ interface ImportMetaEnv {
   readonly VITE_PERF?: string
   /** Makes this development browser a playable synthetic client in the local presence benchmark. */
   readonly VITE_PRESENCE_BENCHMARK?: string
-  /** ECO-GAMEPLAY-1: 'on' in a DEVELOPMENT build only (src/features/world/domain/ecoExperiment.ts). */
+  /** ECO opt-in: development or the separately validated limited release. */
   readonly VITE_ECO_EXPERIMENT?: string
+  /** Explicit, production-built limited ECO release. Does not grant server access. */
+  readonly VITE_ECO_RELEASE?: string
   /** Build-time fallback access code, used until the remote gate answers. */
 }
 

@@ -1,8 +1,9 @@
 import { execSync } from 'node:child_process'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 import { perfCollector } from './scripts/perf/vitePerfCollector'
+import { validateLimitedBuild } from './src/features/world/domain/limitedBuildProfile'
 
 /**
  * Short commit of this build, so a bug report can name the build it came from.
@@ -18,7 +19,9 @@ function buildCommit(): string {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode, command }) => {
+  validateLimitedBuild({ ...loadEnv(mode, fileURLToPath(new URL('.', import.meta.url)), 'VITE_'), NODE_ENV: process.env.NODE_ENV ?? (command === 'build' ? 'production' : 'development') })
+  return {
   root: 'src',
   publicDir: '../public',
   envDir: '..',
@@ -42,4 +45,5 @@ export default defineConfig({
     globals: true,
     include: ['**/*.{test,spec}.{ts,tsx}'],
   },
+  }
 })

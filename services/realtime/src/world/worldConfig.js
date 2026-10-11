@@ -5,6 +5,7 @@ import { noOwnership, ownershipFromPlayerData } from './pokemonOwnership.js'
 import { createSkillsWorldPolicy } from './skills/skills.generated.js'
 import { unavailableSkillPolicy } from './skillPolicy.js'
 import { createSupabaseWildCatalog, syntheticWildCatalog } from './wildService.js'
+import { limitedRelease } from '../security/limitedRelease.js'
 
 const BENCHMARK_PLAYER = /^benchmark-[a-z0-9][a-z0-9-]{0,39}$/
 
@@ -29,11 +30,12 @@ const BENCHMARK_PLAYER = /^benchmark-[a-z0-9][a-z0-9-]{0,39}$/
  */
 export function worldDependencies(env = process.env) {
   const production = env.NODE_ENV === 'production'
+  const limited = limitedRelease(env)
   const ecoExperiment = env.WORLD_ECO_EXPERIMENT === 'on'
   const ecoCombatantMode = env.WORLD_ECO_COMBATANT_MODE ?? 'synthetic'
   if (!['synthetic', 'owned'].includes(ecoCombatantMode)) throw new Error('invalid WORLD_ECO_COMBATANT_MODE')
-  if (ecoCombatantMode === 'owned' && (!ecoExperiment || production)) throw new Error('owned combatants require the development ECO experiment')
-  if (ecoExperiment && production) throw new Error('WORLD_ECO_EXPERIMENT is a development-only experiment and is refused with NODE_ENV=production')
+  if (ecoCombatantMode === 'owned' && (!ecoExperiment || (production && !limited))) throw new Error('owned combatants require the development ECO experiment')
+  if (ecoExperiment && production && !limited) throw new Error('WORLD_ECO_EXPERIMENT is a development-only experiment and is refused with NODE_ENV=production')
   const catalog = env.WORLD_WILD_CATALOG === 'synthetic' && !production ? syntheticWildCatalog() : createSupabaseWildCatalog(env)
 
   if (!production && env.WORLD_PLAYERDATA === 'pglite') {
