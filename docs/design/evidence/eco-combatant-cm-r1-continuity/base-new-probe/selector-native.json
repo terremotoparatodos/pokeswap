@@ -1,0 +1,598 @@
+{
+  "pass": false,
+  "error": "AssertionError [ERR_ASSERTION]: pending must retain selector focus\n+ actual - expected\n\n+ null\n- '.eco-card select'\n\n    at file:///D:/CHATGPT/Datos-Codex/worktrees/eco-combatant-cm-r1-continuity/pokeswap/scripts/ecosystem/eco-combatant-keyboard-native.mjs:296:14\n    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)",
+  "browser": "Chrome/147.0.7727.138",
+  "keyEvents": 2,
+  "observed": [
+    {
+      "label": "no server acknowledgement",
+      "state": {
+        "sent": [],
+        "interactions": 0,
+        "direction": null,
+        "events": [],
+        "battle": false,
+        "focus": "BODY",
+        "focusId": "",
+        "focusRoute": null,
+        "selects": [
+          {
+            "value": "",
+            "disabled": true,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "",
+                "text": "Esperando al servidor…"
+              }
+            ]
+          },
+          {
+            "value": "",
+            "disabled": true,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "",
+                "text": "Esperando al servidor…"
+              }
+            ]
+          }
+        ],
+        "sprites": [],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": "default confirmed by actual server service",
+      "state": {
+        "sent": [],
+        "interactions": 0,
+        "direction": null,
+        "events": [],
+        "battle": false,
+        "focus": "BODY",
+        "focusId": "",
+        "focusRoute": null,
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select before ArrowDown",
+      "state": {
+        "sent": [],
+        "interactions": 0,
+        "direction": null,
+        "events": [],
+        "battle": false,
+        "focus": "SELECT",
+        "focusId": "",
+        "focusRoute": ".eco-card select",
+        "selects": [
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": false,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": false,
+            "text": "Combatir"
+          },
+          {
+            "disabled": false,
+            "text": "Combatir"
+          }
+        ],
+        "status": []
+      }
+    },
+    {
+      "label": ".eco-card select ArrowDown held",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "BODY",
+        "focusId": "",
+        "focusRoute": null,
+        "selects": [
+          {
+            "value": "25",
+            "disabled": true,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": true,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ]
+      }
+    },
+    {
+      "label": ".eco-card select pending after ArrowDown",
+      "state": {
+        "sent": [
+          {
+            "type": "world:eco-combatant-select",
+            "payload": {
+              "requestId": 1,
+              "speciesId": 19
+            }
+          }
+        ],
+        "interactions": 0,
+        "direction": null,
+        "events": [
+          {
+            "key": "ArrowDown",
+            "trusted": true,
+            "target": "SELECT",
+            "prevented": false
+          }
+        ],
+        "battle": false,
+        "focus": "BODY",
+        "focusId": "",
+        "focusRoute": null,
+        "selects": [
+          {
+            "value": "25",
+            "disabled": true,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          },
+          {
+            "value": "25",
+            "disabled": true,
+            "ariaDisabled": null,
+            "options": [
+              {
+                "value": "25",
+                "text": "Pikachu"
+              },
+              {
+                "value": "19",
+                "text": "Rattata"
+              },
+              {
+                "value": "43",
+                "text": "Oddish"
+              },
+              {
+                "value": "74",
+                "text": "Geodude"
+              },
+              {
+                "value": "41",
+                "text": "Zubat"
+              },
+              {
+                "value": "10",
+                "text": "Caterpie"
+              }
+            ]
+          }
+        ],
+        "sprites": [
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          },
+          {
+            "label": "Pikachu",
+            "style": "url(\"/assets/overworld/0025.png\")"
+          }
+        ],
+        "fight": [
+          {
+            "disabled": true,
+            "text": "Combatir"
+          },
+          {
+            "disabled": true,
+            "text": "Combatir"
+          }
+        ],
+        "status": [
+          "Confirmando elección…",
+          "Confirmando elección…"
+        ]
+      }
+    }
+  ],
+  "failure": {
+    "sent": [
+      {
+        "type": "world:eco-combatant-select",
+        "payload": {
+          "requestId": 1,
+          "speciesId": 19
+        }
+      }
+    ],
+    "interactions": 0,
+    "direction": null,
+    "events": [
+      {
+        "key": "ArrowDown",
+        "trusted": true,
+        "target": "SELECT",
+        "prevented": false
+      }
+    ],
+    "battle": false,
+    "focus": "BODY",
+    "focusId": "",
+    "focusRoute": null,
+    "selects": [
+      {
+        "value": "25",
+        "disabled": true,
+        "ariaDisabled": null,
+        "options": [
+          {
+            "value": "25",
+            "text": "Pikachu"
+          },
+          {
+            "value": "19",
+            "text": "Rattata"
+          },
+          {
+            "value": "43",
+            "text": "Oddish"
+          },
+          {
+            "value": "74",
+            "text": "Geodude"
+          },
+          {
+            "value": "41",
+            "text": "Zubat"
+          },
+          {
+            "value": "10",
+            "text": "Caterpie"
+          }
+        ]
+      },
+      {
+        "value": "25",
+        "disabled": true,
+        "ariaDisabled": null,
+        "options": [
+          {
+            "value": "25",
+            "text": "Pikachu"
+          },
+          {
+            "value": "19",
+            "text": "Rattata"
+          },
+          {
+            "value": "43",
+            "text": "Oddish"
+          },
+          {
+            "value": "74",
+            "text": "Geodude"
+          },
+          {
+            "value": "41",
+            "text": "Zubat"
+          },
+          {
+            "value": "10",
+            "text": "Caterpie"
+          }
+        ]
+      }
+    ],
+    "sprites": [
+      {
+        "label": "Pikachu",
+        "style": "url(\"/assets/overworld/0025.png\")"
+      },
+      {
+        "label": "Pikachu",
+        "style": "url(\"/assets/overworld/0025.png\")"
+      }
+    ],
+    "fight": [
+      {
+        "disabled": true,
+        "text": "Combatir"
+      },
+      {
+        "disabled": true,
+        "text": "Combatir"
+      }
+    ],
+    "status": [
+      "Confirmando elección…",
+      "Confirmando elección…"
+    ]
+  }
+}

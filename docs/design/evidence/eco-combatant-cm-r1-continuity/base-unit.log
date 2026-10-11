@@ -1,0 +1,55 @@
+
+ RUN  v3.2.7 D:/CHATGPT/Datos-Codex/worktrees/eco-combatant-cm-r1-continuity/pokeswap/src
+
+ ❯ features/world/components/EcoCombatantSelector.keyboard.test.ts (20 tests | 2 failed) 164ms
+   ✓ CM-R1 keyboard ownership in .eco-card > ArrowDown stays native and never reaches map movement 37ms
+   ✓ CM-R1 keyboard ownership in .eco-card > ArrowUp stays native and never reaches map movement 8ms
+   ✓ CM-R1 keyboard ownership in .eco-card > ArrowLeft stays native and never reaches map movement 16ms
+   ✓ CM-R1 keyboard ownership in .eco-card > ArrowRight stays native and never reaches map movement 11ms
+   ✓ CM-R1 keyboard ownership in .eco-card > Enter keeps its default and an actual change waits for the server confirmation 9ms
+   ✓ CM-R1 keyboard ownership in .eco-card > map listener remains attached outside the selector and keyup can release a prior held key 5ms
+   × CM-R1 keyboard ownership in .eco-card > keeps one focus through successive pending choices and acknowledgements 10ms
+     → expected true to be false // Object.is equality
+   ✓ CM-R1 keyboard ownership in .eco-card > late acknowledgement never takes focus back from input 7ms
+   ✓ CM-R1 keyboard ownership in .eco-card > late acknowledgement never takes focus back from canvas 9ms
+   ✓ CM-R1 keyboard ownership in .eco-card > late acknowledgement never takes focus back from button 6ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > ArrowDown stays native and never reaches map movement 6ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > ArrowUp stays native and never reaches map movement 3ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > ArrowLeft stays native and never reaches map movement 3ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > ArrowRight stays native and never reaches map movement 3ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > Enter keeps its default and an actual change waits for the server confirmation 6ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > map listener remains attached outside the selector and keyup can release a prior held key 4ms
+   × CM-R1 keyboard ownership in .eco-dev > keeps one focus through successive pending choices and acknowledgements 4ms
+     → expected true to be false // Object.is equality
+   ✓ CM-R1 keyboard ownership in .eco-dev > late acknowledgement never takes focus back from input 6ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > late acknowledgement never takes focus back from canvas 5ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > late acknowledgement never takes focus back from button 5ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-card > keeps one focus through successive pending choices and acknowledgements
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-dev > keeps one focus through successive pending choices and acknowledgements
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ features/world/components/EcoCombatantSelector.keyboard.test.ts:146:36
+    144|         expect(event.defaultPrevented).toBe(false)
+    145|         await s.select.setValue(String(speciesId))
+    146|         expect(s.element.disabled).toBe(false) // Native disabled woul…
+       |                                    ^
+    147|         expect(s.element.getAttribute('aria-disabled')).toBe('true')
+    148|         expect(s.element.value).toBe(String(confirmed))
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/2]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  2 failed | 18 passed (20)
+   Start at  20:52:09
+   Duration  7.15s (transform 769ms, setup 0ms, collect 1.51s, tests 164ms, environment 4.91s, prepare 270ms)
+

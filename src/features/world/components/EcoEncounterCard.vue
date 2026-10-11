@@ -12,8 +12,9 @@
       <button class="eco-card__close" aria-label="Cerrar" @click="emit('close')">×</button>
     </header>
     <p class="eco-card__state" :class="`eco-card__state--${state.kind}`" role="status">{{ state.text }}</p>
-    <button class="eco-card__fight" :disabled="state.kind !== 'free'" @click="emit('engage', encounterId)">Combatir</button>
-    <p class="eco-card__note">Combate de prueba con un Pikachu sintético: sin captura ni recompensas.</p>
+    <slot name="combatant" />
+    <button class="eco-card__fight" :disabled="state.kind !== 'free' || !combatantReady" @click="emit('engage', encounterId)">Combatir</button>
+    <p class="eco-card__note">Combatiente sintético: sin captura ni recompensas.</p>
   </section>
 </template>
 
@@ -40,6 +41,7 @@ const props = defineProps<{
   name: string
   tx: number
   ty: number
+  combatantReady: boolean
 }>()
 const emit = defineEmits<{ close: []; engage: [encounterId: string] }>()
 

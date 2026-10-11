@@ -7,7 +7,7 @@ import type { EcoBattleOutcome } from '../../../../services/realtime/src/world/w
 /** The end of a test battle, as the player reads it. */
 export const ECO_OUTCOME_TEXT: Readonly<Record<EcoBattleOutcome, { readonly title: string; readonly detail: string }>> = {
   victory: { title: 'Victoria', detail: 'El Pokémon salvaje se fue de esta zona para todos. Es una simulación: no hay captura ni recompensa.' },
-  defeat: { title: 'Derrota', detail: 'Tu Pikachu de prueba se debilitó. El Pokémon salvaje sigue en el mapa.' },
+  defeat: { title: 'Derrota', detail: 'Tu Pokémon de prueba se debilitó. El Pokémon salvaje sigue en el mapa.' },
   draw: { title: 'Empate', detail: 'Ninguno quedó en pie. El Pokémon salvaje sigue en el mapa.' },
   fled: { title: 'Huiste', detail: 'El Pokémon salvaje sigue en el mapa y queda libre.' },
   expired: { title: 'Se acabó el tiempo', detail: 'El combate de prueba llegó a su límite sin ganador. El Pokémon salvaje sigue en el mapa.' },

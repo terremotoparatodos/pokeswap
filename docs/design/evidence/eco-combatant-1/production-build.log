@@ -1,0 +1,31 @@
+
+> pokeswap@0.0.1 build
+> vite build
+
+vite v6.4.3 building for production...
+transforming...
+✓ 484 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/index.html                                   1.05 kB │ gzip:   0.53 kB
+../dist/assets/SwapRetiredView-AweysxtE.css          0.13 kB │ gzip:   0.12 kB
+../dist/assets/index-DxH4tN3A.css                    0.36 kB │ gzip:   0.22 kB
+../dist/assets/ProfileView-DHV0NCsf.css              1.93 kB │ gzip:   0.66 kB
+../dist/assets/PokedexView-B47cPwfe.css              2.32 kB │ gzip:   0.75 kB
+../dist/assets/MarketView-CYtctJ5Q.css               2.54 kB │ gzip:   0.82 kB
+../dist/assets/DungeonView-Cv_Uw-c1.css              2.63 kB │ gzip:   0.78 kB
+../dist/assets/MyBoxView-DZPLbhPu.css                4.96 kB │ gzip:   1.32 kB
+../dist/assets/WildlandsView-D2qobggd.css           21.34 kB │ gzip:   4.55 kB
+../dist/assets/SwapRetiredView-B0P98YJr.js           0.41 kB │ gzip:   0.32 kB
+../dist/assets/marketApi-lwu27emn.js                 0.63 kB │ gzip:   0.33 kB
+../dist/assets/pokemonApi-DfPwXbkB.js                0.71 kB │ gzip:   0.33 kB
+../dist/assets/useMyBox-giu1LSP2.js                  0.75 kB │ gzip:   0.45 kB
+../dist/assets/playerPreferencesStore-BqZFvdyc.js    1.99 kB │ gzip:   0.90 kB
+../dist/assets/PokedexView-l6RSPzcX.js               2.42 kB │ gzip:   1.21 kB
+../dist/assets/ProfileView-C4PDOg1B.js               3.27 kB │ gzip:   1.51 kB
+../dist/assets/MarketView-KlIxOCvF.js                5.38 kB │ gzip:   2.21 kB
+../dist/assets/MyBoxView-BlpFBNP8.js                 6.06 kB │ gzip:   2.40 kB
+../dist/assets/DungeonView-CW833cTO.js               6.30 kB │ gzip:   2.57 kB
+../dist/assets/WildlandsView-DG0nB2Jk.js           328.58 kB │ gzip: 111.06 kB
+../dist/assets/index-DroCivcX.js                   334.64 kB │ gzip: 100.41 kB
+✓ built in 2.68s

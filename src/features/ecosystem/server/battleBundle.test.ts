@@ -146,9 +146,9 @@ describe('an encounter battle', () => {
     expect(await trace(bundle as Api)).toBe(await trace(source))
   }, 60_000)
 
-  it('fails closed: an invalid fixture prepares no battles; a species with no usable move gets none', async () => {
-    expect(await source.prepareEncounterBattles({ player: { speciesId: 25, level: 12, moves: ['not-a-move'] }, wildLevel: 8 })).toEqual({ ok: false, reason: 'fixture-invalid' })
+  it('fails closed: a species outside the player pool or with no usable wild move gets no battle', async () => {
     const all = await battles()
+    expect(all.start({ battleId: 'x', controllerId: CONTROLLER, speciesId: 19, playerSpeciesId: 999_999, seed: 1 })).toEqual({ ok: false, reason: 'battle-unavailable' })
     expect(all.start({ battleId: 'x', controllerId: CONTROLLER, speciesId: 999_999, seed: 1 })).toEqual({ ok: false, reason: 'battle-unavailable' })
   })
 })

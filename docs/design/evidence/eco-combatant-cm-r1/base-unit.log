@@ -1,0 +1,59 @@
+
+ RUN  v3.2.7 D:/CHATGPT/Datos-Codex/worktrees/eco-combatant-cm-r1/pokeswap/src
+
+ ❯ features/world/components/EcoCombatantSelector.keyboard.test.ts (12 tests | 8 failed) 128ms
+   × CM-R1 keyboard ownership in .eco-card > ArrowDown stays native and never reaches map movement 41ms
+     → expected true to be false // Object.is equality
+   × CM-R1 keyboard ownership in .eco-card > ArrowUp stays native and never reaches map movement 11ms
+     → expected true to be false // Object.is equality
+   × CM-R1 keyboard ownership in .eco-card > ArrowLeft stays native and never reaches map movement 10ms
+     → expected true to be false // Object.is equality
+   × CM-R1 keyboard ownership in .eco-card > ArrowRight stays native and never reaches map movement 17ms
+     → expected true to be false // Object.is equality
+   ✓ CM-R1 keyboard ownership in .eco-card > Enter keeps its default and an actual change waits for the server confirmation 10ms
+   ✓ CM-R1 keyboard ownership in .eco-card > map listener remains attached outside the selector and keyup can release a prior held key 6ms
+   × CM-R1 keyboard ownership in .eco-dev > ArrowDown stays native and never reaches map movement 8ms
+     → expected true to be false // Object.is equality
+   × CM-R1 keyboard ownership in .eco-dev > ArrowUp stays native and never reaches map movement 5ms
+     → expected true to be false // Object.is equality
+   × CM-R1 keyboard ownership in .eco-dev > ArrowLeft stays native and never reaches map movement 5ms
+     → expected true to be false // Object.is equality
+   × CM-R1 keyboard ownership in .eco-dev > ArrowRight stays native and never reaches map movement 4ms
+     → expected true to be false // Object.is equality
+   ✓ CM-R1 keyboard ownership in .eco-dev > Enter keeps its default and an actual change waits for the server confirmation 7ms
+   ✓ CM-R1 keyboard ownership in .eco-dev > map listener remains attached outside the selector and keyup can release a prior held key 4ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 8 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-card > ArrowDown stays native and never reaches map movement
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-card > ArrowUp stays native and never reaches map movement
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-card > ArrowLeft stays native and never reaches map movement
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-card > ArrowRight stays native and never reaches map movement
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-dev > ArrowDown stays native and never reaches map movement
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-dev > ArrowUp stays native and never reaches map movement
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-dev > ArrowLeft stays native and never reaches map movement
+ FAIL  features/world/components/EcoCombatantSelector.keyboard.test.ts > CM-R1 keyboard ownership in .eco-dev > ArrowRight stays native and never reaches map movement
+AssertionError: expected true to be false // Object.is equality
+
+- Expected
++ Received
+
+- false
++ true
+
+ ❯ features/world/components/EcoCombatantSelector.keyboard.test.ts:41:38
+     39|       const event = key('keydown', arrow)
+     40|       s.element.dispatchEvent(event)
+     41|       expect(event.defaultPrevented).toBe(false)
+       |                                      ^
+     42|       expect(s.keyboard.direction).toBeNull()
+     43|       expect(s.interactions()).toBe(0)
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  8 failed | 4 passed (12)
+   Start at  20:15:18
+   Duration  7.42s (transform 777ms, setup 0ms, collect 1.52s, tests 128ms, environment 5.21s, prepare 308ms)
+

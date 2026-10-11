@@ -13,6 +13,7 @@
 
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
+import { realpathSync } from 'node:fs'
 import { build } from 'esbuild'
 
 export const ROOT = fileURLToPath(new URL('../../', import.meta.url))
@@ -53,7 +54,7 @@ function outputFromArgs(argv) {
   return argv[i + 1]
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (process.argv[1] && realpathSync(fileURLToPath(import.meta.url)) === realpathSync(process.argv[1])) {
   const output = outputFromArgs(process.argv)
   const fresh = await bundleBattle()
   if (process.argv.includes('--check')) {

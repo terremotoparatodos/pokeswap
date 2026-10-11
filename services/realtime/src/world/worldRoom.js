@@ -161,6 +161,15 @@ export class WorldRoom {
       ...(own ? { ownAction: { actionId: own.actionId, nodeId: own.node.id, startedAt: own.startedAt } } : {}),
     })
     this.metrics.snapshots++
+    if (eco && state.playerId !== null) {
+      const sendChoice = () => {
+        if (this.clients.get(client)?.eco && this.clientForPlayer(state.playerId) === client) {
+          this.#send(client, WORLD_MESSAGE.ECO_COMBATANT_STATE, this.ecoBattles.combatants.state(state.playerId))
+        }
+      }
+      if (this.ecoBattles.status === 'loading') void this.ecoBattles.ready.then(sendChoice)
+      else sendChoice()
+    }
     // ECO-GAMEPLAY-2: the owner's running battle, again, after its world snapshot (reconnection resume).
     if (eco && state.playerId !== null) this.ecoBattles.resume(client, state.playerId)
     // ECO-BATTLE-SPECTATORS-1: everyone else's running battles here, as they are now (no past effects).
@@ -255,6 +264,17 @@ export class WorldRoom {
     if (!this.ecoBattles) return refuse('disabled')
     if (!client || !this.clients.get(client)?.eco) return refuse('client-outdated')
     return this.ecoBattles.engage(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
+  }
+
+  /** ECO-COMBATANT-1: choice is per transport player; no real Pokémon or writes. */
+  ecoCombatantSelect(actor, payload, client) {
+    if (!this.ecoBattles || !client || !this.clients.get(client)?.eco) {
+      const result = { requestId: Number.isSafeInteger(payload?.requestId) ? payload.requestId : null, ok: false,
+        reason: this.ecoBattles ? 'client-outdated' : 'disabled', speciesId: null, options: [] }
+      client?.send(WORLD_MESSAGE.ECO_COMBATANT_STATE, result)
+      return result
+    }
+    return this.ecoBattles.combatants.select(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
   }
 
   /** ECO-GAMEPLAY-2: one battle action; the controller is this transport's player. */

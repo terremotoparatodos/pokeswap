@@ -168,6 +168,7 @@ export class PresenceRoom extends Room {
     // ECO-GAMEPLAY-2 test battles: the world decides (development-only experiment; refused otherwise).
     this.onMessage(WORLD_MESSAGE.ECO_ENGAGE, (client, payload) => world.ecoEngage(actors.get(client.userData?.actorId) ?? null, payload, client))
     this.onMessage(WORLD_MESSAGE.ECO_BATTLE_ACTION, (client, payload) => world.ecoBattleAction(actors.get(client.userData?.actorId) ?? null, payload, client))
+    this.onMessage(WORLD_MESSAGE.ECO_COMBATANT_SELECT, (client, payload) => world.ecoCombatantSelect(actors.get(client.userData?.actorId) ?? null, payload, client))
     this.onMessage(WORLD_MESSAGE.ECO_FLEE, (client, payload) => world.ecoFlee(actors.get(client.userData?.actorId) ?? null, payload, client))
   }
 

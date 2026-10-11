@@ -1,0 +1,13 @@
+
+ RUN  v3.2.7 D:/CHATGPT/Datos-Codex/worktrees/eco-combatant-cm-r1/pokeswap/src
+
+ ✓ features/world/state/ecoCombatantSelection.test.ts (2 tests) 5ms
+ ✓ features/world/components/EcoCombatantSelector.keyboard.test.ts (12 tests) 145ms
+ ✓ features/world/components/EcoExperimentLayer.test.ts (24 tests) 3483ms
+   ✓ ECO experiment layer · battle screen > the notice leaves on its own (3 s), and at once when another battle is asked for (ECO-BATTLE-ENDING-1)  3115ms
+
+ Test Files  3 passed (3)
+      Tests  38 passed (38)
+   Start at  20:18:18
+   Duration  5.73s (transform 660ms, setup 0ms, collect 2.60s, tests 3.63s, environment 1.91s, prepare 392ms)
+

@@ -1,0 +1,316 @@
+TAP version 13
+# Subtest: room: a player held by a test battle cannot cross the cave mouth; a resync still answers; free, it crosses
+ok 1 - room: a player held by a test battle cannot cross the cave mouth; a resync still answers; free, it crosses
+  ---
+  duration_ms: 23.4006
+  type: 'test'
+  ...
+# Subtest: the public view of a real battle carries only whitelisted fields — no moves, PP, selection, stats, joinAck or ids
+ok 2 - the public view of a real battle carries only whitelisted fields — no moves, PP, selection, stats, joinAck or ids
+  ---
+  duration_ms: 43.0906
+  type: 'test'
+  ...
+# Subtest: hostile or partial input: unknown event types and extra fields are dropped; missing combatants are left out
+ok 3 - hostile or partial input: unknown event types and extra fields are dropped; missing combatants are left out
+  ---
+  duration_ms: 0.4837
+  type: 'test'
+  ...
+# Subtest: E01 the start limit is 3 tiles (Chebyshev): 3 starts, 4 is refused on either axis and diagonal
+ok 4 - E01 the start limit is 3 tiles (Chebyshev): 3 starts, 4 is refused on either axis and diagonal
+  ---
+  duration_ms: 135.0307
+  type: 'test'
+  ...
+# Subtest: E02 a running battle is not cancelled by distance: the owner walks 10 tiles away and it goes on
+ok 5 - E02 a running battle is not cancelled by distance: the owner walks 10 tiles away and it goes on
+  ---
+  duration_ms: 4.6633
+  type: 'test'
+  ...
+# Subtest: SC01 the wild one freezes where it is seen, not at home; owner, spectators and the area get the same scene
+ok 6 - SC01 the wild one freezes where it is seen, not at home; owner, spectators and the area get the same scene
+  ---
+  duration_ms: 113.1593
+  type: 'test'
+  ...
+# Subtest: SC02 the 3-tile limit is measured from where it is seen: in range of the pose though 4+ from home starts; 4 from the pose does not
+ok 7 - SC02 the 3-tile limit is measured from where it is seen: in range of the pose though 4+ from home starts; 4 from the pose does not
+  ---
+  duration_ms: 6.0983
+  type: 'test'
+  ...
+# Subtest: SC03 the scene stays put: ticks pass and the owner walks away; tiles and facings never change
+ok 8 - SC03 the scene stays put: ticks pass and the owner walks away; tiles and facings never change
+  ---
+  duration_ms: 10.2701
+  type: 'test'
+  ...
+# Subtest: SC04 no room in front of it: the rule gives no scene (engage answers no-room and reserves nothing)
+ok 9 - SC04 no room in front of it: the rule gives no scene (engage answers no-room and reserves nothing)
+  ---
+  duration_ms: 0.4678
+  type: 'test'
+  ...
+# Subtest: SC05 during the battle: no other activity, no leaving the area (the server says so); both lift with the end
+ok 10 - SC05 during the battle: no other activity, no leaving the area (the server says so); both lift with the end
+  ---
+  duration_ms: 4.9851
+  type: 'test'
+  ...
+# Subtest: S01 routing: the area's other ECO viewers (players and guests) get it; the owner, another area and a client without ECO do not
+ok 11 - S01 routing: the area's other ECO viewers (players and guests) get it; the owner, another area and a client without ECO do not
+  ---
+  duration_ms: 102.261
+  type: 'test'
+  ...
+# Subtest: S02 synchronised with the owner (real bundle, seed 7, Rattata): same revisions, times, HP and drawable events, in order; the end last
+ok 12 - S02 synchronised with the owner (real bundle, seed 7, Rattata): same revisions, times, HP and drawable events, in order; the end last
+  ---
+  duration_ms: 58.7037
+  type: 'test'
+  ...
+# Subtest: S03 arriving mid-battle shows the current state once (no past effects); leaving stops it; coming back gets what is running now
+ok 13 - S03 arriving mid-battle shows the current state once (no past effects); leaving stops it; coming back gets what is running now
+  ---
+  duration_ms: 9.3269
+  type: 'test'
+  ...
+# Subtest: S04 every exit is told once with its outcome, and nothing follows: fled, left-area, expired, disconnected, vanished
+ok 14 - S04 every exit is told once with its outcome, and nothing follows: fled, left-area, expired, disconnected, vanished
+  ---
+  duration_ms: 33.7858
+  type: 'test'
+  ...
+# Subtest: S05 pause and resume reach spectators even when the battle's revision does not change
+ok 15 - S05 pause and resume reach spectators even when the battle's revision does not change
+  ---
+  duration_ms: 3.7106
+  type: 'test'
+  ...
+# Subtest: S06 two battles at once in one area: a third viewer sees both; each owner sees only the other one
+ok 16 - S06 two battles at once in one area: a third viewer sees both; each owner sees only the other one
+  ---
+  duration_ms: 3.0785
+  type: 'test'
+  ...
+# Subtest: S07 no private data on the wire (real bundle, a whole battle, start to end)
+ok 17 - S07 no private data on the wire (real bundle, a whole battle, start to end)
+  ---
+  duration_ms: 6.0699
+  type: 'test'
+  ...
+# Subtest: A01 two players dispute one encounter: one battles, the other sees it busy (both orders)
+ok 18 - A01 two players dispute one encounter: one battles, the other sees it busy (both orders)
+  ---
+  duration_ms: 122.5284
+  type: 'test'
+  ...
+# Subtest: A02 actions before the core: current socket, own battle, own actionId — even an already-accepted one
+ok 19 - A02 actions before the core: current socket, own battle, own actionId — even an already-accepted one
+  ---
+  duration_ms: 7.3886
+  type: 'test'
+  ...
+# Subtest: A03 identity, area and distance are the server's: range boundary 3 / 4, other area, guest
+ok 20 - A03 identity, area and distance are the server's: range boundary 3 / 4, other area, guest
+  ---
+  duration_ms: 5.1027
+  type: 'test'
+  ...
+# Subtest: A04 only a live individual id: unknown, retired, old generation and malformed ids are refused
+ok 21 - A04 only a live individual id: unknown, retired, old generation and malformed ids are refused
+  ---
+  duration_ms: 4.3686
+  type: 'test'
+  ...
+# Subtest: A05 one reservation per player; late and repeated intents are no-ops
+ok 22 - A05 one reservation per player; late and repeated intents are no-ops
+  ---
+  duration_ms: 3.6751
+  type: 'test'
+  ...
+# Subtest: A06 capture and items never reach the core through the transport (real bundle)
+ok 23 - A06 capture and items never reach the core through the transport (real bundle)
+  ---
+  duration_ms: 42.7592
+  type: 'test'
+  ...
+# Subtest: A07 victory retires exactly that individual for everyone, once; the nest respawns as before
+ok 24 - A07 victory retires exactly that individual for everyone, once; the nest respawns as before
+  ---
+  duration_ms: 12.9035
+  type: 'test'
+  ...
+# Subtest: A08 defeat, draw, flight and expiry release without retiring; the encounter can be fought again
+ok 25 - A08 defeat, draw, flight and expiry release without retiring; the encounter can be fought again
+  ---
+  duration_ms: 23.0748
+  type: 'test'
+  ...
+# Subtest: A08b the rules decide first: a battle decided on the step that reaches the limit is not expired
+ok 26 - A08b the rules decide first: a battle decided on the step that reaches the limit is not expired
+  ---
+  duration_ms: 12.672
+  type: 'test'
+  ...
+# Subtest: A09 disconnection pauses the battle clock; reconnection inside the grace resumes it; the grace releases
+ok 27 - A09 disconnection pauses the battle clock; reconnection inside the grace resumes it; the grace releases
+  ---
+  duration_ms: 5.992
+  type: 'test'
+  ...
+# Subtest: A10 races: flight vs victory, victory vs flight, victory vs test retirement, leaving the area
+ok 28 - A10 races: flight vs victory, victory vs flight, victory vs test retirement, leaving the area
+  ---
+  duration_ms: 8.2534
+  type: 'test'
+  ...
+# Subtest: A11 fail closed: no admission, no battles, failed creation, experiment off, outdated client
+ok 29 - A11 fail closed: no admission, no battles, failed creation, experiment off, outdated client
+  ---
+  duration_ms: 6.3149
+  type: 'test'
+  ...
+# Subtest: A12 nothing persists: no player data, ownership or store is touched by a whole battle cycle
+ok 30 - A12 nothing persists: no player data, ownership or store is touched by a whole battle cycle
+  ---
+  duration_ms: 2.473
+  type: 'test'
+  ...
+# Subtest: F1 a socket replaced by one WITHOUT the ECO protocol (or an outdated one) loses the battle at once, before its onLeave
+ok 31 - F1 a socket replaced by one WITHOUT the ECO protocol (or an outdated one) loses the battle at once, before its onLeave
+  ---
+  duration_ms: 3.8869
+  type: 'test'
+  ...
+# Subtest: F2 a reconnection is checked against the grace BEFORE resuming: before, at and after the limit, with no tick in between
+ok 32 - F2 a reconnection is checked against the grace BEFORE resuming: before, at and after the limit, with no tick in between
+  ---
+  duration_ms: 7.6506
+  type: 'test'
+  ...
+# Subtest: F3 alive is the exact individual: shown or hidden (idle) is alive; retired, never spawned or cleared is not
+ok 33 - F3 alive is the exact individual: shown or hidden (idle) is alive; retired, never spawned or cleared is not
+  ---
+  duration_ms: 8.9313
+  type: 'test'
+  ...
+# Subtest: F3 an individual that disappears under a reservation (server-side transition) ends it as vanished, nothing retired twice
+ok 34 - F3 an individual that disappears under a reservation (server-side transition) ends it as vanished, nothing retired twice
+  ---
+  duration_ms: 1.974
+  type: 'test'
+  ...
+# Subtest: seed 7 · Rattata · Impactrueno (\#84): victory around 11 s, retired once
+ok 35 - seed 7 · Rattata · Impactrueno (\#84): victory around 11 s, retired once
+  ---
+  duration_ms: 9.8747
+  type: 'test'
+  ...
+# Subtest: seed 7 · Geodude · no orders: defeat around 24 s, released and not retired
+ok 36 - seed 7 · Geodude · no orders: defeat around 24 s, released and not retired
+  ---
+  duration_ms: 8.3317
+  type: 'test'
+  ...
+# Subtest: seed 7 · Metapod · Onda Trueno (\#86) then Doble Equipo (\#104) at ~65 s: alive at 120 s → expired, released
+ok 37 - seed 7 · Metapod · Onda Trueno (\#86) then Doble Equipo (\#104) at ~65 s: alive at 120 s → expired, released
+  ---
+  duration_ms: 22.8242
+  type: 'test'
+  ...
+# Subtest: valid, independent and idempotent choices; invalid and forged attributes leave state unchanged
+ok 38 - valid, independent and idempotent choices; invalid and forged attributes leave state unchanged
+  ---
+  duration_ms: 104.8218
+  type: 'test'
+  ...
+# Subtest: active reservation and disconnected grace reject changes; reconnect keeps choice and the frozen battle
+ok 39 - active reservation and disconnected grace reject changes; reconnect keeps choice and the frozen battle
+  ---
+  duration_ms: 54.4943
+  type: 'test'
+  ...
+# Subtest: off, guest, outdated, replaced socket and unavailable factory fail closed
+ok 40 - off, guest, outdated, replaced socket and unavailable factory fail closed
+  ---
+  duration_ms: 5.3689
+  type: 'test'
+  ...
+# Subtest: initial snapshot waits for factory preparation and does not send choices to retired sockets
+ok 41 - initial snapshot waits for factory preparation and does not send choices to retired sockets
+  ---
+  duration_ms: 3.0851
+  type: 'test'
+  ...
+# Subtest: two clients see the same authoritative population, with several individuals of one species
+ok 42 - two clients see the same authoritative population, with several individuals of one species
+  ---
+  duration_ms: 111.5101
+  type: 'test'
+  ...
+# Subtest: one wild system per process: in the experiment there is no hourly roster at all
+ok 43 - one wild system per process: in the experiment there is no hourly roster at all
+  ---
+  duration_ms: 5.0671
+  type: 'test'
+  ...
+# Subtest: a client without the ECO protocol, on an experimental server, sees no population (fail closed) and never a roster
+ok 44 - a client without the ECO protocol, on an experimental server, sees no population (fail closed) and never a roster
+  ---
+  duration_ms: 33.7889
+  type: 'test'
+  ...
+# Subtest: a test retirement removes the encounter for both clients; the nest respawns after its provisional delay
+ok 45 - a test retirement removes the encounter for both clients; the nest respawns after its provisional delay
+  ---
+  duration_ms: 6.2507
+  type: 'test'
+  ...
+# Subtest: test retirements are refused to guests, from another area, with invalid payloads, and when not admitted
+ok 46 - test retirements are refused to guests, from another area, with invalid payloads, and when not admitted
+  ---
+  duration_ms: 7.0339
+  type: 'test'
+  ...
+# Subtest: an area nobody views stops being simulated; returning refills it
+ok 47 - an area nobody views stops being simulated; returning refills it
+  ---
+  duration_ms: 7.0744
+  type: 'test'
+  ...
+# Subtest: fail closed: without admission there is no population, and the log carries codes only
+ok 48 - fail closed: without admission there is no population, and the log carries codes only
+  ---
+  duration_ms: 2.7285
+  type: 'test'
+  ...
+# Subtest: server clock, server randomness and a fresh namespace per process
+ok 49 - server clock, server randomness and a fresh namespace per process
+  ---
+  duration_ms: 2.1722
+  type: 'test'
+  ...
+# Subtest: the experiment is development-only: refused with NODE_ENV=production
+ok 50 - the experiment is development-only: refused with NODE_ENV=production
+  ---
+  duration_ms: 0.6365
+  type: 'test'
+  ...
+# Subtest: the real path, with the server's own randomness (no seed injected), populates the area
+ok 51 - the real path, with the server's own randomness (no seed injected), populates the area
+  ---
+  duration_ms: 1.8516
+  type: 'test'
+  ...
+1..51
+# tests 51
+# suites 0
+# pass 51
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 479.5525

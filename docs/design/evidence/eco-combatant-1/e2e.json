@@ -1,0 +1,12 @@
+{
+  "node": "v22.23.3",
+  "checks": [
+    "two independent choices; invalid and forged input rejected",
+    "two species in owner and spectator scenes; active choices locked",
+    "choice and battle survive reconnect during grace",
+    "live HP/action bars and species match owner/public updates",
+    "choice unlocked after end and retained on out-of-combat reconnect"
+  ],
+  "result": "PASS",
+  "cleanup": "all owned sockets closed; isolated realtime exited"
+}

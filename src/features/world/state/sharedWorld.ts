@@ -11,6 +11,8 @@ import { WORLD_MESSAGE } from '../../../../services/realtime/src/world/worldProt
 import type { WorldSend, WorldTransportSink } from '../api/worldTransport'
 import type { EcoBattleHost, EcoBattleSink } from './ecoBattleSession'
 import type { EcoSpectatorHost, EcoSpectatorSink } from './ecoSpectatedBattles'
+import type { EcoCombatantSink } from './ecoCombatantSelection'
+import type { EcoCombatantState } from '../../../../services/realtime/src/world/worldProtocol.js'
 import { devWarn } from '../../../shared/utils/devTools'
 import { WorldClock } from '../domain/worldClock'
 import { WorldResourceMirror } from '../domain/worldResources'
@@ -50,6 +52,8 @@ export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHos
   /** ECO-GAMEPLAY-2 (experimental): the lazily loaded test-battle session, if any. */
   private ecoBattleSink: EcoBattleSink | null = null
   private ecoSpectatorSink: EcoSpectatorSink | null = null
+  private ecoCombatantSink: EcoCombatantSink | null = null
+  private ecoCombatantState: EcoCombatantState | null = null
   private player: PlayerStateMessage | null = null
   private readonly playerListeners = new Set<(state: PlayerStateMessage) => void>()
 
@@ -99,6 +103,8 @@ export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHos
     }
     this.ecoPending.clear()
     this.ecoBattleSink?.detached()
+    this.ecoCombatantState = null
+    this.ecoCombatantSink?.detached()
     this.ecoSpectatorSink?.detached()
   }
 
@@ -178,8 +184,17 @@ export class SharedWorld implements WorldTransportSink, WorldLayer, EcoBattleHos
 
   ecoBattleMessage(type: string, payload: unknown): void {
     // ECO-BATTLE-SPECTATORS-1: someone else's battle goes to the spectator side, never to the owner's session.
-    if (type === WORLD_MESSAGE.ECO_BATTLE_PUBLIC) this.ecoSpectatorSink?.message(payload)
+    if (type === WORLD_MESSAGE.ECO_COMBATANT_STATE) {
+      this.ecoCombatantState = payload as EcoCombatantState
+      this.ecoCombatantSink?.message(this.ecoCombatantState)
+    }
+    else if (type === WORLD_MESSAGE.ECO_BATTLE_PUBLIC) this.ecoSpectatorSink?.message(payload)
     else this.ecoBattleSink?.message(type, payload)
+  }
+
+  setEcoCombatantSink(sink: EcoCombatantSink | null): void {
+    this.ecoCombatantSink = sink
+    if (this.ecoCombatantState) sink?.message({ ...this.ecoCombatantState, requestId: null })
   }
 
   setEcoSpectatorSink(sink: EcoSpectatorSink | null): void {

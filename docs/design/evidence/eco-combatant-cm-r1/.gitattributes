@@ -1,0 +1,4 @@
+# Preserve raw probe evidence byte-for-byte, including the original reproduction script.
+* -text whitespace=blank-at-eol,space-before-tab,cr-at-eol
+# Raw stdout/stderr can contain terminal padding and intentional blank lines.
+*.log -whitespace

@@ -1,0 +1,58 @@
+{
+  "base": "741f70b317ed8c841806df53fa20ee8dc3371373",
+  "node": "v22.23.3",
+  "chrome": "147.0.7727.138",
+  "originalProbeSHA256": "4E6752425C4BC3BCE955C3FF248D679F121E029ED52F8BCC8895AE7B9AD76255",
+  "preservedProbeSHA256": "4E6752425C4BC3BCE955C3FF248D679F121E029ED52F8BCC8895AE7B9AD76255",
+  "reviewSHA256": "6BB42062E7CCB83CE4A1BE41347BD57E3A2DDA2D8CB83C3552FB9345E674B770",
+  "tests": {
+    "basePassed": 4,
+    "fixedPassed": 38,
+    "baseFailed": 8,
+    "fixedFailed": 0
+  },
+  "types": {
+    "command": "node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.app.json",
+    "exit": 0,
+    "stdout": "empty"
+  },
+  "lint": {
+    "command": "node node_modules/eslint/bin/eslint.js src/features/world/components/EcoCombatantSelector.vue src/features/world/components/EcoCombatantSelector.keyboard.test.ts scripts/ecosystem/eco-combatant-keyboard-native.mjs",
+    "exit": 0,
+    "stdout": "empty"
+  },
+  "cleanup": {
+    "runs": [
+      {
+        "browserPid": 29324,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 57138,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 22004,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 57335,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 16860,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 57424,
+        "staticServerClosed": true
+      },
+      {
+        "browserPid": 34420,
+        "browserExit": 0,
+        "browserSignal": null,
+        "staticPort": 57631,
+        "staticServerClosed": true
+      }
+    ],
+    "remainingBrowserPids": [],
+    "remainingProbeListeners": []
+  }
+}

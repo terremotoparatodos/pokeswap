@@ -59,6 +59,14 @@ function overlay(now = 0) {
 }
 
 describe('EcoBattleOverlay', () => {
+  it.each([19, 43, 74, 41, 10])('draws species %i from the owner snapshot, with its own HP bars', speciesId => {
+    const { o } = overlay()
+    const selected = { ...snapshot, combatants: { ...snapshot.combatants, 'player-0': { ...snapshot.combatants['player-0'], instance: { ...snapshot.combatants['player-0'].instance, speciesId }, stats: { ...snapshot.combatants['player-0'].stats, hp: 60 }, condition: { ...snapshot.combatants['player-0'].condition, currentHp: 15 } } } }
+    o.setBattle({ snapshot: selected, snapshotAt: 0, connected: true, encounterId: 'e', stage: fixtureStage({ tx: 0, ty: 0 }, { tx: 4, ty: 0 }) })
+    const sprites = o.overlay.sprites!(area, 0) as unknown as { sprite?: { id: number }; bar?: { hp: number } }[]
+    expect(sprites.find(s => s.sprite)?.sprite?.id).toBe(speciesId)
+    expect(sprites.find(s => s.bar)?.bar?.hp).toBe(15 / 60)
+  })
   it('draws nothing with no battle and nothing busy; it has no decor hook', () => {
     const { o } = overlay()
     expect(o.overlay.decor).toBeUndefined()
@@ -132,6 +140,15 @@ type Drawn = { wx: number; wy: number; sprite?: { id: number; dir: string }; bar
 const drawn = (o: InstanceType<typeof EcoBattleOverlay>) => o.overlay.sprites!(area, 0) as unknown as Drawn[]
 
 describe('EcoBattleOverlay · spectators', () => {
+  it.each([19, 43, 74, 41, 10])('draws public species %i and its HP in the spectator scene', speciesId => {
+    const { o } = overlay()
+    const battle = watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 })
+    const player = battle.view.combatants['player-0']
+    o.setSpectated([{ ...battle, view: { ...battle.view, combatants: { ...battle.view.combatants, 'player-0': { ...player, speciesId, currentHp: 15, maxHp: 60 } } } }])
+    const sprites = drawn(o)
+    expect(sprites.find(s => s.sprite)?.sprite?.id).toBe(speciesId)
+    expect(sprites.find(s => s.bar)?.bar?.hp).toBe(15 / 60)
+  })
   it('someone else’s battle: the Pikachu beside ITS trainer, both bars — and no second wild Pokémon (the populace draws it)', () => {
     const { o } = overlay()
     o.setSpectated([watched('b1', 'e1', { tx: 10, ty: 5 }, { tx: 13, ty: 5 })])
