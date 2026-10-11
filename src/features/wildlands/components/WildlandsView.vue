@@ -77,9 +77,9 @@
       :pokedex="pokedex"
       :covered="covered"
       :shared-wild-pool="sharedWildPool"
-      @overlay="open => (plazaOpen = open)"
+      @overlay="(open: boolean) => (plazaOpen = open)"
       @market="openFeature('mercado', 'menu')"
-      @feature="feature => openFeature(feature, 'menu')"
+      @feature="(feature: LobbyFeature) => openFeature(feature, 'menu')"
     />
 
     <ProfessionWorldDemo
@@ -118,7 +118,7 @@
       :inventory="isPlaytest"
       :inventory-open="hudPanel === 'bag'"
       :reduced-motion="reduceMotion"
-      @select="feature => openFeature(feature, 'menu')"
+      @select="(feature: LobbyFeature) => openFeature(feature, 'menu')"
       @activity="plazaRef?.openBoard()"
       @inventory="professionRef?.toggleInventory()"
       @sign-in="signInOpen = true"
@@ -131,7 +131,7 @@
     </LobbyPanel>
 
     <!-- The only thing the world-entry overlay leaves usable (entryInert.ts): the attribute lands on its root. -->
-    <AuthModal data-world-entry-keep-interactive :open="authOpen" @success="authSucceeded = true" @close="onAuthClose" />
+    <AuthModal data-world-entry-keep-interactive :open="authOpen" :login-only="ECO_LIMITED" @success="authSucceeded = true" @close="onAuthClose" />
   </div>
 </template>
 
@@ -318,7 +318,7 @@ const sharedWorld = new SharedWorld(
 /** The hour's shared wild pool (WORLD-1D); null keeps the plaza's local fallback. */
 const sharedWildPool = shallowRef<readonly number[] | null>(null)
 sharedWorld.onWildRoster(roster => { sharedWildPool.value = roster ? roster.entities.map(entity => entity.pokemonId) : null })
-const plazaRef = ref<InstanceType<typeof LobbyPlaza> | null>(null)
+const plazaRef = ref<InstanceType<typeof NormalLobbyPlaza> | null>(null)
 const plazaOpen = ref(false)
 const professionRef = ref<{
   inspect: (target: WorldObjectTarget) => boolean
