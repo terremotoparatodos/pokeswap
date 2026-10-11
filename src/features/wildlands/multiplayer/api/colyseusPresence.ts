@@ -5,7 +5,8 @@ import type { ChatTransportPort, LocalPresencePort, PresenceConnectionStatus, Re
 import type { PlayerVisualIdentity } from '../../identity/playerIdentity'
 import type { WorldTransportSink } from '../../../world/api/worldTransport'
 import { ECO_COMBATANT_PROTOCOL, ECO_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL } from '../../../../../services/realtime/src/world/worldProtocol.js'
-import { ECO_EXPERIMENT } from '../../../world/domain/ecoExperiment'
+import { ECO_EXPERIMENT, ECO_LIMITED } from '../../../world/domain/ecoExperiment'
+import { limitedEntry } from '../../../world/state/limitedEntry'
 import { PRESENCE_PROTOCOL, closeDecision, joinRefusalDecision, type CloseDecision, type ClosingReason } from '../domain/closePolicy'
 
 const SNAPSHOT = 'presence:snapshot'
@@ -20,7 +21,7 @@ const CHAT_HISTORY = 'chat:history'
 const CHAT_LINE = 'chat:line'
 const REALTIME_URL = import.meta.env.VITE_REALTIME_URL as string | undefined
 /** Without a realtime URL the world is the local one (PRESENCE UX-1 `offline`). */
-export const REALTIME_CONFIGURED = !!REALTIME_URL
+export const REALTIME_CONFIGURED = ECO_LIMITED || !!REALTIME_URL
 // Synthetic identities exist only in the local BenchmarkPresenceRoom; a
 // production server ignores the option. PERF-1 measurement builds use it too,
 // so captures run on production-built code without accounts.
@@ -78,6 +79,7 @@ export class ColyseusPresence implements LocalPresencePort {
    * replaced. Only the page's first join and «Jugar acá» go without it.
    */
   async connect(identity?: PlayerVisualIdentity, { resume = false }: { resume?: boolean } = {}): Promise<void> {
+    if (ECO_LIMITED && !REALTIME_URL) { limitedEntry.refuse(4403); this.stopped = true; return }
     if (!REALTIME_URL || this.room || this.stopped || this.suspended || this.connecting) return
     this.connecting = true
     try {
@@ -122,6 +124,9 @@ export class ColyseusPresence implements LocalPresencePort {
       room.onMessage<Snapshot>(SNAPSHOT, snapshot => {
         // A room this adapter already left must not place the player or reveal the scene.
         if (this.room !== room) return
+        if (ECO_LIMITED && (snapshot.access !== 'player' || !snapshot.self)) {
+          limitedEntry.refuse(4403); this.disconnect(); return
+        }
         if (typeof snapshot.presenceProtocol === 'number') serverProtocol = snapshot.presenceProtocol
         // Authoritative and placed: the connection is stable, so the reconnect backoff starts over.
         this.reconnectAttempt = 0
@@ -133,6 +138,7 @@ export class ColyseusPresence implements LocalPresencePort {
         this.replace(snapshot.actors)
         // After the engine has the area: the controller then prepares it.
         this.status?.snapshot(snapshot.access)
+        if (ECO_LIMITED) limitedEntry.ready()
       })
       room.onMessage<RemotePresenceActor>(SELF, actor => this.remote.setAuthoritativeActor(actor, 'self'))
       room.onMessage<Delta>(DELTA, delta => this.apply(delta))
@@ -169,19 +175,22 @@ export class ColyseusPresence implements LocalPresencePort {
       // Install every receiver first. The server only sends the initial
       // authoritative position after this explicit readiness acknowledgement.
       room.send('presence:ready')
-      const recoverTransport = () => {
+      const recoverTransport = (code?: number) => {
         // `onDrop` runs before the SDK tears down room listeners. Recover with
         // a fresh join because this service has no server-side reservation.
         if (this.room !== room) return
+        if (ECO_LIMITED && limitedEntry.refuse(code)) { this.disconnect(); return }
         this.room = null
         this.clearActors()
         this.status?.lost()
+        if (ECO_LIMITED) limitedEntry.lost()
         this.scheduleReconnect(identity)
       }
       room.onDrop(recoverTransport)
       room.onError(recoverTransport)
       room.onLeave(code => {
         if (this.room !== room) return
+        if (ECO_LIMITED && limitedEntry.refuse(code)) { this.disconnect(); return }
         this.room = null
         this.clearActors()
         const now = Date.now()
@@ -190,6 +199,8 @@ export class ColyseusPresence implements LocalPresencePort {
         this.follow(decision, identity)
       })
     } catch (error) {
+      if (this.stopped || this.suspended) return
+      if (ECO_LIMITED && limitedEntry.refuse((error as { code?: unknown } | null)?.code)) { this.disconnect(); return }
       // A refused join: a resume that yields to another tab (4409) stops; a draining host is retried.
       this.follow(joinRefusalDecision((error as { code?: unknown } | null)?.code), identity)
     } finally {

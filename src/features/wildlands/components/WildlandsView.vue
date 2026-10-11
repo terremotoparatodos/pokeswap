@@ -71,6 +71,7 @@
     <RunToggle v-model:active="runMode" />
 
     <LobbyPlaza
+      v-if="!ECO_LIMITED"
       ref="plazaRef"
       :game="game"
       :pokedex="pokedex"
@@ -112,6 +113,7 @@
     />
 
     <LobbyMenu
+      v-if="!ECO_LIMITED"
       v-model:open="menuOpen"
       :inventory="isPlaytest"
       :inventory-open="hudPanel === 'bag'"
@@ -151,9 +153,9 @@ import type { LobbyFeature } from '../lobby/features'
 import { usePlayerIdentity } from '../identity/usePlayerIdentity'
 import LobbyHud from './LobbyHud.vue'
 import RunToggle from './RunToggle.vue'
-import LobbyMenu from './LobbyMenu.vue'
+import NormalLobbyMenu from './LobbyMenu.vue'
 import LobbyPanel from './LobbyPanel.vue'
-import LobbyPlaza from './LobbyPlaza.vue'
+import NormalLobbyPlaza from './LobbyPlaza.vue'
 import WorldHintTray from './WorldHintTray.vue'
 import { visibleWorldHints, type WorldHint } from './worldHints'
 import { preloadLobbyArt } from '../lobby/preloadLobbyArt'
@@ -167,7 +169,7 @@ import { useAuth } from '../../auth/composables/useAuth'
 import { composeWorldProbes } from '../engine/worldProbes'
 import { CompositeOverlay } from '../engine/compositeOverlay'
 import { SharedWorld } from '../../world/state/sharedWorld'
-import { ECO_EXPERIMENT } from '../../world/domain/ecoExperiment'
+import { ECO_EXPERIMENT, ECO_LIMITED } from '../../world/domain/ecoExperiment'
 import { loadWorkerPokemonInfo } from '../engine/population'
 import { pokeballInfo } from '../engine/pokeball'
 import { isPlaytest } from '../../playtest/playtestBuild'
@@ -177,6 +179,9 @@ import type { PlaytestStore } from '../../playtest/state/usePlaytestStore'
 import { CaveMouthOverlay } from '../../caves/world/caveMouthOverlay'
 import type { SceneOverlay } from '../engine/sceneOverlay'
 import type { PerfCapture } from '../perf/usePerfCapture'
+
+const LobbyMenu = ECO_LIMITED ? null : NormalLobbyMenu
+const LobbyPlaza = ECO_LIMITED ? null : NormalLobbyPlaza
 
 // Controls and fps help: development builds only, so production never ships it.
 const DevHelp = import.meta.env.DEV ? defineAsyncComponent(() => import('./DevHelp.vue')) : null
@@ -203,7 +208,7 @@ const mapFocus = () => canvasRef.value ?? null
 const projectWorld = (wx: number, wy: number) => game.value?.screenOf(wx, wy) ?? null
 if (ECO_EXPERIMENT) watch(ecoBattleOpen, open => game.value?.setBattleRestricted(open))
 const performanceMode = import.meta.env.VITE_PERF === 'on'
-const PlaytestPerformanceHud = isPlaytest || performanceMode
+const PlaytestPerformanceHud = !ECO_LIMITED && (isPlaytest || performanceMode)
   ? defineAsyncComponent(() => import('../../playtest/components/PlaytestPerformanceHud.vue'))
   : null
 // PERF-1 capture panel and hooks: VITE_PERF=on builds only (see perf/usePerfCapture.ts).
@@ -218,12 +223,12 @@ const worldPlaytestFeaturesEnabled = import.meta.env.DEV || isPlaytest
 // the Skills panel reads. Same condition as the flag above, spelled out on the
 // import's own line on purpose: skillsIsolation.test.ts reads that line to
 // prove Skills is only reachable behind a build gate.
-const ProfessionWorldDemo = import.meta.env.DEV || isPlaytest ? defineAsyncComponent(() => import('../../skills/components/SkillsWorldLayer.vue')) : null
+const ProfessionWorldDemo = !ECO_LIMITED && (import.meta.env.DEV || isPlaytest) ? defineAsyncComponent(() => import('../../skills/components/SkillsWorldLayer.vue')) : null
 // Area chat rides the presence socket: playtest builds have players to talk
 // to, development builds have the server to talk to.
 const ChatPanel = worldPlaytestFeaturesEnabled ? defineAsyncComponent(() => import('../../chat/components/ChatPanel.vue')) : null
 // The city during the playtest: two doors open, the rest say why they are not.
-const CityPanel = isPlaytest ? defineAsyncComponent(() => import('../../playtest/components/CityPanel.vue')) : null
+const CityPanel = !ECO_LIMITED && isPlaytest ? defineAsyncComponent(() => import('../../playtest/components/CityPanel.vue')) : null
 
 const arrows: { dir: Dir; label: string }[] = [
   { dir: 'up', label: 'Arriba' },
@@ -411,6 +416,7 @@ let playtestDoorFeature: LobbyFeature | null = null
  * it must not load — and the playtest's own surface opens instead.
  */
 function openFeature(feature: LobbyFeature, origin: 'menu' | 'door'): void {
+  if (ECO_LIMITED) return
   if (!isPlaytest) {
     panel.open(feature, origin)
     return
@@ -514,7 +520,7 @@ onMounted(async () => {
     chat.value = useChat()
     stopChatBubbles = chat.value.subscribe(line => game.value?.showChatMessage(line))
   }
-  if (isPlaytest) {
+  if (isPlaytest && !ECO_LIMITED) {
     const { usePlaytestStore } = await import('../../playtest/state/usePlaytestStore')
     playtestStore.value = usePlaytestStore()
   }

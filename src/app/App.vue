@@ -10,10 +10,13 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
 import { isPlaytest } from '../features/playtest/playtestBuild'
+import { ECO_LIMITED } from '../features/world/domain/ecoExperiment'
 
 // Community Playtest 0.1 only. With the flag off this is `null`, the import is
 // never reached, and the bundle is what it has always been.
-const PlaytestShell = isPlaytest
+const PlaytestShell = ECO_LIMITED
+  ? defineAsyncComponent(() => import('../features/world/components/EcoLimitedShell.vue'))
+  : isPlaytest
   ? defineAsyncComponent(() => import('../features/playtest/components/PlaytestShell.vue'))
   : null
 </script>
