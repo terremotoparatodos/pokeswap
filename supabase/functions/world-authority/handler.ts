@@ -25,6 +25,8 @@
 // Pure module (no Deno globals, no remote imports) so it is unit-tested in the
 // repo's test runner; index.ts wires it to Deno.serve and supabase-js.
 
+import type { EcoProgressionRow, EcoSlotRow } from './ecoCombatantRead.ts'
+
 export interface RpcResult {
   data: unknown
   error: { message: string } | null
@@ -34,6 +36,8 @@ export interface AuthorityDeps {
   /** WORLD_AUTHORITY_SECRET from the function's environment. */
   readonly secret: string | undefined
   rpc(fn: string, args: Record<string, unknown>): Promise<RpcResult>
+  /** Fixed read port, wired only on the server; never generic client table access. */
+  ecoCombatants?(userId: string, pokemonId: number | null): Promise<readonly { slot: EcoSlotRow; progression: EcoProgressionRow | null }[]>
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -193,6 +197,14 @@ export async function handleWorldAuthority(req: Request, deps: AuthorityDeps): P
   try {
     if (typeof body.op === 'string' && PRESENCE_OPS.has(body.op)) return await presenceOp(body.op, body, call)
     switch (body.op) {
+      case 'eco_combatants': {
+        if (!uuid(body.userId) || Object.keys(body).some(key => !['op', 'userId', 'slotPokemonId'].includes(key))) return json(400, { error: 'invalid_user' })
+        const id = body.slotPokemonId ?? null
+        if (id !== null && (!Number.isSafeInteger(id) || (id as number) < 1)) return json(400, { error: 'invalid_pokemon' })
+        if (await accessOf(body.userId) === 'closed') return json(403, { error: 'world_skills_closed' })
+        if (!deps.ecoCombatants) return json(503, { error: 'eco_read_unavailable' })
+        return json(200, { rows: await deps.ecoCombatants(body.userId, id as number | null) })
+      }
       case 'access': {
         if (typeof body.userId !== 'string' || !UUID.test(body.userId)) return json(400, { error: 'invalid_user' })
         return json(200, { access: await accessOf(body.userId) })

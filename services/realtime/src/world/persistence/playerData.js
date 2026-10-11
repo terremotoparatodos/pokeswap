@@ -257,6 +257,12 @@ export function createEdgePlayerData({
   }
   return {
     async playerState(userId) { return readState((await call('player_state', { userId })).state) },
+    async readEcoCombatants(userId, slotPokemonId = null) {
+      if (!UUID.test(userId) || (slotPokemonId !== null && (!Number.isSafeInteger(slotPokemonId) || slotPokemonId < 1))) throw new Error('invalid eco read')
+      const response = await call('eco_combatants', { userId, slotPokemonId })
+      if (!Array.isArray(response.rows)) throw new Error('invalid eco rows')
+      return response.rows
+    },
     async ownsPokemon(userId, instanceId) {
       if (!Number.isInteger(instanceId) || instanceId < 1) return null
       return (await call('owns_pokemon', { userId, instanceId })).owns === true ? { instanceId, speciesId: instanceId } : null
