@@ -6,6 +6,7 @@ import { createSkillsWorldPolicy } from './skills/skills.generated.js'
 import { unavailableSkillPolicy } from './skillPolicy.js'
 import { createSupabaseWildCatalog, syntheticWildCatalog } from './wildService.js'
 import { limitedRelease } from '../security/limitedRelease.js'
+import { limitedOwnedData } from './persistence/limitedOwnedData.js'
 
 const BENCHMARK_PLAYER = /^benchmark-[a-z0-9][a-z0-9-]{0,39}$/
 
@@ -37,6 +38,12 @@ export function worldDependencies(env = process.env) {
   if (ecoCombatantMode === 'owned' && (!ecoExperiment || (production && !limited))) throw new Error('owned combatants require the development ECO experiment')
   if (ecoExperiment && production && !limited) throw new Error('WORLD_ECO_EXPERIMENT is a development-only experiment and is refused with NODE_ENV=production')
   const catalog = env.WORLD_WILD_CATALOG === 'synthetic' && !production ? syntheticWildCatalog() : createSupabaseWildCatalog(env)
+
+  if (limited) {
+    const playerData = withPlayerDataMetrics(limitedOwnedData(createEdgePlayerData({ url: env.WORLD_AUTHORITY_URL, secret: env.WORLD_AUTHORITY_SECRET, publishableKey: env.SUPABASE_PUBLISHABLE_KEY })))
+    return { skills: unavailableSkillPolicy, ownership: noOwnership, playerData, catalog: null,
+      ecoExperiment, ecoCombatantMode, ecoDevRetire: false, workAllowed: false, mode: 'eco-limited-readonly' }
+  }
 
   if (!production && env.WORLD_PLAYERDATA === 'pglite') {
     const playerData = withPlayerDataMetrics(lazyDevPlayerData(env.WORLD_DB_DIR || null))
