@@ -1,3 +1,5 @@
+import { limitedRelease } from './limitedRelease.js'
+
 const LOCAL_ORIGINS = new Set(['http://localhost:5173', 'http://127.0.0.1:5173'])
 const PRODUCTION_ORIGINS = new Set(['https://pokeswap.lol', 'https://www.pokeswap.lol'])
 
@@ -11,6 +13,8 @@ function configuredOrigin(value) {
 }
 
 export function allowedOrigins(env) {
+  const limited = limitedRelease(env)
+  if (limited) return new Set(limited.origins)
   const configured = (env.ALLOWED_ORIGINS ?? '')
     .split(',')
     .map(configuredOrigin)
