@@ -26,7 +26,7 @@ export function createHealthServer({ metrics, ready, version = null, log = () =>
  * The handle: { status: 'listening' | 'unavailable' | 'degraded' | 'closed', port, code, close() }.
  * 'listening' is only logged once the socket is actually bound.
  */
-export function startHealthServer({ port, metrics, ready, version = null, log = () => {} }) {
+export function startHealthServer({ port, hostname, metrics, ready, version = null, log = () => {} }) {
   const server = createHealthServer({ metrics, ready, version, log })
   const handle = {
     status: 'starting',
@@ -63,6 +63,6 @@ export function startHealthServer({ port, metrics, ready, version = null, log = 
       log(`[health] listening on port ${handle.port}`)
       resolve(handle)
     })
-    server.listen(port)
+    server.listen(port, hostname)
   })
 }

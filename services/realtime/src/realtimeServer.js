@@ -40,7 +40,7 @@ export const SHUTDOWN_LOCATION_FLUSH_MS = 3_000
  * acquire, listen or activate. With location off nothing is acquired and the process starts
  * exactly as before.
  */
-export async function startRealtimeServer({ env = process.env, port, healthPort, log = message => console.log(message), trace = () => {} } = {}) {
+export async function startRealtimeServer({ env = process.env, port, healthPort, hostname, log = message => console.log(message), trace = () => {} } = {}) {
   const limited = limitedRelease(env)
   const admission = limited ? new LimitedAdmission(limited) : null
   const gamePort = port ?? resolveGamePort(env)
@@ -87,7 +87,7 @@ export async function startRealtimeServer({ env = process.env, port, healthPort,
   }
 
   health = await startHealthServer({
-    port: healthPortToBind, metrics, version, log,
+    port: healthPortToBind, hostname, metrics, version, log,
     ready: () => bootstrapped && !admission?.expired && Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY) && presenceServing(),
   })
   trace('health', health.status)
@@ -95,7 +95,7 @@ export async function startRealtimeServer({ env = process.env, port, healthPort,
   host = benchmarkMode ? null : await preparePresenceHost()
   trace('acquired', host?.state ?? null)
   if (shuttingDown) return interrupted('acquired')
-  await gameServer.listen(gamePort)
+  await gameServer.listen(gamePort, hostname)
   trace('listening', host?.state ?? null)
   if (shuttingDown) return interrupted('listening')
   await host?.activate()
