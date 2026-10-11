@@ -13,6 +13,7 @@ export declare class WorldRoom {
     stockRandom?: () => number
     /** ECO-GAMEPLAY-1: the (development-only) ECO population instead of the hourly roster. */
     ecoExperiment?: boolean
+    ecoCombatantMode?: 'synthetic' | 'owned'
     /** ECO-GAMEPLAY-1 tests only: the ECO population's randomness (default: server crypto randomness). */
     ecoRandom?: () => number
     /** ECO-GAMEPLAY-2 tests only: test-battle overrides (`prepare`, `random`, `newId`). */

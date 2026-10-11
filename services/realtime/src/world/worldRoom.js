@@ -28,9 +28,10 @@ export class WorldRoom {
    * player its own XP, materials and Pokémon. Without it (tests, benchmarks
    * of the transport alone) the world starts empty and ready.
    */
-  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, eco = undefined, ecoRandom = undefined, ecoBattles = undefined, log = message => console.warn(message) }) {
+  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, ecoCombatantMode = 'synthetic', eco = undefined, ecoRandom = undefined, ecoBattles = undefined, log = message => console.warn(message) }) {
     this.now = now
     this.clientForPlayer = clientForPlayer
+    this.lookupActor = lookupActor
     this.clients = new Map()
     /** Sockets that declared an older world protocol (or none): no world state, no work (PROB-2). */
     this.outdated = new WeakSet()
@@ -51,6 +52,9 @@ export class WorldRoom {
     // `ecoBattles` (tests only): EcoBattles options to override (`prepare`, `random`, `newId`).
     this.ecoBattles = this.eco ? new EcoBattles({
       population: this.eco, now, log, send: (client, type, payload) => this.#send(client, type, payload),
+      combatantMode: ecoCombatantMode,
+      readCombatants: playerData?.readEcoCombatants ? (id, slot) => playerData.readEcoCombatants(id, slot) : null,
+      isCurrent: (actor, client) => lookupActor(actor.id) === actor && clientForPlayer(actor.id) === client && this.clients.get(client)?.eco === true,
       onChange: areaId => this.ecoDirty.add(areaId),
       // ECO-BATTLE-SPECTATORS-1: the other ECO viewers of the battle's area (never the owner's sockets).
       broadcast: (areaId, type, payload, exceptPlayerId) => this.#sendToEcoArea(areaId, type, payload, exceptPlayerId),
@@ -164,7 +168,10 @@ export class WorldRoom {
     if (eco && state.playerId !== null) {
       const sendChoice = () => {
         if (this.clients.get(client)?.eco && this.clientForPlayer(state.playerId) === client) {
-          this.#send(client, WORLD_MESSAGE.ECO_COMBATANT_STATE, this.ecoBattles.combatants.state(state.playerId))
+          if (this.ecoBattles.combatantMode === 'owned') {
+            const actor = this.lookupActor(state.playerId)
+            if (actor) void this.ecoBattles.combatants.refresh(actor, client)
+          } else this.#send(client, WORLD_MESSAGE.ECO_COMBATANT_STATE, this.ecoBattles.combatants.state(state.playerId))
         }
       }
       if (this.ecoBattles.status === 'loading') void this.ecoBattles.ready.then(sendChoice)
@@ -273,6 +280,10 @@ export class WorldRoom {
         reason: this.ecoBattles ? 'client-outdated' : 'disabled', speciesId: null, options: [] }
       client?.send(WORLD_MESSAGE.ECO_COMBATANT_STATE, result)
       return result
+    }
+    if (this.ecoBattles.combatantMode === 'owned' && payload?.refresh === true
+      && Object.keys(payload).every(key => ['requestId', 'refresh'].includes(key)) && Number.isSafeInteger(payload.requestId) && payload.requestId > 0) {
+      return this.ecoBattles.combatants.refresh(actor, client, payload.requestId)
     }
     return this.ecoBattles.combatants.select(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
   }

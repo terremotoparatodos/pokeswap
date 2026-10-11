@@ -30,6 +30,9 @@ const BENCHMARK_PLAYER = /^benchmark-[a-z0-9][a-z0-9-]{0,39}$/
 export function worldDependencies(env = process.env) {
   const production = env.NODE_ENV === 'production'
   const ecoExperiment = env.WORLD_ECO_EXPERIMENT === 'on'
+  const ecoCombatantMode = env.WORLD_ECO_COMBATANT_MODE ?? 'synthetic'
+  if (!['synthetic', 'owned'].includes(ecoCombatantMode)) throw new Error('invalid WORLD_ECO_COMBATANT_MODE')
+  if (ecoCombatantMode === 'owned' && (!ecoExperiment || production)) throw new Error('owned combatants require the development ECO experiment')
   if (ecoExperiment && production) throw new Error('WORLD_ECO_EXPERIMENT is a development-only experiment and is refused with NODE_ENV=production')
   const catalog = env.WORLD_WILD_CATALOG === 'synthetic' && !production ? syntheticWildCatalog() : createSupabaseWildCatalog(env)
 
@@ -38,7 +41,7 @@ export function worldDependencies(env = process.env) {
     const scale = Number(env.WORLD_FARM_TIME_SCALE)
     return {
       skills: createSkillsWorldPolicy({ store: playerData, growScale: Number.isFinite(scale) && scale > 0 && scale <= 1 ? scale : 1 }),
-      ownership: ownershipFromPlayerData(playerData), playerData, catalog, ecoExperiment, mode: 'local-db',
+      ownership: ownershipFromPlayerData(playerData), playerData, catalog, ecoExperiment, ecoCombatantMode, mode: 'local-db',
     }
   }
   if (!production && env.WORLD_DEMO_SKILLS === 'on') {
@@ -49,14 +52,14 @@ export function worldDependencies(env = process.env) {
           return BENCHMARK_PLAYER.test(playerId) && Number.isInteger(instanceId) && instanceId >= 1 && instanceId <= 1_000 ? { instanceId, speciesId: instanceId } : null
         },
       },
-      playerData: null, catalog, ecoExperiment, mode: 'demo',
+      playerData: null, catalog, ecoExperiment, ecoCombatantMode, mode: 'demo',
     }
   }
   if (env.WORLD_AUTHORITY_URL && env.WORLD_AUTHORITY_SECRET && env.SUPABASE_PUBLISHABLE_KEY) {
     const playerData = withPlayerDataMetrics(createEdgePlayerData({ url: env.WORLD_AUTHORITY_URL, secret: env.WORLD_AUTHORITY_SECRET, publishableKey: env.SUPABASE_PUBLISHABLE_KEY }))
-    return { skills: createSkillsWorldPolicy({ store: playerData }), ownership: ownershipFromPlayerData(playerData), playerData, catalog, ecoExperiment, mode: 'authority' }
+    return { skills: createSkillsWorldPolicy({ store: playerData }), ownership: ownershipFromPlayerData(playerData), playerData, catalog, ecoExperiment, ecoCombatantMode, mode: 'authority' }
   }
-  return { skills: unavailableSkillPolicy, ownership: noOwnership, playerData: null, catalog, ecoExperiment, mode: 'unavailable' }
+  return { skills: unavailableSkillPolicy, ownership: noOwnership, playerData: null, catalog, ecoExperiment, ecoCombatantMode, mode: 'unavailable' }
 }
 
 /** The dev database opens asynchronously; the world is built synchronously. */

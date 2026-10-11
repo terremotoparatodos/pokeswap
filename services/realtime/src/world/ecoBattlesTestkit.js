@@ -48,7 +48,7 @@ export function scriptedBattles() {
 let ids = 0
 const newId = () => { ids++; return `eco-battle-t${ids}-${ids.toString(16).padStart(8, '0')}` }
 
-export async function setup({ prepare, ecoExperiment = true, random = () => 0.25, playerData = null } = {}) {
+export async function setup({ prepare, ecoExperiment = true, ecoCombatantMode = 'synthetic', random = () => 0.25, playerData = null } = {}) {
   const scripted = scriptedBattles()
   const clock = manualClock()
   const actors = new Map()
@@ -56,7 +56,7 @@ export async function setup({ prepare, ecoExperiment = true, random = () => 0.25
   const world = new WorldRoom({
     skills: createDemoSkillPolicy({ durationMs: 3_000 }), ownership: createStaticOwnership({}), now: clock.now, playerData,
     lookupActor: id => actors.get(id) ?? null, clientForPlayer: id => sockets.get(id) ?? null,
-    ecoExperiment, ecoRandom: seededRandom(20261007), log: () => {},
+    ecoExperiment, ecoCombatantMode, ecoRandom: seededRandom(20261007), log: () => {},
     ecoBattles: { prepare: prepare ?? (async () => ({ ok: true, battles: scripted.battles })), random, newId },
   })
   if (playerData) await world.start()

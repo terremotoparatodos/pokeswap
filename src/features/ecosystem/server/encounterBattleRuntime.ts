@@ -21,9 +21,10 @@ import { createBattleRulesCatalog, isExecutable } from '../../battle/rules'
 import type { BattleRulesCatalog } from '../../battle/rules'
 import { PERFECT_IVS, ZERO_STATS, createPokemonCatalogView, createPokemonInstance } from '../../pokemon/model'
 import type { PokemonInstance } from '../../pokemon/model'
+import { createOwnedCombatantBuilder, type OwnedBuild } from './ownedCombatant'
 
 /** Bundle contract version: bump when the exported surface changes shape. */
-export const ECO_BATTLE_API = 2
+export const ECO_BATTLE_API = 3
 
 /**
  * SYNTHETIC TEST FIXTURES — not balance, not a player's team. Shown to players as «fixture de prueba».
@@ -74,7 +75,8 @@ export type StartResult =
 export interface EncounterBattles {
   readonly fixture: SandboxFixture
   readonly combatants: readonly { readonly speciesId: number; readonly level: number }[]
-  start(input: { readonly battleId: string; readonly controllerId: string; readonly speciesId: number; readonly playerSpeciesId?: number; readonly seed: number }): StartResult
+  ownedCombatant(row: unknown, ownerId: string): OwnedBuild
+  start(input: { readonly battleId: string; readonly controllerId: string; readonly speciesId: number; readonly playerSpeciesId?: number; readonly seed: number; readonly mode?: 'synthetic' | 'owned'; readonly ownedRow?: unknown }): StartResult
 }
 
 export type PrepareResult =
@@ -94,6 +96,7 @@ export async function prepareEncounterBattles(): Promise<PrepareResult> {
   }
   const modelView = createPokemonCatalogView(index, learnsets)
   const catalog: BattleRulesCatalog = createBattleRulesCatalog(index)
+  const ownedCombatant = createOwnedCombatantBuilder(index, learnsets)
   const hardy = index.catalog.natures.find(nature => nature.name === 'hardy')
   if (!hardy) return { ok: false, reason: 'fixture-invalid' }
 
@@ -143,11 +146,14 @@ export async function prepareEncounterBattles(): Promise<PrepareResult> {
 
   const battles: EncounterBattles = {
     fixture,
+    ownedCombatant,
     combatants: Object.freeze(PLAYER_SPECIES.map(speciesId => Object.freeze({ speciesId, level: fixture.player.level }))),
-    start({ battleId, controllerId, speciesId, playerSpeciesId = fixture.player.speciesId, seed }) {
+    start({ battleId, controllerId, speciesId, playerSpeciesId = fixture.player.speciesId, seed, mode = 'synthetic', ownedRow }) {
       const moves = learnedMoves(speciesId, fixture.wildLevel)
       const playerMoveIds = playerMoves.get(playerSpeciesId)
-      const player = playerMoveIds ? instance(playerSpeciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, `${battleId}:player`) : null
+      const owned = mode === 'owned' ? ownedCombatant(ownedRow, controllerId) : null
+      const player = mode === 'owned' ? (owned?.ok ? owned.instance : null)
+        : mode === 'synthetic' && playerMoveIds ? instance(playerSpeciesId, fixture.player.level, playerMoveIds, ECO_SANDBOX_FIXTURE.ownerId, `${battleId}:player`) : null
       const wild = moves.length ? instance(speciesId, fixture.wildLevel, moves, null, `${battleId}:wild`) : null
       if (!player || !wild) return { ok: false, reason: 'battle-unavailable' }
       const clock: ManualClock = createManualClock(0)
