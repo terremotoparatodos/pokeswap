@@ -1,7 +1,10 @@
+import { assertPublicSupabaseKey } from '../../../../services/realtime/src/security/publicSupabaseKey.js'
+
 type BuildEnvironment = Readonly<Record<string, string | undefined>>
 
 /** Build validation only; every VITE variable is public and grants no server permission. */
 export function validateLimitedBuild(env: BuildEnvironment): void {
+  assertPublicSupabaseKey(env.VITE_SUPABASE_ANON_KEY, 'VITE_SUPABASE_ANON_KEY')
   if (!env.VITE_ECO_RELEASE) return
   const invalid = (name: string): never => { throw new Error(`invalid limited build: ${name}`) }
   if (env.VITE_ECO_RELEASE !== 'limited') invalid('VITE_ECO_RELEASE')

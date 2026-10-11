@@ -1,3 +1,5 @@
+import { assertPublicSupabaseKey } from './publicSupabaseKey.js'
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const PUBLIC_ORIGINS = new Set(['https://pokeswap.lol', 'https://www.pokeswap.lol'])
 
@@ -13,6 +15,7 @@ function httpsUrl(env, name, originOnly = false) {
 
 /** Explicit exception only. Normal production retains its existing ECO refusals. */
 export function limitedRelease(env, now = Date.now()) {
+  assertPublicSupabaseKey(env.SUPABASE_PUBLISHABLE_KEY, 'SUPABASE_PUBLISHABLE_KEY')
   if (env.WORLD_ECO_RELEASE === undefined || env.WORLD_ECO_RELEASE === '') return null
   if (env.WORLD_ECO_RELEASE !== 'limited') return invalid('WORLD_ECO_RELEASE')
   for (const [name, expected] of [['NODE_ENV', 'production'], ['WORLD_ECO_EXPERIMENT', 'on'], ['WORLD_ECO_COMBATANT_MODE', 'owned']]) {

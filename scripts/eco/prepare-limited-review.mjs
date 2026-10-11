@@ -24,7 +24,7 @@ assert.equal(run('git', ['status', '--porcelain']).trim(), '', 'freeze and commi
 mkdirSync(out, { recursive: true })
 const env = { ...process.env, NODE_ENV: 'production' }
 for (const name of Object.keys(env)) if (name.startsWith('VITE_')) delete env[name]
-Object.assign(env, { VITE_BUILD_ID: sha, VITE_SUPABASE_URL: 'https://auth-scripted.invalid', VITE_SUPABASE_ANON_KEY: 'SCRIPTED-public-placeholder',
+Object.assign(env, { VITE_BUILD_ID: sha, VITE_SUPABASE_URL: 'https://auth-scripted.invalid', VITE_SUPABASE_ANON_KEY: 'sb_publishable_SCRIPTED_PUBLIC_PLACEHOLDER',
   VITE_REALTIME_URL: 'wss://realtime-scripted.invalid', VITE_ECO_EXPERIMENT: 'on', VITE_PERF: 'off', VITE_PRESENCE_BENCHMARK: 'off' })
 const manifests = {}
 for (const profile of ['normal', 'limited']) {

@@ -5,6 +5,15 @@ const config = () => ({ NODE_ENV: 'production', VITE_ECO_RELEASE: 'limited', VIT
   VITE_REALTIME_URL: 'wss://realtime-scripted.invalid', VITE_SUPABASE_URL: 'https://auth-scripted.invalid', VITE_SUPABASE_ANON_KEY: 'SCRIPTED-publishable' })
 afterEach(() => { vi.unstubAllEnvs(); vi.resetModules() })
 describe('explicit limited build', () => {
+  it('rejects recognizable private keys by content before any build, including normal builds', () => {
+    const jwt = (role: string) => `${btoa('{"alg":"HS256"}')}.${btoa(JSON.stringify({ role })).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '')}.SCRIPTED_FAKE_SIGNATURE`
+    for (const key of ['sb_secret_' + 'A'.repeat(32), jwt('service_role')]) {
+      for (const env of [{ ...config(), VITE_SUPABASE_ANON_KEY: key }, { NODE_ENV: 'production', VITE_SUPABASE_ANON_KEY: key }]) {
+        expect(() => validateLimitedBuild(env)).toThrow('public configuration: VITE_SUPABASE_ANON_KEY')
+      }
+    }
+    for (const key of ['sb_publishable_SCRIPTED_NOT_REAL', jwt('anon'), 'SCRIPTED-public-placeholder']) expect(() => validateLimitedBuild({ ...config(), VITE_SUPABASE_ANON_KEY: key })).not.toThrow()
+  })
   it('rejects incomplete configurations, dev tools and insecure endpoints', () => {
     expect(() => validateLimitedBuild(config())).not.toThrow()
     expect(() => validateLimitedBuild({ NODE_ENV: 'production' })).not.toThrow()
