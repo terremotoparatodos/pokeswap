@@ -44,7 +44,7 @@
         <article v-for="entry in sides" :key="entry.id" class="ebp-side" :class="entry.mine ? 'ebp-side--mine' : 'ebp-side--foe'">
           <div class="ebp-row">
             <b>{{ entry.name }}</b>
-            <span v-if="entry.mine" class="ebp-tag">fixture de prueba</span>
+            <span v-if="entry.mine" class="ebp-tag">{{ entry.ownedProjection ? 'propio · proyección temporal M-1 · no se guarda' : 'fixture de prueba' }}</span>
             <span v-else class="ebp-tag ebp-tag--wild">salvaje</span>
           </div>
           <div class="ebp-row ebp-row--sub">
@@ -124,7 +124,7 @@ const sides = computed(() => [WILD_COMBATANT, PLAYER_COMBATANT].flatMap(id => {
   const shown = view.phase === 'battle' ? presentCombatant(view.snapshot, id, { receivedAt: view.snapshotAt, now: props.session.clock(), connected: view.connected }) : null
   const hp = Math.max(0, c.condition.currentHp ?? c.stats.hp)
   return [{
-    id, mine: id === PLAYER_COMBATANT, name: nameOf(c.instance.speciesId), level: c.level, hp, maxHp: c.stats.hp,
+    id, mine: id === PLAYER_COMBATANT, ownedProjection: c.instance.acquisition?.source === 'legacy_migration', name: nameOf(c.instance.speciesId), level: c.level, hp, maxHp: c.stats.hp,
     pct: Math.round((100 * hp) / Math.max(1, c.stats.hp)),
     status: c.condition.majorStatus === 'none' ? '' : (STATUS[c.condition.majorStatus] ?? c.condition.majorStatus),
     ready: Math.round(100 * (shown?.actionFill ?? 0)),

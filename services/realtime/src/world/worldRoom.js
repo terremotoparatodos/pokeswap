@@ -1,7 +1,7 @@
 import { chunkOf, worldArea } from './areas.js'
 import { ResourceAuthority } from './resourceAuthority.js'
 import { chunkKey } from './resourceStore.js'
-import { WORLD_MESSAGE, WORLD_PROTOCOL, cancelIntent, ecoRetireIntent, publicNode, workIntent } from './worldProtocol.js'
+import { ECO_COMBATANT_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL, cancelIntent, ecoRetireIntent, publicNode, workIntent } from './worldProtocol.js'
 import { chunksInView, isChunkRetained } from './worldInterest.js'
 import { WildService } from './wildService.js'
 import { ECO_PROTOCOL, EcoPopulation } from './ecoPopulation.js'
@@ -110,6 +110,7 @@ export class WorldRoom {
     }
     // ECO-GAMEPLAY-1: only a client that declared the ECO protocol is sent the ECO population.
     const eco = this.eco !== null && options?.ecoProtocol === ECO_PROTOCOL
+      && (this.ecoBattles.combatantMode !== 'owned' || options?.ecoCombatantProtocol === ECO_COMBATANT_PROTOCOL)
     this.clients.set(client, { areaId: null, chunks: new Set(), pending: null, playerId, eco })
     // ECO-GAMEPLAY-2: the player's new socket. ECO: takes its battle over; otherwise the battle pauses.
     if (playerId !== null) this.ecoBattles?.socketJoined(client, playerId, eco)
@@ -273,7 +274,7 @@ export class WorldRoom {
     return this.ecoBattles.engage(actor, payload, client, actor ? this.clientForPlayer(actor.id) : null)
   }
 
-  /** ECO-COMBATANT-1: choice is per transport player; no real Pokémon or writes. */
+  /** Choice per session player: explicit synthetic or read-only owned M-1 mode; no writes. */
   ecoCombatantSelect(actor, payload, client) {
     if (!this.ecoBattles || !client || !this.clients.get(client)?.eco) {
       const result = { requestId: Number.isSafeInteger(payload?.requestId) ? payload.requestId : null, ok: false,

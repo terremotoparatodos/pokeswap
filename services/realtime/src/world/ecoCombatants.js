@@ -17,6 +17,7 @@ export class EcoCombatants {
     return {
       requestId, ok: reason === null, ...(reason ? { reason } : {}),
       speciesId: this.speciesOf(playerId),
+      mode: 'synthetic', level: factory?.combatants.find(c => c.speciesId === this.speciesOf(playerId))?.level ?? null,
       options: (factory?.combatants ?? []).map(c => ({ speciesId: c.speciesId, level: c.level })),
     }
   }

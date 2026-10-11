@@ -7,7 +7,7 @@ import type { EcoBattleOutcome } from '../../../../services/realtime/src/world/w
 /** The end of a test battle, as the player reads it. */
 export const ECO_OUTCOME_TEXT: Readonly<Record<EcoBattleOutcome, { readonly title: string; readonly detail: string }>> = {
   victory: { title: 'Victoria', detail: 'El Pokémon salvaje se fue de esta zona para todos. Es una simulación: no hay captura ni recompensa.' },
-  defeat: { title: 'Derrota', detail: 'Tu Pokémon de prueba se debilitó. El Pokémon salvaje sigue en el mapa.' },
+  defeat: { title: 'Derrota', detail: 'Tu Pokémon se debilitó en esta simulación. El Pokémon salvaje sigue en el mapa.' },
   draw: { title: 'Empate', detail: 'Ninguno quedó en pie. El Pokémon salvaje sigue en el mapa.' },
   fled: { title: 'Huiste', detail: 'El Pokémon salvaje sigue en el mapa y queda libre.' },
   expired: { title: 'Se acabó el tiempo', detail: 'El combate de prueba llegó a su límite sin ganador. El Pokémon salvaje sigue en el mapa.' },
@@ -32,7 +32,7 @@ export const ECO_SPECTATOR_OUTCOME_TEXT: Readonly<Record<EcoBattleOutcome, strin
 export const ECO_REFUSAL_TEXT: Readonly<Record<string, string>> = {
   busy: 'Otro entrenador lo está combatiendo.',
   'too-far': 'Estás demasiado lejos.',
-  'no-room': 'No hay lugar delante de ese Pokémon para tu Pikachu: probá desde otro lado.',
+  'no-room': 'No hay lugar delante de ese Pokémon para tu combatiente: probá desde otro lado.',
   'other-area': 'Está en otra área.',
   'not-alive': 'Ya no está aquí.',
   'already-battling': 'Ya tenés un combate en curso.',
@@ -45,6 +45,17 @@ export const ECO_REFUSAL_TEXT: Readonly<Record<string, string>> = {
   invalid: 'Pedido inválido.',
   offline: 'Sin conexión.',
   'no-answer': 'El servidor no respondió.',
+  'no-combatant': 'Elegí un Pokémon propio antes de combatir.',
+  'not-owner': 'Ya no poseés el Pokémon elegido. Actualizá tu elección.',
+  locked: 'El Pokémon elegido está bloqueado.',
+  'read-unavailable': 'No se pudo consultar tu Pokémon. Volvé a intentarlo.',
+  'selection-pending': 'Esperá la confirmación pendiente.',
+  'selection-stale': 'La sesión o elección cambió. Actualizá tu elección.',
+  'missing-progression': 'El Pokémon elegido no tiene progresión disponible.',
+  'missing-moves': 'El Pokémon elegido no tiene movimientos disponibles.',
+  'unknown-move': 'El set tiene un movimiento desconocido.',
+  'illegal-move': 'El set tiene un movimiento ilegal para esta especie y nivel.',
+  'unsupported-move': 'El set tiene un movimiento que este combate no soporta.',
 }
 
 export const ecoRefusalText = (reason: string): string => ECO_REFUSAL_TEXT[reason] ?? `No se pudo (${reason}).`

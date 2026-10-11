@@ -112,8 +112,9 @@ export class OwnedEcoCombatants {
       const description = this.describe(row, actor.id)
       if (!description.eligible) return this.reply(actor, client, requestId, description.reason)
       this.choices.set(actor.id, description)
-      const options = (this.options.get(actor.id) ?? []).filter(option => option.slotPokemonId !== description.slotPokemonId)
-      this.options.set(actor.id, [...options, description].sort((a, b) => a.slotPokemonId - b.slotPokemonId))
+      const options = this.options.get(actor.id) ?? []
+      this.options.set(actor.id, options.some(option => option.slotPokemonId === description.slotPokemonId)
+        ? options.map(option => option.slotPokemonId === description.slotPokemonId ? description : option) : [...options, description])
       return this.reply(actor, client, requestId)
     } catch { return this.reply(actor, client, requestId, 'read-unavailable') }
     finally { this.end(actor, operation) }

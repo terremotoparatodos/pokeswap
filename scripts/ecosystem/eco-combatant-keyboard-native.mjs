@@ -7,13 +7,15 @@ import { pathToFileURL } from 'node:url'
 
 // CM-R1 continuity regression: one focus per scenario, no focus recovery between keys/ACKs.
 // Node 22 + Chrome; real components, SharedWorld and KeyboardInput, isolated static/choice server.
-// node scripts/ecosystem/eco-combatant-keyboard-native.mjs <repo> <new-evidence-dir>
-const [codeArg, evidenceArg] = process.argv.slice(2)
+// node scripts/ecosystem/eco-combatant-keyboard-native.mjs <repo> <new-evidence-dir> [synthetic|owned]
+const [codeArg, evidenceArg, mode = 'synthetic'] = process.argv.slice(2)
+assert(['synthetic', 'owned'].includes(mode))
 assert.equal(process.versions.node.split('.')[0], '22')
 const code = resolve(codeArg),
   evidence = resolve(evidenceArg),
-  fixture = join(dirname(code), 'native-selector-fixture')
+  fixture = join(dirname(code), mode + '-native-selector-fixture')
 await mkdir(fixture, { recursive: true })
+await mkdir(evidence, { recursive: true })
 const esbuild = await import(pathToFileURL(join(code, 'node_modules/esbuild/lib/main.js')).href)
 const sfc = await import(
   pathToFileURL(join(code, 'node_modules/@vue/compiler-sfc/dist/compiler-sfc.esm-browser.js')).href
@@ -27,9 +29,25 @@ const { prepareEncounterBattles } = await import(
 )
 const prepared = await prepareEncounterBattles()
 assert.equal(prepared.ok, true)
-const choice = new EcoCombatants({ battles: () => prepared.battles, inBattle: () => false })
-const actor = { id: 'native-selector-player' },
+const actor = { id: mode === 'owned' ? '11111111-1111-4111-8111-111111111111' : 'native-selector-player' },
   client = { send() {} }
+const { OwnedEcoCombatants } = await import(pathToFileURL(join(code, 'services/realtime/src/world/ownedEcoCombatants.js')).href)
+// Explicit SCRIPTED read adapter. No hosted accounts/statistics are being verified here.
+const nativeRows = [25, 19, 43].map((id, n) => ({
+  slot: { pokemon_id: id, owner_id: actor.id, is_locked: false, first_owner_id: actor.id, owned_since: null },
+  progression: { user_id: actor.id, pokemon_id: id, xp: 4356, level: 12, moves: [['thunder-shock', 'quick-attack'], ['tackle'], ['absorb']][n] },
+}))
+const choice = mode === 'owned'
+  ? new OwnedEcoCombatants({ battles: () => prepared.battles, inBattle: () => false,
+    isCurrent: (who, socket) => who === actor && socket === client,
+    read: async (_id, slot) => nativeRows.filter(row => slot === null || row.slot.pokemon_id === slot) })
+  : new EcoCombatants({ battles: () => prepared.battles, inBattle: () => false })
+const choiceId = id => mode === 'owned' ? { slotPokemonId: id } : { speciesId: id }
+if (mode === 'owned') {
+  await choice.refresh(actor, client)
+  // Establish the scenario through the real selection service, never by editing the DOM value.
+  assert.equal((await choice.select(actor, { requestId: 999, ...choiceId(25) }, client, client)).ok, true)
+}
 const serverRequests = []
 const replies = []
 const M = (
@@ -104,7 +122,7 @@ const http = createServer(async (req, res) => {
       let body = ''
       for await (const chunk of req) body += chunk
       const payload = JSON.parse(body)
-      const result = choice.select(actor, payload, client, client)
+      const result = await choice.select(actor, payload, client, client)
       serverRequests.push({ payload, result })
       // The driver releases the HTTP reply after pending-key/focus checks, never core timing.
       await new Promise((resolve) => replies.push(resolve))
@@ -270,7 +288,7 @@ try {
   assert(s.fight.every((x) => !x.disabled))
   assert.deepEqual(
     s.selects[0].options.map((o) => o.value),
-    ['25', '19', '43', '74', '41', '10'],
+    mode === 'owned' ? ['25', '19', '43'] : ['25', '19', '43', '74', '41', '10'],
   )
   const checks = []
   const confirmed = async (speciesId) => {
@@ -293,7 +311,7 @@ try {
   }
   for (const route of ['.eco-card select', '.eco-dev select']) {
     // Each route starts from actual server state; never changes the select value in script.
-    choice.select(actor, { requestId: 1000 + checks.length, speciesId: 25 }, client, client)
+    await choice.select(actor, { requestId: 1000 + checks.length, ...choiceId(25) }, client, client)
     await ack(choice.state(actor.id))
     await run('document.querySelector(' + JSON.stringify(route) + ').focus()') // Once per route.
     for (const [index, [name, vk, speciesId]] of [
@@ -339,14 +357,14 @@ try {
       assert.equal(after.focusRoute, route, 'acknowledgement must retain selector focus')
       assert.equal(after.sent.length, before.sent.length + 1)
       assert.equal(after.sent.at(-1).type, M.ECO_COMBATANT_SELECT)
-      assert.equal(after.sent.at(-1).payload.speciesId, speciesId)
+      assert.equal(after.sent.at(-1).payload[mode === 'owned' ? 'slotPokemonId' : 'speciesId'], speciesId)
       const received = serverRequests.find(
         (r) => r.payload.requestId === after.sent.at(-1).payload.requestId,
       )
       assert(received, 'choice must reach the isolated server')
       assert.equal(received.result.ok, true)
       assert.equal(received.result.speciesId, speciesId)
-      assert.equal(choice.speciesOf(actor.id), speciesId)
+      assert.equal(choice.state(actor.id).speciesId, speciesId)
       assert.equal(after.direction, null)
       await snapshot(route + ' ' + name + ' acknowledged by server')
       checks.push({ route, key: name, speciesId, requestId: received.payload.requestId })
@@ -367,7 +385,7 @@ try {
     assert.equal(committed.focusRoute, route)
     assert.equal(committed.interactions, beforeEnter.interactions)
     assert.equal(committed.direction, null)
-    assert.equal(choice.speciesOf(actor.id), 19)
+    assert.equal(choice.state(actor.id).speciesId, 19)
     await snapshot(route + ' Enter committed native popup choice')
     checks.push({ route, key: 'Enter', nativeDefault: true, committedSpeciesId: 19 })
 
@@ -406,7 +424,7 @@ try {
       assert.equal(outside.sent.length, late.sent.length)
       assert.equal(outside.interactions, beforeLeave.interactions)
       // Start the next independent scenario from a real confirmed Rattata state.
-      choice.select(actor, { requestId: 2000 + checks.length, speciesId: 19 }, client, client)
+      await choice.select(actor, { requestId: 2000 + checks.length, ...choiceId(19) }, client, client)
       await ack(choice.state(actor.id))
       assert.equal((await snapshot(route + ' reset without restoring focus')).focusId, destination)
       checks.push({ route, destination, lateAcknowledgementRespectsFocus: true })
@@ -444,10 +462,12 @@ try {
         nativeEvents: (await evaluate('review.state()')).events,
         checks,
         serverRequests,
+        combatantMode: mode,
+        readAdapter: mode === 'owned' ? 'SCRIPTED TEST ROWS; not hosted verification' : 'synthetic fixture pool',
         observed,
         limitations: [
           'One initial focus per continuous route, six successive choices without refocus, pending keydowns and native Enter. Independent voluntary-departure scenarios use trusted mouse clicks.',
-          'Selection crosses HTTP to actual EcoCombatants and the existing prepared battle bundle. Colyseus transport is unchanged and its previous verification is retained.',
+          'Selection crosses HTTP to the actual mode-specific selection service and prepared battle bundle. This probe does not verify hosted identity/reads or Colyseus; the isolated SDK e2e covers transport.',
         ],
       },
       null,

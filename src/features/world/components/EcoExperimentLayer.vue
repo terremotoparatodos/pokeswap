@@ -1,6 +1,6 @@
 <template>
   <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" :seen-at="seenAt" :combatant-ready="choice.ready">
-    <EcoCombatantSelector :view="choice" :locked="battle.phase === 'battle' || battle.phase === 'engaging'" :name-of="nameOf" @select="selection.select($event)" />
+    <EcoCombatantSelector :view="choice" :locked="battle.phase === 'battle' || battle.phase === 'engaging'" :name-of="nameOf" @select="selection.select($event)" @refresh="selection.refresh()" />
   </EcoDevPanel>
   <EcoEncounterCard
     v-if="selected && !holds(battle.phase)"
@@ -16,7 +16,7 @@
     @engage="engage"
   >
     <template #combatant>
-      <EcoCombatantSelector :view="choice" :locked="false" :name-of="nameOf" @select="selection.select($event)" />
+      <EcoCombatantSelector :view="choice" :locked="false" :name-of="nameOf" @select="selection.select($event)" @refresh="selection.refresh()" />
     </template>
   </EcoEncounterCard>
   <EcoBattlePanel

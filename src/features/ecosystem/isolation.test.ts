@@ -63,7 +63,11 @@ const BATTLE_SPECIES = fwd(join(ROOT, 'src/features/battle/catalog/generated/cor
  */
 const BATTLE_ENTRY = fwd(join(ROOT, 'src/features/ecosystem/server/encounterBattleRuntime.ts'))
 const BATTLE_CORE = ['src/features/battle/authority', 'src/features/battle/catalog', 'src/features/battle/rules', 'src/features/pokemon/model'].map(p => fwd(join(ROOT, p)))
-const allowedFilesFor = (file: string, base: readonly string[]) => (file === BATTLE_ENTRY ? [...base, ...BATTLE_CORE] : base)
+// ECO-COMBATANT-2: one pure builder, exact entry/DTO, no general server/ allowance.
+const OWNED_BUILDER = `${ECOSYSTEM}/server/ownedCombatant.ts`
+const OWNED_MODEL = ['src/features/battle/catalog', 'src/features/battle/rules', 'src/features/pokemon/model', 'supabase/functions/world-authority/ecoCombatantRead'].map(p => fwd(join(ROOT, p)))
+const allowedFilesFor = (file: string, base: readonly string[]) => file === BATTLE_ENTRY ? [...base, ...BATTLE_CORE, OWNED_BUILDER.replace(/\.ts$/, '')]
+  : file === OWNED_BUILDER ? [...base, ...OWNED_MODEL] : base
 
 const code = (source: string) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
 const IMPURE = /\b(Date\.now|new Date|Math\.random|performance\.now|setTimeout|setInterval|queueMicrotask|fetch|WebSocket|crypto\.getRandomValues)\b/
@@ -113,6 +117,17 @@ describe('runtime modules are pure', () => {
     expect(importViolations(BATTLE_ENTRY, spec, ['encounters', 'population', 'map'], allowedFilesFor(BATTLE_ENTRY, [BATTLE_SPECIES]))).toEqual([])
     const admission = `${ECOSYSTEM}/server/admissionRuntime.ts`
     expect(importViolations(admission, spec, ['encounters', 'population', 'map'], allowedFilesFor(admission, [BATTLE_SPECIES]))).toEqual(['../../battle/authority'])
+    expect(importViolations(OWNED_BUILDER, spec, ['encounters', 'population', 'map'], allowedFilesFor(OWNED_BUILDER, []))).toEqual(['../../battle/authority'])
+  })
+
+  it('owned M-1 permits only the pure builder and its fixed DTO; admission still cannot use either', () => {
+    const admission = `${ECOSYSTEM}/server/admissionRuntime.ts`
+    const builder = "import { createOwnedCombatantBuilder } from './ownedCombatant'"
+    expect(importViolations(BATTLE_ENTRY, builder, [], allowedFilesFor(BATTLE_ENTRY, []))).toEqual([])
+    expect(importViolations(admission, builder, [], allowedFilesFor(admission, []))).toEqual(['./ownedCombatant'])
+    const dto = "import type { EcoSlotRow } from '../../../../supabase/functions/world-authority/ecoCombatantRead'"
+    expect(importViolations(OWNED_BUILDER, dto, [], allowedFilesFor(OWNED_BUILDER, []))).toEqual([])
+    expect(importViolations(admission, dto, [], allowedFilesFor(admission, []))).toEqual(["../../../../supabase/functions/world-authority/ecoCombatantRead"])
   })
 
   it('the battle-catalog allowance is one file for server/ only, not the battle folder', () => {

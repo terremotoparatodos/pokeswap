@@ -39,7 +39,7 @@ function baseEnv() {
 }
 
 export const REALTIME_ENV = Object.freeze({
-  NODE_ENV: 'development', PRESENCE_BENCHMARK: 'on', WORLD_ECO_EXPERIMENT: 'on',
+  NODE_ENV: 'development', PRESENCE_BENCHMARK: 'on', WORLD_ECO_EXPERIMENT: 'on', WORLD_ECO_COMBATANT_MODE: 'synthetic',
   PORT: String(PORTS.realtime), HEALTH_PORT: String(PORTS.health), ALLOWED_ORIGINS: CLIENT_ORIGIN,
 })
 

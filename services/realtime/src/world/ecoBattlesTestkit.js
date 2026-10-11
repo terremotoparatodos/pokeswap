@@ -5,7 +5,7 @@ import { wildPoseAt } from './ecoScene.js'
 import { createDemoSkillPolicy } from './demoSkillPolicy.js'
 import { createStaticOwnership } from './pokemonOwnership.js'
 import { seededRandom } from './wildPopulation.js'
-import { WORLD_MESSAGE, WORLD_PROTOCOL } from './worldProtocol.js'
+import { ECO_COMBATANT_PROTOCOL, WORLD_MESSAGE, WORLD_PROTOCOL } from './worldProtocol.js'
 import { WorldRoom } from './worldRoom.js'
 import { fakeClient, lastMessage, manualClock, messagesOf } from './testing.js'
 
@@ -66,7 +66,7 @@ export async function setup({ prepare, ecoExperiment = true, ecoCombatantMode = 
     const client = fakeClient(id)
     const actor = guest ? null : (existing ?? { id, areaId, tx: PRADERA.tx, ty: PRADERA.ty })
     if (actor) { actors.set(id, actor); sockets.set(id, client) }
-    world.join(client, { worldProtocol: WORLD_PROTOCOL, ...(eco ? { ecoProtocol: ECO_PROTOCOL } : {}) }, guest ? { kind: 'guest' } : { kind: 'player', userId: id, token: null })
+    world.join(client, { worldProtocol: WORLD_PROTOCOL, ...(eco ? { ecoProtocol: ECO_PROTOCOL, ecoCombatantProtocol: ECO_COMBATANT_PROTOCOL } : {}) }, guest ? { kind: 'guest' } : { kind: 'player', userId: id, token: null })
     world.snapshot(client, actor ?? { areaId, tx: PRADERA.tx, ty: PRADERA.ty })
     return { id, client, actor }
   }

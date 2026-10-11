@@ -3,7 +3,7 @@ import test from 'node:test'
 import { setup } from './ecoBattlesTestkit.js'
 import { prepareBundledBattles, ECO_DISCONNECT_GRACE_MS } from './ecoBattles.js'
 import { lastMessage, settle, keysDeep } from './testing.js'
-import { WORLD_MESSAGE as M } from './worldProtocol.js'
+import { WORLD_MESSAGE as M, WORLD_PROTOCOL, ECO_PROTOCOL } from './worldProtocol.js'
 import { worldDependencies } from './worldConfig.js'
 
 const A = '11111111-1111-4111-8111-111111111111'
@@ -85,6 +85,7 @@ test('start rechecks movement, replacement, choice and encounter contention afte
     s.setRead((id) => id === A ? new Promise(resolve => { release = resolve }) : Promise.resolve([row(B, 43, ['absorb'])]))
     const starting = engage(s, a, target)
     assert.equal((await select(s, a, 19)).reason, 'selection-pending')
+    assert.equal((await engage(s, a, target)).reason, 'selection-pending')
     if (mutation === 'move') { a.actor.tx += 100 }
     if (mutation === 'replace') { s.setRead(async () => [row(A)]); s.join(A, { actor: a.actor }) }
     if (mutation === 'choice') s.world.ecoBattles.combatants.choices.delete(A)
@@ -129,4 +130,25 @@ test('owned mode remains development-only and invalid modes cannot silently beco
     { WORLD_ECO_COMBATANT_MODE: 'owned' }, { WORLD_ECO_COMBATANT_MODE: 'typo' }]) assert.throws(() => worldDependencies(env))
   assert.equal(worldDependencies({ WORLD_ECO_EXPERIMENT: 'on', WORLD_ECO_COMBATANT_MODE: 'owned' }).ecoCombatantMode, 'owned')
   assert.equal(worldDependencies({ WORLD_ECO_EXPERIMENT: 'on', WORLD_ECO_COMBATANT_MODE: 'synthetic' }).ecoCombatantMode, 'synthetic')
+})
+
+test('old clients, missing read port, failures and no choice cannot reserve or fall back', async () => {
+  const s = await owned(), a = s.join(A)
+  await settle()
+  const target = s.populated(a); s.standNear(a, target.id)
+  assert.equal((await engage(s, a, target)).reason, 'no-combatant')
+  await select(s, a)
+  s.setRead(async () => { throw new Error('SCRIPTED read failure') })
+  assert.equal((await engage(s, a, target)).reason, 'read-unavailable')
+  assert.equal((await select(s, a, 19)).reason, 'read-unavailable')
+  assert.equal(s.world.ecoBattles.active, 0)
+  s.world.join(a.client, { worldProtocol: WORLD_PROTOCOL, ecoProtocol: ECO_PROTOCOL }, { kind: 'player', userId: A })
+  const count = s.reads()
+  assert.equal((await select(s, a)).reason, 'client-outdated')
+  assert.equal((await engage(s, a, target)).reason, 'client-outdated')
+  assert.equal(s.reads(), count)
+  const missing = await setup({ prepare: prepareBundledBattles, ecoCombatantMode: 'owned' })
+  const user = missing.join(A); await settle()
+  assert.equal((await select(missing, user)).reason, 'read-unavailable')
+  assert.equal(missing.world.ecoBattles.combatants.state(A).speciesId, null)
 })

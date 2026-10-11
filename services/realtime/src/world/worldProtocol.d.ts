@@ -7,6 +7,7 @@ export declare const WORLD_PROTOCOL: 3
 /** One attempt of a work action and one swing of the worker (SKILLS PROB-2). */
 export declare const WORK_TICK_MS: 600
 export declare const ECO_PROTOCOL: 1
+export declare const ECO_COMBATANT_PROTOCOL: 2
 /** ECO-GAMEPLAY-2 (provisional): engage range in Chebyshev tiles; the server enforces it. */
 export declare const ECO_ENGAGE_RANGE: 3
 
@@ -90,7 +91,11 @@ export interface EcoCombatantState {
   readonly ok: boolean
   readonly reason?: string
   readonly speciesId: number | null
-  readonly options: readonly { readonly speciesId: number; readonly level: number }[]
+  readonly mode?: 'synthetic' | 'owned'
+  readonly selectedSlotPokemonId?: number | null
+  readonly level?: number | null
+  readonly attributeSource?: 'legacy-m1-derived'
+  readonly options: readonly { readonly speciesId: number; readonly level: number | null; readonly slotPokemonId?: number; readonly eligible?: boolean; readonly reason?: string; readonly ignoredStoredLevel?: number }[]
 }
 
 export interface EcoRetireResult {

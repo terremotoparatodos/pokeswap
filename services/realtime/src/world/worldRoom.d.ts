@@ -30,7 +30,7 @@ export declare class WorldRoom {
   /** ECO-GAMEPLAY-1 test retirement (development only). `actor`: null for a guest. */
   ecoDevRetire(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): EcoRetireResult
   /** ECO-GAMEPLAY-2 test battles (development only). `actor`: null for a guest. */
-  ecoEngage(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): EcoEngageResult
+  ecoEngage(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): EcoEngageResult | Promise<EcoEngageResult>
   ecoBattleAction(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): unknown
   ecoFlee(actor: WorldViewer | null | undefined, payload: unknown, client?: WorldSocket): unknown
   /** ECO-GAMEPLAY-2: the reservations (null outside the experiment), for acceptance tests. */
