@@ -10,7 +10,20 @@ export default tseslint.config(
   // `eslint .` came to have 14 failures that belong to nobody. (Open question 2
   // of PRE_R34_TOWN_3D_CONSOLIDATION.md; answered here because the playtest
   // gate needs `npm run lint` to mean something.)
-  { ignores: ['dist/', 'node_modules/', 'legacy/', 'supabase/', 'services/', '.worktrees/'] },
+  {
+    ignores: [
+      'dist/',
+      'node_modules/',
+      'legacy/',
+      'supabase/',
+      'services/',
+      '.worktrees/',
+      // Archived independent CM-R1 probes: preserve their original bytes/hashes.
+      // Neither is production code or a current gate; active scripts/ remain linted.
+      'docs/design/evidence/eco-combatant-cm-r1-continuity/scripts/native-continuity.original.mjs',
+      'docs/design/evidence/eco-combatant-cm-r1/base-native/selector-native.original.mjs',
+    ],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   ...pluginVue.configs['flat/recommended'],
