@@ -13,7 +13,7 @@
       <div class="auth-divider">── o con email ──</div>
 
       <!-- Tabs -->
-      <div v-if="tab !== 'forgot'" class="auth-tabs">
+      <div v-if="tab !== 'forgot' && !loginOnly" class="auth-tabs">
         <button :class="['auth-tab', tab === 'login' && 'active']" @click="tab = 'login'">Ingresar</button>
         <button :class="['auth-tab', tab === 'signup' && 'active']" @click="tab = 'signup'">Registrarse</button>
       </div>
@@ -45,7 +45,7 @@
       </form>
 
       <!-- SIGNUP -->
-      <form v-else-if="tab === 'signup'" @submit.prevent="handleSignup" class="auth-form">
+      <form v-else-if="tab === 'signup' && !loginOnly" @submit.prevent="handleSignup" class="auth-form">
         <input
           :value="signupUsername"
           @input="onUsernameInput"
@@ -106,13 +106,13 @@ import { trackKeyboardInset } from '../../../shared/ui/keyboardInset'
 import { loginWithEmail, loginWithGoogle, signUp, resetPassword } from '../api/authApi'
 import { validateUsername, normalizeUsernameInput } from '../utils/username'
 
-const props = defineProps<{ open: boolean; initialTab?: 'login' | 'signup' }>()
+const props = defineProps<{ open: boolean; initialTab?: 'login' | 'signup'; loginOnly?: boolean }>()
 const emit = defineEmits<{ close: []; success: [] }>()
 
 type Tab = 'login' | 'signup' | 'forgot'
-const tab = ref<Tab>(props.initialTab ?? 'login')
-watch(() => props.initialTab, (t) => { if (t) tab.value = t })
-watch(() => props.open, (v) => { if (v) { error.value = ''; tab.value = props.initialTab ?? 'login' } })
+const tab = ref<Tab>(props.loginOnly ? 'login' : props.initialTab ?? 'login')
+watch(() => props.initialTab, (t) => { if (t) tab.value = props.loginOnly ? 'login' : t })
+watch(() => props.open, (v) => { if (v) { error.value = ''; tab.value = props.loginOnly ? 'login' : props.initialTab ?? 'login' } })
 
 const busy = ref(false)
 const error = ref('')

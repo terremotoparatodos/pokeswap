@@ -8,6 +8,9 @@ import { resolveGamePort, resolveHealthPort } from './observability/healthPort.j
 import { metrics } from './observability/metrics.js'
 import { originPolicy } from './security/originPolicy.js'
 import { resolveBuildCommit, versionInfo } from './observability/version.js'
+import { limitedRelease } from './security/limitedRelease.js'
+import { LimitedAdmission } from './security/limitedAdmission.js'
+import { limitedPresenceRoom } from './rooms/limitedPresenceRoom.js'
 
 // WORLD LOCATION-4: on a graceful shutdown Colyseus calls onBeforeShutdown BEFORE it
 // disconnects anyone: the process drains there (refuses joins, freezes movement, host →
@@ -37,14 +40,16 @@ export const SHUTDOWN_LOCATION_FLUSH_MS = 3_000
  * acquire, listen or activate. With location off nothing is acquired and the process starts
  * exactly as before.
  */
-export async function startRealtimeServer({ env = process.env, port, healthPort, log = message => console.log(message), trace = () => {} } = {}) {
+export async function startRealtimeServer({ env = process.env, port, healthPort, hostname, log = message => console.log(message), trace = () => {} } = {}) {
+  const limited = limitedRelease(env)
+  const admission = limited ? new LimitedAdmission(limited) : null
   const gamePort = port ?? resolveGamePort(env)
   const healthPortToBind = healthPort ?? resolveHealthPort(env, gamePort).port
   const benchmarkMode = env.PRESENCE_BENCHMARK === 'on' && env.NODE_ENV !== 'production'
   const productionOriginPolicy = originPolicy(env)
   const beforeUpgrade = benchmarkMode
     ? request => request.headers.get('origin') ? productionOriginPolicy(request) : undefined
-    : productionOriginPolicy
+    : request => admission?.expired ? new Response(null, { status: 403 }) : productionOriginPolicy(request)
   const version = versionInfo({ commit: resolveBuildCommit(env), startedAt: new Date().toISOString() })
   const gameServer = new Server({
     transport: new WebSocketTransport({ beforeUpgrade }),
@@ -52,7 +57,7 @@ export async function startRealtimeServer({ env = process.env, port, healthPort,
     // dashboard. Aggregate metrics stay on the internal health port.
     express: app => { app.get('/version', (_request, response) => { response.set('cache-control', 'no-store').json(version) }) },
   })
-  gameServer.define('presence', benchmarkMode ? BenchmarkPresenceRoom : PresenceRoom)
+  gameServer.define('presence', admission ? limitedPresenceRoom(PresenceRoom, admission, env) : benchmarkMode ? BenchmarkPresenceRoom : PresenceRoom)
   let host = null
   let health = null
   let drained = null
@@ -82,15 +87,15 @@ export async function startRealtimeServer({ env = process.env, port, healthPort,
   }
 
   health = await startHealthServer({
-    port: healthPortToBind, metrics, version, log,
-    ready: () => bootstrapped && Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY) && presenceServing(),
+    port: healthPortToBind, hostname, metrics, version, log,
+    ready: () => bootstrapped && !admission?.expired && Boolean(env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY) && presenceServing(),
   })
   trace('health', health.status)
   if (shuttingDown) return interrupted('health')
   host = benchmarkMode ? null : await preparePresenceHost()
   trace('acquired', host?.state ?? null)
   if (shuttingDown) return interrupted('acquired')
-  await gameServer.listen(gamePort)
+  await gameServer.listen(gamePort, hostname)
   trace('listening', host?.state ?? null)
   if (shuttingDown) return interrupted('listening')
   await host?.activate()

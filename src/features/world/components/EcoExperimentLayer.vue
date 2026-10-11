@@ -1,7 +1,7 @@
 <template>
-  <EcoDevPanel :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" :seen-at="seenAt" :combatant-ready="choice.ready">
+  <component :is="EcoDevPanel" v-if="EcoDevPanel" :world="world" :session="session" :battle="battle" :area="currentArea" :tx="tx" :ty="ty" :seen-at="seenAt" :combatant-ready="choice.ready">
     <EcoCombatantSelector :view="choice" :locked="battle.phase === 'battle' || battle.phase === 'engaging'" :name-of="nameOf" @select="selection.select($event)" @refresh="selection.refresh()" />
-  </EcoDevPanel>
+  </component>
   <EcoEncounterCard
     v-if="selected && !holds(battle.phase)"
     :encounter-id="selected.id"
@@ -58,7 +58,8 @@ import { EcoSpectatedBattles } from '../state/ecoSpectatedBattles'
 import type { SharedWorld } from '../state/sharedWorld'
 import EcoBattlePanel from './EcoBattlePanel.vue'
 import EcoBattleToast from './EcoBattleToast.vue'
-import EcoDevPanel from './EcoDevPanel.vue'
+import DevelopmentPanel from './EcoDevPanel.vue'
+const EcoDevPanel = import.meta.env.DEV ? DevelopmentPanel : null
 import EcoEncounterCard from './EcoEncounterCard.vue'
 
 const props = defineProps<{

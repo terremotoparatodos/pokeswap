@@ -25,6 +25,17 @@ beforeEach(() => {
   vi.clearAllMocks()
 })
 
+it('limited loginOnly keeps signup unreachable even with an initial signup request', async () => {
+  const wrapper = mount(AuthModal, { props: { open: true, loginOnly: true, initialTab: 'signup' } })
+  expect(wrapper.find('.auth-tabs').exists()).toBe(false)
+  expect(wrapper.find('input[autocomplete="new-password"]').exists()).toBe(false)
+  expect(wrapper.find('input[autocomplete="current-password"]').exists()).toBe(true)
+  await wrapper.find('form').trigger('submit')
+  expect(loginWithEmail).toHaveBeenCalledOnce()
+  expect(signUp).not.toHaveBeenCalled()
+  wrapper.unmount()
+})
+
 describe('AuthModal — XSS rendering safety (R08)', () => {
   const HOSTILE = '<img src=x onerror="alert(1)"><script>evil()</script>'
 

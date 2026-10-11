@@ -75,7 +75,10 @@ function createWorld(dependencies) {
   const created = new WorldRoom({
     ...dependencies,
     lookupActor: id => actors.get(id) ?? null,
-    clientForPlayer: id => clientsByActor.get(id) ?? null,
+    clientForPlayer: id => {
+      const client = clientsByActor.get(id) ?? null
+      return presenceRoom?.sessionAllowed && !presenceRoom.sessionAllowed(client) ? null : client
+    },
     placeActor: (id, place) => {
       const actor = actors.get(id)
       if (actor && presenceRoom) presenceRoom.placeActor(actor, place)
@@ -175,6 +178,7 @@ export class PresenceRoom extends Room {
   async onJoin(client, options, auth) {
     // WORLD LOCATION-4: waits for activation; 4503 while draining; a resume never displaces another tab (4409).
     await hosting.admit(client, options, auth, userId => clientsByActor.get(userId))
+    this.assertAdmission?.(client, options, auth)
     if (!hasCapacity(PresenceRoom.connections)) { metrics.rejected('capacity'); throw new ServerError(4210, 'capacity reached') }
     PresenceRoom.connections++
     if (Number.isInteger(options?.presenceProtocol) && options.presenceProtocol >= COMPACT_STEP_PROTOCOL) compactClients.add(client)

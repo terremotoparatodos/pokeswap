@@ -28,7 +28,7 @@ export class WorldRoom {
    * player its own XP, materials and Pokémon. Without it (tests, benchmarks
    * of the transport alone) the world starts empty and ready.
    */
-  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, ecoCombatantMode = 'synthetic', eco = undefined, ecoRandom = undefined, ecoBattles = undefined, log = message => console.warn(message) }) {
+  constructor({ skills, ownership, lookupActor, clientForPlayer, placeActor = undefined, catalog = null, playerData = null, now = Date.now, authority = null, stockRandom = undefined, ecoExperiment = false, ecoCombatantMode = 'synthetic', ecoDevRetire = true, workAllowed = true, eco = undefined, ecoRandom = undefined, ecoBattles = undefined, log = message => console.warn(message) }) {
     this.now = now
     this.clientForPlayer = clientForPlayer
     this.lookupActor = lookupActor
@@ -38,6 +38,7 @@ export class WorldRoom {
     this.subscribers = new Map()
     this.playerData = playerData
     this.skills = skills
+    this.workAllowed = workAllowed
     this.log = log
     /** False until persisted state is back: until then no world is served (fail closed). */
     this.ready = playerData === null
@@ -47,7 +48,7 @@ export class WorldRoom {
     // ECO population is the world's wild Pokémon and the hourly roster does not exist at all.
     /** Areas whose ECO view changed since the last flush. */
     this.ecoDirty = new Set()
-    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: true, isBusy: id => this.ecoBattles?.isBusy(id) ?? false, standOf: id => this.ecoBattles?.standOf(id) ?? null, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
+    this.eco = ecoExperiment ? (eco ?? new EcoPopulation({ now, devRetire: ecoDevRetire, isBusy: id => this.ecoBattles?.isBusy(id) ?? false, standOf: id => this.ecoBattles?.standOf(id) ?? null, onChange: areaId => this.ecoDirty.add(areaId), log, ...(ecoRandom ? { random: ecoRandom } : {}) })) : null
     // ECO-GAMEPLAY-2: test battles against those encounters (same experiment; nothing outside it loads the battle bundle).
     // `ecoBattles` (tests only): EcoBattles options to override (`prepare`, `random`, `newId`).
     this.ecoBattles = this.eco ? new EcoBattles({
@@ -229,6 +230,11 @@ export class WorldRoom {
    * directly (it has no world subscription) and nothing is checked or held.
    */
   work(actor, payload, client = this.clientForPlayer(actor.id)) {
+    if (!this.workAllowed) {
+      const reply = { requestId: Number.isSafeInteger(payload?.requestId) ? payload.requestId : null, ok: false, reason: 'disabled' }
+      client?.send(WORLD_MESSAGE.WORK_RESULT, reply)
+      return reply
+    }
     if (!client || !this.clients.has(client)) {
       this.metrics.outdatedWork++
       // `message` is what an old client shows as is (it prefers a server message to its own words).
@@ -259,7 +265,7 @@ export class WorldRoom {
     const requestId = Number.isSafeInteger(payload?.requestId) ? payload.requestId : null
     const reply = result => { client?.send(WORLD_MESSAGE.ECO_DEV_RETIRE_RESULT, result); return result }
     if (!client || !this.clients.has(client)) return reply({ requestId, encounterId: null, ok: false, reason: 'client-outdated' })
-    if (!this.eco) return reply({ requestId, encounterId: null, ok: false, reason: 'disabled' })
+    if (!this.eco || this.eco.devRetireAllowed === false) return reply({ requestId, encounterId: null, ok: false, reason: 'disabled' })
     const intent = ecoRetireIntent(payload)
     if (!intent) return reply({ requestId, encounterId: null, ok: false, reason: 'invalid' })
     const result = this.eco.devRetire(actor, intent.encounterId, this.now())
